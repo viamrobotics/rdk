@@ -1,16 +1,28 @@
 export interface Resource {
+  resources: Resource[] | undefined;
   name: string
   type: string
   subtype: string
   namespace: string
 }
 
-export const normalizeRemoteName = (name: string) => {
-  return name.replace(':', '-');
-};
-
-const sortByName = (a: Resource, b: Resource) => {
-  return a.name > b.name ? 1 : -1;
+const sortByName = (item1: Resource, item2: Resource) => {
+  if (item1.name > item2.name) {
+    return 1;
+  } else if (item1.name < item2.name) {
+    return -1;
+  }
+  if (item1.subtype > item2.subtype) {
+    return 1;
+  } else if (item1.subtype < item2.subtype) {
+    return -1;
+  }
+  if (item1.type > item2.type) {
+    return 1;
+  } else if (item1.type < item2.type) {
+    return -1;
+  }
+  return item1.namespace > item2.namespace ? 1 : -1;
 };
 
 export const resourceNameToSubtypeString = (resource: Resource) => {
@@ -49,18 +61,25 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
   return results.sort(sortByName);
 };
 
-export const filterRdkComponentsWithStatus = (resources: Resource[], status: Record<string, unknown>, subtype: string) => {
+export const filterNonRemoteResources = (resources: Resource[], namespace: string, type: string, subtype: string) => {
+  return filterResources(resources, namespace, type, subtype).filter((resource) => !resource.name.includes(':'));
+};
+
+export const filterRdkComponentsWithStatus = (
+  resources: Resource[],
+  status: Record<string, unknown>,
+  subtype: string
+) => {
   return resources
     .filter((resource) =>
       resource.namespace === 'rdk' &&
       resource.type === 'component' &&
       resource.subtype === subtype &&
-      status[resourceNameToString(resource)]
-    ).sort(sortByName);
+      status[resourceNameToString(resource)]).sort(sortByName);
 };
 
-export const filterResourcesWithNames = (resources: Resource[]) => {
+export const filterComponentsWithNames = (resources: Resource[]) => {
   return resources
-    .filter((resource) => Boolean(resource.name))
+    .filter((resource) => Boolean(resource.name) && resource.type === 'component')
     .sort(sortByName);
 };

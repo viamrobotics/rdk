@@ -17,10 +17,46 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
+const modelname = "softrobotics"
+
+// AttrConfig is the config for a trossen gripper.
+type AttrConfig struct {
+	Board        string `json:"board"`
+	Open         string `json:"open"`
+	Close        string `json:"close"`
+	Power        string `json:"power"`
+	AnalogReader string `json:"analog_reader"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.Board == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if cfg.Open == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "open")
+	}
+	if cfg.Close == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "close")
+	}
+	if cfg.Power == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "power")
+	}
+
+	if cfg.AnalogReader != "psi" {
+		return nil, utils.NewConfigValidationError(path,
+			errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
+	}
+	deps = append(deps, cfg.Board)
+	return deps, nil
+}
+
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "softrobotics", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			b, err := board.FromDependencies(deps, "local")
 			if err != nil {
@@ -29,6 +65,12 @@ func init() {
 			return newGripper(b, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // softGripper TODO
@@ -48,20 +90,25 @@ type softGripper struct {
 }
 
 // newGripper TODO.
-func newGripper(b board.Board, config config.Component, logger golog.Logger) (gripper.LocalGripper, error) {
+func newGripper(b board.Board, cfg config.Component, logger golog.Logger) (gripper.LocalGripper, error) {
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
+
 	psi, ok := b.AnalogReaderByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
 	}
-	pinOpen, err := b.GPIOPinByName(config.Attributes.String("open"))
+	pinOpen, err := b.GPIOPinByName(attr.Open)
 	if err != nil {
 		return nil, err
 	}
-	pinClose, err := b.GPIOPinByName(config.Attributes.String("close"))
+	pinClose, err := b.GPIOPinByName(attr.Close)
 	if err != nil {
 		return nil, err
 	}
-	pinPower, err := b.GPIOPinByName(config.Attributes.String("power"))
+	pinPower, err := b.GPIOPinByName(attr.Power)
 	if err != nil {
 		return nil, err
 	}

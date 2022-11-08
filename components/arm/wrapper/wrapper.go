@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
@@ -18,20 +19,33 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+// ModelName defines the model name to be used when specifying wrapper arms in configs.
+const ModelName = "wrapper_arm"
+
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	ModelPath string `json:"model-path"`
 	ArmName   string `json:"arm-name"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.ArmName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-name")
+	}
+	deps = append(deps, cfg.ArmName)
+	return deps, nil
+}
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewWrapperArm(config, r, logger)
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "wrapper_arm",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

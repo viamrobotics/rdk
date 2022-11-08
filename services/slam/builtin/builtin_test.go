@@ -4,6 +4,7 @@
 package builtin_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -15,7 +16,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -30,7 +30,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
@@ -42,15 +42,29 @@ import (
 )
 
 const (
-	validDataRateMS  = 200
-	numOrbslamImages = 29
+	validDataRateMS            = 200
+	numCartographerPointClouds = 15
 )
 
 var (
-	orbslamIntCameraMutex             sync.Mutex
-	orbslamIntCameraReleaseImagesChan chan int = make(chan int, 2)
-	orbslamIntSynchronizeCamerasChan  chan int = make(chan int)
+	orbslamIntCameraMutex                     sync.Mutex
+	orbslamIntCameraReleaseImagesChan         chan int = make(chan int, 2)
+	orbslamIntWebcamReleaseImageChan          chan int = make(chan int, 1)
+	orbslamIntSynchronizeCamerasChan          chan int = make(chan int)
+	cartographerIntLidarReleasePointCloudChan chan int = make(chan int, 1)
+	validMapRate                                       = 200
 )
+
+func getNumOrbslamImages(mode slam.Mode) int {
+	switch mode {
+	case slam.Mono:
+		return 15
+	case slam.Rgbd:
+		return 29
+	default:
+		return 0
+	}
+}
 
 func createFakeSLAMLibraries() {
 	for _, s := range slam.SLAMLibraries {
@@ -90,8 +104,8 @@ func setupTestGRPCServer(port string) *grpc.Server {
 	return gServer2
 }
 
-func setupInjectRobot() *inject.Robot {
-	r := &inject.Robot{}
+func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
+	deps := make(registry.Dependencies)
 	var projA transform.Projector
 	intrinsicsA := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
@@ -104,8 +118,8 @@ func setupInjectRobot() *inject.Robot {
 	distortionsA := &transform.BrownConrady{RadialK1: 0.001, RadialK2: 0.00004}
 	projA = intrinsicsA
 
-	var projReal transform.Projector
-	intrinsicsReal := &transform.PinholeCameraIntrinsics{
+	var projRealSense transform.Projector
+	intrinsicsRealSense := &transform.PinholeCameraIntrinsics{
 		Width:  1280,
 		Height: 720,
 		Fx:     900.538,
@@ -113,18 +127,35 @@ func setupInjectRobot() *inject.Robot {
 		Ppx:    648.934,
 		Ppy:    367.736,
 	}
-	distortionsReal := &transform.BrownConrady{
+	distortionsRealSense := &transform.BrownConrady{
 		RadialK1:     0.158701,
 		RadialK2:     -0.485405,
 		RadialK3:     0.435342,
 		TangentialP1: -0.00143327,
 		TangentialP2: -0.000705919}
-	projReal = intrinsicsReal
+	projRealSense = intrinsicsRealSense
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	var projWebcam transform.Projector
+	intrinsicsWebcam := &transform.PinholeCameraIntrinsics{
+		Width:  640,
+		Height: 480,
+		Fx:     939.2693584627577,
+		Fy:     940.2928257873841,
+		Ppx:    320.6075282958033,
+		Ppy:    239.14408757087756,
+	}
+	distortionsWebcam := &transform.BrownConrady{
+		RadialK1:     0.046535971648456166,
+		RadialK2:     0.8002516496932317,
+		RadialK3:     -5.408034254951954,
+		TangentialP1: -8.996658362365533e-06,
+		TangentialP2: -0.002828504714921335}
+	projWebcam = intrinsicsWebcam
+
+	for _, sensor := range attr.Sensors {
 		cam := &inject.Camera{}
-		switch name {
-		case camera.Named("good_lidar"):
+		switch sensor {
+		case "good_lidar":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return pointcloud.New(), nil
 			}
@@ -137,8 +168,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{}, nil
 			}
-			return cam, nil
-		case camera.Named("bad_lidar"):
+			deps[camera.Named(sensor)] = cam
+		case "bad_lidar":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("bad_lidar")
 			}
@@ -148,8 +179,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			return cam, nil
-		case camera.Named("good_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "good_camera":
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -166,8 +197,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
-			return cam, nil
-		case camera.Named("good_color_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "good_color_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -189,8 +220,8 @@ func setupInjectRobot() *inject.Robot {
 					}),
 				), nil
 			}
-			return cam, nil
-		case camera.Named("good_depth_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "good_depth_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -212,8 +243,8 @@ func setupInjectRobot() *inject.Robot {
 					}),
 				), nil
 			}
-			return cam, nil
-		case camera.Named("bad_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "bad_camera":
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return nil, errors.New("bad_camera")
 			}
@@ -223,8 +254,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			return cam, nil
-		case camera.Named("bad_camera_intrinsics"):
+			deps[camera.Named(sensor)] = cam
+		case "bad_camera_intrinsics":
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -244,16 +275,16 @@ func setupInjectRobot() *inject.Robot {
 					DistortionParams: &transform.BrownConrady{},
 				}, nil
 			}
-			return cam, nil
-		case camera.Named("orbslam_int_color_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "orbslam_int_color_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
-				return projReal, nil
+				return projRealSense, nil
 			}
 			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-				return camera.Properties{IntrinsicParams: intrinsicsReal, DistortionParams: distortionsReal}, nil
+				return camera.Properties{IntrinsicParams: intrinsicsRealSense, DistortionParams: distortionsRealSense}, nil
 			}
 			var index uint64
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -266,7 +297,7 @@ func setupInjectRobot() *inject.Robot {
 				select {
 				case <-orbslamIntCameraReleaseImagesChan:
 					i := atomic.AddUint64(&index, 1) - 1
-					if i >= numOrbslamImages {
+					if i >= uint64(getNumOrbslamImages(slam.Rgbd)) {
 						return nil, errors.New("No more orbslam color images")
 					}
 					imgBytes, err := os.ReadFile(artifact.MustPath("slam/mock_camera_short/rgb/" + strconv.FormatUint(i, 10) + ".png"))
@@ -283,8 +314,8 @@ func setupInjectRobot() *inject.Robot {
 					return nil, errors.Errorf("Color camera not ready to return image %v", index)
 				}
 			}
-			return cam, nil
-		case camera.Named("orbslam_int_depth_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "orbslam_int_depth_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -305,7 +336,7 @@ func setupInjectRobot() *inject.Robot {
 				select {
 				case <-orbslamIntCameraReleaseImagesChan:
 					i := atomic.AddUint64(&index, 1) - 1
-					if i >= numOrbslamImages {
+					if i >= uint64(getNumOrbslamImages(slam.Rgbd)) {
 						return nil, errors.New("No more orbslam depth images")
 					}
 					imgBytes, err := os.ReadFile(artifact.MustPath("slam/mock_camera_short/depth/" + strconv.FormatUint(i, 10) + ".png"))
@@ -322,27 +353,105 @@ func setupInjectRobot() *inject.Robot {
 					return nil, errors.Errorf("Depth camera not ready to return image %v", index)
 				}
 			}
-			return cam, nil
+			deps[camera.Named(sensor)] = cam
+		case "orbslam_int_webcam":
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return projWebcam, nil
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{IntrinsicParams: intrinsicsWebcam, DistortionParams: distortionsWebcam}, nil
+			}
+			var index uint64
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				select {
+				case <-orbslamIntWebcamReleaseImageChan:
+					i := atomic.AddUint64(&index, 1) - 1
+					if i >= uint64(getNumOrbslamImages(slam.Mono)) {
+						return nil, errors.New("No more orbslam webcam images")
+					}
+					imgBytes, err := os.ReadFile(artifact.MustPath("slam/mock_mono_camera/rgb/" + strconv.FormatUint(i, 10) + ".png"))
+					if err != nil {
+						return nil, err
+					}
+					img, _, err := image.Decode(bytes.NewReader(imgBytes))
+					if err != nil {
+						return nil, err
+					}
+					var ycbcrImg image.YCbCr
+					rimage.ImageToYCbCrForTesting(&ycbcrImg, img)
+					return gostream.NewEmbeddedVideoStreamFromReader(
+						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+							return &ycbcrImg, func() {}, nil
+						}),
+					), nil
+				default:
+					return nil, errors.Errorf("Webcam not ready to return image %v", index)
+				}
+			}
+			deps[camera.Named(sensor)] = cam
+		case "gibberish":
+			return deps
+		case "cartographer_int_lidar":
+			var index uint64
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				select {
+				case <-cartographerIntLidarReleasePointCloudChan:
+					i := atomic.AddUint64(&index, 1) - 1
+					if i >= numCartographerPointClouds {
+						return nil, errors.New("No more cartographer point clouds")
+					}
+					file, err := os.Open(artifact.MustPath("slam/mock_lidar/" + strconv.FormatUint(i, 10) + ".pcd"))
+					if err != nil {
+						return nil, err
+					}
+					pointCloud, err := pointcloud.ReadPCD(file)
+					if err != nil {
+						return nil, err
+					}
+					return pointCloud, nil
+				default:
+					return nil, errors.Errorf("Lidar not ready to return point cloud %v", index)
+				}
+			}
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return nil, errors.New("lidar not camera")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{}, nil
+			}
+			deps[camera.Named(sensor)] = cam
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(name)
+			continue
 		}
 	}
-	return r
+	return deps
 }
 
-func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.Logger, bufferSLAMProcessLogs bool, success bool) (slam.Service, error) {
+func createSLAMService(
+	t *testing.T,
+	attrCfg *builtin.AttrConfig,
+	logger golog.Logger,
+	bufferSLAMProcessLogs bool,
+	success bool,
+) (slam.Service, error) {
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam"}
+	cfgService := config.Service{Name: "test", Type: "slam", DependsOn: attrCfg.Sensors}
 	cfgService.ConvertedAttributes = attrCfg
 
-	r := setupInjectRobot()
+	deps := setupDeps(attrCfg)
 
 	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
 	builtin.SetDialMaxTimeoutSecForTesting(1)
 
-	svc, err := builtin.NewBuiltIn(ctx, r, cfgService, logger, bufferSLAMProcessLogs)
+	svc, err := builtin.NewBuiltIn(ctx, deps, cfgService, logger, bufferSLAMProcessLogs)
 
 	if success {
 		if err != nil {
@@ -403,14 +512,14 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("configuring camera error: error getting camera %v for slam service: "+
-				"resource \"rdk:component:camera/%v\" not found", attrCfg.Sensors[0], attrCfg.Sensors[0]))
+			errors.New("configuring camera error: error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
+
 	})
 
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "test",
-			Sensors:       []string{},
+			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
@@ -426,7 +535,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "runtime slam service error: invalid slam algorithm \"test\"")
 
 		delete(slam.SLAMLibraries, "test")
 	})
@@ -672,7 +781,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -699,13 +808,13 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
+		c := make(chan int, 100)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
-		cancelFunc()
-
+		<-c
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
+		cancelFunc()
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
@@ -765,7 +874,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -789,13 +898,13 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
+		c := make(chan int, 100)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
-		cancelFunc()
-
+		<-c
 		obsAll := obs.All()
 		latestLoggedEntry := obsAll[len(obsAll)-1]
+		cancelFunc()
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 
@@ -815,7 +924,7 @@ func TestGetMapAndPosition(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -827,14 +936,14 @@ func TestGetMapAndPosition(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.Position(context.Background(), "hi")
+	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
 	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
-	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true)
+	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})
 	test.That(t, mimeType, test.ShouldResemble, "")
 	test.That(t, im, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldBeNil)
@@ -857,7 +966,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -882,6 +991,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		{"-data_dir=" + name},
 		{"-input_file_pattern=10:200:1"},
 		{"-port=localhost:4445"},
+		{"--aix-auto-update"},
 	}
 
 	for i, s := range cmd {
@@ -907,7 +1017,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -959,7 +1069,7 @@ func TestGRPCConnection(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:-1",

@@ -1,4 +1,5 @@
 // Package builtin implements simultaneous localization and mapping
+// This is an Experimental package
 package builtin
 
 import (
@@ -23,6 +24,7 @@ import (
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -36,8 +38,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -53,9 +55,8 @@ const (
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
 	parsePortMaxTimeoutSec      = 60
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
-	slamTimeFormat        = "2006-01-02T15_04_05.0000"
+	slamTimeFormat        = time.RFC3339Nano
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 	localhost0            = "localhost:0"
 )
@@ -73,8 +74,8 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
 	registry.RegisterService(slam.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger, false)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger, false)
 		},
 	})
 	cType := config.ServiceType(slam.SubtypeName)
@@ -171,7 +172,11 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (slam.M
 	}
 
 	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
-		return "", errors.Errorf("cannot specify data_rate_ms less than %v", minDataRateMs)
+		return "", errors.Errorf("cannot specify data_rate_msec less than %v", minDataRateMs)
+	}
+
+	if svcConfig.MapRateSec != nil && *svcConfig.MapRateSec < 0 {
+		return "", errors.New("cannot specify map_rate_sec less than zero")
 	}
 
 	return slamMode, nil
@@ -247,7 +252,7 @@ type AttrConfig struct {
 	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
 	DataRateMs       int               `json:"data_rate_msec"`
-	MapRateSec       int               `json:"map_rate_sec"`
+	MapRateSec       *int              `json:"map_rate_sec"`
 	DataDirectory    string            `json:"data_dir"`
 	InputFilePattern string            `json:"input_file_pattern"`
 	Port             string            `json:"port"`
@@ -285,18 +290,16 @@ type builtIn struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, []camera.Camera, error) {
+func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
-
 		// The first camera is expected to be RGB or LIDAR.
 		cameraName := svcConfig.Sensors[0]
-		cam, err := camera.FromRobot(r, cameraName)
+		cam, err := camera.FromDependencies(deps, cameraName)
 		if err != nil {
 			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
 		}
-
 		proj, err := cam.Projector(ctx)
 		if err != nil {
 			if len(svcConfig.Sensors) == 1 {
@@ -324,7 +327,7 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot,
 			depthCameraName := svcConfig.Sensors[1]
 			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
 				cameraName, depthCameraName)
-			depthCam, err := camera.FromRobot(r, depthCameraName)
+			depthCam, err := camera.FromDependencies(deps, depthCameraName)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
 			}
@@ -357,23 +360,57 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 
 // Position forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
-func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::Position")
 	defer span.End()
 
-	req := &pb.GetPositionRequest{Name: name}
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	req := &pb.GetPositionRequest{Name: name, Extra: ext}
 
 	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting SLAM position")
 	}
 
-	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+	pInFrame := referenceframe.ProtobufToPoseInFrame(resp.Pose)
+
+	// TODO DATA-531: https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-531
+	// Remove extraction and conversion of quaternion from the extra field in the response once the Rust
+	// spatial math library is available and the desired math can be implemented on the orbSLAM side
+	returnedExt := resp.Extra.AsMap()
+
+	if val, ok := returnedExt["quat"]; ok {
+		q := val.(map[string]interface{})
+
+		valReal, ok1 := q["real"].(float64)
+		valIMag, ok2 := q["imag"].(float64)
+		valJMag, ok3 := q["jmag"].(float64)
+		valKMag, ok4 := q["kmag"].(float64)
+
+		if !ok1 || !ok2 || !ok3 || !ok4 {
+			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
+			return pInFrame, nil
+		}
+		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
+			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
+		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+	}
+
+	return pInFrame, nil
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
 // into a mimeType and either a vision.Object or image.Image.
-func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
+func (slamSvc *builtIn) GetMap(
+	ctx context.Context,
+	name, mimeType string,
+	cp *referenceframe.PoseInFrame,
+	include bool,
+	extra map[string]interface{},
+) (
 	string, image.Image, *vision.Object, error,
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetMap")
@@ -384,11 +421,16 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 		cameraPosition = referenceframe.PoseInFrameToProtobuf(cp).Pose
 	}
 
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return "", nil, nil, err
+	}
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
 		CameraPosition:     cameraPosition,
 		IncludeRobotMarker: include,
+		Extra:              ext,
 	}
 
 	var imData image.Image
@@ -425,7 +467,7 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
@@ -434,7 +476,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cams, err := configureCameras(ctx, svcConfig, r, logger)
+	cameraName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
@@ -454,19 +496,20 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
 		dataRate = defaultDataRateMs
+		logger.Debugf("no data_rate_msec given, setting to default value of %d", defaultDataRateMs)
 	} else {
 		dataRate = svcConfig.DataRateMs
 	}
 
 	var mapRate int
-	if svcConfig.MapRateSec <= 0 {
-		if svcConfig.MapRateSec == -1 {
-			mapRate = 0
-		} else {
-			mapRate = defaultMapRateSec
-		}
+	if svcConfig.MapRateSec == nil {
+		logger.Debugf("no map_rate_secs given, setting to default value of %d", defaultMapRateSec)
+		mapRate = defaultMapRateSec
+	} else if *svcConfig.MapRateSec == 0 {
+		logger.Info("setting slam system to localization mode")
+		mapRate = 0
 	} else {
-		mapRate = svcConfig.MapRateSec
+		mapRate = *svcConfig.MapRateSec
 	}
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
@@ -607,13 +650,15 @@ func (slamSvc *builtIn) StartDataProcess(
 					case slam.Dense:
 						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
 							slamSvc.logger.Warn(err)
-						} else if c != nil {
+						}
+						if c != nil {
 							c <- 1
 						}
 					case slam.Sparse:
 						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
 							slamSvc.logger.Warn(err)
-						} else if c != nil {
+						}
+						if c != nil {
 							c <- 1
 						}
 					default:
@@ -636,6 +681,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-port="+slamSvc.port)
+	args = append(args, "--aix-auto-update")
 
 	return pexec.ProcessConfig{
 		ID:      "slam_" + slamSvc.slamLib.AlgoName,
@@ -726,23 +772,31 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 	return nil
 }
 
-func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, error) {
+func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
-	img, _, err := camera.ReadImage(
+	img, release, err := camera.ReadImage(
 		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	lazyImg, ok := img.(*rimage.LazyEncodedImage)
-	if !ok {
-		return nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if lazyImg.MIMEType() != utils.MimeTypePNG {
+			return nil, nil, errors.Errorf("expected mime type %v, got %T", utils.MimeTypePNG, img)
+		}
+		return lazyImg.RawData(), release, nil
 	}
-	if lazyImg.MIMEType() != utils.MimeTypePNG {
-		return nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
+
+	if ycbcrImg, ok := img.(*image.YCbCr); ok {
+		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, utils.MimeTypePNG)
+		if err != nil {
+			return nil, nil, err
+		}
+		return pngImage, release, nil
 	}
-	return lazyImg.RawData(), nil
+
+	return nil, nil, errors.Errorf("expected lazily encoded image or ycbcrImg, got %T", img)
 }
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
@@ -761,7 +815,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
 
-		image, err := slamSvc.getLazyPNGImage(ctx, cams[0])
+		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -769,6 +823,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
+		defer release()
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
@@ -792,7 +847,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(cams))
 		}
 
-		images, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
+		images, releaseFuncs, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -800,6 +855,8 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
+		defer releaseFuncs[0]()
+		defer releaseFuncs[1]()
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
@@ -833,9 +890,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 	ctx context.Context,
 	cams []camera.Camera,
-) ([2][]byte, error) {
+) ([2][]byte, [2]func(), error) {
 	var wg sync.WaitGroup
 	var images [2][]byte
+	var releaseFuncs [2]func()
 	var errs [2]error
 
 	for i := 0; i < 2; i++ {
@@ -846,24 +904,24 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 				slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 			}
 			slamSvc.activeBackgroundWorkers.Done()
-			return images, err
+			return images, releaseFuncs, err
 		}
 		iLoop := i
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			images[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
+			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()
 
 	for _, err := range errs {
 		if err != nil {
-			return images, err
+			return images, releaseFuncs, err
 		}
 	}
 
-	return images, nil
+	return images, releaseFuncs, nil
 }
 
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
@@ -917,7 +975,6 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
 func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMode slam.Mode) ([]string, error) {
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 
 	switch slamMode {

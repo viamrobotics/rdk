@@ -256,8 +256,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, len(statuses), test.ShouldEqual, 3)
 
 	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -500,8 +500,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, len(statuses), test.ShouldEqual, 2)
 
 			armStatus := &armpb.Status{
-				EndPosition:    &commonpb.Pose{},
-				JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+				EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
+				JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
 			}
 			convMap := &armpb.Status{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -689,8 +689,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 
 	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -969,17 +969,17 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
-	foundSensors, err := svc.Sensors(context.Background())
+	foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
+	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 1)
 	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
 
-	readings, err = svc.Readings(context.Background(), sensorNames)
+	readings, err = svc.Readings(context.Background(), sensorNames, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 2)
 
@@ -1306,7 +1306,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
+	tPos := referenceframe.JointPositionsFromRadians([]float64{math.Pi})
 	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
@@ -1443,7 +1443,15 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, r, test.ShouldNotBeNil)
 
 	noBase, err := r.ResourceByName(base.Named("fake0"))
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("fake0")))
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		rutils.NewResourceNotAvailableError(
+			base.Named("fake0"),
+			errors.New("component build error: unknown component type: rdk:component:base and/or model: random"),
+		),
+	)
 	test.That(t, noBase, test.ShouldBeNil)
 
 	noSvc, err := r.ResourceByName(datamanager.Named("fake1"))

@@ -22,7 +22,7 @@ build-go:
 
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	cd web/frontend && npm run build
+	npm run build --prefix web/frontend
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -36,7 +36,9 @@ tool-install:
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
-		github.com/bufbuild/buf/cmd/buf
+		github.com/bufbuild/buf/cmd/buf \
+		gotest.tools/gotestsum \
+		github.com/rhysd/actionlint/cmd/actionlint
 
 buf: buf-web
 
@@ -46,34 +48,42 @@ buf-web: tool-install
 	npm ci --audit=false --prefix web/frontend
 	npm run rollup --prefix web/frontend
 
-lint: lint-go
+lint: lint-go lint-web
+	PATH=$(PATH_WITH_TOOLS) actionlint
 
 lint-go: tool-install
 	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run $(LINT_BUILD_TAGS) -v --fix --config=./etc/.golangci.yaml
 
-lint-web: buf-web
-	cd web/frontend && npm ci --audit=false && npm run rollup && npm run lint
+lint-web: typecheck-web
+	npm run lint --prefix web/frontend
 
-cover:
+typecheck-web:
+	npm run typecheck --prefix web/frontend
+
+cover: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
 test: test-go test-web
 
-test-go:
-	./etc/test.sh
+test-go: tool-install
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
-test-web: build-web
-	cd web/frontend && npm run test:unit
+test-web:
+	npm run test:unit --prefix web/frontend
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/components/board/pi/impl
-	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
+	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
-	./etc/e2e.sh
+	./etc/e2e.sh -o 'run'
+
+open-cypress-ui:
+	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
+	./etc/e2e.sh -o 'open'
 
 test-integration:
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestOrbslamIntegration

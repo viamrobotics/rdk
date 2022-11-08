@@ -1,4 +1,5 @@
 // Package slam implements simultaneous localization and mapping
+// This is an Experimental package
 package slam
 
 // TODO 05/12/2022: Both type and constants will be deprecated when data ingestion via GRPC is available
@@ -36,7 +37,7 @@ var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
 	AlgoType:       Dense,
 	SlamMode:       map[string]Mode{"2d": Dim2d},
-	BinaryLocation: "",
+	BinaryLocation: "carto_grpc_server",
 }
 
 var orbslamv3Metadata = LibraryMetadata{

@@ -2,7 +2,7 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
-import { normalizeRemoteName, type Resource } from '../lib/resource';
+import type { Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
@@ -11,7 +11,6 @@ import PCD from './pcd.vue';
 
 interface Props {
   cameraName: string
-  crumbs: string[]
   resources: Resource[]
 }
 
@@ -36,21 +35,6 @@ const toggleExpand = () => {
   emit('toggle-camera', camera.value);
 };
 
-const selectCameraView = () => {
-  emit('selected-camera-view', selectedValue.value);
-};
-
-const refreshCamera = () => {
-  emit('refresh-camera', selectedValue.value);
-};
-
-const togglePCDExpand = () => {
-  pcdExpanded = !pcdExpanded;
-  if (pcdExpanded) {
-    renderPCD();
-  }
-};
-
 const renderPCD = () => {
   const request = new cameraApi.GetPointCloudRequest();
   request.setName(props.cameraName);
@@ -60,9 +44,23 @@ const renderPCD = () => {
       toast.error(`Error getting point cloud: ${error}`);
       return;
     }
-
     pointcloud = response!.getPointCloud_asU8();
   });
+};
+
+const togglePCDExpand = () => {
+  pcdExpanded = !pcdExpanded;
+  if (pcdExpanded) {
+    renderPCD();
+  }
+};
+
+const selectCameraView = () => {
+  emit('selected-camera-view', selectedValue.value);
+};
+
+const refreshCamera = () => {
+  emit('refresh-camera', selectedValue.value);
 };
 
 const exportScreenshot = (cameraName: string) => {
@@ -89,7 +87,7 @@ const exportScreenshot = (cameraName: string) => {
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="crumbs.join(',')"
+      crumbs="camera"
     />
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
@@ -97,12 +95,13 @@ const exportScreenshot = (cameraName: string) => {
           <div class="flex items-center gap-2">
             <v-switch
               id="camera"
+              :label="camera ? 'Hide Camera' : 'View Camera'"
+              :aria-label="camera ? 'Hide Camera' : 'View Camera'"
               :value="camera ? 'on' : 'off'"
-              @input="toggleExpand()"
+              @input="toggleExpand"
             />
-            <span class="pr-2 text-xs">View Camera</span>
           </div>
-          
+
           <div class="float-right pb-4">
             <div class="flex">
               <div
@@ -115,9 +114,12 @@ const exportScreenshot = (cameraName: string) => {
                 <div class="relative">
                   <select
                     v-model="selectedValue"
-                    class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+                    class="
+                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding
+                      px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
+                    "
                     aria-label="Default select example"
-                    @change="selectCameraView()"
+                    @change="selectCameraView"
                   >
                     <option value="manual">
                       Manual Refresh
@@ -164,24 +166,25 @@ const exportScreenshot = (cameraName: string) => {
                   v-if="camera"
                   icon="camera"
                   label="Export Screenshot"
-                  @click="exportScreenshot"
+                  @click="exportScreenshot(cameraName)"
                 />
               </div>
             </div>
           </div>
           <div
-            v-if="camera"
-            :id="`stream-${normalizeRemoteName(props.cameraName)}`"
+            :aria-label="`${cameraName} camera stream`"
+            :data-stream="cameraName"
+            :class="{ 'hidden': !camera }"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>
         <div class="pt-4">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 align-top">
             <v-switch
+              :label="pcdExpanded ? 'Hide Point Cloud Data' : 'View Point Cloud Data'"
               :value="pcdExpanded ? 'on' : 'off'"
-              @input="togglePCDExpand()"
+              @input="togglePCDExpand"
             />
-            <span class="pr-0.5 text-xs">Point Cloud Data</span>
             <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
           </div>
 

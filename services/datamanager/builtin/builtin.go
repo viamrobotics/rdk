@@ -31,7 +31,7 @@ import (
 
 func init() {
 	registry.RegisterService(datamanager.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
@@ -219,7 +219,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+				targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -262,7 +262,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+	targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -305,6 +305,29 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	collector.Collect()
 
 	return &componentMetadata, nil
+}
+
+// getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
+func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata, error) {
+	// Create component/method metadata to check if the collector exists.
+	metadata := data.MethodMetadata{
+		Subtype:    attributes.Type,
+		MethodName: attributes.Method,
+	}
+
+	componentMetadata := componentMethodMetadata{
+		ComponentName:  attributes.Name,
+		ComponentModel: attributes.Model,
+		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
+		MethodMetadata: metadata,
+	}
+
+	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
+		collector := storedCollectorParams.Collector
+		return collector, &componentMetadata, nil
+	}
+
+	return nil, nil, errors.Errorf("no collector was found with config %v", attributes)
 }
 
 func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
@@ -351,7 +374,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *builtIn) Sync(_ context.Context) error {
+func (svc *builtIn) Sync(_ context.Context, extra map[string]interface{}) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
@@ -365,9 +388,13 @@ func (svc *builtIn) Sync(_ context.Context) error {
 
 func (svc *builtIn) syncDataCaptureFiles() error {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	oldFiles := make([]string, 0, len(svc.collectors))
-	for _, collector := range svc.collectors {
+	currCollectors := make(map[componentMethodMetadata]collectorAndConfig)
+	for k, v := range svc.collectors {
+		currCollectors[k] = v
+	}
+	svc.lock.Unlock()
+	for _, collector := range currCollectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
 		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
@@ -376,11 +403,11 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 			return err
 		}
 
-		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+		nextTarget, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 		if err != nil {
-			svc.logger.Errorw("failed to create new data capture file", "error", err)
+			return err
 		}
-		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().GetPath())
 		collector.Collector.SetTarget(nextTarget)
 	}
 	svc.syncer.Sync(oldFiles)
@@ -389,10 +416,13 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
+	currAdditionalSyncPaths := svc.additionalSyncPaths
+	waitAfterLastModified := svc.waitAfterLastModifiedSecs
+	svc.lock.Unlock()
+
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
-	for _, asp := range svc.additionalSyncPaths {
+	for _, asp := range currAdditionalSyncPaths {
 		// Check that additional sync paths directories exist. If not, create directories accordingly.
 		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
 			err := os.Mkdir(asp, os.ModePerm)
@@ -410,9 +440,9 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 				if info.IsDir() {
 					return nil
 				}
-				// If a file was modified within the past svc.waitAfterLastModifiedSecs seconds, do not sync it (data
+				// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
 				// may still be being written).
-				if diff := now.Sub(info.ModTime()); diff < (time.Duration(svc.waitAfterLastModifiedSecs) * time.Second) {
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(waitAfterLastModified) * time.Second) {
 					return nil
 				}
 				filepathsToSync = append(filepathsToSync, path)
@@ -463,21 +493,22 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
+	var allComponentAttributes []dataCaptureConfig
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCaptureOff {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-		return nil
-	}
+	} else {
+		allComponentAttributes, err = buildDataCaptureConfigs(cfg)
+		if err != nil {
+			svc.logger.Warn(err.Error())
+			return err
+		}
 
-	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
-	if err != nil {
-		return err
-	}
-
-	if len(allComponentAttributes) == 0 {
-		svc.logger.Warn("Could not find any components with data_manager service configuration")
-		return nil
+		if len(allComponentAttributes) == 0 {
+			svc.logger.Info("no components with data_manager service configuration")
+		}
 	}
 
 	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled
@@ -509,13 +540,22 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
-		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
+		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 && !svc.captureDisabled {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
 			if err != nil {
 				svc.logger.Errorw("failed to initialize or update collector", "error", err)
 			} else {
 				newCollectorMetadata[*componentMetadata] = true
+			}
+		} else if attributes.Disabled {
+			// if disabled, make sure that it is closed, so it doesn't keep collecting data.
+			collector, md, err := svc.getCollectorFromConfig(attributes)
+			if err != nil {
+				svc.logger.Errorw("collector ", attributes.Name, " was not found", "info", err)
+			} else {
+				collector.Close()
+				delete(svc.collectors, *md)
 			}
 		}
 	}
@@ -555,6 +595,8 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				if err != nil {
 					svc.logger.Errorw("data capture files failed to sync", "error", err)
 				}
+				// TODO DATA-660: There's a risk of deadlock where we're in this case when Close is called, which
+				//                acquires svc.lock, which prevents this call from ever acquiring the lock/finishing.
 				svc.syncAdditionalSyncPaths()
 			}
 		}

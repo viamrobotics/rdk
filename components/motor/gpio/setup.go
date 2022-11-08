@@ -5,6 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -30,16 +31,34 @@ type PinConfig struct {
 // Config describes the configuration of a motor.
 type Config struct {
 	Pins             PinConfig      `json:"pins"`
-	BoardName        string         `json:"board"`                   // used to get encoders
+	BoardName        string         `json:"board"`
 	MinPowerPct      float64        `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
 	MaxPowerPct      float64        `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
 	PWMFreq          uint           `json:"pwm_freq,omitempty"`
-	DirectionFlip    bool           `json:"dir_flip,omitempty"`              // Flip the direction of the signal sent if there is a Dir pin
-	ControlLoop      control.Config `json:"control_config,omitempty"`        // Optional control loop
-	Encoder          string         `json:"encoder,omitempty"`               // name of encoder
-	RampRate         float64        `json:"ramp_rate_rpm_per_sec,omitempty"` // how fast to ramp power to motor when using rpm control
+	DirectionFlip    bool           `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
+	ControlLoop      control.Config `json:"control_config,omitempty"` // Optional control loop
+	Encoder          string         `json:"encoder,omitempty"`        // name of encoder
+	RampRate         float64        `json:"ramp_rate,omitempty"`      // how fast to ramp power to motor when using rpm control
 	MaxRPM           float64        `json:"max_rpm,omitempty"`
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.BoardName == "" {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	deps = append(deps, config.BoardName)
+
+	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
+	if config.Encoder != "" {
+		deps = append(deps, config.Encoder)
+	} else if config.MaxRPM <= 0 {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
+	}
+	return deps, nil
 }
 
 // init registers a pi motor based on pigpio.

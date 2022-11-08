@@ -2,15 +2,14 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import type Motor from '../gen/proto/api/component/motor/v1/motor_pb.esm';
-import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import motorApi, { type Status } from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
 interface Props {
   name: string
-  status: Motor.Status.AsObject
+  status: Status.AsObject
 }
 
 const props = defineProps<Props>();
@@ -29,32 +28,39 @@ let type = $ref<MovementTypes>('go');
 const setMovementType = (value: string) => {
   movementType = value;
   switch (value) {
-    case 'Go':
+    case 'Go': {
       type = 'go';
       break;
-    case 'Go For':
+    }
+    case 'Go For': {
       type = 'goFor';
       break;
-    case 'Go To':
+    }
+    case 'Go To': {
       type = 'goTo';
       break;
+    }
   }
 };
 
 const setDirection = (value: string) => {
   switch (value) {
-    case 'Forwards':
+    case 'Forwards': {
       direction = 1;
       break;
-    case 'Backwards':
+    }
+    case 'Backwards': {
       direction = -1;
       break;
-    default:
+    }
+    default: {
       direction = 1;
+    }
   }
 };
 
-const setPower = (powerPct: number) => {
+const setPower = () => {
+  const powerPct = power * direction / 100;
   const req = new motorApi.SetPowerRequest();
   req.setName(props.name);
   req.setPowerPct(powerPct);
@@ -63,21 +69,21 @@ const setPower = (powerPct: number) => {
   window.motorService.setPower(req, new grpc.Metadata(), displayError);
 };
 
-const goFor = (rpm: number, revolutions: number) => {
+const goFor = () => {
   const req = new motorApi.GoForRequest();
   req.setName(props.name);
-  req.setRpm(rpm);
+  req.setRpm(rpm * direction);
   req.setRevolutions(revolutions);
 
   rcLogConditionally(req);
   window.motorService.goFor(req, new grpc.Metadata(), displayError);
 };
 
-const goTo = (rpm: number, positionRevolutions: number) => {
+const goTo = () => {
   const req = new motorApi.GoToRequest();
   req.setName(props.name);
   req.setRpm(rpm);
-  req.setPositionRevolutions(positionRevolutions);
+  req.setPositionRevolutions(position);
 
   rcLogConditionally(req);
   window.motorService.goTo(req, new grpc.Metadata(), displayError);
@@ -85,15 +91,15 @@ const goTo = (rpm: number, positionRevolutions: number) => {
 
 const motorRun = () => {
   switch (type) {
-    case 'go':
-      setPower(power * direction / 100);
-      break;
-    case 'goFor':
-      goFor(rpm * direction, revolutions);
-      break;
-    case 'goTo':
-      goTo(rpm, position);
-      break;
+    case 'go': {
+      return setPower();
+    }
+    case 'goFor': {
+      return goFor();
+    }
+    case 'goTo': {
+      return goTo();
+    }
   }
 };
 

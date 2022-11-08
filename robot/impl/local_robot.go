@@ -384,7 +384,7 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(),
+		operations:                 operation.NewManager(logger),
 		logger:                     logger,
 		remotesChanged:             make(chan string),
 		activeBackgroundWorkers:    &sync.WaitGroup{},
@@ -494,10 +494,14 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
 		validModels := registry.FindValidServiceModels(rName)
-		return nil, errors.Errorf("unknown service subtype: %s and/or model: %s use one of the following valid models: %s",
+		return nil, errors.Errorf("unknown service type: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
 
+	deps, err := r.getDependencies(rName)
+	if err != nil {
+		return nil, err
+	}
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 
 	// If MaxInstance equals zero then there is not limit on the number of services
@@ -506,9 +510,17 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 			return nil, err
 		}
 	}
-	svc, err := f.Constructor(ctx, r, config, r.logger)
-	if err != nil {
-		return nil, err
+	var svc interface{}
+	if f.Constructor != nil {
+		svc, err = f.Constructor(ctx, deps, config, r.logger)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		svc, err = f.RobotConstructor(ctx, r, config, r.logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if c == nil || c.Reconfigurable == nil {
@@ -537,7 +549,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
+		return nil, errors.Errorf("unknown component type: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 
 	deps, err := r.getDependencies(rName)
@@ -554,7 +566,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	}
 
 	if err != nil {
-		return nil, errors.Errorf("error building resource %s/%s/%s: %s", config.Model, rName.Subtype, config.Name, err)
+		return nil, err
 	}
 
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
@@ -571,7 +583,6 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
-		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
@@ -703,22 +714,20 @@ func dialRobotClient(ctx context.Context,
 	logger golog.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
-	connectionCheckInterval := config.ConnectionCheckInterval
-	if connectionCheckInterval == 0 {
-		connectionCheckInterval = 10 * time.Second
+	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...)}
+
+	if config.ConnectionCheckInterval != 0 {
+		rOpts = append(rOpts, client.WithCheckConnectedEvery(config.ConnectionCheckInterval))
 	}
-	reconnectInterval := config.ReconnectInterval
-	if reconnectInterval == 0 {
-		reconnectInterval = 1 * time.Second
+	if config.ReconnectInterval != 0 {
+		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
 
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
 		logger,
-		client.WithDialOptions(dialOpts...),
-		client.WithCheckConnectedEvery(connectionCheckInterval),
-		client.WithReconnectEvery(reconnectInterval),
+		rOpts...,
 	)
 	if err != nil {
 		return nil, err
@@ -765,6 +774,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 				return c.ResourceName(), true
 			}
 		}
+		for _, s := range r.config.Services {
+			if s.Name == name {
+				return s.ResourceName(), true
+			}
+		}
+		// then look into what was added
+		for _, s := range diff.Added.Services {
+			if s.Name == name {
+				return s.ResourceName(), true
+			}
+		}
+
 		// we are trying to locate a resource that is set as a dependency but do not exist yet
 		r.logger.Debugw("processing unknown  resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true

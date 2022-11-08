@@ -52,7 +52,7 @@ var (
 
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
-	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	armDir             = captureDir + "/arm/arm1/EndPosition"
 	emptyFileBytesSize = 30 // size of leading metadata message
 )
 
@@ -157,6 +157,7 @@ func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
 	defer resetFolder(t, captureDir)
+	resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	captureTime := time.Millisecond * 100
@@ -166,7 +167,7 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check that a collector wrote to file.
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
@@ -179,7 +180,9 @@ func TestNewDataManager(t *testing.T) {
 	captureFileName := filesInArmDir[0].Name()
 	file, err := os.Open(armDir + "/" + captureFileName)
 	test.That(t, err, test.ShouldBeNil)
-	md, err := datacapture.ReadDataCaptureMetadata(file)
+	f, err := datacapture.ReadFile(file)
+	test.That(t, err, test.ShouldBeNil)
+	md := f.ReadMetadata()
 	test.That(t, md.Tags[0], test.ShouldEqual, "a")
 	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 
@@ -193,57 +196,6 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	newSize := newInfo.Size()
 	test.That(t, oldSize, test.ShouldEqual, newSize)
-}
-
-func TestCaptureDisabled(t *testing.T) {
-	// Empty config at initialization.
-	captureDir := "/tmp/capture"
-	dmsvc := newTestDataManager(t, "arm1", "")
-	// Set capture parameters in Update.
-	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig(testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	defer resetFolder(t, captureDir)
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Call Update with a disabled capture and give the collector time to write to file.
-	dmCfg.CaptureDisabled = true
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Verify that the collector wrote to its file.
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
-	filesInArmDir, err := readDir(t, armDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-	info, err := filesInArmDir[0].Info()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
-
-	// Re-enable capture.
-	dmCfg.CaptureDisabled = false
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Close service.
-	err = dmsvc.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-
-	// Verify that started collection began in a new file when it was re-enabled.
-	filesInArmDir, err = readDir(t, armDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 2)
-
-	// Verify that something different was written to both files.
-	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
-	info, err = filesInArmDir[1].Info()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 }
 
 func TestNewRemoteDataManager(t *testing.T) {
@@ -263,7 +215,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
-	localArmDir := captureDir + "/arm/localArm/GetEndPosition"
+	localArmDir := captureDir + "/arm/localArm/EndPosition"
 	filesInLocalArmDir, err := readDir(t, localArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
@@ -271,7 +223,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
 
-	remoteArmDir := captureDir + "/arm/remoteArm/GetEndPosition"
+	remoteArmDir := captureDir + "/arm/remoteArm/EndPosition"
 	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
@@ -575,7 +527,7 @@ func TestManualSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Run and upload files.
-	err = dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 
@@ -586,7 +538,7 @@ func TestManualSync(t *testing.T) {
 
 	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
 	// any files that were previously synced.
-	err = dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
@@ -623,7 +575,7 @@ func TestScheduledSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -674,7 +626,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -686,7 +638,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
 	time.Sleep(time.Millisecond * 250)
-	err = dmsvc.Sync(context.TODO())
+	err = dmsvc.Sync(context.TODO(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
@@ -824,7 +776,7 @@ func TestAdditionalParamsInConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureWaitTime)
 
-	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/Next")
+	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/ReadImage")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInCamDir), test.ShouldEqual, 1)
 	info, err := filesInCamDir[0].Info()
@@ -996,4 +948,124 @@ func getTestModelManagerConstructor(t *testing.T, server rpc.Server, zipFileName
 		client := model.NewClient(conn)
 		return model.NewManager(logger, cfg.Cloud.ID, client, conn, &mockClient{zipFileName: zipFileName})
 	}
+}
+
+func TestDataCapture(t *testing.T) {
+	tests := []struct {
+		name                  string
+		initialDisabledStatus bool
+		newDisabledStatus     bool
+	}{
+		{
+			"Config with data capture disabled should capture nothing.",
+			true,
+			true,
+		},
+		{
+			"Config with data capture enabled should capture data.",
+			false,
+			false,
+		},
+		{
+			"Disabling data capture should cause it to stop.",
+			false,
+			true,
+		},
+		{
+			"Enabling data capture should cause it to begin.",
+			true,
+			false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "")
+			defer os.RemoveAll(tmpDir)
+			test.That(t, err, test.ShouldBeNil)
+
+			rpcServer, _ := buildAndStartLocalServer(t)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+			testCfg := setupConfig(t, configPath)
+			svcConfig, ok, err := getServiceConfig(testCfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			svcConfig.CaptureDisabled = tc.initialDisabledStatus
+			svcConfig.ScheduledSyncDisabled = true
+			svcConfig.CaptureDir = tmpDir
+			err = dmsvc.Update(context.Background(), testCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// let run for a moment
+			time.Sleep(captureWaitTime)
+
+			// Check if data has been captured (or not) as we'd expect.
+			initialCaptureFiles := getAllFiles(tmpDir)
+			initialCaptureFilesSize := getTotalFileSize(initialCaptureFiles)
+
+			if !tc.initialDisabledStatus {
+				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
+				test.That(t, initialCaptureFilesSize, test.ShouldBeGreaterThan, 0)
+			} else {
+				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
+				test.That(t, initialCaptureFilesSize, test.ShouldEqual, 0)
+			}
+
+			// change status
+			svcConfig.CaptureDisabled = tc.newDisabledStatus
+			err = dmsvc.Update(context.Background(), testCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// let run for a moment
+			time.Sleep(captureWaitTime)
+			midCaptureFiles := getAllFiles(tmpDir)
+			midCaptureFilesSize := getTotalFileSize(midCaptureFiles)
+
+			time.Sleep(captureWaitTime)
+
+			updatedCaptureFiles := getAllFiles(tmpDir)
+			updatedCaptureFilesSize := getTotalFileSize(updatedCaptureFiles)
+			if tc.initialDisabledStatus && !tc.newDisabledStatus {
+				// capture disabled then enabled
+				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
+			} else if !tc.initialDisabledStatus && !tc.newDisabledStatus {
+				// capture always enabled
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+			} else {
+				// capture starts disabled/enabled and ends disabled
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+				test.That(t, updatedCaptureFilesSize, test.ShouldEqual, midCaptureFilesSize)
+			}
+			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		})
+	}
+}
+
+func getAllFiles(dir string) []os.FileInfo {
+	var files []os.FileInfo
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		files = append(files, info)
+		return nil
+	})
+	return files
+}
+
+func getTotalFileSize(files []os.FileInfo) int64 {
+	var totalFileSize int64 = 0
+	for _, f := range files {
+		totalFileSize += f.Size()
+	}
+	return totalFileSize
 }

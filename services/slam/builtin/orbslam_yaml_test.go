@@ -23,7 +23,7 @@ import (
 
 const (
 	yamlFilePrefixBytes = "%YAML:1.0\n"
-	slamTimeFormat      = "2006-01-02T15_04_05.0000"
+	slamTimeFormat      = time.RFC3339Nano
 )
 
 // function to search a SLAM data dir for a .yaml file. returns the timestamp and filepath.
@@ -80,6 +80,21 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		DataRateMs:    dataRateMs,
 		Port:          "localhost:4445",
 	}
+	attrCfgGoodHighDataRateMs := &builtin.AttrConfig{
+		Algorithm: "fake_orbslamv3",
+		Sensors:   []string{"good_color_camera"},
+		ConfigParams: map[string]string{
+			"mode":              "mono",
+			"orb_n_features":    "1000",
+			"orb_scale_factor":  "1.2",
+			"orb_n_levels":      "8",
+			"orb_n_ini_th_fast": "20",
+			"orb_n_min_th_fast": "7",
+		},
+		DataDirectory: name,
+		DataRateMs:    10000,
+		Port:          "localhost:4445",
+	}
 	attrCfgBadCam := &builtin.AttrConfig{
 		Algorithm: "fake_orbslamv3",
 		Sensors:   []string{"bad_camera_intrinsics"},
@@ -124,10 +139,10 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, orbslam.NLevels, test.ShouldEqual, 8)
 		test.That(t, orbslam.ScaleFactor, test.ShouldEqual, 1.2)
 		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, "")
+		test.That(t, orbslam.FPSCamera, test.ShouldEqual, 5)
 
 		//save a fake map for the next map using the previous timestamp
 		fakeMap = filepath.Join(name, "map", attrCfgGood.Sensors[0]+"_data_"+yamlFileTimeStampGood)
-		test.That(t, orbslam.SaveMapLoc, test.ShouldEqual, "\""+fakeMap+"\"")
 		outfile, err := os.Create(fakeMap + ".osa")
 		test.That(t, err, test.ShouldBeNil)
 		err = outfile.Close()
@@ -157,14 +172,32 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, "\""+fakeMap+"\"")
+	})
 
-		// compare timestamps, saveTimeStamp should be more recent than oldTimeStamp
-		saveTimestampLoc := strings.Index(orbslam.SaveMapLoc, "_data_") + len("_data_")
-		saveTimeStamp, err := time.Parse(slamTimeFormat, orbslam.SaveMapLoc[saveTimestampLoc:len(orbslam.SaveMapLoc)-1])
+	t.Run("New orbslamv3 service with high dataRateMs", func(t *testing.T) {
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfgGoodHighDataRateMs.Port)
+		svc, err := createSLAMService(t, attrCfgGoodHighDataRateMs, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
-		oldTimeStamp, err := time.Parse(slamTimeFormat, fakeMapTimestamp)
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
+		yamlFileTimeStampGood, yamlFilePathGood, err := findLastYAML(name)
+
+		fakeMapTimestamp = yamlFileTimeStampGood
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, saveTimeStamp.After(oldTimeStamp), test.ShouldBeTrue)
+
+		yamlDataAll, err := os.ReadFile(yamlFilePathGood)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, yamlDataAll[:len(yamlFilePrefixBytes)], test.ShouldResemble, []byte(yamlFilePrefixBytes))
+
+		yamlData := bytes.Replace(yamlDataAll, []byte(yamlFilePrefixBytes), []byte(""), 1)
+		orbslam := builtin.ORBsettings{}
+		err = yaml.Unmarshal(yamlData, &orbslam)
+		// Even though the real fps is 0.1 Hz, we set it to 1
+		test.That(t, orbslam.FPSCamera, test.ShouldEqual, 1)
 	})
 
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {

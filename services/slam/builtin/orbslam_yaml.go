@@ -1,3 +1,4 @@
+// This is an Experimental package
 package builtin
 
 import (
@@ -42,6 +43,15 @@ func (slamSvc *builtIn) orbCamMaker(camProperties *transform.PinholeCameraModel)
 		FPSCamera:   int16(slamSvc.dataRateMs),
 		FileVersion: fileVersion,
 	}
+	if slamSvc.dataRateMs <= 0 {
+		// dataRateMs is always expected to be positive, since 0 gets reset to the default, and all other
+		// values lower than the default are rejected
+		return nil, errors.Errorf("orbslam yaml generation expected dataRateMs greater than 0, got %d", slamSvc.dataRateMs)
+	}
+	orbslam.FPSCamera = int16(1000 / slamSvc.dataRateMs)
+	if orbslam.FPSCamera == 0 {
+		orbslam.FPSCamera = 1
+	}
 	distortion, ok := camProperties.Distortion.(*transform.BrownConrady)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError(distortion, camProperties.Distortion)
@@ -75,7 +85,7 @@ func (slamSvc *builtIn) orbCamMaker(camProperties *transform.PinholeCameraModel)
 	if orbslam.Stereob, err = slamSvc.orbConfigToFloat("stereo_b", 0.0745); err != nil {
 		return nil, err
 	}
-	tmp, err := slamSvc.orbConfigToInt("rgb_flag", 1)
+	tmp, err := slamSvc.orbConfigToInt("rgb_flag", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +119,6 @@ type ORBsettings struct {
 	StereoThDepth  float64 `yaml:"Stereo.ThDepth"`
 	DepthMapFactor float64 `yaml:"RGBD.DepthMapFactor"`
 	FPSCamera      int16   `yaml:"Camera.fps"`
-	SaveMapLoc     string  `yaml:"System.SaveAtlasToFile"`
 	LoadMapLoc     string  `yaml:"System.LoadAtlasFromFile"`
 }
 
@@ -135,19 +144,13 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 		return err
 	}
 
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
-	timeStampNow := time.Now().UTC().Format(slamTimeFormat)
-	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+timeStampNow)
-	// timestamp to save at end of run
-	orbslam.SaveMapLoc = "\"" + saveMapName + "\""
-
 	// Check for maps in the specified directory and add map to yaml config
 	loadMapTimeStamp, loadMapName, err := slamSvc.checkMaps()
 	if err != nil {
 		slamSvc.logger.Debugf("Error occurred while parsing %s for maps, building map from scratch", slamSvc.dataDirectory)
 	}
 	if loadMapTimeStamp == "" {
-		loadMapTimeStamp = timeStampNow
+		loadMapTimeStamp = time.Now().UTC().Format(slamTimeFormat)
 	} else {
 		orbslam.LoadMapLoc = "\"" + loadMapName + "\""
 	}

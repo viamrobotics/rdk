@@ -3,6 +3,7 @@ package gpio
 import (
 	"context"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,18 +48,19 @@ func TestMotorEncoder1(t *testing.T) {
 	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 	e.Start(context.Background())
-	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
+	dirFMotor, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
-	_motor, ok := motorIfc.(*EncodedMotor)
+	_motor, ok := dirFMotor.(*EncodedMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), _motor), test.ShouldBeNil)
 	}()
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
-		isOn, err := _motor.IsPowered(context.Background(), nil)
+		isOn, powerPct, err := _motor.IsPowered(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		features, err := _motor.Properties(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
@@ -81,6 +83,10 @@ func TestMotorEncoder1(t *testing.T) {
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
 		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
+	})
+
+	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
+		test.That(t, _motor.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
@@ -238,6 +244,22 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 
 		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
+	})
+
+	t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(ctx)
+		wg.Add(1)
+		go func() {
+			_motor.GoFor(ctx, 100, 100, map[string]interface{}{})
+			wg.Done()
+		}()
+		cancel()
+		wg.Wait()
+
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, _motor.state.desiredRPM, test.ShouldEqual, 0)
 	})
 }
 
@@ -599,5 +621,37 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+	})
+}
+
+func TestDirFlipMotor(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, DirectionFlip: true}
+	dirflipFakeMotor := &fakemotor.Motor{
+		MaxRPM:           100,
+		Logger:           logger,
+		TicksPerRotation: 100,
+		DirFlip:          true,
+	}
+	interrupt := &board.BasicDigitalInterrupt{}
+
+	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
+	e.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
+	e.Start(context.Background())
+	dirFMotor, err := NewEncodedMotor(config.Component{}, cfg, dirflipFakeMotor, e, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_dirFMotor, ok := dirFMotor.(*EncodedMotor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	t.Run("Direction flip RPM + | REV + ", func(t *testing.T) {
+		test.That(t, _dirFMotor.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
+		test.That(t, dirflipFakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
+		test.That(t, dirflipFakeMotor.Direction(), test.ShouldEqual, -1)
+	})
+
+	t.Run("Direction flip RPM - | REV + ", func(t *testing.T) {
+		test.That(t, _dirFMotor.goForInternal(context.Background(), -1000, 1), test.ShouldBeNil)
+		test.That(t, dirflipFakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
+		test.That(t, dirflipFakeMotor.Direction(), test.ShouldEqual, 1)
 	})
 }

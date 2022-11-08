@@ -28,6 +28,7 @@ const modelName = "arduino"
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
 	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
+	SerialPath string               `json:"serial_path"`
 	Attributes config.AttributeMap  `json:"attributes,omitempty"`
 }
 
@@ -70,7 +71,7 @@ func (config *Config) Validate(path string) error {
 
 func getSerialConfig(cfg *Config) (slib.OpenOptions, error) {
 	options := slib.OpenOptions{
-		PortName:        cfg.Attributes.String("serial_path"),
+		PortName:        cfg.SerialPath,
 		BaudRate:        230400,
 		DataBits:        8,
 		StopBits:        1,
@@ -78,7 +79,7 @@ func getSerialConfig(cfg *Config) (slib.OpenOptions, error) {
 	}
 
 	if options.PortName == "" {
-		ds := serial.Search(serial.SearchFilter{serial.TypeArduino})
+		ds := serial.Search(serial.SearchFilter{Type: serial.TypeArduino})
 		if len(ds) != 1 {
 			return options, fmt.Errorf("found %d arduinos", len(ds))
 		}

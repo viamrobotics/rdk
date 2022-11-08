@@ -202,7 +202,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
 	neighbors := kNearestNeighbors(algOpts.planOpts, tree, target, algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
-	var minIndex int
+	minIndex := -1
 	for i, neighbor := range neighbors {
 		neighborNode := neighbor.node.(*costNode)
 		cost := neighborNode.cost + neighbor.dist
@@ -212,7 +212,10 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		}
 	}
 
-	// add new node to tree as a child of the minimum cost neighbor node
+	// add new node to tree as a child of the minimum cost neighbor node if it was reachable
+	if minIndex == -1 {
+		return nil
+	}
 	targetNode := newCostNode(target, minCost)
 	tree[targetNode] = neighbors[minIndex].node
 

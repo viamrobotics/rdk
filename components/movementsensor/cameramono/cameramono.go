@@ -35,51 +35,53 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.Camera == "" {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("single camera missing for visual odometry"))
 	}
+	deps = append(deps, cfg.Camera)
 	if cfg.MotionConfig == nil {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("no motion_estimation_config for visual odometry algorithm"))
 	}
 
 	if cfg.MotionConfig.KeyPointCfg == nil {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("no kps config found in motion_estimation_config"))
 	}
 
 	if cfg.MotionConfig.MatchingCfg == nil {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("no matching config found in motion_estimation_config"))
 	}
 
 	if cfg.MotionConfig.CamIntrinsics == nil {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("no camera_instrinsics config found in motion_estimation_config"))
 	}
 
 	if cfg.MotionConfig.ScaleEstimatorCfg == nil {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("no scale_estimator config found in motion_estimation_config"))
 	}
 
 	if cfg.MotionConfig.CamHeightGround == 0 {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("set camera_height from ground to 0 by default"))
 	}
 	if cfg.MotionConfig.KeyPointCfg.BRIEFConf == nil {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("no BRIEF Config found in motion_estimation_config"))
 	}
 
 	if cfg.MotionConfig.KeyPointCfg.DownscaleFactor <= 1 {
-		return utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("downscale_factor in motion_estimation_config should be greater than 1"))
 	}
 
-	return nil
+	return deps, nil
 }
 
 func init() {

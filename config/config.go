@@ -7,11 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -19,79 +17,6 @@ import (
 
 	rutils "go.viam.com/rdk/utils"
 )
-
-// SortComponents sorts list of components topologically based off what other components they depend on.
-func SortComponents(components []Component) ([]Component, error) {
-	componentToConfig := make(map[string]Component, len(components))
-	dependencies := map[string][]string{}
-
-	for _, config := range components {
-		if _, ok := componentToConfig[config.Name]; ok {
-			return nil, errors.Errorf("component name %q is not unique", config.Name)
-		}
-		componentToConfig[config.Name] = config
-		dependencies[config.Name] = config.Dependencies()
-	}
-
-	// TODO(RSDK-427): this check just raises a warning if a dependency is missing. We
-	// cannot actually make the check fail since it will always fail for remote
-	// dependencies.
-	for name, dps := range dependencies {
-		for _, depName := range dps {
-			if _, ok := componentToConfig[depName]; !ok {
-				golog.Global().Warnw(
-					"missing dependency on local robot, is this a remote dependency?",
-					"component", name,
-					"dependency", depName,
-				)
-				continue
-			}
-		}
-	}
-
-	sortedCmps := make([]Component, 0, len(components))
-	visited := map[string]bool{}
-
-	var dfsHelper func(string, []string) error
-	dfsHelper = func(name string, path []string) error {
-		for idx, cmpName := range path {
-			if name == cmpName {
-				return errors.Errorf("circular dependency detected in component list between %s", strings.Join(path[idx:], ", "))
-			}
-		}
-
-		path = append(path, name)
-		if _, ok := visited[name]; ok {
-			return nil
-		}
-		visited[name] = true
-		dps := dependencies[name]
-		for _, dp := range dps {
-			// create a deep copy of current path
-			pathCopy := make([]string, len(path))
-			copy(pathCopy, path)
-
-			if err := dfsHelper(dp, pathCopy); err != nil {
-				return err
-			}
-		}
-		if ctc, ok := componentToConfig[name]; ok {
-			sortedCmps = append(sortedCmps, ctc)
-		}
-		return nil
-	}
-
-	for _, c := range components {
-		if _, ok := visited[c.Name]; !ok {
-			var path []string
-			if err := dfsHelper(c.Name, path); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return sortedCmps, nil
-}
 
 // A Config describes the configuration of a robot.
 type Config struct {
@@ -118,7 +43,7 @@ type Config struct {
 	FromCommand bool `json:"-"`
 }
 
-// Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
+// Ensure ensures all parts of the config are valid.
 func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
@@ -140,14 +65,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
 
-	if len(c.Components) > 0 {
-		srtCmps, err := SortComponents(c.Components)
-		if err != nil {
-			return err
-		}
-		c.Components = srtCmps
-	}
-
 	for idx := 0; idx < len(c.Processes); idx++ {
 		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
 			return err
@@ -155,9 +72,11 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		if err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx)); err != nil {
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx))
+		if err != nil {
 			return err
 		}
+		c.Services[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if err := c.Network.Validate("network"); err != nil {
@@ -247,6 +166,7 @@ func (config *Remote) Validate(path string) error {
 			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}
+
 	if config.Secret != "" {
 		config.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{
@@ -263,18 +183,19 @@ func (config *Remote) Validate(path string) error {
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
-	ID                string        `json:"id"`
-	Secret            string        `json:"secret"`
-	LocationSecret    string        `json:"location_secret"`
-	ManagedBy         string        `json:"managed_by"`
-	FQDN              string        `json:"fqdn"`
-	LocalFQDN         string        `json:"local_fqdn"`
-	SignalingAddress  string        `json:"signaling_address"`
-	SignalingInsecure bool          `json:"signaling_insecure,omitempty"`
-	Path              string        `json:"path"`
-	LogPath           string        `json:"log_path"`
-	AppAddress        string        `json:"app_address"`
-	RefreshInterval   time.Duration `json:"refresh_interval,omitempty"`
+	ID                string           `json:"id"`
+	Secret            string           `json:"secret"`
+	LocationSecret    string           `json:"location_secret"` // Deprecated: Use LocationSecrets
+	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	ManagedBy         string           `json:"managed_by"`
+	FQDN              string           `json:"fqdn"`
+	LocalFQDN         string           `json:"local_fqdn"`
+	SignalingAddress  string           `json:"signaling_address"`
+	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
+	Path              string           `json:"path"`
+	LogPath           string           `json:"log_path"`
+	AppAddress        string           `json:"app_address"`
+	RefreshInterval   time.Duration    `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
@@ -300,6 +221,13 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		config.RefreshInterval = 10 * time.Second
 	}
 	return nil
+}
+
+// LocationSecret describes a location secret that can be used to authenticate to the rdk.
+type LocationSecret struct {
+	ID string
+	// Payload of the secret
+	Secret string
 }
 
 // NetworkConfig describes networking settings for the web server.

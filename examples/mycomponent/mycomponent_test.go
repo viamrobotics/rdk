@@ -29,7 +29,7 @@ func TestMyComponent(t *testing.T) {
 	addr2 := fmt.Sprintf("localhost:%d", port2)
 
 	ctx := context.Background()
-	logger := golog.NewDevelopmentLogger("mycomponent.server")
+	logger := golog.NewDebugLogger("mycomponent.server")
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/mycomponent/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -49,7 +49,7 @@ func TestMyComponent(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = tmpConf.Sync()
 	test.That(t, err, test.ShouldBeNil)
-	logger = golog.NewDevelopmentLogger("process.inter")
+	logger = golog.NewDebugLogger("process.inter")
 	pmgr := pexec.NewProcessManager(logger)
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
@@ -68,7 +68,7 @@ func TestMyComponent(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goutils.SelectContextOrWait(context.Background(), 30*time.Second)
 
-	logger = golog.NewDevelopmentLogger("mycomponent.client")
+	logger = golog.NewDebugLogger("mycomponent.client")
 	remoteConfig := &config.Config{
 		Remotes: []config.Remote{
 			{

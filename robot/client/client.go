@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +18,9 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
@@ -26,7 +29,7 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/protoutils"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -70,10 +73,105 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
+var exemptFromConnectionCheck = map[string]bool{
+	"/proto.rpc.webrtc.v1.SignalingService/Call":                 true,
+	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
+	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
+	"/proto.rpc.v1.AuthService/Authenticate":                     true,
+}
+
+func skipConnectionCheck(method string) bool {
+	return exemptFromConnectionCheck[method]
+}
+
+func isClosedPipeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+}
+
+func (rc *RobotClient) notConnectedToRemoteError() error {
+	return errors.Errorf("not connected to remote robot at %s", rc.address)
+}
+
+func (rc *RobotClient) handleUnaryDisconnect(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *googlegrpc.ClientConn,
+	invoker googlegrpc.UnaryInvoker,
+	opts ...googlegrpc.CallOption,
+) error {
+	if skipConnectionCheck(method) {
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		return status.Error(codes.Unavailable, err.Error())
+	}
+
+	err := invoker(ctx, method, req, reply, cc, opts...)
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	if isClosedPipeError(err) {
+		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+	}
+	return err
+}
+
+type handleDisconnectClientStream struct {
+	googlegrpc.ClientStream
+	*RobotClient
+}
+
+func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
+	if err := cs.RobotClient.checkConnected(); err != nil {
+		return status.Error(codes.Unavailable, err.Error())
+	}
+
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	err := cs.ClientStream.RecvMsg(m)
+	if isClosedPipeError(err) {
+		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
+	}
+
+	return err
+}
+
+func (rc *RobotClient) handleStreamDisconnect(
+	ctx context.Context,
+	desc *googlegrpc.StreamDesc,
+	cc *googlegrpc.ClientConn,
+	method string,
+	streamer googlegrpc.Streamer,
+	opts ...googlegrpc.CallOption,
+) (googlegrpc.ClientStream, error) {
+	if skipConnectionCheck(method) {
+		return streamer(ctx, desc, cc, method, opts...)
+	}
+
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		return nil, status.Error(codes.Unavailable, err.Error())
+	}
+
+	cs, err := streamer(ctx, desc, cc, method, opts...)
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	if isClosedPipeError(err) {
+		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+	}
+	return &handleDisconnectClientStream{cs, rc}, err
+}
+
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
 	var rOpts robotClientOpts
+
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
@@ -91,6 +189,18 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		resourceClients:         make(map[resource.Name]interface{}),
 		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
+
+	// interceptors are applied in order from first to last
+	rc.dialOptions = append(
+		rc.dialOptions,
+		// error handling
+		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
+		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
+		// operations
+		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
+		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
+	)
+
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -106,6 +216,18 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	} else {
 		refreshTime = *rOpts.refreshEvery
 	}
+	var checkConnectedTime time.Duration
+	if rOpts.checkConnectedEvery == nil {
+		checkConnectedTime = 10 * time.Second
+	} else {
+		checkConnectedTime = *rOpts.checkConnectedEvery
+	}
+	var reconnectTime time.Duration
+	if rOpts.reconnectEvery == nil {
+		reconnectTime = 1 * time.Second
+	} else {
+		reconnectTime = *rOpts.reconnectEvery
+	}
 
 	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
@@ -114,10 +236,10 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
-	if rOpts.checkConnectedEvery != 0 {
+	if checkConnectedTime > 0 && reconnectTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.checkConnection(closeCtx, rOpts.checkConnectedEvery, rOpts.reconnectEvery)
+			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -270,7 +392,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				if err != nil {
 					outerError = err
 					// if pipe is closed, we know for sure we lost connection
-					if strings.Contains(err.Error(), "read/write on closed pipe") {
+					if isClosedPipeError(err) {
 						break
 					} else {
 						// otherwise retry
@@ -318,7 +440,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 
 func (rc *RobotClient) checkConnected() error {
 	if !rc.connected {
-		return errors.Errorf("not connected to remote robot at %s", rc.address)
+		return rc.notConnectedToRemoteError()
 	}
 	return nil
 }
@@ -424,7 +546,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCSubtype{
-				Subtype: protoutils.ResourceNameFromProto(resSubtype.Subtype).Subtype,
+				Subtype: rprotoutils.ResourceNameFromProto(resSubtype.Subtype).Subtype,
 				Desc:    svcDesc,
 			})
 		}
@@ -437,7 +559,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	resources := make([]resource.Name, 0, len(resp.Resources))
 
 	for _, name := range resp.Resources {
-		newName := protoutils.ResourceNameFromProto(name)
+		newName := rprotoutils.ResourceNameFromProto(name)
 		resources = append(resources, newName)
 	}
 
@@ -628,7 +750,7 @@ func (rc *RobotClient) TransformPose(
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
-		names = append(names, protoutils.ResourceNameToProto(name))
+		names = append(names, rprotoutils.ResourceNameToProto(name))
 	}
 
 	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
@@ -640,7 +762,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 	for _, status := range resp.Status {
 		statuses = append(
 			statuses, robot.Status{
-				Name:   protoutils.ResourceNameFromProto(status.Name),
+				Name:   rprotoutils.ResourceNameFromProto(status.Name),
 				Status: status.Status.AsMap(),
 			})
 	}
@@ -657,7 +779,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 			continue
 		}
 		p := &pb.StopExtraParameters{
-			Name:   protoutils.ResourceNameToProto(name),
+			Name:   rprotoutils.ResourceNameToProto(name),
 			Params: param,
 		}
 		e = append(e, p)

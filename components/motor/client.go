@@ -6,10 +6,10 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/motor/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/protoutils"
 )
 
 // client implements MotorServiceClient.
@@ -125,17 +125,17 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, err
+		return false, 0.0, err
 	}
 	req := &pb.IsPoweredRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.IsPowered(ctx, req)
 	if err != nil {
-		return false, err
+		return false, 0.0, err
 	}
-	return resp.GetIsOn(), nil
+	return resp.GetIsOn(), resp.GetPowerPct(), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

@@ -106,7 +106,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 			"segment_size_px":   1000,
 		},
 	}
-	err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +124,9 @@ var testPointCloud = []r3.Vector{
 
 func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
 	t.Helper()
-	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2}, "")
 	test.That(t, err, test.ShouldBeNil)
-	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 	return []spatialmath.Geometry{box1, box2}
 }

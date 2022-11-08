@@ -505,6 +505,7 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
+		extra map[string]interface{},
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
@@ -735,9 +736,6 @@ func TestManagerNewComponent(t *testing.T) {
 		return resource.Name{}, false
 	}), test.ShouldBeNil)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
-	_, err = config.SortComponents(robotForRemote.config.Components)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, "circular dependency detected in component list between arm3, board3")
 
 	diff = &config.Diff{
 		Added: &config.Config{},
@@ -1626,7 +1624,7 @@ func TestUpdateConfig(t *testing.T) {
 	})
 
 	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return &mock{}, nil
 		},
 	})

@@ -26,7 +26,7 @@ interface Reading {
   lng: number
 }
 
-const sensorReadings = $ref<Record<string, Reading>>({});
+const sensorReadings = $ref<Record<string, Record<string, Reading>>>({});
 
 const getReadings = (inputNames: SensorName[]) => {
   const req = new sensorsApi.GetReadingsRequest();
@@ -50,13 +50,19 @@ const getReadings = (inputNames: SensorName[]) => {
       const readings = item.getReadingsMap();
       const rr: Record<string, Reading> = {};
 
-      for (const [k, v] of readings.entries()) {
-        rr[k] = v.toJavaScript() as Reading;
+      for (const [key, value] of readings.entries()) {
+        rr[key] = value.toJavaScript() as Reading;
       }
-      
+
+      // @ts-expect-error @TODO This typing needs to be fixed
       sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
     }
   });
+};
+
+const getData = (sensorName: SensorName) => {
+  // @ts-expect-error @TODO This typing needs to be fixed
+  return sensorReadings[resourceNameToString(sensorName)];
 };
 
 </script>
@@ -66,7 +72,7 @@ const getReadings = (inputNames: SensorName[]) => {
     title="Sensors"
     class="sensors"
   >
-    <div class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-black p-4">
       <table class="w-full table-auto border border-black">
         <tr>
           <th class="border border-black p-2">
@@ -82,7 +88,7 @@ const getReadings = (inputNames: SensorName[]) => {
             <v-button
               group
               label="Get All Readings"
-              @click="getReadings"
+              @click="getReadings(sensorNames)"
             />
           </th>
         </tr>
@@ -99,7 +105,7 @@ const getReadings = (inputNames: SensorName[]) => {
           <td class="border border-black p-2">
             <table style="font-size:.7em; text-align: left;">
               <tr
-                v-for="(sensorValue, sensorField) in sensorReadings[resourceNameToString(sensorName)]"
+                v-for="(sensorValue, sensorField) in getData(sensorName)"
                 :key="sensorField"
               >
                 <th>{{ sensorField }}</th>

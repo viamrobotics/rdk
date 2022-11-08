@@ -18,7 +18,7 @@ func TestModelParameterSchema(t *testing.T) {
 	ctx := context.Background()
 	srv := makeService(ctx, t)
 	// get parameters that exist
-	params, err := srv.GetModelParameterSchema(ctx, RCSegmenter)
+	params, err := srv.GetModelParameterSchema(ctx, RCSegmenter, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	parameterNames := params.Definitions["RadiusClusteringConfig"].Required
 	test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
@@ -26,7 +26,7 @@ func TestModelParameterSchema(t *testing.T) {
 	test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
 	test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
 	// attempt to get parameters that dont exist
-	_, err = srv.GetModelParameterSchema(ctx, vision.VisModelType("not_a_model"))
+	_, err = srv.GetModelParameterSchema(ctx, vision.VisModelType("not_a_model"), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "do not have a schema for model type")
 }
@@ -39,13 +39,13 @@ func TestCloseService(t *testing.T) {
 		Name: "test",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
-			"detect_color":     "#112233",
+			"detect_color":      "#112233",
 			"hue_tolerance_pct": 0.4,
 			"value_cutoff_pct":  0.2,
 			"segment_size_px":   100,
 		},
 	}
-	err := srv.AddDetector(ctx, cfg)
+	err := srv.AddDetector(ctx, cfg, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	vService := srv.(*builtIn)
 	fakeStruct := newStruct()
@@ -60,7 +60,7 @@ func TestCloseService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeStruct.val, test.ShouldEqual, 1)
 
-	detectors, err := srv.DetectorNames(ctx)
+	detectors, err := srv.DetectorNames(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(detectors), test.ShouldEqual, 0)
 }

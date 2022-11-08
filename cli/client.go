@@ -19,6 +19,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -37,11 +38,12 @@ import (
 // The AppClient provides all the CLI command functionality needed to talk
 // to the app service but not directly to robot parts.
 type AppClient struct {
-	c       *cli.Context
-	conf    *Config
-	client  apppb.AppServiceClient
-	baseURL *url.URL
-	rpcOpts []rpc.DialOption
+	c          *cli.Context
+	conf       *Config
+	client     apppb.AppServiceClient
+	dataClient datapb.DataServiceClient
+	baseURL    *url.URL
+	rpcOpts    []rpc.DialOption
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location
@@ -138,6 +140,7 @@ func (c *AppClient) ensureLoggedIn() error {
 	}
 
 	c.client = apppb.NewAppServiceClient(conn)
+	c.dataClient = datapb.NewDataServiceClient(conn)
 	return nil
 }
 
@@ -549,6 +552,10 @@ func (c *AppClient) prepareDial(
 		return nil, "", nil, err
 	}
 
+	if len(locAuth.Secrets) == 0 {
+		return nil, "", nil, errors.New("missing secrets in LocationAuth")
+	}
+
 	part, err := c.RobotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
 	if err != nil {
 		return nil, "", nil, err
@@ -562,7 +569,7 @@ func (c *AppClient) prepareDial(
 
 	rpcOpts := append(c.RPCOpts(), rpc.WithCredentials(rpc.Credentials{
 		Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-		Payload: locAuth.Secret,
+		Payload: locAuth.Secrets[0].Secret,
 	}))
 
 	if debug {
@@ -722,7 +729,7 @@ func (c *AppClient) StartRobotPartShell(
 		return nil
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context)
+	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
 	if err != nil {
 		fmt.Fprintln(c.c.App.ErrWriter, err)
 		cli.OsExiter(1)

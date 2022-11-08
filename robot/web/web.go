@@ -488,15 +488,6 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 	})
 }
 
-type ssStreamContextWrapper struct {
-	googlegrpc.ServerStream
-	ctx context.Context
-}
-
-func (w ssStreamContextWrapper) Context() context.Context {
-	return w.ctx
-}
-
 // installWeb prepares the given mux to be able to serve the UI for the robot.
 func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options weboptions.Options) error {
 	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
@@ -727,32 +718,11 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
 
+	opManager := svc.r.OperationManager()
 	rpcOpts = append(
 		rpcOpts,
-		rpc.WithUnaryServerInterceptor(func(
-			ctx context.Context,
-			req interface{},
-			info *googlegrpc.UnaryServerInfo,
-			handler googlegrpc.UnaryHandler,
-		) (interface{}, error) {
-			ctx, done := svc.r.OperationManager().Create(ctx, info.FullMethod, req)
-			defer done()
-			return handler(ctx, req)
-		}),
-	)
-
-	rpcOpts = append(
-		rpcOpts,
-		rpc.WithStreamServerInterceptor(func(
-			srv interface{},
-			ss googlegrpc.ServerStream,
-			info *googlegrpc.StreamServerInfo,
-			handler googlegrpc.StreamHandler,
-		) error {
-			ctx, done := svc.r.OperationManager().Create(ss.Context(), info.FullMethod, nil)
-			defer done()
-			return handler(srv, &ssStreamContextWrapper{ss, ctx})
-		}),
+		rpc.WithUnaryServerInterceptor(opManager.UnaryServerInterceptor),
+		rpc.WithStreamServerInterceptor(opManager.StreamServerInterceptor),
 	)
 
 	rpcOpts = append(
@@ -818,13 +788,18 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					rpc.MakeSimpleMultiAuthHandler(authEntities, apiKeys),
 				))
 			case rutils.CredentialsTypeRobotLocationSecret:
-				secret := handler.Config.String("secret")
-				if secret == "" {
-					return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
+				locationSecrets := handler.Config.StringSlice("secrets")
+				if len(locationSecrets) == 0 {
+					secret := handler.Config.String("secret")
+					if secret == "" {
+						return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
+					}
+					locationSecrets = []string{secret}
 				}
+
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
 					handler.Type,
-					rpc.MakeSimpleAuthHandler(authEntities, secret),
+					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
