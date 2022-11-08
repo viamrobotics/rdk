@@ -30,11 +30,13 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
+	var extraOptions map[string]interface{}
+
 	injectSensors := &inject.SensorsService{}
-	omMap := map[resource.Name]interface{}{
+	ssMap := map[resource.Name]interface{}{
 		sensors.Named(testSvcName1): injectSensors,
 	}
-	svc, err := subtype.New(omMap)
+	svc, err := subtype.New(ssMap)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(sensors.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
@@ -58,12 +60,15 @@ func TestClient(t *testing.T) {
 		client := sensors.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
 
 		names := []resource.Name{movementsensor.Named("gps"), movementsensor.Named("imu")}
-		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
+		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+			extraOptions = extra
 			return names, nil
 		}
-		sensorNames, err := client.Sensors(context.Background())
+		extra := map[string]interface{}{"foo": "Sensors"}
+		sensorNames, err := client.Sensors(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a": 4.5, "b": 5.6, "c": 6.7}}
 		readings := []sensors.Readings{gReading}
@@ -71,17 +76,21 @@ func TestClient(t *testing.T) {
 			gReading.Name: gReading.Readings,
 		}
 
-		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(
+			ctx context.Context, sensors []resource.Name, extra map[string]interface{},
+		) ([]sensors.Readings, error) {
+			extraOptions = extra
 			return readings, nil
 		}
-
-		readings, err = client.Readings(context.Background(), []resource.Name{})
+		extra = map[string]interface{}{"foo": "Readings"}
+		readings, err = client.Readings(context.Background(), []resource.Name{}, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 1)
 		observed := map[resource.Name]interface{}{
 			readings[0].Name: readings[0].Readings,
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -96,18 +105,20 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("can't get sensors")
-		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
+		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
 			return nil, passedErr
 		}
 
-		_, err = client2.Sensors(context.Background())
+		_, err = client2.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		passedErr = errors.New("can't get readings")
-		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(
+			ctx context.Context, sensors []resource.Name, extra map[string]interface{},
+		) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
-		_, err = client2.Readings(context.Background(), []resource.Name{})
+		_, err = client2.Readings(context.Background(), []resource.Name{}, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
@@ -122,10 +133,10 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectSensors := &inject.SensorsService{}
-	omMap := map[resource.Name]interface{}{
+	ssMap := map[resource.Name]interface{}{
 		sensors.Named(testSvcName1): injectSensors,
 	}
-	server, err := newServer(omMap)
+	server, err := newServer(ssMap)
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterSensorsServiceServer(gServer, server)
 

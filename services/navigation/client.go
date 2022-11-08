@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 )
 
@@ -32,8 +33,12 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) Mode(ctx context.Context) (Mode, error) {
-	resp, err := c.client.GetMode(ctx, &pb.GetModeRequest{Name: c.name})
+func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := c.client.GetMode(ctx, &pb.GetModeRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return 0, err
 	}
@@ -50,7 +55,11 @@ func (c *client) Mode(ctx context.Context) (Mode, error) {
 	}
 }
 
-func (c *client) SetMode(ctx context.Context, mode Mode) error {
+func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
 	var pbMode pb.Mode
 	switch mode {
 	case ModeManual:
@@ -60,15 +69,19 @@ func (c *client) SetMode(ctx context.Context, mode Mode) error {
 	default:
 		pbMode = pb.Mode_MODE_UNSPECIFIED
 	}
-	_, err := c.client.SetMode(ctx, &pb.SetModeRequest{Name: c.name, Mode: pbMode})
+	_, err = c.client.SetMode(ctx, &pb.SetModeRequest{Name: c.name, Mode: pbMode, Extra: ext})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *client) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{Name: c.name})
+func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +90,12 @@ func (c *client) Location(ctx context.Context) (*geo.Point, error) {
 	return result, nil
 }
 
-func (c *client) Waypoints(ctx context.Context) ([]Waypoint, error) {
-	resp, err := c.client.GetWaypoints(ctx, &pb.GetWaypointsRequest{Name: c.name})
+func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetWaypoints(ctx, &pb.GetWaypointsRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +116,11 @@ func (c *client) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	return result, nil
 }
 
-func (c *client) AddWaypoint(ctx context.Context, point *geo.Point) error {
+func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
 	loc := &commonpb.GeoPoint{
 		Latitude:  point.Lat(),
 		Longitude: point.Lng(),
@@ -107,17 +128,22 @@ func (c *client) AddWaypoint(ctx context.Context, point *geo.Point) error {
 	req := &pb.AddWaypointRequest{
 		Name:     c.name,
 		Location: loc,
+		Extra:    ext,
 	}
-	_, err := c.client.AddWaypoint(ctx, req)
+	_, err = c.client.AddWaypoint(ctx, req)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
-	req := &pb.RemoveWaypointRequest{Name: c.name, Id: id.Hex()}
-	_, err := c.client.RemoveWaypoint(ctx, req)
+func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	req := &pb.RemoveWaypointRequest{Name: c.name, Id: id.Hex(), Extra: ext}
+	_, err = c.client.RemoveWaypoint(ctx, req)
 	if err != nil {
 		return err
 	}

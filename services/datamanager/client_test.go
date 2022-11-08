@@ -31,9 +31,11 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMS := &inject.DataManagerService{}
+	var extraOptions map[string]interface{}
+
+	injectDS := &inject.DataManagerService{}
 	resourceMap := map[resource.Name]interface{}{
-		datamanager.Named(testDataManagerServiceName): injectMS,
+		datamanager.Named(testDataManagerServiceName): injectDS,
 	}
 	svc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -59,13 +61,14 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client := datamanager.NewClientFromConn(context.Background(), conn, testDataManagerServiceName, logger)
 
-		injectMS.SyncFunc = func(
-			ctx context.Context,
-		) error {
+		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			extraOptions = extra
 			return nil
 		}
-		err = client.Sync(context.Background())
+		extra := map[string]interface{}{"foo": "Sync"}
+		err = client.Sync(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -79,13 +82,11 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake sync error")
-		injectMS.SyncFunc = func(
-			ctx context.Context,
-		) error {
+		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			return passedErr
 		}
 
-		err = client2.Sync(context.Background())
+		err = client2.Sync(context.Background(), map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -98,9 +99,9 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	injectMS := &inject.DataManagerService{}
+	injectDS := &inject.DataManagerService{}
 	resourceMap := map[resource.Name]interface{}{
-		datamanager.Named(testDataManagerServiceName): injectMS,
+		datamanager.Named(testDataManagerServiceName): injectDS,
 	}
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)

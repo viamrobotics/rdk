@@ -400,9 +400,27 @@ func shouldCheckForCert(prevCloud, cloud *Cloud) bool {
 	diffSignalingAddr := prevCloud.SignalingAddress != cloud.SignalingAddress
 	diffSignalInsecure := prevCloud.SignalingInsecure != cloud.SignalingInsecure
 	diffManagedBy := prevCloud.ManagedBy != cloud.ManagedBy
-	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret
+	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret || !isLocationSecretsEqual(prevCloud, cloud)
 
 	return diffFQDN || diffLocalFQDN || diffSignalingAddr || diffSignalInsecure || diffManagedBy || diffLocSecret
+}
+
+func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
+	if len(prevCloud.LocationSecrets) != len(cloud.LocationSecrets) {
+		return false
+	}
+
+	for i := range cloud.LocationSecrets {
+		if cloud.LocationSecrets[i].Secret != prevCloud.LocationSecrets[i].Secret {
+			return false
+		}
+
+		if cloud.LocationSecrets[i].ID != prevCloud.LocationSecrets[i].ID {
+			return false
+		}
+	}
+
+	return true
 }
 
 // readFromCloud fetches a robot config from the cloud based
@@ -502,6 +520,7 @@ func readFromCloud(
 	signalingInsecure := cfg.Cloud.SignalingInsecure
 	managedBy := cfg.Cloud.ManagedBy
 	locationSecret := cfg.Cloud.LocationSecret
+	locationSecrets := cfg.Cloud.LocationSecrets
 
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
@@ -511,6 +530,7 @@ func readFromCloud(
 		to.Cloud.SignalingInsecure = signalingInsecure
 		to.Cloud.ManagedBy = managedBy
 		to.Cloud.LocationSecret = locationSecret
+		to.Cloud.LocationSecrets = locationSecrets
 		to.Cloud.TLSCertificate = tlsCertificate
 		to.Cloud.TLSPrivateKey = tlsPrivateKey
 	}

@@ -7,23 +7,22 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	fakearm "go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	fakearm "go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func buildCfg(dof int) *ServiceConfig {
 	cfg := &ServiceConfig{
-		ArmName:               "",
-		InputControllerName:   "",
+		ArmName:               "armTest",
+		InputControllerName:   "controllerTest",
 		JointStep:             10.0,
 		MMStep:                0.1,
 		DegreeStep:            5.0,
@@ -57,25 +56,19 @@ func TestArmRemoteControl(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg := buildCfg(6)
+	deps := make(registry.Dependencies)
 
-	fakeRobot := &inject.Robot{}
 	fakeController := &inject.InputController{}
+	fakeArm, _ := fakearm.NewArm(
+		config.Component{
+			Name:                arm.Subtype.String(),
+			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName6DOF},
+		},
+		logger,
+	)
 
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		switch name.Subtype {
-		case input.Subtype:
-			return fakeController, nil
-		case arm.Subtype:
-			return fakearm.NewArm(
-				config.Component{
-					Name:                arm.Subtype.String(),
-					ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName6DOF},
-				},
-				logger,
-			)
-		}
-		return nil, rdkutils.NewResourceNotFoundError(name)
-	}
+	deps[arm.Named(cfg.ArmName)] = fakeArm
+	deps[input.Named(cfg.InputControllerName)] = fakeController
 
 	fakeController.RegisterControlCallbackFunc = func(
 		ctx context.Context,
@@ -93,7 +86,7 @@ func TestArmRemoteControl(t *testing.T) {
 	}
 
 	// New arm_remote_control check
-	tmpSvc, err := NewBuiltIn(ctx, fakeRobot,
+	tmpSvc, err := NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "arm_remote_control",
 			Type:                "arm_remote_control",
@@ -105,39 +98,42 @@ func TestArmRemoteControl(t *testing.T) {
 	svc, ok := tmpSvc.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	// Controller import failure
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if name.Subtype == arm.Subtype {
-			return &fakearm.Arm{}, nil
-		}
-		return nil, rdkutils.NewResourceNotFoundError(name)
-	}
+	delete(deps, input.Named(cfg.InputControllerName))
+	deps[arm.Named(cfg.ArmName)] = &fakearm.Arm{}
 
-	_, err = NewBuiltIn(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "arm_remote_control",
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("\"controllerTest\" missing from dependencies"))
 
-	// Arm import failure
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if name.Subtype == input.Subtype {
-			return fakeController, nil
-		}
-		return nil, rdkutils.NewResourceNotFoundError(name)
-	}
+	deps[input.Named(cfg.InputControllerName)] = fakeController
+	delete(deps, arm.Named(cfg.ArmName))
 
-	_, err = NewBuiltIn(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "arm_remote_control",
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:arm/\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("\"armTest\" missing from dependencies"))
+
+	// Deps exist but are incorrect component
+	deps[arm.Named(cfg.ArmName)] = fakeController
+	deps[input.Named(cfg.InputControllerName)] = fakeController
+	_, err = NewBuiltIn(ctx, deps,
+		config.Service{
+			Name:                "arm_remote_control",
+			Type:                "arm_remote_control",
+			ConvertedAttributes: cfg,
+		},
+		logger)
+	test.That(t, err, test.ShouldBeError,
+		errors.New("dependency \"armTest\" should an implementation of <nil> but it was a *inject.InputController"))
 
 	// Start checks
 	err = svc.start(ctx)

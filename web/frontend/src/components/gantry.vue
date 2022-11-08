@@ -58,7 +58,7 @@ const stop = () => {
         @click.stop="stop"
       />
     </div>
-    <div class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-black p-4">
       <table class="border border-t-0 border-black p-4">
         <thead>
           <tr>

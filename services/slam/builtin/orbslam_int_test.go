@@ -63,10 +63,10 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 
 // Checks that we can get position and map, and that there are more than zero map points.
 // Doesn't check precise values due to variations in orbslam results.
-func testPositionAndMap(t *testing.T, svc slam.Service) {
+func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 	t.Helper()
 
-	position, err := svc.Position(context.Background(), "test")
+	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	// Typical values for RGBD are around (-0.001, -0.004, -0.008)
 	// Typical values for Mono without an existing map are around (0.020, -0.032, -0.053)
@@ -81,7 +81,7 @@ func testPositionAndMap(t *testing.T, svc slam.Service) {
 		position.Pose().Orientation().AxisAngles().RY,
 		position.Pose().Orientation().AxisAngles().RZ,
 		position.Pose().Orientation().AxisAngles().Theta)
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false)
+	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
 	// Typical value for RGBD is 329
@@ -113,6 +113,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		t.FailNow()
 	}
 
+	mapRate := 1
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   sensors,
@@ -128,7 +130,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		DataDirectory: name,
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
-		MapRateSec: 1,
+		MapRateSec: &mapRate,
 	}
 
 	// Release camera image(s) for service validation
@@ -154,14 +156,17 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testPositionAndMap(t, svc)
+	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
 
-	// Delete the last image or image pair, so that offline mode runs on the same set of images
+	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
+	// the same data as online mode. (Online mode will not read the last image (or image pair),
+	// since it always processes the second-most-recent image (or image pair), in case the
+	// most-recent image (or image pair) is currently being written.)
 	var directories []string
 	switch mode {
 	case slam.Mono:
@@ -184,6 +189,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test offline mode using the config and data generated in the online test
 	t.Log("Testing offline mode")
 
+	mapRate = 1
+
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   []string{},
@@ -197,7 +204,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"debug":             "true",
 		},
 		DataDirectory: name,
-		MapRateSec:    1,
+		MapRateSec:    &mapRate,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -215,7 +222,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 	}
 
-	testPositionAndMap(t, svc)
+	testOrbslamPositionAndMap(t, svc)
 
 	// Wait for the final map to be saved
 	for {
@@ -238,6 +245,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
+	mapRate = 9999
+
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   sensors,
@@ -251,7 +260,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"debug":             "true",
 		},
 		DataDirectory: name,
-		MapRateSec:    -1,
+		MapRateSec:    &mapRate,
 	}
 
 	// Release camera image(s) for service validation
@@ -287,7 +296,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testPositionAndMap(t, svc)
+	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)

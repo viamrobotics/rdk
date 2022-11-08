@@ -72,9 +72,11 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		if err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx)); err != nil {
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx))
+		if err != nil {
 			return err
 		}
+		c.Services[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if err := c.Network.Validate("network"); err != nil {
@@ -164,6 +166,7 @@ func (config *Remote) Validate(path string) error {
 			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}
+
 	if config.Secret != "" {
 		config.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{
@@ -180,18 +183,19 @@ func (config *Remote) Validate(path string) error {
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
-	ID                string        `json:"id"`
-	Secret            string        `json:"secret"`
-	LocationSecret    string        `json:"location_secret"`
-	ManagedBy         string        `json:"managed_by"`
-	FQDN              string        `json:"fqdn"`
-	LocalFQDN         string        `json:"local_fqdn"`
-	SignalingAddress  string        `json:"signaling_address"`
-	SignalingInsecure bool          `json:"signaling_insecure,omitempty"`
-	Path              string        `json:"path"`
-	LogPath           string        `json:"log_path"`
-	AppAddress        string        `json:"app_address"`
-	RefreshInterval   time.Duration `json:"refresh_interval,omitempty"`
+	ID                string           `json:"id"`
+	Secret            string           `json:"secret"`
+	LocationSecret    string           `json:"location_secret"` // Deprecated: Use LocationSecrets
+	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	ManagedBy         string           `json:"managed_by"`
+	FQDN              string           `json:"fqdn"`
+	LocalFQDN         string           `json:"local_fqdn"`
+	SignalingAddress  string           `json:"signaling_address"`
+	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
+	Path              string           `json:"path"`
+	LogPath           string           `json:"log_path"`
+	AppAddress        string           `json:"app_address"`
+	RefreshInterval   time.Duration    `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
@@ -217,6 +221,13 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		config.RefreshInterval = 10 * time.Second
 	}
 	return nil
+}
+
+// LocationSecret describes a location secret that can be used to authenticate to the rdk.
+type LocationSecret struct {
+	ID string
+	// Payload of the secret
+	Secret string
 }
 
 // NetworkConfig describes networking settings for the web server.

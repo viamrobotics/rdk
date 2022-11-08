@@ -48,14 +48,14 @@ buf-web: tool-install
 	npm ci --audit=false --prefix web/frontend
 	npm run rollup --prefix web/frontend
 
-lint: lint-go
+lint: lint-go lint-web
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 lint-go: tool-install
 	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run $(LINT_BUILD_TAGS) -v --fix --config=./etc/.golangci.yaml
 
-lint-web:
+lint-web: typecheck-web
 	npm run lint --prefix web/frontend
 
 typecheck-web:
@@ -75,7 +75,7 @@ test-web:
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/components/board/pi/impl
-	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
+	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go

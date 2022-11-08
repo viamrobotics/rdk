@@ -132,7 +132,7 @@ func TestColorDetectionSource(t *testing.T) {
 			"segment_size_px":   15000,
 		},
 	}
-	err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	detector, err := camera.FromRobot(r, "color_detect")
@@ -169,7 +169,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 			"num_threads": 1,
 		},
 	}
-	err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	detector, err := camera.FromRobot(r, "tflite_detect")
@@ -206,7 +206,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 			"segment_size_px":   15000,
 		},
 	}
-	err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(b, err, test.ShouldBeNil)
@@ -241,7 +241,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 			"num_threads": 1,
 		},
 	}
-	err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
