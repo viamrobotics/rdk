@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/types"
 )
 
 // client implements PoseTrackerServiceClient.
@@ -55,7 +54,7 @@ func (c *client) Poses(
 	return result, nil
 }
 
-func (c *client) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return Readings(ctx, c)
 }
 

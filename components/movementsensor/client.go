@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/types"
 )
 
 // check client fulfills sensor.Sensor interface.
@@ -90,7 +89,7 @@ func (c *client) CompassHeading(ctx context.Context) (float64, error) {
 	return resp.Value, nil
 }
 
-func (c *client) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	// TODO(erh): should this go over the network?
 	return Readings(ctx, c)
 }

@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/types"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -366,7 +365,7 @@ func (r *rtkStation) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (r *rtkStation) Readings(ctx context.Context, _ types.ExtraParams) (map[string]interface{}, error) {
+func (r *rtkStation) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{}, movementsensor.ErrMethodUnimplementedReadings
 }
 

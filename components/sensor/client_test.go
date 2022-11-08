@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/types"
 )
 
 func TestClient(t *testing.T) {
@@ -33,15 +32,15 @@ func TestClient(t *testing.T) {
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
-	var extraCap types.ExtraParams
+	var extraCap map[string]interface{}
 	injectSensor := &inject.Sensor{}
-	injectSensor.ReadingsFunc = func(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		extraCap = extra
 		return rs, nil
 	}
 
 	injectSensor2 := &inject.Sensor{}
-	injectSensor2.ReadingsFunc = func(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return nil, errors.New("can't get readings")
 	}
 
@@ -79,16 +78,16 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		rs1, err := sensor1Client.Readings(context.Background(), types.ZeroExtraParams())
+		rs1, err := sensor1Client.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
-		test.That(t, extraCap, test.ShouldResemble, types.ZeroExtraParams())
+		test.That(t, extraCap, test.ShouldResemble, make(map[string]interface{}))
 
 		// With extra params
-		rs1, err = sensor1Client.Readings(context.Background(), types.OneExtraParam("foo", "bar"))
+		rs1, err = sensor1Client.Readings(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
-		test.That(t, extraCap, test.ShouldResemble, types.OneExtraParam("foo", "bar"))
+		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		test.That(t, utils.TryClose(context.Background(), sensor1Client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -101,7 +100,7 @@ func TestClient(t *testing.T) {
 		sensor2Client, ok := client.(sensor.Sensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = sensor2Client.Readings(context.Background(), types.ZeroExtraParams())
+		_, err = sensor2Client.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 

@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/types"
 	"go.viam.com/rdk/utils"
 )
 
@@ -133,7 +132,7 @@ func (r *reconfigurablePoseTracker) Poses(
 }
 
 // Readings returns the PoseTrack readings.
-func (r *reconfigurablePoseTracker) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (r *reconfigurablePoseTracker) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Readings(ctx, extra)

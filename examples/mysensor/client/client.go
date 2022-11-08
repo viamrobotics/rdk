@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/robot/client"
-	"go.viam.com/rdk/types"
 )
 
 func main() {
@@ -27,7 +26,7 @@ func main() {
 	if err != nil {
 		logger.Error(err)
 	}
-	reading, err := sensor.Readings(context.Background(), types.ZeroExtraParams())
+	reading, err := sensor.Readings(context.Background(), make(map[string]interface{}))
 	if err != nil {
 		logger.Error(err)
 	}

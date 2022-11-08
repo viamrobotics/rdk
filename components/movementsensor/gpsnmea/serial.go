@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/types"
 )
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
@@ -200,7 +199,7 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 }
 
 // Readings will use return all of the MovementSensor Readings.
-func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g)
 	if err != nil {
 		return nil, g.lastError

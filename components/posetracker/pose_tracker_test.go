@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/types"
 	"go.viam.com/rdk/utils"
 )
 
@@ -152,7 +151,7 @@ func (m *mock) Poses(ctx context.Context, bodyNames []string, extra map[string]i
 	}, nil
 }
 
-func (m *mock) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (m *mock) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return posetracker.Readings(ctx, m)
 }
 
@@ -199,7 +198,7 @@ func TestReadings(t *testing.T) {
 	sensorPT1, isSensor := reconfPT1.(sensor.Sensor)
 	test.That(t, isSensor, test.ShouldBeTrue)
 
-	receivedReadings, err := sensorPT1.Readings(context.Background(), types.ZeroExtraParams())
+	receivedReadings, err := sensorPT1.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, receivedReadings["body1"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()))
