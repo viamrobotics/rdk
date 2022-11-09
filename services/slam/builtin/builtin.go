@@ -775,12 +775,11 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
-	img, release, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
+	readImgCtx := gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG))
+	img, release, err := camera.ReadImage(readImgCtx, cam)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
 		if lazyImg.MIMEType() != utils.MimeTypePNG {
 			return nil, nil, errors.Errorf("expected mime type %v, got %T", utils.MimeTypePNG, img)

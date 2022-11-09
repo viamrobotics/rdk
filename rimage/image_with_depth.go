@@ -2,6 +2,7 @@ package rimage
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/color"
 
@@ -182,13 +183,13 @@ func (i *imageWithDepth) Overlay() *image.NRGBA {
 }
 
 // newImageWithDepth returns a new image from the given color image and depth data files.
-func newImageWithDepth(colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
+func newImageWithDepth(ctx context.Context, colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
-	dm, err := NewDepthMapFromFile(depthFN)
+	dm, err := NewDepthMapFromFile(ctx, depthFN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
