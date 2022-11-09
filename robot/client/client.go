@@ -458,7 +458,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
-			rc.Logger().Errorw("failed to refresh status", "error", err)
+			rc.Logger().Errorw("failed to refresh resources from remote", "error", err)
 		}
 	}
 }
