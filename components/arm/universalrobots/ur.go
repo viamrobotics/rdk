@@ -248,9 +248,8 @@ func (ua *URArm) MoveToPosition(
 	defer done()
 	if ua.builtinKinematics {
 		return ua.moveWithBuiltinKinematics(ctx, pos)
-	} else {
-		return arm.Move(ctx, ua.robot, ua, pos, worldState)
 	}
+	return arm.Move(ctx, ua.robot, ua, pos, worldState)
 }
 
 // MoveToJointPositions TODO.
@@ -487,7 +486,7 @@ func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pose *commonpb.P
 			return err
 		}
 
-		slept = slept + 10
+		slept += 10
 
 		if slept > 5000 && !retried {
 			_, err := ua.conn.Write([]byte(cmd))
