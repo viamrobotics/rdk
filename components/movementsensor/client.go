@@ -38,7 +38,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Position(ctx context.Context, extra types.ExtraParams) (*geo.Point, float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, 0, err
@@ -55,7 +55,7 @@ func (c *client) Position(ctx context.Context, extra types.ExtraParams) (*geo.Po
 		nil
 }
 
-func (c *client) LinearVelocity(ctx context.Context, extra types.ExtraParams) (r3.Vector, error) {
+func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return r3.Vector{}, err
@@ -70,7 +70,7 @@ func (c *client) LinearVelocity(ctx context.Context, extra types.ExtraParams) (r
 	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
-func (c *client) AngularVelocity(ctx context.Context, extra types.ExtraParams) (spatialmath.AngularVelocity, error) {
+func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
@@ -85,7 +85,7 @@ func (c *client) AngularVelocity(ctx context.Context, extra types.ExtraParams) (
 	return spatialmath.AngularVelocity(protoutils.ConvertVectorProtoToR3(resp.AngularVelocity)), nil
 }
 
-func (c *client) Orientation(ctx context.Context, extra types.ExtraParams) (spatialmath.Orientation, error) {
+func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return spatialmath.NewZeroOrientation(), err
@@ -100,7 +100,7 @@ func (c *client) Orientation(ctx context.Context, extra types.ExtraParams) (spat
 	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
 }
 
-func (c *client) CompassHeading(ctx context.Context, extra types.ExtraParams) (float64, error) {
+func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, err
@@ -120,7 +120,7 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	return Readings(ctx, c, extra)
 }
 
-func (c *client) Accuracy(ctx context.Context, extra types.ExtraParams) (map[string]float32, error) {
+func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (c *client) Accuracy(ctx context.Context, extra types.ExtraParams) (map[str
 	return resp.AccuracyMm, nil
 }
 
-func (c *client) Properties(ctx context.Context, extra types.ExtraParams) (*Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err
