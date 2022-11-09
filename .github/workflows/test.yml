@@ -33,7 +33,7 @@ jobs:
 
     steps:
     - name: Check out main branch code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
       with:
         fetch-depth: 2
@@ -114,7 +114,7 @@ jobs:
         rm -rf ./*
 
     - name: Check out main branch code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
       with:
         fetch-depth: 2
@@ -129,28 +129,15 @@ jobs:
     - name: Test
       run: make test-pi
 
-  test_passing:
-    name: All Tests Passing
-    needs: [test_pi, build_and_test]
-    runs-on: [x64, qemu-host]
-    if: always()
-    steps:
-      - name: Check Results
-        run: |
-          echo Test Pi: ${{ needs.test_pi.result }}
-          echo Main Tests: ${{ needs.build_and_test.result }}
-          [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.build_and_test.result }}" == "success" ]
-
   test_e2e:
-    name: End-to-End Tests Passing
+    name: Test End-to-End
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     steps:
       - name: Check out main branch code
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+        if: github.event_name != 'pull_request_target'
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
@@ -172,7 +159,7 @@ jobs:
           sudo -u testbot bash -lc 'make build-web test-e2e'
 
   test_integration:
-    name: Integration Tests Passing
+    name:  Test SLAM Integration
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
@@ -200,3 +187,20 @@ jobs:
     - name: Run integration tests
       run: |
         sudo -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
+
+  test_passing:
+    name: All Tests Passing
+    needs: [test_pi, build_and_test, test_e2e, test_integration]
+    runs-on: [x64, qemu-host]
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          echo Pi Tests: ${{ needs.test_pi.result }}
+          echo Main Tests: ${{ needs.build_and_test.result }}
+          echo E2E Tests: ${{ needs.test_e2e.result }}
+          echo SLAM Tests: ${{ needs.test_integration.result }}
+          [ "${{ needs.test_pi.result }}" == "success" ] && \
+          [ "${{ needs.build_and_test.result }}" == "success" ] && \
+          [ "${{ needs.test_e2e.result }}" == "success" ] && \
+          [ "${{ needs.test_integration.result }}" == "success" ]
