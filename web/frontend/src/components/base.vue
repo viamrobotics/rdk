@@ -277,7 +277,7 @@ onMounted(() => {
         v-if="selectedItem === 'Keyboard'"
         class="h-auto p-4"
       >
-        <div class="flex flex-wrap gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2">
           <KeyboardInput
             class="mb-2"
             @keydown="handleKeyDown"
