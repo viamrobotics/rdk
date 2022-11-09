@@ -213,7 +213,7 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 				if err != nil {
 					return nil, err
 				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
@@ -236,7 +236,7 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 				if err != nil {
 					return nil, err
 				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
@@ -304,7 +304,7 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 					if err != nil {
 						return nil, err
 					}
-					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 					return gostream.NewEmbeddedVideoStreamFromReader(
 						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 							return lazy, func() {}, nil
@@ -343,7 +343,7 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 					if err != nil {
 						return nil, err
 					}
-					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 					return gostream.NewEmbeddedVideoStreamFromReader(
 						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 							return lazy, func() {}, nil
@@ -856,7 +856,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 			return gostream.NewEmbeddedVideoStreamFromReader(
 				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 					return lazy, func() {}, nil

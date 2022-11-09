@@ -41,7 +41,7 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		return imaging.Rotate(orig, 180, color.Black), release, nil
 	case camera.DepthStream:
-		dm, err := rimage.ConvertImageToDepthMap(orig)
+		dm, err := rimage.ConvertImageToDepthMap(ctx, orig)
 		if err != nil {
 			return nil, nil, err
 		}
