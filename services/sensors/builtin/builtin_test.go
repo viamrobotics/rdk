@@ -98,7 +98,7 @@ func TestReadings(t *testing.T) {
 	t.Run("failing sensor", func(t *testing.T) {
 		injectSensor := &inject.Sensor{}
 		passedErr := errors.New("can't get readings")
-		injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 			return nil, passedErr
 		}
 		failMap := map[resource.Name]interface{}{
@@ -116,17 +116,17 @@ func TestReadings(t *testing.T) {
 	t.Run("many sensors", func(t *testing.T) {
 		readings1 := map[string]interface{}{"a": 1.1, "b": 2.2}
 		injectSensor := &inject.Sensor{}
-		injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 			return readings1, nil
 		}
 		readings2 := map[string]interface{}{"a": 2.2, "b": 3.3}
 		injectSensor2 := &inject.Sensor{}
-		injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 			return readings2, nil
 		}
 		injectSensor3 := &inject.Sensor{}
 		passedErr := errors.New("can't read")
-		injectSensor3.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor3.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 			return nil, passedErr
 		}
 		expected := map[resource.Name]interface{}{
