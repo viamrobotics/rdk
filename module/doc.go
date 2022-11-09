@@ -7,10 +7,9 @@ The module system allows a user to build an external binary, either in Golang, u
 or in any other language, provided it can properly support protobuf/grpc. The path to the binary (the module) and a name for it must
 be given in the Modules section of the robot config. The normal viam-server (rdk) process will then start this binary, and query it via
 GRPC for what protocols (protobuf described APIs) and models it supports. Then, any components or services that match will be handled
-seemlessly by the module, including reconfiguration, shutdown, and dependency management. Modular components may depend on others from
+seamlessly by the module, including reconfiguration, shutdown, and dependency management. Modular components may depend on others from
 either the parent (aka built-in resources) or other modules, and vice versa. Modular resources should behave identically to built-in
 resources from a user perspective.
-
 
 # Startup
 
@@ -30,7 +29,7 @@ rather than a specific component.
 
 Back on the parent side, once the AddComponent/AddService call completes, the modmanager then established an rpc client for the resource,
 and returns that to the resource manager, which inserts it into the resource graph. For built-in protocols (arm, motor, base, etc.) this
-rpc client is case to the expected interface, and is functionally identical to a built-in component. For new protocols, the client created
+rpc client is cast to the expected interface, and is functionally identical to a built-in component. For new protocols, the client created
 is wrapped as a ForeignResource, which (along with the reflection service in the module) allows it to be used normally by external clients
 that are also aware of the new protocol in question.
 
@@ -51,8 +50,7 @@ For removal (during reconfiguration) RemoveResource() is called, and only passes
 
 Shutdown is hooked so that during the Close() of the resource manager, resources are checked if they are modular, and if so,
 RemoveResource() is called after the parent-side rpc client is closed. The RPC Lite service is also kept open as late as possible.
-Otherwise, shutdown happens as normal, including the closing of components in topographical (dependency) order.
-
+Otherwise, shutdown happens as normal, including the closing of components in topological (dependency) order.
 
 # Module Creation Considerations
 
@@ -69,6 +67,5 @@ In other languages, and for small modules not part of a larger code ecosystem, t
 technically required is that the module can serve gprc on a unix socket provided as a runtime argument, provide a grpc reflection service
 (if using custom/external protocols), report the protocols/models it services via Read(), and properly handle Add/Reconfigure/Remove calls
 for resources.
-
 */
 package module

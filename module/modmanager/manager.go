@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"io/fs"
 	"path/filepath"
 	"sync"
 	"time"
@@ -99,6 +100,24 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	err = mod.process.Start(context.Background())
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
+	}
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+	for {
+		select {
+		case <-ctxTimeout.Done():
+			return errors.Errorf("timed out waiting for module %s to start listening", mod.name)
+		default:
+		}
+		err = modlib.CheckSocketOwner(mod.addr)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
+		}
+		break
 	}
 
 	conn, err := grpc.Dial(

@@ -310,12 +310,12 @@ func (svc *webService) StartLite(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
+	oldMask := syscall.Umask(0o077)
 	dir, err := os.MkdirTemp("", "viam-module-*")
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
 	svc.liteAddr = dir + "/parent.sock"
-	oldMask := syscall.Umask(0o077)
 	lis, err := net.Listen("unix", svc.liteAddr)
 	syscall.Umask(oldMask)
 	if err != nil {

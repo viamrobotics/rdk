@@ -18,20 +18,20 @@ type (
 	ModelName string
 )
 
-// ModelFamilyDefaultName is the name "default".
-const ModelFamilyDefaultName = ModelFamilyName("builtin")
+// DefaultModelFamilyName is the name "default".
+const DefaultModelFamilyName = ModelFamilyName("builtin")
 
 var (
-	// ModelFamilyDefault is the rdk:builtin model family for built-in resources.
-	ModelFamilyDefault       = ModelFamily{ResourceNamespaceRDK, ModelFamilyDefaultName}
+	// DefaultModelFamily is the rdk:builtin model family for built-in resources.
+	DefaultModelFamily       = ModelFamily{ResourceNamespaceRDK, DefaultModelFamilyName}
 	modelRegexValidator      = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
 	shortModelRegexValidator = regexp.MustCompile(`^([\w-]+)$`)
 )
 
 // ModelFamily is a family of related models.
 type ModelFamily struct {
-	Namespace   Namespace       `json:"namespace"`
-	ModelFamily ModelFamilyName `json:"model_family"`
+	Namespace Namespace       `json:"namespace"`
+	Family    ModelFamilyName `json:"model_family"`
 }
 
 // NewModelFamily creates a new ModelFamily based on parameters passed in.
@@ -44,13 +44,13 @@ func (f ModelFamily) Validate() error {
 	if f.Namespace == "" {
 		return errors.New("model namespace field for resource missing")
 	}
-	if f.ModelFamily == "" {
+	if f.Family == "" {
 		return errors.New("model family field for resource missing")
 	}
 	if err := ContainsReservedCharacter(string(f.Namespace)); err != nil {
 		return err
 	}
-	if err := ContainsReservedCharacter(string(f.ModelFamily)); err != nil {
+	if err := ContainsReservedCharacter(string(f.Family)); err != nil {
 		return err
 	}
 	return nil
@@ -58,7 +58,7 @@ func (f ModelFamily) Validate() error {
 
 // String returns the model family string for the resource.
 func (f ModelFamily) String() string {
-	return fmt.Sprintf("%s:%s", f.Namespace, f.ModelFamily)
+	return fmt.Sprintf("%s:%s", f.Namespace, f.Family)
 }
 
 // Model represents an individual model within a family.
@@ -75,7 +75,7 @@ func NewModel(namespace Namespace, fName ModelFamilyName, model ModelName) Model
 
 // NewDefaultModel creates a new Model in the rdk:builtin namespace/family based on parameters passed in.
 func NewDefaultModel(model ModelName) Model {
-	return Model{ModelFamilyDefault, model}
+	return Model{DefaultModelFamily, model}
 }
 
 // NewModelFromString creates a new Name based on a fully qualified resource name string passed in.
@@ -85,7 +85,7 @@ func NewModelFromString(modelStr string) (Model, error) {
 		return NewModel(Namespace(matches[1]), ModelFamilyName(matches[2]), ModelName(matches[3])), nil
 	}
 	if shortModelRegexValidator.MatchString(modelStr) {
-		return NewModel(ResourceNamespaceRDK, ModelFamilyDefaultName, ModelName(modelStr)), nil
+		return NewModel(ResourceNamespaceRDK, DefaultModelFamilyName, ModelName(modelStr)), nil
 	}
 	return Model{}, errors.Errorf("string %q is not a valid model name", modelStr)
 }
@@ -115,25 +115,24 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 	if modelRegexValidator.MatchString(modelStr) {
 		matches := modelRegexValidator.FindStringSubmatch(modelStr)
 		m.Namespace = Namespace(matches[1])
-		m.ModelFamily.ModelFamily = ModelFamilyName(matches[2])
+		m.ModelFamily.Family = ModelFamilyName(matches[2])
 		m.Name = ModelName(matches[3])
 		return nil
 	}
 	if shortModelRegexValidator.MatchString(modelStr) {
 		m.Namespace = ResourceNamespaceRDK
-		m.ModelFamily.ModelFamily = ModelFamilyDefaultName
+		m.ModelFamily.Family = DefaultModelFamilyName
 		m.Name = ModelName(modelStr)
 		return nil
 	}
 
 	var tempModel map[string]string
-	err := json.Unmarshal(data, &tempModel)
-	if err != nil {
+	if err := json.Unmarshal(data, &tempModel); err != nil {
 		return err
 	}
 
 	m.Namespace = Namespace(tempModel["namespace"])
-	m.ModelFamily.ModelFamily = ModelFamilyName(tempModel["model_family"])
+	m.ModelFamily.Family = ModelFamilyName(tempModel["model_family"])
 	m.Name = ModelName(tempModel["name"])
 
 	return nil

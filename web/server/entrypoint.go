@@ -307,6 +307,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	defer func() {
 		<-onWatchDone
 	}()
+	defer cancel()
 
 	options, err := s.createWebOptions(processedConfig)
 	if err != nil {

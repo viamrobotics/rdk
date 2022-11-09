@@ -24,7 +24,7 @@ var ResourceSubtype = resource.NewSubtype(
 	resource.SubtypeName("summation"),
 )
 
-// Named is a helper for getting the named MyComponent's typed resource name.
+// Named is a helper for getting the named Summation's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(ResourceSubtype, name)
 }
@@ -92,12 +92,12 @@ func (g *reconfigurableSummation) ProxyFor() interface{} {
 	return g.actual
 }
 
-func (g *reconfigurableSummation) Reconfigure(ctx context.Context, newMyComponent resource.Reconfigurable) error {
+func (g *reconfigurableSummation) Reconfigure(ctx context.Context, newSummation resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	actual, ok := newMyComponent.(*reconfigurableSummation)
+	actual, ok := newSummation.(*reconfigurableSummation)
 	if !ok {
-		return utils.NewUnexpectedTypeError(g, newMyComponent)
+		return utils.NewUnexpectedTypeError(g, newSummation)
 	}
 	if err := goutils.TryClose(ctx, g.actual); err != nil {
 		golog.Global().Errorw("error closing old", "error", err)

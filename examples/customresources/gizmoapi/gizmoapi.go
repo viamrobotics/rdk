@@ -24,7 +24,7 @@ var ResourceSubtype = resource.NewSubtype(
 	resource.SubtypeName("gizmo"),
 )
 
-// Named is a helper for getting the named MyComponent's typed resource name.
+// Named is a helper for getting the named Gizmo's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(ResourceSubtype, name)
 }
@@ -80,7 +80,7 @@ func NewServer(s subtype.Service) pb.GizmoServiceServer {
 	return &subtypeServer{s: s}
 }
 
-func (s *subtypeServer) getMyComponent(name string) (Gizmo, error) {
+func (s *subtypeServer) getGizmo(name string) (Gizmo, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
 		return nil, errors.Errorf("no Gizmo with name (%s)", name)
@@ -93,7 +93,7 @@ func (s *subtypeServer) getMyComponent(name string) (Gizmo, error) {
 }
 
 func (s *subtypeServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.DoOneResponse, error) {
-	g, err := s.getMyComponent(req.Name)
+	g, err := s.getGizmo(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStre
 			return errors.New("unexpected")
 		}
 	}
-	g, err := s.getMyComponent(name)
+	g, err := s.getGizmo(name)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStre
 }
 
 func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.GizmoService_DoOneServerStreamServer) error {
-	g, err := s.getMyComponent(req.Name)
+	g, err := s.getGizmo(req.Name)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 			return errors.New("unexpected")
 		}
 	}
-	g, err := s.getMyComponent(name)
+	g, err := s.getGizmo(name)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 }
 
 func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.DoTwoResponse, error) {
-	g, err := s.getMyComponent(req.Name)
+	g, err := s.getGizmo(req.Name)
 	if err != nil {
 		return nil, err
 	}

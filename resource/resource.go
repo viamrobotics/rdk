@@ -82,7 +82,7 @@ type Subtype struct {
 // An RPCSubtype provides RPC information about a particular subtype.
 type RPCSubtype struct {
 	Subtype Subtype
-	SvcName string
+	ProtoSvcName string
 	Desc    *desc.ServiceDescriptor
 }
 

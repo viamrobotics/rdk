@@ -27,7 +27,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "arm-model": "rdk:builtin:ur5e"
+                "arm-model": "ur5e"
             },
             "frame": {
                 "parent": "ga"

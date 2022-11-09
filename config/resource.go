@@ -121,7 +121,7 @@ func (config *Component) Validate(path string) ([]string, error) {
 	}
 	if config.Model.Namespace == "" {
 		config.Model.Namespace = resource.ResourceNamespaceRDK
-		config.Model.ModelFamily = resource.ModelFamilyDefault
+		config.Model.ModelFamily = resource.DefaultModelFamily
 	}
 
 	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
@@ -342,7 +342,7 @@ func (config *Service) Validate(path string) error {
 
 	if config.Model.Namespace == "" {
 		config.Model.Namespace = resource.ResourceNamespaceRDK
-		config.Model.ModelFamily = resource.ModelFamilyDefault
+		config.Model.ModelFamily = resource.DefaultModelFamily
 	}
 
 	if config.Namespace == "" {

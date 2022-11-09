@@ -70,12 +70,12 @@ func (g *reconfigurableGizmo) DoTwo(ctx context.Context, arg1 bool) (string, err
 	return g.actual.DoTwo(ctx, arg1)
 }
 
-func (g *reconfigurableGizmo) Reconfigure(ctx context.Context, newMyComponent resource.Reconfigurable) error {
+func (g *reconfigurableGizmo) Reconfigure(ctx context.Context, newGizmo resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	actual, ok := newMyComponent.(*reconfigurableGizmo)
+	actual, ok := newGizmo.(*reconfigurableGizmo)
 	if !ok {
-		return utils.NewUnexpectedTypeError(g, newMyComponent)
+		return utils.NewUnexpectedTypeError(g, newGizmo)
 	}
 	if err := goutils.TryClose(ctx, g.actual); err != nil {
 		golog.Global().Errorw("error closing old", "error", err)

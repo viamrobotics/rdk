@@ -42,7 +42,7 @@ func (h HandlerMap) ToProto() *pb.HandlerMap {
 				Subtype: s.Subtype,
 				Name:    "",
 			}),
-			ProtoService: s.SvcName,
+			ProtoService: s.ProtoSvcName,
 		}
 
 		handler := &pb.HandlerDefinition{Subtype: subtype}
@@ -168,6 +168,10 @@ func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (in
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.parent == nil {
+		err := CheckSocketOwner(m.parentAddr)
+		if err != nil {
+			return nil, err
+		}
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger)
 		if err != nil {
 			return nil, err
@@ -414,9 +418,23 @@ func (m *Module) buildHandlerMap() {
 		}
 		rpcST := resource.RPCSubtype{
 			Subtype: st,
-			SvcName: creator.RPCServiceDesc.ServiceName,
+			ProtoSvcName: creator.RPCServiceDesc.ServiceName,
 			Desc:    creator.ReflectRPCServiceDesc,
 		}
 		m.handlers[rpcST] = append(m.handlers[rpcST], model)
 	}
+}
+
+// CheckSocketOwner verifies that UID of a filepath/socket matches the current process's UID.
+func CheckSocketOwner(address string) error {
+	// check that the module socket has the same ownership as our process
+	info, err := os.Stat(address)
+	if err != nil {
+		return err
+	}
+	stat := info.Sys().(*syscall.Stat_t)
+	if os.Getuid() != int(stat.Uid) {
+		return errors.New("socket ownership doesn't match current process UID")
+	}
+	return nil
 }
