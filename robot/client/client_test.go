@@ -186,11 +186,11 @@ func TestStatusClient(t *testing.T) {
 
 	injectServo := &inject.Servo{}
 	var capServoAngle uint8
-	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	injectServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 		return 5, nil
 	}
 
@@ -362,11 +362,11 @@ func TestStatusClient(t *testing.T) {
 
 	servo1, err := servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
-	err = servo1.Move(context.Background(), 5)
+	err = servo1.Move(context.Background(), 5, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.Position(context.Background())
+	_, err = servo1.Position(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
@@ -442,11 +442,11 @@ func TestStatusClient(t *testing.T) {
 
 	servo1, err = servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
-	err = servo1.Move(context.Background(), 4)
+	err = servo1.Move(context.Background(), 4, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 
-	currentVal, err := servo1.Position(context.Background())
+	currentVal, err := servo1.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
