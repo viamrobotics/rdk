@@ -19,7 +19,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' || 
       (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@workflows
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
@@ -29,6 +29,6 @@ jobs:
     if: |
       contains(github.event.pull_request.labels.*.name, 'appimage') && (github.event_name == 'workflow_dispatch' || 
       (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test')))
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@workflows
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}

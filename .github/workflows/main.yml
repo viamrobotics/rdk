@@ -18,12 +18,12 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@workflows
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@workflows
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
