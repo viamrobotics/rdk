@@ -35,8 +35,9 @@ const ModelName = "ur5e"
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Speed float64 `json:"speed_degs_per_sec"`
-	Host  string  `json:"host"`
+	Speed             float64 `json:"speed_degs_per_sec"`
+	Host              string  `json:"host"`
+	BuiltinKinematics bool    `json:"builtin_kinematics"`
 }
 
 //go:embed ur5e.json
@@ -83,6 +84,7 @@ type URArm struct {
 	model                   referenceframe.Model
 	opMgr                   operation.SingleOperationManager
 	robot                   robot.Robot
+	builtinKinematics       bool
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -145,6 +147,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		cancel:                  cancel,
 		model:                   model,
 		robot:                   r,
+		builtinKinematics:       cfg.ConvertedAttributes.(*AttrConfig).BuiltinKinematics,
 	}
 
 	onData := make(chan struct{})
@@ -232,6 +235,8 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
+// NOTE: if the UR arm was configured with "builtin_kinematics = 'true'" the worldState argument will be ignored, as universal robotics
+// does not natively support obstacle avoidance. Use with caution!
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
 	pos *commonpb.Pose,
@@ -240,7 +245,11 @@ func (ua *URArm) MoveToPosition(
 ) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, ua.robot, ua, pos, worldState)
+	if ua.builtinKinematics {
+		return ua.moveWithBuiltinKinematics(ctx, pos)
+	} else {
+		return arm.Move(ctx, ua.robot, ua, pos, worldState)
+	}
 }
 
 // MoveToJointPositions TODO.
@@ -437,6 +446,58 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			}
 		default:
 			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
+		}
+	}
+}
+
+// MoveToPositionURDriver uses the builtin kinematics.
+func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pos *commonpb.Pose) error {
+	// UR5 arm takes R3 angle axis as input
+	rx := pos.OX * pos.Theta
+	ry := pos.OY * pos.Theta
+	rz := pos.OZ * pos.Theta
+
+	// write command to arm
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", pos.X, pos.Y, pos.Z, rx, ry, rz)
+	_, err := ua.conn.Write([]byte(cmd))
+	if err != nil {
+		return err
+	}
+
+	retried := false
+	slept := 0
+	for {
+		cur, err := ua.EndPosition(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if arm.PositionGridDiff(pos, cur) <= 1.5 &&
+			arm.PositionRotationDiff(pos, cur) <= 1.0 {
+			return nil
+		}
+
+		err = ua.getAndResetRuntimeError()
+		if err != nil {
+			return err
+		}
+
+		slept = slept + 10
+
+		if slept > 5000 && !retried {
+			_, err := ua.conn.Write([]byte(cmd))
+			if err != nil {
+				return err
+			}
+			retried = true
+		}
+
+		if slept > 10000 {
+			return errors.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
+				pos, cur,
+				arm.PositionGridDiff(pos, cur), arm.PositionRotationDiff(pos, cur))
+		}
+		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
 		}
 	}
 }
