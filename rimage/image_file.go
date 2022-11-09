@@ -3,11 +3,13 @@ package rimage
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +23,55 @@ import (
 
 	ut "go.viam.com/rdk/utils"
 )
+
+// RGBABitmapMagicNumber represents the magic number for our custom header
+// for raw RGBA data. The header is composed of this magic number followed by
+// a 4-byte line of the width as a uint32 number and another for the height. Credit to
+// Ben Zotto for inventing this formulation
+// https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
+var RGBABitmapMagicNumber = []byte("RGBA")
+
+// RawRGBAHeaderLength is the length of our custom header for raw RGBA data
+// in bytes. See above as to why.
+const RawRGBAHeaderLength = 12
+
+func init() {
+	// Here we register the custom format above so that we can simply use image.Decode
+	// so long as the raw RGBA data has the appropriate header
+	image.RegisterFormat("vnd.viam.rgba", string(RGBABitmapMagicNumber),
+		func(r io.Reader) (image.Image, error) {
+			rawBytes, err := io.ReadAll(r)
+			if err != nil {
+				return nil, err
+			}
+			if len(rawBytes) < RawRGBAHeaderLength {
+				return nil, io.EOF
+			}
+			header := rawBytes[:RawRGBAHeaderLength]
+			width := int(binary.BigEndian.Uint32(header[4:8]))
+			height := int(binary.BigEndian.Uint32(header[8:12]))
+			img := image.NewNRGBA(image.Rect(0, 0, width, height))
+			imgBytes := rawBytes[RawRGBAHeaderLength:]
+			img.Pix = imgBytes
+			return img, nil
+		},
+		func(r io.Reader) (image.Config, error) {
+			imgBytes := make([]byte, RawRGBAHeaderLength)
+			_, err := io.ReadFull(r, imgBytes)
+			if err != nil {
+				return image.Config{}, err
+			}
+			header := imgBytes[:RawRGBAHeaderLength]
+			width := binary.BigEndian.Uint32(header[4:8])
+			height := binary.BigEndian.Uint32(header[8:12])
+			return image.Config{
+				ColorModel: color.RGBAModel,
+				Width:      int(width),
+				Height:     int(height),
+			}, nil
+		},
+	)
+}
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
@@ -53,12 +104,12 @@ func NewImageFromFile(fn string) (*Image, error) {
 }
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
-func NewDepthMapFromFile(fn string) (*DepthMap, error) {
+func NewDepthMapFromFile(ctx context.Context, fn string) (*DepthMap, error) {
 	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	return ConvertImageToDepthMap(img)
+	return ConvertImageToDepthMap(ctx, img)
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
@@ -160,47 +211,18 @@ func SaveImage(pic image.Image, loc string) error {
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
-func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, height int) (image.Image, error) {
-	return decodeImage(ctx, imgBytes, mimeType, width, height, true)
-}
-
-// decodeImage decodes an image based on its data and MIME type. If checkLazy is true
-// and the MIME type has a lazy suffix, we will not fully decode the image and instead
-// return an intermediate (lazy), not yet decoded image type.
-func decodeImage(
-	ctx context.Context,
-	imgBytes []byte,
-	mimeType string,
-	width, height int,
-	checkLazy bool,
-) (image.Image, error) {
+func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.Image, error) {
 	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
-
-	if checkLazy {
-		actualType, isLazy := ut.CheckLazyMIMEType(mimeType)
-		if isLazy {
-			return NewLazyEncodedImage(imgBytes, actualType, width, height), nil
-		}
+	mimeType, returnLazy := ut.CheckLazyMIMEType(mimeType)
+	if returnLazy {
+		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
-
-	switch mimeType {
-	case ut.MimeTypeRawRGBA:
-		img := image.NewNRGBA64(image.Rect(0, 0, width, height))
-		img.Pix = imgBytes
-		return img, nil
-	case ut.MimeTypeJPEG:
-		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	case ut.MimeTypePNG:
-		img, err := png.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	case ut.MimeTypeQOI:
-		img, err := qoi.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	default:
-		return nil, errors.Errorf("do not how to decode MimeType %s", mimeType)
+	img, _, err := image.Decode(bytes.NewReader(imgBytes))
+	if err != nil {
+		return nil, err
 	}
+	return img, nil
 }
 
 // EncodeImage takes an image and mimeType as input and encodes it into a
@@ -210,18 +232,28 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	defer span.End()
 
 	actualOutMIME, _ := ut.CheckLazyMIMEType(mimeType)
+
 	if lazy, ok := img.(*LazyEncodedImage); ok && lazy.MIMEType() == actualOutMIME {
-		// fast path - zero copy
-		return lazy.RawData(), nil
+		return lazy.imgBytes, nil
 	}
 
 	var buf bytes.Buffer
 	bounds := img.Bounds()
 	switch actualOutMIME {
 	case ut.MimeTypeRawRGBA:
-		imgCopy := image.NewNRGBA64(bounds)
-		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
-		buf.Write(imgCopy.Pix)
+		// Here we create a custom header to prepend to Raw RGBA data. Credit to
+		// Ben Zotto for inventing this formulation
+		// https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
+		buf.Write(RGBABitmapMagicNumber)
+		widthBytes := make([]byte, 4)
+		heightBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(widthBytes, uint32(bounds.Dx()))
+		binary.BigEndian.PutUint32(heightBytes, uint32(bounds.Dy()))
+		buf.Write(widthBytes)
+		buf.Write(heightBytes)
+		imgStruct := image.NewNRGBA(bounds)
+		draw.Draw(imgStruct, bounds, img, bounds.Min, draw.Src)
+		buf.Write(imgStruct.Pix)
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err

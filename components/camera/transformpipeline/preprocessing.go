@@ -30,7 +30,7 @@ func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func
 	if err != nil {
 		return nil, nil, err
 	}
-	dm, err := rimage.ConvertImageToDepthMap(i)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "transform source does not provide depth image")
 	}

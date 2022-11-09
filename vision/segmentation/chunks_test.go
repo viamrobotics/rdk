@@ -31,7 +31,7 @@ func (cid *chunkImageDebug) Process(
 ) error {
 	t.Helper()
 	img := rimage.ConvertImage(imgraw)
-	dm, _ := rimage.ConvertImageToDepthMap(img2) // DepthMap is optional, ok if nil.
+	dm, _ := rimage.ConvertImageToDepthMap(context.Background(), img2) // DepthMap is optional, ok if nil.
 
 	type AShape struct {
 		Start      image.Point

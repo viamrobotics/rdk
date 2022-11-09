@@ -136,7 +136,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				return err
 			}
 			img := rimage.ConvertImage(img1)
-			dm, err := rimage.ConvertImageToDepthMap(img2)
+			dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 			if err != nil {
 				return err
 			}

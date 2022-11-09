@@ -67,12 +67,9 @@ func (s *subtypeServer) GetImage(
 		}
 	}()
 
-	bounds := img.Bounds()
 	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
 	resp := pb.GetImageResponse{
 		MimeType: actualMIME,
-		WidthPx:  int64(bounds.Dx()),
-		HeightPx: int64(bounds.Dy()),
 	}
 	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
 	if err != nil {

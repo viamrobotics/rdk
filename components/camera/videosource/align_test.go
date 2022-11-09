@@ -32,7 +32,7 @@ func TestAlignTypeError(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	colorSrc := &StaticSource{ColorImg: im}
 	colorCam, err := camera.NewFromReader(context.Background(), colorSrc, nil, camera.ColorStream)
@@ -41,9 +41,8 @@ func TestAlignTypeError(t *testing.T) {
 	depthCam, err := camera.NewFromReader(context.Background(), depthSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &alignAttrs{
-		AttrConfig: &camera.AttrConfig{},
-		Width:      100,
-		Height:     200,
+		Width:  100,
+		Height: 200,
 	}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}
@@ -108,7 +107,7 @@ func TestAlignIntrinsics(t *testing.T) {
 
 	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
@@ -137,7 +136,7 @@ func TestAlignWarp(t *testing.T) {
 
 	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/gripper1/chess1.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("align/gripper1/chess1.png"))
 	test.That(t, err, test.ShouldBeNil)
 	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
@@ -160,7 +159,7 @@ func TestAlignHomography(t *testing.T) {
 	attrs.Width = 1024
 	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
@@ -182,7 +181,7 @@ func (h *alignTestHelper) Process(
 	t.Helper()
 	var err error
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img2)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
 
