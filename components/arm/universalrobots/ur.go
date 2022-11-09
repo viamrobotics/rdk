@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the string used to refer to the ur5e arm model.
@@ -451,14 +452,19 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 }
 
 // MoveToPositionURDriver uses the builtin kinematics.
-func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pos *commonpb.Pose) error {
+func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pose *commonpb.Pose) error {
 	// UR5 arm takes R3 angle axis as input
-	rx := pos.OX * pos.Theta
-	ry := pos.OY * pos.Theta
-	rz := pos.OZ * pos.Theta
+	aa := spatialmath.NewPoseFromProtobuf(pose).Orientation().AxisAngles().ToR3()
 
-	// write command to arm
-	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", pos.X, pos.Y, pos.Z, rx, ry, rz)
+	// write command to arm, need to request position in meters
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n",
+		0.001*pose.X,
+		0.001*pose.Y,
+		0.001*pose.Z,
+		aa.X,
+		aa.Y,
+		aa.Z,
+	)
 	_, err := ua.conn.Write([]byte(cmd))
 	if err != nil {
 		return err
@@ -471,8 +477,8 @@ func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pos *commonpb.Po
 		if err != nil {
 			return err
 		}
-		if arm.PositionGridDiff(pos, cur) <= 1.5 &&
-			arm.PositionRotationDiff(pos, cur) <= 1.0 {
+		if arm.PositionGridDiff(pose, cur) <= 1.5 &&
+			arm.PositionRotationDiff(pose, cur) <= 1.0 {
 			return nil
 		}
 
@@ -493,8 +499,10 @@ func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pos *commonpb.Po
 
 		if slept > 10000 {
 			return errors.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
-				pos, cur,
-				arm.PositionGridDiff(pos, cur), arm.PositionRotationDiff(pos, cur))
+				pose, cur,
+				arm.PositionGridDiff(pose, cur),
+				arm.PositionRotationDiff(pose, cur),
+			)
 		}
 		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
