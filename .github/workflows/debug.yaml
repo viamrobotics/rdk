@@ -21,6 +21,7 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
+    # Needed until https://github.com/google-github-actions/auth/issues/241 is fixed upstream
     - name: Fix Auth
       run: yes | gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
