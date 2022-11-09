@@ -73,7 +73,8 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	if err != nil {
 		return nil, err
 	}
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	dm, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	if err != nil {
 		return nil, err
 	}

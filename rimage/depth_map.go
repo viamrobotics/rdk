@@ -115,41 +115,24 @@ func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 
 // ConvertImageToDepthMap takes an image and figures out if it's already a DepthMap
 // or if it can be converted into one.
-func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
+func ConvertImageToDepthMap(ctx context.Context, img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
 	case *LazyEncodedImage:
-		decoded, err := decodeImage(
-			context.Background(), ii.RawData(), ii.MIMEType(), ii.Bounds().Dx(), ii.Bounds().Dy(), false)
+		lazyImg, _ := img.(*LazyEncodedImage)
+		decodedImg, err := DecodeImage(ctx, lazyImg.RawData(), lazyImg.MIMEType())
 		if err != nil {
 			return nil, err
 		}
-		return ConvertImageToDepthMap(decoded)
+		return ConvertImageToDepthMap(ctx, decodedImg)
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:
 		return ii.Depth, nil
 	case *image.Gray16:
 		return gray16ToDepthMap(ii), nil
-	case *image.NRGBA64:
-		return nrgba64ToDepthMap(ii), nil
 	default:
 		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
-}
-
-// nrgba64ToDepthMap creates a Depthmap from an image.NRGBA64.
-func nrgba64ToDepthMap(img *image.NRGBA64) *DepthMap {
-	bounds := img.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
-	dm := NewEmptyDepthMap(width, height)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			c := img.At(x, y)
-			z := color.Gray16Model.Convert(c).(color.Gray16).Y
-			dm.Set(x, y, Depth(z))
-		}
-	}
-	return dm
 }
 
 // gray16ToDepthMap creates a DepthMap from an image.Gray16.

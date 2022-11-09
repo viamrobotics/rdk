@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -16,7 +17,7 @@ func (h *smoothTestHelper) Process(
 ) error {
 	t.Helper()
 	var err error
-	dm, err := ConvertImageToDepthMap(img)
+	dm, err := ConvertImageToDepthMap(context.Background(), img)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, MaxDepth), "depth")
@@ -62,7 +63,7 @@ func (h *cannyTestHelper) Process(
 	cannyDepth := NewCannyDericheEdgeDetectorWithParameters(0.85, 0.33, false)
 
 	colorImg := ConvertImage(img)
-	depthImg, err := ConvertImageToDepthMap(img2)
+	depthImg, err := ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, MaxDepth), "depth-ii")
@@ -149,7 +150,7 @@ func (h *preprocessTestHelper) Process(
 	t.Helper()
 	var err error
 	colorImg := ConvertImage(img)
-	depthImg, err := ConvertImageToDepthMap(img2)
+	depthImg, err := ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, MaxDepth), "depth-raw")

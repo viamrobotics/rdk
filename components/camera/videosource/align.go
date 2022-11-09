@@ -239,7 +239,7 @@ func (acd *alignColorDepth) Read(ctx context.Context) (image.Image, func(), erro
 		if err != nil {
 			return nil, nil, err
 		}
-		dm, err := rimage.ConvertImageToDepthMap(depth)
+		dm, err := rimage.ConvertImageToDepthMap(ctx, depth)
 		if err != nil {
 			return nil, nil, err
 		}

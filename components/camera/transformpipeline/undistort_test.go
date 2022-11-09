@@ -99,7 +99,8 @@ func TestUndistortImage(t *testing.T) {
 }
 
 func TestUndistortDepthMap(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray_small.png"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 

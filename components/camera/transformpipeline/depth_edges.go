@@ -49,7 +49,7 @@ func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, err
 	}
-	dm, err := rimage.ConvertImageToDepthMap(i)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot transform for depth edges")
 	}

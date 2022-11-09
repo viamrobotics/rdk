@@ -67,7 +67,7 @@ func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error
 		}
 		return color, release, nil
 	case camera.DepthStream:
-		depth, err := rimage.ConvertImageToDepthMap(orig)
+		depth, err := rimage.ConvertImageToDepthMap(ctx, orig)
 		if err != nil {
 			return nil, nil, err
 		}

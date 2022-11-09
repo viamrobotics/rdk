@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -26,7 +27,7 @@ func (h *homographyTestHelper) Process(
 	t.Helper()
 	var err error
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img2)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
 

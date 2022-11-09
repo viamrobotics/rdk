@@ -54,7 +54,7 @@ func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, err
 	}
-	dm, err := rimage.ConvertImageToDepthMap(i)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "source camera does not make depth maps")
 	}
