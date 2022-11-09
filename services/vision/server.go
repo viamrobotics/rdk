@@ -133,7 +133,7 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType, int(req.Width), int(req.Height))
+	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (server *subtypeServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType, int(req.Width), int(req.Height))
+	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType)
 	if err != nil {
 		return nil, err
 	}

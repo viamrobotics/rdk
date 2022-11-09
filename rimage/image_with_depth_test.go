@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"context"
 	"testing"
 
 	"go.viam.com/test"
@@ -8,7 +9,12 @@ import (
 )
 
 func TestCloneImageWithDepth(t *testing.T) {
-	iwd, err := newImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	iwd, err := newImageWithDepth(
+		context.Background(),
+		artifact.MustPath("rimage/board1.png"),
+		artifact.MustPath("rimage/board1.dat.gz"),
+		true,
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	ii := cloneToImageWithDepth(iwd)
@@ -22,13 +28,13 @@ func TestCloneImageWithDepth(t *testing.T) {
 }
 
 func TestImageToDepthMap(t *testing.T) {
-	iwd, err := newImageWithDepth(
+	iwd, err := newImageWithDepth(context.Background(),
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray16 image
 	depthImage := iwd.Depth.ToGray16Picture()
 	// convert back
-	dmFromImage, err := ConvertImageToDepthMap(depthImage)
+	dmFromImage, err := ConvertImageToDepthMap(context.Background(), depthImage)
 	test.That(t, err, test.ShouldBeNil)
 	// tests
 	test.That(t, iwd.Depth.Height(), test.ShouldEqual, dmFromImage.Height())
@@ -37,22 +43,22 @@ func TestImageToDepthMap(t *testing.T) {
 }
 
 func TestConvertToDepthMap(t *testing.T) {
-	iwd, err := newImageWithDepth(
+	iwd, err := newImageWithDepth(context.Background(),
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray16 image
 	depthImage := iwd.Depth.ToGray16Picture()
 
 	// case 1
-	dm1, err := ConvertImageToDepthMap(iwd)
+	dm1, err := ConvertImageToDepthMap(context.Background(), iwd)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.Depth, test.ShouldEqual, dm1)
 	// case 2
-	dm2, err := ConvertImageToDepthMap(depthImage)
+	dm2, err := ConvertImageToDepthMap(context.Background(), depthImage)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.Depth, test.ShouldResemble, dm2)
 	// default - should return error
 	badType := iwd.Color
-	_, err = ConvertImageToDepthMap(badType)
+	_, err = ConvertImageToDepthMap(context.Background(), badType)
 	test.That(t, err, test.ShouldNotBeNil)
 }

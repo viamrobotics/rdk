@@ -71,7 +71,7 @@ type fileSourceAttrs struct {
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if fs.ColorFN == "" { // only depth info
-		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
+		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		return img, func() {}, err
 	}
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
@@ -84,7 +84,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
 	if fs.ColorFN == "" { // only depth info
-		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
+		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 	if err != nil {
 		return nil, err
 	}
-	dm, err := rimage.NewDepthMapFromFile(fs.DepthFN)
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (ss *StaticSource) NextPointCloud(ctx context.Context) (pointcloud.PointClo
 		return nil, errors.New("no depth info to project to pointcloud")
 	}
 	col := rimage.ConvertImage(ss.ColorImg)
-	dm, err := rimage.ConvertImageToDepthMap(ss.DepthImg)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), ss.DepthImg)
 	if err != nil {
 		return nil, err
 	}

@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
-	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
@@ -195,9 +195,11 @@ func TestClient(t *testing.T) {
 		cameraDepthClient, ok := client.(camera.Camera)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		frame, _, err := camera.ReadImage(context.Background(), cameraDepthClient)
+		ctx := gostream.WithMIMETypeHint(
+			context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
+		frame, _, err := camera.ReadImage(ctx, cameraDepthClient)
 		test.That(t, err, test.ShouldBeNil)
-		dm, err := rimage.ConvertImageToDepthMap(frame)
+		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dm, test.ShouldResemble, depthImg)
 		imageReleasedMu.Lock()
@@ -326,6 +328,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy := frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
+
 	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypePNG)
 	compVal, _, err = rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
