@@ -3,6 +3,7 @@ package rimage
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -49,7 +50,7 @@ func TestRawDepthMap(t *testing.T) {
 }
 
 func TestDepthMap(t *testing.T) {
-	m, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
@@ -63,7 +64,7 @@ func TestDepthMap(t *testing.T) {
 
 	img, _, err := image.Decode(bufio.NewReader(&buf))
 	test.That(t, err, test.ShouldBeNil)
-	m, err = ConvertImageToDepthMap(img)
+	m, err = ConvertImageToDepthMap(context.Background(), img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
 	test.That(t, m.Height(), test.ShouldEqual, 720)
@@ -75,7 +76,7 @@ func TestDepthMap(t *testing.T) {
 	err = WriteImageToFile(fn, m)
 	test.That(t, err, test.ShouldBeNil)
 
-	m, err = NewDepthMapFromFile(fn)
+	m, err = NewDepthMapFromFile(context.Background(), fn)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
 	test.That(t, m.Height(), test.ShouldEqual, 720)
@@ -84,7 +85,7 @@ func TestDepthMap(t *testing.T) {
 }
 
 func TestCloneDepthMap(t *testing.T) {
-	m, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	mm := m.Clone()
@@ -143,7 +144,10 @@ func TestDepthRotate90(t *testing.T) {
 }
 
 func TestToGray16Picture(t *testing.T) {
-	iwd, err := newImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := newImageWithDepth(
+		context.Background(),
+		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	gimg := iwd.Depth.ToGray16Picture()
 
@@ -279,7 +283,10 @@ func TestDepthMapStats(t *testing.T) {
 }
 
 func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
-	iwd, err := newImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := newImageWithDepth(
+		context.Background(),
+		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
 	nRows, nCols := fimg.Dims()
@@ -318,20 +325,9 @@ func TestDepthColorModel(t *testing.T) {
 	convGray = dm.ColorModel().Convert(maxGray)
 	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, maxGray.Y)
-	// conversion from color
-	rgba := color.NRGBA64{6168, 6168, 6168, math.MaxUint16}
-	convGray = dm.ColorModel().Convert(rgba)
-	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
-	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
 	// 8 bit color gets copied into the next byte
 	rgba8 := color.NRGBA{24, 24, 24, math.MaxUint8}
 	convGray = dm.ColorModel().Convert(rgba8)
 	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
-	// when color is not equal in all channels, gray16 calculation is given by the JFIF specification (a weighted average).
-	// see golang's color.gray16Model for details.
-	rgba = color.NRGBA64{6168, 0, 0, math.MaxUint16}
-	convGray = dm.ColorModel().Convert(rgba)
-	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
-	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 1844)
 }

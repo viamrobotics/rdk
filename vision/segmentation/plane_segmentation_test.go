@@ -64,7 +64,9 @@ func TestSegmentPlane(t *testing.T) {
 	// Principal Point         : 542.078, 398.016
 	// Focal Length            : 734.938, 735.516
 	// get depth map
-	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	d, err := rimage.NewDepthMapFromFile(
+		context.Background(),
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
@@ -92,7 +94,9 @@ func TestSegmentPlane(t *testing.T) {
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
-	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	d, err := rimage.NewDepthMapFromFile(
+		context.Background(),
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -105,7 +109,9 @@ func TestDepthMapToPointCloud(t *testing.T) {
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	rgb, err := rimage.NewImageFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	d, err := rimage.NewDepthMapFromFile(
+		context.Background(),
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 	h, w := rgb.Height(), rgb.Width()
 
@@ -140,7 +146,9 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 }
 
 func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
-	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	d, err := rimage.NewDepthMapFromFile(
+		context.Background(),
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(b, err, test.ShouldBeNil)
 
 	// Pixel to Meter
