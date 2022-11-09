@@ -26,7 +26,7 @@ jobs:
         run: cat pr.env >> "${GITHUB_ENV}"
 
       - name: Add Coverage PR Comment
-        uses: marocchino/sticky-pull-request-comment@v2.2.0
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
           number: ${{ env.PR_NUMBER }}
           recreate: true
@@ -34,7 +34,7 @@ jobs:
 
       - name: Add AppImage Links
         if: ${{ env.APPIMAGE }}
-        uses: marocchino/sticky-pull-request-comment@v2.2.0
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
           message: |
