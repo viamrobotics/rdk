@@ -106,12 +106,12 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		loc1, alt1, err := gps1Client.Position(context.Background(), types.ZeroExtraParams())
+		loc1, alt1, err := gps1Client.Position(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc1, test.ShouldResemble, loc)
 		test.That(t, alt1, test.ShouldAlmostEqual, alt)
 
-		vel1, err := gps1Client.LinearVelocity(context.Background(), types.ZeroExtraParams())
+		vel1, err := gps1Client.LinearVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, vel1.Y, test.ShouldAlmostEqual, speed)
 
@@ -131,15 +131,15 @@ func TestClient(t *testing.T) {
 		gps2Client, ok := client.(movementsensor.MovementSensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, err = gps2Client.Position(context.Background(), types.ZeroExtraParams())
+		_, _, err = gps2Client.Position(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		_, err = gps2Client.LinearVelocity(context.Background(), types.ZeroExtraParams())
+		_, err = gps2Client.LinearVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear velocity")
 
-		_, err = gps2Client.AngularVelocity(context.Background(), types.ZeroExtraParams())
+		_, err = gps2Client.AngularVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
 

@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/types"
 )
 
 // MovementSensor is an injected MovementSensor.
@@ -42,7 +41,7 @@ func (i *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 }
 
 // Position func or passthrough.
-func (i *MovementSensor) Position(ctx context.Context, extra types.ExtraParams) (*geo.Point, float64, error) {
+func (i *MovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	if i.PositionFunc == nil {
 		return i.MovementSensor.Position(ctx, extra)
 	}
@@ -50,7 +49,7 @@ func (i *MovementSensor) Position(ctx context.Context, extra types.ExtraParams) 
 }
 
 // LinearVelocity func or passthrough.
-func (i *MovementSensor) LinearVelocity(ctx context.Context, extra types.ExtraParams) (r3.Vector, error) {
+func (i *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	if i.PositionFunc == nil {
 		return i.MovementSensor.LinearVelocity(ctx, extra)
 	}
@@ -58,7 +57,7 @@ func (i *MovementSensor) LinearVelocity(ctx context.Context, extra types.ExtraPa
 }
 
 // AngularVelocity func or passthrough.
-func (i *MovementSensor) AngularVelocity(ctx context.Context, extra types.ExtraParams) (spatialmath.AngularVelocity, error) {
+func (i *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	if i.PositionFunc == nil {
 		return i.MovementSensor.AngularVelocity(ctx, extra)
 	}
@@ -66,7 +65,7 @@ func (i *MovementSensor) AngularVelocity(ctx context.Context, extra types.ExtraP
 }
 
 // Orientation func or passthrough.
-func (i *MovementSensor) Orientation(ctx context.Context, extra types.ExtraParams) (spatialmath.Orientation, error) {
+func (i *MovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	if i.PositionFunc == nil {
 		return i.MovementSensor.Orientation(ctx, extra)
 	}
@@ -74,7 +73,7 @@ func (i *MovementSensor) Orientation(ctx context.Context, extra types.ExtraParam
 }
 
 // CompassHeading func or passthrough.
-func (i *MovementSensor) CompassHeading(ctx context.Context, extra types.ExtraParams) (float64, error) {
+func (i *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	if i.PositionFunc == nil {
 		return i.MovementSensor.CompassHeading(ctx, extra)
 	}
