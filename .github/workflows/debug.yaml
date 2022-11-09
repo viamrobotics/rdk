@@ -9,10 +9,7 @@ on:
 jobs:
   debug:
     name: Debug
-    runs-on: [x64, qemu-host]
-    container:
-      image: debian:bullseye
-      options: --platform linux/amd64
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
