@@ -45,7 +45,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, []byte, image.
 	router := http.NewServeMux()
 	// expected depth image from raw data
 	depthDatPath := artifact.MustPath("rimage/board1_gray_small.png")
-	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
+	expectedDepth, err := rimage.NewDepthMapFromFile(context.Background(), depthDatPath)
 	test.That(t, err, test.ShouldBeNil)
 	router.HandleFunc("/color.png", handleColor)
 	router.HandleFunc("/depth.png", handleDepth)
@@ -73,11 +73,9 @@ func TestServerSource(t *testing.T) {
 	defer svr.Close()
 	// create color camera
 	attrs := ServerAttrs{
-		URL: svr.URL + "/color.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "color",
-		},
+		URL:              svr.URL + "/color.png",
+		CameraParameters: intrinsics,
+		Stream:           "color",
 	}
 	cam, err := NewServerSource(context.Background(), &attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -98,7 +96,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
-	lazyPng := rimage.NewLazyEncodedImage(expectedColorBytes, utils.MimeTypePNG, -1, -1)
+	lazyPng := rimage.NewLazyEncodedImage(expectedColorBytes, utils.MimeTypePNG)
 	test.That(t, img, test.ShouldResemble, lazyPng)
 
 	stream, err := cam.Stream(lazyCtx)
@@ -108,7 +106,6 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-
 	test.That(t, img, test.ShouldResemble, lazyPng)
 
 	img, release, err = camera.ReadImage(
@@ -121,7 +118,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(expectedColor))
 
 	img, release, err = camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), "idk"),
+		gostream.WithMIMETypeHint(context.Background(), ""),
 		cam,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -135,11 +132,9 @@ func TestServerSource(t *testing.T) {
 
 	// create depth camera
 	attrs2 := ServerAttrs{
-		URL: svr.URL + "/depth.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "depth",
-		},
+		URL:              svr.URL + "/depth.png",
+		CameraParameters: intrinsics,
+		Stream:           "depth",
 	}
 	cam2, err := NewServerSource(context.Background(), &attrs2, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -168,12 +163,10 @@ func TestDualServerSource(t *testing.T) {
 	}
 	// create camera with a color stream
 	attrs1 := dualServerAttrs{
-		Color: svr.URL + "/color.png",
-		Depth: svr.URL + "/depth.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "color",
-		},
+		Color:            svr.URL + "/color.png",
+		Depth:            svr.URL + "/depth.png",
+		CameraParameters: intrinsics,
+		Stream:           "color",
 	}
 	cam1, err := newDualServerSource(context.Background(), &attrs1)
 	test.That(t, err, test.ShouldBeNil)
@@ -192,12 +185,10 @@ func TestDualServerSource(t *testing.T) {
 
 	// create camera with a depth stream
 	attrs2 := dualServerAttrs{
-		Color: svr.URL + "/color.png",
-		Depth: svr.URL + "/depth.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "depth",
-		},
+		Color:            svr.URL + "/color.png",
+		Depth:            svr.URL + "/depth.png",
+		CameraParameters: intrinsics,
+		Stream:           "depth",
 	}
 	cam2, err := newDualServerSource(context.Background(), &attrs2)
 	test.That(t, err, test.ShouldBeNil)
