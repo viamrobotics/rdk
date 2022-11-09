@@ -133,11 +133,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
 	for _, model := range modelsToDownload {
-		deployRequest := &v1.DeployRequest{
-			Metadata: &v1.DeployMetadata{
-				ModelName: model.Name,
-			},
-		}
+		deployRequest := &v1.DeployRequest{ModelName: model.Name}
 		deployResp, err := m.deploy(cancelCtx, deployRequest)
 		if err != nil {
 			m.logger.Error(err)
