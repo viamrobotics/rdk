@@ -21,8 +21,8 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-    # - name: Fix Auth
-    #   run: yes | gcloud login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
+    - name: Fix Auth
+      run: yes | gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
     - name: SSH
       uses: lhotari/action-upterm@v1
