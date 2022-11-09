@@ -80,14 +80,15 @@ const namesToPrettySelect = (resourcesToPretty: Resource[]): string => {
         :options="namesToPrettySelect(resources)"
         :value="selectedComponent"
         :disabled="executing ? 'true' : 'false'"
+        class="mb-4"
         @input="selectedComponent = $event.detail.value"
       />
-      <div class="flex h-full w-full flex-row gap-2">
+      <div class="flex flex-wrap h-full w-full flex-row gap-2">
         <div class="h-full w-full">
           <p class="text-large">
             Input
           </p>
-          <div class="h-[250px] w-full border border-black p-2">
+          <div class="h-[250px] w-full max-w-full border border-black p-2">
             <v-code-editor
               language="json"
               value="{}"
