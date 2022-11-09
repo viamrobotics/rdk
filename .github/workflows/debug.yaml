@@ -13,14 +13,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-    - name: Authorize GCP
-      uses: otterverse/gcloud-auth@main
-      with:
-        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-        service_account: 'my-service-account@my-project.iam.gserviceaccount.com'
-
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
+
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    # - name: Fix Auth
+    #   run: yes | gcloud login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
     - name: SSH
       uses: lhotari/action-upterm@v1
