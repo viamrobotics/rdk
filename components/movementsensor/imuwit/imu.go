@@ -77,19 +77,19 @@ type wit struct {
 	logger golog.Logger
 }
 
-func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
-func (imu *wit) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (imu *wit) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (imu *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (imu *wit) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
@@ -109,20 +109,20 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return imu.magnetometer, imu.lastError
 }
 
-func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
+func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, imu)
+	readings, err := movementsensor.Readings(ctx, imu, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 	return readings, err
 }
 
-func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
+func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,

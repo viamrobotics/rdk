@@ -49,28 +49,28 @@ type MovementSensor struct {
 }
 
 // Position gets the position of a fake movementsensor.
-func (f *MovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (f *MovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	p := geo.NewPoint(40.7, -73.98)
 	return p, 50.5, nil
 }
 
 // LinearVelocity gets the linear velocity of a fake movementsensor.
-func (f *MovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (f *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{Y: 5.4}, nil
 }
 
 // AngularVelocity gets the angular velocity of a fake movementsensor.
-func (f *MovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (f *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{Z: 1}, nil
 }
 
 // CompassHeading gets the compass headings of a fake movementsensor.
-func (f *MovementSensor) CompassHeading(ctx context.Context) (float64, error) {
+func (f *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return 25, nil
 }
 
 // Orientation gets the orientation of a fake movementsensor.
-func (f *MovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (f *MovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), nil
 }
 
@@ -80,17 +80,17 @@ func (f *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 }
 
 // Accuracy gets the accuracy of a fake movementsensor.
-func (f *MovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
 // Readings gets the readings of a fake movementsensor.
 func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, f)
+	return movementsensor.Readings(ctx, f, extra)
 }
 
 // Properties returns the properties of a fake movementsensor.
-func (f *MovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
+func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported:  true,
 		AngularVelocitySupported: true,

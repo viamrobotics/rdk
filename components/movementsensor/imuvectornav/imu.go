@@ -275,39 +275,39 @@ func NewVectorNav(
 	return v, nil
 }
 
-func (vn *vectornav) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (vn *vectornav) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.angularVelocity, nil
 }
 
-func (vn *vectornav) GetAcceleration(ctx context.Context) (r3.Vector, error) {
+func (vn *vectornav) GetAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.acceleration, nil
 }
 
-func (vn *vectornav) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (vn *vectornav) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return &vn.orientation, nil
 }
 
-func (vn *vectornav) CompassHeading(ctx context.Context) (float64, error) {
+func (vn *vectornav) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.orientation.Yaw, nil
 }
 
-func (vn *vectornav) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (vn *vectornav) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (vn *vectornav) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	return nil, 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (vn *vectornav) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (vn *vectornav) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
@@ -317,7 +317,7 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return vn.magnetometer, nil
 }
 
-func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties, error) {
+func (vn *vectornav) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
@@ -325,7 +325,7 @@ func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties
 }
 
 func (vn *vectornav) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, vn)
+	return movementsensor.Readings(ctx, vn, extra)
 }
 
 func (vn *vectornav) getReadings(ctx context.Context) error {

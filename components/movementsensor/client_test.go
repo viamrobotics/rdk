@@ -41,33 +41,43 @@ func TestClient(t *testing.T) {
 	ori := spatialmath.NewEulerAngles()
 	ori.Roll = 1.1
 	heading := 202.
+	props := &movementsensor.Properties{LinearVelocitySupported: true}
+	acc := map[string]float32{"x": 1.1}
 	rs := []interface{}{loc, alt, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
 
 	injectMovementSensor := &inject.MovementSensor{}
-	injectMovementSensor.PositionFunc = func(ctx context.Context) (*geo.Point, float64, error) { return loc, alt, nil }
-	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
-	injectMovementSensor.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return loc, alt, nil
+	}
+	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		return r3.Vector{0, speed, 0}, nil
+	}
+	injectMovementSensor.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{0, 0, ang}, nil
 	}
-	injectMovementSensor.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+	injectMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 		return ori, nil
 	}
-	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }
+	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) { return heading, nil }
+	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return props, nil
+	}
+	injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) { return acc, nil }
 
 	injectMovementSensor2 := &inject.MovementSensor{}
-	injectMovementSensor2.PositionFunc = func(ctx context.Context) (*geo.Point, float64, error) {
+	injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		return nil, 0, errors.New("can't get location")
 	}
-	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
+	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get linear velocity")
 	}
-	injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{}, errors.New("can't get angular velocity")
 	}
-	injectMovementSensor2.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+	injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 		return nil, errors.New("can't get orientation")
 	}
-	injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context) (float64, error) {
+	injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, errors.New("can't get compass heading")
 	}
 
@@ -106,14 +116,41 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		loc1, alt1, err := gps1Client.Position(context.Background())
+		loc1, alt1, err := gps1Client.Position(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc1, test.ShouldResemble, loc)
 		test.That(t, alt1, test.ShouldAlmostEqual, alt)
+		test.That(t, injectMovementSensor.PositionFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
-		vel1, err := gps1Client.LinearVelocity(context.Background())
+		vel1, err := gps1Client.LinearVelocity(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, vel1.Y, test.ShouldAlmostEqual, speed)
+		test.That(t, injectMovementSensor.LinearVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		av1, err := gps1Client.AngularVelocity(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, av1.Z, test.ShouldAlmostEqual, ang)
+		test.That(t, injectMovementSensor.AngularVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		o1, err := gps1Client.Orientation(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, o1.OrientationVectorDegrees(), test.ShouldResemble, ori.OrientationVectorDegrees())
+		test.That(t, injectMovementSensor.OrientationFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		ch, err := gps1Client.CompassHeading(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ch, test.ShouldResemble, heading)
+		test.That(t, injectMovementSensor.CompassHeadingFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		props1, err := gps1Client.Properties(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, props1.LinearVelocitySupported, test.ShouldResemble, props.LinearVelocitySupported)
+		test.That(t, injectMovementSensor.PropertiesFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		acc1, err := gps1Client.Accuracy(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, acc1, test.ShouldResemble, acc)
+		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		rs1, err := gps1Client.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
@@ -131,15 +168,15 @@ func TestClient(t *testing.T) {
 		gps2Client, ok := client.(movementsensor.MovementSensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, err = gps2Client.Position(context.Background())
+		_, _, err = gps2Client.Position(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		_, err = gps2Client.LinearVelocity(context.Background())
+		_, err = gps2Client.LinearVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear velocity")
 
-		_, err = gps2Client.AngularVelocity(context.Background())
+		_, err = gps2Client.AngularVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
 
