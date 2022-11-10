@@ -149,7 +149,7 @@ const processEvents = () => {
 };
 
 const tick = () => {
-  if (!gamepad) {
+  if (!gamepad || navigator.getGamepads().length === 0) {
     return;
   }
 
