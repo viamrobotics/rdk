@@ -18,7 +18,6 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -45,7 +44,7 @@ type AttrConfig struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
 	}
 	if cfg.Speed > 1 || cfg.Speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
@@ -250,7 +249,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 // MoveToPosition moves the arm to the specified cartesian position.
 // If the UR arm was configured with "builtin_kinematics = 'true'" or extra["builtin_kinematics"] = true is specified at runtime
 // this command will use the kinematics builtin to the arm by Universal Robots.  If the builtin kinematics are used with obstacles
-// or interaction spaces embedded in the world state an error will  be thrown, as the builtin planning does not support these constraints
+// or interaction spaces embedded in the world state an error will  be thrown, as the builtin planning does not support these constraints.
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
 	pos *commonpb.Pose,
