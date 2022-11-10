@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -70,10 +71,12 @@ type builtIn struct {
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
-	closed          bool
 
 	config *Config
 	logger golog.Logger
+
+	cancel    func()
+	cancelCtx context.Context
 }
 
 // NewDefault returns a new remote control service for the given robot.
@@ -105,12 +108,15 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		controlMode1 = arrowControl
 	}
 
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	remoteSvc := &builtIn{
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
 		config:          svcConfig,
 		logger:          logger,
+		cancelCtx:       cancelCtx,
+		cancel:          cancel,
 	}
 
 	if err := remoteSvc.start(ctx); err != nil {
@@ -125,25 +131,50 @@ func (svc *builtIn) start(ctx context.Context) error {
 	state := &throttleState{}
 	state.init()
 
-	var lastEvent input.Event
+	var lastTS time.Time
+	lastTSPerEvent := map[input.Control]map[input.EventType]time.Time{}
 	var onlyOneAtATime sync.Mutex
+
+	updateLastEvent := func(event input.Event) bool {
+		if event.Time.After(lastTS) {
+			lastTS = event.Time
+		}
+		if event.Time.Before(lastTSPerEvent[event.Control][event.Event]) {
+			return false
+		}
+		lastTSPerEventControl := lastTSPerEvent[event.Control]
+		if lastTSPerEventControl == nil {
+			lastTSPerEventControl = map[input.EventType]time.Time{}
+			lastTSPerEvent[event.Control] = lastTSPerEventControl
+		}
+		lastTSPerEventControl[event.Event] = event.Time
+		return true
+	}
 
 	remoteCtl := func(ctx context.Context, event input.Event) {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
 
-		if svc.closed {
+		if svc.cancelCtx.Err() != nil {
 			return
 		}
 
-		if event.Time.Before(lastEvent.Time) {
+		if !updateLastEvent(event) {
 			return
 		}
-		lastEvent = event
 
 		err := svc.processEvent(ctx, state, event)
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
+		}
+	}
+
+	connect := func(ctx context.Context, event input.Event) {
+		onlyOneAtATime.Lock()
+		defer onlyOneAtATime.Unlock()
+
+		if !updateLastEvent(event) {
+			return
 		}
 	}
 
@@ -157,13 +188,17 @@ func (svc *builtIn) start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect); err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
 
 // Close out of all remote control related systems.
-func (svc *builtIn) Close(ctx context.Context) error {
-	svc.closed = true
+func (svc *builtIn) Close(_ context.Context) error {
+	svc.cancel()
 	return nil
 }
 
