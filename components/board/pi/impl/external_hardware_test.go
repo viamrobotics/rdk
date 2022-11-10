@@ -122,10 +122,10 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		servo1 := servoInt.(servo.Servo)
 
-		err = servo1.Move(ctx, 90)
+		err = servo1.Move(ctx, 90, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := servo1.Position(ctx)
+		v, err := servo1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
