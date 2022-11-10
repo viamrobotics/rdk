@@ -10,6 +10,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
@@ -43,7 +44,9 @@ func TestServer(t *testing.T) {
 	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		return loc, alt, nil
 	}
-	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
+	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		return r3.Vector{0, speed, 0}, nil
+	}
 
 	injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		return nil, 0, errors.New("can't get location")
@@ -53,10 +56,13 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("GetPosition", func(t *testing.T) {
-		resp, err := gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName})
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Coordinate, test.ShouldResemble, &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()})
 		test.That(t, resp.AltitudeMm, test.ShouldEqual, alt)
+		test.That(t, injectMovementSensor.PositionFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -72,9 +78,12 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
-		resp, err := gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: testMovementSensorName})
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.LinearVelocity.Y, test.ShouldResemble, speed)
+		test.That(t, injectMovementSensor.LinearVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
