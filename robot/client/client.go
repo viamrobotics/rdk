@@ -490,12 +490,12 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	// one final check but under a more strict lock
+	// another check, this one with a stricter lock
 	if client, ok := rc.resourceClients[name]; ok {
 		return client, nil
 	}
 
-	// before adding a new resource, make sure this name exists and is known
+	// finally, before adding a new resource, make sure this name exists and is known
 	for _, knownName := range rc.resourceNames {
 		if name == knownName {
 			resourceClient, err := rc.createClient(name)
