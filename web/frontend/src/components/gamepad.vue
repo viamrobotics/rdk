@@ -5,10 +5,10 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
-import { displayError } from '../lib/error';
+import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import { toast } from '../lib/toast';
 
 let gamepad = $ref<Gamepad | null>(null);
-let gamepadConnected = $ref(false);
 let gamepadConnectedPrev = $ref(false);
 const enabled = $ref(false);
 
@@ -37,131 +37,188 @@ const curStates = $ref<Record<string, number>>({
 let handle = -1;
 let prevStates: Record<string, number> = {};
 
+let lastError = Date.now();
 const sendEvent = (newEvent: InputController.Event) => {
-  if (enabled) {
-    const req = new InputController.TriggerEventRequest();
-    req.setController('WebGamepad');
-    req.setEvent(newEvent);
-    window.inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
+  if (!enabled) {
+    return;
   }
+  const req = new InputController.TriggerEventRequest();
+  req.setController('WebGamepad');
+  req.setEvent(newEvent);
+  window.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
+    if (error) {
+      const now = Date.now();
+      if (now - lastError > 1000) {
+        lastError = now;
+        toast.error(error.message);
+      }
+    }
+  });
+};
+
+let lastTS = Timestamp.fromDate(new Date());
+const nextTS = () => {
+  let nowTS = Timestamp.fromDate(new Date());
+  if (lastTS.getSeconds() > nowTS.getSeconds() ||
+    (lastTS.getSeconds() === nowTS.getSeconds() && lastTS.getNanos() > nowTS.getNanos())) {
+    nowTS = lastTS;
+  }
+  if (nowTS.getSeconds() === lastTS.getSeconds() &&
+    nowTS.getNanos() === lastTS.getNanos()) {
+    nowTS.setNanos(nowTS.getNanos() + 1);
+  }
+  lastTS = nowTS;
+  return nowTS;
 };
 
 const connectEvent = (con: boolean) => {
   if (
-    (con === true && gamepadConnected === false) ||
-    (con === false && gamepadConnectedPrev === false)
+    (con && (!gamepad || !gamepad.connected)) ||
+    (!con && !gamepadConnectedPrev)
   ) {
     return;
   }
 
-  for (const ctrl of Object.keys(curStates)) {
-    const newEvent = new InputController.Event();
-    newEvent.setTime(Timestamp.fromDate(new Date()));
-    newEvent.setEvent(con ? 'Connect' : 'Disconnect');
-    newEvent.setValue(0);
+  const nowTS = nextTS();
+  try {
+    for (const ctrl of Object.keys(curStates)) {
+      const newEvent = new InputController.Event();
+      nowTS.setNanos(nowTS.getNanos() + 1);
+      newEvent.setTime(nowTS);
+      newEvent.setEvent(con ? 'Connect' : 'Disconnect');
+      newEvent.setValue(0);
 
-    if ((/X|Y|Z$/u).test(ctrl)) {
-      newEvent.setControl(`Absolute${ctrl}`);
-    } else {
-      newEvent.setControl(`Button${ctrl}`);
+      if ((/X|Y|Z$/u).test(ctrl)) {
+        newEvent.setControl(`Absolute${ctrl}`);
+      } else {
+        newEvent.setControl(`Button${ctrl}`);
+      }
+
+      sendEvent(newEvent);
     }
-
-    sendEvent(newEvent);
+  } finally {
+    lastTS = nowTS;
   }
 };
 
 const processEvents = () => {
-  if (gamepadConnected === false) {
+  if (gamepad && !gamepad.connected) {
     for (const key of Object.keys(curStates)) {
       curStates[key] = Number.NaN;
     }
 
-    if (gamepadConnectedPrev === true) {
+    if (gamepadConnectedPrev) {
       connectEvent(false);
       gamepadConnectedPrev = false;
     }
     return;
-  } else if (gamepadConnectedPrev === false) {
+  } else if (!gamepadConnectedPrev) {
     connectEvent(true);
     gamepadConnectedPrev = true;
   }
 
-  for (const [key, value] of Object.entries(curStates)) {
-    if (
-      value === prevStates[key] ||
-      (Number.isNaN(value) &&
-        Number.isNaN(prevStates[key]))
-    ) {
-      continue;
-    }
-    const newEvent = new InputController.Event();
-    newEvent.setTime(Timestamp.fromDate(new Date()));
-    if ((/X|Y|Z$/u).test(key)) {
-      newEvent.setControl(`Absolute${key}`);
-      newEvent.setEvent('PositionChangeAbs');
-    } else {
-      newEvent.setControl(`Button${key}`);
-      newEvent.setEvent(
-        value ? 'ButtonPress' : 'ButtonRelease'
-      );
-    }
+  const nowTS = nextTS();
 
-    if (Number.isNaN(value)) {
-      newEvent.setEvent('Disconnect');
-      newEvent.setValue(0);
-    } else {
-      newEvent.setValue(value);
+  try {
+    for (const [key, value] of Object.entries(curStates)) {
+      if (value === prevStates[key] || (Number.isNaN(value) && Number.isNaN(prevStates[key]))) {
+        continue;
+      }
+      const newEvent = new InputController.Event();
+      nowTS.setNanos(nowTS.getNanos() + 1);
+      newEvent.setTime(nowTS);
+      if ((/X|Y|Z$/u).test(key)) {
+        newEvent.setControl(`Absolute${key}`);
+        newEvent.setEvent('PositionChangeAbs');
+      } else {
+        newEvent.setControl(`Button${key}`);
+        newEvent.setEvent(value ? 'ButtonPress' : 'ButtonRelease');
+      }
+
+      if (Number.isNaN(value)) {
+        newEvent.setEvent('Disconnect');
+        newEvent.setValue(0);
+      } else {
+        newEvent.setValue(value);
+      }
+      sendEvent(newEvent);
     }
-    sendEvent(newEvent);
+  } finally {
+    lastTS = nowTS;
   }
 };
 
 const tick = () => {
-  let gamepadFound = false;
+  if (!gamepad || navigator.getGamepads().length === 0) {
+    return;
+  }
+
+  prevStates = { ...prevStates, ...curStates };
+
+  // eslint-disable-next-line unicorn/no-unsafe-regex
+  const re = /^-?\d+(?:.\d{0,4})?/u;
+  const trunc = (val: number): number => {
+    if (Number.isNaN(val)) {
+      return val;
+    }
+    const match = val.toString().match(re);
+    if (match && match.length === 0) {
+      return val;
+    }
+    return Number(match![0]!);
+  };
+
+  curStates.X = trunc(gamepad.axes[0]!);
+  curStates.Y = trunc(gamepad.axes[1]!);
+  curStates.RX = trunc(gamepad.axes[2]!);
+  curStates.RY = trunc(gamepad.axes[3]!);
+  curStates.Z = trunc(gamepad.buttons[6]!.value);
+  curStates.RZ = trunc(gamepad.buttons[7]!.value);
+  curStates.Hat0X = trunc((gamepad.buttons[14]!.value * -1) + gamepad.buttons[15]!.value);
+  curStates.Hat0Y = trunc((gamepad.buttons[12]!.value * -1) + gamepad.buttons[13]!.value);
+  curStates.South = trunc(gamepad.buttons[0]!.value);
+  curStates.East = trunc(gamepad.buttons[1]!.value);
+  curStates.West = trunc(gamepad.buttons[2]!.value);
+  curStates.North = trunc(gamepad.buttons[3]!.value);
+  curStates.LT = trunc(gamepad.buttons[4]!.value);
+  curStates.RT = trunc(gamepad.buttons[5]!.value);
+  curStates.Select = trunc(gamepad.buttons[8]!.value);
+  curStates.Start = trunc(gamepad.buttons[9]!.value);
+  curStates.LThumb = trunc(gamepad.buttons[10]!.value);
+  curStates.RThumb = trunc(gamepad.buttons[11]!.value);
+  curStates.Menu = trunc(gamepad.buttons[16]!.value);
+
+  if (enabled) {
+    processEvents();
+  }
+  handle = window.setTimeout(tick, 10);
+};
+
+onMounted(() => {
+  window.addEventListener('gamepadconnected', (event) => {
+    if (gamepad) {
+      return;
+    }
+    gamepad = event.gamepad;
+    tick();
+  });
+  window.addEventListener('gamepaddisconnected', (event) => {
+    if (gamepad && event.gamepad.id === gamepad.id) {
+      gamepad = null;
+    }
+  });
+  // initial search
   const pads = navigator.getGamepads();
   for (const pad of pads) {
     if (pad) {
       gamepad = pad;
-      gamepadFound = true;
       break;
     }
   }
 
-  if (gamepadFound === false) {
-    gamepadConnected = false;
-    gamepad = null;
+  if (!gamepad) {
+    return;
   }
-
-  if (gamepad) {
-    prevStates = { ...prevStates, ...curStates };
-    gamepadConnected = gamepad.connected;
-
-    curStates.X = gamepad.axes[0]!;
-    curStates.Y = gamepad.axes[1]!;
-    curStates.RX = gamepad.axes[2]!;
-    curStates.RY = gamepad.axes[3]!;
-    curStates.Z = gamepad.buttons[6]!.value;
-    curStates.RZ = gamepad.buttons[7]!.value;
-    curStates.Hat0X = (gamepad.buttons[14]!.value * -1) + gamepad.buttons[15]!.value;
-    curStates.Hat0Y = (gamepad.buttons[12]!.value * -1) + gamepad.buttons[13]!.value;
-    curStates.South = gamepad.buttons[0]!.value;
-    curStates.East = gamepad.buttons[1]!.value;
-    curStates.West = gamepad.buttons[2]!.value;
-    curStates.North = gamepad.buttons[3]!.value;
-    curStates.LT = gamepad.buttons[4]!.value;
-    curStates.RT = gamepad.buttons[5]!.value;
-    curStates.Select = gamepad.buttons[8]!.value;
-    curStates.Start = gamepad.buttons[9]!.value;
-    curStates.LThumb = gamepad.buttons[10]!.value;
-    curStates.RThumb = gamepad.buttons[11]!.value;
-    curStates.Menu = gamepad.buttons[16]!.value;
-  }
-
-  processEvents();
-  handle = window.requestAnimationFrame(tick);
-};
-
-onMounted(() => {
   prevStates = { ...prevStates, ...curStates };
   tick();
 });
@@ -185,15 +242,19 @@ watch(() => enabled, () => {
       slot="title"
       crumbs="input_controller"
     />
+    <span
+      v-if="gamepad && gamepad.connected"
+      slot="title"
+    > ({{ gamepad.id }})</span>
     <div slot="header">
       <span
-        v-if="gamepadConnected && enabled"
+        v-if="gamepad && gamepad.connected && enabled"
         class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
-      >Connected</span>
+      >Enabled</span>
       <span
         v-else
         class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
-      >Disconnected</span>
+      >Disabled</span>
     </div>
 
     <div class="h-full w-full border border-t-0 border-black p-4">
@@ -206,7 +267,7 @@ watch(() => enabled, () => {
       </div>
 
       <div
-        v-if="gamepadConnected"
+        v-if="gamepad && gamepad.connected"
         class="flex h-full w-full flex-row justify-between gap-2"
       >
         <div
