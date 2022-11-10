@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -39,6 +40,17 @@ type AttrConfig struct {
 	Speed             float64 `json:"speed_degs_per_sec"`
 	Host              string  `json:"host"`
 	BuiltinKinematics bool    `json:"builtin_kinematics,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	if cfg.Host == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "host")
+	}
+	if cfg.Speed > 1 || cfg.Speed < .1 {
+		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
+	}
+	return []string{}, nil
 }
 
 //go:embed ur5e.json
@@ -459,19 +471,23 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 const errBuiltinKinematics = "cannot use UR builtin kinematics with obstacles or interaction spaces"
 
 func (ua *URArm) useBuiltinKinematics(worldState *commonpb.WorldState, extra map[string]interface{}) (bool, error) {
-	var usingAtRuntime bool
-	if extra != nil {
-		if extraParam, ok := extra["builtin_kinematics"].(bool); ok {
-			usingAtRuntime = extraParam
-		}
-	}
-	if ua.builtinKinematics || usingAtRuntime {
-		if worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
+	// function to error out if trying to use world state with builtin kinematics
+	checkWorldState := func(usingBuiltinKinematics bool) (bool, error) {
+		if usingBuiltinKinematics && worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
 			return false, errors.New(errBuiltinKinematics)
 		}
-		return true, nil
+		return usingBuiltinKinematics, nil
 	}
-	return false, nil
+
+	// if runtime preference is specified, obey that
+	if extra != nil {
+		if usingAtRuntime, ok := extra["builtin_kinematics"].(bool); ok {
+			return checkWorldState(usingAtRuntime)
+		}
+	}
+
+	// otherwise default to option provided at config time
+	return checkWorldState(ua.builtinKinematics)
 }
 
 // MoveToPositionURDriver uses the builtin kinematics.
