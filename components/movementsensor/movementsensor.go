@@ -48,17 +48,14 @@ func init() {
 			Lat float64
 			Lng float64
 		}
-		// TODO: should collectors pass in extra parameters?
 		p, _, err := ms.Position(ctx, make(map[string]interface{}))
 		return Position{Lat: p.Lat(), Lng: p.Lng()}, err
 	})
 	registerCollector("LinearVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
-		// TODO: should collectors pass in extra parameters?
 		v, err := ms.LinearVelocity(ctx, make(map[string]interface{}))
 		return v, err
 	})
 	registerCollector("AngularVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
-		// TODO: should collectors pass in extra parameters?
 		v, err := ms.AngularVelocity(ctx, make(map[string]interface{}))
 		return v, err
 	})
@@ -66,7 +63,6 @@ func init() {
 		type Heading struct {
 			Heading float64
 		}
-		// TODO: should collectors pass in extra parameters?
 		h, err := ms.CompassHeading(ctx, make(map[string]interface{}))
 		return Heading{Heading: h}, err
 	})
