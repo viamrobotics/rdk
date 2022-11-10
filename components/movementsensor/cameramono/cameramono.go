@@ -268,7 +268,7 @@ func (co *cameramono) Orientation(ctx context.Context) (spatialmath.Orientation,
 }
 
 // Readings gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (co *cameramono) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return movementsensor.Readings(ctx, co)
 }
 

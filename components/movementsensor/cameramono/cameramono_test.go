@@ -155,7 +155,7 @@ func TestFunctions(t *testing.T) {
 		test.ShouldResemble,
 		movementsensor.ErrMethodUnimplementedCompassHeading)
 
-	read, err := tCo.Readings(tCo.cancelCtx)
+	read, err := tCo.Readings(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, read["linear_velocity"], test.ShouldResemble, r3.Vector{X: 40, Y: 50, Z: 60})
 	test.That(t, err, test.ShouldBeNil)
 

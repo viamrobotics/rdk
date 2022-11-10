@@ -44,7 +44,7 @@ func (s *subtypeServer) GetReadings(
 	if err != nil {
 		return nil, err
 	}
-	readings, err := sensorDevice.Readings(ctx)
+	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

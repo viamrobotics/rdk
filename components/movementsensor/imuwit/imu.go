@@ -121,7 +121,7 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
-func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, imu)
 	if err != nil {
 		return nil, err
