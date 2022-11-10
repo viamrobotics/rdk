@@ -551,43 +551,43 @@ func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	if g.lastError != nil {
 		return &geo.Point{}, 0, g.lastError
 	}
-	return g.nmeamovementsensor.Position(ctx)
+	return g.nmeamovementsensor.Position(ctx, extra)
 }
 
 // LinearVelocity passthrough.
-func (g *RTKMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (g *RTKMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	if g.lastError != nil {
 		return r3.Vector{}, g.lastError
 	}
-	return g.nmeamovementsensor.LinearVelocity(ctx)
+	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
 }
 
 // AngularVelocity passthrough.
-func (g *RTKMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (g *RTKMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	if g.lastError != nil {
 		return spatialmath.AngularVelocity{}, g.lastError
 	}
-	return g.nmeamovementsensor.AngularVelocity(ctx)
+	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
-func (g *RTKMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
+func (g *RTKMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	if g.lastError != nil {
 		return 0, g.lastError
 	}
-	return g.nmeamovementsensor.CompassHeading(ctx)
+	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
-func (g *RTKMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (g *RTKMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	if g.lastError != nil {
 		return spatialmath.NewZeroOrientation(), g.lastError
 	}
-	return g.nmeamovementsensor.Orientation(ctx)
+	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
 // ReadFix passthrough.
@@ -599,24 +599,24 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 }
 
 // Properties passthrough.
-func (g *RTKMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
+func (g *RTKMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	if g.lastError != nil {
 		return &movementsensor.Properties{}, g.lastError
 	}
-	return g.nmeamovementsensor.Properties(ctx)
+	return g.nmeamovementsensor.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
-func (g *RTKMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (g *RTKMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	if g.lastError != nil {
 		return map[string]float32{}, g.lastError
 	}
-	return g.nmeamovementsensor.Accuracy(ctx)
+	return g.nmeamovementsensor.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
 func (g *RTKMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g)
+	readings, err := movementsensor.Readings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}

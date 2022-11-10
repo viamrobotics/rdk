@@ -258,32 +258,32 @@ func (co *cameramono) Close() {
 }
 
 // Position gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (co *cameramono) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	return geo.NewPoint(co.result.trackedPos.X, co.result.trackedPos.Y), co.result.trackedPos.Z, nil
 }
 
 // Oritentation gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (co *cameramono) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return co.result.trackedOrient, nil
 }
 
 // Readings gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, co)
+	return movementsensor.Readings(ctx, co, extra)
 }
 
 // LinearVelocity gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (co *cameramono) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return co.result.linVel, nil
 }
 
 // AngularVelocity gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (co *cameramono) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return co.result.angVel, nil
 }
 
 // Properties gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) Properties(ctx context.Context) (*movementsensor.Properties, error) {
+func (co *cameramono) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		PositionSupported:        true,
 		OrientationSupported:     true,
@@ -313,11 +313,11 @@ func calculateLinVel(motion *odometry.Motion3D, dt float64) r3.Vector {
 // unimplemented methods.
 
 // Accuracy gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (co *cameramono) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 // COmpassHeadings gets the position of the moving object calculated by visual odometry.
-func (co *cameramono) CompassHeading(ctx context.Context) (float64, error) {
+func (co *cameramono) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }

@@ -116,25 +116,25 @@ func TestInit(t *testing.T) {
 }
 
 func TestFunctions(t *testing.T) {
-	xy, z, err := tCo.Position(tCo.cancelCtx)
+	xy, z, err := tCo.Position(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, xy, test.ShouldResemble, geo.NewPoint(4, 5))
 	test.That(t, z, test.ShouldEqual, 6)
 	test.That(t, err, test.ShouldBeNil)
 
-	ori, err := tCo.Orientation(tCo.cancelCtx)
+	ori, err := tCo.Orientation(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, ori, test.ShouldResemble, &spatialmath.OrientationVector{Theta: 90, OX: 1, OY: 2, OZ: 3})
 	test.That(t, err, test.ShouldBeNil)
 
-	linVel, err := tCo.LinearVelocity(tCo.cancelCtx)
+	linVel, err := tCo.LinearVelocity(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, linVel, test.ShouldResemble, r3.Vector{X: 40, Y: 50, Z: 60})
 	test.That(t, err, test.ShouldBeNil)
 
-	angVel, err := tCo.AngularVelocity(tCo.cancelCtx)
+	angVel, err := tCo.AngularVelocity(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, angVel, test.ShouldResemble, spatialmath.AngularVelocity{X: 10, Y: 20, Z: 30})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	props, err := tCo.Properties(tCo.cancelCtx)
+	props, err := tCo.Properties(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, props, test.ShouldResemble, &movementsensor.Properties{
 		PositionSupported:        true,
 		OrientationSupported:     true,
@@ -143,13 +143,13 @@ func TestFunctions(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	acc, err := tCo.Accuracy(tCo.cancelCtx)
+	acc, err := tCo.Accuracy(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, acc, test.ShouldResemble, map[string]float32{})
 	test.That(t, err,
 		test.ShouldResemble,
 		movementsensor.ErrMethodUnimplementedAccuracy)
 
-	ch, err := tCo.CompassHeading(tCo.cancelCtx)
+	ch, err := tCo.CompassHeading(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, ch, test.ShouldEqual, 0)
 	test.That(t, err,
 		test.ShouldResemble,

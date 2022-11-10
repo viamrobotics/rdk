@@ -8,6 +8,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
@@ -37,9 +38,14 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, 0, err
+	}
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -49,9 +55,14 @@ func (c *client) Position(ctx context.Context) (*geo.Point, float64, error) {
 		nil
 }
 
-func (c *client) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return r3.Vector{}, err
+	}
 	resp, err := c.client.GetLinearVelocity(ctx, &pb.GetLinearVelocityRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return r3.Vector{}, err
@@ -59,9 +70,14 @@ func (c *client) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
-func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return spatialmath.AngularVelocity{}, err
+	}
 	resp, err := c.client.GetAngularVelocity(ctx, &pb.GetAngularVelocityRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
@@ -69,9 +85,14 @@ func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVeloci
 	return spatialmath.AngularVelocity(protoutils.ConvertVectorProtoToR3(resp.AngularVelocity)), nil
 }
 
-func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return spatialmath.NewZeroOrientation(), err
+	}
 	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return spatialmath.NewZeroOrientation(), err
@@ -79,9 +100,14 @@ func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, erro
 	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
 }
 
-func (c *client) CompassHeading(ctx context.Context) (float64, error) {
+func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return 0, err
+	}
 	resp, err := c.client.GetCompassHeading(ctx, &pb.GetCompassHeadingRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return 0, err
@@ -91,12 +117,17 @@ func (c *client) CompassHeading(ctx context.Context) (float64, error) {
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	// TODO(erh): should this go over the network?
-	return Readings(ctx, c)
+	return Readings(ctx, c, extra)
 }
 
-func (c *client) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetAccuracy(ctx, &pb.GetAccuracyRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err
@@ -104,9 +135,14 @@ func (c *client) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return resp.AccuracyMm, nil
 }
 
-func (c *client) Properties(ctx context.Context) (*Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err
