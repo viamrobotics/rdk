@@ -59,6 +59,23 @@ type Config struct {
 	MMPerSecDefault    float64                `json:"mm_per_sec"`
 }
 
+// Validate creates the list of implicit dependencies.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.BaseName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
+	}
+	deps = append(deps, config.BaseName)
+
+	if config.MovementSensorName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+	}
+	deps = append(deps, config.MovementSensorName)
+
+	return deps, nil
+}
+
 // NewBuiltIn returns a new navigation service for the given robot.
 func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (navigation.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
