@@ -150,7 +150,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 
 	svc.mode = navigation.ModeManual
 	if mode == navigation.ModeWaypoint {
-		if err := svc.startWaypoint(); err != nil {
+		if err := svc.startWaypoint(extra); err != nil {
 			return err
 		}
 		svc.mode = mode
@@ -158,7 +158,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
-func (svc *builtIn) startWaypoint() error {
+func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
@@ -168,8 +168,7 @@ func (svc *builtIn) startWaypoint() error {
 			if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
 				return
 			}
-
-			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx)
+			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -247,7 +246,7 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	loc, _, err := svc.movementSensor.Position(ctx)
+	loc, _, err := svc.movementSensor.Position(ctx, extra)
 	return loc, err
 }
 
