@@ -324,7 +324,7 @@ func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties
 	}, nil
 }
 
-func (vn *vectornav) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (vn *vectornav) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return movementsensor.Readings(ctx, vn)
 }
 

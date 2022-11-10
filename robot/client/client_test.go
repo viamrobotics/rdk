@@ -343,7 +343,7 @@ func TestStatusClient(t *testing.T) {
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
