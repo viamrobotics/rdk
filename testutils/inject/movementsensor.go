@@ -24,6 +24,10 @@ type MovementSensor struct {
 	CompassHeadingFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	OrientationFuncExtraCap     map[string]interface{}
 	OrientationFunc             func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
+	PropertiesFuncExtraCap      map[string]interface{}
+	PropertiesFunc              func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error)
+	AccuracyFuncExtraCap        map[string]interface{}
+	AccuracyFunc                func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
 
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func() error
@@ -88,4 +92,22 @@ func (i *MovementSensor) CompassHeading(ctx context.Context, extra map[string]in
 	}
 	i.CompassHeadingFuncExtraCap = extra
 	return i.CompassHeadingFunc(ctx, extra)
+}
+
+// Properties func or passthrough.
+func (i *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	if i.PropertiesFunc == nil {
+		return i.MovementSensor.Properties(ctx, extra)
+	}
+	i.PropertiesFuncExtraCap = extra
+	return i.PropertiesFunc(ctx, extra)
+}
+
+// Accuracy func or passthrough.
+func (i *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+	if i.AccuracyFunc == nil {
+		return i.MovementSensor.Accuracy(ctx, extra)
+	}
+	i.AccuracyFuncExtraCap = extra
+	return i.AccuracyFunc(ctx, extra)
 }
