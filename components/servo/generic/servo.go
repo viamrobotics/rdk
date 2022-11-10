@@ -35,8 +35,6 @@ type servoConfig struct {
 	MaxDeg *float64 `json:"max_angle_deg,omitempty"`
 	// StartPos starting position of the servo in degree
 	StartPos *float64 `json:"starting_position_deg,omitempty"`
-	// HoldPos wether or not the servo driver should hold the position (keep PWM on)
-	HoldPos *bool `json:"hold_position,omitempty"`
 	// Frequency when set the servo driver will attempt to change the GPIO pin's Frequency
 	Frequency *uint `json:"frequency_hz,omitempty"`
 	// Resolution resolution of the PWM driver (eg number of ticks for a full period) if left or 0
@@ -104,7 +102,6 @@ type servoGeneric struct {
 	pin       board.GPIOPin
 	min       float64
 	max       float64
-	holdPos   bool
 	logger    golog.Logger
 	opMgr     operation.SingleOperationManager
 	frequency uint
@@ -155,10 +152,6 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 	if attr.StartPos != nil {
 		startPos = *attr.StartPos
 	}
-	holdPos := false
-	if attr.HoldPos != nil {
-		holdPos = *attr.HoldPos
-	}
 	minUs := minWidthUs
 	maxUs := maxWidthUs
 	if attr.MinWidthUS != nil {
@@ -170,7 +163,6 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 	servo := &servoGeneric{
 		min:       min,
 		max:       max,
-		holdPos:   holdPos,
 		frequency: frequency,
 		pin:       pin,
 		logger:    logger,
