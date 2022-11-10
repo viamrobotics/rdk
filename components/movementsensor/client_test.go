@@ -41,6 +41,8 @@ func TestClient(t *testing.T) {
 	ori := spatialmath.NewEulerAngles()
 	ori.Roll = 1.1
 	heading := 202.
+	props := &movementsensor.Properties{LinearVelocitySupported: true}
+	acc := map[string]float32{"x": 1.1}
 	rs := []interface{}{loc, alt, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
 
 	injectMovementSensor := &inject.MovementSensor{}
@@ -57,6 +59,10 @@ func TestClient(t *testing.T) {
 		return ori, nil
 	}
 	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) { return heading, nil }
+	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return props, nil
+	}
+	injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) { return acc, nil }
 
 	injectMovementSensor2 := &inject.MovementSensor{}
 	injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -135,6 +141,16 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ch, test.ShouldResemble, heading)
 		test.That(t, injectMovementSensor.CompassHeadingFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		props1, err := gps1Client.Properties(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, props1.LinearVelocitySupported, test.ShouldResemble, props.LinearVelocitySupported)
+		test.That(t, injectMovementSensor.PropertiesFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		acc1, err := gps1Client.Accuracy(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, acc1, test.ShouldResemble, acc)
+		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		rs1, err := gps1Client.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)

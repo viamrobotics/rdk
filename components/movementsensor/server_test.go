@@ -184,4 +184,62 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
 	})
+
+	t.Run("GetProperties", func(t *testing.T) {
+		props := &movementsensor.Properties{LinearVelocitySupported: true}
+		injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			return props, nil
+		}
+		injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			return nil, errors.New("can't get properties")
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testMovementSensorName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.LinearVelocitySupported, test.ShouldResemble, props.LinearVelocitySupported)
+		test.That(t, injectMovementSensor.PropertiesFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get properties")
+
+		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: fakeMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+
+		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+	})
+
+	t.Run("GetAccuracy", func(t *testing.T) {
+		acc := map[string]float32{"x": 1.1}
+		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+			return acc, nil
+		}
+		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+			return nil, errors.New("can't get accuracy")
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: testMovementSensorName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.AccuracyMm, test.ShouldResemble, acc)
+		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get accuracy")
+
+		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: fakeMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+
+		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+	})
 }
