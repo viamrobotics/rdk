@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/input"
@@ -66,6 +67,22 @@ type Config struct {
 	MaxLinearVelocity   float64 `json:"max_linear_mm_per_sec,omitempty"`
 }
 
+// Validate creates the list of implicit dependencies.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.InputControllerName == "" {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "input_controller")
+	}
+	deps = append(deps, config.InputControllerName)
+
+	if config.BaseName == "" {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "base")
+	}
+	deps = append(deps, config.BaseName)
+
+	return deps, nil
+}
+
 // builtIn is the structure of the remote service.
 type builtIn struct {
 	base            base.Base
@@ -80,7 +97,12 @@ type builtIn struct {
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (baseremotecontrol.Service, error) {
+func NewBuiltIn(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Service,
+	logger golog.Logger,
+) (baseremotecontrol.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
