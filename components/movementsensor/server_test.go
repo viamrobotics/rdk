@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -37,25 +38,16 @@ func TestServer(t *testing.T) {
 	gpsServer, injectMovementSensor, injectMovementSensor2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	loc := geo.NewPoint(90, 1)
-	alt := 50.5
-	speed := 5.4
-
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return loc, alt, nil
-	}
-	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-		return r3.Vector{0, speed, 0}, nil
-	}
-
-	injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return nil, 0, errors.New("can't get location")
-	}
-	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-		return r3.Vector{}, errors.New("can't get speed")
-	}
-
 	t.Run("GetPosition", func(t *testing.T) {
+		loc := geo.NewPoint(90, 1)
+		alt := 50.5
+		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+			return loc, alt, nil
+		}
+		injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+			return nil, 0, errors.New("can't get location")
+		}
+
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName, Extra: ext})
@@ -78,6 +70,15 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
+		speed := 5.4
+		injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+			return r3.Vector{0, speed, 0}, nil
+		}
+
+		injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+			return r3.Vector{}, errors.New("can't get speed")
+		}
+
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: testMovementSensorName, Extra: ext})
@@ -94,6 +95,92 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+	})
+
+	t.Run("GetAngularVelocity", func(t *testing.T) {
+		angZ := 1.1
+		injectMovementSensor.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+			return spatialmath.AngularVelocity{0, 0, angZ}, nil
+		}
+		injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+			return spatialmath.AngularVelocity{}, errors.New("can't get angular velocity")
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: testMovementSensorName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.AngularVelocity.Z, test.ShouldResemble, angZ)
+		test.That(t, injectMovementSensor.AngularVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
+
+		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: fakeMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+
+		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+	})
+
+	t.Run("GetOrientation", func(t *testing.T) {
+		ori := spatialmath.NewEulerAngles()
+		ori.Roll = 1.1
+		injectMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			return ori, nil
+		}
+		injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			return nil, errors.New("can't get orientation")
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: testMovementSensorName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Orientation.OZ, test.ShouldResemble, ori.OrientationVectorDegrees().OZ)
+		test.That(t, injectMovementSensor.OrientationFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get orientation")
+
+		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: fakeMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+
+		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+	})
+
+	t.Run("GetCompassHeading", func(t *testing.T) {
+		heading := 202.
+		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) { return heading, nil }
+		injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+			return 0.0, errors.New("can't get compass heading")
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: testMovementSensorName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Value, test.ShouldResemble, heading)
+		test.That(t, injectMovementSensor.CompassHeadingFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get compass heading")
+
+		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: fakeMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+
+		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
 	})
