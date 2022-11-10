@@ -28,6 +28,10 @@ func TestBaseRemoteControl(t *testing.T) {
 		ControlModeName:     "",
 	}
 
+	depNames, err := cfg.Validate("")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, utils.NewStringSet(depNames...), test.ShouldResemble, utils.NewStringSet("baseTest", "inputTest"))
+
 	fakeController := &inject.InputController{}
 	fakeBase := &fakebase.Base{}
 
