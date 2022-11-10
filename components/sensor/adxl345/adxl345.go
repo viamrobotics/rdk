@@ -188,11 +188,11 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 }
 
 // Puts the chip into standby mode.
-func (adxl *adxl345) Close() {
+func (adxl *adxl345) Close(ctx context.Context) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
-	err := adxl.writeByte(context.TODO(), 0x2D, 0x00)
+	err := adxl.writeByte(ctx, 0x2D, 0x00)
 	if err != nil {
 		adxl.logger.Error(err)
 	}
