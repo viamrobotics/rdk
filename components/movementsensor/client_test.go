@@ -119,7 +119,7 @@ func TestClient(t *testing.T) {
 		vel1, err := gps1Client.LinearVelocity(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, vel1.Y, test.ShouldAlmostEqual, speed)
-		test.That(t, injectMovementSensor.LinearVelocityFunc, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.LinearVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		av1, err := gps1Client.AngularVelocity(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
@@ -128,7 +128,7 @@ func TestClient(t *testing.T) {
 
 		o1, err := gps1Client.Orientation(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, o1, test.ShouldResemble, ori)
+		test.That(t, o1.OrientationVectorDegrees(), test.ShouldResemble, ori.OrientationVectorDegrees())
 		test.That(t, injectMovementSensor.OrientationFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		ch, err := gps1Client.CompassHeading(context.Background(), map[string]interface{}{"foo": "bar"})

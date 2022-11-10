@@ -56,7 +56,7 @@ func (i *MovementSensor) Position(ctx context.Context, extra map[string]interfac
 
 // LinearVelocity func or passthrough.
 func (i *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	if i.PositionFunc == nil {
+	if i.LinearVelocityFunc == nil {
 		return i.MovementSensor.LinearVelocity(ctx, extra)
 	}
 	i.LinearVelocityFuncExtraCap = extra
@@ -65,7 +65,7 @@ func (i *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]in
 
 // AngularVelocity func or passthrough.
 func (i *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	if i.PositionFunc == nil {
+	if i.AngularVelocityFunc == nil {
 		return i.MovementSensor.AngularVelocity(ctx, extra)
 	}
 	i.AngularVelocityFuncExtraCap = extra
@@ -74,7 +74,7 @@ func (i *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]i
 
 // Orientation func or passthrough.
 func (i *MovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	if i.PositionFunc == nil {
+	if i.OrientationFunc == nil {
 		return i.MovementSensor.Orientation(ctx, extra)
 	}
 	i.OrientationFuncExtraCap = extra
@@ -83,8 +83,9 @@ func (i *MovementSensor) Orientation(ctx context.Context, extra map[string]inter
 
 // CompassHeading func or passthrough.
 func (i *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	if i.PositionFunc == nil {
+	if i.CompassHeadingFunc == nil {
 		return i.MovementSensor.CompassHeading(ctx, extra)
 	}
+	i.CompassHeadingFuncExtraCap = extra
 	return i.CompassHeadingFunc(ctx, extra)
 }
