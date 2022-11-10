@@ -116,7 +116,20 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
-	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	resourcesFunc := func() []resource.Name {
+		return []resource.Name{
+			arm.Named("arm1"),
+			base.Named("base1"),
+			board.Named("board1"),
+			camera.Named("camera1"),
+			gripper.Named("gripper1"),
+			input.Named("inputController1"),
+			motor.Named("motor1"),
+			motor.Named("motor2"),
+			sensor.Named("sensor1"),
+			servo.Named("servo1"),
+		}
+	}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
@@ -392,16 +405,7 @@ func TestStatusClient(t *testing.T) {
 	_, err = base.FromRobot(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = base.FromRobot(client, "base2")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = base.FromRobot(client, "base3")
-	test.That(t, err, test.ShouldBeNil)
-
 	_, err = board.FromRobot(client, "board1")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = board.FromRobot(client, "board3")
 	test.That(t, err, test.ShouldBeNil)
 
 	camera1, err = camera.FromRobot(client, "camera1")
@@ -1667,12 +1671,8 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	resource1, err := client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.resourceClients[arm.Named("arm1")], test.ShouldEqual, resource1)
-	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
-	test.That(t, err.Error(), test.ShouldEqual, "rpc error: code = Unknown desc = no arm with name (arm1)")
-	test.That(t, pos, test.ShouldBeNil)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named("arm1")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1717,6 +1717,38 @@ func TestClientOperationIntercept(t *testing.T) {
 	resp, err := client.Status(ctx, []resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 0)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestGetUnknownResource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// grabbing known resource is fine
+	myArm, err := client.ResourceByName(arm.Named("myArm"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myArm, test.ShouldNotBeNil)
+
+	// grabbing unknown resource returns error
+	_, err = client.ResourceByName(base.Named("notABase"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("notABase")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
