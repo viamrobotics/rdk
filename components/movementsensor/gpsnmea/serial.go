@@ -149,7 +149,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 }
 
 // Position position, altitide.
-func (g *SerialNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.data.location == nil {
@@ -159,33 +159,33 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, fl
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
-func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
+func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, nil
 }
 
 // LinearVelocity linear velocity.
-func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, nil
 }
 
 // AngularVelocity angularvelocity.
-func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation orientation.
-func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading 0->360.
-func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
+func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
@@ -200,7 +200,7 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 
 // Readings will use return all of the MovementSensor Readings.
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g)
+	readings, err := movementsensor.Readings(ctx, g, extra)
 	if err != nil {
 		return nil, g.lastError
 	}
@@ -216,7 +216,7 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 }
 
 // Properties what do I do!
-func (g *SerialNMEAMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
+func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
