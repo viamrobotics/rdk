@@ -38,7 +38,7 @@ const ModelName = "ur5e"
 type AttrConfig struct {
 	Speed             float64 `json:"speed_degs_per_sec"`
 	Host              string  `json:"host"`
-	BuiltinKinematics bool    `json:"builtin_kinematics"`
+	BuiltinKinematics bool    `json:"builtin_kinematics,omitempty"`
 }
 
 //go:embed ur5e.json
@@ -236,8 +236,9 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-// NOTE: if the UR arm was configured with "builtin_kinematics = 'true'" the worldState argument will be ignored, as universal robotics
-// does not natively support obstacle avoidance. Use with caution!
+// If the UR arm was configured with "builtin_kinematics = 'true'" or extra["builtin_kinematics"] = true is specified at runtime
+// this command will use the kinematics builtin to the arm by Universal Robots.  If the builtin kinematics are used with obstacles
+// or interaction spaces embedded in the world state an error will  be thrown, as the builtin planning does not support these constraints
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
 	pos *commonpb.Pose,
@@ -246,7 +247,12 @@ func (ua *URArm) MoveToPosition(
 ) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
-	if ua.builtinKinematics {
+
+	builtinKinematics, err := ua.useBuiltinKinematics(worldState, extra)
+	if err != nil {
+		return err
+	}
+	if builtinKinematics {
 		return ua.moveWithBuiltinKinematics(ctx, pos)
 	}
 	return arm.Move(ctx, ua.robot, ua, pos, worldState)
@@ -448,6 +454,24 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
+}
+
+const errBuiltinKinematics = "cannot use UR builtin kinematics with obstacles or interaction spaces"
+
+func (ua *URArm) useBuiltinKinematics(worldState *commonpb.WorldState, extra map[string]interface{}) (bool, error) {
+	var usingAtRuntime bool
+	if extra != nil {
+		if extraParam, ok := extra["builtin_kinematics"].(bool); ok {
+			usingAtRuntime = extraParam
+		}
+	}
+	if ua.builtinKinematics || usingAtRuntime {
+		if worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
+			return false, errors.New(errBuiltinKinematics)
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 // MoveToPositionURDriver uses the builtin kinematics.

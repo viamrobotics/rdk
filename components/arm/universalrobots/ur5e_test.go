@@ -47,7 +47,7 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 	}
 }
 
-func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *commonpb.Pose) {
+func testUR5eForwardKinematics(t *testing.T, jointRadians []float64, correct *commonpb.Pose) {
 	t.Helper()
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -69,7 +69,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *com
 	test.That(t, pos.Theta, test.ShouldAlmostEqual, fromDH.Theta, .01)
 }
 
-func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
+func testUR5eInverseKinematics(t *testing.T, pos *commonpb.Pose) {
 	t.Helper()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -100,54 +100,83 @@ func TestKin1(t *testing.T) {
 	// Section 1 - first we test each joint independently
 
 	//    Home
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, 0}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, 0, 0, 0}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
 
 	//    Joint 0
-	testUR5eForwardKinements(t, []float64{math.Pi / 2, 0, 0, 0, 0, 0}, &commonpb.Pose{X: 232.90, Y: -817.2, Z: 62.80})
-	testUR5eForwardKinements(t, []float64{math.Pi, 0, 0, 0, 0, 0}, &commonpb.Pose{X: 817.2, Y: 232.90, Z: 62.80})
+	testUR5eForwardKinematics(t, []float64{math.Pi / 2, 0, 0, 0, 0, 0}, &commonpb.Pose{X: 232.90, Y: -817.2, Z: 62.80})
+	testUR5eForwardKinematics(t, []float64{math.Pi, 0, 0, 0, 0, 0}, &commonpb.Pose{X: 817.2, Y: 232.90, Z: 62.80})
 
 	//    Joint 1
-	testUR5eForwardKinements(t, []float64{0, math.Pi / -2, 0, 0, 0, 0}, &commonpb.Pose{X: -99.7, Y: -232.90, Z: 979.70})
-	testUR5eForwardKinements(t, []float64{0, math.Pi / 2, 0, 0, 0, 0}, &commonpb.Pose{X: 99.7, Y: -232.90, Z: -654.70})
-	testUR5eForwardKinements(t, []float64{0, math.Pi, 0, 0, 0, 0}, &commonpb.Pose{X: 817.2, Y: -232.90, Z: 262.2})
+	testUR5eForwardKinematics(t, []float64{0, math.Pi / -2, 0, 0, 0, 0}, &commonpb.Pose{X: -99.7, Y: -232.90, Z: 979.70})
+	testUR5eForwardKinematics(t, []float64{0, math.Pi / 2, 0, 0, 0, 0}, &commonpb.Pose{X: 99.7, Y: -232.90, Z: -654.70})
+	testUR5eForwardKinematics(t, []float64{0, math.Pi, 0, 0, 0, 0}, &commonpb.Pose{X: 817.2, Y: -232.90, Z: 262.2})
 
 	//    Joint 2
-	testUR5eForwardKinements(t, []float64{0, 0, math.Pi / 2, 0, 0, 0}, &commonpb.Pose{X: -325.3, Y: -232.90, Z: -229.7})
-	testUR5eForwardKinements(t, []float64{0, 0, math.Pi, 0, 0, 0}, &commonpb.Pose{X: -32.8, Y: -232.90, Z: 262.2})
+	testUR5eForwardKinematics(t, []float64{0, 0, math.Pi / 2, 0, 0, 0}, &commonpb.Pose{X: -325.3, Y: -232.90, Z: -229.7})
+	testUR5eForwardKinematics(t, []float64{0, 0, math.Pi, 0, 0, 0}, &commonpb.Pose{X: -32.8, Y: -232.90, Z: 262.2})
 
 	//    Joint 3
-	testUR5eForwardKinements(t, []float64{0, 0, 0, math.Pi / 2, 0, 0}, &commonpb.Pose{X: -717.5, Y: -232.90, Z: 162.5})
-	testUR5eForwardKinements(t, []float64{0, 0, 0, math.Pi, 0, 0}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 262.2})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, math.Pi / 2, 0, 0}, &commonpb.Pose{X: -717.5, Y: -232.90, Z: 162.5})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, math.Pi, 0, 0}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 262.2})
 
 	//    Joint 4
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, math.Pi / 2, 0}, &commonpb.Pose{X: -916.80, Y: -133.3, Z: 62.8})
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, math.Pi, 0}, &commonpb.Pose{X: -817.2, Y: -33.7, Z: 62.8})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, 0, math.Pi / 2, 0}, &commonpb.Pose{X: -916.80, Y: -133.3, Z: 62.8})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, 0, math.Pi, 0}, &commonpb.Pose{X: -817.2, Y: -33.7, Z: 62.8})
 
 	//    Joint 5
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, math.Pi / 2}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, math.Pi}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, 0, 0, math.Pi / 2}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
+	testUR5eForwardKinematics(t, []float64{0, 0, 0, 0, 0, math.Pi}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
 
 	// Section 2 - try some consistent angle
 	rad := math.Pi / 4
-	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: 16.62, Y: -271.49, Z: -509.52})
+	testUR5eForwardKinematics(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: 16.62, Y: -271.49, Z: -509.52})
 
 	rad = math.Pi / 2
-	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: 133.3, Y: 292.5, Z: -162.9})
+	testUR5eForwardKinematics(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: 133.3, Y: 292.5, Z: -162.9})
 
 	rad = math.Pi
-	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: -32.8, Y: 33.7, Z: 262.2})
+	testUR5eForwardKinematics(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: -32.8, Y: 33.7, Z: 262.2})
 
 	// Section 3 - try some random angles
-	testUR5eForwardKinements(t,
+	testUR5eForwardKinematics(t,
 		[]float64{math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2, 0},
 		&commonpb.Pose{X: 193.91, Y: 5.39, Z: -654.63})
-	testUR5eForwardKinements(t,
+	testUR5eForwardKinematics(t,
 		[]float64{0, math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2},
 		&commonpb.Pose{X: 97.11, Y: -203.73, Z: -394.65})
 
-	testUR5eInverseKinements(t,
+	testUR5eInverseKinematics(t,
 		&commonpb.Pose{X: -202.31, Y: -577.75, Z: 318.58, Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
 	)
+}
+
+func TestUseBuiltInKinematics(t *testing.T) {
+	gifs := []*commonpb.GeometriesInFrame{{Geometries: []*commonpb.Geometry{{
+		Center:       spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+		GeometryType: &commonpb.Geometry_Sphere{Sphere: &commonpb.Sphere{RadiusMm: 1}},
+	}}}}
+
+	// test no obstacles will cause to use
+	ur := &URArm{builtinKinematics: true}
+	using, err := ur.useBuiltinKinematics(&commonpb.WorldState{}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, using, test.ShouldBeTrue)
+
+	// test obstacles will cause this to error
+	_, err = ur.useBuiltinKinematics(&commonpb.WorldState{Obstacles: gifs}, nil)
+	test.That(t, err.Error(), test.ShouldResemble, errBuiltinKinematics)
+
+	// test obstacles will cause this to error
+	_, err = ur.useBuiltinKinematics(&commonpb.WorldState{InteractionSpaces: gifs}, nil)
+	test.That(t, err.Error(), test.ShouldResemble, errBuiltinKinematics)
+
+	// test that extra params can be used to get the same behavior
+	ur.builtinKinematics = false
+	extraParams := make(map[string]interface{})
+	extraParams["builtin_kinematics"] = true
+	using, err = ur.useBuiltinKinematics(nil, extraParams)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, using, test.ShouldBeTrue)
 }
 
 type dhConstants struct {
