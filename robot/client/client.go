@@ -504,7 +504,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 			}
 			rc.resourceClients[name] = resourceClient
 			return resourceClient, nil
-
 		}
 	}
 	return nil, rutils.NewResourceNotFoundError(name)
