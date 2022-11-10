@@ -216,7 +216,7 @@ type bme280 struct {
 }
 
 // Readings returns a list containing single item (current temperature).
-func (s *bme280) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
 		s.logger.Errorf("can't open bme280 i2c %s", err)
