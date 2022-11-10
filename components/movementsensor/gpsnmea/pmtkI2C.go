@@ -210,7 +210,10 @@ func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra ma
 }
 
 // AngularVelocity not supported.
-func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
+	ctx context.Context,
+	extra map[string]interface{},
+) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity

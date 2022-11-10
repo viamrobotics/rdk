@@ -216,7 +216,10 @@ func (r *reconfigurableMovementSensor) Position(ctx context.Context, extra map[s
 	return r.actual.Position(ctx, extra)
 }
 
-func (r *reconfigurableMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (r *reconfigurableMovementSensor) AngularVelocity(
+	ctx context.Context,
+	extra map[string]interface{},
+) (spatialmath.AngularVelocity, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.AngularVelocity(ctx, extra)
