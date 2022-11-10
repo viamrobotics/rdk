@@ -89,7 +89,7 @@ func (c *client) CompassHeading(ctx context.Context) (float64, error) {
 	return resp.Value, nil
 }
 
-func (c *client) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	// TODO(erh): should this go over the network?
 	return Readings(ctx, c)
 }

@@ -193,172 +193,174 @@ const armModifyAll = () => {
         @click.stop="stop()"
       />
     </div>
-    <div class="mt-2 flex">
-      <div
-        v-if="toggle[name]"
-        class="mr-4 w-1/2 border border-black p-4"
-      >
-        <h3 class="mb-2">
-          END POSITION (mms)
-        </h3>
-        <div class="inline-grid grid-cols-2 gap-1 pb-1">
-          <template
-            v-for="cc in toggle[name]!.pos_pieces"
-            :key="cc.endPosition[0]"
-          >
-            <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
-            <input
-              v-model="cc.endPositionValue"
-              class="border border-black py-1 px-4"
+    <div class="border border-t-0 border-black p-4">
+      <div class="flex flex-wrap gap-4 mb-4">
+        <div
+          v-if="toggle[name]"
+          class="border border-black p-4"
+        >
+          <h3 class="mb-2">
+            END POSITION (mms)
+          </h3>
+          <div class="inline-grid grid-cols-2 gap-1 pb-1">
+            <template
+              v-for="cc in toggle[name]!.pos_pieces"
+              :key="cc.endPosition[0]"
             >
-          </template>
-        </div>
-        <div class="mt-2 flex gap-2">
-          <v-button
-            class="mr-4 whitespace-nowrap"
-            label="Go To End Position"
-            @click="armModifyAllDoEndPosition"
-          />
-          <div class="flex-auto text-right">
+              <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
+              <input
+                v-model="cc.endPositionValue"
+                class="border border-black py-1 px-4"
+              >
+            </template>
+          </div>
+          <div class="mt-2 flex gap-2">
             <v-button
-              label="Cancel"
-              @click="armModifyAllCancel"
+              class="mr-4 whitespace-nowrap"
+              label="Go To End Position"
+              @click="armModifyAllDoEndPosition"
             />
+            <div class="flex-auto text-right">
+              <v-button
+                label="Cancel"
+                @click="armModifyAllCancel"
+              />
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="toggle[name]"
+          class="border border-black p-4"
+        >
+          <h3 class="mb-2">
+            JOINTS (degrees)
+          </h3>
+          <div class="grid grid-cols-2 gap-1 pb-1">
+            <template
+              v-for="bb in toggle[name]!.joint_pieces"
+              :key="bb.joint"
+            >
+              <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
+              <input
+                v-model="bb.jointValue"
+                class="border border-black py-1 px-4"
+              >
+            </template>
+          </div>
+          <div class="mt-2 flex gap-2">
+            <v-button
+              label="Go To Joints"
+              @click="armModifyAllDoJoint"
+            />
+            <div class="flex-auto text-right">
+              <v-button
+                label="Cancel"
+                @click="armModifyAllCancel"
+              />
+            </div>
           </div>
         </div>
       </div>
-      <div
-        v-if="toggle[name]"
-        class="w-1/2 border border-black p-4"
-      >
-        <h3 class="mb-2">
-          JOINTS (degrees)
-        </h3>
-        <div class="grid grid-cols-2 gap-1 pb-1">
-          <template
-            v-for="bb in toggle[name]!.joint_pieces"
-            :key="bb.joint"
-          >
-            <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
-            <input
-              v-model="bb.jointValue"
-              class="border border-black py-1 px-4"
-            >
-          </template>
-        </div>
-        <div class="mt-2 flex gap-2">
-          <v-button
-            label="Go To Joints"
-            @click="armModifyAllDoJoint"
-          />
-          <div class="flex-auto text-right">
-            <v-button
-              label="Cancel"
-              @click="armModifyAllCancel"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="mb-2 flex">
-      <div
-        v-if="status"
-        class="mr-4 w-1/2 border border-black p-4"
-      >
-        <h3 class="mb-2">
-          END POSITION (mms)
-        </h3>
-        <div class="inline-grid grid-cols-6 gap-1 pb-1">
-          <template
-            v-for="aa in status.pos_pieces"
-            :key="aa.endPosition[0]"
-          >
-            <h4 class="py-1 pr-2 text-right">
-              {{ aa.endPosition[1] }}
-            </h4>
+      <div class="flex flex-wrap gap-4">
+        <div
+          v-if="status"
+          class="border border-black p-4"
+        >
+          <h3 class="mb-2">
+            END POSITION (mms)
+          </h3>
+          <div class="inline-grid grid-cols-6 gap-1 pb-1">
+            <template
+              v-for="aa in status.pos_pieces"
+              :key="aa.endPosition[0]"
+            >
+              <h4 class="py-1 pr-2 text-right">
+                {{ aa.endPosition[1] }}
+              </h4>
+              <v-button
+                label="--"
+                @click="armEndPositionInc(aa.endPosition[1]!, -10)"
+              />
+              <v-button
+                label="-"
+                @click="armEndPositionInc(aa.endPosition[1]!, -1)"
+              />
+              <v-button
+                label="+"
+                @click="armEndPositionInc(aa.endPosition[1]!, 1)"
+              />
+              <v-button
+                label="++"
+                @click="armEndPositionInc(aa.endPosition[1]!, 10)"
+              />
+              <h4 class="py-1">
+                {{ aa.endPositionValue.toFixed(2) }}
+              </h4>
+            </template>
+          </div>
+          <div class="mt-2 flex gap-2">
             <v-button
-              label="--"
-              @click="armEndPositionInc(aa.endPosition[1]!, -10)"
+              label="Home"
+              @click="armHome"
             />
-            <v-button
-              label="-"
-              @click="armEndPositionInc(aa.endPosition[1]!, -1)"
-            />
-            <v-button
-              label="+"
-              @click="armEndPositionInc(aa.endPosition[1]!, 1)"
-            />
-            <v-button
-              label="++"
-              @click="armEndPositionInc(aa.endPosition[1]!, 10)"
-            />
-            <h4 class="py-1">
-              {{ aa.endPositionValue.toFixed(2) }}
-            </h4>
-          </template>
-        </div>
-        <div class="mt-2 flex gap-2">
-          <v-button
-            label="Home"
-            @click="armHome"
-          />
-          <div class="flex-auto text-right">
-            <v-button
-              class="whitespace-nowrap"
-              label="Modify All"
-              @click="armModifyAll"
-            />
+            <div class="flex-auto text-right">
+              <v-button
+                class="whitespace-nowrap"
+                label="Modify All"
+                @click="armModifyAll"
+              />
+            </div>
           </div>
         </div>
-      </div>
-      <div
-        v-if="status"
-        class="w-1/2 border border-black p-4"
-      >
-        <h3 class="mb-2">
-          JOINTS (degrees)
-        </h3>
-        <div class="inline-grid grid-cols-6 gap-1 pb-1">
-          <template
-            v-for="aa in status.joint_pieces"
-            :key="aa.joint"
-          >
-            <h4 class="whitespace-nowrap py-1 pr-2 text-right">
-              Joint {{ aa.joint }}
-            </h4>
+        <div
+          v-if="status"
+          class="border border-black p-4"
+        >
+          <h3 class="mb-2">
+            JOINTS (degrees)
+          </h3>
+          <div class="inline-grid grid-cols-6 gap-1 pb-1">
+            <template
+              v-for="aa in status.joint_pieces"
+              :key="aa.joint"
+            >
+              <h4 class="whitespace-nowrap py-1 pr-2 text-right">
+                Joint {{ aa.joint }}
+              </h4>
+              <v-button
+                label="--"
+                @click="armJointInc(aa.joint, -10)"
+              />
+              <v-button
+                label="-"
+                @click="armJointInc(aa.joint, -1)"
+              />
+              <v-button
+                label="+"
+                @click="armJointInc(aa.joint, 1)"
+              />
+              <v-button
+                label="++"
+                @click="armJointInc(aa.joint, 10)"
+              />
+              <h4 class="py-1 pl-2">
+                {{ aa.jointValue.toFixed(2) }}
+              </h4>
+            </template>
+          </div>
+          <div class="mt-2 flex gap-2">
             <v-button
-              label="--"
-              @click="armJointInc(aa.joint, -10)"
+              label="Home"
+              @click="armHome"
             />
-            <v-button
-              label="-"
-              @click="armJointInc(aa.joint, -1)"
-            />
-            <v-button
-              label="+"
-              @click="armJointInc(aa.joint, 1)"
-            />
-            <v-button
-              label="++"
-              @click="armJointInc(aa.joint, 10)"
-            />
-            <h4 class="py-1 pl-2">
-              {{ aa.jointValue.toFixed(2) }}
-            </h4>
-          </template>
-        </div>
-        <div class="mt-2 flex gap-2">
-          <v-button
-            label="Home"
-            @click="armHome"
-          />
-          <div class="flex-auto text-right">
-            <v-button
-              class="whitespace-nowrap"
-              label="Modify All"
-              @click="armModifyAll"
-            />
+            <div class="flex-auto text-right">
+              <v-button
+                class="whitespace-nowrap"
+                label="Modify All"
+                @click="armModifyAll"
+              />
+            </div>
           </div>
         </div>
       </div>

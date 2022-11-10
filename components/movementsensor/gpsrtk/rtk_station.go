@@ -365,7 +365,7 @@ func (r *rtkStation) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (r *rtkStation) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (r *rtkStation) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{}, movementsensor.ErrMethodUnimplementedReadings
 }
 

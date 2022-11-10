@@ -236,7 +236,7 @@ func TestReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
-	result, err := reconfMovementSensor1.(sensor.Sensor).Readings(context.Background())
+	result, err := reconfMovementSensor1.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
 
@@ -299,7 +299,7 @@ func (m *mock) CompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 
-func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (m *mock) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return movementsensor.Readings(ctx, m)
 }
 
