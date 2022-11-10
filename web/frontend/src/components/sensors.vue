@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import sensorsApi from '../gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
+import sensorsApi from '../gen/service/sensors/v1/sensors_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 
