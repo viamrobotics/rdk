@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import robotApi, { type Operation } from '../gen/proto/api/robot/v1/robot_pb.esm';
+import robotApi, { type Operation } from '../gen/robot/v1/robot_pb.esm';
 import { displayError } from '../lib/error';
 
 interface Props {
