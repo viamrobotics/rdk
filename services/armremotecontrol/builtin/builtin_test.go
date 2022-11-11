@@ -75,11 +75,12 @@ func TestArmRemoteControl(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
+		extra map[string]interface{},
 	) error {
 		return nil
 	}
 
-	fakeController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	fakeController.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 		r := make([]input.Control, 1)
 		r[0] = input.ButtonMenu
 		return r, nil

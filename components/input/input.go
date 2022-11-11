@@ -61,13 +61,19 @@ func Named(name string) resource.Name {
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
 	// Controls returns a list of Controls provided by the Controller
-	Controls(ctx context.Context) ([]Control, error)
+	Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error)
 
 	// Events returns most recent Event for each input (which should be the current state)
-	Events(ctx context.Context) (map[Control]Event, error)
+	Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error)
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
-	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
+	RegisterControlCallback(
+		ctx context.Context,
+		control Control,
+		triggers []EventType,
+		ctrlFunc ControlFunction,
+		extra map[string]interface{},
+	) error
 
 	generic.Generic
 }
@@ -149,7 +155,7 @@ type Event struct {
 // Triggerable is used by the WebGamepad interface to inject events.
 type Triggerable interface {
 	// TriggerEvent allows directly sending an Event (such as a button press) from external code
-	TriggerEvent(ctx context.Context, event Event) error
+	TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
@@ -218,7 +224,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(resource)
 	}
-	eventsIn, err := controller.Events(ctx)
+	eventsIn, err := controller.Events(ctx, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -252,27 +258,27 @@ func (c *reconfigurableInputController) DoCommand(ctx context.Context, cmd map[s
 	return c.actual.DoCommand(ctx, cmd)
 }
 
-func (c *reconfigurableInputController) Controls(ctx context.Context) ([]Control, error) {
+func (c *reconfigurableInputController) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Controls(ctx)
+	return c.actual.Controls(ctx, extra)
 }
 
-func (c *reconfigurableInputController) Events(ctx context.Context) (map[Control]Event, error) {
+func (c *reconfigurableInputController) Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Events(ctx)
+	return c.actual.Events(ctx, extra)
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (c *reconfigurableInputController) TriggerEvent(ctx context.Context, event Event) error {
+func (c *reconfigurableInputController) TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	iActual, ok := c.actual.(Triggerable)
 	if !ok {
 		return errors.New("controller is not Triggerable")
 	}
-	return iActual.TriggerEvent(ctx, event)
+	return iActual.TriggerEvent(ctx, event, extra)
 }
 
 func (c *reconfigurableInputController) RegisterControlCallback(
@@ -280,10 +286,11 @@ func (c *reconfigurableInputController) RegisterControlCallback(
 	control Control,
 	triggers []EventType,
 	ctrlFunc ControlFunction,
+	extra map[string]interface{},
 ) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
+	return c.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc, extra)
 }
 
 func (c *reconfigurableInputController) Close(ctx context.Context) error {
