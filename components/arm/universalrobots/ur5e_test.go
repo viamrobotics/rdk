@@ -150,7 +150,7 @@ func TestKin1(t *testing.T) {
 	)
 }
 
-func TestUseBuiltInKinematics(t *testing.T) {
+func TestUseURHostedKinematics(t *testing.T) {
 	gifs := []*commonpb.GeometriesInFrame{{Geometries: []*commonpb.Geometry{{
 		Center:       spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 		GeometryType: &commonpb.Geometry_Sphere{Sphere: &commonpb.Sphere{RadiusMm: 1}},
@@ -158,38 +158,38 @@ func TestUseBuiltInKinematics(t *testing.T) {
 
 	// test that under normal circumstances we can use worldstate and our own kinematics
 	ur := URArm{}
-	using, err := ur.useBuiltinKinematics(&commonpb.WorldState{Obstacles: gifs}, nil)
+	using, err := ur.useURHostedKinematics(&commonpb.WorldState{Obstacles: gifs}, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, using, test.ShouldBeFalse)
 
-	// test that extra params can be used to get the arm to use the builtin kinematics
+	// test that extra params can be used to get the arm to use the hosted kinematics
 	extraParams := make(map[string]interface{})
-	extraParams["builtin_kinematics"] = true
-	using, err = ur.useBuiltinKinematics(nil, extraParams)
+	extraParams["ur_hosted_kinematics"] = true
+	using, err = ur.useURHostedKinematics(nil, extraParams)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, using, test.ShouldBeTrue)
 
 	// test specifying at config time with no obstacles or extra params at runtime
-	ur.builtinKinematics = true
-	using, err = ur.useBuiltinKinematics(&commonpb.WorldState{}, nil)
+	ur.urHostedKinematics = true
+	using, err = ur.useURHostedKinematics(&commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, using, test.ShouldBeTrue)
 
 	// test that we can override the config preference with extra params
-	extraParams["builtin_kinematics"] = false
-	using, err = ur.useBuiltinKinematics(&commonpb.WorldState{Obstacles: gifs}, extraParams)
+	extraParams["ur_hosted_kinematics"] = false
+	using, err = ur.useURHostedKinematics(&commonpb.WorldState{Obstacles: gifs}, extraParams)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, using, test.ShouldBeFalse)
 
 	// test obstacles will cause this to error
-	_, err = ur.useBuiltinKinematics(&commonpb.WorldState{Obstacles: gifs}, nil)
+	_, err = ur.useURHostedKinematics(&commonpb.WorldState{Obstacles: gifs}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, errBuiltinKinematics)
+	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
 
 	// test obstacles will cause this to error
-	_, err = ur.useBuiltinKinematics(&commonpb.WorldState{InteractionSpaces: gifs}, nil)
+	_, err = ur.useURHostedKinematics(&commonpb.WorldState{InteractionSpaces: gifs}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, errBuiltinKinematics)
+	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
 }
 
 type dhConstants struct {
