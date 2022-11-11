@@ -111,8 +111,7 @@
                 },
                 "movement_sensor": "test_movement",
                 "base": "test_base"
-            },
-            "depends_on":["test_movement","test_base"]
+            }
         }
     ]
 }

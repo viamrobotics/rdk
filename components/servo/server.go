@@ -40,7 +40,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveResponse{}, servo.Move(ctx, uint8(req.GetAngleDeg()))
+	return &pb.MoveResponse{}, servo.Move(ctx, uint8(req.GetAngleDeg()), req.Extra.AsMap())
 }
 
 func (server *subtypeServer) GetPosition(
@@ -51,7 +51,7 @@ func (server *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	angleDeg, err := servo.Position(ctx)
+	angleDeg, err := servo.Position(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -64,5 +64,5 @@ func (server *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	return &pb.StopResponse{}, servo.Stop(ctx)
+	return &pb.StopResponse{}, servo.Stop(ctx, req.Extra.AsMap())
 }

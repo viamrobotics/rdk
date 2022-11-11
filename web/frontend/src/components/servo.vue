@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import servoApi, { type Status } from '../gen/proto/api/component/servo/v1/servo_pb.esm';
+import servoApi, { type Status } from '../gen/component/servo/v1/servo_pb.esm';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 

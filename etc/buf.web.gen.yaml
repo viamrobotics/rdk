@@ -1,15 +1,15 @@
 version: v1
 plugins:
   - name: js
-    out: dist/js
+    out: web/frontend/src/gen
     opt:
       - import_style=commonjs
   - name: grpc-web
-    out: dist/js
+    out: web/frontend/src/gen
     opt:
       - import_style=commonjs
       - mode=grpcwebtext
   - name: ts
-    out: dist/js
+    out: web/frontend/src/gen
     opt:
       - service=grpc-web

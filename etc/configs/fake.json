@@ -128,11 +128,7 @@
                 },
                 "movement_sensor": "movement_sensor1",
                 "base": "base1"
-            },
-            "depends_on": [
-                "base1",
-                "movement_sensor1"
-            ]
+            }
         }
     ]
 }

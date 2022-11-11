@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -489,17 +490,23 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	// one final check but under a more strict lock
+	// another check, this one with a stricter lock
 	if client, ok := rc.resourceClients[name]; ok {
 		return client, nil
 	}
 
-	resourceClient, err := rc.createClient(name)
-	if err != nil {
-		return nil, err
+	// finally, before adding a new resource, make sure this name exists and is known
+	for _, knownName := range rc.resourceNames {
+		if name == knownName {
+			resourceClient, err := rc.createClient(name)
+			if err != nil {
+				return nil, err
+			}
+			rc.resourceClients[name] = resourceClient
+			return resourceClient, nil
+		}
 	}
-	rc.resourceClients[name] = resourceClient
-	return resourceClient, nil
+	return nil, rutils.NewResourceNotFoundError(name)
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {

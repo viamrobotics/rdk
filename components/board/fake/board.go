@@ -310,23 +310,33 @@ func (h *I2CHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	return ret[:count], nil
 }
 
-// ReadByteData reads a byte from the i2c channelC.
+// ReadByteData reads a byte from the i2c channel.
 func (h *I2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	return 0, errors.New("finish me")
 }
 
-// WriteByteData writes a byte to the i2c channelC.
+// WriteByteData writes a byte to the i2c channel.
 func (h *I2CHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	return errors.New("finish me")
 }
 
-// ReadWordData reads a word from the i2c channelC.
+// ReadWordData reads a word from the i2c channel.
 func (h *I2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
 	return 0, errors.New("finish me")
 }
 
-// WriteWordData writes a word to the i2c channelC.
+// WriteWordData writes a word to the i2c channel.
 func (h *I2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
+	return errors.New("finish me")
+}
+
+// ReadBlockData reads the given number of bytes from the i2c channel.
+func (h *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+	return nil, errors.New("finish me")
+}
+
+// WriteBlockData writes the given bytes to the i2c channel.
+func (h *I2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
 	return errors.New("finish me")
 }
 

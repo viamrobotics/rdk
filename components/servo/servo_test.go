@@ -66,7 +66,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.Position(context.Background())
+	result, err := s.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 
@@ -107,7 +107,7 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
-	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 		return uint8(status.PositionDeg), nil
 	}
 	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
@@ -138,7 +138,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+		injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 			return 0, errFail
 		}
 		_, err = servo.CreateStatus(context.Background(), injectServo)
@@ -223,7 +223,7 @@ func TestReconfigurableServo(t *testing.T) {
 
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualServo2.posCount, test.ShouldEqual, 0)
-	result, err := reconfServo1.(servo.Servo).Position(context.Background())
+	result, err := reconfServo1.(servo.Servo).Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
@@ -263,7 +263,7 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualServo1.stopCount, test.ShouldEqual, 0)
-	test.That(t, reconfServo1.(servo.Servo).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, reconfServo1.(servo.Servo).Stop(context.Background(), nil), test.ShouldBeNil)
 	test.That(t, actualServo1.stopCount, test.ShouldEqual, 1)
 }
 
@@ -275,6 +275,22 @@ func TestClose(t *testing.T) {
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfServo1), test.ShouldBeNil)
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 1)
+}
+
+func TestExtra(t *testing.T) {
+	actualServo1 := &mockLocal{Name: testServoName}
+	reconfServo1, err := servo.WrapWithReconfigurable((actualServo1))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualServo1.extra, test.ShouldBeNil)
+
+	reconfServo1.(servo.Servo).Move(context.Background(), 0, map[string]interface{}{"foo": "Move"})
+	test.That(t, actualServo1.extra, test.ShouldResemble, map[string]interface{}{"foo": "Move"})
+
+	reconfServo1.(servo.Servo).Position(context.Background(), map[string]interface{}{"foo": "Position"})
+	test.That(t, actualServo1.extra, test.ShouldResemble, map[string]interface{}{"foo": "Position"})
+
+	reconfServo1.(servo.Servo).Stop(context.Background(), map[string]interface{}{"foo": "Stop"})
+	test.That(t, actualServo1.extra, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
 }
 
 const pos = 3
@@ -295,19 +311,23 @@ type mockLocal struct {
 	posCount    int
 	stopCount   int
 	reconfCount int
+	extra       map[string]interface{}
 }
 
-func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint8) error {
+func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint8, extra map[string]interface{}) error {
+	mServo.extra = extra
 	return nil
 }
 
-func (mServo *mockLocal) Position(ctx context.Context) (uint8, error) {
+func (mServo *mockLocal) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 	mServo.posCount++
+	mServo.extra = extra
 	return pos, nil
 }
 
-func (mServo *mockLocal) Stop(ctx context.Context) error {
+func (mServo *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
 	mServo.stopCount++
+	mServo.extra = extra
 	return nil
 }
 
