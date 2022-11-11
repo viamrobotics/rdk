@@ -58,11 +58,6 @@ Under Golang, the module side of things tries to use as much of the "RDK" idioms
 when creating modular components with this package, resources (and protocols) register their "Creator" methods and such during init. This
 package then handles executing those registrations automatically during startup.
 
-One notable addition made for modular support though, is the  RegisterRPCLiteService in addition to the RegisterRPCService. This is required
-for all resources, not just external/modular ones, as it's used for communication in both directions between module and parent. As long as
-this is fulfilled, a new external resource model can be created almost entirely by just copying any built-in component/service and renaming
-its model.
-
 In other languages, and for small modules not part of a larger code ecosystem, the registry concept may not make as much sense. All that's
 technically required is that the module can serve gprc on a unix socket provided as a runtime argument, provide a grpc reflection service
 (if using custom/external protocols), report the protocols/models it services via Read(), and properly handle Add/Reconfigure/Remove calls

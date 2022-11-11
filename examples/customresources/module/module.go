@@ -38,7 +38,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	socketPath := args[1]
 
-	myMod := module.NewModule(socketPath, logger)
+	myMod, err := module.NewModule(ctx, socketPath, logger)
+	if err != nil {
+		return err
+	}
 	err = myMod.Start(ctx)
 	defer myMod.Close()
 	if err != nil {

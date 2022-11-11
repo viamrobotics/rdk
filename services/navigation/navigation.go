@@ -12,7 +12,6 @@ import (
 	servicepb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -29,13 +28,6 @@ func init() {
 				NewServer(subtypeSvc),
 				servicepb.RegisterNavigationServiceHandlerFromEndpoint,
 			)
-		},
-		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
-			grpcServer.RegisterService(
-				&servicepb.NavigationService_ServiceDesc,
-				NewServer(subtypeSvc),
-			)
-			return nil
 		},
 		RPCServiceDesc: &servicepb.NavigationService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

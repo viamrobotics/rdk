@@ -10,7 +10,6 @@ import (
 	servicepb "go.viam.com/api/service/datamanager/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -29,13 +28,6 @@ func init() {
 				NewServer(subtypeSvc),
 				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
 			)
-		},
-		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
-			grpcServer.RegisterService(
-				&servicepb.DataManagerService_ServiceDesc,
-				NewServer(subtypeSvc),
-			)
-			return nil
 		},
 		RPCServiceDesc: &servicepb.DataManagerService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

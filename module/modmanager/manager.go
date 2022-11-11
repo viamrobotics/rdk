@@ -82,7 +82,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	mod := &module{}
 	mgr.modules[cfg.Name] = mod
 
-	parentAddr, err := mgr.r.LiteAddress()
+	parentAddr, err := mgr.r.ModuleAddress()
 	if err != nil {
 		return err
 	}

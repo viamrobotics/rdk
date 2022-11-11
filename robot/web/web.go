@@ -36,7 +36,6 @@ import (
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/audioinput"
@@ -44,6 +43,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -190,17 +190,17 @@ type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
-	// Stop stops the main web service (but leaves lite running.)
+	// Stop stops the main web service (but leaves module service running.)
 	Stop()
 
-	// Start starts the web server
-	StartLite(context.Context) error
+	// StartModule starts the lightweight module service
+	StartModule(context.Context) error
 
 	// Returns the address and port the web service listens on.
 	Address() string
 
-	// Returns the address and port the web service listens on.
-	LiteAddress() string
+	// Returns the unix socket the module service listens on.
+	ModuleAddress() string
 
 	// Close closes the web server
 	Close() error
@@ -235,12 +235,12 @@ type webService struct {
 	mu           sync.Mutex
 	r            robot.Robot
 	rpcServer    rpc.Server
-	liteServer   *googlegrpc.Server
+	modServer    rpc.Server
 	streamServer *StreamServer
 	services     map[resource.Subtype]subtype.Service
 	opts         options
 	addr         string
-	liteAddr     string
+	modAddr      string
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -299,53 +299,50 @@ func (svc *webService) Address() string {
 	return svc.addr
 }
 
-// LiteAddress returns the (unix socket) address the lite service is listening on.
-func (svc *webService) LiteAddress() string {
+// ModuleAddress returns the (unix socket) address the module service is listening on.
+func (svc *webService) ModuleAddress() string {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	return svc.liteAddr
+	return svc.modAddr
 }
 
-func (svc *webService) StartLite(ctx context.Context) error {
+// StartModule starts the (lightweight) grpc module server.
+func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-
 	oldMask := syscall.Umask(0o077)
 	dir, err := os.MkdirTemp("", "viam-module-*")
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	svc.liteAddr = dir + "/parent.sock"
-	lis, err := net.Listen("unix", svc.liteAddr)
+	addr := dir + "/parent.sock"
+	svc.modAddr = addr
+	lis, err := net.Listen("unix", addr)
 	syscall.Umask(oldMask)
 	if err != nil {
 		return errors.WithMessage(err, "failed to listen")
 	}
 
-	svc.liteServer = googlegrpc.NewServer()
-	svc.liteServer.RegisterService(
-		&pb.RobotService_ServiceDesc,
-		grpcserver.New(svc.r),
-	)
-	reflection.Register(svc.liteServer)
+	svc.modServer = module.NewServer()
+	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
+		return err
+	}
 	if err := svc.initResources(); err != nil {
 		return err
 	}
-
-	err = svc.initSubtypeServices(ctx, true)
-	if err != nil {
+	if err := svc.initSubtypeServices(ctx, true); err != nil {
 		return err
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		defer utils.UncheckedErrorFunc(func() error { return os.Remove(svc.liteAddr) })
-		svc.logger.Debugf("lite server listening at %v", lis.Addr())
-		if err := svc.liteServer.Serve(lis); err != nil {
+		defer utils.UncheckedErrorFunc(func() error { return os.Remove(addr) })
+		svc.logger.Debugf("module server listening at %v", lis.Addr())
+		if err := svc.modServer.Serve(lis); err != nil {
 			svc.logger.Fatalf("failed to serve: %v", err)
 		}
-		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(svc.liteAddr)) })
+		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
 	})
 	return nil
 }
@@ -397,7 +394,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 	return nil
 }
 
-// Stop stops the main web service prior to actually closing (it leaves the lite service running.)
+// Stop stops the main web service prior to actually closing (it leaves the module service running.)
 func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -411,15 +408,16 @@ func (svc *webService) Stop() {
 func (svc *webService) Close() error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	var err error
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
-	if svc.liteServer != nil {
-		svc.liteServer.GracefulStop()
+	if svc.modServer != nil {
+		err = svc.modServer.Stop()
 	}
 	svc.activeBackgroundWorkers.Wait()
-	return nil
+	return err
 }
 
 func (svc *webService) streamInitialized() bool {
@@ -918,7 +916,7 @@ func (svc *webService) initResources() error {
 }
 
 // Register every subtype resource grpc service here.
-func (svc *webService) initSubtypeServices(ctx context.Context, lite bool) error {
+func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error {
 	// TODO: only register necessary services (#272)
 	subtypeConstructors := registry.RegisteredResourceSubtypes()
 	for s, rs := range subtypeConstructors {
@@ -932,13 +930,13 @@ func (svc *webService) initSubtypeServices(ctx context.Context, lite bool) error
 			svc.services[s] = newSvc
 		}
 
-		if rs.RegisterRPCService != nil && svc.rpcServer != nil && !lite {
+		if rs.RegisterRPCService != nil && svc.rpcServer != nil && !mod {
 			if err := rs.RegisterRPCService(ctx, svc.rpcServer, subtypeSvc); err != nil {
 				return err
 			}
 		}
-		if rs.RegisterRPCLiteService != nil && svc.liteServer != nil && lite {
-			if err := rs.RegisterRPCLiteService(ctx, svc.liteServer, subtypeSvc); err != nil {
+		if rs.RegisterRPCService != nil && svc.modServer != nil && mod {
+			if err := rs.RegisterRPCService(ctx, svc.modServer, subtypeSvc); err != nil {
 				return err
 			}
 		}

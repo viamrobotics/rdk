@@ -21,6 +21,9 @@ var Model = resource.NewModel(
 	resource.ModelName("mynavigation"),
 )
 
+// This tests that the mynav service fulfills the navigation.Service interface requirements.
+var _ = navigation.Service(&navSvc{})
+
 func init() {
 	registry.RegisterService(navigation.Subtype, Model, registry.Service{Constructor: newNav})
 }
@@ -43,21 +46,21 @@ type navSvc struct {
 	waypoints []navigation.Waypoint
 }
 
-func (svc *navSvc) Mode(ctx context.Context) (navigation.Mode, error) {
+func (svc *navSvc) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 	return 0, nil
 }
 
-func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode) error {
+func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
 	return nil
 }
 
-func (svc *navSvc) Location(ctx context.Context) (*geo.Point, error) {
+func (svc *navSvc) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	svc.mu.RLock()
 	svc.mu.RUnlock()
 	return svc.loc, nil
 }
 
-func (svc *navSvc) Waypoints(ctx context.Context) ([]navigation.Waypoint, error) {
+func (svc *navSvc) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	wpsCopy := make([]navigation.Waypoint, len(svc.waypoints))
@@ -65,14 +68,14 @@ func (svc *navSvc) Waypoints(ctx context.Context) ([]navigation.Waypoint, error)
 	return wpsCopy, nil
 }
 
-func (svc *navSvc) AddWaypoint(ctx context.Context, point *geo.Point) error {
+func (svc *navSvc) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.waypoints = append(svc.waypoints, navigation.Waypoint{Lat: point.Lat(), Long: point.Lng()})
 	return nil
 }
 
-func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	newWps := make([]navigation.Waypoint, 0, len(svc.waypoints)-1)

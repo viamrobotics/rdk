@@ -17,8 +17,8 @@ import (
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/config"
@@ -95,7 +95,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 // Module represents an external resource module that services components/services.
 type Module struct {
 	parent                  *client.RobotClient
-	grpcServer              *grpc.Server
+	server                  rpc.Server
 	logger                  *zap.SugaredLogger
 	mu                      sync.Mutex
 	ready                   bool
@@ -108,19 +108,21 @@ type Module struct {
 }
 
 // NewModule returns the basic module framework/structure.
-func NewModule(address string, logger *zap.SugaredLogger) *Module {
+func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
 	m := &Module{
-		logger:     logger,
-		addr:       address,
-		grpcServer: grpc.NewServer(),
-		ready:      true,
-		handlers:   make(HandlerMap),
-		services:   make(map[resource.Subtype]subtype.Service),
+		logger:   logger,
+		addr:     address,
+		server:   NewServer(),
+		ready:    true,
+		handlers: make(HandlerMap),
+		services: make(map[resource.Subtype]subtype.Service),
 	}
 	m.buildHandlerMap()
-	pb.RegisterModuleServiceServer(m.grpcServer, m)
-	reflection.Register(m.grpcServer)
-	return m
+	err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Start starts the module service and grpc server.
@@ -145,7 +147,7 @@ func (m *Module) Start(ctx context.Context) error {
 		defer m.activeBackgroundWorkers.Done()
 		defer utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
 		m.logger.Infof("server listening at %v", lis.Addr())
-		if err := m.grpcServer.Serve(lis); err != nil {
+		if err := m.server.Serve(lis); err != nil {
 			m.logger.Fatalf("failed to serve: %v", err)
 		}
 	})
@@ -157,13 +159,10 @@ func (m *Module) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logger.Info("Sutting down gracefully.")
-	m.grpcServer.GracefulStop()
+	if err := m.server.Stop(); err != nil {
+		m.logger.Error(err)
+	}
 	m.activeBackgroundWorkers.Wait()
-}
-
-// GRPCServer returns the underlying grpc.Server instance for the module.
-func (m *Module) GRPCServer() *grpc.Server {
-	return m.grpcServer
 }
 
 // GetParentComponent returns a component from the parent robot by name.
@@ -392,8 +391,8 @@ func (m *Module) initSubtypeServices(ctx context.Context) error {
 			m.services[s] = newSvc
 		}
 
-		if rs.RegisterRPCLiteService != nil {
-			if err := rs.RegisterRPCLiteService(ctx, m.grpcServer, subSvc); err != nil {
+		if rs.RegisterRPCService != nil {
+			if err := rs.RegisterRPCService(ctx, m.server, subSvc); err != nil {
 				return err
 			}
 		}

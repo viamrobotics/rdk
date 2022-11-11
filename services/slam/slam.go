@@ -11,7 +11,6 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -31,13 +30,6 @@ func init() {
 				NewServer(subtypeSvc),
 				pb.RegisterSLAMServiceHandlerFromEndpoint,
 			)
-		},
-		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
-			grpcServer.RegisterService(
-				&pb.SLAMService_ServiceDesc,
-				NewServer(subtypeSvc),
-			)
-			return nil
 		},
 		RPCServiceDesc: &pb.SLAMService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

@@ -233,12 +233,12 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 }
 
 // StartLite starts the lite grpc server, will return an error if server is already up.
-func (r *localRobot) StartLite(ctx context.Context) (err error) {
+func (r *localRobot) StartModule(ctx context.Context) (err error) {
 	webSvc, err := r.webService()
 	if err != nil {
 		return err
 	}
-	return webSvc.StartLite(ctx)
+	return webSvc.StartModule(ctx)
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
@@ -260,12 +260,12 @@ func (r *localRobot) WebAddress() (string, error) {
 }
 
 // LiteAddress return the lite grpc service's address.
-func (r *localRobot) LiteAddress() (string, error) {
+func (r *localRobot) ModuleAddress() (string, error) {
 	webSvc, err := r.webService()
 	if err != nil {
 		return "", err
 	}
-	return webSvc.LiteAddress(), nil
+	return webSvc.ModuleAddress(), nil
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
@@ -458,7 +458,7 @@ func newWithResources(
 	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
-	err := r.StartLite(ctx)
+	err := r.StartModule(ctx)
 	if err != nil {
 		return nil, err
 	}

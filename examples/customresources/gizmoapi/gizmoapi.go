@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	pb "go.viam.com/rdk/examples/customresources/proto/api/component/gizmo/v1"
@@ -40,13 +39,6 @@ func init() {
 				NewServer(subtypeSvc),
 				pb.RegisterGizmoServiceHandlerFromEndpoint,
 			)
-		},
-		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
-			grpcServer.RegisterService(
-				&pb.GizmoService_ServiceDesc,
-				NewServer(subtypeSvc),
-			)
-			return nil
 		},
 		RPCServiceDesc: &pb.GizmoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

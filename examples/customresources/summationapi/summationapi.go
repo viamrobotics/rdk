@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/rdk/examples/customresources/proto/api/service/summation/v1"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -39,13 +38,6 @@ func init() {
 				NewServer(subtypeSvc),
 				pb.RegisterSummationServiceHandlerFromEndpoint,
 			)
-		},
-		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
-			grpcServer.RegisterService(
-				&pb.SummationService_ServiceDesc,
-				NewServer(subtypeSvc),
-			)
-			return nil
 		},
 		RPCServiceDesc: &pb.SummationService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
