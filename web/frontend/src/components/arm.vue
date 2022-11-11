@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import armApi from '../gen/proto/api/component/arm/v1/arm_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
+import armApi from '../gen/component/arm/v1/arm_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
 

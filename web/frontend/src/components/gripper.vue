@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import gripperApi from '../gen/proto/api/component/gripper/v1/gripper_pb.esm';
+import gripperApi from '../gen/component/gripper/v1/gripper_pb.esm';
 import { displayError } from '../lib/error';
 
 interface Props {
