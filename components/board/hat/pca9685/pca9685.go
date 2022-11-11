@@ -32,7 +32,7 @@ type Config struct {
 	BoardName      string `json:"board_name"`
 	I2CName        string `json:"i2c_name"`
 	I2CAddress     *int   `json:"i2c_address"`
-	PWMFrequencyHZ int    `json:"pwm_frequency_hz"`
+	PWMFrequencyHz int    `json:"pwm_frequency_hz"`
 }
 
 // Validate ensures all parts of the config are valid.

@@ -22,8 +22,8 @@ import (
 const (
 	minDeg     float64 = 0.0
 	maxDeg     float64 = 180.0
-	minWidthUs uint    = 500  // absolute minimum width pwm width
-	maxWidthUs uint    = 2500 // absolute maximum width pwm width
+	minWidthUs uint    = 500  // absolute minimum pwm width
+	maxWidthUs uint    = 2500 // absolute maximum pwm width
 )
 
 type servoConfig struct {
@@ -140,13 +140,13 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 	if frequency > 500 {
 		return nil, errors.Errorf("PWM frequencies should not be above 500Hz, have %d", frequency)
 	}
-	min := 0.0
-	max := 180.0
+	minDeg := minDeg
+	maxDeg := maxDeg
 	if attr.MinDeg != nil {
-		min = *attr.MinDeg
+		minDeg = *attr.MinDeg
 	}
 	if attr.MaxDeg != nil {
-		max = *attr.MaxDeg
+		maxDeg = *attr.MaxDeg
 	}
 	startPos := 0.0
 	if attr.StartPos != nil {
@@ -161,8 +161,8 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 		maxUs = *attr.MaxWidthUS
 	}
 	servo := &servoGeneric{
-		min:       min,
-		max:       max,
+		min:       minDeg,
+		max:       maxDeg,
 		frequency: frequency,
 		pin:       pin,
 		logger:    logger,
@@ -186,42 +186,43 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 
 var _ = servo.LocalServo(&servoGeneric{})
 
-// Given minUs,maxUs,deg and frequency attempt to calculate the corresponding duty cylce pct.
+// Given minUs, maxUs, deg and frequency attempt to calculate the corresponding duty cycle pct.
 func mapDegToDutyCylePct(minUs, maxUs uint, deg float64, frequency uint) float64 {
 	period := 1.0 / float64(frequency) // dutyCycle in s
-	lSpan := maxDeg - minDeg           // servo moves from 0 to 180 deg
-	rSpan := float64(maxUs - minUs)    // pulse width between 1ms to 2ms to s
+	degRange := maxDeg - minDeg        // servo moves from minDeg to maxDeg
+	uSRange := float64(maxUs - minUs)  // pulse width between minUs to maxUs
 
-	scale := rSpan / lSpan
+	scale := uSRange / degRange
 
 	pwmWidthUs := float64(minUs) + (deg-minDeg)*scale
 	return (pwmWidthUs / (1000 * 1000)) / period
 }
 
-// Given minUs,maxUs,deg and frequency returns the corresponding duty cycle pct.
+// Given minUs, maxUs, deg and frequency returns the corresponding duty cycle pct.
 func mapDutyCylePctToDeg(minUs, maxUs uint, pct float64, frequency uint) float64 {
 	period := 1.0 / float64(frequency) // dutyCycle in s
-	pwmWidthus := pct * period * 1000 * 1000
-	rSpan := maxDeg - minDeg        // servo moves from 0 to 180 deg
-	lSpan := float64(maxUs - minUs) // pulse width between 1ms to 2ms to s
+	pwmWidthUs := pct * period * 1000 * 1000
+	degRange := maxDeg - minDeg       // servo moves from minDeg to maxDeg
+	uSRange := float64(maxUs - minUs) // pulse width between minUs to maxUs
 
-	if pwmWidthus < float64(minUs) {
-		pwmWidthus = float64(minUs)
-	}
-	if pwmWidthus > float64(maxUs) {
-		pwmWidthus = float64(maxUs)
-	}
+	pwmWidthUs = math.Max(float64(minUs), pwmWidthUs)
+	pwmWidthUs = math.Min(float64(maxUs), pwmWidthUs)
 
-	scale := rSpan / lSpan
+	scale := degRange / uSRange
 
-	angle := math.Round(minDeg + (pwmWidthus-float64(minUs))*scale)
-
-	return angle
+	return math.Round(minDeg + (pwmWidthUs-float64(minUs))*scale)
 }
 
-// Attempt to find the PWM resolution assuming an hardware PWM
+// Attempt to find the PWM resolution assuming a hardware PWM
 // Assumption :
-//  1. 16,15,14,12,or 8 bit timer
+//
+//  1. assume a resolution of any 16,15,14,12,or 8 bit timer
+//
+//  2. Starting from the current PWM duty cycle we increase the duty cycle by
+//     1/(1<<resolution) for each resolution until the returned duty cycle change
+//
+//     if both the expected duty cycle and returned duty cycle are different we approximate
+//     the resolution
 func (s *servoGeneric) findPWMResolution(ctx context.Context) error {
 	periodUs := (1.0 / float64(s.frequency)) * 1000 * 1000
 	currPct := s.currPct
