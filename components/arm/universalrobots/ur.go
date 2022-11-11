@@ -37,9 +37,9 @@ const ModelName = "ur5e"
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Speed              float64 `json:"speed_degs_per_sec"`
-	Host               string  `json:"host"`
-	URHostedKinematics bool    `json:"ur_hosted_kinematics,omitempty"`
+	Speed               float64 `json:"speed_degs_per_sec"`
+	Host                string  `json:"host"`
+	ArmHostedKinematics bool    `json:"arm_hosted_kinematics,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -163,7 +163,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		cancel:                  cancel,
 		model:                   model,
 		robot:                   r,
-		urHostedKinematics:      attrs.URHostedKinematics,
+		urHostedKinematics:      attrs.ArmHostedKinematics,
 	}
 
 	onData := make(chan struct{})
@@ -251,7 +251,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-// If the UR arm was configured with "ur_hosted_kinematics = 'true'" or extra["ur_hosted_kinematics"] = true is specified at runtime
+// If the UR arm was configured with "arm_hosted_kinematics = 'true'" or extra["arm_hosted_kinematics"] = true is specified at runtime
 // this command will use the kinematics hosted by the Universal Robots arm.  If these are used with obstacles
 // or interaction spaces embedded in the world state an error will  be thrown, as the hosted planning does not support these constraints.
 func (ua *URArm) MoveToPosition(
@@ -484,7 +484,7 @@ func (ua *URArm) useURHostedKinematics(worldState *commonpb.WorldState, extra ma
 
 	// if runtime preference is specified, obey that
 	if extra != nil {
-		if usingAtRuntime, ok := extra["ur_hosted_kinematics"].(bool); ok {
+		if usingAtRuntime, ok := extra["arm_hosted_kinematics"].(bool); ok {
 			return checkWorldState(usingAtRuntime)
 		}
 	}
