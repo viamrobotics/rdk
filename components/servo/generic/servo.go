@@ -133,14 +133,15 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
 	}
 	if attr.Frequency != nil {
+		if frequency > 450 || frequency == 0 {
+			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", frequency)
+		}
+
 		err = pin.SetPWMFreq(ctx, *attr.Frequency, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "error setting servo pin frequency")
 		}
 		frequency = *attr.Frequency
-	}
-	if frequency > 500 {
-		return nil, errors.Errorf("PWM frequencies should not be above 500Hz, have %d", frequency)
 	}
 
 	minDeg := minDeg
@@ -219,12 +220,11 @@ func mapDutyCylePctToDeg(minUs, maxUs uint, pct float64, frequency uint) float64
 }
 
 // Attempt to find the PWM resolution assuming a hardware PWM
-// Assumption :
 //
 //  1. assume a resolution of any 16,15,14,12,or 8 bit timer
 //
 //  2. Starting from the current PWM duty cycle we increase the duty cycle by
-//     1/(1<<resolution) for each resolution until the returned duty cycle change
+//     1/(1<<resolution) and check each new resolution until the returned duty cycle changes
 //
 //     if both the expected duty cycle and returned duty cycle are different we approximate
 //     the resolution
@@ -265,12 +265,12 @@ func (s *servoGeneric) findPWMResolution(ctx context.Context) error {
 			return errors.Wrap(err, "couldn't search for PWM resolution")
 		}
 		if !viamutils.SelectContextOrWait(ctx, 3*time.Millisecond) {
-			return errors.New("context canceled while looking")
+			return errors.New("context canceled while looking for servo's PWM resolution")
 		}
 		realPct, err := s.pin.PWM(ctx, nil)
 		s.logger.Debugf("starting step %d currPct %.7f target Pct %.14f realPct %.14f", val, currPct, pct, realPct)
 		if err != nil {
-			return errors.Wrap(err, "couldn't find PWM resolution")
+			return errors.Wrap(err, "couldn't find PWM find servo PWM resolution")
 		}
 		if realPct != currPct {
 			if realPct == pct {
