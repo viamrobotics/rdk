@@ -43,7 +43,7 @@ func kNearestNeighbors(planOpts *PlannerOptions, rrtMap map[node]node, target []
 		allCosts = append(allCosts, &neighbor{dist: dist, node: node})
 	}
 	sort.Slice(allCosts, func(i, j int) bool {
-		return allCosts[i].dist < allCosts[j].dist
+		return (allCosts[i].dist + allCosts[i].node.(*costNode).cost) < (allCosts[j].dist + allCosts[j].node.(*costNode).cost)
 	})
 	return allCosts[:kNeighbors]
 }

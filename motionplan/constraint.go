@@ -5,7 +5,7 @@ import (
 	"math"
 	"strconv"
 	"time"
-	//~ "sync"
+	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -34,8 +34,10 @@ var rt = map[string]time.Duration{
 	"cg0": time.Duration(0),
 	"cg1": time.Duration(0),
 	"cg2": time.Duration(0),
+	"joint": time.Duration(0),
 }
-//~ var mu sync.Mutex
+
+var jt time.Duration
 
 // Constraint defines functions able to determine whether or not a given position is valid.
 // TODO (pl): Determine how Gradient should fit into this
@@ -132,15 +134,17 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	
 	for name, cFunc := range c.constraints {
 		_ = name
-		
+		//~ fmt.Println("name", name)
 
 		
 		//~ if _, ok := rt[name]; !ok {
 			//~ rt[name] = time.Duration(0)
 		//~ }
-		//~ start := time.Now()
+		start := time.Now()
 		pass, cScore := cFunc(cInput)
-		//~ rt[name] += time.Since(start)
+		if name == "defaultJointSwingConstraint" {
+			jt += time.Since(start)
+		}
 		if !pass {
 			return false, math.Inf(1)
 		}

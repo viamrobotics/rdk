@@ -146,9 +146,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
-	
-	fmt.Println("init")
-
 	solved := false
 	
 	// initialize maps
@@ -182,33 +179,50 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// get many potential end goals from IK solver
-		iktime := time.Now()
+		//~ iktime := time.Now()
 		solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
-		if err != nil {
+		
+		fmt.Println("sol len", len(solutions))
+		
+		if err != nil && len(goalMap) == 0{
 			fmt.Println("err", err)
 			solutionChan <- &planReturn{err: err}
 			return
 		}
-		fmt.Println("ik", time.Since(iktime))
-		for _, solution := range solutions {
+		
+		//~ fmt.Println("ik", time.Since(iktime))
+		for i, solution := range solutions {
+			
+			// Check if we can directly interpolate to any solutions
+			if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
+				fmt.Println("IK SOLVE", i)
+				solutionChan <- &planReturn{steps: []node{&basicNode{q: seed}, solution}}
+				solved = true
+				return
+			}
+			
 			// if we got more solutions, add them
 			if _, ok := goalMap[solution]; !ok {
 				goalMap[solution] = nil
 			}
 		}
+		
+		target := mp.sample(algOpts, &basicNode{q: seed}, mp.randseed.Int())
 
-		// publish endpoint of plan if it is known
-		if planOpts.MaxSolutions == 1 && endpointPreview != nil {
-			endpointPreview <- solutions[0]
-			endpointPreview = nil
+		if len(solutions) > 0 {
+			// publish endpoint of plan if it is known
+			if planOpts.MaxSolutions == 1 && endpointPreview != nil {
+				endpointPreview <- solutions[0]
+				endpointPreview = nil
+			}
+
+
+			// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
+			target = referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 		}
 
-
-		// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-		target := referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
-
 		map1, map2 := seedMap, goalMap
-		fmt.Println("maps", len(map1), len(map2))
+		//~ fmt.Println("maps", len(map1), len(map2))
 		
 		m1chan := make(chan node, 1)
 		m2chan := make(chan node, 1)
@@ -219,9 +233,9 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			//~ fmt.Println("i", i)
 			
 			if time.Since(start) > time.Duration(algOpts.Timeout) * time.Second {
-				fmt.Println("i", i)
-				fmt.Println("nn", nn, "ext", ext, "neart", neart, "descent", descent, "cpatht", cpatht, "rt", rt, "nlopt", nloptCnt)
-				fmt.Println("timeout")
+				//~ fmt.Println("i", i)
+				//~ fmt.Println("nn", nn, "ext", ext, "neart", neart, "descent", descent, "cpatht", cpatht, "rt", rt, "nlopt", nloptCnt)
+				//~ fmt.Println("timeout")
 				return
 			}
 			
@@ -260,6 +274,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 			_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 			
+			// Second iteration to connect the reached points
 			if reachedDelta > algOpts.JointSolveDist {
 				nns := time.Now()
 				nearest1 := nm.nearestNeighbor(nmContext, planOpts, map2reached.Q(), map1)
@@ -280,6 +295,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 				_, reachedDelta = planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 			}
 			
+			// Solved!
 			if reachedDelta <= algOpts.JointSolveDist {
 				cancel()
 				path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
@@ -303,6 +319,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 	doIter()
 	if solved {
+		fmt.Println("returning solved")
 		return
 	}
 	select {
@@ -353,6 +370,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	near, target node,
 	mchan chan node,
 ) {
+	
 	oldNear := near
 	for i := 0; i<1000; i++ {
 		start := time.Now()
@@ -399,6 +417,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
 			near = &basicNode{q: newNear}
+			//~ fmt.Println(oldNear)
 			rrtMap[near] = oldNear
 		} else {
 			break

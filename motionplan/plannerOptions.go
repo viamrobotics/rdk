@@ -152,8 +152,8 @@ func plannerSetupFromMoveRequest(
 		}
 		
 		
-		try1["plan_iter"] = fbIter
-		try1["timeout"] = 2.0
+		//~ try1["plan_iter"] = fbIter
+		//~ try1["timeout"] = 2.0
 		//~ try1Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try1)
 		//~ if err != nil {
 			//~ return nil, err

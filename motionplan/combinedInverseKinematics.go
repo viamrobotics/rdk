@@ -78,13 +78,14 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	activeSolvers.Add(len(ik.solvers))
 
 	for _, solver := range ik.solvers {
+		rseed++
+		parseed := rseed
 		thisSolver := solver
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m, rseed)
+			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m, parseed)
 		})
-		rseed++
 	}
 
 	returned := 0

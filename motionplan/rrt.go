@@ -2,7 +2,7 @@ package motionplan
 
 const (
 	// Number of planner iterations before giving up.
-	defaultPlanIter = 3000
+	defaultPlanIter = 2000
 )
 
 type rrtOptions struct {

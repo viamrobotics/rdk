@@ -269,6 +269,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 					}
 				}
 			case finalSteps := <-solutionChan:
+				fmt.Println("finalSteps", finalSteps)
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 				if finalSteps.err != nil {
 					return nil, finalSteps.err
@@ -442,6 +443,10 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	} else {
 		startReached, goalReached = pair.b, pair.a
 	}
+	fmt.Println(startMap)
+	fmt.Println(goalMap)
+	fmt.Println(startReached)
+	fmt.Println(startMap[startReached])
 
 	// extract the path to the seed
 	path := make([]node, 0)
@@ -463,6 +468,7 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 		path = append(path, goalReached)
 		goalReached = goalMap[goalReached]
 	}
+	fmt.Println("PATH", path)
 	return path
 }
 
