@@ -30,26 +30,31 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
+	var actualExtra map[string]interface{}
+
 	workingServo := &inject.Servo{}
 	failingServo := &inject.Servo{}
 
-	workingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	workingServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
-	workingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	workingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+		actualExtra = extra
 		return 20, nil
 	}
-	workingServo.StopFunc = func(ctx context.Context) error {
+	workingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
 
-	failingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	failingServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
 		return errors.New("move failed")
 	}
-	failingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 		return 0, errors.New("current angle not readable")
 	}
-	failingServo.StopFunc = func(ctx context.Context) error {
+	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New("no stop")
 	}
 
@@ -87,14 +92,17 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		err = workingServoClient.Move(context.Background(), 20)
+		err = workingServoClient.Move(context.Background(), 20, map[string]interface{}{"foo": "Move"})
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Move"})
 
-		currentDeg, err := workingServoClient.Position(context.Background())
+		currentDeg, err := workingServoClient.Position(context.Background(), map[string]interface{}{"foo": "Position"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
+		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Position"})
 
-		test.That(t, workingServoClient.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, workingServoClient.Stop(context.Background(), map[string]interface{}{"foo": "Stop"}), test.ShouldBeNil)
+		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
 
 		test.That(t, utils.TryClose(context.Background(), workingServoClient), test.ShouldBeNil)
 
@@ -106,13 +114,13 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		failingServoClient := servo.NewClientFromConn(context.Background(), conn, failServoName, logger)
 
-		err = failingServoClient.Move(context.Background(), 20)
+		err = failingServoClient.Move(context.Background(), 20, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = failingServoClient.Position(context.Background())
+		_, err = failingServoClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		err = failingServoClient.Stop(context.Background())
+		err = failingServoClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
 
@@ -127,10 +135,10 @@ func TestClient(t *testing.T) {
 		workingServoDialedClient, ok := client.(servo.Servo)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		err = workingServoDialedClient.Move(context.Background(), 20)
+		err = workingServoDialedClient.Move(context.Background(), 20, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentDeg, err := workingServoDialedClient.Position(context.Background())
+		currentDeg, err := workingServoDialedClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 

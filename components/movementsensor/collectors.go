@@ -30,7 +30,7 @@ func registerCollector(name string, f lowLevelCollector) {
 			return nil, err
 		}
 
-		cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
 			v, err := f(ctx, ms)
 			if err != nil {
 				return nil, data.FailedToReadErr(params.ComponentName, name, err)

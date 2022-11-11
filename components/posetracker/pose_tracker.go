@@ -132,10 +132,10 @@ func (r *reconfigurablePoseTracker) Poses(
 }
 
 // Readings returns the PoseTrack readings.
-func (r *reconfigurablePoseTracker) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (r *reconfigurablePoseTracker) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
+	return r.actual.Readings(ctx, extra)
 }
 
 func (r *reconfigurablePoseTracker) Close(ctx context.Context) error {
