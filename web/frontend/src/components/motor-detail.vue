@@ -150,22 +150,23 @@ const motorStop = () => {
 
     <div>
       <div
-        class="grid grid-cols-1 border border-t-0 border-black p-4"
+        class="border border-t-0 border-black p-4"
       >
-        <div class="grid">
-          <v-radio
-            label="Set Power"
-            :options="
-              status.positionReporting
-                ? 'Go, Go For, Go To'
-                : 'Go'
-            "
-            :selected="movementType"
-            @input="setMovementType($event.detail.value)"
-          />
+        <v-radio
+          label="Set Power"
+          :options="
+            status.positionReporting
+              ? 'Go, Go For, Go To'
+              : 'Go'
+          "
+          :selected="movementType"
+          class="mb-4"
+          @input="setMovementType($event.detail.value)"
+        />
+        <div class="flex flex-wrap gap-4 mb-4">
           <div
             v-if="movementType === 'Go To'"
-            class="flex gap-2 pt-4"
+            class="flex flex-wrap gap-2 pt-4"
           >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
@@ -190,7 +191,7 @@ const motorStop = () => {
           </div>
           <div
             v-if="movementType === 'Go For'"
-            class="flex gap-2 pt-4"
+            class="flex flex-wrap gap-4"
           >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
@@ -221,9 +222,9 @@ const motorStop = () => {
           </div>
           <div
             v-if="movementType === 'Go'"
-            class="flex items-start gap-2 pt-4"
+            class="flex flex-wrap gap-4"
           >
-            <div class="flex items-center gap-1 place-self-end pr-2">
+            <div class="flex flex-wrap gap-2">
               <span class="text-lg">{{ movementType }}</span>
               <InfoButton
                 :info-rows="['Continuously moves']"
@@ -235,10 +236,10 @@ const motorStop = () => {
               :selected="direction === 1 ? 'Forwards' : 'Backwards'"
               @input="setDirection($event.detail.value)"
             />
-            <div class="min-w-[400px] pl-6">
+            <div class="w-80">
               <v-slider
                 id="power"
-                class="pt-2"
+                class="ml-2 pt-2 max-w-xs"
                 :min="0"
                 :max="100"
                 :step="1"
@@ -250,7 +251,7 @@ const motorStop = () => {
             </div>
           </div>
         </div>
-        <div class="flex flex-row-reverse">
+        <div class="flex flex-row-reverse flex-wrap">
           <v-button
             icon="play-circle-filled"
             variant="success"

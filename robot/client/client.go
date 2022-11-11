@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
@@ -33,6 +35,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -42,6 +45,9 @@ var (
 	// errUnimplemented is used for any unimplemented methods that should
 	// eventually be implemented server side or faked client side.
 	errUnimplemented = errors.New("unimplemented")
+
+	// resourcesTimeout is the default timeout for getting resources.
+	resourcesTimeout = 5 * time.Second
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -71,16 +77,104 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
+var exemptFromConnectionCheck = map[string]bool{
+	"/proto.rpc.webrtc.v1.SignalingService/Call":                 true,
+	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
+	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
+	"/proto.rpc.v1.AuthService/Authenticate":                     true,
+}
+
+func skipConnectionCheck(method string) bool {
+	return exemptFromConnectionCheck[method]
+}
+
+func isClosedPipeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+}
+
+func (rc *RobotClient) notConnectedToRemoteError() error {
+	return errors.Errorf("not connected to remote robot at %s", rc.address)
+}
+
+func (rc *RobotClient) handleUnaryDisconnect(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *googlegrpc.ClientConn,
+	invoker googlegrpc.UnaryInvoker,
+	opts ...googlegrpc.CallOption,
+) error {
+	if skipConnectionCheck(method) {
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		return status.Error(codes.Unavailable, err.Error())
+	}
+
+	err := invoker(ctx, method, req, reply, cc, opts...)
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	if isClosedPipeError(err) {
+		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+	}
+	return err
+}
+
+type handleDisconnectClientStream struct {
+	googlegrpc.ClientStream
+	*RobotClient
+}
+
+func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
+	if err := cs.RobotClient.checkConnected(); err != nil {
+		return status.Error(codes.Unavailable, err.Error())
+	}
+
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	err := cs.ClientStream.RecvMsg(m)
+	if isClosedPipeError(err) {
+		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
+	}
+
+	return err
+}
+
+func (rc *RobotClient) handleStreamDisconnect(
+	ctx context.Context,
+	desc *googlegrpc.StreamDesc,
+	cc *googlegrpc.ClientConn,
+	method string,
+	streamer googlegrpc.Streamer,
+	opts ...googlegrpc.CallOption,
+) (googlegrpc.ClientStream, error) {
+	if skipConnectionCheck(method) {
+		return streamer(ctx, desc, cc, method, opts...)
+	}
+
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		return nil, status.Error(codes.Unavailable, err.Error())
+	}
+
+	cs, err := streamer(ctx, desc, cc, method, opts...)
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	if isClosedPipeError(err) {
+		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+	}
+	return &handleDisconnectClientStream{cs, rc}, err
+}
+
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
 	var rOpts robotClientOpts
-
-	rOpts.dialOptions = append(
-		rOpts.dialOptions,
-		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
-		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
-	)
 
 	for _, opt := range opts {
 		opt.apply(&rOpts)
@@ -99,6 +193,18 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		resourceClients:         make(map[resource.Name]interface{}),
 		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
+
+	// interceptors are applied in order from first to last
+	rc.dialOptions = append(
+		rc.dialOptions,
+		// error handling
+		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
+		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
+		// operations
+		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
+		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
+	)
+
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -277,9 +383,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
-				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				defer cancel()
-				if _, _, err := rc.resources(timeoutCtx); err != nil {
+				if _, _, err := rc.resources(ctx); err != nil {
 					return err
 				}
 				return nil
@@ -290,7 +394,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				if err != nil {
 					outerError = err
 					// if pipe is closed, we know for sure we lost connection
-					if strings.Contains(err.Error(), "read/write on closed pipe") {
+					if isClosedPipeError(err) {
 						break
 					} else {
 						// otherwise retry
@@ -338,7 +442,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 
 func (rc *RobotClient) checkConnected() error {
 	if !rc.connected {
-		return errors.Errorf("not connected to remote robot at %s", rc.address)
+		return rc.notConnectedToRemoteError()
 	}
 	return nil
 }
@@ -355,7 +459,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
-			rc.Logger().Errorw("failed to refresh status", "error", err)
+			rc.Logger().Errorw("failed to refresh resources from remote", "error", err)
 		}
 	}
 }
@@ -386,17 +490,23 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	// one final check but under a more strict lock
+	// another check, this one with a stricter lock
 	if client, ok := rc.resourceClients[name]; ok {
 		return client, nil
 	}
 
-	resourceClient, err := rc.createClient(name)
-	if err != nil {
-		return nil, err
+	// finally, before adding a new resource, make sure this name exists and is known
+	for _, knownName := range rc.resourceNames {
+		if name == knownName {
+			resourceClient, err := rc.createClient(name)
+			if err != nil {
+				return nil, err
+			}
+			rc.resourceClients[name] = resourceClient
+			return resourceClient, nil
+		}
 	}
-	rc.resourceClients[name] = resourceClient
-	return resourceClient, nil
+	return nil, rutils.NewResourceNotFoundError(name)
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
@@ -417,6 +527,8 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
+	ctx, cancel := context.WithTimeout(ctx, resourcesTimeout)
+	defer cancel()
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, nil, err

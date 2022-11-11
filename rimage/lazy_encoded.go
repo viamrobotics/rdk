@@ -11,8 +11,6 @@ import (
 type LazyEncodedImage struct {
 	imgBytes []byte
 	mimeType string
-	width    int
-	height   int
 
 	decodeOnce   sync.Once
 	decodeErr    interface{}
@@ -24,12 +22,10 @@ type LazyEncodedImage struct {
 // pass 0 or -1; when done a decode will happen on Bounds. In the future this can probably go
 // away with reading all metadata from the header of the image bytes.
 // NOTE: Usage of an image that would fail to decode causes a lazy panic.
-func NewLazyEncodedImage(imgBytes []byte, mimeType string, width, height int) image.Image {
+func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	return &LazyEncodedImage{
 		imgBytes: imgBytes,
 		mimeType: mimeType,
-		width:    width,
-		height:   height,
 	}
 }
 
@@ -40,13 +36,10 @@ func (lei *LazyEncodedImage) decode() {
 				lei.decodeErr = err
 			}
 		}()
-		lei.decodedImage, lei.decodeErr = decodeImage(
+		lei.decodedImage, lei.decodeErr = DecodeImage(
 			context.Background(),
 			lei.imgBytes,
 			lei.mimeType,
-			lei.width,
-			lei.height,
-			false,
 		)
 	})
 	if lei.decodeErr != nil {
@@ -74,11 +67,10 @@ func (lei *LazyEncodedImage) ColorModel() color.Model {
 // Bounds returns the domain for which At can return non-zero color.
 // The bounds do not necessarily contain the point (0, 0).
 func (lei *LazyEncodedImage) Bounds() image.Rectangle {
-	if lei.width <= 0 || lei.height <= 0 {
+	if lei.decodedImage == nil {
 		lei.decode()
-		return lei.decodedImage.Bounds()
 	}
-	return image.Rect(0, 0, lei.width, lei.height)
+	return lei.decodedImage.Bounds()
 }
 
 // At returns the color of the pixel at (x, y).

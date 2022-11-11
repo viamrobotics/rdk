@@ -24,8 +24,11 @@ import (
 )
 
 type (
-	// A CreateService creates a service from a given config.
-	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
+	// A CreateServiceWithRobot creates a resource from a robot and a given config.
+	CreateServiceWithRobot func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
+
+	// A CreateService creates a resource from a collection of dependencies and a given config.
+	CreateService func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error)
 )
 
 // RegDebugInfo represents some runtime information about the registration used
@@ -37,7 +40,10 @@ type RegDebugInfo struct {
 // Service stores a Service constructor (mandatory) and an attribute converter.
 type Service struct {
 	RegDebugInfo
-	Constructor CreateService
+	Constructor           CreateService
+	AttributeMapConverter config.AttributeMapConverter
+	// This is a legacy constructor for default services
+	RobotConstructor CreateServiceWithRobot
 }
 
 func getCallerName() string {
@@ -57,7 +63,7 @@ func RegisterService(subtype resource.Subtype, model resource.Model, creator Ser
 	if old {
 		panic(errors.Errorf("trying to register two services with same subtype:%s, model:%s", subtype, model))
 	}
-	if creator.Constructor == nil {
+	if creator.Constructor == nil && creator.RobotConstructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	serviceRegistry[qName] = creator

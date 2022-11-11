@@ -49,10 +49,6 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf transformConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -62,7 +58,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&transformConfig{})
@@ -70,9 +65,12 @@ func init() {
 
 // transformConfig specifies a stream and list of transforms to apply on images/pointclouds coming from a source camera.
 type transformConfig struct {
-	*camera.AttrConfig
-	Source   string           `json:"source"`
-	Pipeline []Transformation `json:"pipeline"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Source               string                             `json:"source"`
+	Pipeline             []Transformation                   `json:"pipeline"`
 }
 
 func newTransformPipeline(
@@ -96,14 +94,10 @@ func newTransformPipeline(
 		lastSource = src
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
-	var props *transform.PinholeCameraIntrinsics
-	if cfg.AttrConfig != nil {
-		props = cfg.AttrConfig.CameraParameters
-	}
 	return camera.NewFromReader(
 		ctx,
-		transformPipeline{pipeline, lastSourceStream, props},
-		&transform.PinholeCameraModel{props, nil},
+		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters},
+		&transform.PinholeCameraModel{cfg.CameraParameters, nil},
 		camera.StreamType(cfg.Stream),
 	)
 }

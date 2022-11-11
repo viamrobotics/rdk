@@ -51,10 +51,6 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelAlign,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf alignAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -64,7 +60,6 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		}, &alignAttrs{})
 
@@ -142,14 +137,17 @@ func getAligner(attrs *alignAttrs, logger golog.Logger) (transform.Aligner, erro
 
 // alignAttrs is the attribute struct for aligning.
 type alignAttrs struct {
-	*camera.AttrConfig
-	Color              string      `json:"color_camera_name"`
-	Depth              string      `json:"depth_camera_name"`
-	Height             int         `json:"height_px"`
-	Width              int         `json:"width_px"`
-	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic,omitempty"`
-	Homography         interface{} `json:"homography,omitempty"`
-	Warp               interface{} `json:"warp,omitempty"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Color                string                             `json:"color_camera_name"`
+	Depth                string                             `json:"depth_camera_name"`
+	Height               int                                `json:"height_px"`
+	Width                int                                `json:"width_px"`
+	IntrinsicExtrinsic   interface{}                        `json:"intrinsic_extrinsic,omitempty"`
+	Homography           interface{}                        `json:"homography,omitempty"`
+	Warp                 interface{}                        `json:"warp,omitempty"`
 }
 
 func (cfg *alignAttrs) Validate(path string) ([]string, error) {
@@ -196,8 +194,8 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 	var props camera.Properties
 	var intrinsicParams *transform.PinholeCameraIntrinsics
 	switch {
-	case attrs.AttrConfig != nil && attrs.AttrConfig.CameraParameters != nil:
-		intrinsicParams = attrs.AttrConfig.CameraParameters
+	case attrs.CameraParameters != nil:
+		intrinsicParams = attrs.CameraParameters
 	case stream == camera.ColorStream, stream == camera.UnspecifiedStream:
 		props, err = color.Properties(ctx)
 		if err != nil {
@@ -244,7 +242,7 @@ func (acd *alignColorDepth) Read(ctx context.Context) (image.Image, func(), erro
 		if err != nil {
 			return nil, nil, err
 		}
-		dm, err := rimage.ConvertImageToDepthMap(depth)
+		dm, err := rimage.ConvertImageToDepthMap(ctx, depth)
 		if err != nil {
 			return nil, nil, err
 		}

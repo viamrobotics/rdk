@@ -42,7 +42,7 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	loc, altitide, err := msDevice.Position(ctx)
+	loc, altitide, err := msDevice.Position(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (s *subtypeServer) GetLinearVelocity(
 	if err != nil {
 		return nil, err
 	}
-	vel, err := msDevice.LinearVelocity(ctx)
+	vel, err := msDevice.LinearVelocity(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s *subtypeServer) GetAngularVelocity(
 	if err != nil {
 		return nil, err
 	}
-	av, err := msDevice.AngularVelocity(ctx)
+	av, err := msDevice.AngularVelocity(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (s *subtypeServer) GetCompassHeading(
 	if err != nil {
 		return nil, err
 	}
-	ch, err := msDevice.CompassHeading(ctx)
+	ch, err := msDevice.CompassHeading(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *subtypeServer) GetOrientation(
 	if err != nil {
 		return nil, err
 	}
-	ori, err := msDevice.Orientation(ctx)
+	ori, err := msDevice.Orientation(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	prop, err := msDevice.Properties(ctx)
+	prop, err := msDevice.Properties(ctx, req.Extra.AsMap())
 	return (*pb.GetPropertiesResponse)(prop), err
 }
 
@@ -140,6 +140,6 @@ func (s *subtypeServer) GetAccuracy(
 	if err != nil {
 		return nil, err
 	}
-	acc, err := msDevice.Accuracy(ctx)
+	acc, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
 	return &pb.GetAccuracyResponse{AccuracyMm: acc}, err
 }

@@ -1,7 +1,7 @@
 # Force updates if images are older than this. Should be updated for breaking changes to images.
 # Obtain from the OLDEST of either amd64 or arm64 (usually amd64) with the following:
 # docker inspect -f '{{ .Created }}' ghcr.io/viamrobotics/canon:amd64
-DOCKER_MIN_DATE=2022-08-10T16:21:33.935327168-04:00
+DOCKER_MIN_DATE=2022-11-04T21:07:47.28102035Z
 
 DOCKER_CMD = docker run $(DOCKER_SSH_AGENT) $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 

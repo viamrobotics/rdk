@@ -30,26 +30,16 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
-			var intrinsics *transform.PinholeCameraIntrinsics
-			var distortion transform.Distorter
-			if attrs.AttrConfig != nil {
-				intrinsics = attrs.AttrConfig.CameraParameters
-				distortion = attrs.AttrConfig.DistortionParameters
-			}
 			return camera.NewFromReader(
 				ctx,
 				videoSrc,
-				&transform.PinholeCameraModel{intrinsics, distortion},
+				&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
 				camera.StreamType(attrs.Stream),
 			)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelFile,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf fileSourceAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -59,7 +49,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&fileSourceAttrs{})
@@ -74,15 +63,18 @@ type fileSource struct {
 
 // fileSourceAttrs is the attribute struct for fileSource.
 type fileSourceAttrs struct {
-	*camera.AttrConfig
-	Color string `json:"color_file_path"`
-	Depth string `json:"depth_file_path"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Color                string                             `json:"color_file_path"`
+	Depth                string                             `json:"depth_file_path"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if fs.ColorFN == "" { // only depth info
-		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
+		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		return img, func() {}, err
 	}
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
@@ -95,7 +87,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
 	if fs.ColorFN == "" { // only depth info
-		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
+		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +97,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 	if err != nil {
 		return nil, err
 	}
-	dm, err := rimage.NewDepthMapFromFile(fs.DepthFN)
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +128,7 @@ func (ss *StaticSource) NextPointCloud(ctx context.Context) (pointcloud.PointClo
 		return nil, errors.New("no depth info to project to pointcloud")
 	}
 	col := rimage.ConvertImage(ss.ColorImg)
-	dm, err := rimage.ConvertImageToDepthMap(ss.DepthImg)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), ss.DepthImg)
 	if err != nil {
 		return nil, err
 	}

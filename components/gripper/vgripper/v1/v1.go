@@ -335,7 +335,7 @@ func (vg *gripperV1) Home(ctx context.Context) error {
 		)
 	}
 
-	return vg.Open(ctx)
+	return vg.Open(ctx, map[string]interface{}{})
 }
 
 // ModelFrame returns the dynamic frame of the model.
@@ -344,11 +344,11 @@ func (vg *gripperV1) ModelFrame() referenceframe.Model {
 }
 
 // Open opens the jaws.
-func (vg *gripperV1) Open(ctx context.Context) error {
+func (vg *gripperV1) Open(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := vg.opMgr.New(ctx)
 	defer done()
 
-	err := vg.Stop(ctx)
+	err := vg.Stop(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -401,11 +401,11 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 }
 
 // Grab closes the jaws until pressure is sensed and returns true, or until closed position is reached, and returns false.
-func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
+func (vg *gripperV1) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ctx, done := vg.opMgr.New(ctx)
 	defer done()
 
-	err := vg.Stop(ctx)
+	err := vg.Stop(ctx, extra)
 	if err != nil {
 		return false, err
 	}
@@ -492,7 +492,7 @@ func (vg *gripperV1) processCurrentReading(current int, where string) error {
 
 // Close stops the motors.
 func (vg *gripperV1) Close(ctx context.Context) error {
-	return vg.Stop(ctx)
+	return vg.Stop(ctx, map[string]interface{}{})
 }
 
 func (vg *gripperV1) stopAfterError(ctx context.Context, other error) error {
@@ -500,7 +500,7 @@ func (vg *gripperV1) stopAfterError(ctx context.Context, other error) error {
 }
 
 // Stop stops the motors.
-func (vg *gripperV1) Stop(ctx context.Context) error {
+func (vg *gripperV1) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := vg.opMgr.New(ctx)
 	defer done()
 	return vg.motor.Stop(ctx, nil)

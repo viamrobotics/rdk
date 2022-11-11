@@ -48,6 +48,7 @@ func TestClient(t *testing.T) {
 		nonZeroPoseBody:  referenceframe.NewPoseInFrame(bodyFrame, pose),
 		nonZeroPoseBody2: referenceframe.NewPoseInFrame(otherBodyFrame, pose2),
 	}
+	var extraOptions map[string]interface{}
 	poseTester := func(
 		t *testing.T, receivedPoseInFrames posetracker.BodyToPoseInFrame,
 		bodyName string,
@@ -61,13 +62,14 @@ func TestClient(t *testing.T) {
 		test.That(t, poseEqualToExpected, test.ShouldBeTrue)
 	}
 
-	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
+	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
+		extraOptions = extra
 		return allBodiesToPoseInFrames, nil
 	}
 
-	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
+	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		return nil, errors.New("failure to get poses")
@@ -102,8 +104,9 @@ func TestClient(t *testing.T) {
 
 	t.Run("client tests for working pose tracker", func(t *testing.T) {
 		bodyToPoseInFrame, err := workingPTClient.Poses(
-			context.Background(), []string{zeroPoseBody, nonZeroPoseBody})
+			context.Background(), []string{zeroPoseBody, nonZeroPoseBody}, map[string]interface{}{"foo": "Poses"})
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Poses"})
 
 		// DoCommand
 		resp, err := workingPTClient.DoCommand(context.Background(), generic.TestCommand)
@@ -122,8 +125,9 @@ func TestClient(t *testing.T) {
 		client := resourceSubtype.RPCClient(context.Background(), conn, workingPTName, logger)
 		workingPTDialedClient, ok := client.(posetracker.PoseTracker)
 		test.That(t, ok, test.ShouldBeTrue)
-		bodyToPoseInFrame, err := workingPTDialedClient.Poses(context.Background(), []string{})
+		bodyToPoseInFrame, err := workingPTDialedClient.Poses(context.Background(), []string{}, map[string]interface{}{"foo": "PosesDialed"})
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "PosesDialed"})
 
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody2)
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody)
@@ -138,7 +142,7 @@ func TestClient(t *testing.T) {
 			context.Background(), conn, failingPTName, logger,
 		)
 
-		bodyToPoseInFrame, err := failingPTDialedClient.Poses(context.Background(), []string{})
+		bodyToPoseInFrame, err := failingPTDialedClient.Poses(context.Background(), []string{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, bodyToPoseInFrame, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

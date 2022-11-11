@@ -20,12 +20,16 @@ jobs:
 
     steps:
     - name: Authorize GCP
-      uses: google-github-actions/auth@v0.4.3
+      uses: google-github-actions/auth@v1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Set up Cloud SDK
-      uses: 'google-github-actions/setup-gcloud@v0'
+      uses: google-github-actions/setup-gcloud@v1
+
+    # Needed until https://github.com/google-github-actions/auth/issues/241 is fixed upstream
+    - name: Fix Auth
+      run: yes | gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
     - name: Delete Files
       run: |

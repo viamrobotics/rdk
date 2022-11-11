@@ -156,13 +156,13 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		servo1 := servoInt.(servo.Servo)
 
-		err = servo1.Move(ctx, 90)
+		err = servo1.Move(ctx, 90, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = servo1.Move(ctx, 190)
+		err = servo1.Move(ctx, 190, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		v, err := servo1.Position(ctx)
+		v, err := servo1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
@@ -206,7 +206,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		servo1 := servoInt.(servo.Servo)
-		pos1, err := servo1.Position(ctx)
+		pos1, err := servo1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos1, test.ShouldEqual, 90)
 	})
@@ -229,7 +229,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		servo1 := servoInt.(servo.Servo)
-		pos1, err := servo1.Position(ctx)
+		pos1, err := servo1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos1, test.ShouldEqual, 33)
 
@@ -296,13 +296,13 @@ func TestServoFunctions(t *testing.T) {
 		test.That(t, moving, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = s.Move(ctx, 8)
+		err = s.Move(ctx, 8, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		err = s.Stop(ctx)
+		err = s.Stop(ctx, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, err := s.Position(ctx)
+		pos, err := s.Position(ctx, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})

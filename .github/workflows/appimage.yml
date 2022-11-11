@@ -33,13 +33,13 @@ jobs:
     steps:
     - name: Check out main branch code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
@@ -49,7 +49,7 @@ jobs:
         make clean-all
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v0.4.3
+      uses: google-github-actions/auth@v1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
@@ -60,9 +60,9 @@ jobs:
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage')
-      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
-        headers: "Cache-Control: no-cache"
+        headers: "cache-control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
         destination: 'packages.viam.com/apps/viam-server/'
         glob: '*'
@@ -73,14 +73,14 @@ jobs:
       id: build_test_app
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
-        echo "::set-output name=date::`date +%F`"
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
         make BUILD_CHANNEL="latest" appimage
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
-        headers: "Cache-Control: no-cache"
+        headers: "cache-control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
         destination: 'packages.viam.com/apps/viam-server/testing/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
         glob: '*'
@@ -137,12 +137,16 @@ jobs:
 
     steps:
     - name: Authorize GCP
-      uses: google-github-actions/auth@v0.4.3
+      uses: google-github-actions/auth@v1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Set up Cloud SDK
-      uses: 'google-github-actions/setup-gcloud@v0'
+      uses: google-github-actions/setup-gcloud@v1
+
+    # Needed until https://github.com/google-github-actions/auth/issues/241 is fixed upstream
+    - name: Fix Auth
+      run: yes | gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
     - name: Publish AppImage
       run: |

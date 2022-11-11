@@ -27,11 +27,13 @@ import (
 
 // AttrConfig is the attribute struct for ffmpeg cameras.
 type AttrConfig struct {
-	*camera.AttrConfig
-	VideoPath    string                 `json:"video_path"`
-	InputKWArgs  map[string]interface{} `json:"input_kw_args,omitempty"`
-	Filters      []FilterAttrs          `json:"filters,omitempty"`
-	OutputKWArgs map[string]interface{} `json:"output_kw_args,omitempty"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Debug                bool                               `json:"debug,omitempty"`
+	VideoPath            string                             `json:"video_path"`
+	InputKWArgs          map[string]interface{}             `json:"input_kw_args,omitempty"`
+	Filters              []FilterAttrs                      `json:"filters,omitempty"`
+	OutputKWArgs         map[string]interface{}             `json:"output_kw_args,omitempty"`
 }
 
 // FilterAttrs is a struct to used to configure ffmpeg filters.
@@ -58,10 +60,6 @@ func init() {
 		camera.Subtype,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf AttrConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -71,7 +69,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&AttrConfig{},
@@ -173,13 +170,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	})
 
 	ffCam.VideoReader = reader
-	streamType := camera.UnspecifiedStream
-	var intrinsics *transform.PinholeCameraIntrinsics
-	if attrs.AttrConfig != nil {
-		streamType = camera.StreamType(attrs.Stream)
-		intrinsics = attrs.CameraParameters
-	}
-	return camera.NewFromReader(ctx, ffCam, &transform.PinholeCameraModel{intrinsics, nil}, streamType)
+	return camera.NewFromReader(ctx, ffCam, &transform.PinholeCameraModel{attrs.CameraParameters, nil}, camera.ColorStream)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

@@ -131,7 +131,7 @@ func newGripper(b board.Board, cfg config.Component, logger golog.Logger) (gripp
 }
 
 // Stop TODO.
-func (g *softGripper) Stop(ctx context.Context) error {
+func (g *softGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return multierr.Combine(
@@ -142,7 +142,7 @@ func (g *softGripper) Stop(ctx context.Context) error {
 }
 
 // Open TODO.
-func (g *softGripper) Open(ctx context.Context) error {
+func (g *softGripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -161,7 +161,7 @@ func (g *softGripper) Open(ctx context.Context) error {
 
 		val, err := g.psi.Read(ctx, nil)
 		if err != nil {
-			return multierr.Combine(err, g.Stop(ctx))
+			return multierr.Combine(err, g.Stop(ctx, extra))
 		}
 
 		if val > 500 {
@@ -173,11 +173,11 @@ func (g *softGripper) Open(ctx context.Context) error {
 		}
 	}
 
-	return g.Stop(ctx)
+	return g.Stop(ctx, extra)
 }
 
 // Grab TODO.
-func (g *softGripper) Grab(ctx context.Context) (bool, error) {
+func (g *softGripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -196,7 +196,7 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 
 		val, err := g.psi.Read(ctx, nil)
 		if err != nil {
-			return false, multierr.Combine(err, g.Stop(ctx))
+			return false, multierr.Combine(err, g.Stop(ctx, extra))
 		}
 
 		if val <= 200 {
@@ -208,7 +208,7 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 		}
 	}
 
-	return false, g.Stop(ctx)
+	return false, g.Stop(ctx, extra)
 }
 
 // IsMoving returns whether the gripper is moving.

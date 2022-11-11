@@ -46,10 +46,6 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelSingle,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf ServerAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -59,7 +55,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&ServerAttrs{})
@@ -77,10 +72,6 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDual,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf dualServerAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -90,7 +81,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&dualServerAttrs{})
@@ -109,9 +99,12 @@ type dualServerSource struct {
 
 // dualServerAttrs is the attribute struct for dualServerSource.
 type dualServerAttrs struct {
-	*camera.AttrConfig
-	Color string `json:"color_url"`
-	Depth string `json:"depth_url"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Color                string                             `json:"color_url"`
+	Depth                string                             `json:"depth_url"`
 }
 
 // newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
@@ -125,13 +118,12 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.StreamType(cfg.Stream),
 	}
-	var props *transform.PinholeCameraIntrinsics
-	var distortion transform.Distorter
-	if cfg.AttrConfig != nil {
-		props = cfg.AttrConfig.CameraParameters
-		distortion = cfg.AttrConfig.DistortionParameters
-	}
-	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{props, distortion}, videoSrc.Stream)
+	return camera.NewFromReader(
+		ctx,
+		videoSrc,
+		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		videoSrc.Stream,
+	)
 }
 
 // Read requests either the color or depth frame, depending on what the config specifies.
@@ -202,8 +194,11 @@ type serverSource struct {
 
 // ServerAttrs is the attribute struct for serverSource.
 type ServerAttrs struct {
-	*camera.AttrConfig
-	URL string `json:"url"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	URL                  string                             `json:"url"`
 }
 
 // Close closes the server connection.
@@ -257,13 +252,12 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 	videoSrc := &serverSource{
 		URL:        cfg.URL,
 		stream:     camera.StreamType(cfg.Stream),
-		Intrinsics: cfg.AttrConfig.CameraParameters,
+		Intrinsics: cfg.CameraParameters,
 	}
-	var intrinsics *transform.PinholeCameraIntrinsics
-	var distortion transform.Distorter
-	if cfg.AttrConfig != nil {
-		intrinsics = cfg.AttrConfig.CameraParameters
-		distortion = cfg.AttrConfig.DistortionParameters
-	}
-	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsics, distortion}, videoSrc.stream)
+	return camera.NewFromReader(
+		ctx,
+		videoSrc,
+		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		videoSrc.stream,
+	)
 }

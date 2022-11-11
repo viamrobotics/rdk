@@ -48,9 +48,9 @@ func TestMotorEncoder1(t *testing.T) {
 	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 	e.Start(context.Background())
-	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
+	dirFMotor, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
-	_motor, ok := motorIfc.(*EncodedMotor)
+	_motor, ok := dirFMotor.(*EncodedMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), _motor), test.ShouldBeNil)
@@ -245,6 +245,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
+
 	t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
 		ctx := context.Background()
 		var wg sync.WaitGroup
@@ -620,5 +621,37 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+	})
+}
+
+func TestDirFlipMotor(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, DirectionFlip: true}
+	dirflipFakeMotor := &fakemotor.Motor{
+		MaxRPM:           100,
+		Logger:           logger,
+		TicksPerRotation: 100,
+		DirFlip:          true,
+	}
+	interrupt := &board.BasicDigitalInterrupt{}
+
+	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
+	e.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
+	e.Start(context.Background())
+	dirFMotor, err := NewEncodedMotor(config.Component{}, cfg, dirflipFakeMotor, e, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_dirFMotor, ok := dirFMotor.(*EncodedMotor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	t.Run("Direction flip RPM + | REV + ", func(t *testing.T) {
+		test.That(t, _dirFMotor.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
+		test.That(t, dirflipFakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
+		test.That(t, dirflipFakeMotor.Direction(), test.ShouldEqual, -1)
+	})
+
+	t.Run("Direction flip RPM - | REV + ", func(t *testing.T) {
+		test.That(t, _dirFMotor.goForInternal(context.Background(), -1000, 1), test.ShouldBeNil)
+		test.That(t, dirflipFakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
+		test.That(t, dirflipFakeMotor.Direction(), test.ShouldEqual, 1)
 	})
 }

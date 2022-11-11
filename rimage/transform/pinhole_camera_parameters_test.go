@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -166,7 +167,8 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input DepthMap is nil")
 
 	// wrong size error
-	dmWrong, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
+	dmWrong, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = pinhole.UndistortDepthMap(dmWrong)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
@@ -174,7 +176,8 @@ func TestUndistortDepthMap(t *testing.T) {
 	// correct undistortion
 	outDir, err = testutils.TempDir("", "transform")
 	test.That(t, err, test.ShouldBeNil)
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	corrected, err := pinhole.UndistortDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)

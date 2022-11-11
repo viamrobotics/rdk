@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/gripper/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -31,16 +32,26 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Open(ctx context.Context) error {
-	_, err := c.client.Open(ctx, &pb.OpenRequest{
-		Name: c.name,
+func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.Open(ctx, &pb.OpenRequest{
+		Name:  c.name,
+		Extra: ext,
 	})
 	return err
 }
 
-func (c *client) Grab(ctx context.Context) (bool, error) {
+func (c *client) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
 	resp, err := c.client.Grab(ctx, &pb.GrabRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return false, err
@@ -48,9 +59,14 @@ func (c *client) Grab(ctx context.Context) (bool, error) {
 	return resp.Success, nil
 }
 
-func (c *client) Stop(ctx context.Context) error {
-	_, err := c.client.Stop(ctx, &pb.StopRequest{
-		Name: c.name,
+func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.Stop(ctx, &pb.StopRequest{
+		Name:  c.name,
+		Extra: ext,
 	})
 	return err
 }

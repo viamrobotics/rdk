@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/armremotecontrol"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -197,17 +196,18 @@ type builtIn struct {
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*ServiceConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	armComponent, err := arm.FromRobot(r, svcConfig.ArmName)
+	armComponent, err := arm.FromDependencies(deps, svcConfig.ArmName)
 	if err != nil {
 		return nil, err
 	}
-	controller, err := input.FromRobot(r, svcConfig.InputControllerName)
+
+	controller, err := input.FromDependencies(deps, svcConfig.InputControllerName)
 	if err != nil {
 		return nil, err
 	}
