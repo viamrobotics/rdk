@@ -164,7 +164,7 @@ func TestUseURHostedKinematics(t *testing.T) {
 
 	// test that extra params can be used to get the arm to use the hosted kinematics
 	extraParams := make(map[string]interface{})
-	extraParams["ur_hosted_kinematics"] = true
+	extraParams["arm_hosted_kinematics"] = true
 	using, err = ur.useURHostedKinematics(nil, extraParams)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, using, test.ShouldBeTrue)
@@ -176,7 +176,7 @@ func TestUseURHostedKinematics(t *testing.T) {
 	test.That(t, using, test.ShouldBeTrue)
 
 	// test that we can override the config preference with extra params
-	extraParams["ur_hosted_kinematics"] = false
+	extraParams["arm_hosted_kinematics"] = false
 	using, err = ur.useURHostedKinematics(&commonpb.WorldState{Obstacles: gifs}, extraParams)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, using, test.ShouldBeFalse)
