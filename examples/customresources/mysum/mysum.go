@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/examples/customresources/summationapi"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 var Model = resource.NewModel(
@@ -32,7 +31,7 @@ type mySum struct {
 	subtract bool
 }
 
-func newMySum(ctx context.Context, r robot.Robot, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
+func newMySum(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
 	return &mySum{subtract: cfg.Attributes.Bool("subtract", false)}, nil
 }
 

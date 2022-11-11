@@ -20,13 +20,12 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	// https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
-	modelName = "de-sabertooth"
-)
+// https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
+var modelName = resource.NewDefaultModel("de-sabertooth")
 
 // controllers is global to all instances, mapped by serial device.
 var (
@@ -133,7 +132,7 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

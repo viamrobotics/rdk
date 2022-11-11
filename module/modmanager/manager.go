@@ -155,8 +155,8 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 		case resource.ResourceTypeService:
 			for _, model := range models {
 				registry.RegisterService(api.Subtype, model, registry.Service{
-					Constructor: func(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (interface{}, error) {
-						return mgr.AddService(ctx, cfg)
+					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
+						return mgr.AddService(ctx, cfg, DepsToNames(deps))
 					},
 				})
 			}
@@ -197,7 +197,7 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 }
 
 // AddService tells a service module to configure a new service.
-func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interface{}, error) {
+func (mgr *Manager) AddService(ctx context.Context, cfg config.Service, deps []string) (interface{}, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	for _, module := range mgr.modules {

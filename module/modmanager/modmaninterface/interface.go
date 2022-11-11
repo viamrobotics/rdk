@@ -16,7 +16,7 @@ type ModuleManager interface {
 	ReconfigureComponent(ctx context.Context, cfg config.Component, deps []string) error
 	IsModularComponent(cfg config.Component) bool
 
-	AddService(ctx context.Context, cfg config.Service) (interface{}, error)
+	AddService(ctx context.Context, cfg config.Service, deps []string) (interface{}, error)
 	ReconfigureService(ctx context.Context, cfg config.Service) error
 	IsModularService(cfg config.Service) bool
 

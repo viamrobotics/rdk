@@ -299,8 +299,12 @@ func (m *Module) AddService(ctx context.Context, req *pb.AddServiceRequest) (*pb
 	}
 
 	creator := registry.ServiceLookup(cfg.ResourceName().Subtype, cfg.Model)
+
+	// SMURF TODO Actual deps
+	deps := make(registry.Dependencies)
+
 	if creator != nil && creator.Constructor != nil {
-		svc, err := creator.Constructor(ctx, m.parent, *cfg, m.logger)
+		svc, err := creator.Constructor(ctx, deps, *cfg, m.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -342,9 +346,13 @@ func (m *Module) ReconfigureService(ctx context.Context, req *pb.ReconfigureServ
 	if err != nil {
 		m.logger.Error(err)
 	}
+
+	// SMURF TODO Actual deps
+	deps := make(registry.Dependencies)
+
 	creator := registry.ServiceLookup(cfg.ResourceName().Subtype, cfg.Model)
 	if creator != nil && creator.Constructor != nil {
-		svc, err := creator.Constructor(ctx, m.parent, *cfg, m.logger)
+		svc, err := creator.Constructor(ctx, deps, *cfg, m.logger)
 		if err != nil {
 			return &pb.ReconfigureServiceResponse{}, err
 		}

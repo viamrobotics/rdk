@@ -94,25 +94,25 @@ func main() {
 		logger.Fatal(err)
 	}
 	nav := res.(navigation.Service)
-	loc, err := nav.Location(context.Background())
+	loc, err := nav.Location(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	logger.Info("denali service reports its location as ", loc)
 
-	err = nav.AddWaypoint(context.Background(), geo.NewPoint(55, 22))
+	err = nav.AddWaypoint(context.Background(), geo.NewPoint(55, 22), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	err = nav.AddWaypoint(context.Background(), geo.NewPoint(10, 17))
+	err = nav.AddWaypoint(context.Background(), geo.NewPoint(10, 17), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	err = nav.AddWaypoint(context.Background(), geo.NewPoint(42, 42))
+	err = nav.AddWaypoint(context.Background(), geo.NewPoint(42, 42), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	waypoints, err := nav.Waypoints(context.Background())
+	waypoints, err := nav.Waypoints(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}

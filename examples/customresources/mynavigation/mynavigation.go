@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/navigation"
 )
 
@@ -26,7 +25,7 @@ func init() {
 	registry.RegisterService(navigation.Subtype, Model, registry.Service{Constructor: newNav})
 }
 
-func newNav(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (interface{}, error) {
+func newNav(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
 	navSvc := &navSvc{
 		logger: logger,
 		loc: geo.NewPoint(
