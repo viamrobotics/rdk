@@ -29,6 +29,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // ModelName is the string used to refer to the ur5e arm model.
@@ -130,9 +131,12 @@ func (ua *URArm) Close(ctx context.Context) error {
 
 // URArmConnect TODO.
 func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
-	host := cfg.ConvertedAttributes.(*AttrConfig).Host
-	if speed > 1 || speed < .1 {
+	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
+	}
+
+	if attrs.Speed > 1 || attrs.Speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
@@ -142,9 +146,9 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 	}
 
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", host+":30001")
+	conn, err := d.DialContext(ctx, "tcp", attrs.Host+":30001")
 	if err != nil {
-		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", host, err)
+		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", attrs.Host, err)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -152,14 +156,14 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		mu:                      &sync.Mutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		conn:                    conn,
-		speed:                   speed,
+		speed:                   attrs.Speed,
 		debug:                   false,
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
 		model:                   model,
 		robot:                   r,
-		builtinKinematics:       cfg.ConvertedAttributes.(*AttrConfig).BuiltinKinematics,
+		builtinKinematics:       attrs.BuiltinKinematics,
 	}
 
 	onData := make(chan struct{})
