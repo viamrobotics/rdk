@@ -112,20 +112,22 @@ type servoGeneric struct {
 }
 
 func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-	logger.Info("building servo!!")
 	attr, ok := cfg.ConvertedAttributes.(*servoConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(&servoConfig{}, cfg.ConvertedAttributes)
 	}
+
 	boardName := attr.Board
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
 		return nil, errors.Wrap(err, "board doesn't exist")
 	}
+
 	pin, err := b.GPIOPinByName(attr.Pin)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin")
 	}
+
 	frequency, err := pin.PWMFreq(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
@@ -140,6 +142,7 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 	if frequency > 500 {
 		return nil, errors.Errorf("PWM frequencies should not be above 500Hz, have %d", frequency)
 	}
+
 	minDeg := minDeg
 	maxDeg := maxDeg
 	if attr.MinDeg != nil {
@@ -160,6 +163,7 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 	if attr.MaxWidthUS != nil {
 		maxUs = *attr.MaxWidthUS
 	}
+
 	servo := &servoGeneric{
 		min:       minDeg,
 		max:       maxDeg,
@@ -170,6 +174,7 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 		maxUs:     maxUs,
 		currPct:   0,
 	}
+
 	if err := servo.Move(ctx, uint8(startPos), nil); err != nil {
 		return nil, errors.Wrap(err, "couldn't move servo to start position")
 	}
