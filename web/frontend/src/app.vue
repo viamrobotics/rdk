@@ -13,12 +13,12 @@ import robotApi, {
   type Operation,
   type Status,
   type StreamStatusResponse,
-} from './gen/proto/api/robot/v1/robot_pb.esm';
-import { RobotService } from './gen/proto/api/robot/v1/robot_pb_service.esm';
+} from './gen/robot/v1/robot_pb.esm';
+import { RobotService } from './gen/robot/v1/robot_pb_service.esm';
 import type { ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
-import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
+import commonApi, { type ResourceName } from './gen/common/v1/common_pb.esm';
+import cameraApi from './gen/component/camera/v1/camera_pb.esm';
+import sensorsApi from './gen/service/sensors/v1/sensors_pb.esm';
 
 import {
   resourceNameToSubtypeString,
