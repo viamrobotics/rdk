@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/resource"
@@ -33,17 +34,25 @@ func TestServoMove(t *testing.T) {
 	servoServer, workingServo, failingServo, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	workingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	var actualExtra map[string]interface{}
+
+	workingServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
-	failingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	failingServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
 		return errors.New("move failed")
 	}
 
-	req := pb.MoveRequest{Name: testServoName}
+	extra := map[string]interface{}{"foo": "Move"}
+	ext, err := protoutils.StructToStructPb(extra)
+	test.That(t, err, test.ShouldBeNil)
+
+	req := pb.MoveRequest{Name: testServoName, Extra: ext}
 	resp, err := servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualExtra, test.ShouldResemble, extra)
 
 	req = pb.MoveRequest{Name: failServoName}
 	resp, err = servoServer.Move(context.Background(), &req)
@@ -59,17 +68,25 @@ func TestServoMove(t *testing.T) {
 func TestServoGetPosition(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
-	workingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	var actualExtra map[string]interface{}
+
+	workingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+		actualExtra = extra
 		return 20, nil
 	}
-	failingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 		return 0, errors.New("current angle not readable")
 	}
 
-	req := pb.GetPositionRequest{Name: testServoName}
+	extra := map[string]interface{}{"foo": "Move"}
+	ext, err := protoutils.StructToStructPb(extra)
+	test.That(t, err, test.ShouldBeNil)
+
+	req := pb.GetPositionRequest{Name: testServoName, Extra: ext}
 	resp, err := servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualExtra, test.ShouldResemble, extra)
 
 	req = pb.GetPositionRequest{Name: failServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
@@ -85,16 +102,24 @@ func TestServoGetPosition(t *testing.T) {
 func TestServoStop(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
-	workingServo.StopFunc = func(ctx context.Context) error {
+	var actualExtra map[string]interface{}
+
+	workingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		actualExtra = extra
 		return nil
 	}
-	failingServo.StopFunc = func(ctx context.Context) error {
+	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New("no stop")
 	}
 
-	req := pb.StopRequest{Name: testServoName}
-	_, err := servoServer.Stop(context.Background(), &req)
+	extra := map[string]interface{}{"foo": "Move"}
+	ext, err := protoutils.StructToStructPb(extra)
 	test.That(t, err, test.ShouldBeNil)
+
+	req := pb.StopRequest{Name: testServoName, Extra: ext}
+	_, err = servoServer.Stop(context.Background(), &req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualExtra, test.ShouldResemble, extra)
 
 	req = pb.StopRequest{Name: failServoName}
 	_, err = servoServer.Stop(context.Background(), &req)

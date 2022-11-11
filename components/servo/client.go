@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/servo/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -30,16 +31,24 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Move(ctx context.Context, angleDeg uint8) error {
-	req := &pb.MoveRequest{AngleDeg: uint32(angleDeg), Name: c.name}
+func (c *client) Move(ctx context.Context, angleDeg uint8, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	req := &pb.MoveRequest{AngleDeg: uint32(angleDeg), Name: c.name, Extra: ext}
 	if _, err := c.client.Move(ctx, req); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *client) Position(ctx context.Context) (uint8, error) {
-	req := &pb.GetPositionRequest{Name: c.name}
+func (c *client) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, err
+	}
+	req := &pb.GetPositionRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return 0, err
@@ -47,8 +56,12 @@ func (c *client) Position(ctx context.Context) (uint8, error) {
 	return uint8(resp.PositionDeg), nil
 }
 
-func (c *client) Stop(ctx context.Context) error {
-	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
+func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.Stop(ctx, &pb.StopRequest{Name: c.name, Extra: ext})
 	return err
 }
 
