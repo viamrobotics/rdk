@@ -27,6 +27,10 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
+    # Needed until https://github.com/google-github-actions/auth/issues/241 is fixed upstream
+    - name: Fix Auth
+      run: yes | gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
     - name: Remove Failed Test AppImages
       run: |
         gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*"

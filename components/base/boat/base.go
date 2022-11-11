@@ -152,7 +152,7 @@ func (b *boat) startVelocityThread() error {
 }
 
 func (b *boat) velocityThreadLoop(ctx context.Context) error {
-	av, err := b.imu.AngularVelocity(ctx)
+	av, err := b.imu.AngularVelocity(ctx, make(map[string]interface{}))
 	if err != nil {
 		return err
 	}

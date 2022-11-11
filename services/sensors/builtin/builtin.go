@@ -73,7 +73,7 @@ func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name, ext
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)
 		}
-		reading, err := sensor.Readings(ctx)
+		reading, err := sensor.Readings(ctx, extra)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get reading from %q", name)
 		}

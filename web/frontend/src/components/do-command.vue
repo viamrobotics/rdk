@@ -3,7 +3,7 @@
 import { computed, ref } from 'vue';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import type { Resource } from '../lib/resource';
-import genericApi from '../gen/proto/api/component/generic/v1/generic_pb.esm';
+import genericApi from '../gen/component/generic/v1/generic_pb.esm';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 

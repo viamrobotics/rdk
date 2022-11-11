@@ -36,6 +36,12 @@ export default defineConfig({
         },
         assetFileNames: '[name].[ext]',
       },
+      onwarn: (warning, warn) => {
+        if (warning.code === 'EVAL') {
+          return;
+        }
+        warn(warning);
+      },
     },
     outDir: '../runtime-shared/static',
     emptyOutDir: true,

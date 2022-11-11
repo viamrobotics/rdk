@@ -36,6 +36,7 @@ jobs:
         if: ${{ env.APPIMAGE }}
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          number: ${{ env.PR_NUMBER }}
           recreate: true
           message: |
             AppImages ready!

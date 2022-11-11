@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		logger.Error(err)
 	}
-	reading, err := sensor.Readings(context.Background())
+	reading, err := sensor.Readings(context.Background(), make(map[string]interface{}))
 	if err != nil {
 		logger.Error(err)
 	}
