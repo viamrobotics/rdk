@@ -4,7 +4,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
-import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
+import InputController from '../gen/component/inputcontroller/v1/input_controller_pb.esm';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 import { toast } from '../lib/toast';
 
