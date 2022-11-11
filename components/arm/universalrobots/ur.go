@@ -37,9 +37,9 @@ const ModelName = "ur5e"
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Speed             float64 `json:"speed_degs_per_sec"`
-	Host              string  `json:"host"`
-	BuiltinKinematics bool    `json:"builtin_kinematics,omitempty"`
+	Speed              float64 `json:"speed_degs_per_sec"`
+	Host               string  `json:"host"`
+	URHostedKinematics bool    `json:"ur_hosted_kinematics,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -97,7 +97,7 @@ type URArm struct {
 	model                   referenceframe.Model
 	opMgr                   operation.SingleOperationManager
 	robot                   robot.Robot
-	builtinKinematics       bool
+	urHostedKinematics      bool
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -163,7 +163,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		cancel:                  cancel,
 		model:                   model,
 		robot:                   r,
-		builtinKinematics:       attrs.BuiltinKinematics,
+		urHostedKinematics:      attrs.URHostedKinematics,
 	}
 
 	onData := make(chan struct{})
@@ -251,9 +251,9 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-// If the UR arm was configured with "builtin_kinematics = 'true'" or extra["builtin_kinematics"] = true is specified at runtime
-// this command will use the kinematics builtin to the arm by Universal Robots.  If the builtin kinematics are used with obstacles
-// or interaction spaces embedded in the world state an error will  be thrown, as the builtin planning does not support these constraints.
+// If the UR arm was configured with "ur_hosted_kinematics = 'true'" or extra["ur_hosted_kinematics"] = true is specified at runtime
+// this command will use the kinematics hosted by the Universal Robots arm.  If these are used with obstacles
+// or interaction spaces embedded in the world state an error will  be thrown, as the hosted planning does not support these constraints.
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
 	pos *commonpb.Pose,
@@ -263,12 +263,12 @@ func (ua *URArm) MoveToPosition(
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
 
-	builtinKinematics, err := ua.useBuiltinKinematics(worldState, extra)
+	usingHostedKinematics, err := ua.useURHostedKinematics(worldState, extra)
 	if err != nil {
 		return err
 	}
-	if builtinKinematics {
-		return ua.moveWithBuiltinKinematics(ctx, pos)
+	if usingHostedKinematics {
+		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
 	return arm.Move(ctx, ua.robot, ua, pos, worldState)
 }
@@ -471,30 +471,29 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 	}
 }
 
-const errBuiltinKinematics = "cannot use UR builtin kinematics with obstacles or interaction spaces"
+const errURHostedKinematics = "cannot use UR hosted kinematics with obstacles or interaction spaces"
 
-func (ua *URArm) useBuiltinKinematics(worldState *commonpb.WorldState, extra map[string]interface{}) (bool, error) {
-	// function to error out if trying to use world state with builtin kinematics
-	checkWorldState := func(usingBuiltinKinematics bool) (bool, error) {
-		if usingBuiltinKinematics && worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
-			return false, errors.New(errBuiltinKinematics)
+func (ua *URArm) useURHostedKinematics(worldState *commonpb.WorldState, extra map[string]interface{}) (bool, error) {
+	// function to error out if trying to use world state with hosted kinematics
+	checkWorldState := func(usingHostedKinematics bool) (bool, error) {
+		if usingHostedKinematics && worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
+			return false, errors.New(errURHostedKinematics)
 		}
-		return usingBuiltinKinematics, nil
+		return usingHostedKinematics, nil
 	}
 
 	// if runtime preference is specified, obey that
 	if extra != nil {
-		if usingAtRuntime, ok := extra["builtin_kinematics"].(bool); ok {
+		if usingAtRuntime, ok := extra["ur_hosted_kinematics"].(bool); ok {
 			return checkWorldState(usingAtRuntime)
 		}
 	}
 
 	// otherwise default to option provided at config time
-	return checkWorldState(ua.builtinKinematics)
+	return checkWorldState(ua.urHostedKinematics)
 }
 
-// MoveToPositionURDriver uses the builtin kinematics.
-func (ua *URArm) moveWithBuiltinKinematics(ctx context.Context, pose *commonpb.Pose) error {
+func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose *commonpb.Pose) error {
 	// UR5 arm takes R3 angle axis as input
 	aa := spatialmath.NewPoseFromProtobuf(pose).Orientation().AxisAngles().ToR3()
 
