@@ -29,6 +29,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the string used to refer to the eva arm model.
@@ -110,7 +111,7 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err

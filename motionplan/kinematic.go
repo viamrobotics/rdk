@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
@@ -15,7 +14,7 @@ import (
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
-func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (*commonpb.Pose, error) {
+func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (spatialmath.Pose, error) {
 	if len(joints.Values) != len(model.DoF()) {
 		return nil, errors.Errorf(
 			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",
@@ -29,7 +28,7 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (*co
 		return nil, err
 	}
 
-	return spatialmath.PoseToProtobuf(pose), nil
+	return pose, nil
 }
 
 // deriv will compute D(q), the derivative of q = e^w with respect to w

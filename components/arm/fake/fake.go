@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the string used to refer to the fake arm model.
@@ -127,7 +128,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 }
 
 // EndPosition returns the set position.
-func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err

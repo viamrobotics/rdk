@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the string used to refer to the ur5e arm model.
@@ -223,7 +224,7 @@ func (ua *URArm) JointPositions(ctx context.Context, extra map[string]interface{
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := ua.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
