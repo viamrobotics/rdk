@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
@@ -36,7 +37,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -48,7 +49,7 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Pose, nil
+	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
 
 func (c *client) MoveToPosition(

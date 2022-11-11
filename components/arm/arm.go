@@ -81,7 +81,7 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 	// EndPosition returns the current position of the arm.
-	EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
+	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
@@ -186,7 +186,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
+	return &pb.Status{EndPosition: spatialmath.PoseToProtobuf(endPosition), JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 type reconfigurableArm struct {
@@ -206,7 +206,7 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.EndPosition(ctx, extra)

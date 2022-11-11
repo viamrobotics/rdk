@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -163,7 +164,7 @@ func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 }
 
 // EndPosition returns the current position of the arm.
-func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)

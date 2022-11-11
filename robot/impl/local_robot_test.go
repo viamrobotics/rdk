@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -229,7 +230,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos2, err := arm2.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
+	test.That(t, spatialmath.PoseAlmostCoincident(pos1, pos2), test.ShouldBeTrue)
 
 	statuses, err := r2.Status(
 		context.Background(),
@@ -710,7 +711,7 @@ type dummyArm struct {
 	channel   chan struct{}
 }
 
-func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	return nil, errors.New("fake error")
 }
 
