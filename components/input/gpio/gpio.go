@@ -55,7 +55,12 @@ func init() {
 }
 
 // NewGPIOController returns a new input.Controller.
-func NewGPIOController(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+func NewGPIOController(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (interface{}, error) {
 	var c Controller
 	c.logger = logger
 	ctx, cancel := context.WithCancel(ctx)
@@ -111,6 +116,8 @@ type ButtonConfig struct {
 	DebounceMs int           `json:"debounce_msec"` // set to -1 to disable, default=5
 }
 
+var _ = input.Controller(&Controller{})
+
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
 type Controller struct {
 	mu                      sync.RWMutex
@@ -124,7 +131,7 @@ type Controller struct {
 }
 
 // Controls lists the inputs.
-func (c *Controller) Controls(ctx context.Context) ([]input.Control, error) {
+func (c *Controller) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := append([]input.Control(nil), c.controls...)
@@ -132,7 +139,7 @@ func (c *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 }
 
 // Events returns the last input.Event (the current state) of each control.
-func (c *Controller) Events(ctx context.Context) (map[input.Control]input.Event, error) {
+func (c *Controller) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
@@ -148,6 +155,7 @@ func (c *Controller) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
+	extra map[string]interface{},
 ) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

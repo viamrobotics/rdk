@@ -168,7 +168,7 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectInputDev := &inject.InputController{}
-	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputDev.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
@@ -428,7 +428,7 @@ func TestStatusClient(t *testing.T) {
 
 	inputDev, err := input.FromRobot(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
-	controlList, err := inputDev.Controls(context.Background())
+	controlList, err := inputDev.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
