@@ -28,7 +28,6 @@ const (
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
 	
-	defaultTimeout = 160.0
 )
 
 type cbirrtOptions struct {
@@ -50,9 +49,6 @@ type cbirrtOptions struct {
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep []float64
 
-	// Iter will stop after this many seconds
-	Timeout float64 `json:"timeout"`
-
 	// Parameters common to all RRT implementations
 	*rrtOptions
 }
@@ -66,7 +62,6 @@ func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cb
 		SolutionsToSeed: defaultSolutionsToSeed,
 		SmoothIter:      defaultSmoothIter,
 		IterBeforeRand:  defaultIterBeforeRand,
-		Timeout:         defaultTimeout,
 		rrtOptions:      newRRTOptions(planOpts),
 	}
 	// convert map to json

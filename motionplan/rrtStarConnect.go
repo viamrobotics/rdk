@@ -163,12 +163,27 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
+	
+	start := time.Now()
+	
+	solved := false
+	
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
 			return
 		default:
+		}
+		
+		// stop and return best path
+		if time.Since(start) > time.Duration(algOpts.Timeout * float64(time.Second)){
+			if solved {
+				solutionChan <- shortestPath(startMap, goalMap, shared)
+			}else{
+				solutionChan <- &planReturn{err: errPlannerTimeout}
+			}
+			return
 		}
 		
 		//~ fmt.Println("i", i, "iter time", time.Since(iterTime))
@@ -187,6 +202,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		
 		if map1reached != nil && map2reached != nil {
 			// target was added to both map
+			solved = true
 			shared = append(shared, &nodePair{map1reached, map2reached})
 			//~ solution := shortestPath(startMap, goalMap, shared)
 			//~ solutionChan <- solution
