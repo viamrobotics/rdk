@@ -4,7 +4,7 @@
 import { nextTick } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import type { Resource } from '../lib/resource';
-import slamApi from '../gen/proto/api/service/slam/v1/slam_pb.esm';
+import slamApi from '../gen/service/slam/v1/slam_pb.esm';
 import { displayError } from '../lib/error';
 import PCD from './pcd.vue';
 
