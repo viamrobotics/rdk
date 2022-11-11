@@ -29,7 +29,7 @@ func NewLogger() (*zap.SugaredLogger) {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logger)
+	utils.ContextualMain(mainWithArgs, logger.Named("acme demo module"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {

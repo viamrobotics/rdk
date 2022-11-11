@@ -32,7 +32,7 @@ func TestGizmo(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewDebugLogger("gizmo.server")
 
-	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/server/config.json"), logger)
+	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/server/remote.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	r0, err := robotimpl.New(ctx, cfgServer, logger)
 	test.That(t, err, test.ShouldBeNil)

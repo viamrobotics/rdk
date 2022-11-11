@@ -28,14 +28,12 @@ import (
 
 // NewManager returns a Manager.
 func NewManager(r robot.LocalRobot) (modif.ModuleManager, error) {
-	mgr := &Manager{
-		mu:      sync.RWMutex{},
-		logger:  r.Logger(),
-		modules: make(map[string]*module),
+	return &Manager{
+		logger:  r.Logger().Named("modmanager"),
+		modules: map[string]*module{},
 		r:       r,
-		rMap:    make(map[resource.Name]*module),
-	}
-	return mgr, nil
+		rMap:    map[resource.Name]*module{},
+	}, nil
 }
 
 type module struct {
@@ -62,11 +60,12 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	defer mgr.mu.Unlock()
 	var err error
 	for _, mod := range mgr.modules {
-		err = multierr.Combine(
-			err,
-			mod.conn.Close(),
-			err, mod.process.Stop(),
-		)
+		if mod.conn != nil {
+			err = multierr.Combine(err, mod.conn.Close())
+		}
+		if mod.process != nil {
+			err = multierr.Combine(err, mod.process.Stop())
+		}
 	}
 	return err
 }
@@ -91,7 +90,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 
 	pcfg := pexec.ProcessConfig{
 		ID:   cfg.Name,
-		Name: cfg.Path,
+		Name: cfg.ExePath,
 		Args: []string{mgr.modules[cfg.Name].addr},
 		Log:  true,
 	}
@@ -376,6 +375,7 @@ func (m *module) checkReady(ctx context.Context, addr string) error {
 	defer cancelFunc()
 	for {
 		req := &pb.ReadyRequest{ParentAddress: addr}
+		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return err

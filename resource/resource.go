@@ -81,9 +81,9 @@ type Subtype struct {
 
 // An RPCSubtype provides RPC information about a particular subtype.
 type RPCSubtype struct {
-	Subtype Subtype
+	Subtype      Subtype
 	ProtoSvcName string
-	Desc    *desc.ServiceDescriptor
+	Desc         *desc.ServiceDescriptor
 }
 
 // NewSubtype creates a new Subtype based on parameters passed in.
@@ -160,8 +160,12 @@ func NewFromString(resourceName string) (Name, error) {
 
 // NewSubtypeFromString creates a new Subtype from string like: %s:%s:%s.
 func NewSubtypeFromString(subtypeName string) (Subtype, error) {
-	tmpName, err := NewFromString(subtypeName + "/ignored")
-	return tmpName.Subtype, err
+	if !resRegexValidator.MatchString(subtypeName) {
+		return Subtype{}, errors.Errorf("string %q is not a valid subtype name", subtypeName)
+	}
+	matches := resRegexValidator.FindStringSubmatch(subtypeName)
+	rSubtypeParts := strings.Split(matches[1], ":")
+	return NewSubtype(Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2])), nil
 }
 
 // PrependRemote returns a Name with a remote prepended.

@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "AcmeModule",
-			"path": "examples/customresources/module/module"
+			"executable_path": "examples/customresources/module/module"
 		}
 	],
 	"services": [

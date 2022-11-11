@@ -242,23 +242,14 @@ func DiscoveryFunctionLookup(q discovery.Query) (discovery.Discover, bool) {
 
 // RegisterDiscoveryFunction registers a discovery function for a given query.
 func RegisterDiscoveryFunction(q discovery.Query, discover discovery.Discover) {
-	_, ok := lookupSubtype(q.SubtypeName)
+	_, ok := RegisteredResourceSubtypes()[q.Subtype]
 	if !ok {
-		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.SubtypeName))
+		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.Subtype))
 	}
 	if _, ok := discoveryFunctions[q]; ok {
-		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.SubtypeName, q.Model))
+		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.Subtype, q.Model))
 	}
 	discoveryFunctions[q] = discover
-}
-
-func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {
-	for s := range RegisteredResourceSubtypes() {
-		if s.ResourceSubtype == subtypeName {
-			return &s, true
-		}
-	}
-	return nil, false
 }
 
 // FindValidServiceModels returns a list of valid models for a specified service.

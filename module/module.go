@@ -68,6 +68,9 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
+			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
+				return nil, errs
+			}
 			continue
 		}
 		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
@@ -417,9 +420,9 @@ func (m *Module) buildHandlerMap() {
 			continue
 		}
 		rpcST := resource.RPCSubtype{
-			Subtype: st,
+			Subtype:      st,
 			ProtoSvcName: creator.RPCServiceDesc.ServiceName,
-			Desc:    creator.ReflectRPCServiceDesc,
+			Desc:         creator.ReflectRPCServiceDesc,
 		}
 		m.handlers[rpcST] = append(m.handlers[rpcST], model)
 	}

@@ -65,7 +65,7 @@ func init() {
 		}, &WebcamAttrs{})
 
 	registry.RegisterDiscoveryFunction(
-		discovery.NewQuery(camera.SubtypeName, model),
+		discovery.NewQuery(camera.Subtype, model),
 		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
 	)
 }

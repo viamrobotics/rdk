@@ -173,7 +173,7 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 	proto := pb.ModuleConfig{
 		Name: module.Name,
-		Path: module.Path,
+		Path: module.ExePath,
 	}
 
 	return &proto, nil
@@ -182,8 +182,8 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 // ModuleConfigFromProto creates Module from proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 	module := Module{
-		Name: proto.GetName(),
-		Path: proto.GetPath(),
+		Name:    proto.GetName(),
+		ExePath: proto.GetPath(),
 	}
 	return &module, nil
 }

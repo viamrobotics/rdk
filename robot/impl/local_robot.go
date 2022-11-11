@@ -145,7 +145,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		web.Stop()
 	}
 	for s, svc := range r.internalServices {
-		if s == "web" {
+		if s == webName {
 			continue
 		}
 		err = multierr.Combine(err, goutils.TryClose(ctx, svc))
@@ -775,14 +775,14 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 	for q := range deduped {
 		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
 		if !ok {
-			r.logger.Warnw("no discovery function registered", "subtype", q.SubtypeName, "model", q.Model)
+			r.logger.Warnw("no discovery function registered", "subtype", q.Subtype, "model", q.Model)
 			continue
 		}
 
 		if discoveryFunction != nil {
 			discovered, err := discoveryFunction(ctx)
 			if err != nil {
-				return nil, &discovery.DiscoverError{q}
+				return nil, &discovery.DiscoverError{Query: q}
 			}
 			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
 		}

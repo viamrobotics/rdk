@@ -60,13 +60,13 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 		}
 		name := n.ShortName()
 		resources[name] = v
-		shortcut := name[strings.LastIndexAny(name, ":")+1:]
+		shortcut := getShortcutName(name)
 		if _, ok := shortNames[shortcut]; ok {
 			shortNames[shortcut] = ""
 		} else {
 			shortNames[shortcut] = name
 		}
-		resources[n.ShortName()] = v
+		resources[name] = v
 	}
 	s.resources = resources
 	s.shortNames = shortNames
@@ -96,18 +96,19 @@ func (s *subtypeSvc) ReplaceOne(n resource.Name, iface interface{}) error {
 }
 
 func (s *subtypeSvc) doAdd(n resource.Name, iface interface{}) error {
+	if n.Name == "" {
+		return errors.Errorf("empty name used for resource: %s", n)
+	}
+
 	_, exists := s.resources[n.ShortName()]
 	if exists {
 		return errors.Errorf("resource %s already exists", n)
 	}
 
-	if n.Name == "" {
-		return errors.Errorf("empty name used for resource: %s", n)
-	}
 	name := n.ShortName()
 
 	s.resources[name] = iface
-	shortcut := name[strings.LastIndexAny(name, ":")+1:]
+	shortcut := getShortcutName(name)
 	if _, ok := s.shortNames[shortcut]; ok {
 		s.shortNames[shortcut] = ""
 	} else {
@@ -123,10 +124,14 @@ func (s *subtypeSvc) doRemove(n resource.Name) error {
 		delete(s.resources, name)
 	}
 
-	shortcut := name[strings.LastIndexAny(name, ":")+1:]
+	shortcut := getShortcutName(name)
 	_, ok = s.shortNames[shortcut]
 	if ok {
 		delete(s.resources, shortcut)
 	}
 	return nil
+}
+
+func getShortcutName(name string) string {
+	return name[strings.LastIndexAny(name, ":")+1:]
 }
