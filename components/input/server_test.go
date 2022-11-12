@@ -255,10 +255,10 @@ func TestServer(t *testing.T) {
 		test.That(t, event.Value, test.ShouldEqual, 0)
 		test.That(t, event.Time.AsTime().After(startTime), test.ShouldBeTrue)
 		test.That(t, event.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		cancel()
 		<-done
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
 
 		eventReqList.Controller = failInputControllerName
