@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -58,10 +59,13 @@ func TestServer(t *testing.T) {
 	inputControllerServer, injectInputController, injectInputController2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	var extraOptions map[string]interface{}
+	injectInputController.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+		extraOptions = extra
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+		extraOptions = extra
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
@@ -72,16 +76,18 @@ func TestServer(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
+		extra map[string]interface{},
 	) error {
+		extraOptions = extra
 		outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
 		ctrlFunc(ctx, outEvent)
 		return nil
 	}
 
-	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
-	injectInputController2.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
 	injectInputController2.RegisterControlCallbackFunc = func(
@@ -89,6 +95,7 @@ func TestServer(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
+		extra map[string]interface{},
 	) error {
 		return errors.New("can't register callbacks")
 	}
@@ -108,12 +115,16 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an input controller")
 
+		extra := map[string]interface{}{"foo": "Controls"}
+		ext, err := protoutils.StructToStructPb(extra)
+		test.That(t, err, test.ShouldBeNil)
 		resp, err := inputControllerServer.GetControls(
 			context.Background(),
-			&pb.GetControlsRequest{Controller: testInputControllerName},
+			&pb.GetControlsRequest{Controller: testInputControllerName, Extra: ext},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		_, err = inputControllerServer.GetControls(
 			context.Background(),
@@ -131,11 +142,14 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
+		extra := map[string]interface{}{"foo": "Events"}
+		ext, err := protoutils.StructToStructPb(extra)
+		test.That(t, err, test.ShouldBeNil)
 		startTime := time.Now()
 		time.Sleep(time.Millisecond)
 		resp, err := inputControllerServer.GetEvents(
 			context.Background(),
-			&pb.GetEventsRequest{Controller: testInputControllerName},
+			&pb.GetEventsRequest{Controller: testInputControllerName, Extra: ext},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		var absEv, buttonEv *pb.Event
@@ -159,6 +173,8 @@ func TestServer(t *testing.T) {
 		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
 		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
 
+		test.That(t, extraOptions, test.ShouldResemble, extra)
+
 		_, err = inputControllerServer.GetEvents(
 			context.Background(),
 			&pb.GetEventsRequest{Controller: failInputControllerName},
@@ -181,6 +197,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
+		extra := map[string]interface{}{"foo": "StreamEvents"}
+		ext, err := protoutils.StructToStructPb(extra)
+		test.That(t, err, test.ShouldBeNil)
 		eventReqList := &pb.StreamEventsRequest{
 			Controller: testInputControllerName,
 			Events: []*pb.StreamEventsRequest_Events{
@@ -191,6 +210,7 @@ func TestServer(t *testing.T) {
 					},
 				},
 			},
+			Extra: ext,
 		}
 		relayFunc := func(ctx context.Context, event input.Event) {
 			messageCh <- &pb.StreamEventsResponse{
@@ -203,8 +223,15 @@ func TestServer(t *testing.T) {
 			}
 		}
 
-		err = injectInputController.RegisterControlCallback(cancelCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, relayFunc)
+		err = injectInputController.RegisterControlCallback(
+			cancelCtx,
+			input.ButtonStart,
+			[]input.EventType{input.ButtonRelease},
+			relayFunc,
+			map[string]interface{}{},
+		)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 		s.fail = true
 
@@ -231,6 +258,7 @@ func TestServer(t *testing.T) {
 
 		cancel()
 		<-done
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
 
 		eventReqList.Controller = failInputControllerName
@@ -247,7 +275,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
-		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
 			return errors.New("can't inject event")
 		}
 
@@ -275,17 +303,22 @@ func TestServer(t *testing.T) {
 
 		var injectedEvent input.Event
 
-		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+			extraOptions = extra
 			injectedEvent = event
 			return nil
 		}
-
+		extra := map[string]interface{}{"foo": "TriggerEvent"}
+		ext, err := protoutils.StructToStructPb(extra)
+		test.That(t, err, test.ShouldBeNil)
 		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
-			&pb.TriggerEventRequest{Controller: testInputControllerName, Event: pbEvent},
+			&pb.TriggerEventRequest{Controller: testInputControllerName, Event: pbEvent, Extra: ext},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
+
 		injectInputController.TriggerEventFunc = nil
 
 		_, err = inputControllerServer.TriggerEvent(
