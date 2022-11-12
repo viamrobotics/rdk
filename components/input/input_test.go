@@ -77,7 +77,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.Controls(context.Background())
+	result, err := res.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 
@@ -97,7 +97,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.Controls(context.Background())
+	result, err := res.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 
@@ -160,7 +160,7 @@ func TestCreateStatus(t *testing.T) {
 		},
 	}
 	injectInputController := &inject.InputController{}
-	injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = event
 		return eventsOut, nil
@@ -174,7 +174,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Events", func(t *testing.T) {
 		errFail := errors.New("can't get events")
-		injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 			return nil, errFail
 		}
 		_, err = input.CreateStatus(context.Background(), injectInputController)
@@ -248,7 +248,7 @@ func TestReconfigurableInputController(t *testing.T) {
 
 	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
 	test.That(t, actualInput2.controlsCount, test.ShouldEqual, 0)
-	result, err := reconfInput1.(input.Controller).Controls(context.Background())
+	result, err := reconfInput1.(input.Controller).Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
@@ -269,6 +269,25 @@ func TestClose(t *testing.T) {
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 1)
 }
 
+func TestExtra(t *testing.T) {
+	actualInput1 := &mock{Name: testInputControllerName}
+	reconfInput1, err := input.WrapWithReconfigurable((actualInput1))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualInput1.extra, test.ShouldBeNil)
+
+	extra := map[string]interface{}{"foo": "Controls"}
+	reconfInput1.(input.Controller).Controls(context.Background(), extra)
+	test.That(t, actualInput1.extra, test.ShouldResemble, extra)
+
+	extra = map[string]interface{}{"foo": "Events"}
+	reconfInput1.(input.Controller).Events(context.Background(), extra)
+	test.That(t, actualInput1.extra, test.ShouldResemble, extra)
+
+	extra = map[string]interface{}{"foo": "RegisterControlCallback"}
+	reconfInput1.(input.Controller).RegisterControlCallback(context.Background(), input.AbsoluteHat0X, nil, nil, extra)
+	test.That(t, actualInput1.extra, test.ShouldResemble, extra)
+}
+
 var controls = []input.Control{input.AbsoluteX}
 
 type mock struct {
@@ -276,11 +295,30 @@ type mock struct {
 	Name          string
 	controlsCount int
 	reconfCount   int
+
+	extra map[string]interface{}
 }
 
-func (m *mock) Controls(ctx context.Context) ([]input.Control, error) {
+func (m *mock) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 	m.controlsCount++
+	m.extra = extra
 	return controls, nil
+}
+
+func (m *mock) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+	m.extra = extra
+	return make(map[input.Control]input.Event), nil
+}
+
+func (m *mock) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+	extra map[string]interface{},
+) error {
+	m.extra = extra
+	return nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }
