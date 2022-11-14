@@ -281,7 +281,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 		}
 	}
 
-	controls, err := svc.inputController.Controls(ctx)
+	controls, err := svc.inputController.Controls(ctx, map[string]interface{}{})
 	if err != nil {
 		return err
 	}
@@ -293,6 +293,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 			control,
 			[]input.EventType{input.ButtonChange, input.PositionChangeAbs},
 			remoteCtl,
+			map[string]interface{}{},
 		)
 		if err != nil {
 			return err
@@ -303,7 +304,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 
 // Close out of all remote control related systems.
 func (svc *builtIn) Close(ctx context.Context) error {
-	controls, err := svc.inputController.Controls(ctx)
+	controls, err := svc.inputController.Controls(ctx, map[string]interface{}{})
 	if err != nil {
 		return err
 	}
@@ -314,6 +315,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 			control,
 			[]input.EventType{input.ButtonChange, input.PositionChangeAbs},
 			nil,
+			map[string]interface{}{},
 		)
 		if err != nil {
 			return err

@@ -45,7 +45,7 @@ func (s *subtypeServer) GetControls(
 		return nil, err
 	}
 
-	controlList, err := controller.Controls(ctx)
+	controlList, err := controller.Controls(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (s *subtypeServer) GetEvents(
 		return nil, err
 	}
 
-	eventsIn, err := controller.Events(ctx)
+	eventsIn, err := controller.Events(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -101,12 +101,16 @@ func (s *subtypeServer) TriggerEvent(
 		return nil, errors.Errorf("input controller is not of type Triggerable (%s)", req.Controller)
 	}
 
-	err = injectController.TriggerEvent(ctx, Event{
-		Time:    req.Event.Time.AsTime(),
-		Event:   EventType(req.Event.Event),
-		Control: Control(req.Event.Control),
-		Value:   req.Event.Value,
-	})
+	err = injectController.TriggerEvent(
+		ctx,
+		Event{
+			Time:    req.Event.Time.AsTime(),
+			Event:   EventType(req.Event.Event),
+			Control: Control(req.Event.Control),
+			Value:   req.Event.Value,
+		},
+		req.Extra.AsMap(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -137,14 +141,13 @@ func (s *subtypeServer) StreamEvents(
 		case <-ctx.Done():
 		}
 	}
-
 	for _, ev := range req.Events {
 		var triggers []EventType
 		for _, v := range ev.Events {
 			triggers = append(triggers, EventType(v))
 		}
 		if len(triggers) > 0 {
-			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), triggers, ctrlFunc)
+			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), triggers, ctrlFunc, req.Extra.AsMap())
 			if err != nil {
 				return err
 			}
@@ -155,7 +158,7 @@ func (s *subtypeServer) StreamEvents(
 			cancelledTriggers = append(cancelledTriggers, EventType(v))
 		}
 		if len(cancelledTriggers) > 0 {
-			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), cancelledTriggers, nil)
+			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), cancelledTriggers, nil, req.Extra.AsMap())
 			if err != nil {
 				return err
 			}
