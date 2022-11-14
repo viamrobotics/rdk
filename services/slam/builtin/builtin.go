@@ -849,11 +849,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		images, releaseFuncs, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
-		if releaseFuncs[0] != nil {
-			defer releaseFuncs[0]()
-		}
-		if releaseFuncs[1] != nil {
-			defer releaseFuncs[0]()
+		for _, rFunc := range releaseFuncs {
+			if rFunc != nil {
+				defer rFunc()
+			}
 		}
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
