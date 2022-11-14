@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -64,7 +65,7 @@ func init() {
 type transformConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
+	Stream               string                             `json:"-"`
 	Debug                bool                               `json:"debug,omitempty"`
 	Source               string                             `json:"source"`
 	Pipeline             []Transformation                   `json:"pipeline"`
@@ -79,6 +80,17 @@ func newTransformPipeline(
 	if len(cfg.Pipeline) == 0 {
 		return nil, errors.New("pipeline has no transforms in it")
 	}
+	// check if the source produces a depth image or color image
+	img, release, err := camera.ReadImage(ctx, source)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := img.(*rimage.DepthMap); ok {
+		cfg.Stream = string(camera.DepthStream)
+	} else {
+		cfg.Stream = string(camera.ColorStream)
+	}
+	release()
 	// loop through the pipeline and create the image flow
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
