@@ -28,6 +28,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // ModelName is the string used to refer to the ur5e arm model.
@@ -35,8 +37,20 @@ const ModelName = "ur5e"
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Speed float64 `json:"speed_degs_per_sec"`
-	Host  string  `json:"host"`
+	Speed               float64 `json:"speed_degs_per_sec"`
+	Host                string  `json:"host"`
+	ArmHostedKinematics bool    `json:"arm_hosted_kinematics,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	if cfg.Host == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
+	}
+	if cfg.Speed > 1 || cfg.Speed < .1 {
+		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
+	}
+	return []string{}, nil
 }
 
 //go:embed ur5e.json
@@ -83,6 +97,7 @@ type URArm struct {
 	model                   referenceframe.Model
 	opMgr                   operation.SingleOperationManager
 	robot                   robot.Robot
+	urHostedKinematics      bool
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -116,9 +131,12 @@ func (ua *URArm) Close(ctx context.Context) error {
 
 // URArmConnect TODO.
 func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
-	host := cfg.ConvertedAttributes.(*AttrConfig).Host
-	if speed > 1 || speed < .1 {
+	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
+	}
+
+	if attrs.Speed > 1 || attrs.Speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
@@ -128,9 +146,9 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 	}
 
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", host+":30001")
+	conn, err := d.DialContext(ctx, "tcp", attrs.Host+":30001")
 	if err != nil {
-		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", host, err)
+		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", attrs.Host, err)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -138,13 +156,14 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		mu:                      &sync.Mutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		conn:                    conn,
-		speed:                   speed,
+		speed:                   attrs.Speed,
 		debug:                   false,
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
 		model:                   model,
 		robot:                   r,
+		urHostedKinematics:      attrs.ArmHostedKinematics,
 	}
 
 	onData := make(chan struct{})
@@ -232,6 +251,9 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
+// If the UR arm was configured with "arm_hosted_kinematics = 'true'" or extra["arm_hosted_kinematics"] = true is specified at runtime
+// this command will use the kinematics hosted by the Universal Robots arm.  If these are used with obstacles
+// or interaction spaces embedded in the world state an error will  be thrown, as the hosted planning does not support these constraints.
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
 	pos *commonpb.Pose,
@@ -240,6 +262,14 @@ func (ua *URArm) MoveToPosition(
 ) error {
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
+
+	usingHostedKinematics, err := ua.useURHostedKinematics(worldState, extra)
+	if err != nil {
+		return err
+	}
+	if usingHostedKinematics {
+		return ua.moveWithURHostedKinematics(ctx, pos)
+	}
 	return arm.Move(ctx, ua.robot, ua, pos, worldState)
 }
 
@@ -437,6 +467,86 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			}
 		default:
 			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
+		}
+	}
+}
+
+const errURHostedKinematics = "cannot use UR hosted kinematics with obstacles or interaction spaces"
+
+func (ua *URArm) useURHostedKinematics(worldState *commonpb.WorldState, extra map[string]interface{}) (bool, error) {
+	// function to error out if trying to use world state with hosted kinematics
+	checkWorldState := func(usingHostedKinematics bool) (bool, error) {
+		if usingHostedKinematics && worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
+			return false, errors.New(errURHostedKinematics)
+		}
+		return usingHostedKinematics, nil
+	}
+
+	// if runtime preference is specified, obey that
+	if extra != nil {
+		if usingAtRuntime, ok := extra["arm_hosted_kinematics"].(bool); ok {
+			return checkWorldState(usingAtRuntime)
+		}
+	}
+
+	// otherwise default to option provided at config time
+	return checkWorldState(ua.urHostedKinematics)
+}
+
+func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose *commonpb.Pose) error {
+	// UR5 arm takes R3 angle axis as input
+	aa := spatialmath.NewPoseFromProtobuf(pose).Orientation().AxisAngles().ToR3()
+
+	// write command to arm, need to request position in meters
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n",
+		0.001*pose.X,
+		0.001*pose.Y,
+		0.001*pose.Z,
+		aa.X,
+		aa.Y,
+		aa.Z,
+	)
+	_, err := ua.conn.Write([]byte(cmd))
+	if err != nil {
+		return err
+	}
+
+	retried := false
+	slept := 0
+	for {
+		cur, err := ua.EndPosition(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if arm.PositionGridDiff(pose, cur) <= 1.5 &&
+			arm.PositionRotationDiff(pose, cur) <= 1.0 {
+			return nil
+		}
+
+		err = ua.getAndResetRuntimeError()
+		if err != nil {
+			return err
+		}
+
+		slept += 10
+
+		if slept > 5000 && !retried {
+			_, err := ua.conn.Write([]byte(cmd))
+			if err != nil {
+				return err
+			}
+			retried = true
+		}
+
+		if slept > 10000 {
+			return errors.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
+				pose, cur,
+				arm.PositionGridDiff(pose, cur),
+				arm.PositionRotationDiff(pose, cur),
+			)
+		}
+		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
 		}
 	}
 }
