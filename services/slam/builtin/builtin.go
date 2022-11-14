@@ -815,6 +815,9 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
+		if release != nil {
+			defer release()
+		}
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -822,7 +825,6 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		defer release()
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
@@ -847,6 +849,11 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		images, releaseFuncs, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
+		for _, rFunc := range releaseFuncs {
+			if rFunc != nil {
+				defer rFunc()
+			}
+		}
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -854,8 +861,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		defer releaseFuncs[0]()
-		defer releaseFuncs[1]()
+
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
