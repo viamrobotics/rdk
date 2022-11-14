@@ -71,7 +71,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.6-0.20221110152346-b34fdd866c09
+	go.viam.com/api v0.1.6-0.20221111224649-b590360c6265
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.1.4-0.20221110133338-7838caa75809

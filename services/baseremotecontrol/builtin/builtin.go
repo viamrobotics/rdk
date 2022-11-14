@@ -203,14 +203,20 @@ func (svc *builtIn) start(ctx context.Context) error {
 	for _, control := range svc.ControllerInputs() {
 		var err error
 		if svc.controlMode == buttonControl {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.ButtonChange}, remoteCtl)
+			err = svc.inputController.RegisterControlCallback(
+				ctx,
+				control,
+				[]input.EventType{input.ButtonChange},
+				remoteCtl,
+				map[string]interface{}{},
+			)
 		} else {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl)
+			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl, map[string]interface{}{})
 		}
 		if err != nil {
 			return err
 		}
-		if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect); err != nil {
+		if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect, map[string]interface{}{}); err != nil {
 			return err
 		}
 
