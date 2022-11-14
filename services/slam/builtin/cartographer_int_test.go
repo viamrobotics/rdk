@@ -70,7 +70,9 @@ func TestCartographerIntegration(t *testing.T) {
 	createLuaFiles(name)
 
 	t.Log("Testing online mode")
-	maprate := 60
+
+	mapRate := 1
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm: "cartographer",
 		Sensors:   []string{"cartographer_int_lidar"},
@@ -78,7 +80,7 @@ func TestCartographerIntegration(t *testing.T) {
 			"mode": "2d",
 			"v":    "1",
 		},
-		MapRateSec:    &maprate,
+		MapRateSec:    &mapRate,
 		DataDirectory: name,
 	}
 
@@ -134,6 +136,7 @@ func TestCartographerIntegration(t *testing.T) {
 			"mode": "2d",
 			"v":    "1",
 		},
+		MapRateSec:    &mapRate,
 		DataDirectory: name,
 	}
 
