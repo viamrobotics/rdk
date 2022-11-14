@@ -4,14 +4,11 @@ on:
   workflow_dispatch:
   workflow_call:
     secrets:
-      ARTIFACT_READ_ONLY_GCP_CREDENTIALS:
-        required: true
       MONGODB_TEST_OUTPUT_URI:
         required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
-  GOOGLE_APPLICATION_CREDENTIALS_FILENAME: "google-credentials.json"
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
@@ -36,14 +33,14 @@ jobs:
 
     steps:
     - name: Check out main branch code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      if: github.event_name != 'pull_request_target'
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0 # 0 so we can analyze history for coverage
@@ -64,12 +61,6 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-    - name: Create GCP Credential File from secret
-      run: |
-        GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
-        echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
-        echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
-
     - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
       run: |
         git init
@@ -87,7 +78,7 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # pullrequestcomment.yml will trigger seperately and post the actual comments
@@ -123,65 +114,40 @@ jobs:
         rm -rf ./*
 
     - name: Check out main branch code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      if: github.event_name != 'pull_request_target'
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
-    - name: Create GCP Credential File from secret
-      run: |
-        GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
-        echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
-        echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
-
     - name: Test
       run: make test-pi
 
-  test_passing:
-    name: All Tests Passing
-    needs: [test_pi, build_and_test]
-    runs-on: [x64, qemu-host]
-    if: always()
-    steps:
-      - name: Check Results
-        run: |
-          echo Test Pi: ${{ needs.test_pi.result }}
-          echo Main Tests: ${{ needs.build_and_test.result }}
-          [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.build_and_test.result }}" == "success" ]
-
   test_e2e:
-    name: End-to-End Tests Passing
+    name: Test End-to-End
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     steps:
       - name: Check out main branch code
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-        uses: actions/checkout@v2
+        if: github.event_name != 'pull_request_target'
+        uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
       - name: Check out PR branch code
         if: github.event_name == 'pull_request_target'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
-
-      - name: Create GCP Credential File from secret
-        run: |
-          GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
-          echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
@@ -190,10 +156,10 @@ jobs:
       - name: Run e2e Tests
         run: |
           chown -R testbot .
-          sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make build-web test-e2e'
+          sudo -u testbot bash -lc 'make build-web test-e2e'
 
   test_integration:
-    name: Integration Tests Passing
+    name:  Test SLAM Integration
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
@@ -201,23 +167,17 @@ jobs:
     timeout-minutes: 30
     steps:
     - name: Check out main branch code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      if: github.event_name != 'pull_request_target'
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
-
-    - name: Create GCP Credential File from secret
-      run: |
-        GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
-        echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
-        echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
 
     - name: Get orbslam binary for integration tests
       run: |
@@ -226,4 +186,21 @@ jobs:
 
     - name: Run integration tests
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
+        sudo -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
+
+  test_passing:
+    name: All Tests Passing
+    needs: [test_pi, build_and_test, test_e2e, test_integration]
+    runs-on: [x64, qemu-host]
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          echo Pi Tests: ${{ needs.test_pi.result }}
+          echo Main Tests: ${{ needs.build_and_test.result }}
+          echo E2E Tests: ${{ needs.test_e2e.result }}
+          echo SLAM Tests: ${{ needs.test_integration.result }}
+          [ "${{ needs.test_pi.result }}" == "success" ] && \
+          [ "${{ needs.build_and_test.result }}" == "success" ] && \
+          [ "${{ needs.test_e2e.result }}" == "success" ] && \
+          [ "${{ needs.test_integration.result }}" == "success" ]

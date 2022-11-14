@@ -1,6 +1,7 @@
 package chess
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -26,7 +27,7 @@ func (dd ChessImageProcessDebug) Process(
 ) error {
 	t.Helper()
 	col := rimage.ConvertImage(img)
-	dm, _ := rimage.ConvertImageToDepthMap(img2)
+	dm, _ := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	out, corners, err := dd.p(col, logger)
 	if err != nil {
 		return err

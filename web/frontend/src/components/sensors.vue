@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import sensorsApi from '../gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
+import sensorsApi from '../gen/service/sensors/v1/sensors_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 
@@ -72,7 +72,7 @@ const getData = (sensorName: SensorName) => {
     title="Sensors"
     class="sensors"
   >
-    <div class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-black p-4">
       <table class="w-full table-auto border border-black">
         <tr>
           <th class="border border-black p-2">

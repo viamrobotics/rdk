@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/datamanager/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 )
 
@@ -29,8 +30,12 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) Sync(ctx context.Context) error {
-	_, err := c.client.Sync(ctx, &pb.SyncRequest{Name: c.name})
+func (c *client) Sync(ctx context.Context, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.Sync(ctx, &pb.SyncRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return err
 	}

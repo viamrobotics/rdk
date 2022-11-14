@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
 import type { Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
-import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
+import cameraApi from '../gen/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
@@ -92,7 +92,7 @@ const exportScreenshot = (cameraName: string) => {
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
         <div class="pt-4">
-          <div class="flex items-center gap-2">
+          <div class="flex mb-4 items-center gap-2">
             <v-switch
               id="camera"
               :label="camera ? 'Hide Camera' : 'View Camera'"
@@ -102,8 +102,8 @@ const exportScreenshot = (cameraName: string) => {
             />
           </div>
 
-          <div class="float-right pb-4">
-            <div class="flex">
+          <div class="pb-4">
+            <div class="flex flex-wrap">
               <div
                 v-if="camera"
                 class="w-64"

@@ -126,7 +126,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	defer utils.TryClose(context.Background(), r)
 	// PoV from base1
 	attrs := &JoinAttrs{
-		AttrConfig:    &camera.AttrConfig{Debug: true},
+		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
@@ -157,7 +157,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 
 	// PoV from cam1
 	attrs2 := &JoinAttrs{
-		AttrConfig:    &camera.AttrConfig{Debug: true},
+		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
@@ -391,10 +391,8 @@ func TestFixedPointCloudICP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
 	attrs := &JoinAttrs{
-		AttrConfig: &camera.AttrConfig{
-			Stream: "",
-			Debug:  true,
-		},
+		Stream:        "",
+		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
 		MergeMethod:   "icp",
@@ -415,10 +413,8 @@ func TestTwinPointCloudICP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
-		AttrConfig: &camera.AttrConfig{
-			Stream: "",
-			Debug:  true,
-		},
+		Stream:        "",
+		Debug:         true,
 		SourceCameras: []string{"cam3", "cam4"},
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
@@ -443,10 +439,8 @@ func TestMultiPointCloudICP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
-		AttrConfig: &camera.AttrConfig{
-			Stream: "",
-			Debug:  true,
-		},
+		Stream:        "",
+		Debug:         true,
 		SourceCameras: []string{"cam3", "cam4", "cam5"},
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",

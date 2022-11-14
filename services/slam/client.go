@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/pointcloud"
@@ -40,12 +41,18 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 // Position creates a request, calls the slam service Position, and parses the response into the desired PoseInFrame.
-func (c *client) Position(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+func (c *client) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::Position")
 	defer span.End()
 
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+
 	req := &pb.GetPositionRequest{
-		Name: name,
+		Name:  name,
+		Extra: ext,
 	}
 
 	resp, err := c.client.GetPosition(ctx, req)
@@ -57,16 +64,28 @@ func (c *client) Position(ctx context.Context, name string) (*referenceframe.Pos
 }
 
 // GetMap creates a request, calls the slam service GetMap, and parses the response into the desired mimeType and map data.
-func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPosition *referenceframe.PoseInFrame, includeRobotMarker bool) (
+func (c *client) GetMap(
+	ctx context.Context,
+	name, mimeType string,
+	cameraPosition *referenceframe.PoseInFrame,
+	includeRobotMarker bool,
+	extra map[string]interface{},
+) (
 	string, image.Image, *vision.Object, error,
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetMap")
 	defer span.End()
 
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
 		IncludeRobotMarker: includeRobotMarker,
+		Extra:              ext,
 	}
 
 	if cameraPosition != nil {

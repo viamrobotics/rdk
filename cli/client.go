@@ -552,6 +552,10 @@ func (c *AppClient) prepareDial(
 		return nil, "", nil, err
 	}
 
+	if len(locAuth.Secrets) == 0 {
+		return nil, "", nil, errors.New("missing secrets in LocationAuth")
+	}
+
 	part, err := c.RobotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
 	if err != nil {
 		return nil, "", nil, err
@@ -565,7 +569,7 @@ func (c *AppClient) prepareDial(
 
 	rpcOpts := append(c.RPCOpts(), rpc.WithCredentials(rpc.Credentials{
 		Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-		Payload: locAuth.Secret,
+		Payload: locAuth.Secrets[0].Secret,
 	}))
 
 	if debug {
@@ -725,7 +729,7 @@ func (c *AppClient) StartRobotPartShell(
 		return nil
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context)
+	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
 	if err != nil {
 		fmt.Fprintln(c.c.App.ErrWriter, err)
 		cli.OsExiter(1)

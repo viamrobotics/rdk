@@ -33,7 +33,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := servo.Position(ctx)
+		v, err := servo.Position(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}

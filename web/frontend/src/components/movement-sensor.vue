@@ -4,8 +4,8 @@ import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import movementsensorApi, {
   type GetPropertiesResponse,
-} from '../gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
-import type { GeoPoint, Orientation, Vector3 } from '../gen/proto/api/common/v1/common_pb.esm';
+} from '../gen/component/movementsensor/v1/movementsensor_pb.esm';
+import type { GeoPoint, Orientation, Vector3 } from '../gen/common/v1/common_pb.esm';
 import { displayError } from '../lib/error';
 
 interface Props {
@@ -126,11 +126,11 @@ onUnmounted(() => {
       slot="title"
       crumbs="movement_sensor"
     />
-    <div class="flex border border-t-0 border-black p-4">
+    <div class="flex flex-wrap gap-4 border border-t-0 border-black p-4">
       <template v-if="properties">
         <div
           v-if="properties.positionSupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Position
@@ -161,14 +161,17 @@ onUnmounted(() => {
               </td>
             </tr>
           </table>
-          <a :href="`https://www.google.com/maps/search/${coordinate?.latitude},${coordinate?.longitude}`">
+          <a
+            class="underline text-[#045681]"
+            :href="`https://www.google.com/maps/search/${coordinate?.latitude},${coordinate?.longitude}`"
+          >
             google maps
           </a>
         </div>
 
         <div
           v-if="properties.orientationSupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Orientation (degrees)
@@ -211,7 +214,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.angularVelocitySupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Angular Velocity (degrees/second)
@@ -246,7 +249,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.linearVelocitySupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Linear Velocity
@@ -281,7 +284,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.compassHeadingSupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Compass Heading

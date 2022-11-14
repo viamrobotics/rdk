@@ -3,10 +3,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"math"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -36,8 +39,10 @@ import (
 	gotestutils "go.viam.com/utils/testutils"
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -111,7 +116,20 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
-	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	resourcesFunc := func() []resource.Name {
+		return []resource.Name{
+			arm.Named("arm1"),
+			base.Named("base1"),
+			board.Named("board1"),
+			camera.Named("camera1"),
+			gripper.Named("gripper1"),
+			input.Named("inputController1"),
+			motor.Named("motor1"),
+			motor.Named("motor2"),
+			sensor.Named("sensor1"),
+			servo.Named("servo1"),
+		}
+	}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
@@ -150,29 +168,29 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectInputDev := &inject.InputController{}
-	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputDev.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
 	injectGripper := &inject.Gripper{}
 	var gripperOpenCalled bool
-	injectGripper.OpenFunc = func(ctx context.Context) error {
+	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpenCalled = true
 		return nil
 	}
 	var gripperGrabCalled bool
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
+	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		gripperGrabCalled = true
 		return true, nil
 	}
 
 	injectServo := &inject.Servo{}
 	var capServoAngle uint8
-	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	injectServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 		return 5, nil
 	}
 
@@ -320,10 +338,10 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background())
+	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-	_, err = gripper1.Grab(context.Background())
+	_, err = gripper1.Grab(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
@@ -338,17 +356,17 @@ func TestStatusClient(t *testing.T) {
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	servo1, err := servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
-	err = servo1.Move(context.Background(), 5)
+	err = servo1.Move(context.Background(), 5, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.Position(context.Background())
+	_, err = servo1.Position(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
@@ -387,16 +405,7 @@ func TestStatusClient(t *testing.T) {
 	_, err = base.FromRobot(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = base.FromRobot(client, "base2")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = base.FromRobot(client, "base3")
-	test.That(t, err, test.ShouldBeNil)
-
 	_, err = board.FromRobot(client, "board1")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = board.FromRobot(client, "board3")
 	test.That(t, err, test.ShouldBeNil)
 
 	camera1, err = camera.FromRobot(client, "camera1")
@@ -412,14 +421,14 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background())
+	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 
 	inputDev, err := input.FromRobot(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
-	controlList, err := inputDev.Controls(context.Background())
+	controlList, err := inputDev.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
@@ -433,11 +442,11 @@ func TestStatusClient(t *testing.T) {
 
 	servo1, err = servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
-	err = servo1.Move(context.Background(), 4)
+	err = servo1.Move(context.Background(), 4, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 
-	currentVal, err := servo1.Position(context.Background())
+	currentVal, err := servo1.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
@@ -726,6 +735,162 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
 }
 
+func TestClientUnaryDisconnectHandler(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	var unaryStatusCallReceived bool
+	justOneUnaryStatusCall := grpc.ChainUnaryInterceptor(
+		func(
+			ctx context.Context,
+			req interface{},
+			info *grpc.UnaryServerInfo,
+			handler grpc.UnaryHandler,
+		) (interface{}, error) {
+			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
+				if unaryStatusCallReceived {
+					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
+				}
+				unaryStatusCallReceived = true
+			}
+			var resp interface{}
+			return resp, nil
+		},
+	)
+	gServer := grpc.NewServer(justOneUnaryStatusCall)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+
+	never := -1 * time.Second
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(never),
+		WithReconnectEvery(never),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("unary call to connected remote", func(t *testing.T) {
+		t.Helper()
+
+		client.connected = false
+		_, err = client.Status(context.Background(), []resource.Name{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+		test.That(t, unaryStatusCallReceived, test.ShouldBeFalse)
+		client.connected = true
+	})
+
+	t.Run("unary call to disconnected remote", func(t *testing.T) {
+		t.Helper()
+
+		_, err = client.Status(context.Background(), []resource.Name{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
+	})
+
+	t.Run("unary call to undetected disconnected remote", func(t *testing.T) {
+		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
+		_, err = client.Status(context.Background(), []resource.Name{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+	})
+
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+	gServer.Stop()
+}
+
+func TestClientStreamDisconnectHandler(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	var streamStatusCallReceived bool
+	interceptStreamStatusCall := grpc.ChainStreamInterceptor(
+		func(
+			srv interface{},
+			ss grpc.ServerStream,
+			info *grpc.StreamServerInfo,
+			handler grpc.StreamHandler,
+		) error {
+			if strings.HasSuffix(info.FullMethod, "RobotService/StreamStatus") {
+				streamStatusCallReceived = true
+			}
+			return handler(srv, ss)
+		},
+	)
+
+	gServer := grpc.NewServer(interceptStreamStatusCall)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+
+	never := -1 * time.Second
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(never),
+		WithReconnectEvery(never),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("stream call to disconnected remote", func(t *testing.T) {
+		t.Helper()
+
+		client.connected = false
+		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+		test.That(t, streamStatusCallReceived, test.ShouldBeFalse)
+		client.connected = true
+	})
+
+	t.Run("stream call to connected remote", func(t *testing.T) {
+		t.Helper()
+
+		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		ssc.Recv()
+		test.That(t, streamStatusCallReceived, test.ShouldBeTrue)
+	})
+
+	t.Run("receive call from stream of disconnected remote", func(t *testing.T) {
+		t.Helper()
+
+		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+
+		client.connected = false
+		_, err = ssc.Recv()
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+		client.connected = true
+	})
+
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+	gServer.Stop()
+}
+
 type mockType struct {
 	reconfCount int64
 }
@@ -764,8 +929,6 @@ func TestClientReconnect(t *testing.T) {
 		return []resource.Name{arm.Named("arm1"), thing1Name}
 	}
 
-	go gServer.Serve(listener)
-
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
@@ -774,6 +937,8 @@ func TestClientReconnect(t *testing.T) {
 	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
 	armpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc2))
+
+	go gServer.Serve(listener)
 
 	dur := 100 * time.Millisecond
 	client, err := New(
@@ -1506,12 +1671,8 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	resource1, err := client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.resourceClients[arm.Named("arm1")], test.ShouldEqual, resource1)
-	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
-	test.That(t, err.Error(), test.ShouldEqual, "rpc error: code = Unknown desc = no arm with name (arm1)")
-	test.That(t, pos, test.ShouldBeNil)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named("arm1")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1556,6 +1717,38 @@ func TestClientOperationIntercept(t *testing.T) {
 	resp, err := client.Status(ctx, []resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 0)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestGetUnknownResource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// grabbing known resource is fine
+	myArm, err := client.ResourceByName(arm.Named("myArm"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myArm, test.ShouldNotBeNil)
+
+	// grabbing unknown resource returns error
+	_, err = client.ResourceByName(base.Named("notABase"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("notABase")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

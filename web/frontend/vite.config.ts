@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import Hashes from 'jshashes';
+import { defineConfig } from 'vite';
 
 const MD5 = new Hashes.MD5();
 
@@ -36,9 +36,18 @@ export default defineConfig({
         },
         assetFileNames: '[name].[ext]',
       },
+      onwarn: (warning, warn) => {
+        if (warning.code === 'EVAL') {
+          return;
+        }
+        warn(warning);
+      },
     },
     outDir: '../runtime-shared/static',
     emptyOutDir: true,
+  },
+  optimizeDeps: {
+    exclude: ['@viamrobotics/rpc']
   },
   server: {
     port: 5174,

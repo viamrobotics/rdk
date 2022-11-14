@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
+import boardApi from '../gen/component/board/v1/board_pb.esm';
 
 interface Props {
   name: string
@@ -117,7 +117,7 @@ const setPWMFrequency = () => {
       slot="title"
       crumbs="board"
     />
-    <div class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-black p-4">
       <h3 class="mb-2">
         Analogs
       </h3>
@@ -159,7 +159,7 @@ const setPWMFrequency = () => {
             Get
           </th>
           <td class="border border-black p-2">
-            <div class="flex items-end gap-2">
+            <div class="flex flex-wrap items-end gap-2">
               <v-input
                 label="Pin"
                 type="integer"
@@ -189,7 +189,7 @@ const setPWMFrequency = () => {
             Set
           </th>
           <td class="p-2">
-            <div class="flex items-end gap-2">
+            <div class="flex flex-wrap items-end gap-2">
               <v-input
                 v-model="setPin"
                 type="integer"

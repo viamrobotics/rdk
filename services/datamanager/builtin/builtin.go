@@ -31,7 +31,7 @@ import (
 
 func init() {
 	registry.RegisterService(datamanager.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
@@ -308,7 +308,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 }
 
 // getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
-func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata, error) {
+func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
 		Subtype:    attributes.Type,
@@ -324,10 +324,10 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
-		return collector, &componentMetadata, nil
+		return collector, &componentMetadata
 	}
 
-	return nil, nil, errors.Errorf("no collector was found with config %v", attributes)
+	return nil, nil
 }
 
 func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
@@ -342,7 +342,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 	svc.cancelSyncBackgroundRoutine()
 
 	// Kick off syncer if we're running it.
-	if intervalMins > 0 {
+	if intervalMins > 0 && !svc.syncDisabled {
 		syncer, err := svc.syncerConstructor(svc.logger, cfg)
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
@@ -374,7 +374,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *builtIn) Sync(_ context.Context) error {
+func (svc *builtIn) Sync(_ context.Context, extra map[string]interface{}) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
@@ -550,10 +550,8 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 			}
 		} else if attributes.Disabled {
 			// if disabled, make sure that it is closed, so it doesn't keep collecting data.
-			collector, md, err := svc.getCollectorFromConfig(attributes)
-			if err != nil {
-				svc.logger.Errorw("collector ", attributes.Name, " was not found", "info", err)
-			} else {
+			collector, md := svc.getCollectorFromConfig(attributes)
+			if collector != nil && md != nil {
 				collector.Close()
 				delete(svc.collectors, *md)
 			}

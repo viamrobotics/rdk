@@ -34,9 +34,7 @@ func TestComposed(t *testing.T) {
 	}
 	// make transform pipeline, expected result with correct config
 	conf := &transformConfig{
-		AttrConfig: &camera.AttrConfig{
-			Stream: "color",
-		},
+		Stream: "color",
 		Pipeline: []Transformation{
 			{
 				Type:       "overlay",
@@ -75,9 +73,7 @@ func TestComposed(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	conf = &transformConfig{
-		AttrConfig: &camera.AttrConfig{
-			Stream: "color",
-		},
+		Stream: "color",
 		Pipeline: []Transformation{
 			{
 				Type: "overlay", // no attributes
