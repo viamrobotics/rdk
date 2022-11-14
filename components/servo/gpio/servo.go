@@ -82,7 +82,7 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const model = "generic"
+const model = "gpio"
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, model,
