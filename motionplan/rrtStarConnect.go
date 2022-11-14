@@ -140,7 +140,11 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// initialize maps
 	goalMap := make(map[node]node, len(solutions))
-	for _, solution := range solutions {
+	for i, solution := range solutions {
+		if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
+			solutionChan <- &planReturn{steps: []node{&basicNode{q: seed}, solution}}
+			return
+		}
 		goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
 	startMap := make(map[node]node)
