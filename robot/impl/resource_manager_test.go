@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"sync"
 	"testing"
 
@@ -52,6 +53,7 @@ import (
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -1399,6 +1401,66 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	_, err = manager.processRemote(context.Background(), remote)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+}
+
+func TestConfigUntrustedEnv(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	manager := newResourceManager(resourceManagerOptions{
+		untrustedEnv: true,
+	}, logger)
+	test.That(t, manager.processManager, test.ShouldEqual, pexec.NoopProcessManager)
+
+	t.Run("disable processes", func(t *testing.T) {
+		err := manager.updateResources(ctx, &config.Diff{
+			Added: &config.Config{
+				Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
+			},
+			Modified: &config.ModifiedConfigDiff{
+				Processes: []pexec.ProcessConfig{{ID: "id2", Name: "echo"}},
+			},
+		}, func(name string) (resource.Name, bool) {
+			return resource.Name{}, false
+		})
+		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
+
+		_, err = manager.FilterFromConfig(ctx, &config.Config{
+			Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
+		}, logger)
+		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
+	})
+
+	t.Run("disable shell service", func(t *testing.T) {
+		err := manager.updateResources(ctx, &config.Diff{
+			Added: &config.Config{
+				Services: []config.Service{{
+					Name:      "shell-service",
+					Namespace: shell.Subtype.Namespace,
+					Type:      config.ServiceType(shell.SubtypeName),
+				}},
+			},
+			Modified: &config.ModifiedConfigDiff{
+				Services: []config.Service{{
+					Name:      "shell-service",
+					Namespace: shell.Subtype.Namespace,
+					Type:      config.ServiceType(shell.SubtypeName),
+				}},
+			},
+		}, func(name string) (resource.Name, bool) {
+			return resource.Name{}, false
+		})
+		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
+
+		_, err = manager.FilterFromConfig(ctx, &config.Config{
+			Services: []config.Service{{
+				Name:      "shell-service",
+				Namespace: shell.Subtype.Namespace,
+				Type:      config.ServiceType(shell.SubtypeName),
+			}},
+		}, logger)
+		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
+	})
 }
 
 type fakeProcess struct {
