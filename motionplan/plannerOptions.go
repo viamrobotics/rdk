@@ -45,7 +45,10 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
+	
 )
+
+var defaultPlanner = NewCBiRRTMotionPlannerWithSeed
 
 // the set of supported motion profiles.
 const (
@@ -99,6 +102,23 @@ func plannerSetupFromMoveRequest(
 	err = json.Unmarshal(jsonString, opt)
 	if err != nil {
 		return nil, err
+	}
+	
+	var planAlg string
+	alg, ok := planningOpts["planning_alg"]
+	if ok {
+		planAlg, ok = alg.(string)
+		if !ok {
+			return nil, errors.New("could not interpret planning_alg field as string")
+		}
+		switch planAlg {
+		case "cbirrt":
+			opt.PlannerConstructor = NewCBiRRTMotionPlannerWithSeed
+		case "rrtstar":
+			opt.PlannerConstructor = NewRRTStarConnectMotionPlannerWithSeed
+		default:
+			// use default, already set
+		}
 	}
 
 	switch motionProfile {
@@ -201,6 +221,7 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.DistanceFunc = defaultDistanceFunc
+	opt.PlannerConstructor = defaultPlanner
 	return opt
 }
 
@@ -228,6 +249,8 @@ type PlannerOptions struct {
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
 	DistanceFunc Constraint
+	
+	PlannerConstructor seededPlannerConstructor
 	
 	Fallback *PlannerOptions
 }

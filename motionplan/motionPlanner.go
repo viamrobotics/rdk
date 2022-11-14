@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"runtime"
 	"sort"
 	"fmt"
 
@@ -30,6 +31,7 @@ type MotionPlanner interface {
 }
 
 type plannerConstructor func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
+type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
 
 type planner struct {
 	solver InverseKinematics
@@ -204,8 +206,8 @@ func EvaluatePlan(plan *planReturn, planOpts *PlannerOptions) (totalCost float64
 
 // runPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
 func runPlannerWithWaypoints(ctx context.Context,
-	planner MotionPlanner,
 	goals []spatial.Pose,
+	sf *solverFrame,
 	seed []frame.Input,
 	opts []*PlannerOptions,
 	iter int,
@@ -216,8 +218,22 @@ func runPlannerWithWaypoints(ctx context.Context,
 	if opt == nil {
 		opt = NewBasicPlannerOptions()
 	}
+	
+	// Build planner
+	var pathPlanner MotionPlanner
+	if seed, ok := opt.extra["rseed"].(int); ok {
+		fmt.Println("seeding")
+		pathPlanner, err = opt.PlannerConstructor(sf, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), sf.fss.logger)
+	}else{
+		print("not ok", opt.extra["rseed"])
+		pathPlanner, err = opt.PlannerConstructor(sf, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(1))), sf.fss.logger)
+	}
+	if err != nil {
+		return nil, err
+	}
+	
 	remainingSteps := [][]frame.Input{}
-	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
+	if cbert, ok := pathPlanner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
 		endpointPreview := make(chan node, 1)
@@ -245,7 +261,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, nextSeed.Q(), opts, iter+1)
+					remainingSteps, err = runPlannerWithWaypoints(ctx, goals, sf, nextSeed.Q(), opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -279,8 +295,8 @@ func runPlannerWithWaypoints(ctx context.Context,
 					// step from our iteration hangs out in the channel buffer until we're done with it
 					remainingSteps, err = runPlannerWithWaypoints(
 						ctx,
-						planner,
 						goals,
+						sf,
 						finalSteps.steps[len(finalSteps.steps)-1].Q(),
 						opts,
 						iter+1,
@@ -295,14 +311,14 @@ func runPlannerWithWaypoints(ctx context.Context,
 			}
 		}
 	} else {
-		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		resultSlicesRaw, err := pathPlanner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
 		if err != nil {
 			return nil, err
 		}
 		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps) and the
 			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			remainingSteps, err = runPlannerWithWaypoints(ctx, goals, sf, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
 			if err != nil {
 				return nil, err
 			}
