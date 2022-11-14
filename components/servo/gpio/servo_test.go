@@ -1,5 +1,5 @@
 // Package servogeneric implements a generic servo
-package servogeneric
+package gpio
 
 import (
 	"context"
