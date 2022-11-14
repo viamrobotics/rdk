@@ -116,6 +116,8 @@ func plannerSetupFromMoveRequest(
 			opt.PlannerConstructor = NewCBiRRTMotionPlannerWithSeed
 		case "rrtstar":
 			opt.PlannerConstructor = NewRRTStarConnectMotionPlannerWithSeed
+			// no motion profiles for RRT*
+			return opt, nil
 		default:
 			// use default, already set
 		}
