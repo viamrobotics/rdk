@@ -32,11 +32,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
+	var last string
 	for {
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
 				Limit:  1,
+				Last:   last,
 			},
 			IncludeBinary: true,
 			CountOnly:     false,
@@ -45,6 +47,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return errors.Wrapf(err, "received error from server")
 		}
 		data := resp.GetData()
+		last = resp.GetLast()
 
 		// If no data is returned, there is no more data.
 		if len(data) == 0 {

@@ -37,6 +37,11 @@ type Config struct {
 	// a user must pass via command line arguments.
 	AllowInsecureCreds bool `json:"-"`
 
+	// UntrustedEnv is used to disable Processes and shell for untrusted environments
+	// where a process cannot be trusted. This is an option a user must pass via
+	// command line arguments.
+	UntrustedEnv bool `json:"-"`
+
 	// FromCommand indicates if this config was parsed via the web server command.
 	// If false, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
