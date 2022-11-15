@@ -15,7 +15,6 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	robotpb "go.viam.com/api/robot/v1"
-
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"

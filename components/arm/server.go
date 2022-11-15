@@ -76,7 +76,12 @@ func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, spatialmath.NewPoseFromProtobuf(req.GetTo()), req.GetWorldState(), req.Extra.AsMap())
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(
+		ctx,
+		spatialmath.NewPoseFromProtobuf(req.GetTo()),
+		req.GetWorldState(),
+		req.Extra.AsMap(),
+	)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.

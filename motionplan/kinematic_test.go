@@ -16,7 +16,6 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -349,11 +348,7 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
 }
 
-func solveTest(ctx context.Context,
-	solver InverseKinematics,
-	goal spatialmath.Pose,
-	seed []frame.Input,
-) ([][]frame.Input, error) {
+func solveTest(ctx context.Context, solver InverseKinematics, goal spatial.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)

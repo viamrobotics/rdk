@@ -12,7 +12,6 @@ import (
 	"go.viam.com/test"
 
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -26,7 +25,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{
+	pos := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,
