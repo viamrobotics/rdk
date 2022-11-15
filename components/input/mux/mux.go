@@ -121,12 +121,12 @@ func (m *mux) Close() {
 }
 
 // Controls lists the unique input.Controls for the combined sources.
-func (m *mux) Controls(ctx context.Context) ([]input.Control, error) {
+func (m *mux) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 	controlMap := make(map[input.Control]bool)
 	var ok bool
 	var errs error
 	for _, c := range m.sources {
-		controls, err := c.Controls(ctx)
+		controls, err := c.Controls(ctx, extra)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 			continue
@@ -148,12 +148,12 @@ func (m *mux) Controls(ctx context.Context) ([]input.Control, error) {
 }
 
 // Events returns the last input.Event (the current state).
-func (m *mux) Events(ctx context.Context) (map[input.Control]input.Event, error) {
+func (m *mux) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 	eventsOut := make(map[input.Control]input.Event)
 	var ok bool
 	var errs error
 	for _, c := range m.sources {
-		eventList, err := c.Events(ctx)
+		eventList, err := c.Events(ctx, extra)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 			continue
@@ -178,6 +178,7 @@ func (m *mux) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
+	extra map[string]interface{},
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -204,7 +205,7 @@ func (m *mux) RegisterControlCallback(
 	var ok bool
 	var errs error
 	for _, c := range m.sources {
-		err := c.RegisterControlCallback(ctx, control, triggers, relayFunc)
+		err := c.RegisterControlCallback(ctx, control, triggers, relayFunc, extra)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 			continue
