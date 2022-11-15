@@ -157,6 +157,7 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper functions for visualizing octree during testing
+//
 //nolint:unused
 func stringNodeType(n NodeType) string {
 	switch n {
