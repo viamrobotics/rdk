@@ -80,11 +80,11 @@ func newTransformPipeline(
 		return nil, errors.New("pipeline has no transforms in it")
 	}
 	// check if the source produces a depth image or color image
-	streamType := camera.UnspecifiedStream
 	img, release, err := camera.ReadImage(ctx, source)
 	if err != nil {
 		return nil, err
 	}
+	var streamType camera.StreamType
 	if _, ok := img.(*rimage.DepthMap); ok {
 		streamType = camera.DepthStream
 	} else if _, ok := img.(*image.Gray16); ok {
