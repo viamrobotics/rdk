@@ -2,10 +2,10 @@ package octree
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	pc "go.viam.com/rdk/pointcloud"
 )
@@ -22,14 +22,14 @@ type basicOctree struct {
 
 type basicOctreeNode struct {
 	nodeType NodeType
-	tree     []basicOctree
+	tree     []*basicOctree
 	point    pc.PointAndData
 }
 
 // New creates a new basic octree with specified center, side and metadata.
 func New(ctx context.Context, center r3.Vector, sideLength float64, logger golog.Logger) (Octree, error) {
 	if sideLength <= 0 {
-		return nil, errors.New("invalid side length for octree")
+		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
 	}
 
 	octree := &basicOctree{
@@ -47,6 +47,7 @@ func New(ctx context.Context, center r3.Vector, sideLength float64, logger golog
 // of nodes containing a point.
 func (octree *basicOctree) Size() int {
 	var totalSize int
+
 	switch octree.node.nodeType {
 	case InternalNode:
 		for _, children := range octree.node.tree {
@@ -65,28 +66,41 @@ func (octree *basicOctree) Size() int {
 // It then recursively iterates through the tree until it finds the appropriate node to add it too. If the found node
 // contains a point already, it will the node into octants and add both the old and new points to them respectively.
 func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
-	if !checkPointPlacement(octree.center, octree.side, p) {
-		return errors.New("error invalid point to add to octree")
+	if (pc.PointAndData{P: p, D: d} == pc.PointAndData{}) {
+		octree.logger.Debug("no data given, skipping insertion")
+		return nil
 	}
 
-	octree.meta.Merge(p, d)
+	if !checkPointPlacement(octree.center, octree.side, p) {
+		return errors.New("error point is outside the bounds of this octree")
+	}
 
 	switch octree.node.nodeType {
 	case InternalNode:
 		for _, childNode := range octree.node.tree {
 			if checkPointPlacement(childNode.center, childNode.side, p) {
+				octree.meta.Merge(p, d)
 				return childNode.Set(p, d)
 			}
 		}
+		return errors.New("error invalid internal node detected, please check your tree")
 	case LeafNodeFilled:
+		_, exists := octree.At(p.X, p.Y, p.Z)
+		if exists {
+			// Update data in point
+			octree.node.point.D = d
+			return nil
+		}
 		err := octree.splitIntoOctants()
 		if err != nil {
-			return errors.New("error in splitting octree into new octants")
+			return errors.Errorf("error in splitting octree into new octants: %v", err)
 		}
 		return octree.Set(p, d)
 	case LeafNodeEmpty:
+		octree.meta.Merge(p, d)
 		octree.node = newLeafNodeFilled(p, d)
 	}
+
 	return nil
 }
 

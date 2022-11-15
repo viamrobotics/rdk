@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	pc "go.viam.com/rdk/pointcloud"
 )
@@ -19,7 +20,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 }
 
 // Creates a new InternalNode with specified children nodes.
-func newInternalNode(tree []basicOctree) basicOctreeNode {
+func newInternalNode(tree []*basicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
 		tree:     tree,
 		nodeType: InternalNode,
@@ -41,7 +42,11 @@ func newLeafNodeFilled(p r3.Vector, d pc.Data) basicOctreeNode {
 // Splits the octree into multiple octants and place stored point in appropriate child
 // Note: splitOctants should only be called when an octree is a ChildLeafNode.
 func (octree *basicOctree) splitIntoOctants() error {
-	children := []basicOctree{}
+	if octree.node.nodeType == InternalNode {
+		return errors.New("error attempted to split internal node")
+	}
+
+	children := []*basicOctree{}
 	newSideLength := octree.side / 2
 	for _, i := range []float64{-1.0, 1.0} {
 		for _, j := range []float64{-1.0, 1.0} {
@@ -52,11 +57,13 @@ func (octree *basicOctree) splitIntoOctants() error {
 					Z: k * newSideLength,
 				}
 				newCenter := octree.center.Add(centerOffset)
-				child := basicOctree{
+				child := &basicOctree{
 					ctx:    octree.ctx,
 					center: newCenter,
 					side:   newSideLength,
 					logger: octree.logger,
+					node:   newLeafNodeEmpty(),
+					meta:   octree.NewMetaData(),
 				}
 				children = append(children, child)
 			}
@@ -67,6 +74,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 	p := octree.node.point.P
 	d := octree.node.point.D
 	octree.node = newInternalNode(children)
+	octree.meta = octree.NewMetaData()
 	return octree.Set(p, d)
 }
 
@@ -74,5 +82,5 @@ func (octree *basicOctree) splitIntoOctants() error {
 func checkPointPlacement(center r3.Vector, sideLength float64, p r3.Vector) bool {
 	return ((math.Abs(center.X-p.X) <= sideLength) &&
 		(math.Abs(center.Y-p.Y) <= sideLength) &&
-		(math.Abs(center.Z-p.Z) <= sideLength)) // might need to be < instead of <=
+		(math.Abs(center.Z-p.Z) <= sideLength))
 }

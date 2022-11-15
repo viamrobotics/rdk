@@ -53,5 +53,5 @@ type MetaData struct {
 // Merge takes in a new data position and will update the octree and pointcloud metadata accordingly.
 func (meta *MetaData) Merge(v r3.Vector, data pc.Data) {
 	meta.PCMetaData.Merge(v, data)
-	meta.Size = 1
+	meta.Size++
 }
