@@ -11,12 +11,14 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// var _ = arm.Arm
+
 // Arm is an injected arm.
 type Arm struct {
 	arm.LocalArm
 	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
-	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPositionFunc       func(ctx context.Context, to spatialmath.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]interface{}) error
 	JointPositionsFunc       func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
@@ -33,7 +35,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (a *Arm) MoveToPosition(ctx context.Context, to spatialmath.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 	if a.MoveToPositionFunc == nil {
 		return a.LocalArm.MoveToPosition(ctx, to, worldState, extra)
 	}

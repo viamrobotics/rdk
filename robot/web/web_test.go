@@ -15,6 +15,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	robotpb "go.viam.com/api/robot/v1"
+
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -51,10 +52,12 @@ func TestWebStart(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	err := svc.Start(ctx, weboptions.New())
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), "localhost:8080", logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 

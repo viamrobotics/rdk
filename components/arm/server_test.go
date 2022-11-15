@@ -38,7 +38,7 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var (
-		capArmPos      *commonpb.Pose
+		capArmPos      spatialmath.Pose
 		capArmJointPos *pb.JointPositions
 		extraOptions   map[string]interface{}
 	)
@@ -55,7 +55,7 @@ func TestServer(t *testing.T) {
 	}
 	injectArm.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
@@ -84,7 +84,7 @@ func TestServer(t *testing.T) {
 	}
 	injectArm2.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
@@ -122,7 +122,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get pose")
 	})
 
-	
 	t.Run("move to position", func(t *testing.T) {
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -132,7 +131,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, To: pose2, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmPos.String(), test.ShouldResemble, pose2.String())
+		test.That(t, spatialmath.PoseAlmostCoincident(capArmPos, spatialmath.NewPoseFromProtobuf(pose2)), test.ShouldBeTrue)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToPosition"})
 
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{
@@ -141,7 +140,7 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
-		test.That(t, capArmPos.String(), test.ShouldResemble, spatialmath.PoseToProtobuf(pose1).String())
+		test.That(t, spatialmath.PoseAlmostCoincident(capArmPos, pose1), test.ShouldBeTrue)
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
@@ -161,7 +160,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get joint positions")
 	})
 
-	
 	t.Run("move to joint position", func(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),

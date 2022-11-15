@@ -401,7 +401,7 @@ func processArmEndPointEvent(ctx context.Context, svc *builtIn, state *controlle
 	offsetPose := spatial.NewPoseFromOrientation(offSetPoseVector, offSetEulerAngles)
 	newPose := spatial.Compose(currentPose, offsetPose)
 
-	err = svc.arm.MoveToPosition(ctx, spatial.PoseToProtobuf(newPose), nil, nil)
+	err = svc.arm.MoveToPosition(ctx, newPose, nil, nil)
 	if err != nil {
 		return err
 	}

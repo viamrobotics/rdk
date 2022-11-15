@@ -102,7 +102,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 // MoveToPosition sets the position.
 func (wrapper *Arm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

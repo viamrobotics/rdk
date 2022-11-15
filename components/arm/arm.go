@@ -86,7 +86,7 @@ type Arm interface {
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, pose spatialmath.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one
@@ -214,7 +214,7 @@ func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]in
 
 func (r *reconfigurableArm) MoveToPosition(
 	ctx context.Context,
-	pose *commonpb.Pose,
+	pose spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
@@ -381,7 +381,7 @@ func PositionRotationDiff(a, b *commonpb.Pose) float64 {
 }
 
 // Move is a helper function to abstract away movement for general arms.
-func Move(ctx context.Context, r robot.Robot, a Arm, dst *commonpb.Pose, worldState *commonpb.WorldState) error {
+func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *commonpb.WorldState) error {
 	solution, err := Plan(ctx, r, a, dst, worldState)
 	if err != nil {
 		return err
@@ -395,7 +395,7 @@ func Plan(
 	ctx context.Context,
 	r robot.Robot,
 	a Arm,
-	dst *commonpb.Pose,
+	dst spatialmath.Pose,
 	worldState *commonpb.WorldState,
 ) ([][]referenceframe.Input, error) {
 	// build the framesystem
@@ -404,7 +404,7 @@ func Plan(
 		return nil, err
 	}
 	armName := a.ModelFrame().Name()
-	destination := referenceframe.NewPoseInFrame(armName+"_origin", spatialmath.NewPoseFromProtobuf(dst))
+	destination := referenceframe.NewPoseInFrame(armName+"_origin", dst)
 
 	var solutionMap []map[string][]referenceframe.Input
 
@@ -422,7 +422,7 @@ func Plan(
 		if err != nil {
 			return nil, err
 		}
-		destination = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(dst))
+		destination = referenceframe.NewPoseInFrame(referenceframe.World, dst)
 	}
 
 	solutionMap, err = motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)

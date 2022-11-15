@@ -54,7 +54,7 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 
 func (c *client) MoveToPosition(
 	ctx context.Context,
-	pose *commonpb.Pose,
+	pose spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
@@ -64,7 +64,7 @@ func (c *client) MoveToPosition(
 	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:       c.name,
-		To:         pose,
+		To:         spatialmath.PoseToProtobuf(pose),
 		WorldState: worldState,
 		Extra:      ext,
 	})

@@ -175,7 +175,7 @@ func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) 
 // MoveToPosition moves the arm to the given absolute position.
 func (a *Dofbot) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
