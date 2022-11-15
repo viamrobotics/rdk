@@ -35,6 +35,7 @@ type Arguments struct {
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC                     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
+	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 }
 
 type robotServer struct {
@@ -193,6 +194,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.Debug = s.args.Debug || cfg.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
+		out.UntrustedEnv = s.args.UntrustedEnv
 		return out, nil
 	}
 
