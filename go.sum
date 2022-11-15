@@ -1511,6 +1511,8 @@ go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e h1:1tJIJv/zsobFV5feR2ZiG/+
 go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
 go.viam.com/utils v0.1.4-0.20221110133338-7838caa75809 h1:Xq50rLhCCB0UctnAlNMyigLMowHrJHy9Tk0ir7vphtw=
 go.viam.com/utils v0.1.4-0.20221110133338-7838caa75809/go.mod h1:L7RrtFddaBH1sMiAjzQ26yMKzSFcG+T1KIY+pOBxyAg=
+go.viam.com/utils v0.1.5-0.20221114215037-b710cbb9b4e1 h1:XJQFZPJxi3Z1czpN55a85cX2wWLOskhdDYZDX05SGNw=
+go.viam.com/utils v0.1.5-0.20221114215037-b710cbb9b4e1/go.mod h1:L7RrtFddaBH1sMiAjzQ26yMKzSFcG+T1KIY+pOBxyAg=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
 goji.io v2.0.2+incompatible h1:uIssv/elbKRLznFUy3Xj4+2Mz/qKhek/9aZQDUMae7c=
