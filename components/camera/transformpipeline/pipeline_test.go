@@ -185,14 +185,12 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	transform1 := &transformConfig{
-		Stream:           "color",
 		CameraParameters: intrinsics1,
 		Source:           "source",
 		Pipeline:         []Transformation{{Type: "rotate", Attributes: config.AttributeMap{}}},
 	}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 10, Height: 20}
 	transform2 := &transformConfig{
-		Stream:           "color",
 		CameraParameters: intrinsics2,
 		Source:           "transform2",
 		Pipeline: []Transformation{
@@ -200,7 +198,6 @@ func TestPipeIntoPipe(t *testing.T) {
 		},
 	}
 	transformWrong := &transformConfig{
-		Stream: "depth",
 		Source: "transform2",
 		Pipeline: []Transformation{
 			{Type: "resize", Attributes: config.AttributeMap{"height_px": 20, "width_px": 10}},
