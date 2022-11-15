@@ -2,13 +2,11 @@ package arm_test
 
 import (
 	"context"
-	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -343,30 +341,6 @@ func TestClose(t *testing.T) {
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfArm1), test.ShouldBeNil)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
-}
-
-func TestArmPosition(t *testing.T) {
-	p := arm.NewPositionFromMetersAndOV(1.0, 2.0, 3.0, math.Pi/2, 0, 0.7071, 0.7071)
-
-	test.That(t, p.OX, test.ShouldEqual, 0.0)
-	test.That(t, p.OY, test.ShouldEqual, 0.7071)
-	test.That(t, p.OZ, test.ShouldEqual, 0.7071)
-
-	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
-}
-
-func TestArmPositionDiff(t *testing.T) {
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{}, &commonpb.Pose{}), test.ShouldAlmostEqual, 0)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{X: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{Y: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{Z: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{X: 1, Y: 1, Z: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, math.Sqrt(3))
-
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{}, &commonpb.Pose{}), test.ShouldAlmostEqual, 0)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OX: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OY: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OX: 1, OY: 1, OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 3)
 }
 
 func TestExtraOptions(t *testing.T) {
