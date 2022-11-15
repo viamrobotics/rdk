@@ -52,10 +52,8 @@ func main() {
 		pipeline(cam, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
 	} else {
 		cfg := &videosource.ServerAttrs{
-			URL: *urlPtr,
-			AttrConfig: &camera.AttrConfig{
-				Stream: *streamPtr,
-			},
+			URL:    *urlPtr,
+			Stream: *streamPtr,
 		}
 		src, err := videosource.NewServerSource(context.Background(), cfg, logger)
 		if err != nil {

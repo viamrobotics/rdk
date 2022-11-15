@@ -30,7 +30,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
@@ -104,8 +104,8 @@ func setupTestGRPCServer(port string) *grpc.Server {
 	return gServer2
 }
 
-func setupInjectRobot() *inject.Robot {
-	r := &inject.Robot{}
+func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
+	deps := make(registry.Dependencies)
 	var projA transform.Projector
 	intrinsicsA := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
@@ -152,10 +152,10 @@ func setupInjectRobot() *inject.Robot {
 		TangentialP2: -0.002828504714921335}
 	projWebcam = intrinsicsWebcam
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	for _, sensor := range attr.Sensors {
 		cam := &inject.Camera{}
-		switch name {
-		case camera.Named("good_lidar"):
+		switch sensor {
+		case "good_lidar":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return pointcloud.New(), nil
 			}
@@ -168,8 +168,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{}, nil
 			}
-			return cam, nil
-		case camera.Named("bad_lidar"):
+			deps[camera.Named(sensor)] = cam
+		case "bad_lidar":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("bad_lidar")
 			}
@@ -179,8 +179,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			return cam, nil
-		case camera.Named("good_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "good_camera":
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -197,8 +197,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
-			return cam, nil
-		case camera.Named("good_color_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "good_color_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -213,15 +213,15 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
 					}),
 				), nil
 			}
-			return cam, nil
-		case camera.Named("good_depth_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "good_depth_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -236,15 +236,15 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
 					}),
 				), nil
 			}
-			return cam, nil
-		case camera.Named("bad_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "bad_camera":
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return nil, errors.New("bad_camera")
 			}
@@ -254,8 +254,8 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			return cam, nil
-		case camera.Named("bad_camera_intrinsics"):
+			deps[camera.Named(sensor)] = cam
+		case "bad_camera_intrinsics":
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -275,8 +275,8 @@ func setupInjectRobot() *inject.Robot {
 					DistortionParams: &transform.BrownConrady{},
 				}, nil
 			}
-			return cam, nil
-		case camera.Named("orbslam_int_color_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "orbslam_int_color_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -304,7 +304,7 @@ func setupInjectRobot() *inject.Robot {
 					if err != nil {
 						return nil, err
 					}
-					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 					return gostream.NewEmbeddedVideoStreamFromReader(
 						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 							return lazy, func() {}, nil
@@ -314,8 +314,8 @@ func setupInjectRobot() *inject.Robot {
 					return nil, errors.Errorf("Color camera not ready to return image %v", index)
 				}
 			}
-			return cam, nil
-		case camera.Named("orbslam_int_depth_camera"):
+			deps[camera.Named(sensor)] = cam
+		case "orbslam_int_depth_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -343,7 +343,7 @@ func setupInjectRobot() *inject.Robot {
 					if err != nil {
 						return nil, err
 					}
-					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 					return gostream.NewEmbeddedVideoStreamFromReader(
 						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 							return lazy, func() {}, nil
@@ -353,8 +353,8 @@ func setupInjectRobot() *inject.Robot {
 					return nil, errors.Errorf("Depth camera not ready to return image %v", index)
 				}
 			}
-			return cam, nil
-		case camera.Named("orbslam_int_webcam"):
+			deps[camera.Named(sensor)] = cam
+		case "orbslam_int_webcam":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
@@ -391,8 +391,10 @@ func setupInjectRobot() *inject.Robot {
 					return nil, errors.Errorf("Webcam not ready to return image %v", index)
 				}
 			}
-			return cam, nil
-		case camera.Named("cartographer_int_lidar"):
+			deps[camera.Named(sensor)] = cam
+		case "gibberish":
+			return deps
+		case "cartographer_int_lidar":
 			var index uint64
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				select {
@@ -423,27 +425,33 @@ func setupInjectRobot() *inject.Robot {
 			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{}, nil
 			}
-			return cam, nil
+			deps[camera.Named(sensor)] = cam
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(name)
+			continue
 		}
 	}
-	return r
+	return deps
 }
 
-func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.Logger, bufferSLAMProcessLogs bool, success bool) (slam.Service, error) {
+func createSLAMService(
+	t *testing.T,
+	attrCfg *builtin.AttrConfig,
+	logger golog.Logger,
+	bufferSLAMProcessLogs bool,
+	success bool,
+) (slam.Service, error) {
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam"}
+	cfgService := config.Service{Name: "test", Type: "slam", DependsOn: attrCfg.Sensors}
 	cfgService.ConvertedAttributes = attrCfg
 
-	r := setupInjectRobot()
+	deps := setupDeps(attrCfg)
 
 	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
 	builtin.SetDialMaxTimeoutSecForTesting(1)
 
-	svc, err := builtin.NewBuiltIn(ctx, r, cfgService, logger, bufferSLAMProcessLogs)
+	svc, err := builtin.NewBuiltIn(ctx, deps, cfgService, logger, bufferSLAMProcessLogs)
 
 	if success {
 		if err != nil {
@@ -504,14 +512,14 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("configuring camera error: error getting camera %v for slam service: "+
-				"resource \"rdk:component:camera/%v\" not found", attrCfg.Sensors[0], attrCfg.Sensors[0]))
+			errors.New("configuring camera error: error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
+
 	})
 
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "test",
-			Sensors:       []string{},
+			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
@@ -527,7 +535,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "runtime slam service error: invalid slam algorithm \"test\"")
 
 		delete(slam.SLAMLibraries, "test")
 	})
@@ -848,7 +856,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG)
 			return gostream.NewEmbeddedVideoStreamFromReader(
 				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 					return lazy, func() {}, nil
@@ -928,14 +936,14 @@ func TestGetMapAndPosition(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.Position(context.Background(), "hi")
+	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
 	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
-	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true)
+	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})
 	test.That(t, mimeType, test.ShouldResemble, "")
 	test.That(t, im, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldBeNil)

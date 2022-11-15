@@ -41,7 +41,7 @@ func (s *subtypeServer) Open(ctx context.Context, req *pb.OpenRequest) (*pb.Open
 	if err != nil {
 		return nil, err
 	}
-	return &pb.OpenResponse{}, gripper.Open(ctx)
+	return &pb.OpenResponse{}, gripper.Open(ctx, req.Extra.AsMap())
 }
 
 // Grab requests a gripper of the underlying robot to grab.
@@ -50,7 +50,7 @@ func (s *subtypeServer) Grab(ctx context.Context, req *pb.GrabRequest) (*pb.Grab
 	if err != nil {
 		return nil, err
 	}
-	success, err := gripper.Grab(ctx)
+	success, err := gripper.Grab(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -64,5 +64,5 @@ func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 	if err != nil {
 		return nil, err
 	}
-	return &pb.StopResponse{}, gripper.Stop(ctx)
+	return &pb.StopResponse{}, gripper.Stop(ctx, req.Extra.AsMap())
 }

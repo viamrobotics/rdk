@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -44,6 +45,9 @@ var (
 	// errUnimplemented is used for any unimplemented methods that should
 	// eventually be implemented server side or faked client side.
 	errUnimplemented = errors.New("unimplemented")
+
+	// resourcesTimeout is the default timeout for getting resources.
+	resourcesTimeout = 5 * time.Second
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -379,9 +383,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
-				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				defer cancel()
-				if _, _, err := rc.resources(timeoutCtx); err != nil {
+				if _, _, err := rc.resources(ctx); err != nil {
 					return err
 				}
 				return nil
@@ -457,7 +459,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
-			rc.Logger().Errorw("failed to refresh status", "error", err)
+			rc.Logger().Errorw("failed to refresh resources from remote", "error", err)
 		}
 	}
 }
@@ -488,17 +490,23 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	// one final check but under a more strict lock
+	// another check, this one with a stricter lock
 	if client, ok := rc.resourceClients[name]; ok {
 		return client, nil
 	}
 
-	resourceClient, err := rc.createClient(name)
-	if err != nil {
-		return nil, err
+	// finally, before adding a new resource, make sure this name exists and is known
+	for _, knownName := range rc.resourceNames {
+		if name == knownName {
+			resourceClient, err := rc.createClient(name)
+			if err != nil {
+				return nil, err
+			}
+			rc.resourceClients[name] = resourceClient
+			return resourceClient, nil
+		}
 	}
-	rc.resourceClients[name] = resourceClient
-	return resourceClient, nil
+	return nil, rutils.NewResourceNotFoundError(name)
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
@@ -519,6 +527,8 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
+	ctx, cancel := context.WithTimeout(ctx, resourcesTimeout)
+	defer cancel()
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, nil, err

@@ -12,21 +12,20 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/sensors"
 )
 
 func init() {
 	registry.RegisterService(sensors.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
 	resource.AddDefaultService(sensors.Named(resource.DefaultModelName))
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (sensors.Service, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (sensors.Service, error) {
 	s := &builtIn{
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,
@@ -41,7 +40,7 @@ type builtIn struct {
 }
 
 // Sensors returns all sensors in the robot.
-func (s *builtIn) Sensors(ctx context.Context) ([]resource.Name, error) {
+func (s *builtIn) Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -53,7 +52,7 @@ func (s *builtIn) Sensors(ctx context.Context) ([]resource.Name, error) {
 }
 
 // Readings returns the readings of the resources specified.
-func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name) ([]sensors.Readings, error) {
+func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]sensors.Readings, error) {
 	s.mu.RLock()
 	// make a copy of sensors and then unlock
 	sensorsMap := make(map[resource.Name]sensor.Sensor, len(s.sensors))
@@ -74,7 +73,7 @@ func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name) ([]
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)
 		}
-		reading, err := sensor.Readings(ctx)
+		reading, err := sensor.Readings(ctx, extra)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get reading from %q", name)
 		}

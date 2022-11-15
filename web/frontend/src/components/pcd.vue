@@ -14,10 +14,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
-import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
-// import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
+import type { PointCloudObject, RectangularPrism } from '../gen/common/v1/common_pb';
+import motionApi from '../gen/service/motion/v1/motion_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
+// import visionApi, { type TypedParameter } from '../gen/service/vision/v1/vision_pb.esm';
 import InfoButton from './info-button.vue';
 
 interface Props {
@@ -581,8 +581,8 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       @mouseup="handleCanvasMouseUp"
     />
 
-    <div class="relative flex w-full items-center justify-between gap-12">
-      <div class="w-40">
+    <div class="relative flex flex-wrap w-full items-center justify-between gap-12">
+      <div class="w-full pl-4 pt-2 max-w-xs">
         <v-slider
           label="Points Scaling"
           min="0.1"
@@ -695,7 +695,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       <div class="pb-1 text-xs">
         Selected Point Position
       </div>
-      <div class="flex gap-3">
+      <div class="flex flex-wrap gap-3">
         <v-input
           readonly
           label="X"

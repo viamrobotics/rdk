@@ -2,8 +2,8 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
-import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
+import baseApi from '../gen/component/base/v1/base_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -277,8 +277,9 @@ onMounted(() => {
         v-if="selectedItem === 'Keyboard'"
         class="h-auto p-4"
       >
-        <div class="grid grid-cols-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2">
           <KeyboardInput
+            class="mb-2"
             @keydown="handleKeyDown"
             @keyup="handleKeyUp"
             @toggle="(active: boolean) => !active && stop()"
@@ -317,16 +318,16 @@ onMounted(() => {
       </div>
       <div
         v-if="selectedItem === 'Discrete'"
-        class="flex h-auto p-4"
+        class="flex gap-4 p-4"
       >
-        <div class="grow">
+        <div class="mb-4 grow">
           <v-radio
             label="Movement Mode"
             options="Straight, Spin"
             :selected="movementMode"
             @input="setMovementMode($event.detail.value)"
           />
-          <div class="flex items-center gap-2 pt-4">
+          <div class="flex flex-wrap items-center gap-2 pt-4">
             <v-radio
               v-if="movementMode === 'Straight'"
               label="Movement Type"

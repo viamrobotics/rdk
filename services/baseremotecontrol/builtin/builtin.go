@@ -5,18 +5,19 @@ import (
 	"context"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/utils"
 )
@@ -36,8 +37,8 @@ const (
 
 func init() {
 	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
@@ -66,28 +67,51 @@ type Config struct {
 	MaxLinearVelocity   float64 `json:"max_linear_mm_per_sec,omitempty"`
 }
 
+// Validate creates the list of implicit dependencies.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.InputControllerName == "" {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "input_controller")
+	}
+	deps = append(deps, config.InputControllerName)
+
+	if config.BaseName == "" {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "base")
+	}
+	deps = append(deps, config.BaseName)
+
+	return deps, nil
+}
+
 // builtIn is the structure of the remote service.
 type builtIn struct {
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
-	closed          bool
 
 	config *Config
 	logger golog.Logger
+
+	cancel    func()
+	cancelCtx context.Context
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (baseremotecontrol.Service, error) {
+func NewBuiltIn(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Service,
+	logger golog.Logger,
+) (baseremotecontrol.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	base1, err := base.FromRobot(r, svcConfig.BaseName)
+	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
 		return nil, err
 	}
-	controller, err := input.FromRobot(r, svcConfig.InputControllerName)
+	controller, err := input.FromDependencies(deps, svcConfig.InputControllerName)
 	if err != nil {
 		return nil, err
 	}
@@ -106,12 +130,15 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 		controlMode1 = arrowControl
 	}
 
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	remoteSvc := &builtIn{
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
 		config:          svcConfig,
 		logger:          logger,
+		cancelCtx:       cancelCtx,
+		cancel:          cancel,
 	}
 
 	if err := remoteSvc.start(ctx); err != nil {
@@ -126,21 +153,37 @@ func (svc *builtIn) start(ctx context.Context) error {
 	state := &throttleState{}
 	state.init()
 
-	var lastEvent input.Event
+	var lastTS time.Time
+	lastTSPerEvent := map[input.Control]map[input.EventType]time.Time{}
 	var onlyOneAtATime sync.Mutex
+
+	updateLastEvent := func(event input.Event) bool {
+		if event.Time.After(lastTS) {
+			lastTS = event.Time
+		}
+		if event.Time.Before(lastTSPerEvent[event.Control][event.Event]) {
+			return false
+		}
+		lastTSPerEventControl := lastTSPerEvent[event.Control]
+		if lastTSPerEventControl == nil {
+			lastTSPerEventControl = map[input.EventType]time.Time{}
+			lastTSPerEvent[event.Control] = lastTSPerEventControl
+		}
+		lastTSPerEventControl[event.Event] = event.Time
+		return true
+	}
 
 	remoteCtl := func(ctx context.Context, event input.Event) {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
 
-		if svc.closed {
+		if svc.cancelCtx.Err() != nil {
 			return
 		}
 
-		if event.Time.Before(lastEvent.Time) {
+		if !updateLastEvent(event) {
 			return
 		}
-		lastEvent = event
 
 		err := svc.processEvent(ctx, state, event)
 		if err != nil {
@@ -148,23 +191,42 @@ func (svc *builtIn) start(ctx context.Context) error {
 		}
 	}
 
+	connect := func(ctx context.Context, event input.Event) {
+		onlyOneAtATime.Lock()
+		defer onlyOneAtATime.Unlock()
+
+		if !updateLastEvent(event) {
+			return
+		}
+	}
+
 	for _, control := range svc.ControllerInputs() {
 		var err error
 		if svc.controlMode == buttonControl {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.ButtonChange}, remoteCtl)
+			err = svc.inputController.RegisterControlCallback(
+				ctx,
+				control,
+				[]input.EventType{input.ButtonChange},
+				remoteCtl,
+				map[string]interface{}{},
+			)
 		} else {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl)
+			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl, map[string]interface{}{})
 		}
 		if err != nil {
 			return err
 		}
+		if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect, map[string]interface{}{}); err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
 
 // Close out of all remote control related systems.
-func (svc *builtIn) Close(ctx context.Context) error {
-	svc.closed = true
+func (svc *builtIn) Close(_ context.Context) error {
+	svc.cancel()
 	return nil
 }
 

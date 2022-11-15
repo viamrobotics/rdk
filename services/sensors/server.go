@@ -44,7 +44,7 @@ func (server *subtypeServer) GetSensors(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.Sensors(ctx)
+	names, err := svc.Sensors(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (server *subtypeServer) GetReadings(
 		sensorNames = append(sensorNames, protoutils.ResourceNameFromProto(name))
 	}
 
-	readings, err := svc.Readings(ctx, sensorNames)
+	readings, err := svc.Readings(ctx, sensorNames, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
