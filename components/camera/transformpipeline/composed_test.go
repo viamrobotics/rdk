@@ -6,9 +6,9 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 
-	"github.com/edaniels/gostream"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
@@ -19,7 +19,7 @@ import (
 
 type streamTest struct{}
 
-// Next will stream a color image
+// Next will stream a color image.
 func (*streamTest) Next(ctx context.Context) (image.Image, func(), error) {
 	return rimage.NewImage(1280, 720), func() {}, nil
 }
