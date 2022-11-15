@@ -20,7 +20,7 @@ import (
 // farther away, and red being closest. Actual depth information is lost in the transform.
 type depthToPretty struct {
 	originalStream gostream.VideoStream
-	model          *transform.PinholeCameraModel
+	cameraModel    *transform.PinholeCameraModel
 }
 
 func newDepthToPrettyTransform(
@@ -43,7 +43,7 @@ func newDepthToPrettyTransform(
 	depthStream := gostream.NewEmbeddedVideoStream(source)
 	reader := &depthToPretty{
 		originalStream: depthStream,
-		model:          cameraModel,
+		cameraModel:    cameraModel,
 	}
 	cam, err := camera.NewFromReader(ctx, reader, cameraModel, camera.ColorStream)
 	return cam, camera.ColorStream, err
@@ -77,6 +77,7 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	if err != nil {
 		return nil, err
 	}
+	defer release()
 	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
 		return nil, errors.Wrapf(err, "source camera does not make depth maps")
@@ -92,8 +93,8 @@ type overlayAttrs struct {
 
 // overlaySource overlays the depth and color 2D images in order to debug the alignment of the two images.
 type overlaySource struct {
-	src   gostream.VideoSource
-	model *transform.PinholeCameraModel
+	src         gostream.VideoSource
+	cameraModel *transform.PinholeCameraModel
 }
 
 func newOverlayTransform(
@@ -121,6 +122,9 @@ func newOverlayTransform(
 	if attrs.IntrinsicParams != nil && attrs.IntrinsicParams.Height > 0. &&
 		attrs.IntrinsicParams.Width > 0. && attrs.IntrinsicParams.Fx > 0. && attrs.IntrinsicParams.Fy > 0. {
 		cameraModel.PinholeCameraIntrinsics = attrs.IntrinsicParams
+	}
+	if cameraModel.PinholeCameraIntrinsics == nil {
+		return nil, camera.UnspecifiedStream, transform.ErrNoIntrinsics
 	}
 	reader := &overlaySource{src, cameraModel}
 	cam, err := camera.NewFromReader(ctx, reader, cameraModel, stream)

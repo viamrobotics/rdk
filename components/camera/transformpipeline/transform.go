@@ -40,7 +40,7 @@ func buildTransform(
 ) (gostream.VideoSource, camera.StreamType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:
-		return source, nil
+		return source, stream, nil
 	case transformTypeRotate:
 		return newRotateTransform(ctx, source, stream)
 	case transformTypeResize:
@@ -58,6 +58,6 @@ func buildTransform(
 	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(ctx, source)
 	default:
-		return nil, errors.Errorf("do not know camera transform of type %q", tr.Type)
+		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
 }

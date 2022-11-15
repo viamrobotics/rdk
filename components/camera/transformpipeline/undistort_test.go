@@ -58,7 +58,7 @@ func TestUndistortSetup(t *testing.T) {
 	test.That(t, us.Close(context.Background()), test.ShouldBeNil)
 
 	// success - attrs has camera parameters
-	us, stream, err = newUndistortTransform(context.Background(), source, camera.ColorStream, am)
+	us, stream, err := newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 	_, _, err = camera.ReadImage(context.Background(), us)

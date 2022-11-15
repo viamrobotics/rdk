@@ -75,7 +75,7 @@ func (h *depthSourceTestHelper) Process(
 	}
 	ds, stream, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, stream, test.ShouldBeEqual, camera.DepthStream)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 	edges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
