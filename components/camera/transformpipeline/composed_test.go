@@ -37,7 +37,7 @@ func TestComposed(t *testing.T) {
 		return &streamTest{}, nil
 	}
 	cloudSource.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-		return nil, camera.Properties{}
+		return camera.Properties{}, nil
 	}
 	// get intrinsic parameters, and make config
 	am := config.AttributeMap{
@@ -79,6 +79,7 @@ func TestComposed(t *testing.T) {
 	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, config.AttributeMap{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
+	// wrong config, still no intrinsics
 	am = config.AttributeMap{
 		"intrinsic_parameters": &transform.PinholeCameraIntrinsics{
 			Width:  1280,
@@ -88,6 +89,7 @@ func TestComposed(t *testing.T) {
 	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
+	// wrong config, no attributes
 	conf = &transformConfig{
 		Pipeline: []Transformation{
 			{
@@ -95,7 +97,7 @@ func TestComposed(t *testing.T) {
 			},
 		},
 	}
-	_, _, err = newTransformPipeline(context.Background(), cloudSource, conf, robot)
+	_, err = newTransformPipeline(context.Background(), cloudSource, conf, robot)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 }
