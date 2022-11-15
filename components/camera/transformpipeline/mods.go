@@ -73,7 +73,7 @@ type resizeSource struct {
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
 	ctx context.Context, source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
-) (gostream.VideoSource, error) {
+) (gostream.VideoSource, camera.StreamType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(resizeAttrs{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
