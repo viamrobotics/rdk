@@ -98,7 +98,7 @@ type piPigpioServo struct {
 
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one
-func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
+func (s *piPigpioServo) Move(ctx context.Context, angle uint8, extra map[string]interface{}) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 
@@ -148,7 +148,7 @@ func (s *piPigpioServo) pigpioErrors(res int) error {
 }
 
 // Position returns the current set angle (degrees) of the servo.
-func (s *piPigpioServo) Position(ctx context.Context) (uint8, error) {
+func (s *piPigpioServo) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	err := s.pigpioErrors(int(res))
 	if int(res) != 0 {
@@ -175,7 +175,7 @@ func pulseWidthToAngle(pulseWidth int) int {
 }
 
 // Stop stops the servo. It is assumed the servo stops immediately.
-func (s *piPigpioServo) Stop(ctx context.Context) error {
+func (s *piPigpioServo) Stop(ctx context.Context, extra map[string]interface{}) error {
 	_, done := s.opMgr.New(ctx)
 	defer done()
 	getPos := C.gpioServo(s.pin, C.uint(0))

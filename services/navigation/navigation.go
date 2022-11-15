@@ -48,15 +48,15 @@ const (
 
 // A Service controls the navigation for a robot.
 type Service interface {
-	Mode(ctx context.Context) (Mode, error)
-	SetMode(ctx context.Context, mode Mode) error
+	Mode(ctx context.Context, extra map[string]interface{}) (Mode, error)
+	SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error
 
-	Location(ctx context.Context) (*geo.Point, error)
+	Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error)
 
 	// Waypoint
-	Waypoints(ctx context.Context) ([]Waypoint, error)
-	AddWaypoint(ctx context.Context, point *geo.Point) error
-	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
+	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
+	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
+	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 }
 
 var (
@@ -108,41 +108,41 @@ type reconfigurableNavigation struct {
 	actual Service
 }
 
-func (svc *reconfigurableNavigation) Mode(ctx context.Context) (Mode, error) {
+func (svc *reconfigurableNavigation) Mode(ctx context.Context, extra map[string]interface{}) (Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Mode(ctx)
+	return svc.actual.Mode(ctx, extra)
 }
 
-func (svc *reconfigurableNavigation) SetMode(ctx context.Context, mode Mode) error {
+func (svc *reconfigurableNavigation) SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.SetMode(ctx, mode)
+	return svc.actual.SetMode(ctx, mode, extra)
 }
 
-func (svc *reconfigurableNavigation) Location(ctx context.Context) (*geo.Point, error) {
+func (svc *reconfigurableNavigation) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Location(ctx)
+	return svc.actual.Location(ctx, extra)
 }
 
 // Waypoint.
-func (svc *reconfigurableNavigation) Waypoints(ctx context.Context) ([]Waypoint, error) {
+func (svc *reconfigurableNavigation) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Waypoints(ctx)
+	return svc.actual.Waypoints(ctx, extra)
 }
 
-func (svc *reconfigurableNavigation) AddWaypoint(ctx context.Context, point *geo.Point) error {
+func (svc *reconfigurableNavigation) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.AddWaypoint(ctx, point)
+	return svc.actual.AddWaypoint(ctx, point, extra)
 }
 
-func (svc *reconfigurableNavigation) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+func (svc *reconfigurableNavigation) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.RemoveWaypoint(ctx, id)
+	return svc.actual.RemoveWaypoint(ctx, id, extra)
 }
 
 func (svc *reconfigurableNavigation) Close(ctx context.Context) error {

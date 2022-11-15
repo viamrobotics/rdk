@@ -41,7 +41,7 @@ func (h *segmentObjectTestHelper) Process(
 	t.Helper()
 	var err error
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img2)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
@@ -113,7 +113,7 @@ func (h *gripperSegmentTestHelper) Process(
 	t.Helper()
 	var err error
 	im := rimage.ConvertImage(img)
-	dm, _ := rimage.ConvertImageToDepthMap(img2)
+	dm, _ := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")

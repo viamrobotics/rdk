@@ -6,8 +6,11 @@ import (
 )
 
 const (
-	// MimeTypeRawRGBA is for go's internal image.NRGBA64. The data has no headers, so you must
-	// assume that the bytes can be read directly into the image.NRGBA64 struct.
+	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
+	MimeTypeSuffixLazy = "lazy"
+
+	// MimeTypeRawRGBA is for go's internal image.NRGBA. This uses the custom header as
+	// explained in the comments for rimage.DecodeImage and rimage.EncodeImage.
 	MimeTypeRawRGBA = "image/vnd.viam.rgba"
 
 	// MimeTypeRawRGBALazy is a lazy MimeTypeRawRGBA.
@@ -24,9 +27,6 @@ const (
 
 	// MimeTypeQOI is for .qoi "Quite OK Image" for lossless, fast encoding/decoding.
 	MimeTypeQOI = "image/qoi"
-
-	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
-	MimeTypeSuffixLazy = "lazy"
 
 	// MimeTypeTabular used to indicate tabular data, this is used mainly for filtering data.
 	MimeTypeTabular = "x-application/tabular"

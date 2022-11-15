@@ -201,7 +201,7 @@ func (g *robotiqGripper) SetPos(ctx context.Context, pos string) (bool, error) {
 }
 
 // Open TODO.
-func (g *robotiqGripper) Open(ctx context.Context) error {
+func (g *robotiqGripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -219,7 +219,7 @@ func (g *robotiqGripper) Close(ctx context.Context) error {
 }
 
 // Grab returns true iff grabbed something.
-func (g *robotiqGripper) Grab(ctx context.Context) (bool, error) {
+func (g *robotiqGripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -242,7 +242,7 @@ func (g *robotiqGripper) Grab(ctx context.Context) (bool, error) {
 
 // Calibrate TODO.
 func (g *robotiqGripper) Calibrate(ctx context.Context) error {
-	err := g.Open(ctx)
+	err := g.Open(ctx, map[string]interface{}{})
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 }
 
 // Stop is unimplemented for robotiqGripper.
-func (g *robotiqGripper) Stop(ctx context.Context) error {
+func (g *robotiqGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-388: Implement Stop
 	return gripper.ErrStopUnimplemented
 }

@@ -14,11 +14,20 @@ import (
 // MovementSensor is an injected MovementSensor.
 type MovementSensor struct {
 	movementsensor.MovementSensor
-	PositionFunc        func(ctx context.Context) (*geo.Point, float64, error)
-	LinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
-	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
-	CompassHeadingFunc  func(ctx context.Context) (float64, error)
-	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
+	PositionFuncExtraCap        map[string]interface{}
+	PositionFunc                func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
+	LinearVelocityFuncExtraCap  map[string]interface{}
+	LinearVelocityFunc          func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
+	AngularVelocityFuncExtraCap map[string]interface{}
+	AngularVelocityFunc         func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error)
+	CompassHeadingFuncExtraCap  map[string]interface{}
+	CompassHeadingFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	OrientationFuncExtraCap     map[string]interface{}
+	OrientationFunc             func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
+	PropertiesFuncExtraCap      map[string]interface{}
+	PropertiesFunc              func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error)
+	AccuracyFuncExtraCap        map[string]interface{}
+	AccuracyFunc                func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
 
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func() error
@@ -41,41 +50,64 @@ func (i *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 }
 
 // Position func or passthrough.
-func (i *MovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
+func (i *MovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	if i.PositionFunc == nil {
-		return i.MovementSensor.Position(ctx)
+		return i.MovementSensor.Position(ctx, extra)
 	}
-	return i.PositionFunc(ctx)
+	i.PositionFuncExtraCap = extra
+	return i.PositionFunc(ctx, extra)
 }
 
 // LinearVelocity func or passthrough.
-func (i *MovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
-	if i.PositionFunc == nil {
-		return i.MovementSensor.LinearVelocity(ctx)
+func (i *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	if i.LinearVelocityFunc == nil {
+		return i.MovementSensor.LinearVelocity(ctx, extra)
 	}
-	return i.LinearVelocityFunc(ctx)
+	i.LinearVelocityFuncExtraCap = extra
+	return i.LinearVelocityFunc(ctx, extra)
 }
 
 // AngularVelocity func or passthrough.
-func (i *MovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	if i.PositionFunc == nil {
-		return i.MovementSensor.AngularVelocity(ctx)
+func (i *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+	if i.AngularVelocityFunc == nil {
+		return i.MovementSensor.AngularVelocity(ctx, extra)
 	}
-	return i.AngularVelocityFunc(ctx)
+	i.AngularVelocityFuncExtraCap = extra
+	return i.AngularVelocityFunc(ctx, extra)
 }
 
 // Orientation func or passthrough.
-func (i *MovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	if i.PositionFunc == nil {
-		return i.MovementSensor.Orientation(ctx)
+func (i *MovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	if i.OrientationFunc == nil {
+		return i.MovementSensor.Orientation(ctx, extra)
 	}
-	return i.OrientationFunc(ctx)
+	i.OrientationFuncExtraCap = extra
+	return i.OrientationFunc(ctx, extra)
 }
 
 // CompassHeading func or passthrough.
-func (i *MovementSensor) CompassHeading(ctx context.Context) (float64, error) {
-	if i.PositionFunc == nil {
-		return i.MovementSensor.CompassHeading(ctx)
+func (i *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	if i.CompassHeadingFunc == nil {
+		return i.MovementSensor.CompassHeading(ctx, extra)
 	}
-	return i.CompassHeadingFunc(ctx)
+	i.CompassHeadingFuncExtraCap = extra
+	return i.CompassHeadingFunc(ctx, extra)
+}
+
+// Properties func or passthrough.
+func (i *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	if i.PropertiesFunc == nil {
+		return i.MovementSensor.Properties(ctx, extra)
+	}
+	i.PropertiesFuncExtraCap = extra
+	return i.PropertiesFunc(ctx, extra)
+}
+
+// Accuracy func or passthrough.
+func (i *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+	if i.AccuracyFunc == nil {
+		return i.MovementSensor.Accuracy(ctx, extra)
+	}
+	i.AccuracyFuncExtraCap = extra
+	return i.AccuracyFunc(ctx, extra)
 }

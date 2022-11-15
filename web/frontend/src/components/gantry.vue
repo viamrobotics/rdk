@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import gantryApi from '../gen/proto/api/component/gantry/v1/gantry_pb.esm';
+import gantryApi from '../gen/component/gantry/v1/gantry_pb.esm';
 import { displayError } from '../lib/error';
 
 interface Props {
@@ -84,8 +84,9 @@ const stop = () => {
             <th class="border border-black p-2">
               {{ pp.axis }}
             </th>
-            <td class="flex p-2">
+            <td class="flex p-2 gap-2">
               <v-button
+                class="flex-nowrap"
                 label="--"
                 @click="increment(pp.axis, -10)"
               />

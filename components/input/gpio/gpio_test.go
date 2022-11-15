@@ -107,13 +107,17 @@ func TestGPIOInput(t *testing.T) {
 	err = dev.RegisterControlCallback(ctx, input.ButtonNorth, []input.EventType{input.ButtonChange},
 		func(ctx context.Context, event input.Event) {
 			atomic.AddInt64(&btn1Callbacks, 1)
-		})
+		},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = dev.RegisterControlCallback(ctx, input.ButtonSouth, []input.EventType{input.ButtonChange},
 		func(ctx context.Context, event input.Event) {
 			atomic.AddInt64(&btn2Callbacks, 1)
-		})
+		},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = dev.RegisterControlCallback(ctx, input.AbsoluteX, []input.EventType{input.PositionChangeAbs},
@@ -122,7 +126,9 @@ func TestGPIOInput(t *testing.T) {
 			axis1Time = time.Now()
 			axisMu.Unlock()
 			atomic.AddInt64(&axis1Callbacks, 1)
-		})
+		},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = dev.RegisterControlCallback(ctx, input.AbsoluteY, []input.EventType{input.PositionChangeAbs},
@@ -131,13 +137,17 @@ func TestGPIOInput(t *testing.T) {
 			axis2Time = time.Now()
 			axisMu.Unlock()
 			atomic.AddInt64(&axis2Callbacks, 1)
-		})
+		},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = dev.RegisterControlCallback(ctx, input.AbsoluteRX, []input.EventType{input.PositionChangeAbs},
 		func(ctx context.Context, event input.Event) {
 			atomic.AddInt64(&axis3Callbacks, 1)
-		})
+		},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -147,7 +157,7 @@ func TestGPIOInput(t *testing.T) {
 	// Test initial button state
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
 		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.Connect)
@@ -159,7 +169,7 @@ func TestGPIOInput(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 1)
 		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonPress)
@@ -171,7 +181,7 @@ func TestGPIOInput(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
 		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonRelease)
@@ -188,7 +198,7 @@ func TestGPIOInput(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 1)
 		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonPress)
@@ -203,7 +213,7 @@ func TestGPIOInput(t *testing.T) {
 	// Test initial button state
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 0)
 		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.Connect)
@@ -215,7 +225,7 @@ func TestGPIOInput(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 0)
 		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonRelease)
@@ -227,7 +237,7 @@ func TestGPIOInput(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
 		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
@@ -246,7 +256,7 @@ func TestGPIOInput(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
 		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
@@ -260,7 +270,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog1"].Set(0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0, 0.005)
 		test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.Connect)
@@ -270,7 +280,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog1"].Set(1023)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 1, 0.005)
 		test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -280,7 +290,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog1"].Set(511)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0.5, 0.005)
 		test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -291,7 +301,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(511)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -301,7 +311,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(511 + 20)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.04, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -311,7 +321,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(511 - 20)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, -0.04, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -321,7 +331,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(511 + 19)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -331,7 +341,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(511 - 19)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -343,7 +353,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(600)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -354,7 +364,7 @@ func TestGPIOInput(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -365,7 +375,7 @@ func TestGPIOInput(t *testing.T) {
 	time.Sleep(time.Millisecond * 30)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -375,7 +385,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(600 - 15)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.14, 0.005)
 		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -387,7 +397,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog3"].Set(5000)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, -1, 0.005)
 		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -397,7 +407,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog3"].Set(-1000)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 0.2, 0.005)
 		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -408,7 +418,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog3"].Set(-6000)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 1, 0.005)
 		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -418,7 +428,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog3"].Set(6000)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, -1, 0.005)
 		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -428,7 +438,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog3"].Set(0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 0, 0.005)
 		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
@@ -440,7 +450,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog1"].Set(0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0, 0.005)
 		test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 3)
@@ -458,7 +468,7 @@ func TestGPIOInput(t *testing.T) {
 		}
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			state, err := dev.Events(ctx)
+			state, err := dev.Events(ctx, map[string]interface{}{})
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, target, 0.005)
 			test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 3+i)
@@ -471,7 +481,7 @@ func TestGPIOInput(t *testing.T) {
 	b.Analogs["analog2"].Set(0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		state, err := dev.Events(ctx)
+		state, err := dev.Events(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, -1, 0.005)
 		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 7)
@@ -489,7 +499,7 @@ func TestGPIOInput(t *testing.T) {
 		}
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			state, err := dev.Events(ctx)
+			state, err := dev.Events(ctx, map[string]interface{}{})
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, target, 0.005)
 			test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 7+i)

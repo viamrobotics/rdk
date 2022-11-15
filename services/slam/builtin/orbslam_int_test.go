@@ -66,7 +66,7 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 	t.Helper()
 
-	position, err := svc.Position(context.Background(), "test")
+	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	// Typical values for RGBD are around (-0.001, -0.004, -0.008)
 	// Typical values for Mono without an existing map are around (0.020, -0.032, -0.053)
@@ -81,7 +81,7 @@ func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 		position.Pose().Orientation().AxisAngles().RY,
 		position.Pose().Orientation().AxisAngles().RZ,
 		position.Pose().Orientation().AxisAngles().Theta)
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false)
+	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
 	// Typical value for RGBD is 329

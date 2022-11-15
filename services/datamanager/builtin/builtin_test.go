@@ -96,7 +96,7 @@ func getInjectedRobotWithCamera(t *testing.T) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 
-	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	injectCamera := &inject.Camera{}
 	var imageReleasedMu sync.Mutex
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -289,6 +289,94 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
+}
+
+func TestCollectorDisabled(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	rpcServer, mockService := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+		resetFolder(t, captureDir)
+		resetFolder(t, armDir)
+	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+
+	disabledCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	testCfg := setupConfig(t, disabledCollectorConfigPath)
+	dmCfg, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+
+	// Disable capture on the collector level.
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Change something else, but the previous collector capture is still disabled.
+	dmCfg.ScheduledSyncDisabled = true
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 400ms.
+	time.Sleep(time.Millisecond * 400)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that nothing was captured or synced.
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
+	filesInArmDir, err := readDir(t, armDir)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 0)
+}
+
+func TestCollectorDisabledThenEnabled(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	rpcServer, mockService := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+		resetFolder(t, captureDir)
+		resetFolder(t, armDir)
+	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+
+	disabledCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	testCfg := setupConfig(t, disabledCollectorConfigPath)
+	dmCfg, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.ScheduledSyncDisabled = true
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+
+	// Disable capture on the collector level.
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Re-enable capture on the collector level.
+	testCfg = setupConfig(t, configPath)
+	dmCfg, err = getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.ScheduledSyncDisabled = true
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 400ms.
+	time.Sleep(time.Millisecond * 400)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that something was captured but not synced.
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
+	filesInArmDir, err := readDir(t, armDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
 
 // TODO(DATA-341): Handle partial downloads in order to resume deployment.
@@ -527,7 +615,7 @@ func TestManualSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Run and upload files.
-	err = dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 
@@ -538,7 +626,7 @@ func TestManualSync(t *testing.T) {
 
 	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
 	// any files that were previously synced.
-	err = dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
@@ -638,7 +726,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
 	time.Sleep(time.Millisecond * 250)
-	err = dmsvc.Sync(context.TODO())
+	err = dmsvc.Sync(context.TODO(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
@@ -656,7 +744,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
 
-func TestSyncDisabled(t *testing.T) {
+func TestSyncEnabledThenDisabled(t *testing.T) {
 	// Register mock datasync service with a mock server.
 	rpcServer, mockService := buildAndStartLocalServer(t)
 	defer func() {
@@ -702,6 +790,47 @@ func TestSyncDisabled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 3)
+}
+
+func TestSyncAlwaysDisabled(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	rpcServer, mockService := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	testCfg := setupConfig(t, configPath)
+	dmCfg, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.ScheduledSyncDisabled = true
+	dmCfg.SyncIntervalMins = syncIntervalMins
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture"
+	resetFolder(t, captureDir)
+	defer resetFolder(t, captureDir)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 300ms.
+	time.Sleep(time.Millisecond * 300)
+
+	// Simulate adding an additional sync path, which would error on Update if we were
+	// actually trying to sync.
+	dmCfg.AdditionalSyncPaths = []string{"doesnt matter"}
+	err = dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Wait and ensure nothing was synced.
+	time.Sleep(time.Millisecond * 600)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
 }
 
 func TestGetDurationFromHz(t *testing.T) {

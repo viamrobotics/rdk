@@ -36,7 +36,7 @@ func init() {
 
 // A Service handles shells for a local robot.
 type Service interface {
-	Shell(ctx context.Context) (input chan<- string, output <-chan Output, retErr error)
+	Shell(ctx context.Context, extra map[string]interface{}) (input chan<- string, output <-chan Output, retErr error)
 }
 
 var (
@@ -77,10 +77,13 @@ type reconfigurableShell struct {
 	actual Service
 }
 
-func (svc *reconfigurableShell) Shell(ctx context.Context) (input chan<- string, output <-chan Output, retErr error) {
+func (svc *reconfigurableShell) Shell(
+	ctx context.Context,
+	extra map[string]interface{},
+) (input chan<- string, output <-chan Output, retErr error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Shell(ctx)
+	return svc.actual.Shell(ctx, extra)
 }
 
 func (svc *reconfigurableShell) Close(ctx context.Context) error {

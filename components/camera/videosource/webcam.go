@@ -4,7 +4,6 @@ import (
 	"context"
 	"image"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -46,10 +45,6 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf WebcamAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -59,7 +54,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		}, &WebcamAttrs{})
 
@@ -140,12 +134,15 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 
 // WebcamAttrs is the attribute struct for webcams.
 type WebcamAttrs struct {
-	*camera.AttrConfig
-	Format      string `json:"format"`
-	Path        string `json:"video_path"`
-	PathPattern string `json:"video_path_pattern"`
-	Width       int    `json:"width_px"`
-	Height      int    `json:"height_px"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Format               string                             `json:"format"`
+	Path                 string                             `json:"video_path"`
+	PathPattern          string                             `json:"video_path_pattern"`
+	Width                int                                `json:"width_px"`
+	Height               int                                `json:"height_px"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
@@ -208,43 +205,16 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
 	}
 
-	var pattern *regexp.Regexp
-	if attrs.PathPattern != "" {
-		pattern, err = regexp.Compile(attrs.PathPattern)
-		if err != nil {
-			return nil, err
-		}
+	source, err := gostream.GetAnyVideoSource(constraints, logger)
+	if err != nil {
+		return nil, errors.Wrapf(err, "found no webcams")
 	}
 
-	labels := gostream.QueryVideoDeviceLabels()
-	for _, label := range labels {
-		if debug {
-			logger.Debugf("%s", label)
-		}
-
-		if pattern != nil && !pattern.MatchString(label) {
-			if debug {
-				logger.Debug("\t skipping because of pattern")
-			}
-			continue
-		}
-
-		s, err := tryWebcamOpen(ctx, attrs, label, true, constraints, logger)
-		if err == nil {
-			if debug {
-				logger.Debug("\t USING")
-			}
-
-			return s, nil
-		}
-		if debug {
-			logger.Debugf("\t %w", err)
-		}
-	}
-
-	return nil, errors.New("found no webcams")
+	return makeCameraFromSource(ctx, source, attrs)
 }
 
+// tryWebcamOpen uses getNamedVideoSource to try and find a video device (gostream.MediaSource).
+// If successful, it will wrap that MediaSource in a camera.
 func tryWebcamOpen(ctx context.Context,
 	attrs *WebcamAttrs,
 	path string,
@@ -256,16 +226,23 @@ func tryWebcamOpen(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	var intrinsics *transform.PinholeCameraIntrinsics
-	var distortion transform.Distorter
-	if attrs.AttrConfig != nil {
-		intrinsics = attrs.AttrConfig.CameraParameters
-		distortion = attrs.AttrConfig.DistortionParameters
+	return makeCameraFromSource(ctx, source, attrs)
+}
+
+// makeCameraFromSource takes a gostream.MediaSource and wraps it so that the return
+// is an RDK camera object.
+func makeCameraFromSource(ctx context.Context,
+	source gostream.MediaSource[image.Image],
+	attrs *WebcamAttrs,
+) (camera.Camera, error) {
+	if source == nil {
+		return nil, errors.New("media source not found")
 	}
+
 	return camera.NewFromSource(
 		ctx,
 		source,
-		&transform.PinholeCameraModel{intrinsics, distortion},
+		&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
 		camera.StreamType(attrs.Stream),
 	)
 }
