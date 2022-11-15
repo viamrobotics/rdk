@@ -8,12 +8,22 @@ import (
 
 	"go.viam.com/test"
 
+	"github.com/edaniels/gostream"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+type streamTest struct{}
+
+// Next will stream a color image
+func (*streamTest) Next(ctx context.Context) (image.Image, func(), error) {
+	return rimage.NewImage(1280, 720), func() {}, nil
+}
+func (*streamTest) Close(ctx context.Context) error { return nil }
 
 func TestComposed(t *testing.T) {
 	// create pointcloud source and fake robot
@@ -22,6 +32,12 @@ func TestComposed(t *testing.T) {
 	cloudSource.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		p := pointcloud.New()
 		return p, p.Set(pointcloud.NewVector(0, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 1, 2, 255}))
+	}
+	cloudSource.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return &streamTest{}, nil
+	}
+	cloudSource.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return nil, camera.Properties{}
 	}
 	// get intrinsic parameters, and make config
 	am := config.AttributeMap{
@@ -34,7 +50,6 @@ func TestComposed(t *testing.T) {
 	}
 	// make transform pipeline, expected result with correct config
 	conf := &transformConfig{
-		Stream: "color",
 		Pipeline: []Transformation{
 			{
 				Type:       "overlay",
@@ -46,8 +61,9 @@ func TestComposed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 1)
 
-	myOverlay, err := newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
+	myOverlay, stream, err := newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 	pic, _, err := camera.ReadImage(context.Background(), myOverlay)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
@@ -60,7 +76,7 @@ func TestComposed(t *testing.T) {
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
 
 	// wrong result with bad config
-	_, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, config.AttributeMap{})
+	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, config.AttributeMap{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	am = config.AttributeMap{
@@ -69,18 +85,17 @@ func TestComposed(t *testing.T) {
 			Height: 720,
 		},
 	}
-	_, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
+	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	conf = &transformConfig{
-		Stream: "color",
 		Pipeline: []Transformation{
 			{
 				Type: "overlay", // no attributes
 			},
 		},
 	}
-	_, err = newTransformPipeline(context.Background(), cloudSource, conf, robot)
+	_, _, err = newTransformPipeline(context.Background(), cloudSource, conf, robot)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 }

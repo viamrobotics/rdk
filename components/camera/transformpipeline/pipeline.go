@@ -65,7 +65,6 @@ func init() {
 type transformConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"-"`
 	Debug                bool                               `json:"debug,omitempty"`
 	Source               string                             `json:"source"`
 	Pipeline             []Transformation                   `json:"pipeline"`
@@ -81,33 +80,37 @@ func newTransformPipeline(
 		return nil, errors.New("pipeline has no transforms in it")
 	}
 	// check if the source produces a depth image or color image
+	streamType := camera.UnspecifiedStream
 	img, release, err := camera.ReadImage(ctx, source)
 	if err != nil {
 		return nil, err
 	}
 	if _, ok := img.(*rimage.DepthMap); ok {
-		cfg.Stream = string(camera.DepthStream)
+		streamType = camera.DepthStream
+	} else if _, ok := img.(*image.Gray16); ok {
+		streamType = camera.DepthStream
 	} else {
-		cfg.Stream = string(camera.ColorStream)
+		streamType = camera.ColorStream
 	}
 	release()
 	// loop through the pipeline and create the image flow
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, err := buildTransform(ctx, r, lastSource, cfg, tr)
+		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
 			return nil, err
 		}
 		pipeline = append(pipeline, src)
 		lastSource = src
+		streamType = newStreamType
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
 	return camera.NewFromReader(
 		ctx,
 		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters},
-		&transform.PinholeCameraModel{cfg.CameraParameters, nil},
-		camera.StreamType(cfg.Stream),
+		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		streamType,
 	)
 }
 

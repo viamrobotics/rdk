@@ -26,7 +26,8 @@ type rotateSource struct {
 // newRotateTransform creates a new rotation transform.
 func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream camera.StreamType) (gostream.VideoSource, error) {
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
-	return camera.NewFromReader(ctx, reader, nil, stream)
+	cam, err := camera.NewFromReader(ctx, reader, nil, stream)
+	return cam, stream, err
 }
 
 // Next rotates the 2D image depending on the stream type.
@@ -75,21 +76,22 @@ func newResizeTransform(
 ) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(resizeAttrs{}), am)
 	if err != nil {
-		return nil, err
+		return nil, camera.UnspecifiedStream, err
 	}
 	attrs, ok := conf.(*resizeAttrs)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 	if attrs.Width == 0 {
-		return nil, errors.New("new width for resize transform cannot be 0")
+		return nil, camera.UnspecifiedStream, errors.New("new width for resize transform cannot be 0")
 	}
 	if attrs.Height == 0 {
-		return nil, errors.New("new height for resize transform cannot be 0")
+		return nil, camera.UnspecifiedStream, errors.New("new height for resize transform cannot be 0")
 	}
 
 	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, attrs.Height, attrs.Width}
-	return camera.NewFromReader(ctx, reader, nil, stream)
+	cam, err := camera.NewFromReader(ctx, reader, nil, stream)
+	return cam, stream, err
 }
 
 // Next resizes the 2D image depending on the stream type.
