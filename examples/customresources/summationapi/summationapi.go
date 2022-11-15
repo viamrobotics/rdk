@@ -17,7 +17,7 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-var ResourceSubtype = resource.NewSubtype(
+var Subtype = resource.NewSubtype(
 	resource.Namespace("acme"),
 	resource.ResourceTypeService,
 	resource.SubtypeName("summation"),
@@ -25,11 +25,11 @@ var ResourceSubtype = resource.NewSubtype(
 
 // Named is a helper for getting the named Summation's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(ResourceSubtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 func init() {
-	registry.RegisterResourceSubtype(ResourceSubtype, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: wrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(

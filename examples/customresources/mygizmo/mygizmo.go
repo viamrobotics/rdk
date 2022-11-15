@@ -21,7 +21,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterComponent(gizmoapi.ResourceSubtype, Model, registry.Component{
+	registry.RegisterComponent(gizmoapi.Subtype, Model, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

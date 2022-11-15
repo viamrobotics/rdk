@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -16,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -30,7 +30,7 @@ import (
 )
 
 // HandlerMap is the format for api->model pairs that the module will service.
-// Ex: rdk:component:motor -> [acme:marine:thruster, acme:marine:outboard].
+// Ex: mymap["rdk:component:motor"] = ["acme:marine:thruster", "acme:marine:outboard"].
 type HandlerMap map[resource.RPCSubtype][]resource.Model
 
 // ToProto converts the HandlerMap to a protobuf representation.
@@ -114,10 +114,9 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 		addr:     address,
 		server:   NewServer(),
 		ready:    true,
-		handlers: make(HandlerMap),
-		services: make(map[resource.Subtype]subtype.Service),
+		handlers: HandlerMap{},
+		services: map[resource.Subtype]subtype.Service{},
 	}
-	m.buildHandlerMap()
 	err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m)
 	if err != nil {
 		return nil, err
@@ -130,10 +129,10 @@ func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	err := m.initSubtypeServices(ctx)
-	if err != nil {
-		return err
-	}
+	// err := m.initSubtypeServices(ctx)
+	// if err != nil {
+	// 	return err
+	// }
 
 	oldMask := syscall.Umask(0o077)
 	lis, err := net.Listen("unix", m.addr)
@@ -165,8 +164,8 @@ func (m *Module) Close() {
 	m.activeBackgroundWorkers.Wait()
 }
 
-// GetParentComponent returns a component from the parent robot by name.
-func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (interface{}, error) {
+// GetParentResource returns a resource from the parent robot by name.
+func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.parent == nil {
@@ -214,7 +213,7 @@ func (m *Module) AddComponent(ctx context.Context, req *pb.AddComponentRequest) 
 		if err != nil {
 			return nil, err
 		}
-		c, err := m.GetParentComponent(ctx, name)
+		c, err := m.GetParentResource(ctx, name)
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +259,7 @@ func (m *Module) ReconfigureComponent(ctx context.Context, req *pb.ReconfigureCo
 		if err != nil {
 			return &pb.ReconfigureComponentResponse{}, err
 		}
-		c, err := m.GetParentComponent(ctx, name)
+		c, err := m.GetParentResource(ctx, name)
 		if err != nil {
 			return &pb.ReconfigureComponentResponse{}, err
 		}
@@ -379,60 +378,46 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	return &pb.RemoveResourceResponse{}, svc.Remove(name)
 }
 
-func (m *Module) initSubtypeServices(ctx context.Context) error {
-	for s, rs := range registry.RegisteredResourceSubtypes() {
-		subSvc, ok := m.services[s]
-		if !ok {
-			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
-			if err != nil {
-				return err
-			}
-			subSvc = newSvc
-			m.services[s] = newSvc
-		}
+func (m *Module) AddAPIFromRegistry(ctx context.Context, api resource.Subtype) error {
+	subSvc, ok := m.services[api]
+	if ok {
+		return nil
+	}
+	newSvc, err := subtype.New(make(map[resource.Name]interface{}))
+	if err != nil {
+		return err
+	}
+	subSvc = newSvc
+	m.services[api] = newSvc
 
-		if rs.RegisterRPCService != nil {
-			if err := rs.RegisterRPCService(ctx, m.server, subSvc); err != nil {
-				return err
-			}
+	rs := registry.ResourceSubtypeLookup(api)
+	if rs != nil && rs.RegisterRPCService != nil {
+		if err := rs.RegisterRPCService(ctx, m.server, subSvc); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (m *Module) buildHandlerMap() {
-	var res []string
-	for c := range registry.RegisteredComponents() {
-		res = append(res, c)
-	}
-	for s := range registry.RegisteredServices() {
-		res = append(res, s)
+func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
+	_, ok := m.services[api]
+	if !ok {
+		if err := m.AddAPIFromRegistry(ctx, api); err != nil {
+			return err
+		}
 	}
 
-	for _, r := range res {
-		split := strings.Split(r, "/")
-		st, err := resource.NewSubtypeFromString(split[0])
-		if err != nil {
-			m.logger.Error(err)
-			continue
-		}
-		model, err := resource.NewModelFromString(split[1])
-		if err != nil {
-			m.logger.Error(err)
-			continue
-		}
-		creator := registry.ResourceSubtypeLookup(st)
-		if creator.ReflectRPCServiceDesc == nil {
-			m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", st)
-			continue
-		}
-		rpcST := resource.RPCSubtype{
-			Subtype:      st,
-			ProtoSvcName: creator.RPCServiceDesc.ServiceName,
-			Desc:         creator.ReflectRPCServiceDesc,
-		}
-		m.handlers[rpcST] = append(m.handlers[rpcST], model)
+	creator := registry.ResourceSubtypeLookup(api)
+	if creator.ReflectRPCServiceDesc == nil {
+		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
 	}
+	rpcST := resource.RPCSubtype{
+		Subtype:      api,
+		ProtoSvcName: creator.RPCServiceDesc.ServiceName,
+		Desc:         creator.ReflectRPCServiceDesc,
+	}
+	m.handlers[rpcST] = append(m.handlers[rpcST], model)
+	return nil
 }
 
 // CheckSocketOwner verifies that UID of a filepath/socket matches the current process's UID.

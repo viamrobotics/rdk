@@ -7,11 +7,17 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	_ "go.viam.com/rdk/examples/customresources/mybase"
-	_ "go.viam.com/rdk/examples/customresources/mygizmo"
-	_ "go.viam.com/rdk/examples/customresources/mynavigation"
-	_ "go.viam.com/rdk/examples/customresources/mysum"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/services/navigation"
+
+	"go.viam.com/rdk/examples/customresources/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/mynavigation"
+	"go.viam.com/rdk/examples/customresources/summationapi"
+
+	"go.viam.com/rdk/examples/customresources/mybase"
+	"go.viam.com/rdk/examples/customresources/mygizmo"
+	"go.viam.com/rdk/examples/customresources/mysum"
 
 	"go.viam.com/utils"
 )
@@ -42,6 +48,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
+
+	// Models and APIs add helpers to the registry during their init().
+	// They can then be added to the module here.
+	myMod.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model)
+	myMod.AddModelFromRegistry(ctx, summationapi.Subtype, mysum.Model)
+	myMod.AddModelFromRegistry(ctx, base.Subtype, mybase.Model)
+	myMod.AddModelFromRegistry(ctx, navigation.Subtype, mynavigation.Model)
+
 	err = myMod.Start(ctx)
 	defer myMod.Close()
 	if err != nil {

@@ -21,7 +21,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterService(summationapi.ResourceSubtype, Model, registry.Service{
+	registry.RegisterService(summationapi.Subtype, Model, registry.Service{
 		Constructor: newMySum,
 	})
 }
