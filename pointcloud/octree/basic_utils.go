@@ -57,6 +57,8 @@ func (octree *basicOctree) splitIntoOctants() error {
 					Z: k * newSideLength,
 				}
 				newCenter := octree.center.Add(centerOffset)
+
+				// Create new basic octree children
 				child := &basicOctree{
 					ctx:    octree.ctx,
 					center: newCenter,
@@ -70,7 +72,8 @@ func (octree *basicOctree) splitIntoOctants() error {
 		}
 	}
 
-	// Add point from original octree to the appropriate octree child
+	// Extract potential data before redefining node as InternalNode with eight new children
+	// nodes
 	p := octree.node.point.P
 	d := octree.node.point.D
 	octree.node = newInternalNode(children)
