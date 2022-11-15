@@ -192,6 +192,13 @@ type videoSource struct {
 	streamType   StreamType
 }
 
+func SourceFromCamera(cam Camera) gostream.VideoSource {
+	if asSrc, ok := cam.(*videoSource); ok {
+		return asSrc.videoSource
+	}
+	return nil
+}
+
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
