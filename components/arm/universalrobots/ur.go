@@ -235,7 +235,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

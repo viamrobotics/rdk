@@ -10,8 +10,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
-
-	"go.viam.com/rdk/utils"
 )
 
 // Epsilon represents the acceptable discrepancy between two floats
@@ -156,11 +154,7 @@ func PoseAlmostCoincident(a, b Pose) bool {
 // PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 // This uses a passed in epsilon value.
 func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
-	ap := a.Point()
-	bp := b.Point()
-	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
-		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
-		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
+	return R3VectorAlmostEqual(a.Point(), b.Point(), epsilon)
 }
 
 // distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a

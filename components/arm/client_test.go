@@ -51,11 +51,11 @@ func TestClient(t *testing.T) {
 	}
 	injectArm.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
-		capArmPos = spatialmath.NewPoseFromProtobuf(ap)
+		capArmPos = ap
 		extraOptions = extra
 		return nil
 	}
@@ -81,11 +81,11 @@ func TestClient(t *testing.T) {
 	}
 	injectArm2.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
-		capArmPos = spatialmath.NewPoseFromProtobuf(ap)
+		capArmPos = ap
 		return nil
 	}
 
@@ -139,7 +139,7 @@ func TestClient(t *testing.T) {
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
 
-		err = arm1Client.MoveToPosition(context.Background(), spatialmath.PoseToProtobuf(pos2), &commonpb.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
+		err = arm1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqual(capArmPos, pos2), test.ShouldBeTrue)
 

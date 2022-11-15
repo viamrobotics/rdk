@@ -398,7 +398,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 // MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

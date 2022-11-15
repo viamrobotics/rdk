@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestJointConfig(t *testing.T) {
@@ -30,9 +31,9 @@ func TestDofBotIK(t *testing.T) {
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
+	goal := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85})
 	opt := motionplan.NewBasicPlannerOptions()
 	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	_, err = mp.Plan(ctx, &goal, model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}), opt)
+	_, err = mp.Plan(ctx, goal, model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}), opt)
 	test.That(t, err, test.ShouldBeNil)
 }

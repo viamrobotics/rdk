@@ -4,6 +4,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -120,7 +121,12 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (e *eva) MoveToPosition(
+	ctx context.Context,
+	pos spatialmath.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.robot, e, pos, worldState)

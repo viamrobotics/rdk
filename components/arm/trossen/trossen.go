@@ -200,7 +200,12 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (a *Arm) MoveToPosition(
+	ctx context.Context,
+	pos spatialmath.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)

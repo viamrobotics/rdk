@@ -62,7 +62,7 @@ func testUR5eInverseKinematics(t *testing.T, pos spatialmath.Pose) {
 	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	steps, err := mp.Plan(ctx, spatialmath.PoseToProtobuf(pos), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
+	steps, err := mp.Plan(ctx, pos, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
 	test.That(t, err, test.ShouldBeNil)
 	solution := steps[len(steps)-1]
 
