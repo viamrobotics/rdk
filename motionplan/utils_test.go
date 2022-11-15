@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestFixOvIncrement(t *testing.T) {

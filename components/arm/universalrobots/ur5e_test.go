@@ -41,6 +41,7 @@ func TestUR5eForwardKinematicsSVAvsDH(t *testing.T) {
 }
 
 func testUR5eForwardKinematics(t *testing.T, jointRadians []float64, correct r3.Vector) {
+	t.Helper()
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
