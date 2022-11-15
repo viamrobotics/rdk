@@ -53,12 +53,14 @@ func (octree *basicOctree) Size() int {
 		for _, children := range octree.node.tree {
 			totalSize += children.Size()
 		}
+
 	case LeafNodeFilled:
 		totalSize = 1
 
 	case LeafNodeEmpty:
 		totalSize = 0
 	}
+
 	return totalSize
 }
 
@@ -79,11 +81,17 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 	case InternalNode:
 		for _, childNode := range octree.node.tree {
 			if checkPointPlacement(childNode.center, childNode.side, p) {
-				octree.meta.Merge(p, d)
-				return childNode.Set(p, d)
+				// Iterate through children nodes
+				err := childNode.Set(p, d)
+				if err == nil {
+					// Update metadata
+					octree.meta.Merge(p, d)
+				}
+				return err
 			}
 		}
 		return errors.New("error invalid internal node detected, please check your tree")
+
 	case LeafNodeFilled:
 		_, exists := octree.At(p.X, p.Y, p.Z)
 		if exists {
@@ -95,8 +103,11 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 		if err != nil {
 			return errors.Errorf("error in splitting octree into new octants: %v", err)
 		}
+		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
 		return octree.Set(p, d)
+
 	case LeafNodeEmpty:
+		// Update metadata
 		octree.meta.Merge(p, d)
 		octree.node = newLeafNodeFilled(p, d)
 	}
@@ -115,10 +126,12 @@ func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
 				return d, true
 			}
 		}
+
 	case LeafNodeFilled:
 		if octree.node.point.P.ApproxEqual(r3.Vector{X: x, Y: y, Z: z}) {
 			return octree.node.point.D, true
 		}
+
 	case LeafNodeEmpty:
 	}
 
