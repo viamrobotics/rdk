@@ -9,7 +9,9 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/generic"
@@ -34,6 +36,7 @@ type client struct {
 	cancelBackgroundWorkers context.CancelFunc
 	callbackWait            sync.WaitGroup
 	callbacks               map[Control]map[EventType]ControlFunction
+	extra                   *structpb.Struct
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -48,9 +51,14 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Controls(ctx context.Context) ([]Control, error) {
+func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetControls(ctx, &pb.GetControlsRequest{
 		Controller: c.name,
+		Extra:      ext,
 	})
 	if err != nil {
 		return nil, err
@@ -62,9 +70,14 @@ func (c *client) Controls(ctx context.Context) ([]Control, error) {
 	return controls, nil
 }
 
-func (c *client) Events(ctx context.Context) (map[Control]Event, error) {
+func (c *client) Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetEvents(ctx, &pb.GetEventsRequest{
 		Controller: c.name,
+		Extra:      ext,
 	})
 	if err != nil {
 		return nil, err
@@ -83,7 +96,11 @@ func (c *client) Events(ctx context.Context) (map[Control]Event, error) {
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (c *client) TriggerEvent(ctx context.Context, event Event) error {
+func (c *client) TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
 	eventMsg := &pb.Event{
 		Time:    timestamppb.New(event.Time),
 		Event:   string(event.Event),
@@ -91,15 +108,22 @@ func (c *client) TriggerEvent(ctx context.Context, event Event) error {
 		Value:   event.Value,
 	}
 
-	_, err := c.client.TriggerEvent(ctx, &pb.TriggerEventRequest{
+	_, err = c.client.TriggerEvent(ctx, &pb.TriggerEventRequest{
 		Controller: c.name,
 		Event:      eventMsg,
+		Extra:      ext,
 	})
 
 	return err
 }
 
-func (c *client) RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error {
+func (c *client) RegisterControlCallback(
+	ctx context.Context,
+	control Control,
+	triggers []EventType,
+	ctrlFunc ControlFunction,
+	extra map[string]interface{},
+) error {
 	c.mu.Lock()
 	if c.callbacks == nil {
 		c.callbacks = make(map[Control]map[EventType]ControlFunction)
@@ -122,6 +146,11 @@ func (c *client) RegisterControlCallback(ctx context.Context, control Control, t
 	// We want to start one and only one connectStream()
 	c.streamMu.Lock()
 	defer c.streamMu.Unlock()
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	c.extra = ext
 	if c.streamRunning {
 		for !c.streamReady {
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
@@ -185,6 +214,7 @@ func (c *client) connectStream(ctx context.Context) {
 		c.mu.RLock()
 		req := &pb.StreamEventsRequest{
 			Controller: c.name,
+			Extra:      c.extra,
 		}
 
 		for control, v := range c.callbacks {

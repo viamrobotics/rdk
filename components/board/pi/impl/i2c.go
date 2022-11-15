@@ -124,7 +124,7 @@ func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	temp := C.i2cOpen(bus, (C.uint)(addr), handle.i2cFlags)
 
 	if temp < 0 {
-		return nil, errors.Errorf("error opening I2C Bus %d return code was %d, flags were %X", bus, handle.handle, handle.i2cFlags)
+		return nil, errors.Errorf("error opening I2C Bus %d return code was %d, flags were %X", bus, temp, handle.i2cFlags)
 	}
 	handle.handle = C.uint(temp)
 

@@ -40,7 +40,12 @@ func init() {
 }
 
 // NewInputController returns a fake input.Controller.
-func NewInputController(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+func NewInputController(
+	ctx context.Context,
+	_ registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
 	return c, nil
@@ -51,6 +56,8 @@ type Config struct {
 	controls []input.Control
 }
 
+var _ = input.Controller(&InputController{})
+
 // An InputController fakes an input.Controller.
 type InputController struct {
 	Name     string
@@ -60,7 +67,7 @@ type InputController struct {
 }
 
 // Controls lists the inputs of the gamepad.
-func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
+func (c *InputController) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.controls) == 0 {
@@ -70,7 +77,7 @@ func (c *InputController) Controls(ctx context.Context) ([]input.Control, error)
 }
 
 // Events returns the last input.Event (the current state) of each control.
-func (c *InputController) Events(ctx context.Context) (map[input.Control]input.Event, error) {
+func (c *InputController) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)
@@ -84,11 +91,12 @@ func (c *InputController) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
+	extra map[string]interface{},
 ) error {
 	return errors.New("unsupported")
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (c *InputController) TriggerEvent(ctx context.Context, event input.Event) error {
+func (c *InputController) TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error {
 	return errors.New("unsupported")
 }

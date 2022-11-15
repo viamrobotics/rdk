@@ -46,7 +46,7 @@
     "copy-prime-assets": "node ./scripts/copy-prime-assets.js",
     "start": "vite --host",
     "build": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build && npm run copy-prime-assets",
-    "rollup": "./etc/prepare.sh && rollup -c ./scripts/rollup.config.js --bundleConfigAsCjs",
+    "rollup": "rollup -c ./scripts/rollup.config.js",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,js,vue}' --fix --ignore-pattern 'gen/'",

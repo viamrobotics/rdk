@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -36,6 +37,11 @@ var remoteSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
 var unknownSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
 	unknownTypeName,
 	resource.SubtypeName(""))
+
+var (
+	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
+	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
+)
 
 type translateToName func(string) (resource.Name, bool)
 
@@ -60,6 +66,7 @@ type resourceManagerOptions struct {
 	debug              bool
 	fromCommand        bool
 	allowInsecureCreds bool
+	untrustedEnv       bool
 	tlsConfig          *tls.Config
 }
 
@@ -75,9 +82,16 @@ func newResourceManager(
 	opts resourceManagerOptions,
 	logger golog.Logger,
 ) *resourceManager {
+	var processManager pexec.ProcessManager
+	if opts.untrustedEnv {
+		processManager = pexec.NoopProcessManager
+	} else {
+		processManager = pexec.NewProcessManager(logger)
+	}
+
 	return &resourceManager{
 		resources:      resource.NewGraph(),
-		processManager: pexec.NewProcessManager(logger),
+		processManager: processManager,
 		opts:           opts,
 		logger:         logger,
 		configLock:     &sync.Mutex{},
@@ -694,6 +708,10 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, s := range config.Added.Services {
 		rName := s.ResourceName()
+		if manager.opts.untrustedEnv && rName.Subtype == shell.Subtype {
+			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
+			continue
+		}
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, s.Dependencies(), fn))
 	}
 	for _, r := range config.Added.Remotes {
@@ -706,6 +724,13 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, s := range config.Modified.Services {
 		rName := s.ResourceName()
+
+		// Disable shell service when in untrusted env
+		if manager.opts.untrustedEnv && rName.Subtype == shell.Subtype {
+			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
+			continue
+		}
+
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, s.Dependencies(), fn))
 	}
 	for _, r := range config.Modified.Remotes {
@@ -716,7 +741,13 @@ func (manager *resourceManager) updateResources(
 	if err := cleanAppImageEnv(); err != nil {
 		manager.logger.Errorw("error cleaning up app image environement", "error", err)
 	}
+
 	for _, p := range config.Added.Processes {
+		if manager.opts.untrustedEnv {
+			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
+			break
+		}
+
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while adding process, skipping", "process", p.ID, "error", err)
@@ -724,6 +755,11 @@ func (manager *resourceManager) updateResources(
 		}
 	}
 	for _, p := range config.Modified.Processes {
+		if manager.opts.untrustedEnv {
+			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
+			break
+		}
+
 		if oldProc, ok := manager.processManager.RemoveProcessByID(p.ID); ok {
 			if err := oldProc.Stop(); err != nil {
 				manager.logger.Errorw("couldn't stop process", "process", p.ID, "error", err)
@@ -773,8 +809,13 @@ type PartsMergeResult struct {
 // FilterFromConfig given a config this function will remove elements from the manager and return removed resources in a new manager.
 func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *config.Config, logger golog.Logger) (*resourceManager, error) {
 	filtered := newResourceManager(manager.opts, logger)
-
+	var allErrs error
 	for _, conf := range conf.Processes {
+		if manager.opts.untrustedEnv {
+			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
+			break
+		}
+
 		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
 		if !ok {
 			manager.logger.Errorw("couldn't remove process", "process", conf.ID)
@@ -784,6 +825,7 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 			manager.logger.Errorw("couldn't add process", "process", conf.ID, "error", err)
 		}
 	}
+
 	for _, conf := range conf.Remotes {
 		remoteName := fromRemoteNameToRemoteNodeName(conf.Name)
 		if _, ok := manager.resources.Node(remoteName); !ok {
@@ -820,6 +862,13 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 	}
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
+
+		// Disable shell service when in untrusted env
+		if manager.opts.untrustedEnv && rName.Subtype == shell.Subtype {
+			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
+			continue
+		}
+
 		if _, ok := manager.resources.Node(rName); !ok {
 			continue
 		}
@@ -836,7 +885,7 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		}
 	}
 	manager.resources.MergeRemove(filtered.resources)
-	return filtered, nil
+	return filtered, allErrs
 }
 
 func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {

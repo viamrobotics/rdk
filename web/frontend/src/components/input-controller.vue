@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { computed } from 'vue';
-import type { Status } from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
+import type { Status } from '../gen/component/inputcontroller/v1/input_controller_pb.esm';
 
 interface Props {
   name: string

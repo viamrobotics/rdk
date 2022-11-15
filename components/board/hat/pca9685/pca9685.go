@@ -29,9 +29,10 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	BoardName  string `json:"board_name"`
-	I2CName    string `json:"i2c_name"`
-	I2CAddress *int   `json:"i2c_address"`
+	BoardName      string `json:"board_name"`
+	I2CName        string `json:"i2c_name"`
+	I2CAddress     *int   `json:"i2c_address,omitempty"`
+	PWMFrequencyHz int    `json:"pwm_frequency_hz,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.

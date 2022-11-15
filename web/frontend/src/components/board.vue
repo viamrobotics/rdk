@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
+import boardApi from '../gen/component/board/v1/board_pb.esm';
 
 interface Props {
   name: string

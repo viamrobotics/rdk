@@ -380,6 +380,7 @@ func newWithResources(
 				debug:              cfg.Debug,
 				fromCommand:        cfg.FromCommand,
 				allowInsecureCreds: cfg.AllowInsecureCreds,
+				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 			},
 			logger,

@@ -2,8 +2,8 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
-import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
+import baseApi from '../gen/component/base/v1/base_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';

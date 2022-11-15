@@ -14,10 +14,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
-import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
-// import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
+import type { PointCloudObject, RectangularPrism } from '../gen/common/v1/common_pb';
+import motionApi from '../gen/service/motion/v1/motion_pb.esm';
+import commonApi from '../gen/common/v1/common_pb.esm';
+// import visionApi, { type TypedParameter } from '../gen/service/vision/v1/vision_pb.esm';
 import InfoButton from './info-button.vue';
 
 interface Props {
