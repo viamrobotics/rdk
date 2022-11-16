@@ -231,8 +231,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Check if orbslam created a map successfully or if it hangs and needs to be
-	// shut down
+	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
 	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
@@ -322,8 +321,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)
 	releaseImages(t, mode)
-	// Check if orbslam created a map successfully or if it hangs and needs to be
-	// shut down
+	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
 	// Wait for orbslam to finish processing images
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
