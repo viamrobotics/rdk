@@ -64,7 +64,7 @@ func (octree *basicOctree) Size() int {
 	return totalSize
 }
 
-// Set checks if the point to be added is a valid point for the OCtree to hold based on its center and side length.
+// Set checks if the point to be added is a valid point for the octree to hold based on its center and side length.
 // It then recursively iterates through the tree until it finds the appropriate node to add it too. If the found node
 // contains a point already, it will the node into octants and add both the old and new points to them respectively.
 func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
