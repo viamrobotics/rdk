@@ -529,8 +529,12 @@ func (manager *resourceManager) processService(ctx context.Context,
 		return robot.newService(ctx, c)
 	}
 
-	if robot.ModuleManager().IsModularService(c) {
-		return old, robot.ModuleManager().ReconfigureService(ctx, c)
+	if robot.ModuleManager().IsModularModel(config.ServiceConfigToShared(c)) {
+		deps, err := robot.getDependencies(c.ResourceName())
+		if err != nil {
+			return nil, err
+		}
+		return old, robot.ModuleManager().ReconfigureResource(ctx, config.ServiceConfigToShared(c), modmanager.DepsToNames(deps))
 	}
 
 	svc, err := robot.newService(ctx, c)
@@ -585,12 +589,12 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 		return r.newResource(ctx, conf)
 	}
 	res := config.Rebuild
-	if r.ModuleManager().IsModularComponent(conf) {
+	if r.ModuleManager().IsModularModel(conf) {
 		deps, err := r.getDependencies(rName)
 		if err != nil {
 			return nil, err
 		}
-		err = r.ModuleManager().ReconfigureComponent(ctx, conf, modmanager.DepsToNames(deps))
+		err = r.ModuleManager().ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
 		if err != nil {
 			return nil, err
 		}

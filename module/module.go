@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -129,11 +128,6 @@ func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// err := m.initSubtypeServices(ctx)
-	// if err != nil {
-	// 	return err
-	// }
-
 	oldMask := syscall.Umask(0o077)
 	lis, err := net.Listen("unix", m.addr)
 	syscall.Umask(oldMask)
@@ -166,20 +160,27 @@ func (m *Module) Close() {
 
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (interface{}, error) {
+	if err := m.connectParent(ctx); err != nil {
+		return nil, err
+	}
+	return m.parent.ResourceByName(name)
+}
+
+func (m *Module) connectParent(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.parent == nil {
 		err := CheckSocketOwner(m.parentAddr)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		m.parent = rc
 	}
-	return m.parent.ResourceByName(name)
+	return nil
 }
 
 // SetReady can be set to false if the module is not ready (ex. waiting on hardware).
@@ -201,166 +202,137 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	}, nil
 }
 
-// AddComponent receives the component configuration from the parent.
-func (m *Module) AddComponent(ctx context.Context, req *pb.AddComponentRequest) (*pb.AddComponentResponse, error) {
-	cfg, err := config.ComponentConfigFromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
+// AddResource receives the component/service configuration from the parent.
+func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
 	deps := make(registry.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
 		if err != nil {
-			return nil, err
+			return &pb.AddResourceResponse{}, err
 		}
 		c, err := m.GetParentResource(ctx, name)
 		if err != nil {
-			return nil, err
+			return &pb.AddResourceResponse{}, err
 		}
 		deps[name] = c
 	}
 
-	creator := registry.ComponentLookup(cfg.ResourceName().Subtype, cfg.Model)
-	if creator != nil && creator.Constructor != nil {
-		comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
-		if err != nil {
-			return nil, err
-		}
-
-		subSvc, ok := m.services[cfg.ResourceName().Subtype]
-		if !ok {
-			return nil, errors.Errorf("module can't service api: %s", cfg.ResourceName().Subtype)
-		}
-
-		err = subSvc.Add(cfg.ResourceName(), comp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &pb.AddComponentResponse{}, nil
-}
-
-// ReconfigureComponent receives the component configuration from the parent.
-func (m *Module) ReconfigureComponent(ctx context.Context, req *pb.ReconfigureComponentRequest) (*pb.ReconfigureComponentResponse, error) {
 	cfg, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
-		return &pb.ReconfigureComponentResponse{}, err
+		return &pb.AddResourceResponse{}, err
 	}
 
-	svc, ok := m.services[cfg.ResourceName().Subtype]
+	var res interface{}
+	switch cfg.API.ResourceType {
+	case resource.ResourceTypeComponent:
+		creator := registry.ComponentLookup(cfg.API, cfg.Model)
+		if creator != nil && creator.Constructor != nil {
+			res, err = creator.Constructor(ctx, deps, *cfg, m.logger)
+		}
+
+	case resource.ResourceTypeService:
+		creator := registry.ServiceLookup(cfg.API, cfg.Model)
+		if creator != nil && creator.Constructor != nil {
+			res, err = creator.Constructor(ctx, deps, config.ServiceConfigFromShared(*cfg), m.logger)
+		}
+	default:
+		return &pb.AddResourceResponse{}, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
+	}
+
+	if err != nil {
+		return &pb.AddResourceResponse{}, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	subSvc, ok := m.services[cfg.API]
 	if !ok {
-		return &pb.ReconfigureComponentResponse{}, errors.Errorf("no component service for %+v", cfg.ResourceName())
+		return &pb.AddResourceResponse{}, errors.Errorf("module can't service api: %s", cfg.API)
 	}
-	comp := svc.Resource(cfg.ResourceName().Name)
+	return &pb.AddResourceResponse{}, subSvc.Add(cfg.ResourceName(), res)
+}
 
+// ReconfigureResource receives the component/service configuration from the parent.
+func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
+	var res interface{}
 	deps := make(registry.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
 		if err != nil {
-			return &pb.ReconfigureComponentResponse{}, err
+			return &pb.ReconfigureResourceResponse{}, err
 		}
 		c, err := m.GetParentResource(ctx, name)
 		if err != nil {
-			return &pb.ReconfigureComponentResponse{}, err
+			return &pb.ReconfigureResourceResponse{}, err
 		}
 		deps[name] = c
 	}
 
-	// Check if component directly supports reconfiguration.
-	rc, ok := comp.(registry.ReconfigurableComponent)
-	if ok {
-		return &pb.ReconfigureComponentResponse{}, rc.Reconfigure(ctx, *cfg, deps)
-	}
-
-	// If it can't reconfigure, replace it.
-	err = utils.TryClose(ctx, comp)
+	cfg, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
-		m.logger.Error(err)
-	}
-	creator := registry.ComponentLookup(cfg.ResourceName().Subtype, cfg.Model)
-	if creator != nil && creator.Constructor != nil {
-		comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
-		if err != nil {
-			return &pb.ReconfigureComponentResponse{}, err
-		}
-		return &pb.ReconfigureComponentResponse{}, svc.ReplaceOne(cfg.ResourceName(), comp)
+		return &pb.ReconfigureResourceResponse{}, err
 	}
 
-	return &pb.ReconfigureComponentResponse{}, errors.Errorf("can't recreate resource %+v", cfg)
-}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-// AddService receives the service configuration from the parent.
-func (m *Module) AddService(ctx context.Context, req *pb.AddServiceRequest) (*pb.AddServiceResponse, error) {
-	cfg, err := config.ServiceConfigFromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	creator := registry.ServiceLookup(cfg.ResourceName().Subtype, cfg.Model)
-
-	// SMURF TODO Actual deps
-	deps := make(registry.Dependencies)
-
-	if creator != nil && creator.Constructor != nil {
-		svc, err := creator.Constructor(ctx, deps, *cfg, m.logger)
-		if err != nil {
-			return nil, err
-		}
-
-		subSvc, ok := m.services[cfg.ResourceName().Subtype]
-		if !ok {
-			return nil, errors.Errorf("module can't service api: %s", cfg.ResourceName().Subtype)
-		}
-
-		err = subSvc.Add(cfg.ResourceName(), svc)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &pb.AddServiceResponse{}, nil
-}
-
-// ReconfigureService receives the service configuration from the parent.
-func (m *Module) ReconfigureService(ctx context.Context, req *pb.ReconfigureServiceRequest) (*pb.ReconfigureServiceResponse, error) {
-	cfg, err := config.ServiceConfigFromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	subSvc, ok := m.services[cfg.ResourceName().Subtype]
+	svc, ok := m.services[cfg.API]
 	if !ok {
-		return &pb.ReconfigureServiceResponse{}, errors.Errorf("no grpc service for %+v", cfg.ResourceName())
+		return &pb.ReconfigureResourceResponse{}, errors.Errorf("no rpc service for %+v", cfg)
 	}
-	svc := subSvc.Resource(cfg.ResourceName().Name)
+	res = svc.Resource(cfg.ResourceName().Name)
 
 	// Check if component directly supports reconfiguration.
-	rs, ok := svc.(registry.ReconfigurableService)
+	rc, ok := res.(registry.ReconfigurableComponent)
 	if ok {
-		return &pb.ReconfigureServiceResponse{}, rs.Reconfigure(ctx, *cfg)
+		return &pb.ReconfigureResourceResponse{}, rc.Reconfigure(ctx, *cfg, deps)
+	}
+
+	// Check if service directly supports reconfiguration.
+	rs, ok := res.(registry.ReconfigurableService)
+	if ok {
+		return &pb.ReconfigureResourceResponse{}, rs.Reconfigure(ctx, config.ServiceConfigFromShared(*cfg), deps)
 	}
 
 	// If it can't reconfigure, replace it.
-	err = utils.TryClose(ctx, svc)
+	err = utils.TryClose(ctx, res)
 	if err != nil {
 		m.logger.Error(err)
 	}
 
-	// SMURF TODO Actual deps
-	deps := make(registry.Dependencies)
-
-	creator := registry.ServiceLookup(cfg.ResourceName().Subtype, cfg.Model)
-	if creator != nil && creator.Constructor != nil {
-		svc, err := creator.Constructor(ctx, deps, *cfg, m.logger)
-		if err != nil {
-			return &pb.ReconfigureServiceResponse{}, err
+	switch cfg.API.ResourceType {
+	case resource.ResourceTypeComponent:
+		creator := registry.ComponentLookup(cfg.API, cfg.Model)
+		if creator != nil && creator.Constructor != nil {
+			comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
+			if err != nil {
+				return &pb.ReconfigureResourceResponse{}, err
+			}
+			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), comp)
 		}
-		return &pb.ReconfigureServiceResponse{}, subSvc.ReplaceOne(cfg.ResourceName(), svc)
+
+	case resource.ResourceTypeService:
+		creator := registry.ServiceLookup(cfg.API, cfg.Model)
+		if creator != nil && creator.Constructor != nil {
+			s, err := creator.Constructor(ctx, deps, config.ServiceConfigFromShared(*cfg), m.logger)
+			if err != nil {
+				return &pb.ReconfigureResourceResponse{}, err
+			}
+			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), s)
+		}
+
+	default:
+		return &pb.ReconfigureResourceResponse{}, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
 	}
-	return &pb.ReconfigureServiceResponse{}, errors.Errorf("can't recreate resource %+v", cfg)
+
+	return &pb.ReconfigureResourceResponse{}, errors.Errorf("can't recreate resource %+v", req.Config)
 }
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	name, err := resource.NewFromString(req.Name)
 	if err != nil {
 		return &pb.RemoveResourceResponse{}, err
@@ -378,8 +350,11 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	return &pb.RemoveResourceResponse{}, svc.Remove(name)
 }
 
+// AddAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.
 func (m *Module) AddAPIFromRegistry(ctx context.Context, api resource.Subtype) error {
-	subSvc, ok := m.services[api]
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.services[api]
 	if ok {
 		return nil
 	}
@@ -387,20 +362,22 @@ func (m *Module) AddAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 	if err != nil {
 		return err
 	}
-	subSvc = newSvc
 	m.services[api] = newSvc
 
 	rs := registry.ResourceSubtypeLookup(api)
 	if rs != nil && rs.RegisterRPCService != nil {
-		if err := rs.RegisterRPCService(ctx, m.server, subSvc); err != nil {
+		if err := rs.RegisterRPCService(ctx, m.server, newSvc); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// AddModelFromRegistry adds a preregistered component or service model to the module's services.
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
+	m.mu.Lock()
 	_, ok := m.services[api]
+	m.mu.Unlock()
 	if !ok {
 		if err := m.AddAPIFromRegistry(ctx, api); err != nil {
 			return err
@@ -416,6 +393,9 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 		ProtoSvcName: creator.RPCServiceDesc.ServiceName,
 		Desc:         creator.ReflectRPCServiceDesc,
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.handlers[rpcST] = append(m.handlers[rpcST], model)
 	return nil
 }

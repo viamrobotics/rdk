@@ -52,6 +52,7 @@ func TestFromReaderValidate(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
+				API:       arm.Subtype,
 				Model:     resource.NewDefaultModel("foo"),
 				Type:      arm.SubtypeName,
 			},

@@ -372,7 +372,7 @@ require (
 )
 
 //replace go.viam.com/api => ../api
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221111013558-e3bce2145706
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221116015116-7b87380ac4ac
 
 //replace go.viam.com/utils => ../goutils
 replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221111013727-c7ed461ef823

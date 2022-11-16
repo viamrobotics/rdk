@@ -79,10 +79,17 @@ func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
+	if component.API.Namespace == "" {
+		component.API.Namespace = component.Namespace
+		component.API.ResourceType = resource.ResourceTypeComponent
+		component.API.ResourceSubtype = component.Type
+	}
+
 	proto := pb.ComponentConfig{
 		Name:           component.Name,
 		Namespace:      string(component.Namespace),
 		Type:           string(component.Type),
+		Api:            component.API.String(),
 		Model:          component.Model.String(),
 		DependsOn:      component.DependsOn,
 		ServiceConfigs: serviceConfigs,
@@ -112,10 +119,16 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		return nil, err
 	}
 
+	api, err := resource.NewSubtypeFromString(proto.GetApi())
+	if err != nil {
+		return nil, err
+	}
+
 	component := Component{
 		Name:          proto.GetName(),
 		Type:          resource.SubtypeName(proto.GetType()),
 		Namespace:     resource.Namespace(proto.GetNamespace()),
+		API:           api,
 		Model:         model,
 		Attributes:    proto.GetAttributes().AsMap(),
 		DependsOn:     proto.GetDependsOn(),
@@ -152,8 +165,47 @@ func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
 	return &proto, nil
 }
 
-// ServiceConfigFromProto creates Service from proto equivalent.
+// ServiceConfigToSharedProto converts Service to proto equivalent shared with Components.
+func ServiceConfigToSharedProto(service *Service) (*pb.ComponentConfig, error) {
+	attributes, err := protoutils.StructToStructPb(service.Attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	proto := pb.ComponentConfig{
+		Name:       service.Name,
+		Namespace:  string(service.Namespace),
+		Type:       string(service.Type),
+		Api:        string(service.Namespace) + ":" + string(resource.ResourceTypeService) + ":" + string(service.Type),
+		Model:      service.Model.String(),
+		Attributes: attributes,
+		DependsOn:  service.DependsOn,
+	}
+
+	return &proto, nil
+}
+
+// ServiceConfigFromProto creates Service from proto equivalent shared with Components.
 func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
+	model, err := resource.NewModelFromString(proto.GetModel())
+	if err != nil {
+		return nil, err
+	}
+
+	service := Service{
+		Name:       proto.GetName(),
+		Namespace:  resource.Namespace(proto.GetNamespace()),
+		Type:       ServiceType(proto.GetType()),
+		Model:      model,
+		Attributes: proto.GetAttributes().AsMap(),
+		DependsOn:  proto.GetDependsOn(),
+	}
+
+	return &service, nil
+}
+
+// ServiceConfigFromSharedProto creates a Service from proto equivalent.
+func ServiceConfigFromSharedProto(proto *pb.ComponentConfig) (*Service, error) {
 	model, err := resource.NewModelFromString(proto.GetModel())
 	if err != nil {
 		return nil, err
@@ -673,4 +725,33 @@ func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT
 		out[i] = *rdk
 	}
 	return out, nil
+}
+
+// ServiceConfigToShared converts a Service to the common resource config (Component for now.)
+func ServiceConfigToShared(cfg Service) Component {
+	return Component{
+		Name:                cfg.Name,
+		Namespace:           cfg.Namespace,
+		Type:                resource.SubtypeName(cfg.Type),
+		API:                 resource.NewSubtype(cfg.Namespace, resource.ResourceTypeService, resource.SubtypeName(cfg.Type)),
+		Model:               cfg.Model,
+		DependsOn:           cfg.DependsOn,
+		Attributes:          cfg.Attributes,
+		ConvertedAttributes: cfg.ConvertedAttributes,
+		ImplicitDependsOn:   cfg.ImplicitDependsOn,
+	}
+}
+
+// ServiceConfigFromShared converts a common resource config (Component for now) to a Service.
+func ServiceConfigFromShared(cfg Component) Service {
+	return Service{
+		Name:                cfg.Name,
+		Namespace:           cfg.Namespace,
+		Type:                ServiceType(cfg.Type),
+		Model:               cfg.Model,
+		DependsOn:           cfg.DependsOn,
+		Attributes:          cfg.Attributes,
+		ConvertedAttributes: cfg.ConvertedAttributes,
+		ImplicitDependsOn:   cfg.ImplicitDependsOn,
+	}
 }

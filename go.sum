@@ -105,8 +105,8 @@ github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAE
 github.com/OpenPeeDeeP/depguard v1.0.1/go.mod h1:xsIw86fROiiwelg+jB2uM9PiKihMMmUx/1V+TNhjQvM=
 github.com/OpenPeeDeeP/depguard v1.1.1 h1:TSUznLjvp/4IUP+OQ0t/4jF4QUyxIcVX8YnghZdunyA=
 github.com/OpenPeeDeeP/depguard v1.1.1/go.mod h1:JtAMzWkmFEzDPyAd+W0NHl1lvpQKTvT9jnRVsohBKpc=
-github.com/Otterverse/api v0.0.0-20221111013558-e3bce2145706 h1:cU75TgFuIuDVmwyi5Zo+5jIF7MizEWePLTdsks1JXLo=
-github.com/Otterverse/api v0.0.0-20221111013558-e3bce2145706/go.mod h1:dmii3OZhAkhrb+zZmy5XvglINQPQrasaIzSJjFXZ17U=
+github.com/Otterverse/api v0.0.0-20221116015116-7b87380ac4ac h1:/E3TehPIHuoWyvqpDbCb/OD2ZV3FbBVdIBI264iIWuo=
+github.com/Otterverse/api v0.0.0-20221116015116-7b87380ac4ac/go.mod h1:dmii3OZhAkhrb+zZmy5XvglINQPQrasaIzSJjFXZ17U=
 github.com/Otterverse/goutils v0.0.4-0.20221111013727-c7ed461ef823 h1:8fEs24jeK5jYQGe5TPtuvlH0GrkWEoXDHdvGN0PnSkM=
 github.com/Otterverse/goutils v0.0.4-0.20221111013727-c7ed461ef823/go.mod h1:L7RrtFddaBH1sMiAjzQ26yMKzSFcG+T1KIY+pOBxyAg=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=

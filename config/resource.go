@@ -62,6 +62,7 @@ type Component struct {
 
 	Namespace     resource.Namespace           `json:"namespace"`
 	Type          resource.SubtypeName         `json:"type"`
+	API           resource.Subtype             `json:"api"`
 	Model         resource.Model               `json:"model"`
 	Frame         *Frame                       `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
@@ -100,15 +101,18 @@ func (config *Component) String() string {
 }
 
 // ResourceName returns the  ResourceName for the component.
-// TODO(npmemard) Before merge should remove this also the service one.
 func (config *Component) ResourceName() resource.Name {
+	if config.API.Namespace == "" {
+		config.API.Namespace = config.Namespace
+		config.API.ResourceType = resource.ResourceTypeComponent
+		config.API.ResourceSubtype = config.Type
+	}
 	remotes := strings.Split(config.Name, ":")
-	cType := string(config.Type)
 	if len(remotes) > 1 {
-		rName := resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), remotes[len(remotes)-1])
+		rName := resource.NameFromSubtype(config.API, remotes[len(remotes)-1])
 		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
 	}
-	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
+	return resource.NameFromSubtype(config.API, config.Name)
 }
 
 // Validate ensures all parts of the config are valid and returns dependencies.
@@ -118,6 +122,11 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
+	}
+	if config.API.Namespace == "" {
+		config.API.Namespace = config.Namespace
+		config.API.ResourceType = resource.ResourceTypeComponent
+		config.API.ResourceSubtype = config.Type
 	}
 	if config.Model.Namespace == "" {
 		config.Model.Namespace = resource.ResourceNamespaceRDK

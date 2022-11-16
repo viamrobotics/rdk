@@ -277,5 +277,5 @@ type ReconfigurableComponent interface {
 // ReconfigurableService is implemented when component/service of a robot is reconfigurable.
 type ReconfigurableService interface {
 	// Reconfigure reconfigures the resource
-	Reconfigure(ctx context.Context, cfg config.Service) error
+	Reconfigure(ctx context.Context, cfg config.Service, deps Dependencies) error
 }

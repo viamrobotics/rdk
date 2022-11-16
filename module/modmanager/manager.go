@@ -148,7 +148,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 			for _, model := range models {
 				registry.RegisterComponent(api.Subtype, model, registry.Component{
 					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-						return mgr.AddComponent(ctx, cfg, DepsToNames(deps))
+						return mgr.AddResource(ctx, cfg, DepsToNames(deps))
 					},
 				})
 			}
@@ -156,7 +156,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 			for _, model := range models {
 				registry.RegisterService(api.Subtype, model, registry.Service{
 					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
-						return mgr.AddService(ctx, cfg, DepsToNames(deps))
+						return mgr.AddResource(ctx, config.ServiceConfigToShared(cfg), DepsToNames(deps))
 					},
 				})
 			}
@@ -168,11 +168,11 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	return nil
 }
 
-// AddComponent tells a component module to configure a new component.
-func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
+// AddResource tells a component module to configure a new component.
+func (mgr *Manager) AddResource(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	module := mgr.getComponentModule(cfg)
+	module := mgr.getModule(cfg)
 	if module == nil {
 		return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
 	}
@@ -181,7 +181,7 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 	if err != nil {
 		return nil, err
 	}
-	_, err = module.client.AddComponent(ctx, &pb.AddComponentRequest{Config: cfgProto, Dependencies: deps})
+	_, err = module.client.AddResource(ctx, &pb.AddResourceRequest{Config: cfgProto, Dependencies: deps})
 	if err != nil {
 		return nil, err
 	}
@@ -189,67 +189,18 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 
 	c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 	if c == nil || c.RPCClient == nil {
-		mgr.logger.Warnf("no known grpc client for modular resource %s", cfg.ResourceName())
+		mgr.logger.Warnf("no built-in grpc client for modular resource %s", cfg.ResourceName())
 		return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
 	}
 	nameR := cfg.ResourceName().ShortName()
 	return c.RPCClient(ctx, module.conn, nameR, mgr.logger), nil
 }
 
-// AddService tells a service module to configure a new service.
-func (mgr *Manager) AddService(ctx context.Context, cfg config.Service, deps []string) (interface{}, error) {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
-	for _, module := range mgr.modules {
-		var api resource.RPCSubtype
-		var ok bool
-		for a := range module.handles {
-			if a.Subtype == cfg.ResourceName().Subtype {
-				api = a
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			continue
-		}
-		for _, model := range module.handles[api] {
-			if cfg.Model == model {
-				cfgProto, err := config.ServiceConfigToProto(&cfg)
-				if err != nil {
-					return nil, err
-				}
-				_, err = module.client.AddService(ctx, &pb.AddServiceRequest{Config: cfgProto})
-				if err != nil {
-					return nil, err
-				}
-				mgr.rMap[cfg.ResourceName()] = module
-
-				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
-				if c == nil || c.RPCClient == nil {
-					mgr.logger.Warnf("no known grpc client for modular resource %s", cfg.ResourceName())
-					return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
-				}
-				nameR := cfg.ResourceName().ShortName()
-				return c.RPCClient(ctx, module.conn, nameR, mgr.logger), nil
-			}
-		}
-	}
-	return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
-}
-
-// IsModularComponent returns true if a component would be handled by a module.
-func (mgr *Manager) IsModularComponent(cfg config.Component) bool {
+// ReconfigureResource updates/reconfigures a modular component with a new configuration.
+func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	return mgr.getComponentModule(cfg) != nil
-}
-
-// ReconfigureComponent updates/reconfigures a modular component with a new configuration.
-func (mgr *Manager) ReconfigureComponent(ctx context.Context, cfg config.Component, deps []string) error {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
-	module := mgr.getComponentModule(cfg)
+	module := mgr.getModule(cfg)
 	if module == nil {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
 	}
@@ -258,7 +209,7 @@ func (mgr *Manager) ReconfigureComponent(ctx context.Context, cfg config.Compone
 	if err != nil {
 		return err
 	}
-	_, err = module.client.ReconfigureComponent(ctx, &pb.ReconfigureComponentRequest{Config: cfgProto, Dependencies: deps})
+	_, err = module.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfgProto, Dependencies: deps})
 	if err != nil {
 		return err
 	}
@@ -266,35 +217,14 @@ func (mgr *Manager) ReconfigureComponent(ctx context.Context, cfg config.Compone
 	return nil
 }
 
-// IsModularService returns true if a service would be handled by a module.
-func (mgr *Manager) IsModularService(cfg config.Service) bool {
+// IsModularModel returns true if a component/service config WOULD be handled by a module.
+func (mgr *Manager) IsModularModel(cfg config.Component) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	return mgr.getServiceModule(cfg) != nil
+	return mgr.getModule(cfg) != nil
 }
 
-// ReconfigureService updates/reconfigures a modular service with a new configuration.
-func (mgr *Manager) ReconfigureService(ctx context.Context, cfg config.Service) error {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
-	module := mgr.getServiceModule(cfg)
-	if module == nil {
-		return errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
-	}
-
-	cfgProto, err := config.ServiceConfigToProto(&cfg)
-	if err != nil {
-		return err
-	}
-	_, err = module.client.ReconfigureService(ctx, &pb.ReconfigureServiceRequest{Config: cfgProto})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// IsModularResource returns true if a component is handled by a module.
+// IsModularResource returns true if an existing resource IS handled by a module.
 func (mgr *Manager) IsModularResource(name resource.Name) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
@@ -315,7 +245,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	return err
 }
 
-func (mgr *Manager) getComponentModule(cfg config.Component) *module {
+func (mgr *Manager) getModule(cfg config.Component) *module {
 	for _, module := range mgr.modules {
 		var api resource.RPCSubtype
 		var ok bool
@@ -336,38 +266,6 @@ func (mgr *Manager) getComponentModule(cfg config.Component) *module {
 		}
 	}
 	return nil
-}
-
-func (mgr *Manager) getServiceModule(cfg config.Service) *module {
-	for _, module := range mgr.modules {
-		var api resource.RPCSubtype
-		var ok bool
-		for a := range module.handles {
-			if a.Subtype == cfg.ResourceName().Subtype {
-				api = a
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			continue
-		}
-		for _, model := range module.handles[api] {
-			if cfg.Model == model {
-				return module
-			}
-		}
-	}
-	return nil
-}
-
-// DepsToNames converts a dependency list to a simple string slice.
-func DepsToNames(deps registry.Dependencies) []string {
-	var depStrings []string
-	for dep := range deps {
-		depStrings = append(depStrings, dep.String())
-	}
-	return depStrings
 }
 
 func (m *module) checkReady(ctx context.Context, addr string) error {
@@ -387,3 +285,13 @@ func (m *module) checkReady(ctx context.Context, addr string) error {
 		}
 	}
 }
+
+// DepsToNames converts a dependency list to a simple string slice.
+func DepsToNames(deps registry.Dependencies) []string {
+	var depStrings []string
+	for dep := range deps {
+		depStrings = append(depStrings, dep.String())
+	}
+	return depStrings
+}
+

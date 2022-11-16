@@ -12,16 +12,12 @@ import (
 type ModuleManager interface {
 	AddModule(ctx context.Context, cfg config.Module) error
 
-	AddComponent(ctx context.Context, cfg config.Component, deps []string) (interface{}, error)
-	ReconfigureComponent(ctx context.Context, cfg config.Component, deps []string) error
-	IsModularComponent(cfg config.Component) bool
-
-	AddService(ctx context.Context, cfg config.Service, deps []string) (interface{}, error)
-	ReconfigureService(ctx context.Context, cfg config.Service) error
-	IsModularService(cfg config.Service) bool
-
-	IsModularResource(name resource.Name) bool
+	AddResource(ctx context.Context, cfg config.Component, deps []string) (interface{}, error)
+	ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error
 	RemoveResource(ctx context.Context, name resource.Name) error
+	IsModularResource(name resource.Name) bool
+
+	IsModularModel(cfg config.Component) bool
 
 	Close(ctx context.Context) error
 }
