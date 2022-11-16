@@ -362,10 +362,11 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 			previouslyCaptured = append(previouslyCaptured, path)
 			return nil
 		})
-		svc.syncer.SyncCaptureQueues(previouslyCaptured)
+		svc.syncer.SyncCaptureFiles(previouslyCaptured)
 
 		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
-		svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
+		// TODO: add this back after adding arbitrary file uploads back
+		//svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
 
 		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)

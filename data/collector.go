@@ -5,20 +5,20 @@ package data
 import (
 	"context"
 	"fmt"
+	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/utils/protoutils"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
@@ -39,10 +39,9 @@ func (cf CaptureFunc) Capture(ctx context.Context, params map[string]*anypb.Any)
 
 // Collector collects data to some target.
 type Collector interface {
-	SetTarget(file *datacapture.File)
-	GetTarget() *datacapture.File
 	Close()
 	Collect()
+	GetTarget() *datacapture.Queue
 }
 
 type collector struct {
@@ -51,45 +50,25 @@ type collector struct {
 	params            map[string]*anypb.Any
 	lock              *sync.Mutex
 	logger            golog.Logger
-	target            *datacapture.File
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
 	capturer          Capturer
-	closed            bool
-}
 
-// SetTarget updates the file being written to by the collector.
-func (c *collector) SetTarget(file *datacapture.File) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if err := c.target.Sync(); err != nil {
-		c.logger.Errorw("failed to flush file to disk", "error", err)
-	}
-	c.target = file
-}
-
-// GetTarget returns the file being written to by the collector.
-func (c *collector) GetTarget() *datacapture.File {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return c.target
+	target *datacapture.Queue
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
-// leaking goroutines.
+// leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
 func (c *collector) Close() {
-	if c.closed {
-		return
-	}
 	c.cancel()
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Sync(); err != nil {
-		c.logger.Errorw("failed to flush target to disk", "error", err)
+		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
-	c.closed = true
+	c.target.Close()
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
@@ -107,10 +86,15 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.GetPath()), "error", err)
+			c.logger.Errorw(fmt.Sprintf("failed to write to directory %s", c.target.Directory), "error", err)
 		}
 	})
-	c.closed = false
+}
+
+func (c *collector) GetTarget() *datacapture.Queue {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.target
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
@@ -243,6 +227,7 @@ func (c *collector) getAndPushNextReading() {
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
 func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) {
+	fmt.Println("making new collector")
 	if err := params.Validate(); err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
@@ -254,29 +239,21 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		params:            params.MethodParams,
 		lock:              &sync.Mutex{},
 		logger:            params.Logger,
-		target:            params.Target,
+		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
 		cancel:            cancelFunc,
-		backgroundWorkers: sync.WaitGroup{},
 		capturer:          capturer,
-		closed:            false,
+
+		// TODO
+		target: params.Target,
 	}, nil
 }
 
 func (c *collector) write() error {
 	for msg := range c.queue {
-		if err := c.appendMessage(msg); err != nil {
+		if err := c.target.Push(msg); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (c *collector) appendMessage(msg *v1.SensorData) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if err := c.target.WriteNext(msg); err != nil {
-		return err
 	}
 	return nil
 }
