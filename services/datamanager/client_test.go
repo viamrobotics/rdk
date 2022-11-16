@@ -65,7 +65,7 @@ func TestClient(t *testing.T) {
 			extraOptions = extra
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "Sync"}
+		extra := map[string]interface{}{"foo": "SyncCaptureQueues"}
 		err = client.Sync(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)

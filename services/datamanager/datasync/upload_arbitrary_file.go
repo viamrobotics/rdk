@@ -26,7 +26,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, p
 		FileName: filepath.Base(f.Name()),
 	}
 
-	// Send metadata upload request.
+	// Send metadata syncQueue request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: md,

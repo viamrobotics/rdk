@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -43,7 +44,8 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	Sync(paths []string)
+	SyncCaptureFiles(paths []string)
+	SyncCaptureQueues(queues []*datacapture.Queue)
 	Close()
 }
 
@@ -53,7 +55,6 @@ type syncer struct {
 	conn              rpc.ClientConn
 	client            v1.DataSyncServiceClient
 	logger            golog.Logger
-	progressTracker   progressTracker
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
@@ -90,21 +91,13 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		conn:   conn,
-		client: client,
-		logger: logger,
-		progressTracker: progressTracker{
-			lock:        &sync.Mutex{},
-			m:           make(map[string]struct{}),
-			progressDir: viamProgressDotDir,
-		},
+		conn:              conn,
+		client:            client,
+		logger:            logger,
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
-	}
-	if err := ret.progressTracker.initProgressDir(); err != nil {
-		return nil, errors.Wrap(err, "couldn't initialize progress tracking directory")
 	}
 	return &ret, nil
 }
@@ -120,50 +113,96 @@ func (s *syncer) Close() {
 	}
 }
 
-func (s *syncer) upload(ctx context.Context, path string) {
-	if s.progressTracker.inProgress(path) {
-		return
+// TODO: expose errors somehow
+// Sync uploads everything in queue until it is closed and emptied.
+func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
+	fmt.Println("entering SyncCaptureQueues")
+	for _, q := range queues {
+		s.syncQueue(s.cancelCtx, q)
 	}
+	fmt.Println("exiting sync")
+}
 
-	s.progressTracker.mark(path)
+func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
-		//nolint:gosec
-		f, err := os.Open(path)
-		if err != nil {
-			s.logger.Errorw("error opening file", "error", err)
-			return
-		}
-		defer func(f *os.File) {
-			err := f.Close()
-			if err != nil {
-				s.logger.Errorw("error closing file", "error", err)
+		// TODO: make respect cancellation
+		for {
+			fmt.Println("syncQueue for loop iteration")
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				next := q.Pop()
+				// We've emptied queue. return.
+				if q.IsClosed() && next == nil {
+					fmt.Println("closed and next is nil")
+					return
+				}
+
+				if next == nil {
+					// TODO: better way to wait than just sleep?
+					time.Sleep(time.Second)
+					continue
+				}
+
+				uploadErr := exponentialRetry(
+					ctx,
+					func(ctx context.Context) error {
+						return s.syncFile(ctx, s.client, next, s.partID)
+					},
+					s.logger,
+				)
+				if uploadErr != nil {
+					s.logger.Error(uploadErr)
+					return
+				}
+				fmt.Println("going to delete")
+				if err := next.Delete(); err != nil {
+					s.logger.Error(err)
+				}
 			}
-		}(f)
-
-		uploadErr := exponentialRetry(
-			ctx,
-			func(ctx context.Context) error { return s.uploadFile(ctx, s.client, f, s.partID) },
-			s.logger,
-		)
-		if uploadErr != nil {
-			s.logger.Error(uploadErr)
-			return
-		}
-
-		// Delete the file and indicate that the upload is done.
-		if err := os.Remove(path); err != nil {
-			s.logger.Errorw("error while deleting file", "error", err)
-		} else {
-			s.progressTracker.unmark(path)
 		}
 	})
 }
 
-func (s *syncer) Sync(paths []string) {
+func (s *syncer) SyncCaptureFiles(paths []string) {
 	for _, p := range paths {
-		s.upload(s.cancelCtx, p)
+		select {
+		case <-s.cancelCtx.Done():
+			return
+		default:
+			//nolint:gosec
+			f, err := os.Open(p)
+			if err != nil {
+				s.logger.Errorw("error opening file", "error", err)
+				return
+			}
+			defer func(f *os.File) {
+				err := f.Close()
+				if err != nil {
+					s.logger.Errorw("error closing file", "error", err)
+				}
+			}(f)
+
+			captureFile, err := datacapture.ReadFile(f)
+			if err != nil {
+				s.logger.Error(err)
+				return
+			}
+			uploadErr := exponentialRetry(
+				s.cancelCtx,
+				func(ctx context.Context) error {
+					return s.syncFile(ctx, s.client, captureFile, s.partID)
+				},
+				s.logger,
+			)
+			if uploadErr != nil {
+				s.logger.Error(uploadErr)
+				return
+			}
+		}
 	}
 }
 
@@ -224,14 +263,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
-	if datacapture.IsDataCaptureFile(f) {
-		dcFile, err := datacapture.ReadFile(f)
-		if err != nil {
-			return err
-		}
-		return uploadDataCaptureFile(ctx, s.progressTracker, client, partID, dcFile)
-	}
-
-	return uploadArbitraryFile(ctx, client, partID, f)
+// TODO: add arbitrary files back
+func (s *syncer) syncFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
+	return uploadDataCaptureFile(ctx, client, f, partID)
 }
