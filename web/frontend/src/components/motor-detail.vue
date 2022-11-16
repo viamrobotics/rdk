@@ -1,8 +1,7 @@
-
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import motorApi, { type Status } from '../gen/component/motor/v1/motor_pb.esm';
+import { motorApi, type Status } from 'viam-typescript-sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';

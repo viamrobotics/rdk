@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { ref } from 'vue';
-import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import type { ServiceError } from 'viam-typescript-sdk';
 import { displayError } from '../lib/error';
 import { addStream, removeStream } from '../lib/stream';
 
