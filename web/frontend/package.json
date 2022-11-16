@@ -19,7 +19,7 @@
     "rollup": "^3.2.3",
     "rollup-plugin-copy": "^3.4.0",
     "three": "^0.145.0",
-    "viam-typescript-sdk": "file:../../../../viamrobotics/viam-typescript-sdk",
+    "viam-typescript-sdk": "github:viamrobotics/viam-typescript-sdk#RSDK-875-migrate-rdk-proto-methods-into-ts-sdk",
     "vite": "^3.1.8",
     "vitest": "^0.24.3",
     "vue": "^3.2.41",
