@@ -25,3 +25,9 @@ func newRRTOptions(planOpts *PlannerOptions) *rrtOptions {
 		planOpts: planOpts,
 	}
 }
+
+type rrtMap map[node]node
+
+type rrtPlanner interface{
+	
+}

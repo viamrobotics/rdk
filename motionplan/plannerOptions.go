@@ -48,8 +48,6 @@ const (
 	
 )
 
-var defaultPlanner = NewCBiRRTMotionPlannerWithSeed
-
 // the set of supported motion profiles.
 const (
 	FreeMotionProfile         = "free"
@@ -113,9 +111,9 @@ func plannerSetupFromMoveRequest(
 		}
 		switch planAlg {
 		case "cbirrt":
-			opt.PlannerConstructor = NewCBiRRTMotionPlannerWithSeed
+			opt.PlannerConstructor = newCBiRRTMotionPlannerWithSeed
 		case "rrtstar":
-			opt.PlannerConstructor = NewRRTStarConnectMotionPlannerWithSeed
+			opt.PlannerConstructor = newRRTStarConnectMotionPlannerWithSeed
 			// no motion profiles for RRT*
 			return opt, nil
 		default:

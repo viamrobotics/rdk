@@ -62,9 +62,7 @@ const (
 	SubtypeName = resource.SubtypeName("arm")
 )
 
-var defaultArmPlannerOptions = map[string]interface{}{
-	"motion_profile": motionplan.LinearMotionProfile,
-}
+var defaultArmPlannerOptions = map[string]interface{}{}
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(

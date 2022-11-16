@@ -135,7 +135,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	}
 
 	nCPU := runtime.NumCPU()
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
+	mp, err := motionplan.NewViamMotionPlanner(model, nCPU, logger)
 	if err != nil {
 		return nil, err
 	}

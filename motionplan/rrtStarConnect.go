@@ -62,14 +62,8 @@ func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions,
 // https://ieeexplore.ieee.org/document/7419012
 type rrtStarConnectMotionPlanner struct{ *planner }
 
-// NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
-func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
-	//nolint:gosec
-	return NewRRTStarConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
-}
-
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
-func NewRRTStarConnectMotionPlannerWithSeed(
+func newRRTStarConnectMotionPlannerWithSeed(
 	frame referenceframe.Frame,
 	nCPU int,
 	seed *rand.Rand,

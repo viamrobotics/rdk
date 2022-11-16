@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"math"
 	"math/rand"
-	"fmt"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -87,14 +86,8 @@ type cBiRRTMotionPlanner struct {
 	fastGradDescent *NloptIK
 }
 
-// NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
-func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
-	//nolint:gosec
-	return NewCBiRRTMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
-}
-
-// NewCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func NewCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+// newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
+func newCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
 	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
@@ -150,14 +143,11 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	seedMap[&basicNode{q: seed}] = nil
 
 	// Create a reference to the two maps so that we can alternate which one is grown
-	//~ map1, map2 := seedMap, goalMap
 
 	// TODO(rb) package neighborManager better
 	nm := &neighborManager{nCPU: mp.nCPU}
 	nmContext, cancel := context.WithCancel(ctx)
 	defer cancel()
-		var nn time.Duration
-		var ext time.Duration
 	doIter := func(){
 		start := time.Now()
 		
@@ -177,10 +167,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		//~ iktime := time.Now()
 		solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 		
-		fmt.Println("sol len", len(solutions))
-		
 		if err != nil && len(goalMap) == 0{
-			fmt.Println("err", err)
 			solutionChan <- &planReturn{err: err}
 			return
 		}
@@ -190,7 +177,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			
 			// Check if we can directly interpolate to any solutions
 			if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
-				fmt.Println("IK SOLVE", i)
 				solutionChan <- &planReturn{steps: []node{&basicNode{q: seed}, solution}}
 				solved = true
 				return
@@ -217,7 +203,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		map1, map2 := seedMap, goalMap
-		//~ fmt.Println("maps", len(map1), len(map2))
 		
 		m1chan := make(chan node, 1)
 		m2chan := make(chan node, 1)
@@ -225,12 +210,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		defer close(m2chan)
 
 		for i := 0; i < algOpts.PlanIter; i++ {
-			//~ fmt.Println("i", i)
 			
 			if time.Since(start) > time.Duration(algOpts.Timeout) * time.Second {
-				//~ fmt.Println("i", i)
-				//~ fmt.Println("nn", nn, "ext", ext, "neart", neart, "descent", descent, "cpatht", cpatht, "rt", rt, "nlopt", nloptCnt)
-				//~ fmt.Println("timeout")
 				return
 			}
 			
@@ -241,14 +222,10 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			default:
 			}
 
-			// attempt to extend map1 first
-			nns := time.Now()
+			// attempt to extend maps 1 and 2 towards the target
 			nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
-			//~ nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.Q(), map2)
 			nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
-			nn += time.Since(nns)
-			
-			exts := time.Now()
+
 			utils.PanicCapturingGo(func() {
 				mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
 			})
@@ -257,36 +234,28 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			})
 			map1reached := <- m1chan
 			map2reached := <- m2chan
-			ext += time.Since(exts)
-
-			// then attempt to extend map2 towards map 1
-			//~ nns = time.Now()
-			//~ nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.Q(), map2)
-			//~ nn += time.Since(nns)
 
 			corners[map1reached] = true
 			corners[map2reached] = true
 
 			_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 			
-			// Second iteration to connect the reached points
+			// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 			if reachedDelta > algOpts.JointSolveDist {
-				nns := time.Now()
-				nearest1 := nm.nearestNeighbor(nmContext, planOpts, map2reached.Q(), map1)
-				//~ nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.Q(), map2)
-				nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.Q(), map2)
-				nn += time.Since(nns)
 				
-				exts := time.Now()
+				target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
+				
+				nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
+				nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
+				
 				utils.PanicCapturingGo(func() {
-					mp.constrainedExtend(ctx, algOpts, map1, nearest1, map2reached, m1chan)
+					mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
 				})
 				utils.PanicCapturingGo(func() {
-					mp.constrainedExtend(ctx, algOpts, map2, nearest2, map1reached, m2chan)
+					mp.constrainedExtend(ctx, algOpts, map2, nearest2, &basicNode{q: target}, m2chan)
 				})
 				map1reached = <- m1chan
 				map2reached = <- m2chan
-				ext += time.Since(exts)
 				_, reachedDelta = planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 			}
 			
@@ -297,13 +266,9 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 				if endpointPreview != nil {
 					endpointPreview <- path[len(path)-1]
 				}
-				//~ fmt.Println("solved!")
-				sm := time.Now()
 				finalSteps := mp.SmoothPath(ctx, algOpts, path, corners)
-				fmt.Println("smooth time", time.Since(sm))
 				solutionChan <- &planReturn{steps: finalSteps}
 				solved = true
-				fmt.Println("nn", nn, "ext", ext, "neart", neart, "descent", descent, "cpatht", cpatht, "rt", rt, "nlopt", nloptCnt)
 				return
 			}
 
@@ -314,7 +279,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 	doIter()
 	if solved {
-		fmt.Println("returning solved")
 		return
 	}
 	select {
@@ -325,12 +289,10 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 	for planOpts.Fallback != nil {
 		planOpts = planOpts.Fallback
-		fmt.Println("fallback")
 		
 		doIter()
 		
 		if solved {
-			fmt.Println("fb solved!")
 			return
 		}
 	}
@@ -351,11 +313,6 @@ func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sample
 	return q
 }
 
-var dfunc time.Duration
-var neart time.Duration
-var matht time.Duration
-
-
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
 // return the closest solution to the target that it reaches, which may or may not actually be the target.
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
@@ -368,11 +325,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	
 	oldNear := near
 	for i := 0; i<1000; i++ {
-		start := time.Now()
 		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: target.Q()})
 		_, oldDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: oldNear.Q(), EndInput: target.Q()})
 		_, nearDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: oldNear.Q()})
-		dfunc += time.Since(start)
 		switch {
 		case dist < algOpts.JointSolveDist:
 			mchan <- near
@@ -391,7 +346,6 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear := make([]referenceframe.Input, 0, len(near.Q()))
 
 		// alter near to be closer to target
-		start = time.Now()
 		for j, nearInput := range near.Q() {
 			if nearInput.Value == target.Q()[j].Value {
 				newNear = append(newNear, nearInput)
@@ -403,11 +357,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
 			}
 		}
-		matht += time.Since(start)
 		// if we are not meeting a constraint, gradient descend to the constraint
-		start = time.Now()
 		newNear = mp.constrainNear(ctx, algOpts, oldNear.Q(), newNear)
-		neart += time.Since(start)
 
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
@@ -441,7 +392,6 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	if err != nil {
 		return nil
 	}
-	start := time.Now()
 	// Check if constraints need to be met
 	ok, _ := algOpts.planOpts.CheckConstraintPath(&ConstraintInput{
 		seedPos,
@@ -453,16 +403,12 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	if ok {
 		return target
 	}
-	cpatht += time.Since(start)
-	
-	start = time.Now()
 	solutionGen := make(chan []referenceframe.Input, 1)
 	// Spawn the IK solver to generate solutions until done
 	nloptCnt++
 	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, algOpts.planOpts.pathDist, mp.randseed.Int())
 	// We should have zero or one solutions
 	var solved []referenceframe.Input
-	descent += time.Since(start)
 	select {
 	case solved = <-solutionGen:
 	default:
@@ -472,12 +418,10 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return nil
 	}
 
-	start = time.Now()
 	ok, failpos := algOpts.planOpts.CheckConstraintPath(
 		&ConstraintInput{StartInput: seedInputs, EndInput: solved, Frame: mp.frame},
 		algOpts.planOpts.Resolution,
 	)
-	cpatht += time.Since(start)
 	if !ok {
 		if failpos != nil {
 			_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: target, EndInput: failpos.EndInput})
