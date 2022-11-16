@@ -261,7 +261,7 @@ type AttrConfig struct {
 
 // Validate creates the list of implicit dependencies.
 func (config *AttrConfig) Validate(path string) ([]string, error) {
-	var deps []string
+	// var deps []string
 
 	if config.Algorithm == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "algorithm")
@@ -275,9 +275,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "data_dir")
 	}
 
-	for _, sensor := range config.Sensors {
-		deps = append(deps, sensor)
-	}
+	deps := config.Sensors
 
 	return deps, nil
 }

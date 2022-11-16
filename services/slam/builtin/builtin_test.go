@@ -448,11 +448,11 @@ func createSLAMService(
 
 	deps := setupDeps(attrCfg)
 
-	_, err := attrCfg.Validate("path")
+	sensorDeps, err := attrCfg.Validate("path")
 	if err != nil {
 		return nil, err
 	}
-	//test.That(t, sensorDeps, test.ShouldResemble, attrCfg.Sensors)
+	test.That(t, sensorDeps, test.ShouldResemble, attrCfg.Sensors)
 
 	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
 	builtin.SetDialMaxTimeoutSecForTesting(1)
