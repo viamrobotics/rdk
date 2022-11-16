@@ -53,7 +53,7 @@ func TestFixOvIncrement(t *testing.T) {
 	pos2.OZ = -1
 	pos2.OY = 0.1
 	outpos = fixOvIncrement(spatialmath.NewPoseFromProtobuf(pos2), spatialmath.NewPoseFromProtobuf(pos1))
-	test.That(t, outpos.Orientation().OrientationVectorDegrees().Theta, test.ShouldEqual, 105)
+	test.That(t, outpos.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 105)
 
 	// OX and OY are both incremented, should do nothing
 	pos2.OX += 0.1
