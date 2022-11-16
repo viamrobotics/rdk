@@ -144,9 +144,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)
 	releaseImages(t, mode)
-	// Check if orbslam created a map successfully or if it hangs and needs to be
-	// shut down
-	created_map := false
+	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs := false
 	// Wait for orbslam to finish processing images
 	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
@@ -160,9 +158,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			if strings.Contains(line, "Passed image to SLAM") {
 				break
 			}
-			if strings.Contains(line, "New Map created with") {
-				created_map = true
-			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
 				orbslam_hangs = true
@@ -175,20 +170,14 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	if created_map {
-		testOrbslamPositionAndMap(t, svc)
-	}
+	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
 	err = utils.TryClose(context.Background(), svc)
 	if !orbslam_hangs {
 		test.That(t, err, test.ShouldBeNil)
 	} else if err != nil {
-		t.Skip("Skipping test because orbslam failed to shut down")
-	}
-
-	if !created_map {
-		t.Skip("Skipping test because orbslam failed to create a map")
+		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
 
 	// Don't clear out the directory, since we will re-use the config and data for the next run
@@ -244,7 +233,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Check if orbslam created a map successfully or if it hangs and needs to be
 	// shut down
-	created_map = false
 	orbslam_hangs = false
 	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
@@ -258,9 +246,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		if strings.Contains(line, "Finished processing offline images") {
 			break
 		}
-		if strings.Contains(line, "New Map created with") {
-			created_map = true
-		}
 		test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 		if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
 			orbslam_hangs = true
@@ -269,9 +254,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	if created_map {
-		testOrbslamPositionAndMap(t, svc)
-	}
+	testOrbslamPositionAndMap(t, svc)
 
 	if !orbslam_hangs {
 		// Wait for the final map to be saved
@@ -289,12 +272,9 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	if !orbslam_hangs {
 		test.That(t, err, test.ShouldBeNil)
 	} else if err != nil {
-		t.Skip("Skipping test because orbslam failed to shut down")
+		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
 
-	if !created_map {
-		t.Skip("Skipping test because orbslam failed to create a map")
-	}
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
@@ -344,7 +324,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	releaseImages(t, mode)
 	// Check if orbslam created a map successfully or if it hangs and needs to be
 	// shut down
-	created_map = false
 	orbslam_hangs = false
 	// Wait for orbslam to finish processing images
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
@@ -356,9 +335,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
 				break
-			}
-			if strings.Contains(line, "New Map created with") {
-				created_map = true
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
@@ -372,9 +348,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	if created_map {
-		testOrbslamPositionAndMap(t, svc)
-	}
+	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
 	err = utils.TryClose(context.Background(), svc)
@@ -384,9 +358,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		t.Skip("Skipping test because orbslam failed to shut down")
 	}
 
-	if !created_map {
-		t.Skip("Skipping test because orbslam failed to create a map")
-	}
 	// Clear out directory
 	closeOutSLAMService(t, name)
 
