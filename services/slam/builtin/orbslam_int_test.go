@@ -161,7 +161,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
 				orbslam_hangs = true
-				t.Log("orbslam hangs")
+				t.Log("orbslam hangs: exiting the data loop")
 				break
 			}
 		}
@@ -248,7 +248,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 		if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
 			orbslam_hangs = true
-			t.Log("orbslam hangs")
+			t.Log("orbslam hangs: exiting the data loop")
 			break
 		}
 	}
@@ -337,7 +337,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
 				orbslam_hangs = true
-				t.Log("orbslam hangs")
+				t.Log("orbslam hangs: exiting the data loop")
 				break
 			}
 		}
@@ -353,7 +353,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	if !orbslam_hangs {
 		test.That(t, err, test.ShouldBeNil)
 	} else if err != nil {
-		t.Skip("Skipping test because orbslam failed to shut down")
+		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
 
 	// Clear out directory
