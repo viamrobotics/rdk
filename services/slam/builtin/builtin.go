@@ -261,7 +261,6 @@ type AttrConfig struct {
 
 // Validate creates the list of implicit dependencies.
 func (config *AttrConfig) Validate(path string) ([]string, error) {
-	// var deps []string
 
 	if config.Algorithm == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "algorithm")
