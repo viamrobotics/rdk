@@ -349,7 +349,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 		}
 		svc.syncer = syncer
 
-		// Sync existing files in captureDir.
+		// SyncCaptureQueues existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
 		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
@@ -362,10 +362,10 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 			previouslyCaptured = append(previouslyCaptured, path)
 			return nil
 		})
-		svc.syncer.Sync(previouslyCaptured)
+		svc.syncer.SyncCaptureQueues(previouslyCaptured)
 
 		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
-		svc.syncer.Sync(svc.buildAdditionalSyncPaths())
+		svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
 
 		// Kick off background routine to periodically sync files.
 		svc.startSyncBackgroundRoutine(intervalMins)
@@ -376,7 +376,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, extra map[string]interface{}) error {
 	if svc.syncer == nil {
-		return errors.New("called Sync on data manager service with nil syncer")
+		return errors.New("called SyncCaptureQueues on data manager service with nil syncer")
 	}
 	err := svc.syncDataCaptureFiles()
 	if err != nil {
@@ -410,7 +410,7 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 		oldFiles = append(oldFiles, collector.Collector.GetTarget().GetPath())
 		collector.Collector.SetTarget(nextTarget)
 	}
-	svc.syncer.Sync(oldFiles)
+	svc.syncer.SyncCaptureQueues(oldFiles)
 	return nil
 }
 
@@ -455,7 +455,7 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
-	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
+	svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
 }
 
 // Update updates the data manager service when the config has changed.

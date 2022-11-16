@@ -71,7 +71,7 @@ func TestFileUpload(t *testing.T) {
 			client := NewClient(conn)
 			sut, err := NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
-			sut.Sync([]string{tf.Name()})
+			sut.SyncCaptureQueues([]string{tf.Name()})
 			time.Sleep(syncWaitTime)
 			sut.Close()
 
@@ -153,7 +153,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			client := NewClient(conn)
 			sut, err := NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
-			sut.Sync([]string{f.GetPath()})
+			sut.SyncCaptureQueues([]string{f.GetPath()})
 			time.Sleep(syncWaitTime)
 			sut.Close()
 
@@ -234,7 +234,7 @@ func TestSensorUploadBinary(t *testing.T) {
 			client := NewClient(conn)
 			sut, err := NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
-			sut.Sync([]string{f.GetPath()})
+			sut.SyncCaptureQueues([]string{f.GetPath()})
 
 			expectedMsgs := buildSensorDataUploadRequests(tc.toSend, v1.DataType_DATA_TYPE_BINARY_SENSOR, filepath.Base(f.GetPath()))
 
@@ -267,17 +267,17 @@ func TestUploadsOnce(t *testing.T) {
 	file1, _ := os.CreateTemp("", "whatever")
 	file2, _ := os.CreateTemp("", "whatever2")
 
-	// Immediately try to Sync same files many times.
+	// Immediately try to SyncCaptureQueues same files many times.
 	for i := 1; i < 10; i++ {
-		sut.Sync([]string{file1.Name(), file2.Name()})
+		sut.SyncCaptureQueues([]string{file1.Name(), file2.Name()})
 	}
 
-	// Verify upload was only called twice.
+	// Verify syncQueue was only called twice.
 	time.Sleep(syncWaitTime)
 	sut.Close()
 	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 2)
 
-	// Verify the two upload calls were made on different files.
+	// Verify the two syncQueue calls were made on different files.
 	var metadatas []*v1.UploadMetadata
 	for _, ur := range mockService.getUploadRequests() {
 		if ur.GetMetadata() != nil {
@@ -287,7 +287,7 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, len(metadatas), test.ShouldEqual, 2)
 	test.That(t, metadatas[0].GetFileName(), test.ShouldNotEqual, metadatas[1].GetFileName())
 
-	// Verify that the files were deleted after upload.
+	// Verify that the files were deleted after syncQueue.
 	_, err = os.Stat(file1.Name())
 	test.That(t, err, test.ShouldNotBeNil)
 	_, err = os.Stat(file2.Name())
@@ -349,7 +349,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 			file1, _ := os.CreateTemp("", "whatever")
 			defer os.Remove(file1.Name())
 			_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
-			sut.Sync([]string{file1.Name()})
+			sut.SyncCaptureQueues([]string{file1.Name()})
 
 			// Let it run so it can retry (or not).
 			time.Sleep(tc.waitTime)
@@ -391,7 +391,7 @@ func TestPartialUpload(t *testing.T) {
 		expSentAfterRetry             []*v1.SensorData
 	}{
 		{
-			name:                          `Binary upload should resume from last ACKed point if the syncer is closed.`,
+			name:                          `Binary syncQueue should resume from last ACKed point if the syncer is closed.`,
 			dataType:                      v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			ackEveryNSensorDatas:          2,
 			clientCancelAfterNSensorDatas: 3,
@@ -401,7 +401,7 @@ func TestPartialUpload(t *testing.T) {
 			expSentAfterRetry:  createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
-			name:                          `Tabular upload should resume from last ACKed point if the syncer is closed.`,
+			name:                          `Tabular syncQueue should resume from last ACKed point if the syncer is closed.`,
 			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			ackEveryNSensorDatas:          2,
 			clientCancelAfterNSensorDatas: 3,
@@ -411,7 +411,7 @@ func TestPartialUpload(t *testing.T) {
 			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
 		},
 		{
-			name:                         `Binary upload should resume from last ACKed point after server disconnection.`,
+			name:                         `Binary syncQueue should resume from last ACKed point after server disconnection.`,
 			dataType:                     v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			ackEveryNSensorDatas:         2,
 			serverErrorAfterNSensorDatas: 3,
@@ -421,7 +421,7 @@ func TestPartialUpload(t *testing.T) {
 			expSentAfterRetry:  createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
-			name:                         `Tabular upload should resume from last ACKed point after server disconnection.`,
+			name:                         `Tabular syncQueue should resume from last ACKed point after server disconnection.`,
 			dataType:                     v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			ackEveryNSensorDatas:         2,
 			serverErrorAfterNSensorDatas: 3,
@@ -492,10 +492,10 @@ func TestPartialUpload(t *testing.T) {
 				sut.Close()
 				doneCancelChannel <- true
 			}()
-			sut.Sync([]string{f.GetPath()})
+			sut.SyncCaptureQueues([]string{f.GetPath()})
 			time.Sleep(syncWaitTime)
 
-			// Validate client sent mockService the upload requests we would expect before canceling the upload.
+			// Validate client sent mockService the syncQueue requests we would expect before canceling the syncQueue.
 			var expMsgs []*v1.UploadRequest
 			var actMsgs []*v1.UploadRequest
 
@@ -517,11 +517,11 @@ func TestPartialUpload(t *testing.T) {
 			client = NewClient(conn)
 			sut, err = NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
-			sut.Sync([]string{f.GetPath()})
+			sut.SyncCaptureQueues([]string{f.GetPath()})
 			time.Sleep(syncWaitTime)
 			sut.Close()
 
-			// Validate client sent mockService the upload requests we would expect after resuming upload.
+			// Validate client sent mockService the syncQueue requests we would expect after resuming syncQueue.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, f.GetPath())
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 

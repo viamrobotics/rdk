@@ -285,7 +285,7 @@ func TestServer(t *testing.T) {
 			receivedID = id
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "Sync"}
+		extra := map[string]interface{}{"foo": "SyncCaptureQueues"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 

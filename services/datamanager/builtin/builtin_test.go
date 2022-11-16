@@ -624,7 +624,7 @@ func TestManualSync(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+1)
 	test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
 
-	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
+	// SyncCaptureQueues again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
 	// any files that were previously synced.
 	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
