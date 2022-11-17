@@ -23,7 +23,11 @@ func createLuaFiles(name string) error {
 	if err := os.Mkdir(name+"/config/lua_files", os.ModePerm); err != nil {
 		return err
 	}
-	for _, luaFile := range []string{"locating_in_map.lua", "mapping_new_map.lua", "updating_a_map.lua"} {
+	for _, luaFile := range []string{"locating_in_map.lua", "mapping_new_map.lua",
+		"updating_a_map.lua", "map_builder.lua", "map_builder_server.lua",
+		"pose_graph.lua", "trajectory_builder_2d.lua", "trajectory_builder_3d.lua",
+		"trajectory_builder.lua"} {
+
 		source, err := os.Open(artifact.MustPath("slam/" + luaFile))
 		if err != nil {
 			return err
@@ -67,6 +71,8 @@ func TestCartographerIntegration(t *testing.T) {
 
 	t.Log("Testing online mode")
 
+	mapRate := 1
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm: "cartographer",
 		Sensors:   []string{"cartographer_int_lidar"},
@@ -74,6 +80,7 @@ func TestCartographerIntegration(t *testing.T) {
 			"mode": "2d",
 			"v":    "1",
 		},
+		MapRateSec:    &mapRate,
 		DataDirectory: name,
 	}
 
@@ -117,7 +124,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Remove maps so that testing in offline mode will run in mapping mode,
 	// as opposed to updating mode.
-	test.That(t, os.RemoveAll(name+"/map/*"), test.ShouldBeNil)
+	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
 
 	// Test offline mode using the data generated in the online test
 	t.Log("Testing offline mode")
@@ -129,6 +136,7 @@ func TestCartographerIntegration(t *testing.T) {
 			"mode": "2d",
 			"v":    "1",
 		},
+		MapRateSec:    &mapRate,
 		DataDirectory: name,
 	}
 

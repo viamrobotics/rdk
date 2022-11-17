@@ -2,12 +2,11 @@ package arm_test
 
 import (
 	"context"
-	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -119,7 +119,7 @@ func TestNamesFromRobot(t *testing.T) {
 
 func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
-		EndPosition:    pose,
+		EndPosition:    spatialmath.PoseToProtobuf(pose),
 		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
@@ -130,7 +130,7 @@ func TestStatusValid(t *testing.T) {
 		newStruct.AsMap(),
 		test.ShouldResemble,
 		map[string]interface{}{
-			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
+			"end_position":    map[string]interface{}{"o_z": 1.0, "x": 1.0, "y": 2.0, "z": 3.0},
 			"joint_positions": map[string]interface{}{"values": []interface{}{1.1, 2.2, 3.3}},
 			"is_moving":       true,
 		},
@@ -149,13 +149,13 @@ func TestCreateStatus(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{
-		EndPosition:    pose,
+		EndPosition:    spatialmath.PoseToProtobuf(pose),
 		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose, nil
 	}
 	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
@@ -182,7 +182,7 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		status2 := &pb.Status{
-			EndPosition:    pose,
+			EndPosition:    spatialmath.PoseToProtobuf(pose),
 			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
 			IsMoving:       false,
 		}
@@ -202,7 +202,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on EndPosition", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+		injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)
@@ -343,30 +343,6 @@ func TestClose(t *testing.T) {
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
 }
 
-func TestArmPosition(t *testing.T) {
-	p := arm.NewPositionFromMetersAndOV(1.0, 2.0, 3.0, math.Pi/2, 0, 0.7071, 0.7071)
-
-	test.That(t, p.OX, test.ShouldEqual, 0.0)
-	test.That(t, p.OY, test.ShouldEqual, 0.7071)
-	test.That(t, p.OZ, test.ShouldEqual, 0.7071)
-
-	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
-}
-
-func TestArmPositionDiff(t *testing.T) {
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{}, &commonpb.Pose{}), test.ShouldAlmostEqual, 0)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{X: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{Y: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{Z: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionGridDiff(&commonpb.Pose{X: 1, Y: 1, Z: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, math.Sqrt(3))
-
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{}, &commonpb.Pose{}), test.ShouldAlmostEqual, 0)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OX: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OY: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, arm.PositionRotationDiff(&commonpb.Pose{OX: 1, OY: 1, OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 3)
-}
-
 func TestExtraOptions(t *testing.T) {
 	actualArm1 := &mockLocal{Name: testArmName}
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
@@ -378,7 +354,7 @@ func TestExtraOptions(t *testing.T) {
 	test.That(t, actualArm1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
 
-var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
+var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 
 type mock struct {
 	arm.Arm
@@ -400,7 +376,7 @@ type mockLocal struct {
 	extra       map[string]interface{}
 }
 
-func (m *mockLocal) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (m *mockLocal) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	m.endPosCount++
 	m.extra = extra
 	return pose, nil

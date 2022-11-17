@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var errArmClientModelNotValid = errors.New("arm client has incorrecly configured model and could not complete the operation")
@@ -41,7 +42,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -53,12 +54,12 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Pose, nil
+	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
 
 func (c *client) MoveToPosition(
 	ctx context.Context,
-	pose *commonpb.Pose,
+	pose spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
@@ -68,7 +69,7 @@ func (c *client) MoveToPosition(
 	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:       c.name,
-		To:         pose,
+		To:         spatialmath.PoseToProtobuf(pose),
 		WorldState: worldState,
 		Extra:      ext,
 	})

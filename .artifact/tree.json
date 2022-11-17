@@ -50584,6 +50584,14 @@
       "hash": "94180b8051257132b0e6eaab763c303a",
       "size": 1017
     },
+    "map_builder.lua": {
+      "hash": "582a561c1bb96440150be968de9c5c46",
+      "size": 811
+    },
+    "map_builder_server.lua": {
+      "hash": "e8c4647fef609973865cd218060d3b62",
+      "size": 931
+    },
     "mapping_new_map.lua": {
       "hash": "8156d4670834d97e5d226c8488ef6f85",
       "size": 939
@@ -50951,6 +50959,22 @@
           "size": 813831
         }
       }
+    },
+    "pose_graph.lua": {
+      "hash": "044fb62892d992182a126b76834797cc",
+      "size": 3100
+    },
+    "trajectory_builder.lua": {
+      "hash": "31903d99adbba89edaa7d0d71a3b4ac6",
+      "size": 930
+    },
+    "trajectory_builder_2d.lua": {
+      "hash": "01f8dd196885047e939be1488c01d08e",
+      "size": 3249
+    },
+    "trajectory_builder_3d.lua": {
+      "hash": "b3dde736ed6b7f7278fc5c462df6f4dd",
+      "size": 3208
     },
     "updating_a_map.lua": {
       "hash": "2b044a23bdc0f4da1b78a9fd0c727497",

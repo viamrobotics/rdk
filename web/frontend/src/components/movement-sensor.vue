@@ -4,8 +4,8 @@ import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import movementsensorApi, {
   type GetPropertiesResponse,
-} from '../gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
-import type { GeoPoint, Orientation, Vector3 } from '../gen/proto/api/common/v1/common_pb.esm';
+} from '../gen/component/movementsensor/v1/movementsensor_pb.esm';
+import type { GeoPoint, Orientation, Vector3 } from '../gen/common/v1/common_pb.esm';
 import { displayError } from '../lib/error';
 
 interface Props {
