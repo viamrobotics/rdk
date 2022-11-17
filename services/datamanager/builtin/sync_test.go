@@ -330,8 +330,8 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 }
 
 type mockDataSyncServiceServer struct {
-	dataCaptureUploadRequests []*v1.DataCaptureUploadRequest
-	fileUploadRequests        []*v1.FileUploadRequest
+	dataCaptureUploadRequests *[]*v1.DataCaptureUploadRequest
+	fileUploadRequests        *[]*v1.FileUploadRequest
 	lock                      *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
 }
@@ -339,12 +339,12 @@ type mockDataSyncServiceServer struct {
 func (m *mockDataSyncServiceServer) getCaptureUploadRequests() []*v1.DataCaptureUploadRequest {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.dataCaptureUploadRequests
+	return *m.dataCaptureUploadRequests
 }
 
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
 	(*m.lock).Lock()
-	m.dataCaptureUploadRequests = append(m.dataCaptureUploadRequests, ur)
+	*m.dataCaptureUploadRequests = append(*m.dataCaptureUploadRequests, ur)
 	(*m.lock).Unlock()
 	// TODO: will likely need to make this optionally return errors for testing error cases
 	return &v1.DataCaptureUploadResponse{
@@ -363,7 +363,7 @@ func buildAndStartLocalSyncServer(t *testing.T) (rpc.Server, *mockDataSyncServic
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockDataSyncServiceServer{
-		dataCaptureUploadRequests:          []*v1.DataCaptureUploadRequest{},
+		dataCaptureUploadRequests:          &[]*v1.DataCaptureUploadRequest{},
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
