@@ -229,7 +229,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos2, err := arm2.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
+	test.That(t, spatialmath.PoseAlmostCoincident(pos1, pos2), test.ShouldBeTrue)
 
 	statuses, err := r2.Status(
 		context.Background(),
@@ -710,13 +710,13 @@ type dummyArm struct {
 	channel   chan struct{}
 }
 
-func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	return nil, errors.New("fake error")
 }
 
 func (da *dummyArm) MoveToPosition(
 	ctx context.Context,
-	pose *commonpb.Pose,
+	pose spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

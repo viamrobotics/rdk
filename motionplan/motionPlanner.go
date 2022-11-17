@@ -15,7 +15,7 @@ import (
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
-	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/spatialmath"
 	vutil "go.viam.com/rdk/utils"
 )
 
@@ -24,7 +24,7 @@ import (
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
+	Plan(context.Context, spatialmath.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
@@ -203,7 +203,7 @@ func EvaluatePlan(plan *planReturn, planOpts *PlannerOptions) (totalCost float64
 // runPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
 func runPlannerWithWaypoints(ctx context.Context,
 	planner MotionPlanner,
-	goals []spatial.Pose,
+	goals []spatialmath.Pose,
 	seed []frame.Input,
 	opts []*PlannerOptions,
 	iter int,
@@ -221,15 +221,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
-			// TODO(rb) fix me
-			cbert.planRunner(
-				ctx,
-				spatial.PoseToProtobuf(goal),
-				seed,
-				opt,
-				endpointPreview,
-				solutionChan,
-			)
+			cbert.planRunner(ctx, goal, seed, opt, endpointPreview, solutionChan)
 		})
 		for {
 			select {
@@ -292,7 +284,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 			}
 		}
 	} else {
-		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		resultSlicesRaw, err := planner.Plan(ctx, goal, seed, opt)
 		if err != nil {
 			return nil, err
 		}
@@ -311,14 +303,14 @@ func runPlannerWithWaypoints(ctx context.Context,
 // GetSteps will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
-func GetSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
+func GetSteps(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 	// use a default size of 1 if zero is passed in to avoid divide-by-zero
 	if stepSize == 0 {
 		stepSize = 1.
 	}
 
 	mmDist := seedPos.Point().Distance(goalPos.Point())
-	rDist := spatial.OrientationBetween(seedPos.Orientation(), goalPos.Orientation()).AxisAngles()
+	rDist := spatialmath.OrientationBetween(seedPos.Orientation(), goalPos.Orientation()).AxisAngles()
 
 	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(vutil.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
@@ -330,7 +322,7 @@ func GetSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 func getSolutions(ctx context.Context,
 	planOpts *PlannerOptions,
 	solver InverseKinematics,
-	goal *commonpb.Pose,
+	goal spatialmath.Pose,
 	seed []frame.Input,
 	f frame.Frame,
 ) ([]*costNode, error) {
@@ -344,7 +336,7 @@ func getSolutions(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+	goalPos := fixOvIncrement(goal, seedPos)
 
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error, 1)

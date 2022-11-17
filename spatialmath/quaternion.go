@@ -90,7 +90,7 @@ func QuatToOV(q quat.Number) *OrientationVector {
 
 	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
 	// the pole because it's a convenient small number
-	if 1-math.Abs(newZ.Kmag) > angleEpsilon {
+	if 1-math.Abs(newZ.Kmag) > defaultAngleEpsilon {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
 
@@ -111,7 +111,7 @@ func QuatToOV(q quat.Number) *OrientationVector {
 		}
 
 		theta := math.Acos(cosTheta)
-		if theta > angleEpsilon {
+		if theta > defaultAngleEpsilon {
 			// Acos will always produce a positive number, we need to determine directionality of the angle
 			// We rotate newZ by -theta around the newX axis and see if we wind up coplanar with local-x, global-z, origin
 			// If so theta is negative, otherwise positive
@@ -121,7 +121,7 @@ func QuatToOV(q quat.Number) *OrientationVector {
 			testZ := quat.Mul(quat.Mul(q2, zAxis), quat.Conj(q2))
 			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
 			cosTest := norm1.Dot(norm3) / (norm1.Len() * norm3.Len())
-			if 1-cosTest < angleEpsilon*angleEpsilon {
+			if 1-cosTest < defaultAngleEpsilon*defaultAngleEpsilon {
 				ov.Theta = -theta
 			} else {
 				ov.Theta = theta
