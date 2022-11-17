@@ -75,7 +75,7 @@ func (ov *OrientationVector) ToQuat() quat.Number {
 	lon := 0.0
 	theta := ov.Theta
 
-	if 1-math.Abs(ov.OZ) > angleEpsilon {
+	if 1-math.Abs(ov.OZ) > defaultAngleEpsilon {
 		// If we are not at a pole, we need the longitude
 		// atan x/y removes some sign information so we use atan2 to do it properly
 		lon = math.Atan2(ov.OY, ov.OX)

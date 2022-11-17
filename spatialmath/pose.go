@@ -12,10 +12,10 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// Epsilon represents the acceptable discrepancy between two floats
+// defaultDistanceEpsilon represents the acceptable discrepancy between two floats
 // representing spatial coordinates wherein the coordinates should be
 // considered equivalent.
-const Epsilon = 1e-8
+const defaultDistanceEpsilon = 1e-8
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
@@ -145,10 +145,15 @@ func PoseAlmostEqual(a, b Pose) bool {
 	return PoseAlmostCoincident(a, b) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
 }
 
+// PoseAlmostEqual will return a bool describing whether 2 poses are approximately the same.
+func PoseAlmostEqualEps(a, b Pose, epsilon float64) bool {
+	return PoseAlmostCoincidentEps(a, b, epsilon) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
+}
+
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 // This uses the same epsilon as the default value for the Viam IK solver.
 func PoseAlmostCoincident(a, b Pose) bool {
-	return PoseAlmostCoincidentEps(a, b, Epsilon)
+	return PoseAlmostCoincidentEps(a, b, defaultDistanceEpsilon)
 }
 
 // PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
