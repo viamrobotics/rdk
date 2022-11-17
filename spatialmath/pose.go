@@ -145,7 +145,7 @@ func PoseAlmostEqual(a, b Pose) bool {
 	return PoseAlmostCoincident(a, b) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
 }
 
-// PoseAlmostEqual will return a bool describing whether 2 poses are approximately the same.
+// PoseAlmostEqualEps will return a bool describing whether 2 poses are approximately the same.
 func PoseAlmostEqualEps(a, b Pose, epsilon float64) bool {
 	return PoseAlmostCoincidentEps(a, b, epsilon) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
 }
