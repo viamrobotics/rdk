@@ -642,7 +642,6 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 				if err != nil {
 					return componentDataCaptureConfigs, err
 				}
-
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
 					attrs.Model = c.Model
