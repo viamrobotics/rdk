@@ -20,8 +20,6 @@ import {
   SLAMServiceClient,
   VisionServiceClient,
   StreamServiceClient,
-  // test
-  foo,
   // apis
   commonApi,
   armApi,
@@ -47,8 +45,6 @@ import { fetchCameraDiscoveries } from './lib/discovery';
  * Every window variable on this page is being currently used by the blockly page in App.
  * Once we switch blockly to using import / export we should remove / clean up these window variables.
  */
-
-console.log(foo());
 
 window.commonApi = commonApi;
 window.armApi = armApi;
