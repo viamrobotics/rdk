@@ -3,11 +3,16 @@ package builtin
 import (
 	"context"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/test"
 	"os"
 	"testing"
 	"time"
+)
+
+var (
+	// Robot config which specifies data manager service.
+	enabledCollectorConfigPath  = "services/datamanager/data/fake_robot_with_data_manager.json"
+	disabledCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
 )
 
 /*
@@ -98,32 +103,44 @@ func TestDataCaptureEnabled(t *testing.T) {
 			dmsvc := newTestDataManager(t, "arm1", "")
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 
+			var initialConfig *config.Config
+			if tc.initialCollectorDisableStatus {
+				initialConfig = setupConfig(t, disabledCollectorConfigPath)
+			} else {
+				initialConfig = setupConfig(t, enabledCollectorConfigPath)
+			}
+
 			// Set up service config.
-			testCfg := setupConfig(t, configPath)
-			svcConfig, ok, err := getServiceConfig(testCfg)
+			originalSvcConfig, ok1, err := getServiceConfig(initialConfig)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok, test.ShouldBeTrue)
-			svcConfig.CaptureDisabled = tc.initialServiceDisableStatus
-			svcConfig.ScheduledSyncDisabled = true
-			svcConfig.CaptureDir = tmpDir
+			test.That(t, ok1, test.ShouldBeTrue)
+			originalSvcConfig.CaptureDisabled = tc.initialServiceDisableStatus
+			originalSvcConfig.ScheduledSyncDisabled = true
+			originalSvcConfig.CaptureDir = tmpDir
 
 			// TODO: Figure out how to edit component configs such that the changes are actually reflected in the
 			//       original config.
-			componentConfigs, err := getComponentConfigs(testCfg)
-			test.That(t, err, test.ShouldBeNil)
-			for _, attr := range componentConfigs.Attributes {
-				attr.Disabled = tc.initialCollectorDisableStatus
-			}
 
-			err = dmsvc.Update(context.Background(), testCfg)
+			err = dmsvc.Update(context.Background(), initialConfig)
 
 			// Let run for a second, then change status.
 			time.Sleep(captureTime)
-			svcConfig.CaptureDisabled = tc.newServiceDisableStatus
-			for _, attr := range componentConfigs.Attributes {
-				attr.Disabled = tc.newCollectorDisableStatus
+
+			// Set up service config.
+			var updatedConfig *config.Config
+			if tc.newCollectorDisableStatus {
+				updatedConfig = setupConfig(t, disabledCollectorConfigPath)
+			} else {
+				updatedConfig = setupConfig(t, enabledCollectorConfigPath)
 			}
-			err = dmsvc.Update(context.Background(), testCfg)
+
+			updatedServiceConfig, ok, err := getServiceConfig(updatedConfig)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok, test.ShouldBeTrue)
+			updatedServiceConfig.CaptureDisabled = tc.newServiceDisableStatus
+			updatedServiceConfig.ScheduledSyncDisabled = true
+			updatedServiceConfig.CaptureDir = tmpDir
+			err = dmsvc.Update(context.Background(), updatedConfig)
 
 			// Check if data has been captured (or not) as we'd expect.
 			initialCaptureFiles := getAllFiles(tmpDir)
@@ -147,23 +164,4 @@ func TestDataCaptureEnabled(t *testing.T) {
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
-}
-
-func getComponentConfigs(cfg *config.Config) (*dataCaptureConfigs, error) {
-	var componentDataCaptureConfigs dataCaptureConfigs
-	for _, c := range cfg.Components {
-		// Iterate over all component-level service configs of type data_manager.
-		for _, componentSvcConfig := range c.ServiceConfig {
-			if componentSvcConfig.Type == datamanager.SubtypeName {
-				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
-				if err != nil {
-					return nil, err
-				}
-				for _, attrs := range attrs.Attributes {
-					componentDataCaptureConfigs.Attributes = append(componentDataCaptureConfigs.Attributes, attrs)
-				}
-			}
-		}
-	}
-	return &componentDataCaptureConfigs, nil
 }
