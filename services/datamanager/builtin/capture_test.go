@@ -15,13 +15,6 @@ var (
 	disabledCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
 )
 
-/*
-*
-New test setup!
-First data capture only tests:
-- Captures what we'd expect. Both contents and amount, to where we expect it.
-- Disabling capture stops it. Re-enabling re-begins it.
-*/
 func TestDataCaptureEnabled(t *testing.T) {
 	captureTime := time.Millisecond * 25
 
@@ -81,7 +74,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     false,
 		},
-		// TODO: add test cases for when an individual collector is enabled/disabled
 	}
 
 	for _, tc := range tests {
@@ -156,7 +148,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Check if data has been captured (or not) as we'd expect.
 			updatedCaptureFiles := getAllFiles(tmpDir)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				// TODO: check contents
+				//TODO: check contents
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
 			} else {
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
