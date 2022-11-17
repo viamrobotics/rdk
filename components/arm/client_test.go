@@ -14,15 +14,21 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	gotestutils "go.viam.com/utils/testutils"
 )
 
 func TestClient(t *testing.T) {
@@ -105,6 +111,18 @@ func TestClient(t *testing.T) {
 	generic.RegisterService(rpcServer, armSvc)
 	injectArm.DoFunc = generic.EchoFunc
 
+	// injectRobot := &inject.Robot{}
+	// injectRobot.FrameSystemConfigFunc = func(
+	// 	ctx context.Context,
+	// 	additionalTransforms []*commonpb.Transform,
+	// ) (framesystemparts.Parts, error) {
+	// 	return framesystemparts.Parts{&config.FrameSystemPart{
+	// 		Name:       testArmName,
+	// 		ModelFrame: &referenceframe.SimpleModel{},
+	// 	}}, nil
+	// }
+	// generic.RegisterService(rpcServer, server.New(injectRobot))
+
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -122,6 +140,9 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		arm1Client := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
+
+		model := arm1Client.ModelFrame()
+		_ = model
 
 		// DoCommand
 		resp, err := arm1Client.DoCommand(context.Background(), generic.TestCommand)
@@ -209,4 +230,37 @@ func TestClientDialerOption(t *testing.T) {
 
 	test.That(t, conn1.Close(), test.ShouldBeNil)
 	test.That(t, conn2.Close(), test.ShouldBeNil)
+}
+
+func TestClientModel(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	injectArm := &inject.Arm{}
+	injectRobot := &inject.Robot{}
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*commonpb.Transform,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{&config.FrameSystemPart{
+			Name:       testArmName,
+			ModelFrame: &referenceframe.SimpleModel{},
+		}}, nil
+	}
+
+	var listener net.Listener = gotestutils.ReserveRandomListener(t)
+	gServer := grpc.NewServer()
+	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm})
+
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
+
+	go gServer.Serve(listener)
+
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	arm1Client := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
+	model := arm1Client.ModelFrame()
+	_ = model
 }
