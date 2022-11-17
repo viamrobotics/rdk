@@ -158,7 +158,7 @@ func (ms *builtIn) MoveSingleComponent(
 		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
 
-	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, extra)
+	err := movableArm.MoveToPosition(ctx, goalPose, worldState, extra)
 	if err == nil {
 		return true, nil
 	}

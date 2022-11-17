@@ -242,7 +242,7 @@ func (ua *URArm) JointPositions(ctx context.Context, extra map[string]interface{
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := ua.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 // or interaction spaces embedded in the world state an error will  be thrown, as the hosted planning does not support these constraints.
 func (ua *URArm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
@@ -493,15 +493,16 @@ func (ua *URArm) useURHostedKinematics(worldState *commonpb.WorldState, extra ma
 	return checkWorldState(ua.urHostedKinematics)
 }
 
-func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose *commonpb.Pose) error {
+func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmath.Pose) error {
 	// UR5 arm takes R3 angle axis as input
-	aa := spatialmath.NewPoseFromProtobuf(pose).Orientation().AxisAngles().ToR3()
+	pt := pose.Point()
+	aa := pose.Orientation().AxisAngles().ToR3()
 
 	// write command to arm, need to request position in meters
 	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n",
-		0.001*pose.X,
-		0.001*pose.Y,
-		0.001*pose.Z,
+		0.001*pt.X,
+		0.001*pt.Y,
+		0.001*pt.Z,
 		aa.X,
 		aa.Y,
 		aa.Z,
@@ -518,8 +519,8 @@ func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose *commonpb.
 		if err != nil {
 			return err
 		}
-		if arm.PositionGridDiff(pose, cur) <= 1.5 &&
-			arm.PositionRotationDiff(pose, cur) <= 1.0 {
+		delta := spatialmath.PoseDelta(pose, cur)
+		if delta.Point().Norm() <= 1.5 && delta.Orientation().AxisAngles().ToR3().Norm() <= 1.0 {
 			return nil
 		}
 
@@ -539,10 +540,9 @@ func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose *commonpb.
 		}
 
 		if slept > 10000 {
-			return errors.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
-				pose, cur,
-				arm.PositionGridDiff(pose, cur),
-				arm.PositionRotationDiff(pose, cur),
+			delta = spatialmath.PoseDelta(pose, cur)
+			return errors.Errorf("can't reach position.\n want: %v\n\tat: %v\n diffs: %f %f",
+				pose, cur, delta.Point().Norm(), delta.Orientation().AxisAngles().ToR3().Norm(),
 			)
 		}
 		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
