@@ -13,7 +13,7 @@ import (
 	"go.viam.com/test"
 
 	frame "go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -30,7 +30,7 @@ var logger, _ = zap.Config{
 
 type planConfig struct {
 	Start      []frame.Input
-	Goal       *commonpb.Pose
+	Goal       spatialmath.Pose
 	RobotFrame frame.Frame
 	Options    *PlannerOptions
 }
@@ -104,16 +104,16 @@ func constrainedXArmMotion() (*planConfig, error) {
 	}
 
 	// Test ability to arrive at another position
-	pos := &commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1}
+	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
 	opt := NewBasicPlannerOptions()
-	orientMetric := NewPoseFlexOVMetric(spatial.NewPoseFromProtobuf(pos), 0.09)
+	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
-	oFunc := orientDistToRegion(spatial.NewPoseFromProtobuf(pos).Orientation(), 0.1)
-	oFuncMet := func(from, to spatial.Pose) float64 {
+	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
+	oFuncMet := func(from, to spatialmath.Pose) float64 {
 		return oFunc(from.Orientation())
 	}
-	orientConstraint := func(o spatial.Orientation) bool {
+	orientConstraint := func(o spatialmath.Orientation) bool {
 		return oFunc(o) == 0
 	}
 
@@ -135,15 +135,15 @@ func TestPlanningWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 75}), "")
-	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatial.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
+	bc, _ := spatialmath.NewBoxCreator(r3.Vector{200, 200, 200}, spatialmath.NewPoseFromPoint(r3.Vector{Z: 75}), "")
+	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatialmath.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripper, ur5e)
 	test.That(t, err, test.ShouldBeNil)
 	fss := NewSolvableFrameSystem(fs, logger.Sugar())
 	zeroPos := frame.StartPositions(fss)
 
-	newPose := frame.NewPoseInFrame("gripper", spatial.NewPoseFromPoint(r3.Vector{100, 100, 0}))
+	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
 	solutionMap, err := fss.SolvePose(context.Background(), zeroPos, newPose, gripper.Name())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
@@ -168,7 +168,7 @@ func TestPlanningWithGripper(t *testing.T) {
 func simple2DMap() (*planConfig, error) {
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
-	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatial.NewZeroPose(), "")
+	physicalGeometry, err := spatialmath.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatialmath.NewZeroPose(), "")
 	if err != nil {
 		return nil, err
 	}
@@ -178,26 +178,26 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// obstacles
-	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{80, 80, 1}, "")
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{80, 80, 1}, "")
 	if err != nil {
 		return nil, err
 	}
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
-		geometryMap := make(map[string]spatial.Geometry, 0)
+	toMap := func(geometries []spatialmath.Geometry) map[string]spatialmath.Geometry {
+		geometryMap := make(map[string]spatialmath.Geometry, 0)
 		for i, geometry := range geometries {
 			geometryMap[strconv.Itoa(i)] = geometry
 		}
 		return geometryMap
 	}
 	startInput := frame.FloatsToInputs([]float64{-90., 90.})
-	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatial.Geometry{box}), nil))
+	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatialmath.Geometry{box}), nil))
 
 	return &planConfig{
 		Start:      startInput,
-		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})),
+		Goal:       spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0}),
 		RobotFrame: model,
 		Options:    opt,
 	}, nil
@@ -216,7 +216,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 	return &planConfig{
 		Start:      home7,
-		Goal:       &commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1},
+		Goal:       spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1}),
 		RobotFrame: xarm,
 		Options:    opt,
 	}, nil
@@ -235,7 +235,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 	return &planConfig{
 		Start:      home6,
-		Goal:       &commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1},
+		Goal:       spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1}),
 		RobotFrame: ur5e,
 		Options:    opt,
 	}, nil
