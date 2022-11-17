@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { gripperApi } from 'viam-typescript-sdk';
+import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {

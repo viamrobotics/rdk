@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { sensorsApi, commonApi } from 'viam-typescript-sdk';
+import { sensorsApi, commonApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 

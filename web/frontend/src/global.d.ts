@@ -41,7 +41,7 @@ import {
   sensorsApi,
   visionApi,
   streamApi,
-} from 'viam-typescript-sdk';
+} from '@viamrobotics/sdk';
 
 declare global {
   interface Window {

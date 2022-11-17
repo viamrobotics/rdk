@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { armApi, commonApi } from 'viam-typescript-sdk';
+import { armApi, commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
 

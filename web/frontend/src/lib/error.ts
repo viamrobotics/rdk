@@ -1,4 +1,4 @@
-import type { ServiceError } from 'viam-typescript-sdk';
+import type { ServiceError } from '@viamrobotics/sdk';
 import { toast } from './toast';
 
 export const displayError = (error: ServiceError | null) => {

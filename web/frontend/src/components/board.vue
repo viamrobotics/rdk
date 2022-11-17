@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { boardApi } from 'viam-typescript-sdk';
+import { boardApi } from '@viamrobotics/sdk';
 
 interface Props {
   name: string

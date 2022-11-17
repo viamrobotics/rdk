@@ -39,7 +39,7 @@ import {
   sensorsApi,
   visionApi,
   streamApi,
-} from 'viam-typescript-sdk';
+} from '@viamrobotics/sdk';
 
 import { fetchCameraDiscoveries } from './lib/discovery';
 
