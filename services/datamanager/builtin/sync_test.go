@@ -10,9 +10,85 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"os"
 	"sync"
 	"testing"
+	"time"
 )
+
+func TestSyncEnabled(t *testing.T) {
+	syncTime := time.Millisecond * 100
+
+	tests := []struct {
+		name                        string
+		initialServiceDisableStatus bool
+		newServiceDisableStatus     bool
+	}{
+		{
+			name:                        "Config with sync disabled should sync nothing.",
+			initialServiceDisableStatus: true,
+			newServiceDisableStatus:     true,
+		},
+		{
+			name:                        "Config with sync enabled should sync.",
+			initialServiceDisableStatus: false,
+			newServiceDisableStatus:     false,
+		},
+		{
+			name:                        "Disabling sync should stop syncing.",
+			initialServiceDisableStatus: false,
+			newServiceDisableStatus:     true,
+		},
+		{
+			name:                        "Enabling sync should trigger syncing to start.",
+			initialServiceDisableStatus: true,
+			newServiceDisableStatus:     false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up server.
+			tmpDir, err := os.MkdirTemp("", "")
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			rpcServer, mockService := buildAndStartLocalSyncServer(t)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			// Set up data manager.
+			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+			cfg := setupConfig(t, enabledCollectorConfigPath)
+
+			// Set up service config.
+			originalSvcConfig, ok1, err := getServiceConfig(cfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok1, test.ShouldBeTrue)
+			originalSvcConfig.CaptureDisabled = false
+			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
+			originalSvcConfig.CaptureDir = tmpDir
+
+			err = dmsvc.Update(context.Background(), cfg)
+
+			// Let run for a second, then change status.
+			time.Sleep(syncTime)
+
+			// Things to validate: that it syncs if expected, that it deletes files if successful
+			if !tc.initialServiceDisableStatus {
+				// TODO: check contents
+				test.That(t, len(mockService.getCaptureUploadRequests()), test.ShouldBeGreaterThan, 0)
+			} else {
+				test.That(t, len(mockService.getCaptureUploadRequests()), test.ShouldEqual, 0)
+			}
+		})
+	}
+}
 
 // TODO: combine manual, "scheduled", manualandscheduled into single table driven test suite
 // Validates that manual syncing works for a datamanager.
