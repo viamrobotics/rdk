@@ -30,7 +30,7 @@ func OrientationAlmostEqual(o1, o2 Orientation) bool {
 	return OrientationAlmostEqualEps(o1, o2, defaultAngleEpsilon)
 }
 
-// OrientationAlmostEqual will return a bool describing whether 2 poses have approximately the same orientation.
+// OrientationAlmostEqualEps will return a bool describing whether 2 poses have approximately the same orientation.
 func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
 	return QuatToR3AA(OrientationBetween(o1, o2).Quaternion()).Norm2() < epsilon
 }
