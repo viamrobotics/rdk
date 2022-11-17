@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -188,7 +187,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
-	attributes dataCaptureConfig, updateCaptureDir bool) (
+	attributes dataCaptureConfig) (
 	*componentMethodMetadata, error,
 ) {
 	// Create component/method metadata to check if the collector exists.
@@ -214,21 +213,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
-		previousAttributes := storedCollectorParams.Attributes
-
-		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
-		if reflect.DeepEqual(previousAttributes, attributes) {
-			if updateCaptureDir {
-				targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
-				if err != nil {
-					return nil, err
-				}
-				collector.SetTarget(targetFile)
-			}
-			return &componentMetadata, nil
-		}
-
-		// Otherwise, close the current collector and instantiate a new one below.
 		collector.Close()
 	}
 
@@ -262,10 +246,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
-	if err != nil {
-		return nil, err
-	}
 
 	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := attributes.CaptureQueueSize
@@ -288,7 +268,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        targetFile,
+		Target:        datacapture.NewQueue(svc.captureDir, captureMetadata),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
@@ -305,6 +285,26 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	collector.Collect()
 
 	return &componentMetadata, nil
+}
+
+func (svc *builtIn) closeSyncer() {
+	if svc.syncer != nil {
+		fmt.Println("closing non nil syncer")
+		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
+		svc.syncer.Close()
+		svc.syncer = nil
+	}
+}
+
+func (svc *builtIn) initSyncer(cfg *config.Config) error {
+	fmt.Println("initting syncer")
+	syncer, err := svc.syncerConstructor(svc.logger, cfg)
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize new syncer")
+	}
+	fmt.Println("done initting syncer")
+	svc.syncer = syncer
+	return nil
 }
 
 // getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
@@ -330,89 +330,90 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 	return nil, nil
 }
 
-func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
-	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
-	// TODO DATA-235: fix that
-	if svc.syncer != nil {
-		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		svc.syncer.Close()
-		svc.syncer = nil
-	}
+//func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
+//	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
+//	// TODO DATA-235: fix that
+//	if svc.syncer != nil {
+//		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
+//		svc.syncer.Close()
+//		svc.syncer = nil
+//	}
+//
+//	svc.cancelSyncBackgroundRoutine()
+//
+//	// Kick off syncer if we're running it.
+//	if intervalMins > 0 && !svc.syncDisabled {
+//		syncer, err := svc.syncerConstructor(svc.logger, cfg)
+//		if err != nil {
+//			return errors.Wrap(err, "failed to initialize new syncer")
+//		}
+//		svc.syncer = syncer
+//
+//		// SyncCaptureQueues existing files in captureDir.
+//		var previouslyCaptured []string
+//		//nolint
+//		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+//			if err != nil {
+//				return nil
+//			}
+//			if info.IsDir() {
+//				return nil
+//			}
+//			previouslyCaptured = append(previouslyCaptured, path)
+//			return nil
+//		})
+//		svc.syncer.SyncCaptureFiles(previouslyCaptured)
+//
+//		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
+//		// TODO: add this back after adding arbitrary file uploads back
+//		//svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
+//
+//		// Kick off background routine to periodically sync files.
+//		svc.startSyncBackgroundRoutine(intervalMins)
+//	}
+//	return nil
+//}
 
-	svc.cancelSyncBackgroundRoutine()
-
-	// Kick off syncer if we're running it.
-	if intervalMins > 0 && !svc.syncDisabled {
-		syncer, err := svc.syncerConstructor(svc.logger, cfg)
+// TODO: when should I call this? Need to make sure it doesn't collide with the normal sync runs.
+//
+//	should basically cancel all previous ones before running this
+func (svc *builtIn) syncPreviouslyCaptured() {
+	// Sync existing files in captureDir.
+	var previouslyCaptured []string
+	//nolint
+	_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return errors.Wrap(err, "failed to initialize new syncer")
-		}
-		svc.syncer = syncer
-
-		// SyncCaptureQueues existing files in captureDir.
-		var previouslyCaptured []string
-		//nolint
-		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return nil
-			}
-			if info.IsDir() {
-				return nil
-			}
-			previouslyCaptured = append(previouslyCaptured, path)
 			return nil
-		})
-		svc.syncer.SyncCaptureFiles(previouslyCaptured)
-
-		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
-		// TODO: add this back after adding arbitrary file uploads back
-		//svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
-
-		// Kick off background routine to periodically sync files.
-		svc.startSyncBackgroundRoutine(intervalMins)
-	}
-	return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		previouslyCaptured = append(previouslyCaptured, path)
+		return nil
+	})
+	svc.syncer.SyncCaptureFiles(previouslyCaptured)
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *builtIn) Sync(_ context.Context, extra map[string]interface{}) error {
+func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	if svc.syncer == nil {
-		return errors.New("called SyncCaptureQueues on data manager service with nil syncer")
+		return errors.New("called Sync on data manager service with nil syncer")
 	}
-	err := svc.syncDataCaptureFiles()
-	if err != nil {
-		return err
-	}
+	svc.syncDataCaptureFiles()
 	svc.syncAdditionalSyncPaths()
 	return nil
 }
 
-func (svc *builtIn) syncDataCaptureFiles() error {
+func (svc *builtIn) syncDataCaptureFiles() {
 	svc.lock.Lock()
-	oldFiles := make([]string, 0, len(svc.collectors))
-	currCollectors := make(map[componentMethodMetadata]collectorAndConfig)
-	for k, v := range svc.collectors {
-		currCollectors[k] = v
+	defer svc.lock.Unlock()
+	queues := make([]*datacapture.Queue, len(svc.collectors))
+	for _, collector := range svc.collectors {
+		queues = append(queues, collector.Collector.GetTarget())
 	}
-	svc.lock.Unlock()
-	for _, collector := range currCollectors {
-		// Create new target and set it.
-		attributes := collector.Attributes
-		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
-		if err != nil {
-			return err
-		}
+	svc.syncer.SyncCaptureQueues(queues)
 
-		nextTarget, err := datacapture.NewFile(svc.captureDir, captureMetadata)
-		if err != nil {
-			return err
-		}
-		oldFiles = append(oldFiles, collector.Collector.GetTarget().GetPath())
-		collector.Collector.SetTarget(nextTarget)
-	}
-	svc.syncer.SyncCaptureQueues(oldFiles)
-	return nil
+	return
 }
 
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
@@ -456,7 +457,8 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
-	svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
+	// TODO: reimpliment arbitary file uploads
+	svc.syncer.SyncCaptureFiles(svc.buildAdditionalSyncPaths())
 }
 
 // Update updates the data manager service when the config has changed.
@@ -466,6 +468,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
+		svc.closeSyncer()
 		return err
 	}
 
@@ -492,69 +495,31 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
-	var allComponentAttributes []dataCaptureConfig
-
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if toggledCaptureOff {
+	if svc.captureDisabled {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-	} else {
-		allComponentAttributes, err = buildDataCaptureConfigs(cfg)
-		if err != nil {
-			svc.logger.Warn(err.Error())
-			return err
-		}
-
-		if len(allComponentAttributes) == 0 {
-			svc.logger.Info("no components with data_manager service configuration")
-		}
 	}
 
-	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled
-	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
-	toggledSyncOff := toggledSync && svc.syncDisabled
-	toggledSyncOn := toggledSync && !svc.syncDisabled
+	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
+	if err != nil {
+		return err
+	}
 
-	// If sync has been toggled on, sync previously captured files and update the capture directory.
-	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
 	svc.captureDir = svcConfig.CaptureDir
 
-	// Stop syncing if newly disabled in the config.
-	if toggledSyncOff {
-		if err := svc.initOrUpdateSyncer(ctx, 0, cfg); err != nil {
-			return err
-		}
-	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
-		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
-		// If the sync config has changed, update the syncer.
-		svc.lock.Lock()
-		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-		svc.lock.Unlock()
-		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
-			return err
-		}
-	}
-
-	// Initialize or add a collector based on changes to the component configurations.
+	// Initialize or add collectors based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
-	for _, attributes := range allComponentAttributes {
-		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 && !svc.captureDisabled {
-			componentMetadata, err := svc.initializeOrUpdateCollector(
-				attributes, updateCaptureDir)
-			if err != nil {
-				svc.logger.Errorw("failed to initialize or update collector", "error", err)
-			} else {
-				newCollectorMetadata[*componentMetadata] = true
-			}
-		} else if attributes.Disabled {
-			// if disabled, make sure that it is closed, so it doesn't keep collecting data.
-			collector, md := svc.getCollectorFromConfig(attributes)
-			if collector != nil && md != nil {
-				collector.Close()
-				delete(svc.collectors, *md)
+	if !svc.captureDisabled {
+		for _, attributes := range allComponentAttributes {
+			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
+				componentMetadata, err := svc.initializeOrUpdateCollector(attributes)
+				if err != nil {
+					svc.logger.Errorw("failed to initialize or update collector", "error", err)
+				} else {
+					newCollectorMetadata[*componentMetadata] = true
+				}
 			}
 		}
 	}
@@ -565,6 +530,27 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 			params.Collector.Close()
 			delete(svc.collectors, componentMetadata)
 		}
+	}
+
+	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
+	if svc.syncDisabled {
+		svc.closeSyncer()
+	} else {
+		fmt.Println("sync sure is not disabled")
+		svc.lock.Lock()
+		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+		svc.lock.Unlock()
+		if err := svc.initSyncer(cfg); err != nil {
+			return err
+		}
+		fmt.Println("syncing previously captured")
+		svc.syncPreviouslyCaptured()
+		fmt.Println("done syncing previously captured")
+		queues := make([]*datacapture.Queue, len(svc.collectors))
+		for _, c := range svc.collectors {
+			queues = append(queues, c.Collector.GetTarget())
+		}
+		svc.syncer.SyncCaptureQueues(queues)
 	}
 
 	return nil
@@ -590,10 +576,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				err := svc.syncDataCaptureFiles()
-				if err != nil {
-					svc.logger.Errorw("data capture files failed to sync", "error", err)
-				}
+				svc.syncDataCaptureFiles()
 				// TODO DATA-660: There's a risk of deadlock where we're in this case when Close is called, which
 				//                acquires svc.lock, which prevents this call from ever acquiring the lock/finishing.
 				svc.syncAdditionalSyncPaths()
