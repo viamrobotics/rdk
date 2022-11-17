@@ -103,11 +103,10 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	}
 
 	return &Arm{
-		Name:     cfg.Name,
-		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
-		mp:       mp,
-		model:    model,
+		Name:   cfg.Name,
+		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
+		mp:     mp,
+		model:  model,
 	}, nil
 }
 
@@ -115,7 +114,6 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 type Arm struct {
 	generic.Echo
 	Name       string
-	position   *commonpb.Pose
 	joints     *pb.JointPositions
 	mp         motionplan.MotionPlanner
 	CloseCount int

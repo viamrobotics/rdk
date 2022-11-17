@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
+	"github.com/golang/geo/r3"
 	componentpb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
@@ -31,7 +31,10 @@ func TestDofBotIK(t *testing.T) {
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	goal := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85})
+	goal := spatialmath.NewPoseFromOrientation(
+		r3.Vector{X: 206.59, Y: -1.57, Z: 253.05},
+		&spatialmath.OrientationVectorDegrees{Theta: -180, OX: -.53, OY: 0, OZ: .85},
+	)
 	opt := motionplan.NewBasicPlannerOptions()
 	opt.SetMetric(motionplan.NewPositionOnlyMetric())
 	_, err = mp.Plan(ctx, goal, model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}), opt)

@@ -3,8 +3,6 @@ package motionplan
 import (
 	"math"
 
-	commonpb "go.viam.com/api/common/v1"
-
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -61,14 +59,7 @@ func fixOvIncrement(goal, seed spatialmath.Pose) spatialmath.Pose {
 	if goalOrientation.OZ > 0 {
 		adj *= -1
 	}
+	goalOrientation.Theta += adj
 
-	return spatialmath.NewPoseFromProtobuf(&commonpb.Pose{
-		X:     goalPt.X,
-		Y:     goalPt.Y,
-		Z:     goalPt.Z,
-		Theta: goalOrientation.Theta + adj,
-		OX:    goalOrientation.OX,
-		OY:    goalOrientation.OY,
-		OZ:    goalOrientation.OZ,
-	})
+	return spatialmath.NewPoseFromOrientation(goalPt, goalOrientation)
 }

@@ -1197,14 +1197,7 @@ func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
 	if frameConfig.Parent != otherFrameConfig.Parent {
 		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
 	}
-	trans := frameConfig.Translation
-	otherTrans := otherFrameConfig.Translation
-	floatDisc := spatialmath.Epsilon
-	transIsEqual := true
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.X, otherTrans.X, floatDisc)
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Y, otherTrans.Y, floatDisc)
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Z, otherTrans.Z, floatDisc)
-	if !transIsEqual {
+	if !spatialmath.R3VectorAlmostEqual(frameConfig.Translation, otherFrameConfig.Translation, 1e-8) {
 		return errors.New("translations of parts not equal")
 	}
 	orient := frameConfig.Orientation
