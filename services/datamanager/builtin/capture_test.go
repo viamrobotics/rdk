@@ -82,7 +82,12 @@ func TestDataCaptureEnabled(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
-			tmpDir := os.TempDir()
+			tmpDir, err := os.MkdirTemp("", "")
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				test.That(t, err, test.ShouldBeNil)
+			}()
 			rpcServer, _ := buildAndStartLocalSyncServer(t)
 			defer func() {
 				err := rpcServer.Stop()
@@ -102,7 +107,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			svcConfig.ScheduledSyncDisabled = true
 			svcConfig.CaptureDir = tmpDir
 
-			// TODO: Set up component config.
+			// TODO: Figure out how to edit component configs such that the changes are actually reflected in the
+			//       original config.
 			componentConfigs, err := getComponentConfigs(testCfg)
 			test.That(t, err, test.ShouldBeNil)
 			for _, attr := range componentConfigs.Attributes {
@@ -143,7 +149,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 	}
 }
 
-func getComponentConfigs(cfg *config.Config) (dataCaptureConfigs, error) {
+func getComponentConfigs(cfg *config.Config) (*dataCaptureConfigs, error) {
 	var componentDataCaptureConfigs dataCaptureConfigs
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
@@ -151,7 +157,7 @@ func getComponentConfigs(cfg *config.Config) (dataCaptureConfigs, error) {
 			if componentSvcConfig.Type == datamanager.SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
-					return dataCaptureConfigs{}, err
+					return nil, err
 				}
 				for _, attrs := range attrs.Attributes {
 					componentDataCaptureConfigs.Attributes = append(componentDataCaptureConfigs.Attributes, attrs)
@@ -159,5 +165,5 @@ func getComponentConfigs(cfg *config.Config) (dataCaptureConfigs, error) {
 			}
 		}
 	}
-	return componentDataCaptureConfigs, nil
+	return &componentDataCaptureConfigs, nil
 }
