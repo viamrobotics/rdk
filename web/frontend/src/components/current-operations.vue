@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { robotApi, type Operation } from 'viam-typescript-sdk';
+import { robotApi, type Operation } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {

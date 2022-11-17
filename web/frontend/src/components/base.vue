@@ -2,7 +2,7 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
-import { baseApi, commonApi, type ServiceError } from 'viam-typescript-sdk';
+import { baseApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';

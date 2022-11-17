@@ -14,7 +14,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import { commonApi, motionApi, visionApi, type PointCloudObject, type RectangularPrism, TypedParameter } from 'viam-typescript-sdk';
+import { commonApi, motionApi, visionApi, type PointCloudObject, type RectangularPrism, TypedParameter } from '@viamrobotics/sdk';
 import InfoButton from './info-button.vue';
 
 interface Props {

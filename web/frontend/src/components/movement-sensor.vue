@@ -8,7 +8,7 @@ import {
   type GeoPoint,
   type Orientation,
   type Vector3,
-} from 'viam-typescript-sdk';
+} from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { computed } from 'vue';
-import type { Status } from 'viam-typescript-sdk';
+import type { Status } from '@viamrobotics/sdk';
 
 interface Props {
   name: string

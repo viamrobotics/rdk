@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { ref } from 'vue';
-import type { ServiceError } from 'viam-typescript-sdk';
+import type { ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { addStream, removeStream } from '../lib/stream';
 

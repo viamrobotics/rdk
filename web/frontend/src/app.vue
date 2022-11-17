@@ -20,7 +20,7 @@ import {
   type StreamStatusResponse,
   type ServiceError,
   type ResourceName,
-} from 'viam-typescript-sdk';
+} from '@viamrobotics/sdk';
 
 import {
   resourceNameToSubtypeString,

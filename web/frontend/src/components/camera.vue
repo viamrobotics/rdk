@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
 import type { Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
-import { cameraApi } from 'viam-typescript-sdk';
+import { cameraApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';

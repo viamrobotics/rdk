@@ -1,6 +1,6 @@
 import { grpc } from '@improbable-eng/grpc-web';
 
-import type { robotApi, ServiceError } from 'viam-typescript-sdk';
+import type { robotApi, ServiceError } from '@viamrobotics/sdk';
 
 export const fetchCameraDiscoveries = (
   subType: string,
