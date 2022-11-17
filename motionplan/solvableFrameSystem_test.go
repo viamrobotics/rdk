@@ -66,15 +66,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*frame.PoseInFrame).Pose(), pointXarmGripper), test.ShouldBeTrue)
 
 	// Set a goal such that the gantry and arm must both be used to solve
-	goal1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
-		X:     257,
-		Y:     2100,
-		Z:     -300,
-		Theta: 0,
-		OX:    0,
-		OY:    0,
-		OZ:    -1,
-	})
+	goal1 := spatial.NewPoseFromOrientation(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatial.OrientationVectorDegrees{OZ: -1})
 	newPos, err := solver.SolvePose(
 		context.Background(),
 		positions,
@@ -87,15 +79,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal1, 0.01), test.ShouldBeTrue)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-	goal2 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
-		X:     0,
-		Y:     0,
-		Z:     60,
-		Theta: 0,
-		OX:    0,
-		OY:    0,
-		OZ:    -1,
-	})
+	goal2 := spatial.NewPoseFromOrientation(r3.Vector{Z: 60}, &spatial.OrientationVectorDegrees{OZ: -1})
 	newPos, err = solver.SolvePose(
 		context.Background(),
 		positions,
