@@ -4,6 +4,11 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+// If two angles differ by less than this amount, we consider them the same for the purpose of doing
+// math around the poles of orientation.
+// This needs to be very small in order to account for the small steps taken by IK. Otherwise singularities happen.
+const defaultAngleEpsilon = 1e-4
+
 // Orientation is an interface used to express the different parameterizations of the orientation
 // of a rigid object or a frame of reference in 3D Euclidean space.
 type Orientation interface {
@@ -22,7 +27,12 @@ func NewZeroOrientation() Orientation {
 
 // OrientationAlmostEqual will return a bool describing whether 2 poses have approximately the same orientation.
 func OrientationAlmostEqual(o1, o2 Orientation) bool {
-	return QuatToR3AA(OrientationBetween(o1, o2).Quaternion()).Norm2() < 1e-4
+	return OrientationAlmostEqualEps(o1, o2, defaultAngleEpsilon)
+}
+
+// OrientationAlmostEqualEps will return a bool describing whether 2 poses have approximately the same orientation.
+func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
+	return QuatToR3AA(OrientationBetween(o1, o2).Quaternion()).Norm2() < epsilon
 }
 
 // OrientationBetween returns the orientation representing the difference between the two given orientations.

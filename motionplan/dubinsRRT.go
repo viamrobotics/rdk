@@ -9,10 +9,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // DubinsRRTMotionPlanner an object able to solve for paths using Dubin's Car Model
@@ -56,7 +56,7 @@ func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 // Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 // should be visited in order to arrive at the goal while satisfying all constraints.
 func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
-	goal *commonpb.Pose,
+	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
@@ -78,8 +78,9 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
-	goal *commonpb.Pose,
+func (mp *DubinsRRTMotionPlanner) planRunner(
+	ctx context.Context,
+	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 	solutionChan chan *planReturn,
@@ -101,9 +102,9 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	pathLenMap[seedConfig] = 0
 
 	goalInputs := make([]referenceframe.Input, 3)
-	goalInputs[0] = referenceframe.Input{Value: goal.X}
-	goalInputs[1] = referenceframe.Input{Value: goal.Y}
-	goalInputs[2] = referenceframe.Input{Value: goal.Theta}
+	goalInputs[0] = referenceframe.Input{Value: goal.Point().X}
+	goalInputs[1] = referenceframe.Input{Value: goal.Point().Y}
+	goalInputs[2] = referenceframe.Input{Value: goal.Orientation().OrientationVectorDegrees().Theta}
 	goalConfig := &basicNode{q: goalInputs}
 
 	dm := &dubinPathAttrManager{nCPU: mp.nCPU, d: mp.D}
