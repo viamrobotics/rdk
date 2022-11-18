@@ -98,15 +98,7 @@ var finalResources = []resource.Name{
 	servo.Named("servo3"),
 }
 
-var pose1 = &commonpb.Pose{
-	X:     0.0,
-	Y:     0.0,
-	Z:     0.0,
-	Theta: 0.0,
-	OX:    1.0,
-	OY:    0.0,
-	OZ:    0.0,
-}
+var pose1 = spatialmath.NewZeroPose()
 
 func TestStatusClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -116,7 +108,20 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
-	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	resourcesFunc := func() []resource.Name {
+		return []resource.Name{
+			arm.Named("arm1"),
+			base.Named("base1"),
+			board.Named("board1"),
+			camera.Named("camera1"),
+			gripper.Named("gripper1"),
+			input.Named("inputController1"),
+			motor.Named("motor1"),
+			motor.Named("motor2"),
+			sensor.Named("sensor1"),
+			servo.Named("servo1"),
+		}
+	}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
@@ -129,7 +134,7 @@ func TestStatusClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -155,29 +160,29 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectInputDev := &inject.InputController{}
-	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputDev.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
 	injectGripper := &inject.Gripper{}
 	var gripperOpenCalled bool
-	injectGripper.OpenFunc = func(ctx context.Context) error {
+	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpenCalled = true
 		return nil
 	}
 	var gripperGrabCalled bool
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
+	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		gripperGrabCalled = true
 		return true, nil
 	}
 
 	injectServo := &inject.Servo{}
 	var capServoAngle uint8
-	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+	injectServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 		return 5, nil
 	}
 
@@ -297,7 +302,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, &commonpb.WorldState{}, nil)
+	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -325,10 +330,10 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background())
+	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-	_, err = gripper1.Grab(context.Background())
+	_, err = gripper1.Grab(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
@@ -343,17 +348,17 @@ func TestStatusClient(t *testing.T) {
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	servo1, err := servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
-	err = servo1.Move(context.Background(), 5)
+	err = servo1.Move(context.Background(), 5, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.Position(context.Background())
+	_, err = servo1.Position(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
@@ -366,7 +371,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, &commonpb.WorldState{}, nil)
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -387,21 +392,12 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
 	_, err = base.FromRobot(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = base.FromRobot(client, "base2")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = base.FromRobot(client, "base3")
-	test.That(t, err, test.ShouldBeNil)
-
 	_, err = board.FromRobot(client, "board1")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = board.FromRobot(client, "board3")
 	test.That(t, err, test.ShouldBeNil)
 
 	camera1, err = camera.FromRobot(client, "camera1")
@@ -417,14 +413,14 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background())
+	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 
 	inputDev, err := input.FromRobot(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
-	controlList, err := inputDev.Controls(context.Background())
+	controlList, err := inputDev.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
@@ -438,11 +434,11 @@ func TestStatusClient(t *testing.T) {
 
 	servo1, err = servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
-	err = servo1.Move(context.Background(), 4)
+	err = servo1.Move(context.Background(), 4, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 
-	currentVal, err := servo1.Position(context.Background())
+	currentVal, err := servo1.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
@@ -450,7 +446,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos, err = resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -926,7 +922,7 @@ func TestClientReconnect(t *testing.T) {
 	}
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1201,14 +1197,7 @@ func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
 	if frameConfig.Parent != otherFrameConfig.Parent {
 		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
 	}
-	trans := frameConfig.Translation
-	otherTrans := otherFrameConfig.Translation
-	floatDisc := spatialmath.Epsilon
-	transIsEqual := true
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.X, otherTrans.X, floatDisc)
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Y, otherTrans.Y, floatDisc)
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Z, otherTrans.Z, floatDisc)
-	if !transIsEqual {
+	if !spatialmath.R3VectorAlmostEqual(frameConfig.Translation, otherFrameConfig.Translation, 1e-8) {
 		return errors.New("translations of parts not equal")
 	}
 	orient := frameConfig.Orientation
@@ -1601,7 +1590,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1627,7 +1616,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
 	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1646,7 +1635,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1667,12 +1656,8 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	resource1, err := client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.resourceClients[arm.Named("arm1")], test.ShouldEqual, resource1)
-	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
-	test.That(t, err.Error(), test.ShouldEqual, "rpc error: code = Unknown desc = no arm with name (arm1)")
-	test.That(t, pos, test.ShouldBeNil)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named("arm1")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1717,6 +1702,38 @@ func TestClientOperationIntercept(t *testing.T) {
 	resp, err := client.Status(ctx, []resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 0)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestGetUnknownResource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// grabbing known resource is fine
+	myArm, err := client.ResourceByName(arm.Named("myArm"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myArm, test.ShouldNotBeNil)
+
+	// grabbing unknown resource returns error
+	_, err = client.ResourceByName(base.Named("notABase"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("notABase")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

@@ -32,7 +32,8 @@ func debugVideoTransformOrSkip(t *testing.T) {
 }
 
 func TestDepthSource(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray_small.png"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &videosource.StaticSource{DepthImg: img}
 	am := config.AttributeMap{
@@ -60,7 +61,7 @@ func (h *depthSourceTestHelper) Process(
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
@@ -91,7 +92,7 @@ func (h *depthSourceTestHelper) Process(
 
 	output, _, err := camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
-	preprocessed, err := rimage.ConvertImageToDepthMap(output)
+	preprocessed, err := rimage.ConvertImageToDepthMap(context.Background(), output)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 

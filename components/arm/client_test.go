@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	componentpb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
@@ -18,6 +19,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -31,15 +33,15 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var (
-		capArmPos      *commonpb.Pose
+		capArmPos      spatialmath.Pose
 		capArmJointPos *componentpb.JointPositions
 		extraOptions   map[string]interface{}
 	)
 
-	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
+	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	jointPos1 := &componentpb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pos1, nil
 	}
@@ -49,7 +51,7 @@ func TestClient(t *testing.T) {
 	}
 	injectArm.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
@@ -68,10 +70,10 @@ func TestClient(t *testing.T) {
 		return arm.ErrStopUnimplemented
 	}
 
-	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
+	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
 	jointPos2 := &componentpb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pos2, nil
 	}
 	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
@@ -79,7 +81,7 @@ func TestClient(t *testing.T) {
 	}
 	injectArm2.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
@@ -129,7 +131,7 @@ func TestClient(t *testing.T) {
 
 		pos, err := arm1Client.EndPosition(context.Background(), map[string]interface{}{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
+		test.That(t, spatialmath.PoseAlmostEqual(pos, pos1), test.ShouldBeTrue)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "EndPosition"})
 
 		jointPos, err := arm1Client.JointPositions(context.Background(), map[string]interface{}{"foo": "JointPositions"})
@@ -139,7 +141,8 @@ func TestClient(t *testing.T) {
 
 		err = arm1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmPos.String(), test.ShouldResemble, pos2.String())
+		test.That(t, spatialmath.PoseAlmostEqual(capArmPos, pos2), test.ShouldBeTrue)
+
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToPosition"})
 
 		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2, map[string]interface{}{"foo": "MoveToJointPositions"})
@@ -165,7 +168,7 @@ func TestClient(t *testing.T) {
 
 		pos, err := arm2Client.EndPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos.String(), test.ShouldResemble, pos2.String())
+		test.That(t, spatialmath.PoseAlmostEqual(pos, pos2), test.ShouldBeTrue)
 
 		err = arm2Client.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)

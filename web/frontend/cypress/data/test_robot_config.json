@@ -96,7 +96,12 @@
         },
         {
             "name": "test_slam",
-            "type": "slam"
+            "type": "slam",
+            "attributes": {
+                "algorithm" : "test",
+                "data_dir": "path",
+                "config_params": {"mode" : "mode"}
+            }
         },
         {
             "name": "test_motion",
@@ -111,8 +116,7 @@
                 },
                 "movement_sensor": "test_movement",
                 "base": "test_base"
-            },
-            "depends_on":["test_movement","test_base"]
+            }
         }
     ]
 }

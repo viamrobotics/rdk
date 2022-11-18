@@ -109,12 +109,12 @@ func TestReadingsI2C(t *testing.T) {
 	test.That(t, bus, test.ShouldBeNil)
 	test.That(t, addr, test.ShouldEqual, 66)
 
-	loc1, alt1, err := g.Position(ctx)
+	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldEqual, loc)
 	test.That(t, alt1, test.ShouldEqual, alt)
 
-	speed1, err := g.LinearVelocity(ctx)
+	speed1, err := g.LinearVelocity(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1.Y, test.ShouldEqual, speed)
 

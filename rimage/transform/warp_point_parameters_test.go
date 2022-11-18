@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// from experimentation
@@ -58,7 +59,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// from experimentation
