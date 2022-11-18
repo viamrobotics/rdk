@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"fmt"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -21,23 +20,100 @@ import (
 	vutil "go.viam.com/rdk/utils"
 )
 
-// MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
+// motionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
-type MotionPlanner interface {
+type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, spatialmath.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
+	Plan(context.Context, spatialmath.Pose, []frame.Input, *plannerOptions) ([][]frame.Input, error)
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
-type plannerConstructor func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
-type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
+type plannerConstructor func(frame.Frame, int, golog.Logger) (motionPlanner, error)
+type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error)
+
+// PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
+func PlanMotion(ctx context.Context,
+	logger golog.Logger,
+	dst *frame.PoseInFrame,
+	f frame.Frame,
+	seedMap map[string][]frame.Input,
+	fs frame.FrameSystem,
+	worldState *commonpb.WorldState,
+	planningOpts map[string]interface{},
+) ([]map[string][]frame.Input, error) {
+	return PlanWaypoints(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+}
+
+// PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
+func PlanRobotMotion(ctx context.Context,
+	dst *frame.PoseInFrame,
+	f frame.Frame,
+	r robot.Robot,
+	fs frame.FrameSystem,
+	worldState *commonpb.WorldState,
+	planningOpts map[string]interface{},
+) ([]map[string][]frame.Input, error) {
+	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
+	if err != nil {
+		return nil, err
+	}
+
+	return PlanWaypoints(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+}
+
+// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
+// WorldState is not supported in the absence of a real frame system
+func PlanFrameMotion(ctx context.Context,
+	logger golog.Logger,
+	dst spatialmath.Pose,
+	f frame.Frame,
+	seed []frame.Input,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
+	
+	// ephemerally create a framesystem containing just the frame for the solve
+	fs := frame.NewEmptySimpleFrameSystem("")
+	err := fs.AddFrame(f, fs.World())
+	if err != nil {
+		return nil, err
+	}
+	destination := frame.NewPoseInFrame(frame.World, dst)
+	seedMap := map[string][]frame.Input{f.Name(): seed}
+	solutionMap, err := PlanWaypoints(ctx, logger, []*frame.PoseInFrame{destination}, f, seedMap, fs, nil, []map[string]interface{}{planningOpts})
+	if err != nil{
+		return nil, err
+	}
+	solution := make([][]frame.Input, 0, len(solutionMap))
+	for _, step := range solutionMap {
+		solution = append(solution, step[f.Name()])
+	}
+	return solution, nil
+}
+
+// PlanWaypoints plans motions to a list of destinations in order for a given frame. It takes a given frame system, wraps it with a
+// SolvableFS, and solves. It will generate a list of intermediate waypoints as well to pass to the solvable framesystem if possible.
+func PlanWaypoints(ctx context.Context,
+	logger golog.Logger,
+	dst []*frame.PoseInFrame,
+	f frame.Frame,
+	seedMap map[string][]frame.Input,
+	fs frame.FrameSystem,
+	worldState *commonpb.WorldState,
+	planningOpts []map[string]interface{},
+) ([]map[string][]frame.Input, error) {
+	solvableFS := NewSolvableFrameSystem(fs, logger)
+	if len(dst) == 0 {
+		return nil, errors.New("no destinations passed to PlanWaypoints")
+	}
+
+	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
+}
 
 type planner struct {
 	solver InverseKinematics
 	frame  frame.Frame
 	logger golog.Logger
-	nCPU   int
 	randseed *rand.Rand
 	start time.Time
 }
@@ -51,7 +127,6 @@ func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logge
 		solver:   ik,
 		frame:    frame,
 		logger:   logger,
-		nCPU:     nCPU,
 		randseed: seed,
 	}
 	return mp, nil
@@ -61,7 +136,7 @@ func (mp *planner) Frame() frame.Frame {
 	return mp.frame
 }
 
-func (mp *planner) checkInputs(planOpts *PlannerOptions, inputs []frame.Input) bool {
+func (mp *planner) checkInputs(planOpts *plannerOptions, inputs []frame.Input) bool {
 	frame := mp.Frame()
 	position, err := frame.Transform(inputs)
 	if err != nil {
@@ -77,7 +152,7 @@ func (mp *planner) checkInputs(planOpts *PlannerOptions, inputs []frame.Input) b
 	return ok
 }
 
-func (mp *planner) checkPath(planOpts *PlannerOptions, seedInputs, target []frame.Input) bool {
+func (mp *planner) checkPath(planOpts *plannerOptions, seedInputs, target []frame.Input) bool {
 	ok, _ := planOpts.CheckConstraintPath(
 		&ConstraintInput{
 			StartInput: seedInputs,
@@ -134,58 +209,8 @@ func (np *nodePair) sumCosts() float64 {
 	return a.cost + b.cost
 }
 
-// PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
-func PlanRobotMotion(ctx context.Context,
-	dst *frame.PoseInFrame,
-	f frame.Frame,
-	r robot.Robot,
-	fs frame.FrameSystem,
-	worldState *commonpb.WorldState,
-	planningOpts map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
-	if err != nil {
-		return nil, err
-	}
-
-	return PlanWaypoints(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
-}
-
-// PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
-func PlanMotion(ctx context.Context,
-	logger golog.Logger,
-	dst *frame.PoseInFrame,
-	f frame.Frame,
-	seedMap map[string][]frame.Input,
-	fs frame.FrameSystem,
-	worldState *commonpb.WorldState,
-	planningOpts map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	return PlanWaypoints(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
-}
-
-// PlanWaypoints plans motions to a list of destinations in order for a given frame. It takes a given frame system, wraps it with a
-// SolvableFS, and solves. It will generate a list of intermediate waypoints as well to pass to the solvable framesystem if possible.
-func PlanWaypoints(ctx context.Context,
-	logger golog.Logger,
-	dst []*frame.PoseInFrame,
-	f frame.Frame,
-	seedMap map[string][]frame.Input,
-	fs frame.FrameSystem,
-	worldState *commonpb.WorldState,
-	planningOpts []map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	solvableFS := NewSolvableFrameSystem(fs, logger)
-	if len(dst) == 0 {
-		return nil, errors.New("no destinations passed to PlanWaypoints")
-	}
-	fmt.Println(seedMap, dst, f, worldState, planningOpts)
-
-	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
-}
-
 // EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan planReturn, planOpts *PlannerOptions) (totalCost float64) {
+func EvaluatePlan(plan planReturn, planOpts *plannerOptions) (totalCost float64) {
 	if errors.Is(plan.Err(), errPlannerFailed) {
 		return math.Inf(1)
 	}
@@ -217,7 +242,7 @@ func GetSteps(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
 func getSolutions(ctx context.Context,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	solver InverseKinematics,
 	goal spatialmath.Pose,
 	seed []frame.Input,

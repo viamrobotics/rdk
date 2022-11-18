@@ -38,7 +38,7 @@ type rrtStarConnectOptions struct {
 
 // newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
-func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions, error) {
+func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
 		OptimalityThreshold: defaultOptimalityThreshold,
 		NeighborhoodSize:    defaultNeighborhoodSize,
@@ -67,7 +67,7 @@ func newRRTStarConnectMotionPlannerWithSeed(
 	nCPU int,
 	seed *rand.Rand,
 	logger golog.Logger,
-) (MotionPlanner, error) {
+) (motionPlanner, error) {
 	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
@@ -78,14 +78,14 @@ func newRRTStarConnectMotionPlannerWithSeed(
 func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
 	if planOpts == nil {
-		planOpts = NewBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions()
 	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, nil, solutionChan)
+		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, InitRRTMaps(), nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -100,8 +100,8 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
-	sp *rrtMaps,
+	planOpts *plannerOptions,
+	rm *rrtMaps,
 	endpointPreview chan node,
 	solutionChan chan *rrtPlanReturn,
 ) {
@@ -109,7 +109,7 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 
 	// setup planner options
 	if planOpts == nil {
-		planOpts = NewBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions()
 	}
 	algOpts, err := newRRTStarConnectOptions(planOpts)
 	if err != nil {
@@ -135,22 +135,20 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 	optimalCost := solutions[0].cost
 
 	// initialize maps
-	goalMap := make(map[node]node, len(solutions))
 	for i, solution := range solutions {
 		if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
 			solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
 			return
 		}
-		goalMap[newCostNode(solution.Q(), 0)] = nil
+		rm.goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
-	startMap := make(map[node]node)
-	startMap[newCostNode(seed, 0)] = nil
+	rm.startMap[newCostNode(seed, 0)] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
 	target := referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
-	map1, map2 := startMap, goalMap
+	map1, map2 := rm.startMap, rm.goalMap
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -176,9 +174,9 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 		// stop and return best path
 		if time.Since(mp.start) > time.Duration(algOpts.Timeout * float64(time.Second)){
 			if solved {
-				solutionChan <- shortestPath(sp, shared)
+				solutionChan <- shortestPath(rm, shared)
 			}else{
-				solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, sp: sp}
+				solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, rm: rm}
 			}
 			return
 		}
@@ -205,7 +203,7 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 
 		// calculate the solution and log status of planner
 		if i%defaultSolutionCalculationPeriod == 0 {
-			solution := shortestPath(sp, shared)
+			solution := shortestPath(rm, shared)
 			solutionCost = EvaluatePlan(solution, planOpts)
 			mp.logger.Warnf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
 			// check if an early exit is possible
@@ -218,7 +216,7 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 	}
 	
 
-	solutionChan <- shortestPath(sp, shared)
+	solutionChan <- shortestPath(rm, shared)
 }
 
 

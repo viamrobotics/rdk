@@ -15,8 +15,8 @@ const (
 )
 
 type RRTParallelPlanner interface{
-	MotionPlanner
-	RRTBackgroundRunner(context.Context, spatialmath.Pose,[]referenceframe.Input, *PlannerOptions, *rrtMaps, chan node, chan *rrtPlanReturn)
+	motionPlanner
+	RRTBackgroundRunner(context.Context, spatialmath.Pose,[]referenceframe.Input, *plannerOptions, *rrtMaps, chan node, chan *rrtPlanReturn)
 }
 
 type rrtOptions struct {
@@ -26,11 +26,14 @@ type rrtOptions struct {
 	// Number of planner iterations before giving up.
 	PlanIter int `json:"plan_iter"`
 
+	// Number of CPU cores to use for RRT*
+	Ncpu int `json:"ncpu"`
+
 	// Contains constraints, IK solving params, etc
-	planOpts *PlannerOptions
+	planOpts *plannerOptions
 }
 
-func newRRTOptions(planOpts *PlannerOptions) *rrtOptions {
+func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 	return &rrtOptions{
 		Timeout: defaultTimeout,
 		PlanIter: defaultPlanIter,
@@ -47,7 +50,7 @@ type rrtPlanner interface{
 type rrtPlanReturn struct {
 	steps []node
 	err   error
-	sp *rrtMaps
+	rm *rrtMaps
 }
 
 func (plan *rrtPlanReturn) ToInputs() [][]referenceframe.Input {
@@ -67,9 +70,16 @@ type rrtMaps struct {
 	goalMap map[node]node
 }
 
-func shortestPath(sp *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
+func InitRRTMaps() *rrtMaps {
+	return &rrtMaps{
+		startMap: map[node]node{},
+		goalMap: map[node]node{},
+	}
+}
+
+func shortestPath(rm *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{err: errPlannerFailed, sp: sp}
+		return &rrtPlanReturn{err: errPlannerFailed, rm: rm}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()
@@ -79,5 +89,5 @@ func shortestPath(sp *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(sp.startMap, sp.goalMap, nodePairs[minIdx])}
+	return &rrtPlanReturn{steps: extractPath(rm.startMap, rm.goalMap, nodePairs[minIdx])}
 }

@@ -40,7 +40,7 @@ const (
 	
 )
 
-var defaultPlanner = newRRTStarConnectMotionPlannerWithSeed
+var defaultPlanner = newCBiRRTMotionPlannerWithSeed
 
 // the set of supported motion profiles.
 const (
@@ -60,8 +60,8 @@ func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
 }
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func NewBasicPlannerOptions() *PlannerOptions {
-	opt := &PlannerOptions{}
+func newBasicPlannerOptions() *plannerOptions {
+	opt := &plannerOptions{}
 	opt.AddConstraint(defaultJointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = NewSquaredNormMetric()
 	opt.pathDist = NewSquaredNormMetric()
@@ -72,12 +72,12 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.Resolution = defaultResolution
 	opt.DistanceFunc = defaultDistanceFunc
 	opt.PlannerConstructor = defaultPlanner
+	
 	return opt
 }
 
-// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-// TODO(rb): make this a private struct so that somebody can't just make their own and initialize wrong.
-type PlannerOptions struct {
+// plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+type plannerOptions struct {
 	constraintHandler
 	metric   Metric // Distance function to the goal
 	pathDist Metric // Distance function to the nearest valid point
@@ -102,34 +102,25 @@ type PlannerOptions struct {
 	
 	PlannerConstructor seededPlannerConstructor
 	
-	Fallback *PlannerOptions
+	Fallback *plannerOptions
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *PlannerOptions) SetMetric(m Metric) {
+func (p *plannerOptions) SetMetric(m Metric) {
 	p.metric = m
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *PlannerOptions) SetPathDist(m Metric) {
+func (p *plannerOptions) SetPathDist(m Metric) {
 	p.pathDist = m
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
+func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
 }
 
 // SetMinScore specifies the IK stopping score for the planner.
-func (p *PlannerOptions) SetMinScore(minScore float64) {
+func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
-}
-
-// Copy any atomic values
-func deepIshCopyMap(opt map[string]interface{}) map[string]interface{} {
-	optCopy := map[string]interface{}{}
-	for k, v := range opt {
-		optCopy[k] = v
-	}
-	return optCopy
 }

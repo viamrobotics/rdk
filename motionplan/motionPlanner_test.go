@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"strconv"
 	"testing"
-	"fmt"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -34,20 +32,10 @@ type planConfig struct {
 	Start      []frame.Input
 	Goal       spatialmath.Pose
 	RobotFrame frame.Frame
-	Options    *PlannerOptions
+	Options    *plannerOptions
 }
 
 type planConfigConstructor    func() (*planConfig, error)
-
-func BenchmarkUnconstrainedMotion(b *testing.B) {
-	config, err := simpleUR5eMotion()
-	test.That(b, err, test.ShouldBeNil)
-	mp, err := NewRRTConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger.Sugar())
-	test.That(b, err, test.ShouldBeNil)
-	plan, err := mp.Plan(context.Background(), config.Goal, config.Start, config.Options)
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-}
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
@@ -95,7 +83,6 @@ func TestConstrainedMotion(t *testing.T) {
 }
 
 func TestScene1(t *testing.T) {
-	start := time.Now()
 	tlogger := golog.NewTestLogger(t)
 	sceneFS := frame.NewEmptySimpleFrameSystem("")
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "arm")
@@ -110,12 +97,10 @@ func TestScene1(t *testing.T) {
 	
 	option := map[string]interface{}{}
 	
-	goal := spatial.NewPoseFromOrientation(goalPt, startPose.Orientation())
+	goal := spatialmath.NewPoseFromOrientation(goalPt, startPose.Orientation())
 	
 	i := 3
 	option["rseed"] = i
-	fmt.Println("setup", time.Since(start))
-	ptime := time.Now()
 	_, err = PlanMotion(
 		context.Background(),
 		tlogger,
@@ -126,7 +111,6 @@ func TestScene1(t *testing.T) {
 		ws,
 		option,
 	)
-	fmt.Println("plan", time.Since(ptime))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -144,14 +128,14 @@ func TestScene4(t *testing.T) {
 	goalPt.X += 300
 	testPt := startPose.Point()
 	testPt.X += 150
-	testPose := spatial.NewPoseFromOrientation(testPt, startPose.Orientation())
+	testPose := spatialmath.NewPoseFromOrientation(testPt, startPose.Orientation())
 	ws := &commonpb.WorldState{
 		Obstacles: []*commonpb.GeometriesInFrame{
 			{
 				ReferenceFrame: "world",
 				Geometries: []*commonpb.Geometry{
 					{
-						Center: spatial.PoseToProtobuf(testPose),
+						Center: spatialmath.PoseToProtobuf(testPose),
 						GeometryType: &commonpb.Geometry_Box{
 							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
 								X: 20,
@@ -167,7 +151,7 @@ func TestScene4(t *testing.T) {
 	
 	option := map[string]interface{}{}
 	
-	goal := spatial.NewPoseFromOrientation(goalPt, startPose.Orientation())
+	goal := spatialmath.NewPoseFromOrientation(goalPt, startPose.Orientation())
 	
 	i := 3000
 	option["rseed"] = i
@@ -195,16 +179,16 @@ func TestScene5(t *testing.T) {
 	startPose, _ := model.Transform(startInput)
 	goalPt := startPose.Point()
 	goalPt.X += 400
-	wallPose := spatial.NewPoseFromPoint(r3.Vector{0, -200, 0})
-	obs1Pose := spatial.NewPoseFromPoint(r3.Vector{300, 0, 0})
-	obs2Pose := spatial.NewPoseFromPoint(r3.Vector{300, 0, 500})
+	wallPose := spatialmath.NewPoseFromPoint(r3.Vector{0, -200, 0})
+	obs1Pose := spatialmath.NewPoseFromPoint(r3.Vector{300, 0, 0})
+	obs2Pose := spatialmath.NewPoseFromPoint(r3.Vector{300, 0, 500})
 	ws := &commonpb.WorldState{
 		Obstacles: []*commonpb.GeometriesInFrame{
 			{
 				ReferenceFrame: "world",
 				Geometries: []*commonpb.Geometry{
 					{
-						Center: spatial.PoseToProtobuf(wallPose),
+						Center: spatialmath.PoseToProtobuf(wallPose),
 						GeometryType: &commonpb.Geometry_Box{
 							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
 								X: 2000,
@@ -214,7 +198,7 @@ func TestScene5(t *testing.T) {
 						},
 					},
 					{
-						Center: spatial.PoseToProtobuf(obs1Pose),
+						Center: spatialmath.PoseToProtobuf(obs1Pose),
 						GeometryType: &commonpb.Geometry_Box{
 							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
 								X: 50,
@@ -224,7 +208,7 @@ func TestScene5(t *testing.T) {
 						},
 					},
 					{
-						Center: spatial.PoseToProtobuf(obs2Pose),
+						Center: spatialmath.PoseToProtobuf(obs2Pose),
 						GeometryType: &commonpb.Geometry_Box{
 							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
 								X: 50,
@@ -240,7 +224,7 @@ func TestScene5(t *testing.T) {
 	
 	option := map[string]interface{}{}
 	
-	goal := spatial.NewPoseFromOrientation(goalPt, startPose.Orientation())
+	goal := spatialmath.NewPoseFromOrientation(goalPt, startPose.Orientation())
 	
 	i := 3
 	option["rseed"] = i
@@ -268,7 +252,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	// Test ability to arrive at another position
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
@@ -346,7 +330,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	toMap := func(geometries []spatialmath.Geometry) map[string]spatialmath.Geometry {
 		geometryMap := make(map[string]spatialmath.Geometry, 0)
 		for i, geometry := range geometries {
@@ -373,7 +357,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil))
 
 	return &planConfig{
@@ -392,7 +376,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil))
 
 	return &planConfig{

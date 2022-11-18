@@ -96,7 +96,10 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
 
-		sfPlanner := NewViamMotionPlanner(sf, fss, fss.logger, i)
+		sfPlanner, err := newViamMotionPlanner(sf, fss, fss.logger, i)
+		if err != nil {
+			return nil, err
+		}
 		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
 		if err != nil {
 			return nil, err
@@ -117,7 +120,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 // SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
 // A SolvableFrameSystem wraps a complete frame system, and will make solverFrames on the fly to solve for. These
 // solverFrames are used to create the planner here.
-func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)) {
+func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golog.Logger) (motionPlanner, error)) {
 	fss.mpFunc = mpFunc
 }
 

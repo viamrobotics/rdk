@@ -352,7 +352,7 @@ func solveTest(ctx context.Context, solver InverseKinematics, goal spatial.Pose,
 	// Spawn the IK solver to generate solutions until done
 	go func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goal, seed, NewSquaredNormMetric())
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goal, seed, NewSquaredNormMetric(), 1)
 	}()
 
 	var solutions [][]frame.Input

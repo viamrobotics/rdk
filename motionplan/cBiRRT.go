@@ -54,7 +54,7 @@ type cbirrtOptions struct {
 
 // newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
 // defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
+func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
 	algOpts := &cbirrtOptions{
 		FrameStep:       defaultFrameStep,
 		JointSolveDist:  defaultJointSolveDist,
@@ -87,7 +87,7 @@ type cBiRRTMotionPlanner struct {
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+func newCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error) {
 	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
@@ -106,14 +106,14 @@ func newCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
 	if planOpts == nil {
-		planOpts = NewBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions()
 	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, nil, solutionChan)
+		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, InitRRTMaps(), nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -122,7 +122,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 		return plan.ToInputs(), plan.err
 	}
 }
-var nloptCnt = 0
 
 // RRTBackgroundRunner will execute the plan. When Plan() is called, it will call RRTBackgroundRunner in a separate thread and wait for the results.
 // Separating this allows other things to call RRTBackgroundRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
@@ -130,21 +129,12 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
+	rm *rrtMaps,
 	endpointPreview chan node,
-	sp *rrtMaps,
 	solutionChan chan *rrtPlanReturn,
 ) {
 	defer close(solutionChan)
-	
-	// initialize maps
-	corners := map[node]bool{}
-
-	// TODO(rb) package neighborManager better
-	nm := &neighborManager{nCPU: mp.nCPU}
-	nmContext, cancel := context.WithCancel(ctx)
-	defer cancel()
-	mp.start = time.Now()
 	
 	
 	// setup planner options
@@ -157,16 +147,24 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 		solutionChan <- &rrtPlanReturn{err: err}
 		return
 	}
+	
+	// initialize maps
+	corners := map[node]bool{}
+
+	// TODO(rb) package neighborManager better
+	nm := &neighborManager{nCPU: algOpts.Ncpu}
+	nmContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	mp.start = time.Now()
 
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	
-	if err != nil && len(sp.goalMap) == 0{
+	if err != nil && len(rm.goalMap) == 0{
 		solutionChan <- &rrtPlanReturn{err: err}
 		return
 	}
 	
-	//~ fmt.Println("ik", time.Since(iktime))
 	for i, solution := range solutions {
 		
 		// Check if we can directly interpolate to any solutions
@@ -176,8 +174,8 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 		}
 		
 		// if we got more solutions, add them
-		if _, ok := sp.goalMap[solution]; !ok {
-			sp.goalMap[solution] = nil
+		if _, ok := rm.goalMap[solution]; !ok {
+			rm.goalMap[solution] = nil
 		}
 	}
 	
@@ -195,7 +193,7 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 		target = referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 	}
 
-	map1, map2 := sp.startMap, sp.goalMap
+	map1, map2 := rm.startMap, rm.goalMap
 	
 	m1chan := make(chan node, 1)
 	m2chan := make(chan node, 1)
@@ -205,7 +203,7 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 	for i := 0; i < algOpts.PlanIter; i++ {
 		
 		if time.Since(mp.start) > time.Duration(algOpts.Timeout) * time.Second {
-			solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, sp: sp}
+			solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, rm: rm}
 			return
 		}
 		
@@ -256,7 +254,7 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 		// Solved!
 		if reachedDelta <= algOpts.JointSolveDist {
 			cancel()
-			path := extractPath(sp.startMap, sp.goalMap, &nodePair{map1reached, map2reached})
+			path := extractPath(rm.startMap, rm.goalMap, &nodePair{map1reached, map2reached})
 			if endpointPreview != nil {
 				endpointPreview <- path[len(path)-1]
 			}
@@ -269,7 +267,7 @@ func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 		target = mp.sample(algOpts, map1reached, i)
 		map1, map2 = map2, map1
 	}
-	solutionChan <- &rrtPlanReturn{err: errPlannerFailed, sp: sp}
+	solutionChan <- &rrtPlanReturn{err: errPlannerFailed, rm: rm}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sampleNum int) []referenceframe.Input {
@@ -375,7 +373,6 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 	solutionGen := make(chan []referenceframe.Input, 1)
 	// Spawn the IK solver to generate solutions until done
-	nloptCnt++
 	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, algOpts.planOpts.pathDist, mp.randseed.Int())
 	// We should have zero or one solutions
 	var solved []referenceframe.Input

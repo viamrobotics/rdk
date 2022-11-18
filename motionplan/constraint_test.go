@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -21,7 +22,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(m, nCPU, logger)
+	mp, err := newCBiRRTMotionPlannerWithSeed(m, nCPU, rand.New(rand.NewSource(1)), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -33,7 +34,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	})
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -155,7 +156,7 @@ func TestLineFollow(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, lastGood := opt.CheckConstraintPath(

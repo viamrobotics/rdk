@@ -15,35 +15,39 @@ import (
 	"go.viam.com/utils"
 )
 
-// ViamMotionPlanner is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
+// viamMotionPlanner is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
 // Intended information flow should be:
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> ViamMotionPlanner.planSingleWaypoint()
-type ViamMotionPlanner struct {
+type viamMotionPlanner struct {
+	*planner
 	frame *solverFrame
 	fs referenceframe.FrameSystem
-	logger golog.Logger
-	randseed *rand.Rand
 }
 
-func NewViamMotionPlanner(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) *ViamMotionPlanner {
-	return &ViamMotionPlanner{frame, fs, logger, rand.New(rand.NewSource(int64(seed)))}
+func newViamMotionPlanner(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*viamMotionPlanner, error) {
+	p, err := newPlanner(frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), logger)
+	if err != nil {
+		return nil, err
+	}
+	return &viamMotionPlanner{p, frame, fs}, nil
 }
 
-// Plan on the ViamMotionPlanner should be the single point of entry to planning algorithms.
+// Plan on the viamMotionPlanner should be the single point of entry to planning algorithms.
 // This struct is responsible for determining what algorithm to use based on the motion requested and user options, calling any fallbacks,
 // running pre-checks, etc.
-func (mp *ViamMotionPlanner) Plan(
+func (mp *viamMotionPlanner) Plan(
 	ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	opt *plannerOptions,
 ) ([][]referenceframe.Input, error) {
 	
 	return nil, nil
 }
 
-// planSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
-func (mp *ViamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
+// PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
+// Any constraints, etc, will be held for the entire motion.
+func (mp *viamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 	seedMap map[string][]referenceframe.Input,
 	goalPos spatialmath.Pose,
 	worldState *commonpb.WorldState,
@@ -69,7 +73,7 @@ func (mp *ViamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	var goals []spatialmath.Pose
-	var opts []*PlannerOptions
+	var opts []*plannerOptions
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
@@ -101,7 +105,7 @@ func (mp *ViamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 	}
 	opts = append(opts, opt)
 
-	resultSlices, err := mp.planMotion(ctx, goals, seed, opts, 0)
+	resultSlices, err := mp.planMotion(ctx, goals, seed, opts, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -110,22 +114,23 @@ func (mp *ViamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 
 // planMotion will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning the next
 // motion as soon as its starting point is known.
-func (mp *ViamMotionPlanner) planMotion(
+func (mp *viamMotionPlanner) planMotion(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
-	opts []*PlannerOptions,
+	opts []*plannerOptions,
+	rm *rrtMaps,
 	iter int,
 ) ([][]referenceframe.Input, error) {
 	var err error
 	goal := goals[iter]
 	opt := opts[iter]
 	if opt == nil {
-		opt = NewBasicPlannerOptions()
+		opt = newBasicPlannerOptions()
 	}
 	
 	// Build planner
-	var pathPlanner MotionPlanner
+	var pathPlanner motionPlanner
 	if seed, ok := opt.extra["rseed"].(int); ok {
 		pathPlanner, err = opt.PlannerConstructor(mp.frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), mp.logger)
 	}else{
@@ -135,14 +140,19 @@ func (mp *ViamMotionPlanner) planMotion(
 		return nil, err
 	}
 	
+	
+	if rm == nil {
+		rm = InitRRTMaps()
+	}
+	
 	remainingSteps := [][]referenceframe.Input{}
 	if parPlan, ok := pathPlanner.(RRTParallelPlanner); ok {
-		// cBiRRT supports solution look-ahead for parallel waypoint solving
+		// RRTParallelPlanners supports solution look-ahead for parallel waypoint solving
 		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			parPlan.RRTBackgroundRunner(ctx, goal, seed, opt, endpointPreview, solutionChan)
+			parPlan.RRTBackgroundRunner(ctx, goal, seed, opt, rm, endpointPreview, solutionChan)
 		})
 		for {
 			select {
@@ -156,7 +166,7 @@ func (mp *ViamMotionPlanner) planMotion(
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = mp.planMotion(ctx, goals, nextSeed.Q(), opts, iter+1)
+					remainingSteps, err = mp.planMotion(ctx, goals, nextSeed.Q(), opts, nil, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -182,20 +192,33 @@ func (mp *ViamMotionPlanner) planMotion(
 			case finalSteps := <-solutionChan:
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 				if finalSteps.err != nil {
-					return nil, finalSteps.err
-				}
-				if iter+1 < len(goals) {
-					// in this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = mp.planMotion(
-						ctx,
-						goals,
-						finalSteps.steps[len(finalSteps.steps)-1].Q(),
-						opts,
-						iter+1,
-					)
-					if err != nil {
-						return nil, err
+					if opt.Fallback != nil {
+						remainingSteps, err = mp.planMotion(
+							ctx,
+							goals,
+							seed,
+							append([]*plannerOptions{opt.Fallback}, opts[1:]...),
+							finalSteps.rm,
+							iter,
+						)
+					} else {
+						return nil, finalSteps.err
+					}
+				} else {
+					if iter+1 < len(goals) {
+						// in this case, we create the next step (and thus the remaining steps) and the
+						// step from our iteration hangs out in the channel buffer until we're done with it
+						remainingSteps, err = mp.planMotion(
+							ctx,
+							goals,
+							finalSteps.steps[len(finalSteps.steps)-1].Q(),
+							opts,
+							nil,
+							iter+1,
+						)
+						if err != nil {
+							return nil, err
+						}
 					}
 				}
 				results := append(finalSteps.ToInputs(), remainingSteps...)
@@ -209,9 +232,8 @@ func (mp *ViamMotionPlanner) planMotion(
 			return nil, err
 		}
 		if iter < len(goals)-2 {
-			// in this case, we create the next step (and thus the remaining steps) and the
-			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = mp.planMotion(ctx, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			// in this case, we create the next step (and thus the remaining steps)
+			remainingSteps, err = mp.planMotion(ctx, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, nil, iter+1)
 			if err != nil {
 				return nil, err
 			}
@@ -220,13 +242,17 @@ func (mp *ViamMotionPlanner) planMotion(
 	}
 }
 
-func (mp *ViamMotionPlanner) plannerSetupFromMoveRequest(
+// This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens
+func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *commonpb.WorldState,
 	planningOpts map[string]interface{},
-) (*PlannerOptions, error) {
-	opt := NewBasicPlannerOptions()
+) (*plannerOptions, error) {
+	
+	// Start with normal options
+	opt := newBasicPlannerOptions()
+	
 	opt.extra = planningOpts
 
 	collisionConstraint, err := NewCollisionConstraintFromWorldState(mp.frame, mp.fs, worldState, seedMap)
@@ -263,11 +289,13 @@ func (mp *ViamMotionPlanner) plannerSetupFromMoveRequest(
 			return nil, errors.New("could not interpret planning_alg field as string")
 		}
 		switch planAlg {
+		// TODO(pl): make these consts
 		case "cbirrt":
 			opt.PlannerConstructor = newCBiRRTMotionPlannerWithSeed
 		case "rrtstar":
-			opt.PlannerConstructor = newRRTStarConnectMotionPlannerWithSeed
 			// no motion profiles for RRT*
+			opt.PlannerConstructor = newRRTStarConnectMotionPlannerWithSeed
+			// TODO(pl): more logic for RRT*?
 			return opt, nil
 		default:
 			// use default, already set
@@ -310,53 +338,29 @@ func (mp *ViamMotionPlanner) plannerSetupFromMoveRequest(
 		opt.pathDist = pathDist
 	case FreeMotionProfile:
 		// No restrictions on motion
+		fallthrough
 	default:
-		// TODO(pl): once RRT* is workable, use here. Also, update to try pseudolinear first, and fall back to orientation, then to free
-		// if unsuccessful
-		
 		// set up deep copy for fallback
-		try1 := deepIshCopyMap(planningOpts)
-		try1["motion_profile"] = "linear"
-		fbIter, ok := planningOpts["fallback_iter"].(float64)
-		if !ok {
-			// Default
-			fbIter = 200
-		}
-		
-		
-		//~ try1["plan_iter"] = fbIter
-		//~ try1["timeout"] = 2.0
-		//~ try1Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try1)
-		//~ if err != nil {
-			//~ return nil, err
-		//~ }
-		
-		try2 := deepIshCopyMap(planningOpts)
-		try2["motion_profile"] = "pseudolinear"
-		try2["plan_iter"] = fbIter
-		try2["timeout"] = 1.0
-		try2Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try2)
+		try1 := deepAtomicCopyMap(planningOpts)
+		try1["timeout"] = 0.5
+		try1["planning_alg"] = "rrtstar"
+		try1Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
 		if err != nil {
 			return nil, err
 		}
 		
-		try3 := deepIshCopyMap(planningOpts)
-		try3["motion_profile"] = "orientation"
-		try3["plan_iter"] = fbIter
-		try3["timeout"] = 2.0
-		try3Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try3)
-		if err != nil {
-			return nil, err
-		}
-		
-		
-		
-		//~ try1Opt.Fallback = opt
-		//~ try1Opt.Fallback = try2Opt
-		try2Opt.Fallback = opt
-		//~ try2Opt.Fallback = try3Opt
-		try3Opt.Fallback = opt
-		opt = try2Opt
+
+		try1Opt.Fallback = opt
+		opt = try1Opt
 	}
 	return opt, nil
+}
+
+// Copy any atomic values
+func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
+	optCopy := map[string]interface{}{}
+	for k, v := range opt {
+		optCopy[k] = v
+	}
+	return optCopy
 }

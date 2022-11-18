@@ -368,7 +368,7 @@ func Plan(
 	armName := a.ModelFrame().Name()
 	destination := referenceframe.NewPoseInFrame(armName+"_origin", dst)
 
-	var solutionMap []map[string][]referenceframe.Input
+	var solution [][]referenceframe.Input
 
 	// PlanRobotMotion needs a frame system which contains the frame being solved for
 	if fs.Frame(armName) == nil {
@@ -377,24 +377,25 @@ func Plan(
 				return nil, errors.New("arm must be in frame system to use worldstate")
 			}
 		}
-
-		// ephemerally create a framesystem containing just the arm for the solve
-		fs = referenceframe.NewEmptySimpleFrameSystem("")
-		err := fs.AddFrame(a.ModelFrame(), fs.World())
+		armFrame := a.ModelFrame()
+		jp, err := a.JointPositions(ctx, nil)
+		if err != nil{
+			return nil, err
+		}
+		solution, err = motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions)
 		if err != nil {
 			return nil, err
 		}
-		destination = referenceframe.NewPoseInFrame(referenceframe.World, dst)
+	} else{
+		solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
+		if err != nil {
+			return nil, err
+		}
+		for _, step := range solutionMap {
+			solution = append(solution, step[armName])
+		}
 	}
 
-	solutionMap, err = motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
-	if err != nil {
-		return nil, err
-	}
-	solution := make([][]referenceframe.Input, 0, len(solutionMap))
-	for _, step := range solutionMap {
-		solution = append(solution, step[armName])
-	}
 	return solution, nil
 }
 

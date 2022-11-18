@@ -16,14 +16,8 @@ import (
 // https://ieeexplore.ieee.org/document/844730
 type rrtConnectMotionPlanner struct{ *planner }
 
-// NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
-func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
-	//nolint:gosec
-	return NewRRTConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
-}
-
 // NewRRTConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
-func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+func newRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error) {
 	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
@@ -34,10 +28,10 @@ func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, se
 func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
 	if planOpts == nil {
-		planOpts = NewBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions()
 	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
@@ -56,7 +50,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	endpointPreview chan node,
 	solutionChan chan *rrtPlanReturn,
 ) {
@@ -90,7 +84,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	startMap[&basicNode{q: seed}] = nil
 
 	// TODO(rb) package neighborManager better
-	nm := &neighborManager{nCPU: mp.nCPU}
+	nm := &neighborManager{nCPU: algOpts.Ncpu}
 	nmContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 

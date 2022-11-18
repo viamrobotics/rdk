@@ -23,16 +23,14 @@ func TestDubinsRRT(t *testing.T) {
 
 	// setup planner
 	d := Dubins{Radius: 0.6, PointSeparation: 0.1}
-	mp, err := NewDubinsRRTMotionPlanner(model, 1, logger, d)
+	dubins, err := NewDubinsRRTMotionPlanner(model, 1, logger, d)
 	test.That(t, err, test.ShouldEqual, nil)
-	dubins, ok := mp.(*DubinsRRTMotionPlanner)
-	test.That(t, ok, test.ShouldEqual, true)
 
 	start := []float64{0, 0, 0}
 	goal := []float64{10, 0, 0}
 
 	testDubin := func(obstacleGeometries map[string]spatial.Geometry) bool {
-		opt := NewBasicPlannerOptions()
+		opt := newBasicPlannerOptions()
 		opt.AddConstraint("collision", NewCollisionConstraint(
 			dubins.Frame(),
 			frame.FloatsToInputs(start[0:2]),
