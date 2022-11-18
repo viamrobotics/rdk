@@ -213,7 +213,11 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			src := camera.SourceFromCamera(cam)
 			ticker := time.NewTicker(500 * time.Millisecond)
 			defer ticker.Stop()
-			defer cam.Close(ctx)
+			defer func() {
+				if err := cam.Close(ctx); err != nil {
+					logger.Debugf("failed to close camera: %v", err)
+				}
+			}()
 			for {
 				select {
 				case <-ticker.C:
