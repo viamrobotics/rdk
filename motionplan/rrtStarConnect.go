@@ -85,7 +85,7 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, InitRRTMaps(), nil, solutionChan)
+		mp.rrtBackgroundRunner(ctx, goal, seed, planOpts, initRRTMaps(), nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -95,9 +95,9 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	}
 }
 
-// RRTBackgroundRunner will execute the plan. When Plan() is called, it will call RRTBackgroundRunner in a separate thread and wait for the results.
-// Separating this allows other things to call RRTBackgroundRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
+// rrtBackgroundRunner will execute the plan. Plan() will call RRTBackgroundRunner in a separate thread and wait for results.
+// Separating this allows other things to call RRTBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
+func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *plannerOptions,
@@ -116,7 +116,7 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 		solutionChan <- &rrtPlanReturn{err: err}
 		return
 	}
-	
+
 	mp.start = time.Now()
 
 	// get many potential end goals from IK solver
@@ -155,14 +155,14 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 
 	// sample until the max number of iterations is reached
 	var solutionCost float64
-	
+
 	m1chan := make(chan node, 1)
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
-	
+
 	solved := false
-	
+
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -170,17 +170,17 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 			return
 		default:
 		}
-		
+
 		// stop and return best path
-		if time.Since(mp.start) > time.Duration(algOpts.Timeout * float64(time.Second)){
+		if time.Since(mp.start) > time.Duration(algOpts.Timeout*float64(time.Second)) {
 			if solved {
 				solutionChan <- shortestPath(rm, shared)
-			}else{
+			} else {
 				solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, rm: rm}
 			}
 			return
 		}
-		
+
 		// try to connect the target to map 1
 		utils.PanicCapturingGo(func() {
 			mp.extend(algOpts, map1, target, m1chan)
@@ -188,9 +188,9 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			mp.extend(algOpts, map2, target, m2chan)
 		})
-		map1reached := <- m1chan
-		map2reached := <- m2chan
-		
+		map1reached := <-m1chan
+		map2reached := <-m2chan
+
 		if map1reached != nil && map2reached != nil {
 			// target was added to both map
 			solved = true
@@ -214,14 +214,16 @@ func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 			}
 		}
 	}
-	
 
 	solutionChan <- shortestPath(rm, shared)
 }
 
-
-
-func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[node]node, target []referenceframe.Input, mchan chan node) {
+func (mp *rrtStarConnectMotionPlanner) extend(
+	algOpts *rrtStarConnectOptions,
+	tree map[node]node,
+	target []referenceframe.Input,
+	mchan chan node,
+) {
 	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
 		mchan <- nil
 		return

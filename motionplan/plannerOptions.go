@@ -37,7 +37,6 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
-	
 )
 
 var defaultPlanner = newCBiRRTMotionPlannerWithSeed
@@ -72,7 +71,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.Resolution = defaultResolution
 	opt.DistanceFunc = defaultDistanceFunc
 	opt.PlannerConstructor = defaultPlanner
-	
+
 	return opt
 }
 
@@ -99,9 +98,9 @@ type plannerOptions struct {
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
 	DistanceFunc Constraint
-	
+
 	PlannerConstructor seededPlannerConstructor
-	
+
 	Fallback *plannerOptions
 }
 

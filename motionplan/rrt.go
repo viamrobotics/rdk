@@ -1,6 +1,6 @@
 package motionplan
 
-import(
+import (
 	"context"
 
 	"go.viam.com/rdk/referenceframe"
@@ -10,19 +10,19 @@ import(
 const (
 	// Number of planner iterations before giving up.
 	defaultPlanIter = 2000
-	
+
 	defaultTimeout = 25.0
 )
 
-type RRTParallelPlanner interface{
+type rrtParallelPlanner interface {
 	motionPlanner
-	RRTBackgroundRunner(context.Context, spatialmath.Pose,[]referenceframe.Input, *plannerOptions, *rrtMaps, chan node, chan *rrtPlanReturn)
+	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, *plannerOptions, *rrtMaps, chan node, chan *rrtPlanReturn)
 }
 
 type rrtOptions struct {
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
-	
+
 	// Number of planner iterations before giving up.
 	PlanIter int `json:"plan_iter"`
 
@@ -35,7 +35,7 @@ type rrtOptions struct {
 
 func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 	return &rrtOptions{
-		Timeout: defaultTimeout,
+		Timeout:  defaultTimeout,
 		PlanIter: defaultPlanIter,
 		planOpts: planOpts,
 	}
@@ -43,14 +43,10 @@ func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 
 type rrtMap map[node]node
 
-type rrtPlanner interface{
-	
-}
-
 type rrtPlanReturn struct {
 	steps []node
 	err   error
-	rm *rrtMaps
+	rm    *rrtMaps
 }
 
 func (plan *rrtPlanReturn) ToInputs() [][]referenceframe.Input {
@@ -66,14 +62,14 @@ func (plan *rrtPlanReturn) Err() error {
 }
 
 type rrtMaps struct {
-	startMap map[node]node
-	goalMap map[node]node
+	startMap rrtMap
+	goalMap  rrtMap
 }
 
-func InitRRTMaps() *rrtMaps {
+func initRRTMaps() *rrtMaps {
 	return &rrtMaps{
 		startMap: map[node]node{},
-		goalMap: map[node]node{},
+		goalMap:  map[node]node{},
 	}
 }
 

@@ -29,8 +29,10 @@ type motionPlanner interface {
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
-type plannerConstructor func(frame.Frame, int, golog.Logger) (motionPlanner, error)
-type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error)
+type (
+	plannerConstructor       func(frame.Frame, int, golog.Logger) (motionPlanner, error)
+	seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error)
+)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
@@ -63,7 +65,7 @@ func PlanRobotMotion(ctx context.Context,
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
-// WorldState is not supported in the absence of a real frame system
+// WorldState is not supported in the absence of a real frame system.
 func PlanFrameMotion(ctx context.Context,
 	logger golog.Logger,
 	dst spatialmath.Pose,
@@ -71,7 +73,6 @@ func PlanFrameMotion(ctx context.Context,
 	seed []frame.Input,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
-	
 	// ephemerally create a framesystem containing just the frame for the solve
 	fs := frame.NewEmptySimpleFrameSystem("")
 	err := fs.AddFrame(f, fs.World())
@@ -80,8 +81,17 @@ func PlanFrameMotion(ctx context.Context,
 	}
 	destination := frame.NewPoseInFrame(frame.World, dst)
 	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := PlanWaypoints(ctx, logger, []*frame.PoseInFrame{destination}, f, seedMap, fs, nil, []map[string]interface{}{planningOpts})
-	if err != nil{
+	solutionMap, err := PlanWaypoints(
+		ctx,
+		logger,
+		[]*frame.PoseInFrame{destination},
+		f,
+		seedMap,
+		fs,
+		nil,
+		[]map[string]interface{}{planningOpts},
+	)
+	if err != nil {
 		return nil, err
 	}
 	solution := make([][]frame.Input, 0, len(solutionMap))
@@ -111,11 +121,11 @@ func PlanWaypoints(ctx context.Context,
 }
 
 type planner struct {
-	solver InverseKinematics
-	frame  frame.Frame
-	logger golog.Logger
+	solver   InverseKinematics
+	frame    frame.Frame
+	logger   golog.Logger
 	randseed *rand.Rand
-	start time.Time
+	start    time.Time
 }
 
 func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {

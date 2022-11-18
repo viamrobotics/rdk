@@ -97,7 +97,6 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		return nil, err
 	}
 
-
 	return &Arm{
 		Name:   cfg.Name,
 		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},

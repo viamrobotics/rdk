@@ -3,8 +3,6 @@ package motionplan
 import (
 	"fmt"
 	"math"
-	//~ "time"
-	//~ "strconv"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -177,8 +175,8 @@ type collisionGraph struct {
 func newCollisionGraph(key *ObjectCollisionEntities, test CollisionEntities, reference *CollisionSystem) (*collisionGraph, error) {
 	var err error
 	cg := &collisionGraph{key: key, test: test, adjacencies: make([][]float64, key.count()), triangular: key == test}
-	//~ fmt.Println("key", key)
-	//~ fmt.Println("test", test)
+	// ~ fmt.Println("key", key)
+	// ~ fmt.Println("test", test)
 	for i := range cg.adjacencies {
 		cg.adjacencies[i] = make([]float64, test.count())
 		keyi := key.entityFromIndex(i)
@@ -194,7 +192,7 @@ func newCollisionGraph(key *ObjectCollisionEntities, test CollisionEntities, ref
 			if reference.CollisionBetween(keyi.name, testj.name) {
 				cg.adjacencies[i][j] = math.NaN() // represent previously seen collisions as NaNs
 			} else {
-				//~ fmt.Println("key", keyi, "test", testj)
+				// ~ fmt.Println("key", keyi, "test", testj)
 				cg.adjacencies[i][j], err = test.checkCollision(keyi, testj)
 				if err != nil {
 					return nil, err
@@ -244,17 +242,17 @@ func NewCollisionSystemFromReference(
 	reference *CollisionSystem,
 ) (*CollisionSystem, error) {
 	cs := &CollisionSystem{make([]*collisionGraph, 0)}
-	//~ start := time.Now()
+	// ~ start := time.Now()
 	graph, err := newCollisionGraph(key, key, reference)
-	//~ rt["cginit"] += time.Since(start)
+	// ~ rt["cginit"] += time.Since(start)
 	if err != nil {
 		return nil, err
 	}
 	cs.graphs = append(cs.graphs, graph)
 	for i := range optional {
-		//~ start = time.Now()
+		// ~ start = time.Now()
 		graph, err = newCollisionGraph(key, optional[i], reference)
-		//~ rt["cg"+ strconv.Itoa(i)] += time.Since(start)
+		// ~ rt["cg"+ strconv.Itoa(i)] += time.Since(start)
 		if err != nil {
 			return nil, err
 		}

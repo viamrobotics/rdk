@@ -225,20 +225,19 @@ func boxVsBoxCollision(a, b *box) bool {
 //
 //	https://dyn4j.org/2010/01/sat/#sat-nointer
 func boxVsBoxDistance(a, b *box) float64 {
-	
 	centerDist := b.pose.Point().Sub(a.pose.Point()).Norm()
-	
+
 	diagDist := math.Sqrt(
-		a.halfSize[0] * a.halfSize[0] +
-		a.halfSize[1] * a.halfSize[1] +
-		a.halfSize[2] * a.halfSize[2]) + math.Sqrt(
-		b.halfSize[0] * b.halfSize[0] +
-		b.halfSize[1] * b.halfSize[1] +
-		b.halfSize[2] * b.halfSize[2])
+		a.halfSize[0]*a.halfSize[0]+
+			a.halfSize[1]*a.halfSize[1]+
+			a.halfSize[2]*a.halfSize[2]) + math.Sqrt(
+		b.halfSize[0]*b.halfSize[0]+
+			b.halfSize[1]*b.halfSize[1]+
+			b.halfSize[2]*b.halfSize[2])
 	if centerDist > diagDist {
 		return centerDist - diagDist
 	}
-	
+
 	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
@@ -303,8 +302,8 @@ func boxInSphere(b *box, s *sphere) bool {
 //	https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
 //	https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box, rmA, rmB *RotationMatrix) float64 {
-	//~ rmA := a.pose.Orientation().RotationMatrix()
-	//~ rmB := b.pose.Orientation().RotationMatrix()
+	// ~ rmA := a.pose.Orientation().RotationMatrix()
+	// ~ rmB := b.pose.Orientation().RotationMatrix()
 	sum := math.Abs(positionDelta.Dot(plane))
 	for i := 0; i < 3; i++ {
 		sum -= math.Abs(rmA.Row(i).Mul(a.halfSize[i]).Dot(plane))

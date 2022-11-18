@@ -149,7 +149,6 @@ func (q *dualQuaternion) SetZ(z float64) {
 
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
 func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
-	//shortcuts
 	var newReal quat.Number
 	var newDual quat.Number
 	if vecLen := 1 / quat.Abs(by.Real); vecLen != 1 {
@@ -158,21 +157,22 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 		by.Real.Jmag *= vecLen
 		by.Real.Kmag *= vecLen
 	}
+	//nolint: gocritic
 	if q.Real.Real == 1 {
 		newReal = by.Real
-	}
-	if by.Real.Real == 1 {
+	} else if by.Real.Real == 1 {
 		newReal = q.Real
-	}else{
+	} else {
 		// Ensure we are multiplying by a unit dual quaternion
 		newReal = quat.Mul(q.Real, by.Real)
 	}
-	
+
+	//nolint: gocritic
 	if q.Dual.Real == 0 && q.Dual.Imag == 0 && q.Dual.Jmag == 0 && q.Dual.Kmag == 0 {
-			newDual = quat.Mul(q.Real, by.Dual)
-	}else if by.Dual.Real == 0 && by.Dual.Imag == 0 && by.Dual.Jmag == 0 && by.Dual.Kmag == 0 {
-			newDual = quat.Mul(q.Dual, by.Real)
-	}else{
+		newDual = quat.Mul(q.Real, by.Dual)
+	} else if by.Dual.Real == 0 && by.Dual.Imag == 0 && by.Dual.Jmag == 0 && by.Dual.Kmag == 0 {
+		newDual = quat.Mul(q.Dual, by.Real)
+	} else {
 		newDual = quat.Add(quat.Mul(q.Real, by.Dual), quat.Mul(q.Dual, by.Real))
 	}
 	return dualquat.Number{

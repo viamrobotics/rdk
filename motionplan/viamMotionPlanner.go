@@ -2,29 +2,30 @@ package motionplan
 
 import (
 	"context"
-	"errors"
-	"runtime"
 	"encoding/json"
+	"errors"
 	"math/rand"
-	"github.com/edaniels/golog"
-	
-	commonpb "go.viam.com/api/common/v1"
+	"runtime"
 
-	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/referenceframe"
+	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // viamMotionPlanner is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
 // Intended information flow should be:
-// motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> ViamMotionPlanner.planSingleWaypoint()
+// motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> ViamMotionPlanner.planSingleWaypoint().
 type viamMotionPlanner struct {
 	*planner
 	frame *solverFrame
-	fs referenceframe.FrameSystem
+	fs    referenceframe.FrameSystem
 }
 
 func newViamMotionPlanner(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*viamMotionPlanner, error) {
+	//nolint: gosec
 	p, err := newPlanner(frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), logger)
 	if err != nil {
 		return nil, err
@@ -41,7 +42,6 @@ func (mp *viamMotionPlanner) Plan(
 	seed []referenceframe.Input,
 	opt *plannerOptions,
 ) ([][]referenceframe.Input, error) {
-	
 	return nil, nil
 }
 
@@ -61,7 +61,6 @@ func (mp *viamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
 
 	// If we are world rooted, translate the goal pose into the world frame
 	if mp.frame.worldRooted {
@@ -128,31 +127,32 @@ func (mp *viamMotionPlanner) planMotion(
 	if opt == nil {
 		opt = newBasicPlannerOptions()
 	}
-	
+
 	// Build planner
 	var pathPlanner motionPlanner
 	if seed, ok := opt.extra["rseed"].(int); ok {
+		//nolint: gosec
 		pathPlanner, err = opt.PlannerConstructor(mp.frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), mp.logger)
-	}else{
+	} else {
+		//nolint: gosec
 		pathPlanner, err = opt.PlannerConstructor(mp.frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(mp.randseed.Int()))), mp.logger)
 	}
 	if err != nil {
 		return nil, err
 	}
-	
-	
+
 	if rm == nil {
-		rm = InitRRTMaps()
+		rm = initRRTMaps()
 	}
-	
+
 	remainingSteps := [][]referenceframe.Input{}
-	if parPlan, ok := pathPlanner.(RRTParallelPlanner); ok {
+	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
 		// RRTParallelPlanners supports solution look-ahead for parallel waypoint solving
 		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			parPlan.RRTBackgroundRunner(ctx, goal, seed, opt, rm, endpointPreview, solutionChan)
+			parPlan.rrtBackgroundRunner(ctx, goal, seed, opt, rm, endpointPreview, solutionChan)
 		})
 		for {
 			select {
@@ -201,6 +201,9 @@ func (mp *viamMotionPlanner) planMotion(
 							finalSteps.rm,
 							iter,
 						)
+						if err != nil {
+							return nil, err
+						}
 					} else {
 						return nil, finalSteps.err
 					}
@@ -242,17 +245,16 @@ func (mp *viamMotionPlanner) planMotion(
 	}
 }
 
-// This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens
+// This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
 func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *commonpb.WorldState,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
-	
 	// Start with normal options
 	opt := newBasicPlannerOptions()
-	
+
 	opt.extra = planningOpts
 
 	collisionConstraint, err := NewCollisionConstraintFromWorldState(mp.frame, mp.fs, worldState, seedMap)
@@ -280,7 +282,7 @@ func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var planAlg string
 	alg, ok := planningOpts["planning_alg"]
 	if ok {
@@ -348,7 +350,6 @@ func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 		if err != nil {
 			return nil, err
 		}
-		
 
 		try1Opt.Fallback = opt
 		opt = try1Opt
@@ -356,7 +357,7 @@ func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 	return opt, nil
 }
 
-// Copy any atomic values
+// Copy any atomic values.
 func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
 	optCopy := map[string]interface{}{}
 	for k, v := range opt {

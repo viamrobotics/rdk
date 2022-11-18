@@ -379,14 +379,14 @@ func Plan(
 		}
 		armFrame := a.ModelFrame()
 		jp, err := a.JointPositions(ctx, nil)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 		solution, err = motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions)
 		if err != nil {
 			return nil, err
 		}
-	} else{
+	} else {
 		solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
 		if err != nil {
 			return nil, err

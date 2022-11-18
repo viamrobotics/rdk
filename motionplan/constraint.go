@@ -113,7 +113,7 @@ func (c *constraintHandler) Constraints() []string {
 // CheckConstraints will check a given input against all constraints.
 func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64) {
 	score := 0.
-	
+
 	for name, cFunc := range c.constraints {
 		_ = name
 
@@ -155,31 +155,30 @@ func NewCollisionConstraint(
 	}
 
 	constraint := func(cInput *ConstraintInput) (bool, float64) {
-			//~ mu.Lock()
-		//~ defer mu.Unlock()
-		//~ start := time.Now()
+		// ~ defer mu.Unlock()
+		// ~ start := time.Now()
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
-		//~ rt["makegeom1"] += time.Since(start)
+		// ~ rt["makegeom1"] += time.Since(start)
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		//~ start = time.Now()
+		// ~ start = time.Now()
 		internalEntities, err := NewObjectCollisionEntities(internal.Geometries())
-		//~ rt["makegeom2"] += time.Since(start)
+		// ~ rt["makegeom2"] += time.Since(start)
 		if err != nil {
 			return false, 0
 		}
-		
-		//~ start = time.Now()
+
+		// ~ start = time.Now()
 		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG)
-		//~ rt["makesys"] += time.Since(start)
+		// ~ rt["makesys"] += time.Since(start)
 		if err != nil {
 			return false, 0
 		}
-		
-		//~ start = time.Now()
+
+		// ~ start = time.Now()
 		collisions := cg.Collisions()
-		//~ rt["collide"] += time.Since(start)
+		// ~ rt["collide"] += time.Since(start)
 		if len(collisions) > 0 {
 			return false, 0
 		}

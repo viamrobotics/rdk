@@ -35,7 +35,7 @@ type planConfig struct {
 	Options    *plannerOptions
 }
 
-type planConfigConstructor    func() (*planConfig, error)
+type planConfigConstructor func() (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
@@ -94,11 +94,11 @@ func TestScene1(t *testing.T) {
 	goalPt.X += 100
 	goalPt.Y += 100
 	ws := &commonpb.WorldState{}
-	
+
 	option := map[string]interface{}{}
-	
+
 	goal := spatialmath.NewPoseFromOrientation(goalPt, startPose.Orientation())
-	
+
 	i := 3
 	option["rseed"] = i
 	_, err = PlanMotion(
@@ -120,7 +120,7 @@ func TestScene4(t *testing.T) {
 	sceneFS := frame.NewEmptySimpleFrameSystem("")
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "arm")
 	sceneFS.AddFrame(model, sceneFS.World())
-	
+
 	test.That(t, err, test.ShouldBeNil)
 	startInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	startPose, _ := model.Transform(startInput)
@@ -148,14 +148,14 @@ func TestScene4(t *testing.T) {
 			},
 		},
 	}
-	
+
 	option := map[string]interface{}{}
-	
+
 	goal := spatialmath.NewPoseFromOrientation(goalPt, startPose.Orientation())
-	
+
 	i := 3000
 	option["rseed"] = i
-	
+
 	_, err = PlanMotion(
 		context.Background(),
 		tlogger,
@@ -173,8 +173,9 @@ func TestScene5(t *testing.T) {
 	tlogger := golog.NewTestLogger(t)
 	sceneFS := frame.NewEmptySimpleFrameSystem("")
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
 	sceneFS.AddFrame(model, sceneFS.World())
-	
+
 	startInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	startPose, _ := model.Transform(startInput)
 	goalPt := startPose.Point()
@@ -221,14 +222,14 @@ func TestScene5(t *testing.T) {
 			},
 		},
 	}
-	
+
 	option := map[string]interface{}{}
-	
+
 	goal := spatialmath.NewPoseFromOrientation(goalPt, startPose.Orientation())
-	
+
 	i := 3
 	option["rseed"] = i
-	
+
 	_, err = PlanMotion(
 		context.Background(),
 		tlogger,

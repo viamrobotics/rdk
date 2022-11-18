@@ -44,7 +44,7 @@ type NloptIK struct {
 // to the default of 5000.
 func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
-	//nolint:gosec
+
 	ik.model = mdl
 	ik.id = 0
 	// How close we want to get to the goal
@@ -71,6 +71,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	m Metric,
 	rseed int,
 ) error {
+	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
 	var err error
 
@@ -108,9 +109,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		dist := m(eePos, newGoal)
 
 		if len(gradient) > 0 {
-			//~ xBak := append([]float64{}, x...)
+			// ~ xBak := append([]float64{}, x...)
 			for i := range gradient {
-				//~ xBak[i] += ik.jump
+				// ~ xBak[i] += ik.jump
 				x[i] += ik.jump
 				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
 				x[i] -= ik.jump
