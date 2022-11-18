@@ -9,7 +9,7 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 )
 
-// Creates a new EmptyLeafNode.
+// Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		tree:     nil,
@@ -29,7 +29,7 @@ func newInternalNode(tree []*basicOctree) basicOctreeNode {
 	return octNode
 }
 
-// Creates a new ChildLeafNode and stores specified position and data.
+// Creates a new LeafNodeFilled and stores specified position and data.
 func newLeafNodeFilled(p r3.Vector, d pc.Data) basicOctreeNode {
 	octNode := basicOctreeNode{
 		tree:     nil,
@@ -39,8 +39,8 @@ func newLeafNodeFilled(p r3.Vector, d pc.Data) basicOctreeNode {
 	return octNode
 }
 
-// Splits the octree into multiple octants and place stored point in appropriate child
-// Note: splitOctants should only be called when an octree is a ChildLeafNode.
+// Splits the octree into multiple octants and will place any stored point in appropriate child node
+// Note: splitOctants should only be called when an octree is a LeafNodeFilled.
 func (octree *basicOctree) splitIntoOctants() error {
 	if octree.node.nodeType == InternalNode {
 		return errors.New("error attempted to split internal node")
