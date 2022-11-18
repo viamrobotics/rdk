@@ -11,6 +11,12 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	componentpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	gotestutils "go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -24,11 +30,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-	gotestutils "go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
 )
 
 func TestClient(t *testing.T) {

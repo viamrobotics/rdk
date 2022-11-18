@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var errArmClientModelNotValid = errors.New("arm client has incorrecly configured model and could not complete the operation")
+var errArmClientModelNotValid = errors.New("arm client has incorrectly configured model and could not complete the operation")
 
 // client implements ArmServiceClient.
 type client struct {
@@ -32,7 +32,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
 	c := pb.NewArmServiceClient(conn)
-	r := robotpb.NewRobotServiceClient(conn)
+	r := robotpb.NewRobotServiceClient(conn) // TODO(rb): remove the robot service client when we can use the framesystem as a dependency
 	return &client{
 		name:   name,
 		conn:   conn,
