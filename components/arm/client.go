@@ -125,14 +125,14 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	if c.model != nil {
+	if c.model == nil {
 		return nil, errArmClientModelNotValid
 	}
 	return c.model.InputFromProtobuf(resp), nil
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	if c.model != nil {
+	if c.model == nil {
 		return errArmClientModelNotValid
 	}
 	return c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
