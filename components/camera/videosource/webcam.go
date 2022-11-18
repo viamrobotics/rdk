@@ -211,23 +211,20 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 
 		goutils.PanicCapturingGo(func() {
 			src := camera.SourceFromCamera(cam)
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
 			defer func() {
 				if err := cam.Close(ctx); err != nil {
 					logger.Debugf("failed to close camera: %v", err)
 				}
 			}()
 			for {
-				select {
-				case <-ticker.C:
+				if goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
 					// mediadevices connects to the OS to get the properties for a driver. If the OS no longer knows
 					// about a specific driver then properties will be empty, and we can safely assume the driver no
 					// longer exists and should be closed.
 					if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
 						return
 					}
-				case <-ctx.Done():
+				} else {
 					return
 				}
 			}
