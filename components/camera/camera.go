@@ -192,6 +192,7 @@ type videoSource struct {
 	streamType   StreamType
 }
 
+// SourceFromCamera returns a gostream.VideoSource from a camera.Camera if possible, else nil.
 func SourceFromCamera(cam Camera) gostream.VideoSource {
 	if asSrc, ok := cam.(*videoSource); ok {
 		return asSrc.videoSource
