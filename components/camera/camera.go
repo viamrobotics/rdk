@@ -211,7 +211,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, err
 	}
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
@@ -474,7 +474,7 @@ func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.Video
 		if err != nil {
 			panic(err)
 		}
-		dm, err = rimage.ConvertImageToDepthMap(d)
+		dm, err = rimage.ConvertImageToDepthMap(ctx, d)
 		if err != nil {
 			panic(err)
 		}

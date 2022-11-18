@@ -7,10 +7,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -108,7 +108,7 @@ func NewCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *
 }
 
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
-	goal *commonpb.Pose,
+	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
@@ -129,8 +129,9 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
-	goal *commonpb.Pose,
+func (mp *cBiRRTMotionPlanner) planRunner(
+	ctx context.Context,
+	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 	endpointPreview chan node,

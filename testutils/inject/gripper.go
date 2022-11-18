@@ -12,35 +12,35 @@ import (
 type Gripper struct {
 	gripper.LocalGripper
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	OpenFunc     func(ctx context.Context) error
-	GrabFunc     func(ctx context.Context) (bool, error)
-	StopFunc     func(ctx context.Context) error
+	OpenFunc     func(ctx context.Context, extra map[string]interface{}) error
+	GrabFunc     func(ctx context.Context, extra map[string]interface{}) (bool, error)
+	StopFunc     func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc func(context.Context) (bool, error)
 	CloseFunc    func(ctx context.Context) error
 }
 
 // Open calls the injected Open or the real version.
-func (g *Gripper) Open(ctx context.Context) error {
+func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	if g.OpenFunc == nil {
-		return g.LocalGripper.Open(ctx)
+		return g.LocalGripper.Open(ctx, extra)
 	}
-	return g.OpenFunc(ctx)
+	return g.OpenFunc(ctx, extra)
 }
 
 // Grab calls the injected Grab or the real version.
-func (g *Gripper) Grab(ctx context.Context) (bool, error) {
+func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	if g.GrabFunc == nil {
-		return g.LocalGripper.Grab(ctx)
+		return g.LocalGripper.Grab(ctx, extra)
 	}
-	return g.GrabFunc(ctx)
+	return g.GrabFunc(ctx, extra)
 }
 
 // Stop calls the injected Stop or the real version.
-func (g *Gripper) Stop(ctx context.Context) error {
+func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if g.StopFunc == nil {
-		return g.LocalGripper.Stop(ctx)
+		return g.LocalGripper.Stop(ctx, extra)
 	}
-	return g.StopFunc(ctx)
+	return g.StopFunc(ctx, extra)
 }
 
 // IsMoving calls the injected IsMoving or the real version.

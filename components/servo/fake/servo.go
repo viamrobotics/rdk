@@ -29,18 +29,18 @@ type Servo struct {
 }
 
 // Move sets the given angle.
-func (s *Servo) Move(ctx context.Context, angleDeg uint8) error {
+func (s *Servo) Move(ctx context.Context, angleDeg uint8, extra map[string]interface{}) error {
 	s.angle = angleDeg
 	return nil
 }
 
 // Position returns the set angle.
-func (s *Servo) Position(ctx context.Context) (uint8, error) {
+func (s *Servo) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 	return s.angle, nil
 }
 
 // Stop doesn't do anything for a fake servo.
-func (s *Servo) Stop(ctx context.Context) error {
+func (s *Servo) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 

@@ -17,13 +17,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	m1 "go.viam.com/api/app/model/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/services/datamanager/model"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -83,8 +84,8 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	injectedArm := &inject.Arm{}
-	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 	rs[arm.Named(armKey)] = injectedArm
 	r.MockResourcesFromMap(rs)
@@ -96,7 +97,7 @@ func getInjectedRobotWithCamera(t *testing.T) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 
-	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	injectCamera := &inject.Camera{}
 	var imageReleasedMu sync.Mutex
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -289,6 +290,94 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
+}
+
+func TestCollectorDisabled(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	rpcServer, mockService := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+		resetFolder(t, captureDir)
+		resetFolder(t, armDir)
+	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+
+	disabledCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	testCfg := setupConfig(t, disabledCollectorConfigPath)
+	dmCfg, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+
+	// Disable capture on the collector level.
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Change something else, but the previous collector capture is still disabled.
+	dmCfg.ScheduledSyncDisabled = true
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 400ms.
+	time.Sleep(time.Millisecond * 400)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that nothing was captured or synced.
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
+	filesInArmDir, err := readDir(t, armDir)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 0)
+}
+
+func TestCollectorDisabledThenEnabled(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	rpcServer, mockService := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+		resetFolder(t, captureDir)
+		resetFolder(t, armDir)
+	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+
+	disabledCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	testCfg := setupConfig(t, disabledCollectorConfigPath)
+	dmCfg, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.ScheduledSyncDisabled = true
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+
+	// Disable capture on the collector level.
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Re-enable capture on the collector level.
+	testCfg = setupConfig(t, configPath)
+	dmCfg, err = getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.ScheduledSyncDisabled = true
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 400ms.
+	time.Sleep(time.Millisecond * 400)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test that something was captured but not synced.
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
+	filesInArmDir, err := readDir(t, armDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
 }
 
 // TODO(DATA-341): Handle partial downloads in order to resume deployment.
