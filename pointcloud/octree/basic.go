@@ -12,7 +12,7 @@ import (
 
 // basicOctree is a data structure that represents a basic octree structure with information regarding center
 // point, side length and node data. Node data is comprised of a PointAndData (should one exist) from
-//pointcloud, a list of children nodes and the type of node this is. See nodeType constants in octree.go
+
 type basicOctree struct {
 	ctx    context.Context
 	logger golog.Logger
