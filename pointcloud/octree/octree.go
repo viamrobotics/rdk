@@ -10,7 +10,7 @@ import (
 
 // Each node in the octree is either an internal node which links to other nodes, is an empty node with
 // no points or further links, or is an occupied node which contains a single point of data that
-// includes, location, color and probability information.
+// includes location, color and probability information.
 const (
 	InternalNode = NodeType(iota)
 	LeafNodeEmpty
@@ -21,9 +21,10 @@ const (
 // NodeType represents the types of nodes possible in an octree.
 type NodeType uint8
 
-// Octree is a data structure that recursively partitions 3D space into octants to represent occupancy.
-// Each node is either a internal node, empty node or child node. This implementation of an octree is
-// compatible with the pointcloud representation and includes a marshaling function.
+// Octree is a data structure recursively partitions 3D space into octants to represent occupancy. It is
+// a storage format for a pointcloud that allows for better searchability and serialization. Each node is
+// either an internal node, empty node or child node. This implementation of an octree is compatible with
+// the pointcloud representation and includes a marshaling function.
 type Octree interface {
 	pc.PointCloud
 	Marshaler
