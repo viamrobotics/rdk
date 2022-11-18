@@ -1,15 +1,7 @@
 package motionplan
 
 import (
-	"encoding/json"
-	"errors"
 	"math"
-	"fmt"
-
-	commonpb "go.viam.com/api/common/v1"
-
-	frame "go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // default values for planning options.
@@ -48,6 +40,8 @@ const (
 	
 )
 
+var defaultPlanner = newRRTStarConnectMotionPlannerWithSeed
+
 // the set of supported motion profiles.
 const (
 	FreeMotionProfile         = "free"
@@ -63,150 +57,6 @@ func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
 		dist += math.Pow(ci.EndInput[i].Value-f.Value, 2)
 	}
 	return true, dist
-}
-
-func plannerSetupFromMoveRequest(
-	from, to spatial.Pose,
-	f frame.Frame,
-	fs frame.FrameSystem,
-	seedMap map[string][]frame.Input,
-	worldState *commonpb.WorldState,
-	planningOpts map[string]interface{},
-) (*PlannerOptions, error) {
-	opt := NewBasicPlannerOptions()
-	opt.extra = planningOpts
-
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(f, fs, worldState, seedMap)
-	if err != nil {
-		return nil, err
-	}
-	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
-
-	// error handling around extracting motion_profile information from map[string]interface{}
-	var motionProfile string
-	profile, ok := planningOpts["motion_profile"]
-	if ok {
-		motionProfile, ok = profile.(string)
-		if !ok {
-			return nil, errors.New("could not interpret motion_profile field as string")
-		}
-	}
-
-	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, opt)
-	if err != nil {
-		return nil, err
-	}
-	
-	var planAlg string
-	alg, ok := planningOpts["planning_alg"]
-	if ok {
-		planAlg, ok = alg.(string)
-		if !ok {
-			return nil, errors.New("could not interpret planning_alg field as string")
-		}
-		switch planAlg {
-		case "cbirrt":
-			opt.PlannerConstructor = newCBiRRTMotionPlannerWithSeed
-		case "rrtstar":
-			opt.PlannerConstructor = newRRTStarConnectMotionPlannerWithSeed
-			// no motion profiles for RRT*
-			return opt, nil
-		default:
-			// use default, already set
-		}
-	}
-
-	switch motionProfile {
-	case LinearMotionProfile:
-		// Linear constraints
-		linTol, ok := planningOpts["line_tolerance"].(float64)
-		if !ok {
-			// Default
-			linTol = defaultLinearDeviation
-		}
-		orientTol, ok := planningOpts["orient_tolerance"].(float64)
-		if !ok {
-			// Default
-			orientTol = defaultLinearDeviation
-		}
-		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
-		opt.AddConstraint(defaultLinearConstraintName, constraint)
-		opt.pathDist = pathDist
-	case PseudolinearMotionProfile:
-		tolerance, ok := planningOpts["tolerance"].(float64)
-		if !ok {
-			// Default
-			tolerance = defaultPseudolinearTolerance
-		}
-		constraint, pathDist := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
-		opt.AddConstraint(defaultPseudolinearConstraintName, constraint)
-		opt.pathDist = pathDist
-	case OrientationMotionProfile:
-		tolerance, ok := planningOpts["tolerance"].(float64)
-		if !ok {
-			// Default
-			tolerance = defaultOrientationDeviation
-		}
-		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
-		opt.AddConstraint(defaultOrientationConstraintName, constraint)
-		opt.pathDist = pathDist
-	case FreeMotionProfile:
-		// No restrictions on motion
-	default:
-		// TODO(pl): once RRT* is workable, use here. Also, update to try pseudolinear first, and fall back to orientation, then to free
-		// if unsuccessful
-		
-		// set up deep copy for fallback
-		try1 := deepIshCopyMap(planningOpts)
-		try1["motion_profile"] = "linear"
-		fbIter, ok := planningOpts["fallback_iter"].(float64)
-		fmt.Println(planningOpts, fbIter)
-		if !ok {
-			// Default
-			fbIter = 200
-		}
-		
-		
-		//~ try1["plan_iter"] = fbIter
-		//~ try1["timeout"] = 2.0
-		//~ try1Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try1)
-		//~ if err != nil {
-			//~ return nil, err
-		//~ }
-		
-		try2 := deepIshCopyMap(planningOpts)
-		try2["motion_profile"] = "pseudolinear"
-		try2["plan_iter"] = fbIter
-		try2["timeout"] = 1.0
-		try2Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try2)
-		if err != nil {
-			return nil, err
-		}
-		
-		try3 := deepIshCopyMap(planningOpts)
-		try3["motion_profile"] = "orientation"
-		try3["plan_iter"] = fbIter
-		try3["timeout"] = 2.0
-		try3Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try3)
-		if err != nil {
-			return nil, err
-		}
-		
-		
-		
-		//~ try1Opt.Fallback = opt
-		//~ try1Opt.Fallback = try2Opt
-		try2Opt.Fallback = opt
-		//~ try2Opt.Fallback = try3Opt
-		try3Opt.Fallback = opt
-		opt = try2Opt
-	}
-	return opt, nil
 }
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.

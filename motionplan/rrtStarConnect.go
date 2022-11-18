@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"math"
 	"math/rand"
-	"fmt"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -84,26 +83,27 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	if planOpts == nil {
 		planOpts = NewBasicPlannerOptions()
 	}
-	solutionChan := make(chan *planReturn, 1)
+	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, planOpts, nil, solutionChan)
+		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err
+		return plan.ToInputs(), plan.err
 	}
 }
 
-// planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
-// Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
+// RRTBackgroundRunner will execute the plan. When Plan() is called, it will call RRTBackgroundRunner in a separate thread and wait for the results.
+// Separating this allows other things to call RRTBackgroundRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
+func (mp *rrtStarConnectMotionPlanner) RRTBackgroundRunner(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
+	sp *rrtMaps,
 	endpointPreview chan node,
-	solutionChan chan *planReturn,
+	solutionChan chan *rrtPlanReturn,
 ) {
 	defer close(solutionChan)
 
@@ -113,14 +113,16 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 	algOpts, err := newRRTStarConnectOptions(planOpts)
 	if err != nil {
-		solutionChan <- &planReturn{err: err}
+		solutionChan <- &rrtPlanReturn{err: err}
 		return
 	}
+	
+	mp.start = time.Now()
 
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	if err != nil {
-		solutionChan <- &planReturn{err: err}
+		solutionChan <- &rrtPlanReturn{err: err}
 		return
 	}
 
@@ -136,7 +138,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	goalMap := make(map[node]node, len(solutions))
 	for i, solution := range solutions {
 		if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
-			solutionChan <- &planReturn{steps: []node{&basicNode{q: seed}, solution}}
+			solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
 			return
 		}
 		goalMap[newCostNode(solution.Q(), 0)] = nil
@@ -156,38 +158,31 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	// sample until the max number of iterations is reached
 	var solutionCost float64
 	
-	iterTime := time.Now()
 	m1chan := make(chan node, 1)
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
-	
-	start := time.Now()
 	
 	solved := false
 	
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &planReturn{err: ctx.Err()}
+			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
 			return
 		default:
 		}
 		
 		// stop and return best path
-		if time.Since(start) > time.Duration(algOpts.Timeout * float64(time.Second)){
+		if time.Since(mp.start) > time.Duration(algOpts.Timeout * float64(time.Second)){
 			if solved {
-				solutionChan <- shortestPath(startMap, goalMap, shared)
+				solutionChan <- shortestPath(sp, shared)
 			}else{
-				solutionChan <- &planReturn{err: errPlannerTimeout}
+				solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, sp: sp}
 			}
 			return
 		}
 		
-		//~ fmt.Println("i", i, "iter time", time.Since(iterTime))
-		//~ iterTime = time.Now()
-
-		//~ extime := time.Now()
 		// try to connect the target to map 1
 		utils.PanicCapturingGo(func() {
 			mp.extend(algOpts, map1, target, m1chan)
@@ -202,11 +197,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 			// target was added to both map
 			solved = true
 			shared = append(shared, &nodePair{map1reached, map2reached})
-			//~ solution := shortestPath(startMap, goalMap, shared)
-			//~ solutionChan <- solution
-			//~ return
 		}
-		//~ fmt.Println("ex time", time.Since(extime))
 
 		// get next sample, switch map pointers
 		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
@@ -214,10 +205,9 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 		// calculate the solution and log status of planner
 		if i%defaultSolutionCalculationPeriod == 0 {
-			solution := shortestPath(startMap, goalMap, shared)
+			solution := shortestPath(sp, shared)
 			solutionCost = EvaluatePlan(solution, planOpts)
 			mp.logger.Warnf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
-			fmt.Println("i", i, "iter time", time.Since(iterTime))
 			// check if an early exit is possible
 			if solutionCost-optimalCost < algOpts.OptimalityThreshold*optimalCost {
 				mp.logger.Warn("RRT* progress: sufficiently optimal path found, exiting")
@@ -227,14 +217,10 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 	}
 	
-	fmt.Println(jt)
 
-	solutionChan <- shortestPath(startMap, goalMap, shared)
+	solutionChan <- shortestPath(sp, shared)
 }
 
-//~ var totalwiretime time.Duration
-//~ var nn1 time.Duration
-//~ var nn2 time.Duration
 
 
 func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[node]node, target []referenceframe.Input, mchan chan node) {
@@ -242,13 +228,8 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		mchan <- nil
 		return
 	}
-	//~ nntime1 := time.Now()
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
 	neighbors := kNearestNeighbors(algOpts.planOpts, tree, target, algOpts.NeighborhoodSize)
-	//~ nn1 += time.Since(nntime1)
-	//~ fmt.Println("nn time 1", nn1)
-	
-	//~ nntime2 := time.Now()
 	minCost := math.Inf(1)
 	minIndex := -1
 	for i, neighbor := range neighbors {
@@ -260,8 +241,6 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 			break
 		}
 	}
-	//~ nn2 += time.Since(nntime2)
-	//~ fmt.Println("nn time 2", nn2)
 
 	// add new node to tree as a child of the minimum cost neighbor node if it was reachable
 	if minIndex == -1 {
@@ -271,7 +250,6 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	targetNode := newCostNode(target, minCost)
 	tree[targetNode] = neighbors[minIndex].node
 
-	//~ wiretime := time.Now()
 	// rewire the tree
 	for i, neighbor := range neighbors {
 		// dont need to try to rewire minIndex, so skip it
@@ -291,7 +269,5 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 			tree[neighborNode] = targetNode
 		}
 	}
-	//~ totalwiretime += time.Since(wiretime)
-	//~ fmt.Println(totalwiretime, "wiretime")
 	mchan <- targetNode
 }

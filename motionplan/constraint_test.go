@@ -21,7 +21,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
+	mp, err := newCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation

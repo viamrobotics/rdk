@@ -96,7 +96,8 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
 
-		resultSlices, err := sf.planSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
+		sfPlanner := NewViamMotionPlanner(sf, fss, fss.logger, i)
+		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
 		if err != nil {
 			return nil, err
 		}
@@ -261,72 +262,6 @@ func newSolverFrame(
 		worldRooted: worldRooted,
 		origSeed:    origSeed,
 	}, nil
-}
-
-// planSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
-func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
-	seedMap map[string][]frame.Input,
-	goalPos spatial.Pose,
-	worldState *commonpb.WorldState,
-	motionConfig map[string]interface{},
-) ([][]frame.Input, error) {
-	seed, err := sf.mapToSlice(seedMap)
-	if err != nil {
-		return nil, err
-	}
-	seedPos, err := sf.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	
-
-	// If we are world rooted, translate the goal pose into the world frame
-	if sf.worldRooted {
-		tf, err := sf.fss.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
-		if err != nil {
-			return nil, err
-		}
-		goalPos = tf.(*frame.PoseInFrame).Pose()
-	}
-
-	var goals []spatial.Pose
-	var opts []*PlannerOptions
-
-	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
-		pathStepSize, ok := motionConfig["path_step_size"].(float64)
-		if !ok {
-			pathStepSize = defaultPathStepSize
-		}
-		numSteps := GetSteps(seedPos, goalPos, pathStepSize)
-
-		from := seedPos
-		for i := 1; i < numSteps; i++ {
-			by := float64(i) / float64(numSteps)
-			to := spatial.Interpolate(seedPos, goalPos, by)
-			goals = append(goals, to)
-			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.fss, seedMap, worldState, motionConfig)
-			if err != nil {
-				return nil, err
-			}
-			opts = append(opts, opt)
-
-			from = to
-		}
-		seedPos = from
-	}
-	goals = append(goals, goalPos)
-	opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
-	if err != nil {
-		return nil, err
-	}
-	opts = append(opts, opt)
-
-	resultSlices, err := runPlannerWithWaypoints(ctx, goals, sf, seed, opts, 0)
-	if err != nil {
-		return nil, err
-	}
-	return resultSlices, nil
 }
 
 // Name returns the name of the solver referenceframe.

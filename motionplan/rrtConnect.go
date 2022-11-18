@@ -39,7 +39,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 	if planOpts == nil {
 		planOpts = NewBasicPlannerOptions()
 	}
-	solutionChan := make(chan *planReturn, 1)
+	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.planRunner(ctx, goal, seed, planOpts, nil, solutionChan)
 	})
@@ -47,7 +47,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err
+		return plan.ToInputs(), plan.err
 	}
 }
 
@@ -58,13 +58,13 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 	endpointPreview chan node,
-	solutionChan chan *planReturn,
+	solutionChan chan *rrtPlanReturn,
 ) {
 	defer close(solutionChan)
 
 	// setup planner options
 	if planOpts == nil {
-		solutionChan <- &planReturn{err: errNoPlannerOptions}
+		solutionChan <- &rrtPlanReturn{err: errNoPlannerOptions}
 		return
 	}
 	algOpts := newRRTOptions(planOpts)
@@ -72,7 +72,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	if err != nil {
-		solutionChan <- &planReturn{err: err}
+		solutionChan <- &rrtPlanReturn{err: err}
 		return
 	}
 
@@ -103,7 +103,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &planReturn{err: ctx.Err()}
+			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
 			return
 		default:
 		}
@@ -125,7 +125,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 
 		if map1reached && map2reached {
 			cancel()
-			solutionChan <- &planReturn{steps: extractPath(startMap, goalMap, &nodePair{targetNode, targetNode})}
+			solutionChan <- &rrtPlanReturn{steps: extractPath(startMap, goalMap, &nodePair{targetNode, targetNode})}
 			return
 		}
 
@@ -134,5 +134,5 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: errPlannerFailed}
+	solutionChan <- &rrtPlanReturn{err: errPlannerFailed}
 }

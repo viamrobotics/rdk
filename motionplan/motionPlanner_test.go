@@ -17,7 +17,6 @@ import (
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	//~ "github.com/viamrobotics/visualization"
 )
 
 var (
@@ -38,10 +37,7 @@ type planConfig struct {
 	Options    *PlannerOptions
 }
 
-type (
-	seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
-	planConfigConstructor    func() (*planConfig, error)
-)
+type planConfigConstructor    func() (*planConfig, error)
 
 func BenchmarkUnconstrainedMotion(b *testing.B) {
 	config, err := simpleUR5eMotion()
@@ -56,9 +52,8 @@ func BenchmarkUnconstrainedMotion(b *testing.B) {
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []seededPlannerConstructor{
-		NewRRTStarConnectMotionPlannerWithSeed,
-		NewRRTConnectMotionPlannerWithSeed,
-		NewCBiRRTMotionPlannerWithSeed,
+		newRRTStarConnectMotionPlannerWithSeed,
+		newCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string
@@ -81,7 +76,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []seededPlannerConstructor{
-		NewCBiRRTMotionPlannerWithSeed,
+		newCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string

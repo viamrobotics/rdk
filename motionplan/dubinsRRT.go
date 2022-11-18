@@ -60,7 +60,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
-	solutionChan := make(chan *planReturn, 1)
+	solutionChan := make(chan *rrtPlanReturn, 1)
 	if planOpts == nil {
 		planOpts = NewBasicPlannerOptions()
 	}
@@ -72,7 +72,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err
+		return plan.ToInputs(), plan.err
 	}
 }
 
@@ -83,7 +83,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	solutionChan chan *planReturn,
+	solutionChan chan *rrtPlanReturn,
 	goalRate float64,
 ) {
 	defer close(solutionChan)
@@ -112,7 +112,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &planReturn{err: ctx.Err()}
+			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
 			return
 		default:
 		}
@@ -201,7 +201,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
 			}
 
-			solutionChan <- &planReturn{steps: inputSteps}
+			solutionChan <- &rrtPlanReturn{steps: inputSteps}
 			for _, step := range inputSteps {
 				mp.logger.Debugf("%v\n", step)
 			}
@@ -209,7 +209,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 		}
 	}
 
-	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+	solutionChan <- &rrtPlanReturn{err: errors.New("could not solve path")}
 }
 
 func updateChildren(

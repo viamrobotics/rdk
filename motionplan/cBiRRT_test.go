@@ -33,7 +33,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlannerWithSeed(m, 1, rand.New(rand.NewSource(42)), logger)
+	mp, err := newCBiRRTMotionPlannerWithSeed(m, 1, rand.New(rand.NewSource(42)), logger)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 
@@ -43,7 +43,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	corners := map[node]bool{}
 
 
-	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame())
+	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame(), cbirrt.randseed.Int())
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &basicNode{q: home7}

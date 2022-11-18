@@ -111,193 +111,165 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	if planOpts == nil {
 		planOpts = NewBasicPlannerOptions()
 	}
-	solutionChan := make(chan *planReturn, 1)
+	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, planOpts, nil, solutionChan)
+		mp.RRTBackgroundRunner(ctx, goal, seed, planOpts, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err
+		return plan.ToInputs(), plan.err
 	}
 }
 var nloptCnt = 0
 
-// planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
-// Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *cBiRRTMotionPlanner) planRunner(
+// RRTBackgroundRunner will execute the plan. When Plan() is called, it will call RRTBackgroundRunner in a separate thread and wait for the results.
+// Separating this allows other things to call RRTBackgroundRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
+func (mp *cBiRRTMotionPlanner) RRTBackgroundRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 	endpointPreview chan node,
-	solutionChan chan *planReturn,
+	sp *rrtMaps,
+	solutionChan chan *rrtPlanReturn,
 ) {
 	defer close(solutionChan)
-	solved := false
 	
 	// initialize maps
-	goalMap := make(map[node]node)
 	corners := map[node]bool{}
-	seedMap := make(map[node]node)
-	seedMap[&basicNode{q: seed}] = nil
-
-	// Create a reference to the two maps so that we can alternate which one is grown
 
 	// TODO(rb) package neighborManager better
 	nm := &neighborManager{nCPU: mp.nCPU}
 	nmContext, cancel := context.WithCancel(ctx)
 	defer cancel()
-	doIter := func(){
-		start := time.Now()
+	mp.start = time.Now()
+	
+	
+	// setup planner options
+	if planOpts == nil {
+		solutionChan <- &rrtPlanReturn{err: errNoPlannerOptions}
+		return
+	}
+	algOpts, err := newCbirrtOptions(planOpts, mp.frame)
+	if err != nil {
+		solutionChan <- &rrtPlanReturn{err: err}
+		return
+	}
+
+	// get many potential end goals from IK solver
+	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
+	
+	if err != nil && len(sp.goalMap) == 0{
+		solutionChan <- &rrtPlanReturn{err: err}
+		return
+	}
+	
+	//~ fmt.Println("ik", time.Since(iktime))
+	for i, solution := range solutions {
 		
-		
-		// setup planner options
-		if planOpts == nil {
-			solutionChan <- &planReturn{err: errNoPlannerOptions}
+		// Check if we can directly interpolate to any solutions
+		if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
+			solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
 			return
 		}
-		algOpts, err := newCbirrtOptions(planOpts, mp.frame)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
+		
+		// if we got more solutions, add them
+		if _, ok := sp.goalMap[solution]; !ok {
+			sp.goalMap[solution] = nil
+		}
+	}
+	
+	target := mp.sample(algOpts, &basicNode{q: seed}, mp.randseed.Int())
+
+	if len(solutions) > 0 {
+		// publish endpoint of plan if it is known
+		if planOpts.MaxSolutions == 1 && endpointPreview != nil {
+			endpointPreview <- solutions[0]
+			endpointPreview = nil
+		}
+
+
+		// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
+		target = referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
+	}
+
+	map1, map2 := sp.startMap, sp.goalMap
+	
+	m1chan := make(chan node, 1)
+	m2chan := make(chan node, 1)
+	defer close(m1chan)
+	defer close(m2chan)
+
+	for i := 0; i < algOpts.PlanIter; i++ {
+		
+		if time.Since(mp.start) > time.Duration(algOpts.Timeout) * time.Second {
+			solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, sp: sp}
 			return
 		}
-
-		// get many potential end goals from IK solver
-		//~ iktime := time.Now()
-		solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 		
-		if err != nil && len(goalMap) == 0{
-			solutionChan <- &planReturn{err: err}
+		select {
+		case <-ctx.Done():
+			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
 			return
-		}
-		
-		//~ fmt.Println("ik", time.Since(iktime))
-		for i, solution := range solutions {
-			
-			// Check if we can directly interpolate to any solutions
-			if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
-				solutionChan <- &planReturn{steps: []node{&basicNode{q: seed}, solution}}
-				solved = true
-				return
-			}
-			
-			// if we got more solutions, add them
-			if _, ok := goalMap[solution]; !ok {
-				goalMap[solution] = nil
-			}
-		}
-		
-		target := mp.sample(algOpts, &basicNode{q: seed}, mp.randseed.Int())
-
-		if len(solutions) > 0 {
-			// publish endpoint of plan if it is known
-			if planOpts.MaxSolutions == 1 && endpointPreview != nil {
-				endpointPreview <- solutions[0]
-				endpointPreview = nil
-			}
-
-
-			// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-			target = referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
+		default:
 		}
 
-		map1, map2 := seedMap, goalMap
+		// attempt to extend maps 1 and 2 towards the target
+		nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
+		nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
+
+		utils.PanicCapturingGo(func() {
+			mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
+		})
+		utils.PanicCapturingGo(func() {
+			mp.constrainedExtend(ctx, algOpts, map2, nearest2, &basicNode{q: target}, m2chan)
+		})
+		map1reached := <- m1chan
+		map2reached := <- m2chan
+
+		corners[map1reached] = true
+		corners[map2reached] = true
+
+		_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 		
-		m1chan := make(chan node, 1)
-		m2chan := make(chan node, 1)
-		defer close(m1chan)
-		defer close(m2chan)
-
-		for i := 0; i < algOpts.PlanIter; i++ {
+		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
+		if reachedDelta > algOpts.JointSolveDist {
 			
-			if time.Since(start) > time.Duration(algOpts.Timeout) * time.Second {
-				return
-			}
+			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
 			
-			select {
-			case <-ctx.Done():
-				solutionChan <- &planReturn{err: ctx.Err()}
-				return
-			default:
-			}
-
-			// attempt to extend maps 1 and 2 towards the target
 			nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
 			nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
-
+			
 			utils.PanicCapturingGo(func() {
 				mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
 			})
 			utils.PanicCapturingGo(func() {
 				mp.constrainedExtend(ctx, algOpts, map2, nearest2, &basicNode{q: target}, m2chan)
 			})
-			map1reached := <- m1chan
-			map2reached := <- m2chan
-
-			corners[map1reached] = true
-			corners[map2reached] = true
-
-			_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
-			
-			// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-			if reachedDelta > algOpts.JointSolveDist {
-				
-				target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
-				
-				nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
-				nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
-				
-				utils.PanicCapturingGo(func() {
-					mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
-				})
-				utils.PanicCapturingGo(func() {
-					mp.constrainedExtend(ctx, algOpts, map2, nearest2, &basicNode{q: target}, m2chan)
-				})
-				map1reached = <- m1chan
-				map2reached = <- m2chan
-				_, reachedDelta = planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
-			}
-			
-			// Solved!
-			if reachedDelta <= algOpts.JointSolveDist {
-				cancel()
-				path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
-				if endpointPreview != nil {
-					endpointPreview <- path[len(path)-1]
-				}
-				finalSteps := mp.SmoothPath(ctx, algOpts, path, corners)
-				solutionChan <- &planReturn{steps: finalSteps}
-				solved = true
-				return
-			}
-
-			// sample near map 1 and switch which map is which to keep adding to them even
-			target = mp.sample(algOpts, map1reached, i)
-			map1, map2 = map2, map1
+			map1reached = <- m1chan
+			map2reached = <- m2chan
+			_, reachedDelta = planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 		}
-	}
-	doIter()
-	if solved {
-		return
-	}
-	select {
-	case <-ctx.Done():
-		solutionChan <- &planReturn{err: ctx.Err()}
-		return
-	default:
-	}
-	for planOpts.Fallback != nil {
-		planOpts = planOpts.Fallback
 		
-		doIter()
-		
-		if solved {
+		// Solved!
+		if reachedDelta <= algOpts.JointSolveDist {
+			cancel()
+			path := extractPath(sp.startMap, sp.goalMap, &nodePair{map1reached, map2reached})
+			if endpointPreview != nil {
+				endpointPreview <- path[len(path)-1]
+			}
+			finalSteps := mp.SmoothPath(ctx, algOpts, path, corners)
+			solutionChan <- &rrtPlanReturn{steps: finalSteps}
 			return
 		}
+
+		// sample near map 1 and switch which map is which to keep adding to them even
+		target = mp.sample(algOpts, map1reached, i)
+		map1, map2 = map2, map1
 	}
-	solutionChan <- &planReturn{err: errPlannerFailed}
+	solutionChan <- &rrtPlanReturn{err: errPlannerFailed, sp: sp}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sampleNum int) []referenceframe.Input {
@@ -373,9 +345,6 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	mchan <- oldNear
 	return
 }
-
-var descent time.Duration
-var cpatht time.Duration
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance
 // function has been specified, this will use that.

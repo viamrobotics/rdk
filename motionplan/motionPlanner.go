@@ -5,9 +5,9 @@ import (
 	"context"
 	"math"
 	"math/rand"
-	"runtime"
 	"sort"
 	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -38,8 +38,8 @@ type planner struct {
 	frame  frame.Frame
 	logger golog.Logger
 	nCPU   int
-	// TODO(pl): As we move to per-segment planner instantiation, this should move to the options struct
 	randseed *rand.Rand
+	start time.Time
 }
 
 func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {
@@ -95,6 +95,12 @@ type node interface {
 	Q() []frame.Input
 }
 
+type planReturn interface {
+	// return the steps in Input form
+	ToInputs() [][]frame.Input
+	Err() error
+}
+
 type basicNode struct {
 	q []frame.Input
 }
@@ -126,19 +132,6 @@ func (np *nodePair) sumCosts() float64 {
 		return 0
 	}
 	return a.cost + b.cost
-}
-
-type planReturn struct {
-	steps []node
-	err   error
-}
-
-func (plan *planReturn) toInputs() [][]frame.Input {
-	inputs := make([][]frame.Input, 0, len(plan.steps))
-	for _, step := range plan.steps {
-		inputs = append(inputs, step.Q())
-	}
-	return inputs
 }
 
 // PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
@@ -192,131 +185,16 @@ func PlanWaypoints(ctx context.Context,
 }
 
 // EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan *planReturn, planOpts *PlannerOptions) (totalCost float64) {
-	if errors.Is(plan.err, errPlannerFailed) {
+func EvaluatePlan(plan planReturn, planOpts *PlannerOptions) (totalCost float64) {
+	if errors.Is(plan.Err(), errPlannerFailed) {
 		return math.Inf(1)
 	}
-	steps := plan.toInputs()
+	steps := plan.ToInputs()
 	for i := 0; i < len(steps)-1; i++ {
 		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
 		totalCost += cost
 	}
 	return totalCost
-}
-
-// runPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
-func runPlannerWithWaypoints(ctx context.Context,
-	goals []spatialmath.Pose,
-	sf *solverFrame,
-	seed []frame.Input,
-	opts []*PlannerOptions,
-	iter int,
-) ([][]frame.Input, error) {
-	var err error
-	goal := goals[iter]
-	opt := opts[iter]
-	if opt == nil {
-		opt = NewBasicPlannerOptions()
-	}
-	
-	// Build planner
-	var pathPlanner MotionPlanner
-	if seed, ok := opt.extra["rseed"].(int); ok {
-		fmt.Println("seeding")
-		pathPlanner, err = opt.PlannerConstructor(sf, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), sf.fss.logger)
-	}else{
-		print("not ok", opt.extra["rseed"])
-		pathPlanner, err = opt.PlannerConstructor(sf, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(1))), sf.fss.logger)
-	}
-	if err != nil {
-		return nil, err
-	}
-	
-	remainingSteps := [][]frame.Input{}
-	if cbert, ok := pathPlanner.(*cBiRRTMotionPlanner); ok {
-		// cBiRRT supports solution look-ahead for parallel waypoint solving
-		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
-		endpointPreview := make(chan node, 1)
-		solutionChan := make(chan *planReturn, 1)
-		utils.PanicCapturingGo(func() {
-			cbert.planRunner(ctx, goal, seed, opt, endpointPreview, solutionChan)
-		})
-		for {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			select {
-			case nextSeed := <-endpointPreview:
-				// Got a solution preview, start solving the next motion in a new thread.
-				if iter+1 < len(goals) {
-					// In this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = runPlannerWithWaypoints(ctx, goals, sf, nextSeed.Q(), opts, iter+1)
-					if err != nil {
-						return nil, err
-					}
-				}
-				for {
-					// Get the step from this runner invocation, and return everything in order.
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					default:
-					}
-
-					select {
-					case finalSteps := <-solutionChan:
-						if finalSteps.err != nil {
-							return nil, finalSteps.err
-						}
-						results := append(finalSteps.toInputs(), remainingSteps...)
-						return results, nil
-					default:
-					}
-				}
-			case finalSteps := <-solutionChan:
-				fmt.Println("finalSteps", finalSteps)
-				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-				if finalSteps.err != nil {
-					return nil, finalSteps.err
-				}
-				if iter+1 < len(goals) {
-					// in this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = runPlannerWithWaypoints(
-						ctx,
-						goals,
-						sf,
-						finalSteps.steps[len(finalSteps.steps)-1].Q(),
-						opts,
-						iter+1,
-					)
-					if err != nil {
-						return nil, err
-					}
-				}
-				results := append(finalSteps.toInputs(), remainingSteps...)
-				return results, nil
-			default:
-			}
-		}
-	} else {
-		resultSlicesRaw, err := pathPlanner.Plan(ctx, goal, seed, opt)
-		if err != nil {
-			return nil, err
-		}
-		if iter < len(goals)-2 {
-			// in this case, we create the next step (and thus the remaining steps) and the
-			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = runPlannerWithWaypoints(ctx, goals, sf, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return append(resultSlicesRaw, remainingSteps...), nil
-	}
 }
 
 // GetSteps will determine the number of steps which should be used to get from the seed to the goal.
@@ -451,10 +329,6 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	} else {
 		startReached, goalReached = pair.b, pair.a
 	}
-	fmt.Println(startMap)
-	fmt.Println(goalMap)
-	fmt.Println(startReached)
-	fmt.Println(startMap[startReached])
 
 	// extract the path to the seed
 	path := make([]node, 0)
@@ -476,21 +350,6 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 		path = append(path, goalReached)
 		goalReached = goalMap[goalReached]
 	}
-	fmt.Println("PATH", path)
 	return path
 }
 
-func shortestPath(startMap, goalMap map[node]node, nodePairs []*nodePair) *planReturn {
-	if len(nodePairs) == 0 {
-		return &planReturn{err: errPlannerFailed}
-	}
-	minIdx := 0
-	minDist := nodePairs[0].sumCosts()
-	for i := 1; i < len(nodePairs); i++ {
-		if dist := nodePairs[i].sumCosts(); dist < minDist {
-			minDist = dist
-			minIdx = i
-		}
-	}
-	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
-}
