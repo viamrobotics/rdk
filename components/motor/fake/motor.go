@@ -23,7 +23,7 @@ import (
 
 const (
 	modelName     = "fake"
-	defaultMaxRpm = 1000
+	defaultMaxRpm = 100
 )
 
 // PinConfig defines the mapping of where motor are wired.
