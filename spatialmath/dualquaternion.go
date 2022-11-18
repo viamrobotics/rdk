@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"math"
-	"fmt"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
@@ -170,25 +169,15 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	}
 	
 	if q.Dual.Real == 0 && q.Dual.Imag == 0 && q.Dual.Jmag == 0 && q.Dual.Kmag == 0 {
-		//~ if q.Real.Real == 1 {
-			//~ newDual = by.Dual
-		//~ }else{
 			newDual = quat.Mul(q.Real, by.Dual)
-		//~ }
 	}else if by.Dual.Real == 0 && by.Dual.Imag == 0 && by.Dual.Jmag == 0 && by.Dual.Kmag == 0 {
-		//~ if by.Real.Real == 1 {
-			//~ newDual = q.Dual
-		//~ }else{
 			newDual = quat.Mul(q.Dual, by.Real)
-		//~ }
 	}else{
-		//~ newDual = quat.Add(quat.Mul(q.Real, by.Dual), quat.Mul(q.Dual, by.Real))
 		newDual = quat.Add(quat.Mul(q.Real, by.Dual), quat.Mul(q.Dual, by.Real))
 	}
 	return dualquat.Number{
 		Real: newReal,
 		Dual: newDual,
-		//~ Dual: calcDual(q.Number, by),
 	}
 }
 
@@ -199,36 +188,4 @@ func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
 
 	return q3.ToProtobuf()
-}
-
-// Reals are always 1
-func rdMul(x, y quat.Number) quat.Number {
-	return quat.Number{
-		Imag: x.Real*y.Imag + x.Jmag*y.Kmag - x.Kmag*y.Jmag,
-		Jmag: x.Real*y.Jmag - x.Imag*y.Kmag + x.Kmag*y.Imag,
-		Kmag: x.Real*y.Kmag + x.Imag*y.Jmag - x.Jmag*y.Imag,
-	}
-}
-
-func drMul(x, y quat.Number) quat.Number {
-	return quat.Number{
-		Imag: x.Imag*y.Real + x.Jmag*y.Kmag - x.Kmag*y.Jmag,
-		Jmag: 0 - x.Imag*y.Kmag + x.Jmag*y.Real + x.Kmag*y.Imag,
-		Kmag: x.Imag*y.Jmag - x.Jmag*y.Imag + x.Kmag*y.Real,
-	}
-}
-func dualAdd(x, y quat.Number) quat.Number {
-	return quat.Number{
-		Real: 0,
-		Imag: x.Imag + y.Imag,
-		Jmag: x.Jmag + y.Jmag,
-		Kmag: x.Kmag + y.Kmag,
-	}
-}
-
-func calcDual(x, y dualquat.Number) quat.Number {
-	//  quat.Add(quat.Mul(x.Real, y.Dual), quat.Mul(x.Dual, y.Real)),
-	return dualAdd(rdMul(x.Real, y.Dual), drMul(x.Dual, y.Real))
-	fmt.Println("asdf")
-	return quat.Number{}
 }
