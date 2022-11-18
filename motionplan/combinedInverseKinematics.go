@@ -78,7 +78,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	activeSolvers.Add(len(ik.solvers))
 
 	for _, solver := range ik.solvers {
-		rseed++
+		rseed += 1500
 		parseed := rseed
 		thisSolver := solver
 

@@ -22,7 +22,7 @@ const (
 	defaultJointSolveDist = 0.0001
 
 	// Max number of iterations of path smoothing to run.
-	defaultSmoothIter = 750
+	defaultSmoothIter = 350
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
