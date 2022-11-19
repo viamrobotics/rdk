@@ -86,7 +86,7 @@ func TestFrameSystemSolver(t *testing.T) {
 		[]*frame.PoseInFrame{frame.NewPoseInFrame("urCamera", goal2)},
 		"xArmVgripper",
 		nil,
-		[]map[string]interface{}{{"max_ik_solutions": 200}},
+		[]map[string]interface{}{{"max_ik_solutions": 200, "timeout": 150.0}},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
