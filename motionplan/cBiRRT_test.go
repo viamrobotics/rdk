@@ -70,14 +70,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cOpt, seedMap, near1, &basicNode{q: target}, m1chan)
+		cbirrt.constrainedExtend(ctx, cOpt, cbirrt.randseed, seedMap, near1, &basicNode{q: target}, m1chan)
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nn.nearestNeighbor(ctx, opt, seedReached.Q(), goalMap)
 	// extend goalMap towards the point in seedMap
 	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached, m1chan)
+		cbirrt.constrainedExtend(ctx, cOpt, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
 	_, dist := opt.DistanceFunc(&ConstraintInput{StartInput: seedReached.Q(), EndInput: goalReached.Q()})

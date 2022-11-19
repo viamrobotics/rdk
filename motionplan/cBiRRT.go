@@ -212,12 +212,16 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		// attempt to extend maps 1 and 2 towards the target
 		nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
 		nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
+		//nolint: gosec
+		rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
+		//nolint: gosec
+		rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
 
 		utils.PanicCapturingGo(func() {
-			mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
+			mp.constrainedExtend(ctx, algOpts, rseed1, map1, nearest1, &basicNode{q: target}, m1chan)
 		})
 		utils.PanicCapturingGo(func() {
-			mp.constrainedExtend(ctx, algOpts, map2, nearest2, &basicNode{q: target}, m2chan)
+			mp.constrainedExtend(ctx, algOpts, rseed2, map2, nearest2, &basicNode{q: target}, m2chan)
 		})
 		map1reached := <-m1chan
 		map2reached := <-m2chan
@@ -235,10 +239,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
 
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target}, m1chan)
+				mp.constrainedExtend(ctx, algOpts, rseed1, map1, nearest1, &basicNode{q: target}, m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, algOpts, map2, nearest2, &basicNode{q: target}, m2chan)
+				mp.constrainedExtend(ctx, algOpts, rseed2, map2, nearest2, &basicNode{q: target}, m2chan)
 			})
 			map1reached = <-m1chan
 			map2reached = <-m2chan
@@ -283,6 +287,7 @@ func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sample
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	algOpts *cbirrtOptions,
+	randseed *rand.Rand,
 	rrtMap map[node]node,
 	near, target node,
 	mchan chan node,
@@ -322,12 +327,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			}
 		}
 		// if we are not meeting a constraint, gradient descend to the constraint
-		newNear = mp.constrainNear(ctx, algOpts, oldNear.Q(), newNear)
+		newNear = mp.constrainNear(ctx, algOpts, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
 			near = &basicNode{q: newNear}
-			// ~ fmt.Println(oldNear)
 			rrtMap[near] = oldNear
 		} else {
 			break
@@ -341,6 +345,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	algOpts *cbirrtOptions,
+	randseed *rand.Rand,
 	seedInputs,
 	target []referenceframe.Input,
 ) []referenceframe.Input {
@@ -365,7 +370,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 	solutionGen := make(chan []referenceframe.Input, 1)
 	// Spawn the IK solver to generate solutions until done
-	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, algOpts.planOpts.pathDist, mp.randseed.Int())
+	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, algOpts.planOpts.pathDist, randseed.Int())
 	// We should have zero or one solutions
 	var solved []referenceframe.Input
 	select {
@@ -386,7 +391,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: target, EndInput: failpos.EndInput})
 			if dist > algOpts.JointSolveDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-				return mp.constrainNear(ctx, algOpts, failpos.StartInput, failpos.EndInput)
+				return mp.constrainNear(ctx, algOpts, mp.randseed, failpos.StartInput, failpos.EndInput)
 			}
 		}
 		return nil
@@ -431,7 +436,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		shortcutGoal[jSol] = nil
 
 		// extend backwards for convenience later. Should work equally well in both directions
-		mp.constrainedExtend(ctx, algOpts, shortcutGoal, jSol, iSol, schan)
+		mp.constrainedExtend(ctx, algOpts, mp.randseed, shortcutGoal, jSol, iSol, schan)
 		reached := <-schan
 
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
