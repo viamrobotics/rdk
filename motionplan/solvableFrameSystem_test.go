@@ -80,11 +80,13 @@ func TestFrameSystemSolver(t *testing.T) {
 
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
 	goal2 := spatial.NewPoseFromOrientation(r3.Vector{Z: 60}, &spatial.OrientationVectorDegrees{OZ: -1})
-	newPos, err = solver.SolvePose(
+	newPos, err = solver.SolveWaypointsWithOptions(
 		context.Background(),
 		positions,
-		frame.NewPoseInFrame("urCamera", goal2),
+		[]*frame.PoseInFrame{frame.NewPoseInFrame("urCamera", goal2)},
 		"xArmVgripper",
+		nil,
+		[]map[string]interface{}{map[string]interface{}{"max_ik_solutions": 200}},
 	)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
