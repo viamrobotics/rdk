@@ -25,13 +25,13 @@ var testComponent = Component{
 	},
 	ServiceConfig: []ResourceLevelServiceConfig{
 		{
-			Type: "some-type-1",
+			Type: resource.NewDefaultSubtype("some-type-1", true),
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			Type: "some-type-2",
+			Type: resource.NewDefaultSubtype("some-type-2", true),
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
@@ -75,13 +75,13 @@ var testRemote = Remote{
 	ReconnectInterval:       2000000000,
 	ServiceConfig: []ResourceLevelServiceConfig{
 		{
-			Type: "some-type-1",
+			Type: resource.NewDefaultSubtype("some-type-1", true),
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			Type: "some-type-2",
+			Type: resource.NewDefaultSubtype("some-type-2", true),
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
@@ -161,9 +161,9 @@ func validateComponent(t *testing.T, actual, expected Component) {
 	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))
 
 	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
+	test.That(t, actual.ServiceConfig[0].Type, test.ShouldResemble, expected.ServiceConfig[0].Type)
 	test.That(t, actual.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
+	test.That(t, actual.ServiceConfig[1].Type, test.ShouldResemble, expected.ServiceConfig[1].Type)
 	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
 
 	test.That(t, actual.Frame, test.ShouldResemble, testComponent.Frame)
@@ -291,9 +291,9 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.Frame, test.ShouldResemble, expected.Frame)
 
 	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
+	test.That(t, actual.ServiceConfig[0].Type, test.ShouldResemble, expected.ServiceConfig[0].Type)
 	test.That(t, actual.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
+	test.That(t, actual.ServiceConfig[1].Type, test.ShouldResemble, expected.ServiceConfig[1].Type)
 	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
 }
 

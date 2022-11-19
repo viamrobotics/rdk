@@ -1429,7 +1429,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 			{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                config.ServiceType(datamanager.SubtypeName),
+				Type:                datamanager.SubtypeName,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
@@ -1741,13 +1741,13 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
 			Model:     resource.DefaultServiceModel,
-			Type:      config.ServiceType(motion.SubtypeName),
+			Type:      motion.SubtypeName,
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
 			Model:     resource.DefaultServiceModel,
-			Type:      config.ServiceType(motion.SubtypeName),
+			Type:      motion.SubtypeName,
 		},
 	}}
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -1772,19 +1772,19 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
 			Model:     resource.DefaultServiceModel,
-			Type:      config.ServiceType(datamanager.SubtypeName),
+			Type:      datamanager.SubtypeName,
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
 			Model:     resource.DefaultServiceModel,
-			Type:      config.ServiceType(datamanager.SubtypeName),
+			Type:      datamanager.SubtypeName,
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake3",
 			Model:     resource.DefaultServiceModel,
-			Type:      config.ServiceType(datamanager.SubtypeName),
+			Type:      datamanager.SubtypeName,
 		},
 	}}
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -1822,13 +1822,13 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake1",
 				Model:     resource.DefaultServiceModel,
-				Type:      config.ServiceType(datamanager.SubtypeName),
+				Type:      datamanager.SubtypeName,
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake2",
 				Model:     resource.DefaultServiceModel,
-				Type:      config.ServiceType(datamanager.SubtypeName),
+				Type:      datamanager.SubtypeName,
 			},
 		},
 		Remotes: []config.Remote{

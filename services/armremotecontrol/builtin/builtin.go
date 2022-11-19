@@ -40,8 +40,7 @@ const (
 
 func init() {
 	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{Constructor: NewBuiltIn})
-	cType := config.ServiceType(armremotecontrol.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(armremotecontrol.Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf ServiceConfig
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

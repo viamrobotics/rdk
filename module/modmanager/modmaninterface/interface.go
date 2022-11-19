@@ -17,7 +17,7 @@ type ModuleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	IsModularResource(name resource.Name) bool
 
-	IsModularModel(cfg config.Component) bool
+	NeedsModule(cfg config.Component) bool
 
 	Close(ctx context.Context) error
 }

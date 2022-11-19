@@ -38,11 +38,11 @@ func init() {
 		},
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: position.String(),
 	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: isPowered.String(),
 	}, newIsPoweredCollector)
 }

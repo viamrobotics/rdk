@@ -35,8 +35,7 @@ func init() {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
-	cType := config.ServiceType(datamanager.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(datamanager.Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
@@ -63,8 +62,8 @@ const defaultCaptureBufferSize = 4096
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
-	Model              string               `json:"model"`
-	Type               resource.SubtypeName `json:"type"`
+	Model              resource.Model       `json:"model"`
+	Type               resource.Subtype     `json:"type"`
 	Method             string               `json:"method"`
 	CaptureFrequencyHz float32              `json:"capture_frequency_hz"`
 	CaptureQueueSize   int                  `json:"capture_queue_size"`
@@ -172,7 +171,7 @@ type collectorAndConfig struct {
 // method parameters, and method name.
 type componentMethodMetadata struct {
 	ComponentName  string
-	ComponentModel string
+	ComponentModel resource.Model
 	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
@@ -233,11 +232,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Get the resource corresponding to the component subtype and name.
-	resourceType := resource.NewSubtype(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeComponent,
-		attributes.Type,
-	)
 
 	// Get the resource from the local or remote robot.
 	var res interface{}
@@ -246,9 +240,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		if !exists {
 			return nil, errors.Errorf("failed to find remote %s", attributes.RemoteRobotName)
 		}
-		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(attributes.Type, attributes.Name))
 	} else {
-		res, err = svc.r.ResourceByName(resource.NameFromSubtype(resourceType, attributes.Name))
+		res, err = svc.r.ResourceByName(resource.NameFromSubtype(attributes.Type, attributes.Name))
 	}
 	if err != nil {
 		return nil, err
@@ -620,7 +614,7 @@ func (svc *builtIn) cancelSyncBackgroundRoutine() {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.ResourceName().ResourceSubtype == datamanager.SubtypeName && c.ConvertedAttributes != nil {
+		if c.ResourceName().Subtype == datamanager.Subtype && c.ConvertedAttributes != nil {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {
@@ -653,7 +647,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
-			if componentSvcConfig.Type == datamanager.SubtypeName {
+			if componentSvcConfig.Type == datamanager.Subtype {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
@@ -661,8 +655,8 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
-					attrs.Model = c.Model.String()
-					attrs.Type = c.Type
+					attrs.Model = c.Model
+					attrs.Type = c.API
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}
@@ -672,7 +666,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, r := range cfg.Remotes {
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
-			if resourceSvcConfig.Type == datamanager.SubtypeName {
+			if resourceSvcConfig.Type == datamanager.Subtype {
 				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
@@ -684,7 +678,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 						return componentDataCaptureConfigs, err
 					}
 					attrs.Name = name.Name
-					attrs.Type = name.ResourceSubtype
+					attrs.Type = name.Subtype
 					attrs.RemoteRobotName = r.Name
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}

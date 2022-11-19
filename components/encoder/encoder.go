@@ -21,7 +21,7 @@ func init() {
 		Reconfigurable: WrapWithReconfigurable,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: ticksCount.String(),
 	}, newTicksCountCollector)
 }

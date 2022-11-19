@@ -48,11 +48,11 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: endPosition.String(),
 	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
 }

@@ -32,8 +32,8 @@ const (
 	buttonControl
 	arrowControl
 	droneControl
-	SubtypeName = resource.SubtypeName("base_remote_control")
 )
+var Subtype = baseremotecontrol.Subtype
 
 func init() {
 	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{
@@ -41,8 +41,7 @@ func init() {
 			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
-	cType := config.ServiceType(SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

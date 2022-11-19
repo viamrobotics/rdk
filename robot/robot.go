@@ -96,16 +96,13 @@ type LocalRobot interface {
 	// StartWeb starts the web server, will return an error if server is already up.
 	StartWeb(ctx context.Context, o weboptions.Options) error
 
-	// StartModule starts the local grpc module server.
-	StartModule(ctx context.Context) error
-
 	// StopWeb stops the web server, will be a noop if server is not up.
 	StopWeb() error
 
 	// WebAddress returns the address of the web service.
 	WebAddress() (string, error)
 
-	// ModuleAddress returns the address of the module service.
+	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
 
 	// ModuleManager returns the module manager the robot is using.

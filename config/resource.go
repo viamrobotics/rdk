@@ -51,9 +51,9 @@ type ResourceConfig interface {
 
 // A ResourceLevelServiceConfig describes component or remote configuration for a service.
 type ResourceLevelServiceConfig struct {
-	Type                resource.SubtypeName `json:"type"`
-	Attributes          AttributeMap         `json:"attributes"`
-	ConvertedAttributes interface{}          `json:"-"`
+	Type                resource.Subtype `json:"type"`
+	Attributes          AttributeMap     `json:"attributes"`
+	ConvertedAttributes interface{}      `json:"-"`
 }
 
 // A Component describes the configuration of a component.
@@ -193,6 +193,8 @@ func (config *Component) Get() interface{} {
 }
 
 // ParseComponentFlag parses a component flag from command line arguments.
+//
+//nolint:dupl
 func ParseComponentFlag(flag string) (Component, error) {
 	cmp := Component{}
 	componentParts := strings.Split(flag, ",")
@@ -239,17 +241,14 @@ func ParseComponentFlag(flag string) (Component, error) {
 	return cmp, nil
 }
 
-// A ServiceType defines a type of service.
-type ServiceType string
-
 // A Service describes the configuration of a service.
 type Service struct {
 	Name string `json:"name"`
 
-	Namespace resource.Namespace `json:"namespace"`
-	Type      ServiceType        `json:"type"`
-	Model     resource.Model     `json:"model"`
-	DependsOn []string           `json:"depends_on"`
+	Namespace resource.Namespace   `json:"namespace"`
+	Type      resource.SubtypeName `json:"type"`
+	Model     resource.Model       `json:"model"`
+	DependsOn []string             `json:"depends_on"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
@@ -280,12 +279,9 @@ func (config *Service) ResourceName() resource.Name {
 
 // ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
-	cType := string(config.Type)
-	return resource.NewName(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeService,
-		resource.SubtypeName(cType),
-		cType,
+	return resource.NameFromSubtype(
+		config.Type,
+		string(config.Type.ResourceSubtype), // TODO SMURF is this correct?
 	)
 }
 
@@ -305,6 +301,8 @@ func (config *Service) Get() interface{} {
 }
 
 // ParseServiceFlag parses a service flag from command line arguments.
+//
+//nolint:dupl
 func ParseServiceFlag(flag string) (Service, error) {
 	svc := Service{}
 	serviceParts := strings.Split(flag, ",")
@@ -317,7 +315,7 @@ func ParseServiceFlag(flag string) (Service, error) {
 		case "name":
 			svc.Name = keyVal[1]
 		case "type":
-			svc.Type = ServiceType(keyVal[1])
+			svc.Type = resource.SubtypeName(keyVal[1])
 		case "model":
 			m, err := resource.NewModelFromString(keyVal[1])
 			if err != nil {

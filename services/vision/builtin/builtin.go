@@ -31,8 +31,7 @@ func init() {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
-	cType := config.ServiceType(vision.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultServiceModel, func(attributeMap config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(vision.Subtype, resource.DefaultServiceModel, func(attributeMap config.AttributeMap) (interface{}, error) {
 		var attrs vision.Attributes
 		return config.TransformAttributeMapToStruct(&attrs, attributeMap)
 	},

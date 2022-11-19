@@ -2321,13 +2321,13 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			{
 				Name:      visName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(vision.SubtypeName),
+				Type:      vision.SubtypeName,
 				Model:     resource.DefaultServiceModel,
 			},
 			{
 				Name:      dmName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(datamanager.SubtypeName),
+				Type:      datamanager.SubtypeName,
 				Model:     resource.DefaultServiceModel,
 			},
 		},
@@ -2356,13 +2356,13 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			{
 				Name:      visName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(vision.SubtypeName),
+				Type:      vision.SubtypeName,
 				Model:     resource.DefaultServiceModel,
 			},
 			{
 				Name:      sName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(sensors.SubtypeName),
+				Type:      sensors.SubtypeName,
 				Model:     resource.DefaultServiceModel,
 			},
 		},

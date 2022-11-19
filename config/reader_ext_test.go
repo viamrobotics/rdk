@@ -72,7 +72,7 @@ func TestFromReaderValidate(t *testing.T) {
 
 	badServiceMapConverter := func() {
 		config.RegisterServiceAttributeMapConverter(
-			config.ServiceType("someservice"),
+			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeService, "someservice"),
 			resource.DefaultServiceModel,
 			func(attributes config.AttributeMap) (interface{}, error) {
 				return &conf, nil

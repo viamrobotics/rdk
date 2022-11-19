@@ -190,16 +190,16 @@ type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
-	// Stop stops the main web service (but leaves module service running.)
+	// Stop stops the main web service (but leaves module server socket running.)
 	Stop()
 
-	// StartModule starts the lightweight module service
+	// StartModule starts the module server socket.
 	StartModule(context.Context) error
 
 	// Returns the address and port the web service listens on.
 	Address() string
 
-	// Returns the unix socket the module service listens on.
+	// Returns the unix socket path the module server listens on.
 	ModuleAddress() string
 
 	// Close closes the web server
@@ -299,14 +299,14 @@ func (svc *webService) Address() string {
 	return svc.addr
 }
 
-// ModuleAddress returns the (unix socket) address the module service is listening on.
+// ModuleAddress returns the unix socket path the module server is listening on.
 func (svc *webService) ModuleAddress() string {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	return svc.modAddr
 }
 
-// StartModule starts the (lightweight) grpc module server.
+// StartModule starts the grpc module server.
 func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -394,7 +394,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 	return nil
 }
 
-// Stop stops the main web service prior to actually closing (it leaves the module service running.)
+// Stop stops the main web service prior to actually closing (it leaves the module server running.)
 func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()

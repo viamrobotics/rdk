@@ -232,15 +232,6 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 	return webSvc.Start(ctx, o)
 }
 
-// StartLite starts the lite grpc server, will return an error if server is already up.
-func (r *localRobot) StartModule(ctx context.Context) (err error) {
-	webSvc, err := r.webService()
-	if err != nil {
-		return err
-	}
-	return webSvc.StartModule(ctx)
-}
-
 // StopWeb stops the web server, will be a noop if server is not up.
 func (r *localRobot) StopWeb() error {
 	webSvc, err := r.webService()
@@ -400,7 +391,7 @@ func (r *localRobot) updateDefaultServiceNames(cfg *config.Config) *config.Confi
 			Name:      name.Name,
 			Model:     resource.DefaultServiceModel,
 			Namespace: name.Namespace,
-			Type:      config.ServiceType(name.ResourceSubtype),
+			Type:      name.ResourceSubtype,
 		}
 		cfg.Services = append(cfg.Services, svcCfg)
 	}
@@ -458,8 +449,11 @@ func newWithResources(
 	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
-	err := r.StartModule(ctx)
+	webSvc, err := r.webService()
 	if err != nil {
+		return nil, err
+	}
+	if err := webSvc.StartModule(ctx); err != nil {
 		return nil, err
 	}
 
@@ -498,7 +492,7 @@ func newWithResources(
 			Name:      name.Name,
 			Model:     resource.DefaultServiceModel,
 			Namespace: name.Namespace,
-			Type:      config.ServiceType(name.ResourceSubtype),
+			Type:      name.ResourceSubtype,
 		}
 		svc, err := r.newService(ctx, cfg)
 		if err != nil {

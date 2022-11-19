@@ -3,6 +3,7 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -34,16 +35,18 @@ const (
 )
 
 var (
-	reservedChars     = [...]string{":"}
-	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
+	reservedChars              = [...]string{":"}
+	resRegexValidator          = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
+	subtypeRegexValidator      = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
+	shortSubtypeRegexValidator = regexp.MustCompile(`^([\w-]+)$`)
 	// DefaultServiceModel is used for builtin services.
 	DefaultServiceModel = NewDefaultModel("builtin")
 )
 
 // Type represents a known component/service type of a robot.
 type Type struct {
-	Namespace    Namespace
-	ResourceType TypeName
+	Namespace    Namespace `json:"namespace"`
+	ResourceType TypeName  `json:"type"`
 }
 
 // NewType creates a new Type based on parameters passed in.
@@ -76,7 +79,7 @@ func (t Type) String() string {
 // Subtype represents a known component/service subtype of a robot.
 type Subtype struct {
 	Type
-	ResourceSubtype SubtypeName
+	ResourceSubtype SubtypeName `json:"subtype"`
 }
 
 // An RPCSubtype provides RPC information about a particular subtype.
@@ -89,6 +92,16 @@ type RPCSubtype struct {
 // NewSubtype creates a new Subtype based on parameters passed in.
 func NewSubtype(namespace Namespace, rType TypeName, subtype SubtypeName) Subtype {
 	resourceType := NewType(namespace, rType)
+	return Subtype{resourceType, subtype}
+}
+
+// NewDefaultSubtype creates a new Subtype based on parameters passed in.
+func NewDefaultSubtype(subtype SubtypeName, isSvc bool) Subtype {
+	t := ResourceTypeComponent
+	if isSvc {
+		t = ResourceTypeService
+	}
+	resourceType := NewType(ResourceNamespaceRDK, t)
 	return Subtype{resourceType, subtype}
 }
 
@@ -109,6 +122,35 @@ func (s Subtype) Validate() error {
 // String returns the resource subtype string for the component.
 func (s Subtype) String() string {
 	return fmt.Sprintf("%s:%s", s.Type, s.ResourceSubtype)
+}
+
+// UnmarshalJSON pareses namespace:type:subtype strings to the full Subtype{} struct.
+func (s *Subtype) UnmarshalJSON(data []byte) error {
+	stStr := strings.Trim(string(data), "\"'")
+	if subtypeRegexValidator.MatchString(stStr) {
+		matches := subtypeRegexValidator.FindStringSubmatch(stStr)
+		s.Namespace = Namespace(matches[1])
+		s.ResourceType = TypeName(matches[2])
+		s.ResourceSubtype = SubtypeName(matches[3])
+		return nil
+	}
+	if shortSubtypeRegexValidator.MatchString(stStr) {
+		s.Namespace = ResourceNamespaceRDK
+		s.ResourceType = ResourceTypeService // TODO SMURF how else to handle this?
+		s.ResourceSubtype = SubtypeName(stStr)
+		return nil
+	}
+
+	var tempSt map[string]string
+	if err := json.Unmarshal(data, &tempSt); err != nil {
+		return err
+	}
+
+	s.Namespace = Namespace(tempSt["namespace"])
+	s.ResourceType = TypeName(tempSt["type"])
+	s.ResourceSubtype = SubtypeName(tempSt["subtype"])
+
+	return nil
 }
 
 // Name represents a known component/service representation of a robot.

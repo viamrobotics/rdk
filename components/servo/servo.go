@@ -38,7 +38,7 @@ func init() {
 		},
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: position.String(),
 	}, newPositionCollector)
 }

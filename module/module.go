@@ -350,8 +350,8 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	return &pb.RemoveResourceResponse{}, svc.Remove(name)
 }
 
-// AddAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.
-func (m *Module) AddAPIFromRegistry(ctx context.Context, api resource.Subtype) error {
+// addAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.
+func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	_, ok := m.services[api]
@@ -379,7 +379,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 	_, ok := m.services[api]
 	m.mu.Unlock()
 	if !ok {
-		if err := m.AddAPIFromRegistry(ctx, api); err != nil {
+		if err := m.addAPIFromRegistry(ctx, api); err != nil {
 			return err
 		}
 	}

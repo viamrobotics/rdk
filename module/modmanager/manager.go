@@ -217,8 +217,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Componen
 	return nil
 }
 
-// IsModularModel returns true if a component/service config WOULD be handled by a module.
-func (mgr *Manager) IsModularModel(cfg config.Component) bool {
+// NeedsModule returns true if a component/service config WOULD be handled by a module.
+func (mgr *Manager) NeedsModule(cfg config.Component) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
 	return mgr.getModule(cfg) != nil

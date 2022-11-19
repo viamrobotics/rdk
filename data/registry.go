@@ -42,7 +42,7 @@ func (p CollectorParams) Validate() error {
 
 // MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {
-	Subtype    resource.SubtypeName
+	Subtype    resource.Subtype
 	MethodName string
 }
 

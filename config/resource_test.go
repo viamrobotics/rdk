@@ -453,7 +453,7 @@ func TestSet(t *testing.T) {
 
 	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conf.Type, test.ShouldEqual, config.ServiceType("foo"))
+	test.That(t, conf.Type, test.ShouldEqual, resource.SubtypeName("foo"))
 	test.That(t, conf.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 		"one": "two",

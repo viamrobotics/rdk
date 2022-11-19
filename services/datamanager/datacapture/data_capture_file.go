@@ -166,7 +166,7 @@ func (f *File) Delete() error {
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
 // additionalParams fails to convert to anypb map.
-func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
+func BuildCaptureMetadata(compType resource.Subtype, compName string, compModel resource.Model, method string,
 	additionalParams map[string]string, tags []string,
 ) (*v1.DataCaptureMetadata, error) {
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
@@ -176,9 +176,9 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 
 	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
-		ComponentType:    string(compType),
+		ComponentType:    compType.String(),
 		ComponentName:    compName,
-		ComponentModel:   compModel,
+		ComponentModel:   compModel.String(),
 		MethodName:       method,
 		Type:             dataType,
 		MethodParameters: methodParams,

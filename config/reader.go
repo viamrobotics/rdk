@@ -62,7 +62,7 @@ type ComponentAttributeMapConverterRegistration struct {
 // A ServiceAttributeMapConverterRegistration describes how to convert all attributes
 // for a model of a type of service.
 type ServiceAttributeMapConverterRegistration struct {
-	SvcType ServiceType
+	SvcType resource.Subtype
 	Model   resource.Model
 	Conv    AttributeMapConverter
 	RetType interface{} // the shape of what is converted to
@@ -138,7 +138,7 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
 func RegisterServiceAttributeMapConverter(
-	svcType ServiceType,
+	svcType resource.Subtype,
 	model resource.Model,
 	conv AttributeMapConverter,
 	retType interface{},
@@ -197,7 +197,7 @@ func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeM
 	return nil
 }
 
-func findServiceMapConverter(svcType ServiceType, model resource.Model) AttributeMapConverter {
+func findServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range serviceAttributeMapConverters {
 		if r.SvcType == svcType && r.Model == model {
 			return r.Conv
@@ -683,7 +683,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	}
 
 	for idx, c := range cfg.Services {
-		conv := findServiceMapConverter(c.Type, c.Model)
+		conv := findServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
 		if conv == nil {
 			continue
 		}

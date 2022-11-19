@@ -78,8 +78,7 @@ func init() {
 			return NewBuiltIn(ctx, deps, c, logger, false)
 		},
 	})
-	cType := config.ServiceType(slam.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(slam.Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf AttrConfig
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

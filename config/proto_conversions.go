@@ -195,7 +195,7 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 	service := Service{
 		Name:       proto.GetName(),
 		Namespace:  resource.Namespace(proto.GetNamespace()),
-		Type:       ServiceType(proto.GetType()),
+		Type:       resource.SubtypeName(proto.GetType()),
 		Model:      model,
 		Attributes: proto.GetAttributes().AsMap(),
 		DependsOn:  proto.GetDependsOn(),
@@ -214,7 +214,7 @@ func ServiceConfigFromSharedProto(proto *pb.ComponentConfig) (*Service, error) {
 	service := Service{
 		Name:       proto.GetName(),
 		Namespace:  resource.Namespace(proto.GetNamespace()),
-		Type:       ServiceType(proto.GetType()),
+		Type:       resource.SubtypeName(proto.GetType()),
 		Model:      model,
 		Attributes: proto.GetAttributes().AsMap(),
 		DependsOn:  proto.GetDependsOn(),
@@ -274,7 +274,7 @@ func ResourceLevelServiceConfigToProto(service ResourceLevelServiceConfig) (*pb.
 	}
 
 	proto := pb.ResourceLevelServiceConfig{
-		Type:       string(service.Type),
+		Type:       service.Type.String(),
 		Attributes: attributes,
 	}
 
@@ -283,8 +283,12 @@ func ResourceLevelServiceConfigToProto(service ResourceLevelServiceConfig) (*pb.
 
 // ResourceLevelServiceConfigFromProto creates ResourceLevelServiceConfig from proto equivalent.
 func ResourceLevelServiceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (ResourceLevelServiceConfig, error) {
+	st, err := resource.NewSubtypeFromString(proto.GetType())
+	if err != nil {
+		return ResourceLevelServiceConfig{}, err
+	}
 	service := ResourceLevelServiceConfig{
-		Type:       resource.SubtypeName(proto.GetType()),
+		Type:       st,
 		Attributes: proto.GetAttributes().AsMap(),
 	}
 
@@ -732,8 +736,8 @@ func ServiceConfigToShared(cfg Service) Component {
 	return Component{
 		Name:                cfg.Name,
 		Namespace:           cfg.Namespace,
-		Type:                resource.SubtypeName(cfg.Type),
-		API:                 resource.NewSubtype(cfg.Namespace, resource.ResourceTypeService, resource.SubtypeName(cfg.Type)),
+		Type:                cfg.Type,
+		API:                 resource.NewSubtype(cfg.Namespace, resource.ResourceTypeService, cfg.Type),
 		Model:               cfg.Model,
 		DependsOn:           cfg.DependsOn,
 		Attributes:          cfg.Attributes,
@@ -747,7 +751,7 @@ func ServiceConfigFromShared(cfg Component) Service {
 	return Service{
 		Name:                cfg.Name,
 		Namespace:           cfg.Namespace,
-		Type:                ServiceType(cfg.Type),
+		Type:                cfg.Type,
 		Model:               cfg.Model,
 		DependsOn:           cfg.DependsOn,
 		Attributes:          cfg.Attributes,
