@@ -338,6 +338,8 @@ func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
 		opt.AddConstraint(defaultOrientationConstraintName, constraint)
 		opt.pathDist = pathDist
+	case PositionOnlyMotionProfile:
+		opt.SetMetric(NewPositionOnlyMetric())
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough

@@ -47,6 +47,7 @@ const (
 	LinearMotionProfile       = "linear"
 	PseudolinearMotionProfile = "pseudolinear"
 	OrientationMotionProfile  = "orientation"
+	PositionOnlyMotionProfile = "position_only"
 )
 
 // defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
