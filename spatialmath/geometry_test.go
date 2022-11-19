@@ -169,7 +169,7 @@ func TestBoxVsBoxCollision(t *testing.T) {
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}, ""),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2.01, 2, 2}, r3.Vector{2, 2, 2}, ""),
 			},
-			0.01,
+			0.005,
 		},
 		{
 			"edge along face contact",
@@ -225,7 +225,7 @@ func TestBoxVsBoxCollision(t *testing.T) {
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}, ""),
 				makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}, ""),
 			},
-			4, // upper bound on separation distance
+			4.346, // upper bound on separation distance
 		},
 		{
 			"axis aligned overlap",
