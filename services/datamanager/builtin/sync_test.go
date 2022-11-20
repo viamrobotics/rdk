@@ -80,11 +80,34 @@ func TestSyncEnabled(t *testing.T) {
 			time.Sleep(syncTime)
 
 			// Things to validate: that it syncs if expected, that it deletes files if successful
+			initialUploadCount := len(mockService.getCaptureUploadRequests())
 			if !tc.initialServiceDisableStatus {
 				// TODO: check contents
-				test.That(t, len(mockService.getCaptureUploadRequests()), test.ShouldBeGreaterThan, 0)
+				test.That(t, initialUploadCount, test.ShouldBeGreaterThan, 0)
 			} else {
-				test.That(t, len(mockService.getCaptureUploadRequests()), test.ShouldEqual, 0)
+				test.That(t, initialUploadCount, test.ShouldEqual, 0)
+			}
+
+			// Set up service config.
+			updatedSvcConfig, ok2, err := getServiceConfig(cfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok2, test.ShouldBeTrue)
+			updatedSvcConfig.CaptureDisabled = false
+			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
+			updatedSvcConfig.CaptureDir = tmpDir
+
+			err = dmsvc.Update(context.Background(), cfg)
+
+			// Let run for a second, then change status.
+			time.Sleep(syncTime)
+
+			newUploadCount := len(mockService.getCaptureUploadRequests())
+			// Things to validate: that it syncs if expected, that it deletes files if successful
+			if !tc.newServiceDisableStatus {
+				// TODO: check contents
+				test.That(t, newUploadCount, test.ShouldBeGreaterThan, initialUploadCount)
+			} else {
+				test.That(t, newUploadCount, test.ShouldEqual, initialUploadCount)
 			}
 		})
 	}

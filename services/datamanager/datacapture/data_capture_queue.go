@@ -39,7 +39,10 @@ func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
 }
 
 func (d *Queue) Push(item *v1.SensorData) error {
-	if d.IsClosed() {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	if d.closed {
 		return ErrQueueClosed
 	}
 
@@ -56,35 +59,59 @@ func (d *Queue) Push(item *v1.SensorData) error {
 		if err := d.nextFile.Sync(); err != nil {
 			return err
 		}
-		d.lock.Lock()
 		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
-			d.lock.Unlock()
 			return err
 		}
 		d.files = append(d.files, d.nextFile)
 		d.nextFile = nextFile
-		d.lock.Unlock()
 	}
 
 	return d.nextFile.WriteNext(item)
 }
 
+// TODO: return err
 func (d *Queue) Pop() *File {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	// If files queue is empty, return next file.
 	if len(d.files) == 0 {
-		return nil
+		if d.nextFile != nil {
+			if err := d.nextFile.Sync(); err != nil {
+				fmt.Println("error syncing file during p[")
+				return nil
+			}
+			d.files = append(d.files, d.nextFile)
+			d.nextFile = nil
+		} else {
+			return nil
+		}
 	}
+
+	// else, return the next file in the queue, and update the queue
 	ret := d.files[0]
-	d.files = d.files[1:]
+
+	if len(d.files) == 1 {
+		d.files = []*File{}
+	} else {
+		d.files = d.files[1:]
+	}
 	return ret
 }
 
-func (d *Queue) Close() {
+func (d *Queue) Close() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	d.closed = true
+	if d.nextFile == nil {
+		return nil
+	}
+	if err := d.nextFile.Sync(); err != nil {
+		return err
+	}
+	d.nextFile = nil
+	return nil
 }
 
 func (d *Queue) IsClosed() bool {

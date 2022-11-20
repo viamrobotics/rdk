@@ -65,10 +65,9 @@ func (c *collector) Close() {
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if err := c.target.Sync(); err != nil {
-		c.logger.Errorw("failed to flush writer to disk", "error", err)
+	if err := c.target.Close(); err != nil {
+		c.logger.Errorw("failed to close capture queue", "error", err)
 	}
-	c.target.Close()
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
@@ -232,6 +231,9 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
 
+	if params.Target == nil {
+		fmt.Println("new collector passed params with nil target")
+	}
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),

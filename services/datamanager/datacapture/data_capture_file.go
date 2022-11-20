@@ -104,10 +104,15 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	if err := f.writer.Flush(); err != nil {
+		return nil, err
+	}
+
 	r := v1.SensorData{}
 	if _, err := pbutil.ReadDelimited(f.file, &r); err != nil {
 		return nil, err
 	}
+	fmt.Println("read sensordata from file")
 
 	return &r, nil
 }
@@ -117,18 +122,22 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	fmt.Println("pushed data")
 	n, err := pbutil.WriteDelimited(f.writer, data)
 	if err != nil {
 		return err
 	}
+	fmt.Println(data)
 	f.size += int64(n)
 	return nil
 }
 
 // Sync flushes any buffered writes to disk.
 func (f *File) Sync() error {
+	fmt.Println("called file sync")
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	fmt.Println("finished file sync")
 	return f.writer.Flush()
 }
 
