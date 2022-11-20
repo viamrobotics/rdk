@@ -58,7 +58,7 @@ func TestNewCollector(t *testing.T) {
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
 		Logger:        golog.NewTestLogger(t),
-		Target:        &datacapture.File{},
+		Target:        datacapture.NewQueue("dir", nil),
 	})
 
 	test.That(t, c2, test.ShouldNotBeNil)
@@ -144,8 +144,8 @@ func TestSuccessfulWrite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := os.TempDir()
 			md := v1.DataCaptureMetadata{}
-			target, err := datacapture.NewFile(tmpDir, &md)
-			test.That(t, err, test.ShouldBeNil)
+			target := datacapture.NewQueue(tmpDir, &md)
+			test.That(t, target, test.ShouldNotBeNil)
 
 			tc.params.Target = target
 			c, err := NewCollector(tc.capturer, tc.params)
@@ -155,16 +155,16 @@ func TestSuccessfulWrite(t *testing.T) {
 			// Verify that it writes to the file at all.
 			time.Sleep(tc.wait)
 			c.Close()
-			fileSize := target.Size()
-			test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
+			file := target.Pop()
+			test.That(t, file.Size(), test.ShouldBeGreaterThan, 0)
 
 			// Verify that the data it wrote matches what we expect.
-			validateReadings(t, target.GetPath(), tc.expectReadings)
+			validateReadings(t, file, tc.expectReadings)
 
 			// Next reading should fail; there should be at most max readings.
-			_, err = target.ReadNext()
+			_, err = file.ReadNext()
 			test.That(t, err, test.ShouldEqual, io.EOF)
-			os.Remove(target.GetPath())
+			os.Remove(file.GetPath())
 		})
 	}
 }
@@ -174,13 +174,13 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	tmpDir := os.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target1, _ := datacapture.NewFile(tmpDir, &md)
-	defer os.Remove(target1.GetPath())
+	target := datacapture.NewQueue(tmpDir, &md)
+	//defer os.Remove(target1.GetPath())
 	params := CollectorParams{
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 15,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target1,
+		Target:        target,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
 		Logger:        l,
@@ -191,59 +191,59 @@ func TestClose(t *testing.T) {
 
 	// Close and measure fileSize.
 	c.Close()
-	fileSize := target1.Size()
+	fileSize := target.Pop().Size()
 
 	// Assert capture is no longer being called/file is no longer being written to.
 	time.Sleep(time.Millisecond * 25)
-	test.That(t, target1.Size(), test.ShouldEqual, fileSize)
+	test.That(t, target.Pop().Size(), test.ShouldEqual, fileSize)
 }
 
-func TestSetTarget(t *testing.T) {
-	l := golog.NewTestLogger(t)
-	tmpDir := os.TempDir()
-	md1 := v1.DataCaptureMetadata{
-		ComponentName: "someFirstThing",
-	}
-	md2 := v1.DataCaptureMetadata{
-		ComponentName: "someSecondThing",
-	}
-	target1, _ := datacapture.NewFile(tmpDir, &md1)
-	target2, _ := datacapture.NewFile(tmpDir, &md2)
-	defer os.Remove(target1.GetPath())
-	defer os.Remove(target2.GetPath())
-
-	params := CollectorParams{
-		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 15,
-		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target1,
-		QueueSize:     queueSize,
-		BufferSize:    bufferSize,
-		Logger:        l,
-	}
-	c, _ := NewCollector(dummyStructCapturer, params)
-	c.Collect()
-	time.Sleep(time.Millisecond * 30)
-
-	// Change target, verify that target1 was written to.
-	c.SetTarget(target2)
-	sizeTgt1 := target1.Size()
-	test.That(t, target1.Size(), test.ShouldBeGreaterThan, 0)
-
-	// Verify that tgt2 was written to, and that target1 was not written to after the target was changed.
-	time.Sleep(time.Millisecond * 30)
-	c.Close()
-	test.That(t, target1.Size(), test.ShouldEqual, sizeTgt1)
-	test.That(t, target2.Size(), test.ShouldBeGreaterThan, 0)
-}
+//func TestSetTarget(t *testing.T) {
+//	l := golog.NewTestLogger(t)
+//	tmpDir := os.TempDir()
+//	md1 := v1.DataCaptureMetadata{
+//		ComponentName: "someFirstThing",
+//	}
+//	md2 := v1.DataCaptureMetadata{
+//		ComponentName: "someSecondThing",
+//	}
+//	target1, _ := datacapture.NewFile(tmpDir, &md1)
+//	target2, _ := datacapture.NewFile(tmpDir, &md2)
+//	defer os.Remove(target1.GetPath())
+//	defer os.Remove(target2.GetPath())
+//
+//	params := CollectorParams{
+//		ComponentName: "testComponent",
+//		Interval:      time.Millisecond * 15,
+//		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+//		Target:        target1,
+//		QueueSize:     queueSize,
+//		BufferSize:    bufferSize,
+//		Logger:        l,
+//	}
+//	c, _ := NewCollector(dummyStructCapturer, params)
+//	c.Collect()
+//	time.Sleep(time.Millisecond * 30)
+//
+//	// Change target, verify that target1 was written to.
+//	c.SetTarget(target2)
+//	sizeTgt1 := target1.Size()
+//	test.That(t, target1.Size(), test.ShouldBeGreaterThan, 0)
+//
+//	// Verify that tgt2 was written to, and that target1 was not written to after the target was changed.
+//	time.Sleep(time.Millisecond * 30)
+//	c.Close()
+//	test.That(t, target1.Size(), test.ShouldEqual, sizeTgt1)
+//	test.That(t, target2.Size(), test.ShouldBeGreaterThan, 0)
+//}
 
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
 func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
+	// TODO: replace all usages of os.TempDir with proper os/io temp dir method
 	tmpDir := os.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target1, _ := datacapture.NewFile(tmpDir, &md)
-	defer os.Remove(target1.GetPath())
+	target := datacapture.NewQueue(tmpDir, &md)
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
@@ -252,7 +252,7 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 10,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target1,
+		Target:        target,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
 		Logger:        logger,
@@ -270,17 +270,13 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
-func validateReadings(t *testing.T, filePath string, n int) {
+func validateReadings(t *testing.T, f *datacapture.File, n int) {
 	t.Helper()
-	file, err := os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
-	f, err := datacapture.ReadFile(file)
-	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(n)
 	for i := 0; i < n; i++ {
+		fmt.Println(i)
 		read, err := f.ReadNext()
-		if err != nil {
-			t.Fatalf("failed to read SensorData from file: %v", err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 		if read.GetStruct() != nil {
 			test.That(t, proto.Equal(dummyStructReadingProto, read.GetStruct()), test.ShouldBeTrue)
 		} else {
