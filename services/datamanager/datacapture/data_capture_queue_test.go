@@ -48,23 +48,43 @@ var (
 
 func TestCaptureQueueSimple(t *testing.T) {
 	tests := []struct {
-		name      string
-		dataType  v1.DataType
-		pushCount int
-		popCount  int
+		name            string
+		dataType        v1.DataType
+		firstPushCount  int
+		firstPopCount   int
+		secondPushCount int
+		secondPopCount  int
 	}{
 		{
-			name:      "Pushing N binary data should allow N files to be popped.",
-			dataType:  v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			pushCount: 2,
-			popCount:  2,
+			name:           "Pushing N binary data should allow N files to be popped.",
+			dataType:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			firstPushCount: 2,
+			firstPopCount:  2,
 		},
 		{
 			name:     "Pushing > maxSize + 1 worth of struct data should allow 2 files to be popped.",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			// maxSize / size(structSensorData) = 4096 / VALUE = 2
-			pushCount: 400,
-			popCount:  2,
+			firstPushCount: 400,
+			firstPopCount:  2,
+		},
+		{
+			name:     "Intermixing pushes/pops of binary data should not cause data races.",
+			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			// maxSize / size(structSensorData) = 4096 / VALUE = 2
+			firstPushCount:  2,
+			firstPopCount:   2,
+			secondPushCount: 2,
+			secondPopCount:  2,
+		},
+		{
+			name:     "Intermixing pushes/pops of tabular data should not cause data races.",
+			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			// maxSize / size(structSensorData) = 4096 / VALUE = 2
+			firstPushCount:  400,
+			firstPopCount:   2,
+			secondPushCount: 400,
+			secondPopCount:  2,
 		},
 	}
 
@@ -84,15 +104,15 @@ func TestCaptureQueueSimple(t *testing.T) {
 			}
 
 			fmt.Println("starting push")
-			for i := 0; i < tc.pushCount; i++ {
+			for i := 0; i < tc.firstPushCount; i++ {
 				err := sut.Push(pushValue)
 				fmt.Println("pushed")
 				test.That(t, err, test.ShouldBeNil)
 			}
 			fmt.Println("done pushing")
 
-			var totalReadings int
-			for i := 0; i < tc.popCount; i++ {
+			var totalReadings1 int
+			for i := 0; i < tc.firstPopCount; i++ {
 				fmt.Println(i)
 				popped, err := sut.Pop()
 				test.That(t, err, test.ShouldBeNil)
@@ -111,10 +131,42 @@ func TestCaptureQueueSimple(t *testing.T) {
 					} else {
 						test.That(t, next.GetStruct(), test.ShouldResemble, pushValue.GetStruct())
 					}
-					totalReadings++
+					totalReadings1++
 				}
 			}
-			test.That(t, totalReadings, test.ShouldEqual, tc.pushCount)
+			test.That(t, totalReadings1, test.ShouldEqual, tc.firstPushCount)
+
+			for i := 0; i < tc.firstPushCount; i++ {
+				err := sut.Push(pushValue)
+				fmt.Println("pushed")
+				test.That(t, err, test.ShouldBeNil)
+			}
+			fmt.Println("done pushing")
+
+			var totalReadings2 int
+			for i := 0; i < tc.firstPopCount; i++ {
+				fmt.Println(i)
+				popped, err := sut.Pop()
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, popped, test.ShouldNotBeNil)
+				test.That(t, popped, test.ShouldNotBeNil)
+				for {
+					next, err := popped.ReadNext()
+					if errors.Is(err, io.EOF) {
+						fmt.Println("got EOF")
+						break
+					}
+					fmt.Println("didn't get EOF")
+					test.That(t, err, test.ShouldBeNil)
+					if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
+						test.That(t, next.GetBinary(), test.ShouldResemble, pushValue.GetBinary())
+					} else {
+						test.That(t, next.GetStruct(), test.ShouldResemble, pushValue.GetStruct())
+					}
+					totalReadings2++
+				}
+			}
+			test.That(t, totalReadings2, test.ShouldEqual, tc.firstPushCount)
 
 			next, err := sut.Pop()
 			test.That(t, err, test.ShouldBeNil)
