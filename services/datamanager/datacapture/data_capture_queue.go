@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -129,19 +128,19 @@ func (d *Queue) sync() error {
 	if err := d.nextFile.Sync(); err != nil {
 		return err
 	}
-	if err := d.nextFile.Close(); err != nil {
-		return err
-	}
-
-	f, err := os.Open(d.nextFile.file.Name())
-	if err != nil {
-		return err
-	}
-	endOfQueue, err := ReadFile(f)
-	if err != nil {
-		return err
-	}
-	d.files = append(d.files, endOfQueue)
+	//if err := d.nextFile.Close(); err != nil {
+	//	return err
+	//}
+	//
+	//f, err := os.Open(d.nextFile.file.Name())
+	//if err != nil {
+	//	return err
+	//}
+	//endOfQueue, err := ReadFile(f)
+	//if err != nil {
+	//	return err
+	//}
+	d.files = append(d.files, d.nextFile)
 	d.nextFile = nil
 	return nil
 }

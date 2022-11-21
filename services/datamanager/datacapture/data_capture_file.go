@@ -20,6 +20,8 @@ import (
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
+// TODO: this is all way too complicated i think. Just keep track of read/write offsets
+
 // FileExt defines the file extension for Viam data capture files.
 const (
 	FileExt        = ".capture"
@@ -37,6 +39,9 @@ type File struct {
 	writer   *bufio.Writer
 	size     int64
 	metadata *v1.DataCaptureMetadata
+
+	readOffset  int64
+	writeOffset int64
 }
 
 // ReadFile creates a File struct from a passed os.File previously constructed using NewFile.
@@ -50,17 +55,20 @@ func ReadFile(f *os.File) (*File, error) {
 	}
 
 	md := &v1.DataCaptureMetadata{}
-	if _, err := pbutil.ReadDelimited(f, md); err != nil {
+	initOffset, err := pbutil.ReadDelimited(f, md)
+	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
 	ret := File{
-		path:     f.Name(),
-		lock:     &sync.Mutex{},
-		file:     f,
-		writer:   bufio.NewWriter(f),
-		size:     finfo.Size(),
-		metadata: md,
+		path:        f.Name(),
+		lock:        &sync.Mutex{},
+		file:        f,
+		writer:      bufio.NewWriter(f),
+		size:        finfo.Size(),
+		metadata:    md,
+		readOffset:  int64(initOffset),
+		writeOffset: int64(initOffset),
 	}
 
 	return &ret, nil
@@ -86,11 +94,13 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 		return nil, err
 	}
 	return &File{
-		path:   f.Name(),
-		writer: bufio.NewWriter(f),
-		file:   f,
-		size:   int64(n),
-		lock:   &sync.Mutex{},
+		path:        f.Name(),
+		writer:      bufio.NewWriter(f),
+		file:        f,
+		size:        int64(n),
+		lock:        &sync.Mutex{},
+		readOffset:  int64(n),
+		writeOffset: int64(n),
 	}, nil
 }
 
@@ -108,10 +118,15 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	r := v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f.file, &r); err != nil {
+	if _, err := f.file.Seek(f.readOffset, 0); err != nil {
 		return nil, err
 	}
+	r := v1.SensorData{}
+	read, err := pbutil.ReadDelimited(f.file, &r)
+	if err != nil {
+		return nil, err
+	}
+	f.readOffset += int64(read)
 	fmt.Println("read sensordata from file")
 
 	return &r, nil
@@ -122,13 +137,17 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	fmt.Println("pushed data")
+	//fmt.Println("pushed data")
+	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
+		return err
+	}
 	n, err := pbutil.WriteDelimited(f.writer, data)
 	if err != nil {
 		return err
 	}
-	fmt.Println(data)
+	//fmt.Println(data)
 	f.size += int64(n)
+	f.writeOffset += int64(n)
 	return nil
 }
 
