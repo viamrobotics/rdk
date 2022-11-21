@@ -211,3 +211,27 @@ func TestCollisionConstraint(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkCollisionConstraint(b *testing.B) {
+	// define external obstacles
+	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
+	test.That(b, err, test.ShouldBeNil)
+	obstacles := make(map[string]spatial.Geometry)
+	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())
+	obstacles["obstacle2"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+
+	// setup zero position as reference CollisionGraph and use it in handler
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(b, err, test.ShouldBeNil)
+	handler := &constraintHandler{}
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}))
+
+	rseed := rand.New(rand.NewSource(1))
+
+	// loop through cases and check constraint handler processes them correctly
+	for n := 0; n < b.N; n++ {
+		rfloats := frame.GenerateRandomConfiguration(model, rseed)
+		handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
+	}
+}

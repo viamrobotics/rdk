@@ -359,7 +359,8 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 	default:
 		// set up deep copy for fallback
 		try1 := deepAtomicCopyMap(planningOpts)
-		try1["timeout"] = 0.5
+		// extra timeout to account for IK
+		try1["timeout"] = 1.5
 		try1["planning_alg"] = "rrtstar"
 		try1Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
 		if err != nil {
