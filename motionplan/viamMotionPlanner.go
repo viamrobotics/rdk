@@ -165,7 +165,7 @@ func (mp *viamMotionPlanner) planMotion(
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			parPlan.rrtBackgroundRunner(planctx, goal, seed, opt, rm, endpointPreview, solutionChan)
+			parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{opt, rm, endpointPreview, solutionChan})
 		})
 		for {
 			select {

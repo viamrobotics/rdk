@@ -14,7 +14,14 @@ const (
 
 type rrtParallelPlanner interface {
 	motionPlanner
-	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, *plannerOptions, *rrtMaps, chan node, chan *rrtPlanReturn)
+	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, *rrtParallelPlannerShared)
+}
+
+type rrtParallelPlannerShared struct {
+	planOpts        *plannerOptions
+	rm              *rrtMaps
+	endpointPreview chan node
+	solutionChan    chan *rrtPlanReturn
 }
 
 type rrtOptions struct {

@@ -112,7 +112,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, planOpts, initRRTMaps(), nil, solutionChan)
+		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{planOpts, initRRTMaps(), nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -128,32 +128,29 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *plannerOptions,
-	rm *rrtMaps,
-	endpointPreview chan node,
-	solutionChan chan *rrtPlanReturn,
+	rrt *rrtParallelPlannerShared,
 ) {
-	defer close(solutionChan)
+	defer close(rrt.solutionChan)
 
 	// setup planner options
-	if planOpts == nil {
-		solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
+	if rrt.planOpts == nil {
+		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
 		return
 	}
-	algOpts, err := newCbirrtOptions(planOpts, mp.frame)
+	algOpts, err := newCbirrtOptions(rrt.planOpts, mp.frame)
 	if err != nil {
-		solutionChan <- &rrtPlanReturn{planerr: err}
+		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
 		return
 	}
 
 	// initialize maps
 	corners := map[node]bool{}
-	for k, v := range rm.startMap {
+	for k, v := range rrt.rm.startMap {
 		if v != nil {
 			corners[k] = true
 		}
 	}
-	for k, v := range rm.goalMap {
+	for k, v := range rrt.rm.goalMap {
 		if v != nil {
 			corners[k] = true
 		}
@@ -166,41 +163,41 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	mp.start = time.Now()
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
+	solutions, err := getSolutions(ctx, rrt.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 
-	if err != nil && len(rm.goalMap) == 0 {
-		solutionChan <- &rrtPlanReturn{planerr: err}
+	if err != nil && len(rrt.rm.goalMap) == 0 {
+		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
 		return
 	}
 
 	for i, solution := range solutions {
-		if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
+		if i == 0 && mp.checkPath(rrt.planOpts, seed, solution.Q()) {
 			// Check if we can directly interpolate to the best solution
-			solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
+			rrt.solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
 			return
 		}
 
 		// if we got more solutions, add them
-		if _, ok := rm.goalMap[solution]; !ok {
-			rm.goalMap[solution] = nil
+		if _, ok := rrt.rm.goalMap[solution]; !ok {
+			rrt.rm.goalMap[solution] = nil
 		}
 	}
-	rm.startMap[&basicNode{q: seed}] = nil
+	rrt.rm.startMap[&basicNode{q: seed}] = nil
 
 	target := mp.sample(algOpts, &basicNode{q: seed}, mp.randseed.Int())
 
 	if len(solutions) > 0 {
 		// publish endpoint of plan if it is known
-		if planOpts.MaxSolutions == 1 && endpointPreview != nil {
-			endpointPreview <- solutions[0]
-			endpointPreview = nil
+		if rrt.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
+			rrt.endpointPreview <- solutions[0]
+			rrt.endpointPreview = nil
 		}
 
 		// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
 		target = referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 	}
 
-	map1, map2 := rm.startMap, rm.goalMap
+	map1, map2 := rrt.rm.startMap, rrt.rm.goalMap
 
 	m1chan := make(chan node, 1)
 	m2chan := make(chan node, 1)
@@ -210,39 +207,19 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rm}
+			rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
 			return
 		default:
 		}
 
-		// attempt to extend maps 1 and 2 towards the target
-		nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
-		nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
-		//nolint: gosec
-		rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
-		//nolint: gosec
-		rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
-
-		utils.PanicCapturingGo(func() {
-			mp.constrainedExtend(ctx, algOpts, rseed1, map1, nearest1, &basicNode{q: target}, m1chan)
-		})
-		utils.PanicCapturingGo(func() {
-			mp.constrainedExtend(ctx, algOpts, rseed2, map2, nearest2, &basicNode{q: target}, m2chan)
-		})
-		map1reached := <-m1chan
-		map2reached := <-m2chan
-
-		corners[map1reached] = true
-		corners[map2reached] = true
-
-		_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
-
-		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-		if reachedDelta > algOpts.JointSolveDist {
-			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
-
-			nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
-			nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
+		tryExtend := func(target []referenceframe.Input) (node, node, float64) {
+			// attempt to extend maps 1 and 2 towards the target
+			nearest1 := nm.nearestNeighbor(nmContext, rrt.planOpts, target, map1)
+			nearest2 := nm.nearestNeighbor(nmContext, rrt.planOpts, target, map2)
+			//nolint: gosec
+			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
+			//nolint: gosec
+			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
 
 			utils.PanicCapturingGo(func() {
 				mp.constrainedExtend(ctx, algOpts, rseed1, map1, nearest1, &basicNode{q: target}, m1chan)
@@ -250,22 +227,32 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			utils.PanicCapturingGo(func() {
 				mp.constrainedExtend(ctx, algOpts, rseed2, map2, nearest2, &basicNode{q: target}, m2chan)
 			})
-			map1reached = <-m1chan
-			map2reached = <-m2chan
+			map1reached := <-m1chan
+			map2reached := <-m2chan
+
 			corners[map1reached] = true
 			corners[map2reached] = true
-			_, reachedDelta = planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
+
+			_, reachedDelta := rrt.planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
+			return map1reached, map2reached, reachedDelta
+		}
+
+		map1reached, map2reached, reachedDelta := tryExtend(target)
+		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
+		if reachedDelta > algOpts.JointSolveDist {
+			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
+			map1reached, map2reached, reachedDelta = tryExtend(target)
 		}
 
 		// Solved!
 		if reachedDelta <= algOpts.JointSolveDist {
 			cancel()
-			path := extractPath(rm.startMap, rm.goalMap, &nodePair{map1reached, map2reached})
-			if endpointPreview != nil {
-				endpointPreview <- path[len(path)-1]
+			path := extractPath(rrt.rm.startMap, rrt.rm.goalMap, &nodePair{map1reached, map2reached})
+			if rrt.endpointPreview != nil {
+				rrt.endpointPreview <- path[len(path)-1]
 			}
 			finalSteps := mp.SmoothPath(ctx, algOpts, path, corners)
-			solutionChan <- &rrtPlanReturn{steps: finalSteps, rm: rm}
+			rrt.solutionChan <- &rrtPlanReturn{steps: finalSteps, rm: rrt.rm}
 			return
 		}
 
@@ -273,7 +260,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		target = mp.sample(algOpts, map1reached, i)
 		map1, map2 = map2, map1
 	}
-	solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, rm: rm}
+	rrt.solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, rm: rrt.rm}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sampleNum int) []referenceframe.Input {
