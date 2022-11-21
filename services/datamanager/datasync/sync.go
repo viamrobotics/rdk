@@ -3,7 +3,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -38,9 +37,7 @@ var (
 	initialWaitTimeMillis  = atomic.NewInt32(1000)
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
-	// Chunk size set at 32 kiB, this is 32768 Bytes.
-	uploadChunkSize = 32768
-	PollWaitTime    = time.Second
+	PollWaitTime           = time.Second
 )
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -117,17 +114,9 @@ func (s *syncer) Close() {
 // TODO: expose errors somehow
 // Sync uploads everything in queue until it is closed and emptied.
 func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
-	fmt.Println("entering SyncCaptureQueues")
-	fmt.Println(cap(queues))
-	fmt.Println(len(queues))
-	for i, q := range queues {
-		fmt.Println(i)
-		if q == nil {
-			fmt.Println("damn this q is nil")
-		}
+	for _, q := range queues {
 		s.syncQueue(s.cancelCtx, q)
 	}
-	fmt.Println("exiting sync")
 }
 
 func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
@@ -136,25 +125,21 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 		defer s.backgroundWorkers.Done()
 		// TODO: make respect cancellation
 		for {
-			fmt.Println("syncQueue for loop iteration")
 			select {
 			case <-ctx.Done():
 				return
 			default:
 				next, err := q.Pop()
 				if errors.Is(err, datacapture.ErrQueueClosed) {
-					fmt.Println("closed and next is nil")
 					return
 				}
 
 				// TODO: handle other error
 				if err != nil {
-					fmt.Println("GOT ERROR")
-					fmt.Println(err)
 				}
 
 				////// We've emptied queue. return.
-				//if q.IsClosed() && next == nil {
+				// if q.IsClosed() && next == nil {
 				//	fmt.Println("closed and next is nil")
 				//	return
 				//}
@@ -176,7 +161,6 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 					s.logger.Error(uploadErr)
 					return
 				}
-				fmt.Println("going to delete")
 				if err := next.Delete(); err != nil {
 					s.logger.Error(err)
 				}
@@ -281,7 +265,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-// TODO: add arbitrary files back
+// TODO: add arbitrary files back.
 func (s *syncer) syncFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
 	return uploadDataCaptureFile(ctx, client, f, partID)
 }

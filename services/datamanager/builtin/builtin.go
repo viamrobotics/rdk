@@ -287,7 +287,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 func (svc *builtIn) closeSyncer() {
 	if svc.syncer != nil {
-		fmt.Println("closing non nil syncer")
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
 		svc.syncer = nil
@@ -295,12 +294,10 @@ func (svc *builtIn) closeSyncer() {
 }
 
 func (svc *builtIn) initSyncer(cfg *config.Config) error {
-	fmt.Println("initting syncer")
 	syncer, err := svc.syncerConstructor(svc.logger, cfg)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
-	fmt.Println("done initting syncer")
 	svc.syncer = syncer
 	return nil
 }
@@ -406,12 +403,7 @@ func (svc *builtIn) syncDataCaptureFiles() {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	var queues []*datacapture.Queue
-	fmt.Println(fmt.Sprintf("length of queues in syncDCFiles is %d", len(queues)))
-	for i, collector := range svc.collectors {
-		fmt.Println(i)
-		if collector.Collector.GetTarget() == nil {
-			fmt.Println("collector with empty target in syncDataCaptureFiles")
-		}
+	for _, collector := range svc.collectors {
 		queues = append(queues, collector.Collector.GetTarget())
 	}
 	svc.syncer.SyncCaptureQueues(queues)
@@ -470,9 +462,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 
-	fmt.Println("getting svc config")
 	svcConfig, ok, err := getServiceConfig(cfg)
-	fmt.Println("done getting svc config")
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
@@ -520,7 +510,6 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
-	fmt.Println("initting collectors")
 	if !svc.captureDisabled {
 		for _, attributes := range allComponentAttributes {
 			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
@@ -533,7 +522,6 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 			}
 		}
 	}
-	fmt.Println("done initting collectors")
 
 	// If a component/method has been removed from the config, close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
@@ -545,24 +533,16 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
-	fmt.Println(fmt.Sprintf("sync interval mins = %f", svc.syncIntervalMins))
 	if svc.syncDisabled || svc.syncIntervalMins == 0.0 {
 		svc.closeSyncer()
 	} else {
-		fmt.Println("sync sure is not disabled")
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
-		fmt.Println("syncing previously captured")
 		svc.syncPreviouslyCaptured()
-		fmt.Println("done syncing previously captured")
 		var queues []*datacapture.Queue
-		fmt.Println(fmt.Sprintf("length of queues in syncDCFiles is %d", len(queues)))
 		for _, c := range svc.collectors {
-			if c.Collector.GetTarget() == nil {
-				fmt.Println("collector with nil target in Update")
-			}
 			queues = append(queues, c.Collector.GetTarget())
 		}
 		svc.syncer.SyncCaptureQueues(queues)

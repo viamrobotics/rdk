@@ -5,20 +5,21 @@ package data
 import (
 	"context"
 	"fmt"
-	"go.viam.com/rdk/services/datamanager/datacapture"
-	"go.viam.com/utils/protoutils"
 	"sync"
 	"time"
+
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
@@ -226,14 +227,10 @@ func (c *collector) getAndPushNextReading() {
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
 func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) {
-	fmt.Println("making new collector")
 	if err := params.Validate(); err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
 
-	if params.Target == nil {
-		fmt.Println("new collector passed params with nil target")
-	}
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),

@@ -1,6 +1,6 @@
 package datasync
 
-//func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, partID string,
+// func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, partID string,
 //	f *os.File,
 //) error {
 //	stream, err := client.Upload(ctx)

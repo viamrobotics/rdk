@@ -2,10 +2,11 @@ package datasync
 
 import (
 	"context"
-	"go.viam.com/utils/protoutils"
 	"sync"
 	"testing"
 	"time"
+
+	"go.viam.com/utils/protoutils"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -66,7 +67,7 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
-//func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, filePath string) []*v1.UploadRequest {
+// func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, filePath string) []*v1.UploadRequest {
 //	var expMsgs []*v1.UploadRequest
 //	if len(sds) == 0 {
 //		return expMsgs
@@ -97,7 +98,7 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 //	return expMsgs
 //}
 
-//func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadRequest {
+// func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadRequest {
 //	var expMsgs []*v1.UploadRequest
 //	// Metadata message precedes sensor data messages.
 //	expMsgs = append(expMsgs, &v1.UploadRequest{
@@ -177,7 +178,9 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.DataCaptureUploadRe
 	return m.uploadRequests
 }
 
-func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
+func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context,
+	ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
+
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
 		return nil, m.errorToReturn
