@@ -39,8 +39,8 @@ func newLeafNodeFilled(p r3.Vector, d pc.Data) basicOctreeNode {
 	return octNode
 }
 
-// Splits the octree into multiple octants and will place any stored point in appropriate child node
-// Note: splitOctants should only be called when an octree is a LeafNodeFilled.
+// Splits a basic octree into multiple octants and will place any stored point in appropriate child
+// node. Note: splitOctants should only be called when an octree is a LeafNodeFilled.
 func (octree *basicOctree) splitIntoOctants() error {
 	if octree.node.nodeType == InternalNode {
 		return errors.New("error attempted to split internal node")
@@ -80,7 +80,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 	return octree.Set(p, d)
 }
 
-// Checks that point should be inside octree based on octree center and defined side length.
+// Checks that a point should be inside a basic octree based on its center and defined side length.
 func checkPointPlacement(center r3.Vector, sideLength float64, p r3.Vector) bool {
 	return ((math.Abs(center.X-p.X) <= sideLength) &&
 		(math.Abs(center.Y-p.Y) <= sideLength) &&

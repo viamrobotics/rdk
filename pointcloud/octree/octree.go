@@ -18,7 +18,7 @@ const (
 	octreeVersion = 1.0
 )
 
-// NodeType represents the types of nodes possible in an octree.
+// NodeType represents the possible types of nodes in an octree.
 type NodeType uint8
 
 // Octree is a data structure recursively partitions 3D space into octants to represent occupancy. It is

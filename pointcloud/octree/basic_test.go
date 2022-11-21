@@ -59,8 +59,8 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 	return shortenedPC, nil
 }
 
-// Test the creation of new octrees.
-func TestNewOctree(t *testing.T) {
+// Test the creation of new basic octrees.
+func TestBasicOctreeNew(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -215,7 +215,7 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 }
 
-// Test the At() function which returns the data at a specific location should it exist.
+// Test the At() function for basic octrees which returns the data at a specific location should it exist.
 func TestBasicOctreeAt(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -287,6 +287,7 @@ func TestBasicOctreeAt(t *testing.T) {
 	})
 }
 
+// Test the functionalities involved with converting in pointcloud into a basic octree.
 func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 	test.That(t, err, test.ShouldBeNil)

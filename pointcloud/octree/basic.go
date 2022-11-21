@@ -11,8 +11,7 @@ import (
 )
 
 // basicOctree is a data structure that represents a basic octree structure with information regarding center
-// point, side length and node data. Node data is comprised of a PointAndData (should one exist) from
-
+// point, side length and node data.
 type basicOctree struct {
 	logger golog.Logger
 	node   basicOctreeNode
@@ -21,6 +20,8 @@ type basicOctree struct {
 	meta   MetaData
 }
 
+// basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
+// PointAndData datatype representing a point in space.
 type basicOctreeNode struct {
 	nodeType NodeType
 	tree     []*basicOctree
@@ -48,9 +49,10 @@ func (octree *basicOctree) Size() int {
 	return int(octree.meta.Size)
 }
 
-// Set checks if the point to be added is a valid point for the octree to hold based on its center and side length.
-// It then recursively iterates through the tree until it finds the appropriate node to add it too. If the found node
-// contains a point already, it will split the node into octants and add both the old and new points to them respectively.
+// Set checks if the point to be added is a valid point for a basic octree to contain based on its center and side
+// length. It then recursively iterates through the tree until it finds the appropriate node to add it too. If the
+// found node contains a point already, it will split the node into octants and will add both the old point and new
+// one to the newly created children trees.
 func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 	if (pc.PointAndData{P: p, D: d} == pc.PointAndData{}) {
 		octree.logger.Debug("no data given, skipping insertion")
@@ -99,8 +101,8 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 	return nil
 }
 
-// At traverses the octree to see if a point exists at the specified location. If a point does exist, its data is
-// returned along with true. If a point does not exist, no data is returned and the boolean is returned false.
+// At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
+// is returned along with true. If a point does not exist, no data is returned and the boolean is returned false.
 func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
 	switch octree.node.nodeType {
 	case InternalNode:
@@ -131,7 +133,7 @@ func (octree *basicOctree) MarshalOctree() ([]byte, error) {
 	return nil, nil
 }
 
-// NewMetaData creates and return the octree MetaData associated with a new basic octree.
+// newMetaData creates and returns the octree MetaData associated with a new basic octree.
 func (octree *basicOctree) newMetaData() MetaData {
 	return MetaData{
 		Version:    octreeVersion,
