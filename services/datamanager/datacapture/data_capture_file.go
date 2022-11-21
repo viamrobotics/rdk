@@ -127,7 +127,6 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 		return nil, err
 	}
 	f.readOffset += int64(read)
-	fmt.Println("read sensordata from file")
 
 	return &r, nil
 }
@@ -137,7 +136,6 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	//fmt.Println("pushed data")
 	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
 		return err
 	}
@@ -145,7 +143,6 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	if err != nil {
 		return err
 	}
-	//fmt.Println(data)
 	f.size += int64(n)
 	f.writeOffset += int64(n)
 	return nil
@@ -153,10 +150,8 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 
 // Sync flushes any buffered writes to disk.
 func (f *File) Sync() error {
-	fmt.Println("called file sync")
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	fmt.Println("finished file sync")
 	return f.writer.Flush()
 }
 
