@@ -38,12 +38,12 @@ func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 type rrtMap map[node]node
 
 type rrtPlanReturn struct {
-	steps []node
-	err   error
-	rm    *rrtMaps
+	steps   []node
+	planerr error
+	rm      *rrtMaps
 }
 
-func (plan *rrtPlanReturn) ToInputs() [][]referenceframe.Input {
+func (plan *rrtPlanReturn) toInputs() [][]referenceframe.Input {
 	inputs := make([][]referenceframe.Input, 0, len(plan.steps))
 	for _, step := range plan.steps {
 		inputs = append(inputs, step.Q())
@@ -51,8 +51,8 @@ func (plan *rrtPlanReturn) ToInputs() [][]referenceframe.Input {
 	return inputs
 }
 
-func (plan *rrtPlanReturn) Err() error {
-	return plan.err
+func (plan *rrtPlanReturn) err() error {
+	return plan.planerr
 }
 
 type rrtMaps struct {
@@ -69,7 +69,7 @@ func initRRTMaps() *rrtMaps {
 
 func shortestPath(rm *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{err: errPlannerFailed, rm: rm}
+		return &rrtPlanReturn{planerr: errPlannerFailed, rm: rm}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()

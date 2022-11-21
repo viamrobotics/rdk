@@ -72,7 +72,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.ToInputs(), plan.err
+		return plan.toInputs(), plan.err()
 	}
 }
 
@@ -112,7 +112,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
+			solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 			return
 		default:
 		}
@@ -209,7 +209,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 		}
 	}
 
-	solutionChan <- &rrtPlanReturn{err: errors.New("could not solve path")}
+	solutionChan <- &rrtPlanReturn{planerr: errors.New("could not solve path")}
 }
 
 func updateChildren(

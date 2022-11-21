@@ -91,7 +91,7 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.ToInputs(), plan.err
+		return plan.toInputs(), plan.err()
 	}
 }
 
@@ -113,7 +113,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	}
 	algOpts, err := newRRTStarConnectOptions(planOpts)
 	if err != nil {
-		solutionChan <- &rrtPlanReturn{err: err}
+		solutionChan <- &rrtPlanReturn{planerr: err}
 		return
 	}
 
@@ -122,7 +122,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	if err != nil {
-		solutionChan <- &rrtPlanReturn{err: err}
+		solutionChan <- &rrtPlanReturn{planerr: err}
 		return
 	}
 
@@ -170,7 +170,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			if solved {
 				solutionChan <- shortestPath(rm, shared)
 			} else {
-				solutionChan <- &rrtPlanReturn{err: ctx.Err(), rm: rm}
+				solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rm}
 			}
 			return
 		default:

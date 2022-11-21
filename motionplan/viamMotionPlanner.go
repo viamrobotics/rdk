@@ -194,17 +194,17 @@ func (mp *viamMotionPlanner) planMotion(
 
 					select {
 					case finalSteps := <-solutionChan:
-						if finalSteps.err != nil {
-							return nil, finalSteps.err
+						if finalSteps.err() != nil {
+							return nil, finalSteps.err()
 						}
-						results := append(finalSteps.ToInputs(), remainingSteps...)
+						results := append(finalSteps.toInputs(), remainingSteps...)
 						return results, nil
 					default:
 					}
 				}
 			case finalSteps := <-solutionChan:
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-				if finalSteps.err != nil {
+				if finalSteps.err() != nil {
 					if opt.Fallback != nil {
 						remainingSteps, err = mp.planMotion(
 							ctx,
@@ -218,7 +218,7 @@ func (mp *viamMotionPlanner) planMotion(
 							return nil, err
 						}
 					} else {
-						return nil, finalSteps.err
+						return nil, finalSteps.err()
 					}
 				} else {
 					if iter+1 < len(goals) {
@@ -237,7 +237,7 @@ func (mp *viamMotionPlanner) planMotion(
 						}
 					}
 				}
-				results := append(finalSteps.ToInputs(), remainingSteps...)
+				results := append(finalSteps.toInputs(), remainingSteps...)
 				return results, nil
 			default:
 			}

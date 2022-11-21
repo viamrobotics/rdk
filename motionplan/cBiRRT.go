@@ -118,7 +118,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.ToInputs(), plan.err
+		return plan.toInputs(), plan.err()
 	}
 }
 
@@ -137,12 +137,12 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	// setup planner options
 	if planOpts == nil {
-		solutionChan <- &rrtPlanReturn{err: errNoPlannerOptions}
+		solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
 		return
 	}
 	algOpts, err := newCbirrtOptions(planOpts, mp.frame)
 	if err != nil {
-		solutionChan <- &rrtPlanReturn{err: err}
+		solutionChan <- &rrtPlanReturn{planerr: err}
 		return
 	}
 
@@ -169,7 +169,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 
 	if err != nil && len(rm.goalMap) == 0 {
-		solutionChan <- &rrtPlanReturn{err: err}
+		solutionChan <- &rrtPlanReturn{planerr: err}
 		return
 	}
 
@@ -210,7 +210,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &rrtPlanReturn{err: ctx.Err(), rm: rm}
+			solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rm}
 			return
 		default:
 		}
@@ -273,7 +273,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		target = mp.sample(algOpts, map1reached, i)
 		map1, map2 = map2, map1
 	}
-	solutionChan <- &rrtPlanReturn{err: errPlannerFailed, rm: rm}
+	solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, rm: rm}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sampleNum int) []referenceframe.Input {

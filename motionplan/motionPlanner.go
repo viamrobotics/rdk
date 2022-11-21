@@ -182,8 +182,8 @@ type node interface {
 
 type planReturn interface {
 	// return the steps in Input form
-	ToInputs() [][]frame.Input
-	Err() error
+	toInputs() [][]frame.Input
+	err() error
 }
 
 type basicNode struct {
@@ -221,10 +221,10 @@ func (np *nodePair) sumCosts() float64 {
 
 // EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
 func EvaluatePlan(plan planReturn, planOpts *plannerOptions) (totalCost float64) {
-	if errors.Is(plan.Err(), errPlannerFailed) {
+	if errors.Is(plan.err(), errPlannerFailed) {
 		return math.Inf(1)
 	}
-	steps := plan.ToInputs()
+	steps := plan.toInputs()
 	for i := 0; i < len(steps)-1; i++ {
 		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
 		totalCost += cost
