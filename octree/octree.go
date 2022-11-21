@@ -3,8 +3,6 @@
 package octree
 
 import (
-	"github.com/golang/geo/r3"
-
 	pc "go.viam.com/rdk/pointcloud"
 )
 
@@ -38,21 +36,4 @@ type Marshaler interface {
 // Unmarshaler will convert a serialized octree into an Octree datatype.
 type Unmarshaler interface {
 	UnmarshalOctree() (Octree, error)
-}
-
-// MetaData regarding data stored in the octree.
-type MetaData struct {
-	Version int32
-
-	CenterX, CenterY, CenterZ float64
-	Side                      float64
-	Size                      int32
-
-	PCMetaData pc.MetaData
-}
-
-// Merge takes in a new data position and will update the octree and pointcloud metadata accordingly.
-func (meta *MetaData) Merge(v r3.Vector, data pc.Data) {
-	meta.PCMetaData.Merge(v, data)
-	meta.Size++
 }

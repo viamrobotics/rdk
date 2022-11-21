@@ -77,42 +77,22 @@ func TestBasicOctreeNew(t *testing.T) {
 	basicOct, err := createNewOctree(ctx, center, sideValid, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	newOctreeMetadata := MetaData{
-		Version:    octreeVersion,
-		CenterX:    center.X,
-		CenterY:    center.Y,
-		CenterZ:    center.Z,
-		Side:       sideValid,
-		Size:       0,
-		PCMetaData: pc.NewMetaData(),
-	}
+	// // newOctreeMetadata := MetaData{
+	// // 	Version:    octreeVersion,
+	// // 	CenterX:    center.X,
+	// // 	CenterY:    center.Y,
+	// // 	CenterZ:    center.Z,
+	// // 	Side:       sideValid,
+	// // 	Size:       0,
+	// // 	PCMetaData: pc.NewMetaData(),
+	// // }
+	// newOctreeMetadata
 
 	t.Run("New Octree as basic octree", func(t *testing.T) {
 		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
 		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
 		test.That(t, basicOct.side, test.ShouldAlmostEqual, sideValid)
-		test.That(t, basicOct.meta, test.ShouldResemble, newOctreeMetadata)
-	})
-
-	t.Run("Check new octree metadata creation", func(t *testing.T) {
-		meta := basicOct.newMetaData()
-		test.That(t, meta, test.ShouldResemble, newOctreeMetadata)
-	})
-
-	t.Run("Update metadata when merging a new point into a new basic octree", func(t *testing.T) {
-		p := r3.Vector{X: 0, Y: 0, Z: 0}
-		d := pc.NewBasicData()
-
-		newOctreeMetadata.Size = 1
-		newOctreeMetadata.PCMetaData.Merge(p, d)
-
-		basicOct.meta.Merge(p, d)
-		// meta value after merge function call
-		test.That(t, basicOct.meta, test.ShouldResemble, newOctreeMetadata)
-		// OctreeMetData function call
-		test.That(t, basicOct.MetaData(), test.ShouldResemble, newOctreeMetadata.PCMetaData)
-		// MetaData function call
-		test.That(t, basicOct.OctreeMetaData(), test.ShouldResemble, newOctreeMetadata)
+		test.That(t, basicOct.meta, test.ShouldResemble, pc.NewMetaData())
 	})
 }
 
@@ -148,7 +128,6 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 2)
-		test.That(t, basicOct.OctreeMetaData().Size, test.ShouldEqual, 2)
 	})
 
 	t.Run("Set point into internal node node into basic octree", func(t *testing.T) {
@@ -165,7 +144,6 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 3)
-		test.That(t, basicOct.OctreeMetaData().Size, test.ShouldEqual, 3)
 	})
 
 	t.Run("Set point that lies outside the basic octree", func(t *testing.T) {
@@ -185,7 +163,7 @@ func TestBasicOctreeSet(t *testing.T) {
 
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, pc.NewValueData(1))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.OctreeMetaData().Size, test.ShouldEqual, basicOct.Size())
+		test.That(t, basicOct.size, test.ShouldEqual, 2)
 	})
 
 	t.Run("Set same point with new data in basic octree", func(t *testing.T) {
@@ -202,7 +180,6 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, val)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
-		test.That(t, basicOct.OctreeMetaData().Size, test.ShouldEqual, 1)
 	})
 
 	t.Run("Set point into invalid internal node", func(t *testing.T) {
@@ -314,6 +291,6 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	})
 
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
-	test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta.PCMetaData)
+	test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta)
 	// TODO: Add iterate check of each point pointcloud to see if it is in octree (next JIRA ticket)
 }
