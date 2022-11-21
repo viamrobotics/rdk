@@ -40,6 +40,7 @@ var (
 	maxRetryInterval       = time.Hour
 	// Chunk size set at 32 kiB, this is 32768 Bytes.
 	uploadChunkSize = 32768
+	PollWaitTime    = time.Second
 )
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -160,7 +161,7 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 
 				if next == nil {
 					// TODO: better way to wait than just sleep?
-					time.Sleep(time.Second)
+					time.Sleep(PollWaitTime)
 					continue
 				}
 

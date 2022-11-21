@@ -17,6 +17,8 @@ import (
 )
 
 func TestSyncEnabled(t *testing.T) {
+	// TODO: this needs to be longer than 1 sec because the syncer hits the queue once a second to check if something is ready to sync
+	//       we should make that configurable and use a smaller value in tests
 	syncTime := time.Millisecond * 100
 
 	tests := []struct {
@@ -48,6 +50,9 @@ func TestSyncEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// TODO: this is a sign of an abstraction leak
+			datasync.PollWaitTime = time.Millisecond * 25
+
 			// Set up server.
 			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
