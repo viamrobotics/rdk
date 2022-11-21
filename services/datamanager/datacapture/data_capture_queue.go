@@ -7,12 +7,9 @@ import (
 	"sync"
 )
 
-const (
-	maxSize = 4096
-)
-
 var (
 	ErrQueueClosed = errors.New("queue is closed")
+	MaxSize        = int64(4096)
 )
 
 // Queue is a persistent queue of SensorData backed by a series of datacapture.Files.
@@ -53,7 +50,7 @@ func (d *Queue) Push(item *v1.SensorData) error {
 			return err
 		}
 		d.nextFile = nextFile
-	} else if d.nextFile.Size() > maxSize || item.GetBinary() != nil {
+	} else if d.nextFile.Size() > MaxSize || item.GetBinary() != nil {
 		fmt.Println("item was binary")
 		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
 		if err := d.sync(); err != nil {

@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -145,7 +146,7 @@ func TestResumableUpload(t *testing.T) {
 	tests := []struct {
 		name          string
 		dataType      v1.DataType
-		serviceFailAt int
+		serviceFailAt int32
 	}{
 		{
 			name:     "Previously captured tabular data should be synced at start up.",
@@ -155,7 +156,16 @@ func TestResumableUpload(t *testing.T) {
 			name:     "Previously captured binary data should be synced at start up.",
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
-		// TODO: test that no duplicates when sync fails after N calls
+		{
+			name:          "If tabular sync fails part way through, it should be resumed without duplicate uploads",
+			dataType:      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			serviceFailAt: 2,
+		},
+		{
+			name:          "If binary sync fails part way through, it should be resumed without duplicate uploads",
+			dataType:      v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			serviceFailAt: 2,
+		},
 	}
 
 	for _, tc := range tests {
@@ -170,7 +180,11 @@ func TestResumableUpload(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t)
-			fmt.Sprintf("%v", mockService.lock)
+			// MaxSize of 150 => Should be ~2 readings per file/UR
+			datacapture.MaxSize = 150
+			failAt := &atomic.Int32{}
+			failAt.Add(tc.serviceFailAt)
+			mockService.failAt = failAt
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -226,7 +240,7 @@ func TestResumableUpload(t *testing.T) {
 
 			urs := mockService.getCaptureUploadRequests()
 			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-				test.That(t, len(urs), test.ShouldEqual, 1)
+				test.That(t, len(urs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/2.0))
 			} else {
 				test.That(t, len(urs), test.ShouldEqual, len(capturedData))
 			}
@@ -252,7 +266,7 @@ func TestResumableUpload(t *testing.T) {
 	}
 }
 
-// TODO: ensure that when synces fail, files are not deleted. Ensure that when syncs fail transiently, they evenutally
+// TODO: ensure that when syncs fail, files are not deleted. Ensure that when syncs fail transiently, they get retried.
 //
 //	succeed. Ensure that when things repeatedly fail, Close is still respected.
 func TestRetries(t *testing.T) {
@@ -637,7 +651,7 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 	(*m.lock).Lock()
 	*m.dataCaptureUploadRequests = append(*m.dataCaptureUploadRequests, ur)
 	(*m.lock).Unlock()
-	if m.failAt.Load() == m.callCount.Load() {
+	if m.failAt.Load() != 0 && m.failAt.Load() == m.callCount.Load() {
 		return nil, errors.New("oh no error!!")
 	}
 	// TODO: will likely need to make this optionally return errors for testing error cases
