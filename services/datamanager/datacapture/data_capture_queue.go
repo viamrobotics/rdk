@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"path/filepath"
 	"sync"
-	"time"
 )
 
 const (
@@ -29,9 +27,11 @@ type Queue struct {
 }
 
 func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
-	queueDir := filepath.Join(dir, time.Now().Format(time.RFC3339Nano))
+	fmt.Println(fmt.Sprintf("metadata: %s", md.String()))
+
+	//queueDir := filepath.Join(dir, time.Now().Format(time.RFC3339Nano))
 	return &Queue{
-		Directory: queueDir,
+		Directory: dir,
 		files:     []*File{},
 		lock:      &sync.Mutex{},
 		MetaData:  md,

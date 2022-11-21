@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go.viam.com/rdk/services/datamanager/datasync"
 	"image"
 	"image/png"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -72,14 +72,20 @@ func resetFolder(t *testing.T, path string) {
 	}
 }
 
-func getInjectedRobotWithArm(armKey string) *inject.Robot {
+func getInjectedRobot() *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	injectedArm := &inject.Arm{}
 	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
 	}
-	rs[arm.Named(armKey)] = injectedArm
+	rs[arm.Named("arm1")] = injectedArm
+
+	injectedRemoteArm := &inject.Arm{}
+	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	}
+	rs[arm.Named("remoteArm")] = injectedRemoteArm
 
 	injectedCam := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -99,29 +105,7 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	return r
 }
 
-func getInjectedRobotWithCamera(t *testing.T) *inject.Robot {
-	t.Helper()
-	r := &inject.Robot{}
-	rs := map[resource.Name]interface{}{}
-
-	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	injectCamera := &inject.Camera{}
-	var imageReleasedMu sync.Mutex
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			time.Sleep(10 * time.Nanosecond)
-			imageReleasedMu.Unlock()
-			return img, func() {}, nil
-		})), nil
-	}
-
-	rs[camera.Named("c1")] = injectCamera
-	r.MockResourcesFromMap(rs)
-	return r
-}
-
-func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal.DMService {
+func newTestDataManager(t *testing.T) internal.DMService {
 	t.Helper()
 	dmCfg := &Config{}
 	cfgService := config.Service{
@@ -131,16 +115,20 @@ func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal
 	logger := golog.NewTestLogger(t)
 
 	// Create local robot with injected arm.
-	r := getInjectedRobotWithArm(localArmKey)
+	r := getInjectedRobot()
+	remoteRobot := getInjectedRobot()
+	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+		return remoteRobot, true
+	}
 
 	// If passed, create remote robot with an injected arm.
-	if remoteArmKey != "" {
-		remoteRobot := getInjectedRobotWithArm(remoteArmKey)
-
-		r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
-			return remoteRobot, true
-		}
-	}
+	//if remoteArmKey != "" {
+	//	remoteRobot := getInjectedRobot()
+	//
+	//	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+	//		return remoteRobot, true
+	//	}
+	//}
 
 	svc, err := NewBuiltIn(context.Background(), r, cfgService, logger)
 	if err != nil {
@@ -208,25 +196,31 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 //}
 
 // TODO: add sync testing here too
+// TODO: update to not longer hard code all these paths. Maybe even just include as part of other test suite.
 func TestNewRemoteDataManager(t *testing.T) {
+	datasync.PollWaitTime = time.Millisecond * 25
+
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
-	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
+	dmsvc := newTestDataManager(t)
 
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
+	fmt.Println("updating")
 	err := dmsvc.Update(context.Background(), conf)
+	fmt.Println("updated")
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureWaitTime)
 
 	// Verify that after close is called, the collector is no longer writing.
+	fmt.Println("closing")
 	err = dmsvc.Close(context.Background())
 	fmt.Println("Closed")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
-	localArmDir := captureDir + "/arm/localArm/EndPosition"
+	localArmDir := captureDir + "/arm/arm1/EndPosition"
 	filesInLocalArmDir, err := readDir(t, localArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)

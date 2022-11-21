@@ -84,7 +84,7 @@ func TestModelDeploy(t *testing.T) {
 	dmCfg.ModelsToDeploy = allModels
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc := newTestDataManager(t)
 	dmsvc.SetModelManagerConstructor(getTestModelManagerConstructor(t, modelServer, deployedZipFileName))
 
 	err = dmsvc.Update(context.Background(), testCfg)

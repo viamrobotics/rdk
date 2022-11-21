@@ -73,7 +73,7 @@ func TestSyncEnabled(t *testing.T) {
 			}()
 
 			// Set up data manager.
-			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc := newTestDataManager(t)
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 			cfg := setupConfig(t, enabledTabularCollectorConfigPath)
 
@@ -173,7 +173,7 @@ func TestResumableUpload(t *testing.T) {
 			}()
 
 			// Set up data manager.
-			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc := newTestDataManager(t)
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 			var cfg *config.Config
 			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
@@ -206,7 +206,7 @@ func TestResumableUpload(t *testing.T) {
 			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 
 			// Now turn back on with only sync enabled.
-			newDMSvc := newTestDataManager(t, "arm1", "")
+			newDMSvc := newTestDataManager(t)
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 			originalSvcConfig.CaptureDisabled = true
 			originalSvcConfig.ScheduledSyncDisabled = false
