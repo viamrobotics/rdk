@@ -1,4 +1,4 @@
-//~ package spatialmath
+package spatialmath
 
 import (
 	"encoding/json"
@@ -45,7 +45,8 @@ func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 		pose:            Compose(bc.offset, pose),
 		halfSize:        [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z},
 		boundingSphereR: bc.halfSize.Norm(),
-		label:           bc.label}
+		label:           bc.label,
+	}
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
@@ -117,7 +118,8 @@ func (b *box) Transform(toPremultiply Pose) Geometry {
 		pose:            Compose(toPremultiply, b.pose),
 		halfSize:        b.halfSize,
 		boundingSphereR: b.boundingSphereR,
-		label:           b.label}
+		label:           b.label,
+	}
 }
 
 // ToProtobuf converts the box to a Geometry proto message.
