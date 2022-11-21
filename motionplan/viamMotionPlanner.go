@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"runtime"
+	"time"
 
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
@@ -60,6 +61,11 @@ func (mp *viamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
 		return nil, err
+	}
+	
+	// set timeout for entire planning process if specified
+	if timeout, ok := motionConfig["timeout"].(float64); ok {
+		ctx, _ = context.WithTimeout(ctx, time.Duration(timeout * float64(time.Second)))
 	}
 
 	// If we are world rooted, translate the goal pose into the world frame
@@ -145,14 +151,16 @@ func (mp *viamMotionPlanner) planMotion(
 		rm = initRRTMaps()
 	}
 
+	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout * float64(time.Second)))
+	defer cancel()
+
 	remainingSteps := [][]referenceframe.Input{}
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
-		// RRTParallelPlanners supports solution look-ahead for parallel waypoint solving
-		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
+		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			parPlan.rrtBackgroundRunner(ctx, goal, seed, opt, rm, endpointPreview, solutionChan)
+			parPlan.rrtBackgroundRunner(planctx, goal, seed, opt, rm, endpointPreview, solutionChan)
 		})
 		for {
 			select {
@@ -230,7 +238,7 @@ func (mp *viamMotionPlanner) planMotion(
 			}
 		}
 	} else {
-		resultSlicesRaw, err := pathPlanner.Plan(ctx, goal, seed, opt)
+		resultSlicesRaw, err := pathPlanner.Plan(planctx, goal, seed, opt)
 		if err != nil {
 			return nil, err
 		}
@@ -293,10 +301,10 @@ func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
 		switch planAlg {
 		// TODO(pl): make these consts
 		case "cbirrt":
-			opt.PlannerConstructor = newCBiRRTMotionPlannerWithSeed
+			opt.PlannerConstructor = newCBiRRTMotionPlanner
 		case "rrtstar":
 			// no motion profiles for RRT*
-			opt.PlannerConstructor = newRRTStarConnectMotionPlannerWithSeed
+			opt.PlannerConstructor = newRRTStarConnectMotionPlanner
 			// TODO(pl): more logic for RRT*?
 			return opt, nil
 		default:

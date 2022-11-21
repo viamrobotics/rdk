@@ -121,8 +121,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	jointPos := referenceframe.JointPositionsFromRadians(referenceframe.InputsToFloats(goal))
-	return c.MoveToJointPositions(ctx, jointPos, map[string]interface{}{})
+	return errArmClientInputsNotSupport
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

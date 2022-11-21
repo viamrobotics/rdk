@@ -27,6 +27,9 @@ const (
 
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
+	
+	// default number of seconds to try to solve in total before returning
+	defaultTimeout = 45.
 
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
@@ -39,7 +42,7 @@ const (
 	defaultPathStepSize = 10
 )
 
-var defaultPlanner = newCBiRRTMotionPlannerWithSeed
+var defaultPlanner = newCBiRRTMotionPlanner
 
 // the set of supported motion profiles.
 const (
@@ -70,6 +73,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
+	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
 	opt.PlannerConstructor = defaultPlanner
 
@@ -95,6 +99,9 @@ type plannerOptions struct {
 
 	// Percentage interval of max iterations after which to print debug logs
 	LoggingInterval float64 `json:"logging_interval"`
+	
+	// Number of seconds before terminating planner
+	Timeout float64 `json:"timeout"`
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here

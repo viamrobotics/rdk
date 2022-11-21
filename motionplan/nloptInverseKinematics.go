@@ -109,9 +109,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		dist := m(eePos, newGoal)
 
 		if len(gradient) > 0 {
-			// ~ xBak := append([]float64{}, x...)
 			for i := range gradient {
-				// ~ xBak[i] += ik.jump
 				x[i] += ik.jump
 				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
 				x[i] -= ik.jump

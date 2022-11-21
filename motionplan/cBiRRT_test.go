@@ -34,7 +34,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlannerWithSeed(m, 1, rand.New(rand.NewSource(42)), logger)
+	mp, err := newCBiRRTMotionPlanner(m, 1, rand.New(rand.NewSource(42)), logger)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 

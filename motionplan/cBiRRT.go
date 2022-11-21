@@ -86,7 +86,7 @@ type cBiRRTMotionPlanner struct {
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error) {
+func newCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error) {
 	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
@@ -122,8 +122,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	}
 }
 
-// rrtBackgroundRunner will execute the plan. Plan() will call RRTBackgroundRunner in a separate thread and wait for results.
-// Separating this allows other things to call RRTBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
+// rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
+// Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
@@ -148,6 +148,16 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	// initialize maps
 	corners := map[node]bool{}
+	for k, v := range rm.startMap {
+		if v != nil {
+			corners[k] = true
+		}
+	}
+	for k, v := range rm.goalMap {
+		if v != nil {
+			corners[k] = true
+		}
+	}
 
 	// TODO(rb) package neighborManager better
 	nm := &neighborManager{nCPU: algOpts.Ncpu}
@@ -164,8 +174,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	}
 
 	for i, solution := range solutions {
-		// Check if we can directly interpolate to any solutions
 		if i == 0 && mp.checkPath(planOpts, seed, solution.Q()) {
+			// Check if we can directly interpolate to the best solution
 			solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
 			return
 		}
@@ -175,6 +185,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			rm.goalMap[solution] = nil
 		}
 	}
+	rm.startMap[&basicNode{q: seed}] = nil
 
 	target := mp.sample(algOpts, &basicNode{q: seed}, mp.randseed.Int())
 
@@ -197,14 +208,9 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer close(m2chan)
 
 	for i := 0; i < algOpts.PlanIter; i++ {
-		if time.Since(mp.start) > time.Duration(algOpts.Timeout)*time.Second {
-			solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, rm: rm}
-			return
-		}
-
 		select {
 		case <-ctx.Done():
-			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
+			solutionChan <- &rrtPlanReturn{err: ctx.Err(), rm: rm}
 			return
 		default:
 		}
@@ -246,6 +252,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			})
 			map1reached = <-m1chan
 			map2reached = <-m2chan
+			corners[map1reached] = true
+			corners[map2reached] = true
 			_, reachedDelta = planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 		}
 
@@ -257,7 +265,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				endpointPreview <- path[len(path)-1]
 			}
 			finalSteps := mp.SmoothPath(ctx, algOpts, path, corners)
-			solutionChan <- &rrtPlanReturn{steps: finalSteps}
+			solutionChan <- &rrtPlanReturn{steps: finalSteps, rm: rm}
 			return
 		}
 
@@ -275,7 +283,7 @@ func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sample
 		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5)
+	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1)
 	for j, v := range rSeed.Q() {
 		q[j].Value += v.Value
 	}
@@ -293,7 +301,20 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	mchan chan node,
 ) {
 	oldNear := near
-	for i := 0; i < 1000; i++ {
+	// This should iterate until one of the following conditions:
+	// 1) we have reached the target
+	// 2) the request is cancelled/times out
+	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
+	// 4) further iterations change our best node by close-to-zero amounts
+	for i := 0; true; i++ {
+		
+		select {
+		case <-ctx.Done():
+			mchan <- oldNear
+			return
+		default:
+		}
+		
 		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: target.Q()})
 		_, oldDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: oldNear.Q(), EndInput: target.Q()})
 		_, nearDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: oldNear.Q()})
@@ -349,6 +370,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	seedInputs,
 	target []referenceframe.Input,
 ) []referenceframe.Input {
+	
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+	}
+	
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return nil

@@ -62,7 +62,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 type rrtStarConnectMotionPlanner struct{ *planner }
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
-func newRRTStarConnectMotionPlannerWithSeed(
+func newRRTStarConnectMotionPlanner(
 	frame referenceframe.Frame,
 	nCPU int,
 	seed *rand.Rand,
@@ -95,8 +95,8 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	}
 }
 
-// rrtBackgroundRunner will execute the plan. Plan() will call RRTBackgroundRunner in a separate thread and wait for results.
-// Separating this allows other things to call RRTBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
+// rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
+// Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
@@ -166,19 +166,14 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &rrtPlanReturn{err: ctx.Err()}
-			return
-		default:
-		}
-
-		// stop and return best path
-		if time.Since(mp.start) > time.Duration(algOpts.Timeout*float64(time.Second)) {
+			// stop and return best path
 			if solved {
 				solutionChan <- shortestPath(rm, shared)
 			} else {
-				solutionChan <- &rrtPlanReturn{err: errPlannerTimeout, rm: rm}
+				solutionChan <- &rrtPlanReturn{err: ctx.Err(), rm: rm}
 			}
 			return
+		default:
 		}
 
 		// try to connect the target to map 1

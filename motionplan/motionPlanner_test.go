@@ -39,8 +39,8 @@ type planConfigConstructor func() (*planConfig, error)
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []seededPlannerConstructor{
-		newRRTStarConnectMotionPlannerWithSeed,
-		newCBiRRTMotionPlannerWithSeed,
+		newRRTStarConnectMotionPlanner,
+		newCBiRRTMotionPlanner,
 	}
 	testCases := []struct {
 		name   string
@@ -53,8 +53,8 @@ func TestUnconstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			for _, planner := range planners {
-				testPlanner(t, planner, testCase.config, 1)
+			for _, p := range planners {
+				testPlanner(t, p, testCase.config, 1)
 			}
 		})
 	}
@@ -63,7 +63,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []seededPlannerConstructor{
-		newCBiRRTMotionPlannerWithSeed,
+		newCBiRRTMotionPlanner,
 	}
 	testCases := []struct {
 		name   string
@@ -74,8 +74,8 @@ func TestConstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			for _, planner := range planners {
-				testPlanner(t, planner, testCase.config, 1)
+			for _, p := range planners {
+				testPlanner(t, p, testCase.config, 1)
 			}
 		})
 	}
@@ -228,13 +228,13 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config planConfigConstructor, seed int) {
 	t.Helper()
 
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := planner(cfg.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
+	mp, err := plannerFunc(cfg.RobotFrame, nCPU/2, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
 	test.That(t, err, test.ShouldBeNil)
 	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
