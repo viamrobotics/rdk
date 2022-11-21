@@ -210,7 +210,11 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 		}
 
 		goutils.PanicCapturingGo(func() {
-			src := camera.SourceFromCamera(cam)
+			src, err := camera.SourceFromCamera(cam)
+			if err != nil {
+				logger.Debugw("cannot get source from camera", "error", err)
+				return
+			}
 			defer func() {
 				if err := cam.Close(ctx); err != nil {
 					logger.Debugw("failed to close camera", "error", err)
@@ -222,6 +226,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 					// about a specific driver then properties will be empty, and we can safely assume the driver no
 					// longer exists and should be closed.
 					if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
+						logger.Debug("closing camera")
 						return
 					}
 				} else {
