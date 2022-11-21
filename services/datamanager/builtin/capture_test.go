@@ -93,7 +93,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 
 			// Set up data manager.
-			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc := newTestDataManager(t)
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 
 			var initialConfig *config.Config

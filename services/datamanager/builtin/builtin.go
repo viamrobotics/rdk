@@ -123,7 +123,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers:         sync.WaitGroup{},
 		lock:                      sync.Mutex{},
-		syncIntervalMins:          -1,
+		syncIntervalMins:          0,
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
 		syncerConstructor:         datasync.NewDefaultManager,
@@ -470,7 +470,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 
+	fmt.Println("getting svc config")
 	svcConfig, ok, err := getServiceConfig(cfg)
+	fmt.Println("done getting svc config")
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
@@ -518,6 +520,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
+	fmt.Println("initting collectors")
 	if !svc.captureDisabled {
 		for _, attributes := range allComponentAttributes {
 			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
@@ -530,6 +533,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 			}
 		}
 	}
+	fmt.Println("done initting collectors")
 
 	// If a component/method has been removed from the config, close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
@@ -540,7 +544,8 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
-	if svc.syncDisabled {
+	fmt.Println(fmt.Sprintf("sync interval mins = %f", svc.syncIntervalMins))
+	if svc.syncDisabled || svc.syncIntervalMins == 0.0 {
 		svc.closeSyncer()
 	} else {
 		fmt.Println("sync sure is not disabled")
