@@ -647,7 +647,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
-			if componentSvcConfig.Type == datamanager.Subtype {
+			if componentSvcConfig.Type == datamanager.SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
@@ -666,7 +666,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, r := range cfg.Remotes {
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
-			if resourceSvcConfig.Type == datamanager.Subtype {
+			if resourceSvcConfig.Type == datamanager.SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err

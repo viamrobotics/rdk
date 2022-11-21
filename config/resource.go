@@ -51,9 +51,9 @@ type ResourceConfig interface {
 
 // A ResourceLevelServiceConfig describes component or remote configuration for a service.
 type ResourceLevelServiceConfig struct {
-	Type                resource.Subtype `json:"type"`
-	Attributes          AttributeMap     `json:"attributes"`
-	ConvertedAttributes interface{}      `json:"-"`
+	Type                resource.SubtypeName `json:"type"`
+	Attributes          AttributeMap         `json:"attributes"`
+	ConvertedAttributes interface{}          `json:"-"`
 }
 
 // A Component describes the configuration of a component.
@@ -62,7 +62,7 @@ type Component struct {
 
 	Namespace     resource.Namespace           `json:"namespace"`
 	Type          resource.SubtypeName         `json:"type"`
-	API           resource.Subtype             `json:"api"`
+	API           resource.Subtype             `json:"-"` // TODO SMURF doc this and link to jira.
 	Model         resource.Model               `json:"model"`
 	Frame         *Frame                       `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
@@ -279,9 +279,12 @@ func (config *Service) ResourceName() resource.Name {
 
 // ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
-	return resource.NameFromSubtype(
-		config.Type,
-		string(config.Type.ResourceSubtype), // TODO SMURF is this correct?
+	cType := string(config.Type)
+	return resource.NewName(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeService,
+		resource.SubtypeName(cType),
+		cType,
 	)
 }
 

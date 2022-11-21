@@ -35,10 +35,9 @@ const (
 )
 
 var (
-	reservedChars              = [...]string{":"}
-	resRegexValidator          = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
-	subtypeRegexValidator      = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
-	shortSubtypeRegexValidator = regexp.MustCompile(`^([\w-]+)$`)
+	reservedChars         = [...]string{":"}
+	resRegexValidator     = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
+	subtypeRegexValidator = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
 	// DefaultServiceModel is used for builtin services.
 	DefaultServiceModel = NewDefaultModel("builtin")
 )
@@ -132,12 +131,6 @@ func (s *Subtype) UnmarshalJSON(data []byte) error {
 		s.Namespace = Namespace(matches[1])
 		s.ResourceType = TypeName(matches[2])
 		s.ResourceSubtype = SubtypeName(matches[3])
-		return nil
-	}
-	if shortSubtypeRegexValidator.MatchString(stStr) {
-		s.Namespace = ResourceNamespaceRDK
-		s.ResourceType = ResourceTypeService // TODO SMURF how else to handle this?
-		s.ResourceSubtype = SubtypeName(stStr)
 		return nil
 	}
 

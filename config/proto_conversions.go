@@ -274,7 +274,7 @@ func ResourceLevelServiceConfigToProto(service ResourceLevelServiceConfig) (*pb.
 	}
 
 	proto := pb.ResourceLevelServiceConfig{
-		Type:       service.Type.String(),
+		Type:       string(service.Type),
 		Attributes: attributes,
 	}
 
@@ -283,12 +283,8 @@ func ResourceLevelServiceConfigToProto(service ResourceLevelServiceConfig) (*pb.
 
 // ResourceLevelServiceConfigFromProto creates ResourceLevelServiceConfig from proto equivalent.
 func ResourceLevelServiceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (ResourceLevelServiceConfig, error) {
-	st, err := resource.NewSubtypeFromString(proto.GetType())
-	if err != nil {
-		return ResourceLevelServiceConfig{}, err
-	}
 	service := ResourceLevelServiceConfig{
-		Type:       st,
+		Type:       resource.SubtypeName(proto.GetType()),
 		Attributes: proto.GetAttributes().AsMap(),
 	}
 

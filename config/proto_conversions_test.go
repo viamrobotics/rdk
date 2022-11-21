@@ -25,13 +25,13 @@ var testComponent = Component{
 	},
 	ServiceConfig: []ResourceLevelServiceConfig{
 		{
-			Type: resource.NewDefaultSubtype("some-type-1", true),
+			Type: "some-type-1",
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			Type: resource.NewDefaultSubtype("some-type-2", true),
+			Type: "some-type-2",
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
@@ -75,13 +75,13 @@ var testRemote = Remote{
 	ReconnectInterval:       2000000000,
 	ServiceConfig: []ResourceLevelServiceConfig{
 		{
-			Type: resource.NewDefaultSubtype("some-type-1", true),
+			Type: "some-type-1",
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			Type: resource.NewDefaultSubtype("some-type-2", true),
+			Type: "some-type-2",
 			Attributes: AttributeMap{
 				"attr1": 1,
 			},
