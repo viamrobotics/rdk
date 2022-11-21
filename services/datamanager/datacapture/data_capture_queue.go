@@ -71,19 +71,24 @@ func (d *Queue) Push(item *v1.SensorData) error {
 }
 
 // TODO: return err
-func (d *Queue) Pop() *File {
+func (d *Queue) Pop() (*File, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	if d.closed {
+		return nil, ErrQueueClosed
+	}
 
 	// Always push nextFile to queue on Pop.
 	if err := d.sync(); err != nil {
 		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 
 	// If files queue is empty, return next file.
 	if len(d.files) == 0 {
-		return nil
+		// TODO: this feel unidiomatic to return nil, nil
+		return nil, nil
 	}
 
 	// else, return the next file in the queue, and update the queue
@@ -94,7 +99,7 @@ func (d *Queue) Pop() *File {
 	} else {
 		d.files = d.files[1:]
 	}
-	return ret
+	return ret, nil
 }
 
 func (d *Queue) Close() error {
