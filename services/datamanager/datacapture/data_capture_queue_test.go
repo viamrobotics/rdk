@@ -63,7 +63,7 @@ func TestCaptureQueueSimple(t *testing.T) {
 			name:     "Pushing > maxSize + 1 worth of struct data should allow 2 files to be popped.",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			// maxSize / size(structSensorData) = 4096 / VALUE = 2
-			pushCount: 200,
+			pushCount: 400,
 			popCount:  2,
 		},
 	}
@@ -94,8 +94,9 @@ func TestCaptureQueueSimple(t *testing.T) {
 			var totalReadings int
 			for i := 0; i < tc.popCount; i++ {
 				fmt.Println(i)
-				popped := sut.Pop()
-				fmt.Println(popped.Size())
+				popped, err := sut.Pop()
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, popped, test.ShouldNotBeNil)
 				test.That(t, popped, test.ShouldNotBeNil)
 				for {
 					next, err := popped.ReadNext()
@@ -115,13 +116,17 @@ func TestCaptureQueueSimple(t *testing.T) {
 			}
 			test.That(t, totalReadings, test.ShouldEqual, tc.pushCount)
 
-			test.That(t, sut.Pop(), test.ShouldBeNil)
+			next, err := sut.Pop()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, next, test.ShouldBeNil)
 
+			// Test that close is respected.
 			err = sut.Close()
 			test.That(t, err, test.ShouldBeNil)
-
 			test.That(t, sut.IsClosed(), test.ShouldBeTrue)
-			test.That(t, sut.Pop(), test.ShouldBeNil)
+			next, err = sut.Pop()
+			test.That(t, errors.Is(err, ErrQueueClosed), test.ShouldBeTrue)
+			test.That(t, next, test.ShouldBeNil)
 		})
 	}
 }
