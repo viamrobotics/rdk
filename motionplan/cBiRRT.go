@@ -307,14 +307,13 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
 	// 4) further iterations change our best node by close-to-zero amounts
 	for i := 0; true; i++ {
-		
 		select {
 		case <-ctx.Done():
 			mchan <- oldNear
 			return
 		default:
 		}
-		
+
 		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: target.Q()})
 		_, oldDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: oldNear.Q(), EndInput: target.Q()})
 		_, nearDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: oldNear.Q()})
@@ -370,13 +369,12 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	seedInputs,
 	target []referenceframe.Input,
 ) []referenceframe.Input {
-	
 	select {
 	case <-ctx.Done():
 		return nil
 	default:
 	}
-	
+
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return nil

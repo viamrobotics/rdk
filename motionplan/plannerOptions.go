@@ -27,8 +27,8 @@ const (
 
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
-	
-	// default number of seconds to try to solve in total before returning
+
+	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 45.
 
 	// names of constraints.
@@ -99,7 +99,7 @@ type plannerOptions struct {
 
 	// Percentage interval of max iterations after which to print debug logs
 	LoggingInterval float64 `json:"logging_interval"`
-	
+
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
 

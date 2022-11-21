@@ -115,7 +115,6 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	score := 0.
 
 	for _, cFunc := range c.constraints {
-
 		pass, cScore := cFunc(cInput)
 		if !pass {
 			return false, math.Inf(1)

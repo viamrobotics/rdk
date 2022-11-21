@@ -62,10 +62,15 @@ func (mp *viamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
+
+	var cancel func()
+
 	// set timeout for entire planning process if specified
 	if timeout, ok := motionConfig["timeout"].(float64); ok {
-		ctx, _ = context.WithTimeout(ctx, time.Duration(timeout * float64(time.Second)))
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
+	}
+	if cancel != nil {
+		defer cancel()
 	}
 
 	// If we are world rooted, translate the goal pose into the world frame
@@ -151,7 +156,7 @@ func (mp *viamMotionPlanner) planMotion(
 		rm = initRRTMaps()
 	}
 
-	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout * float64(time.Second)))
+	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
 	defer cancel()
 
 	remainingSteps := [][]referenceframe.Input{}
