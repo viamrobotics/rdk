@@ -544,6 +544,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
+	svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	fmt.Println(fmt.Sprintf("sync interval mins = %f", svc.syncIntervalMins))
 	if svc.syncDisabled || svc.syncIntervalMins == 0.0 {
 		svc.closeSyncer()

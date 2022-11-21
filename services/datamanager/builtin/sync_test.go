@@ -84,6 +84,7 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.CaptureDisabled = false
 			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
 			originalSvcConfig.CaptureDir = tmpDir
+			originalSvcConfig.SyncIntervalMins = 0.1
 
 			err = dmsvc.Update(context.Background(), cfg)
 
@@ -106,6 +107,7 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDisabled = false
 			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
 			updatedSvcConfig.CaptureDir = tmpDir
+			updatedSvcConfig.SyncIntervalMins = 0.016
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -188,6 +190,7 @@ func TestResumableUpload(t *testing.T) {
 			test.That(t, ok1, test.ShouldBeTrue)
 			originalSvcConfig.CaptureDisabled = false
 			originalSvcConfig.ScheduledSyncDisabled = true
+			originalSvcConfig.SyncIntervalMins = 0.016
 			originalSvcConfig.CaptureDir = tmpDir
 
 			err = dmsvc.Update(context.Background(), cfg)
@@ -210,6 +213,7 @@ func TestResumableUpload(t *testing.T) {
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 			originalSvcConfig.CaptureDisabled = true
 			originalSvcConfig.ScheduledSyncDisabled = false
+			originalSvcConfig.SyncIntervalMins = 0.016
 			err = newDMSvc.Update(context.Background(), cfg)
 			fmt.Println("successfully updated to sync")
 			test.That(t, err, test.ShouldBeNil)
