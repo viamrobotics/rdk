@@ -173,9 +173,9 @@ func stringNodeType(n NodeType) string {
 
 //nolint:unused
 func printOctree(bOct *basicOctree, s string) {
-	bOct.logger.Infof("%v %.2f %.2f %.2f - %v | Children: %v Size: %v|%v\n", s,
+	bOct.logger.Infof("%v %.2f %.2f %.2f - %v | Children: %v Size: %v\n", s,
 		bOct.center.X, bOct.center.Y, bOct.center.Z,
-		stringNodeType(bOct.node.nodeType), len(bOct.node.tree), bOct.meta.Size, bOct.Size())
+		stringNodeType(bOct.node.nodeType), len(bOct.node.tree), bOct.size)
 
 	if bOct.node.nodeType == LeafNodeFilled {
 		bOct.logger.Infof("%s (%.2f %.2f %.2f) - Val: %v\n", s,

@@ -17,7 +17,8 @@ type basicOctree struct {
 	node   basicOctreeNode
 	center r3.Vector
 	side   float64
-	meta   MetaData
+	size   int32
+	meta   pc.MetaData
 }
 
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
@@ -39,14 +40,15 @@ func New(ctx context.Context, center r3.Vector, sideLength float64, logger golog
 		node:   newLeafNodeEmpty(),
 		center: center,
 		side:   sideLength,
+		size:   0,
 	}
-	octree.meta = octree.newMetaData()
+	octree.meta = pc.NewMetaData()
 	return octree, nil
 }
 
 // Size returns the number of points stored in the octree's metadata.
 func (octree *basicOctree) Size() int {
-	return int(octree.meta.Size)
+	return int(octree.size)
 }
 
 // Set checks if the point to be added is a valid point for a basic octree to contain based on its center and side
@@ -72,6 +74,7 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 				if err == nil {
 					// Update metadata
 					octree.meta.Merge(p, d)
+					octree.size++
 				}
 				return err
 			}
@@ -95,6 +98,7 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 	case LeafNodeEmpty:
 		// Update metadata
 		octree.meta.Merge(p, d)
+		octree.size++
 		octree.node = newLeafNodeFilled(p, d)
 	}
 
@@ -133,25 +137,8 @@ func (octree *basicOctree) MarshalOctree() ([]byte, error) {
 	return nil, nil
 }
 
-// newMetaData creates and returns the octree MetaData associated with a new basic octree.
-func (octree *basicOctree) newMetaData() MetaData {
-	return MetaData{
-		Version:    octreeVersion,
-		CenterX:    octree.center.X,
-		CenterY:    octree.center.Y,
-		CenterZ:    octree.center.Z,
-		Side:       octree.side,
-		Size:       0,
-		PCMetaData: pc.NewMetaData(),
-	}
-}
-
-// OctreeMetaData returns the octree metadata.
-func (octree *basicOctree) OctreeMetaData() MetaData {
-	return octree.meta
-}
-
 // Metadata returns the metadata of the pointcloud stored in the octree.
 func (octree *basicOctree) MetaData() pc.MetaData {
-	return octree.meta.PCMetaData
+	//return octree.meta.PCMetaData
+	return octree.meta
 }
