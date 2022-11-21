@@ -3,6 +3,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -94,11 +95,7 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	solution := make([][]frame.Input, 0, len(solutionMap))
-	for _, step := range solutionMap {
-		solution = append(solution, step[f.Name()])
-	}
-	return solution, nil
+	return FrameStepsFromRobotPath(f.Name(), solutionMap)
 }
 
 // PlanWaypoints plans motions to a list of destinations in order for a given frame. It takes a given frame system, wraps it with a
@@ -118,6 +115,19 @@ func PlanWaypoints(ctx context.Context,
 	}
 
 	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
+}
+
+// FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
+func FrameStepsFromRobotPath(frameName string, path []map[string][]frame.Input) ([][]frame.Input, error) {
+	solution := make([][]frame.Input, 0, len(path))
+	for _, step := range path {
+		frameStep, ok := step[frameName]
+		if !ok {
+			return nil, fmt.Errorf("frame named %s not found in solved motion path", frameName)
+		}
+		solution = append(solution, frameStep)
+	}
+	return solution, nil
 }
 
 type planner struct {
