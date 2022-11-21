@@ -117,7 +117,10 @@ func (s *syncer) Close() {
 // Sync uploads everything in queue until it is closed and emptied.
 func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
 	fmt.Println("entering SyncCaptureQueues")
-	for _, q := range queues {
+	fmt.Println(cap(queues))
+	fmt.Println(len(queues))
+	for i, q := range queues {
+		fmt.Println(i)
 		if q == nil {
 			fmt.Println("damn this q is nil")
 		}
@@ -145,6 +148,7 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 
 				// TODO: handle other error
 				if err != nil {
+					fmt.Println("GOT ERROR")
 					fmt.Println(err)
 				}
 

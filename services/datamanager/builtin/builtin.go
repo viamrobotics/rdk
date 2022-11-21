@@ -136,13 +136,13 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
 
 	svc.cancelSyncBackgroundRoutine()
+	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 	return nil
 }
@@ -277,9 +277,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	if err != nil {
 		return nil, err
 	}
-	svc.lock.Lock()
 	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
-	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
 	collector.Collect()
@@ -407,8 +405,10 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 func (svc *builtIn) syncDataCaptureFiles() {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
-	queues := make([]*datacapture.Queue, len(svc.collectors))
-	for _, collector := range svc.collectors {
+	var queues []*datacapture.Queue
+	fmt.Println(fmt.Sprintf("length of queues in syncDCFiles is %d", len(queues)))
+	for i, collector := range svc.collectors {
+		fmt.Println(i)
 		if collector.Collector.GetTarget() == nil {
 			fmt.Println("collector with empty target in syncDataCaptureFiles")
 		}
@@ -419,11 +419,10 @@ func (svc *builtIn) syncDataCaptureFiles() {
 	return
 }
 
+// TODO: pretty sure this will only be called in update. Ensure lock is held.
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
-	svc.lock.Lock()
 	currAdditionalSyncPaths := svc.additionalSyncPaths
 	waitAfterLastModified := svc.waitAfterLastModifiedSecs
-	svc.lock.Unlock()
 
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
@@ -460,12 +459,17 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
+	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	// TODO: reimpliment arbitary file uploads
-	svc.syncer.SyncCaptureFiles(svc.buildAdditionalSyncPaths())
+	//svc.syncer.SyncCaptureFiles(svc.buildAdditionalSyncPaths())
 }
 
 // Update updates the data manager service when the config has changed.
 func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
+	svc.lock.Lock()
+	defer svc.lock.Unlock()
+
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
@@ -540,16 +544,15 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		svc.closeSyncer()
 	} else {
 		fmt.Println("sync sure is not disabled")
-		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-		defer svc.lock.Unlock()
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
 		fmt.Println("syncing previously captured")
 		svc.syncPreviouslyCaptured()
 		fmt.Println("done syncing previously captured")
-		queues := make([]*datacapture.Queue, len(svc.collectors))
+		var queues []*datacapture.Queue
+		fmt.Println(fmt.Sprintf("length of queues in syncDCFiles is %d", len(queues)))
 		for _, c := range svc.collectors {
 			if c.Collector.GetTarget() == nil {
 				fmt.Println("collector with nil target in Update")
