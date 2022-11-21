@@ -127,7 +127,6 @@ func TestSolverFrameGeometries(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	// visualization.VisualizePlan(context.Background(), position, sf, nil)
 	gf, _ := sf.Geometries(position[len(position)-1])
 	test.That(t, gf, test.ShouldNotBeNil)
 	gripperCenter := gf.Geometries()["xArmVgripper"].Pose().Point()
