@@ -14,7 +14,6 @@ import (
 // point, side length and node data. Node data is comprised of a PointAndData (should one exist) from
 
 type basicOctree struct {
-	ctx    context.Context
 	logger golog.Logger
 	node   basicOctreeNode
 	center r3.Vector
@@ -35,35 +34,18 @@ func New(ctx context.Context, center r3.Vector, sideLength float64, logger golog
 	}
 
 	octree := &basicOctree{
-		ctx:    ctx,
 		logger: logger,
 		node:   newLeafNodeEmpty(),
 		center: center,
 		side:   sideLength,
 	}
-	octree.meta = octree.NewMetaData()
+	octree.meta = octree.newMetaData()
 	return octree, nil
 }
 
-// Size returns the number of points stored in the octree by traversing it and incrementing based on the number
-// of nodes containing a point.
+// Size returns the number of points stored in the octree's metadata.
 func (octree *basicOctree) Size() int {
-	var totalSize int
-
-	switch octree.node.nodeType {
-	case InternalNode:
-		for _, children := range octree.node.tree {
-			totalSize += children.Size()
-		}
-
-	case LeafNodeFilled:
-		totalSize = 1
-
-	case LeafNodeEmpty:
-		totalSize = 0
-	}
-
-	return totalSize
+	return int(octree.meta.Size)
 }
 
 // Set checks if the point to be added is a valid point for the octree to hold based on its center and side length.
@@ -150,7 +132,7 @@ func (octree *basicOctree) MarshalOctree() ([]byte, error) {
 }
 
 // NewMetaData creates and return the octree MetaData associated with a new basic octree.
-func (octree *basicOctree) NewMetaData() MetaData {
+func (octree *basicOctree) newMetaData() MetaData {
 	return MetaData{
 		Version:    octreeVersion,
 		CenterX:    octree.center.X,
