@@ -11,8 +11,9 @@ import (
 
 var (
 	// Robot config which specifies data manager service.
-	enabledCollectorConfigPath  = "services/datamanager/data/fake_robot_with_data_manager.json"
-	disabledCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	enabledTabularCollectorConfigPath  = "services/datamanager/data/fake_robot_with_data_manager.json"
+	disabledTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	enabledBinaryCollectorConfigPath   = "services/datamanager/data/robot_with_cam_capture.json"
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -97,9 +98,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			var initialConfig *config.Config
 			if tc.initialCollectorDisableStatus {
-				initialConfig = setupConfig(t, disabledCollectorConfigPath)
+				initialConfig = setupConfig(t, disabledTabularCollectorConfigPath)
 			} else {
-				initialConfig = setupConfig(t, enabledCollectorConfigPath)
+				initialConfig = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
 			// Set up service config.
@@ -121,9 +122,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Set up service config.
 			var updatedConfig *config.Config
 			if tc.newCollectorDisableStatus {
-				updatedConfig = setupConfig(t, disabledCollectorConfigPath)
+				updatedConfig = setupConfig(t, disabledTabularCollectorConfigPath)
 			} else {
-				updatedConfig = setupConfig(t, enabledCollectorConfigPath)
+				updatedConfig = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
 			updatedServiceConfig, ok, err := getServiceConfig(updatedConfig)

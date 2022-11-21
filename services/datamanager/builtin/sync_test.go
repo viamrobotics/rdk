@@ -2,15 +2,20 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -50,7 +55,8 @@ func TestSyncEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// TODO: this is a sign of an abstraction leak
+			// TODO: this is a sign of an abstraction leak. Should probably be a construction parameter,
+			//       and then used for a ticker instead of Sleep
 			datasync.PollWaitTime = time.Millisecond * 25
 
 			// Set up server.
@@ -69,7 +75,7 @@ func TestSyncEnabled(t *testing.T) {
 			// Set up data manager.
 			dmsvc := newTestDataManager(t, "arm1", "")
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-			cfg := setupConfig(t, enabledCollectorConfigPath)
+			cfg := setupConfig(t, enabledTabularCollectorConfigPath)
 
 			// Set up service config.
 			originalSvcConfig, ok1, err := getServiceConfig(cfg)
@@ -102,14 +108,16 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDir = tmpDir
 
 			err = dmsvc.Update(context.Background(), cfg)
+			test.That(t, err, test.ShouldBeNil)
 
 			// Let run for a second, then change status.
 			time.Sleep(syncTime)
+			err = dmsvc.Close(context.Background())
+			test.That(t, err, test.ShouldBeNil)
 
 			newUploadCount := len(mockService.getCaptureUploadRequests())
-			// Things to validate: that it syncs if expected, that it deletes files if successful
+			// TODO: Things to validate: that it syncs if expected, that it deletes files if successful
 			if !tc.newServiceDisableStatus {
-				// TODO: check contents
 				test.That(t, newUploadCount, test.ShouldBeGreaterThan, initialUploadCount)
 			} else {
 				test.That(t, newUploadCount, test.ShouldEqual, initialUploadCount)
@@ -118,7 +126,8 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
-/**
+/*
+*
 TEST SETUP:
 - Let capture run for a bit.
 - Kill it.
@@ -134,14 +143,155 @@ func TestResumesSyncing(t *testing.T) {
 		name     string
 		dataType v1.DataType
 	}{
-		{},
+		{
+			name:     "Previously captured tabular data should be synced at start up.",
+			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		},
+		{
+			name:     "Previously captured tabular data should be synced at start up.",
+			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		// TODO: test that no duplicates when sync fails after N calls
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			datasync.PollWaitTime = time.Millisecond * 25
+
+			// Set up server.
+			tmpDir, err := os.MkdirTemp("", "")
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			rpcServer, mockService := buildAndStartLocalSyncServer(t)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			// Set up data manager.
+			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+			var cfg *config.Config
+			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+				cfg = setupConfig(t, enabledTabularCollectorConfigPath)
+			} else {
+				cfg = setupConfig(t, enabledBinaryCollectorConfigPath)
+			}
+
+			// Set up service config.
+			originalSvcConfig, ok1, err := getServiceConfig(cfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok1, test.ShouldBeTrue)
+			originalSvcConfig.CaptureDisabled = false
+			originalSvcConfig.ScheduledSyncDisabled = true
+			originalSvcConfig.CaptureDir = tmpDir
+
+			err = dmsvc.Update(context.Background(), cfg)
+			fmt.Println("successfully updated to capture")
+			test.That(t, err, test.ShouldBeNil)
+
+			// Let run for a second, then close.
+			time.Sleep(time.Millisecond * 100)
+			err = dmsvc.Close(context.Background())
+			fmt.Println("successfully closed capture")
+			test.That(t, err, test.ShouldBeNil)
+
+			// Get all written data.
+			capturedData, err := getAllReadings(tmpDir)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Now turn back on with only sync enabled.
+			newDMSvc := newTestDataManager(t, "arm1", "")
+			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+			originalSvcConfig.CaptureDisabled = true
+			originalSvcConfig.ScheduledSyncDisabled = false
+			err = newDMSvc.Update(context.Background(), cfg)
+			fmt.Println("successfully updated to sync")
+			test.That(t, err, test.ShouldBeNil)
+			time.Sleep(time.Millisecond * 1200)
+			err = newDMSvc.Close(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			fmt.Println("successfully closed")
+
+			urs := mockService.getCaptureUploadRequests()
+			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+				test.That(t, len(urs), test.ShouldEqual, 1)
+			} else {
+				test.That(t, len(urs), test.ShouldEqual, len(capturedData))
+			}
+
+			var syncedData []*v1.SensorData
+			for _, ur := range mockService.getCaptureUploadRequests() {
+				sd := ur.GetSensorContents()
+				syncedData = append(syncedData, sd...)
+			}
+			test.That(t, len(syncedData), test.ShouldEqual, len(capturedData))
+			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+				for i, _ := range syncedData {
+					test.That(t, syncedData[i].GetStruct(), test.ShouldResemble, capturedData[i].GetStruct())
+					test.That(t, syncedData[i].GetMetadata(), test.ShouldResemble, capturedData[i].GetMetadata())
+				}
+			} else {
+				for i, _ := range syncedData {
+					test.That(t, syncedData[i].GetBinary(), test.ShouldResemble, capturedData[i].GetBinary())
+					test.That(t, syncedData[i].GetMetadata(), test.ShouldResemble, capturedData[i].GetMetadata())
+				}
+			}
+		})
 	}
 }
 
 // TODO: ensure that when synces fail, files are not deleted. Ensure that when syncs fail transiently, they evenutally
-//       succeed. Ensure that when things repeatedly fail, Close is still respected.
+//
+//	succeed. Ensure that when things repeatedly fail, Close is still respected.
 func TestRetries(t *testing.T) {
 
+}
+
+func getAllReadings(dir string) ([]*v1.SensorData, error) {
+	var allFiles []*datacapture.File
+	var filePaths []string
+
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		filePaths = append(filePaths, path)
+		return nil
+	})
+
+	for _, f := range filePaths {
+		osFile, err := os.Open(f)
+		if err != nil {
+			return nil, err
+		}
+		dcFile, err := datacapture.ReadFile(osFile)
+		if err != nil {
+			return nil, err
+		}
+		allFiles = append(allFiles, dcFile)
+	}
+
+	var ret []*v1.SensorData
+	for _, dcFile := range allFiles {
+		for {
+			next, err := dcFile.ReadNext()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, next)
+		}
+	}
+	return ret, nil
 }
 
 // TODO: combine manual, "scheduled", manualandscheduled into single table driven test suite

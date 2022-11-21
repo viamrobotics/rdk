@@ -299,8 +299,8 @@ func TestNewRemoteDataManager(t *testing.T) {
 //	defer resetFolder(t, captureDir)
 //	defer resetFolder(t, armDir)
 //
-//	disabledCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
-//	testCfg := setupConfig(t, disabledCollectorConfigPath)
+//	disabledTabularCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
+//	testCfg := setupConfig(t, disabledTabularCollectorConfigPath)
 //	dmCfg, err := getDataManagerConfig(testCfg)
 //	test.That(t, err, test.ShouldBeNil)
 //
@@ -341,8 +341,8 @@ func TestNewRemoteDataManager(t *testing.T) {
 //	defer resetFolder(t, captureDir)
 //	defer resetFolder(t, armDir)
 //
-//	disabledCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
-//	testCfg := setupConfig(t, disabledCollectorConfigPath)
+//	disabledTabularCollectorConfigPath := "services/datamanager/data/fake_robot_with_disabled_collector.json"
+//	testCfg := setupConfig(t, disabledTabularCollectorConfigPath)
 //	dmCfg, err := getDataManagerConfig(testCfg)
 //	test.That(t, err, test.ShouldBeNil)
 //	dmCfg.ScheduledSyncDisabled = true
