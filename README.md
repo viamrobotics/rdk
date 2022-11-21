@@ -32,7 +32,7 @@ Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/c
 
 ### Examples
 * [SimpleServer](https://pkg.go.dev/go.viam.com/rdk/examples/simpleserver) - example for creating a simple custom server.
-* [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor,
+* [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor.
 * [MyComponent](https://pkg.go.dev/go.viam.com/rdk/examples/mycomponent) - example for creating a custom resource subtype.
 
 ### SDKs
