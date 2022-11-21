@@ -2,11 +2,12 @@ package datasync
 
 import (
 	"context"
-	"fmt"
+	"io"
+
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+
 	"go.viam.com/rdk/services/datamanager/datacapture"
-	"io"
 )
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
@@ -33,12 +34,8 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 	resp, err := client.DataCaptureUpload(ctx, ur)
 	if err != nil {
-		fmt.Println("received error from server")
-		fmt.Println(err)
 		return err
 	}
-	fmt.Println("did not receive error from server")
-	fmt.Println(err)
 	// TODO: real code handling
 	if resp.GetCode() != 200 {
 		return errors.New("error making syncQueue request: " + resp.GetMessage())

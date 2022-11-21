@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -155,7 +157,8 @@ func TestSuccessfulWrite(t *testing.T) {
 			// Verify that it writes to the file at all.
 			time.Sleep(tc.wait)
 			c.Close()
-			file := target.Pop()
+			file, err := target.Pop()
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, file.Size(), test.ShouldBeGreaterThan, 0)
 
 			// Verify that the data it wrote matches what we expect.
@@ -169,13 +172,14 @@ func TestSuccessfulWrite(t *testing.T) {
 	}
 }
 
+// TODO: fix test.
 func TestClose(t *testing.T) {
 	// Set up a collector.
 	l := golog.NewTestLogger(t)
 	tmpDir := os.TempDir()
 	md := v1.DataCaptureMetadata{}
 	target := datacapture.NewQueue(tmpDir, &md)
-	//defer os.Remove(target1.GetPath())
+
 	params := CollectorParams{
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 15,
@@ -191,14 +195,19 @@ func TestClose(t *testing.T) {
 
 	// Close and measure fileSize.
 	c.Close()
-	fileSize := target.Pop().Size()
+	next, err := target.Pop()
+	test.That(t, err, test.ShouldBeNil)
+	fileSize1 := next.Size()
 
 	// Assert capture is no longer being called/file is no longer being written to.
 	time.Sleep(time.Millisecond * 25)
-	test.That(t, target.Pop().Size(), test.ShouldEqual, fileSize)
+	test.That(t, next.Size(), test.ShouldEqual, fileSize1)
+	next, err = target.Pop()
+	test.That(t, errors.Is(err, datacapture.ErrQueueClosed), test.ShouldBeTrue)
+	test.That(t, next.Size(), test.ShouldEqual, fileSize1)
 }
 
-//func TestSetTarget(t *testing.T) {
+// func TestSetTarget(t *testing.T) {
 //	l := golog.NewTestLogger(t)
 //	tmpDir := os.TempDir()
 //	md1 := v1.DataCaptureMetadata{
@@ -272,9 +281,7 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 
 func validateReadings(t *testing.T, f *datacapture.File, n int) {
 	t.Helper()
-	fmt.Println(n)
 	for i := 0; i < n; i++ {
-		fmt.Println(i)
 		read, err := f.ReadNext()
 		test.That(t, err, test.ShouldBeNil)
 		if read.GetStruct() != nil {

@@ -8,7 +8,7 @@ const (
 	syncWaitTime = 500 * time.Millisecond
 )
 
-//func TestFileUpload(t *testing.T) {
+// func TestFileUpload(t *testing.T) {
 //	uploadChunkSize = 10
 //	msgContents := []byte("This is part of testing in datamanager service in RDK.")
 //
@@ -77,7 +77,7 @@ const (
 //	}
 //}
 
-//func TestSensorUploadTabular(t *testing.T) {
+// func TestSensorUploadTabular(t *testing.T) {
 //	protoMsgTabularStruct := toProto(anyStruct{})
 //
 //	tests := []struct {

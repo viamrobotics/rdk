@@ -1,15 +1,15 @@
 package datacapture
 
 import (
-	"fmt"
+	"io"
+	"os"
+	"testing"
+
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
-	"io"
-	"os"
-	"testing"
 )
 
 /**
@@ -90,7 +90,6 @@ func TestCaptureQueueSimple(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fmt.Println("starting test")
 			tmpDir, err := os.MkdirTemp("", "")
 			defer os.RemoveAll(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
@@ -103,17 +102,13 @@ func TestCaptureQueueSimple(t *testing.T) {
 				pushValue = structSensorData
 			}
 
-			fmt.Println("starting push")
 			for i := 0; i < tc.firstPushCount; i++ {
 				err := sut.Push(pushValue)
-				fmt.Println("pushed")
 				test.That(t, err, test.ShouldBeNil)
 			}
-			fmt.Println("done pushing")
 
 			var totalReadings1 int
 			for i := 0; i < tc.firstPopCount; i++ {
-				fmt.Println(i)
 				popped, err := sut.Pop()
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, popped, test.ShouldNotBeNil)
@@ -121,10 +116,8 @@ func TestCaptureQueueSimple(t *testing.T) {
 				for {
 					next, err := popped.ReadNext()
 					if errors.Is(err, io.EOF) {
-						fmt.Println("got EOF")
 						break
 					}
-					fmt.Println("didn't get EOF")
 					test.That(t, err, test.ShouldBeNil)
 					if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 						test.That(t, next.GetBinary(), test.ShouldResemble, pushValue.GetBinary())
@@ -138,14 +131,11 @@ func TestCaptureQueueSimple(t *testing.T) {
 
 			for i := 0; i < tc.firstPushCount; i++ {
 				err := sut.Push(pushValue)
-				fmt.Println("pushed")
 				test.That(t, err, test.ShouldBeNil)
 			}
-			fmt.Println("done pushing")
 
 			var totalReadings2 int
 			for i := 0; i < tc.firstPopCount; i++ {
-				fmt.Println(i)
 				popped, err := sut.Pop()
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, popped, test.ShouldNotBeNil)
@@ -153,10 +143,8 @@ func TestCaptureQueueSimple(t *testing.T) {
 				for {
 					next, err := popped.ReadNext()
 					if errors.Is(err, io.EOF) {
-						fmt.Println("got EOF")
 						break
 					}
-					fmt.Println("didn't get EOF")
 					test.That(t, err, test.ShouldBeNil)
 					if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 						test.That(t, next.GetBinary(), test.ShouldResemble, pushValue.GetBinary())

@@ -1,13 +1,14 @@
 package datacapture
 
 import (
-	"fmt"
+	"sync"
+
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"sync"
 )
 
 var (
+	// ErrQueueClosed indicates that a Push or Pop was attempted on a closed queue.
 	ErrQueueClosed = errors.New("queue is closed")
 	MaxSize        = int64(4096)
 )
@@ -24,9 +25,6 @@ type Queue struct {
 }
 
 func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
-	fmt.Println(fmt.Sprintf("metadata: %s", md.String()))
-
-	//queueDir := filepath.Join(dir, time.Now().Format(time.RFC3339Nano))
 	return &Queue{
 		Directory: dir,
 		files:     []*File{},
@@ -44,14 +42,12 @@ func (d *Queue) Push(item *v1.SensorData) error {
 	}
 
 	if d.nextFile == nil {
-		fmt.Println("next file was nil")
 		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
 			return err
 		}
 		d.nextFile = nextFile
 	} else if d.nextFile.Size() > MaxSize || item.GetBinary() != nil {
-		fmt.Println("item was binary")
 		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
 		if err := d.sync(); err != nil {
 			return err
@@ -66,7 +62,8 @@ func (d *Queue) Push(item *v1.SensorData) error {
 	return d.nextFile.WriteNext(item)
 }
 
-// TODO: return err
+// TODO: return err.
+// TODO: should probably not return err queue closed? We need to be able to drain queue after closing
 func (d *Queue) Pop() (*File, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -77,7 +74,6 @@ func (d *Queue) Pop() (*File, error) {
 
 	// Always push nextFile to queue on Pop.
 	if err := d.sync(); err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -125,7 +121,7 @@ func (d *Queue) sync() error {
 	if err := d.nextFile.Sync(); err != nil {
 		return err
 	}
-	//if err := d.nextFile.Close(); err != nil {
+	// if err := d.nextFile.Close(); err != nil {
 	//	return err
 	//}
 	//
