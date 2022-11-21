@@ -211,7 +211,7 @@ func TestCollisionConstraint(t *testing.T) {
 		})
 	}
 }
-
+var bt bool
 func BenchmarkCollisionConstraint(b *testing.B) {
 	// define external obstacles
 	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
@@ -228,10 +228,12 @@ func BenchmarkCollisionConstraint(b *testing.B) {
 	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}))
 
 	rseed := rand.New(rand.NewSource(1))
+	var b1 bool
 
 	// loop through cases and check constraint handler processes them correctly
 	for n := 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
+		b1, _ = handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
 	}
+	bt = b1
 }
