@@ -2,12 +2,15 @@ package octree
 
 import (
 	"context"
+	"math"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	pc "go.viam.com/rdk/pointcloud"
 )
@@ -21,6 +24,39 @@ func createNewOctree(ctx context.Context, center r3.Vector, side float64, logger
 
 	basicOct := octree.(*basicOctree)
 	return basicOct, err
+}
+
+// makePointCloud from an artifact path.
+func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pc.PointCloud, error) {
+	t.Helper()
+	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
+	if err != nil {
+		return nil, err
+	}
+	pcd, err := pc.ReadPCD(pcdFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if numPoints == 0 {
+		return pcd, nil
+	}
+
+	shortenedPC := pc.NewWithPrealloc(numPoints)
+
+	counter := numPoints
+	pcd.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+		if counter > 0 {
+			err = shortenedPC.Set(p, d)
+			counter--
+		}
+		return err == nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return shortenedPC, nil
 }
 
 // Test the creation of new octrees.
@@ -59,7 +95,7 @@ func TestNewOctree(t *testing.T) {
 	})
 
 	t.Run("Check new octree metadata creation", func(t *testing.T) {
-		meta := basicOct.NewMetaData()
+		meta := basicOct.newMetaData()
 		test.That(t, meta, test.ShouldResemble, newOctreeMetadata)
 	})
 
@@ -249,4 +285,33 @@ func TestBasicOctreeAt(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
 	})
+}
+
+func TestBasicOctreePointcloudIngestion(t *testing.T) {
+	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	center := r3.Vector{
+		X: (startPC.MetaData().MaxX - startPC.MetaData().MinX) / 2,
+		Y: (startPC.MetaData().MaxY - startPC.MetaData().MinY) / 2,
+		Z: (startPC.MetaData().MaxZ - startPC.MetaData().MinZ) / 2,
+	}
+
+	side := math.Max(center.X*2, math.Max(center.Y*2, center.Z*2)) * 1.01
+
+	basicOct, err := createNewOctree(ctx, center, side, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPC.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+		if err = basicOct.Set(p, d); err != nil {
+			return false
+		}
+		return true
+	})
+
+	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
+	// TODO: Add iterate check of each point pointcloud to see if it is in octree (next JIRA ticket)
 }

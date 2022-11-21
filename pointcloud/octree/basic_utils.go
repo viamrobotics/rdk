@@ -60,12 +60,11 @@ func (octree *basicOctree) splitIntoOctants() error {
 
 				// Create new basic octree children
 				child := &basicOctree{
-					ctx:    octree.ctx,
 					center: newCenter,
 					side:   newSideLength,
 					logger: octree.logger,
 					node:   newLeafNodeEmpty(),
-					meta:   octree.NewMetaData(),
+					meta:   octree.newMetaData(),
 				}
 				children = append(children, child)
 			}
@@ -77,7 +76,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 	p := octree.node.point.P
 	d := octree.node.point.D
 	octree.node = newInternalNode(children)
-	octree.meta = octree.NewMetaData()
+	octree.meta = octree.newMetaData()
 	return octree.Set(p, d)
 }
 
