@@ -16,28 +16,28 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// viamMotionPlanner is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
+// planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
 // Intended information flow should be:
-// motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> ViamMotionPlanner.planSingleWaypoint().
-type viamMotionPlanner struct {
+// motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
+type planManager struct {
 	*planner
 	frame *solverFrame
 	fs    referenceframe.FrameSystem
 }
 
-func newViamMotionPlanner(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*viamMotionPlanner, error) {
+func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
 	//nolint: gosec
 	p, err := newPlanner(frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), logger)
 	if err != nil {
 		return nil, err
 	}
-	return &viamMotionPlanner{p, frame, fs}, nil
+	return &planManager{p, frame, fs}, nil
 }
 
-// Plan on the viamMotionPlanner should be the single point of entry to planning algorithms.
+// Plan on the planManager should be the single point of entry to planning algorithms.
 // This struct is responsible for determining what algorithm to use based on the motion requested and user options, calling any fallbacks,
 // running pre-checks, etc.
-func (mp *viamMotionPlanner) Plan(
+func (mp *planManager) Plan(
 	ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
@@ -48,7 +48,7 @@ func (mp *viamMotionPlanner) Plan(
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
-func (mp *viamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
+func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 	seedMap map[string][]referenceframe.Input,
 	goalPos spatialmath.Pose,
 	worldState *commonpb.WorldState,
@@ -124,7 +124,7 @@ func (mp *viamMotionPlanner) PlanSingleWaypoint(ctx context.Context,
 
 // planMotion will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning the next
 // motion as soon as its starting point is known.
-func (mp *viamMotionPlanner) planMotion(
+func (mp *planManager) planMotion(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
@@ -259,7 +259,7 @@ func (mp *viamMotionPlanner) planMotion(
 }
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
-func (mp *viamMotionPlanner) plannerSetupFromMoveRequest(
+func (mp *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *commonpb.WorldState,

@@ -96,7 +96,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
 
-		sfPlanner, err := newViamMotionPlanner(sf, fss, fss.logger, i)
+		sfPlanner, err := newPlanManager(sf, fss, fss.logger, i)
 		if err != nil {
 			return nil, err
 		}
