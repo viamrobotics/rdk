@@ -313,5 +313,6 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	})
 
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
+	test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta.PCMetaData)
 	// TODO: Add iterate check of each point pointcloud to see if it is in octree (next JIRA ticket)
 }
