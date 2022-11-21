@@ -118,6 +118,32 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
+/**
+TEST SETUP:
+- Let capture run for a bit.
+- Kill it.
+- Build new SUT.
+- Let sync run (probably with capture disabled?)
+- Ensure all readings captured were synced.
+- Ensure no files remain
+
+- Variations? Maybe one for binary and one for tabular
+*/
+func TestResumesSyncing(t *testing.T) {
+	tests := []struct {
+		name     string
+		dataType v1.DataType
+	}{
+		{},
+	}
+}
+
+// TODO: ensure that when synces fail, files are not deleted. Ensure that when syncs fail transiently, they evenutally
+//       succeed. Ensure that when things repeatedly fail, Close is still respected.
+func TestRetries(t *testing.T) {
+
+}
+
 // TODO: combine manual, "scheduled", manualandscheduled into single table driven test suite
 // Validates that manual syncing works for a datamanager.
 //
