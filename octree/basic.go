@@ -139,6 +139,5 @@ func (octree *basicOctree) MarshalOctree() ([]byte, error) {
 
 // Metadata returns the metadata of the pointcloud stored in the octree.
 func (octree *basicOctree) MetaData() pc.MetaData {
-	//return octree.meta.PCMetaData
 	return octree.meta
 }
