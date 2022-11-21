@@ -147,7 +147,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			func(ctx context.Context) error { return s.uploadFile(ctx, s.client, f, s.partID) },
 			s.logger,
 		)
-		if uploadErr != nil {
+		if uploadErr != nil && !errors.Is(uploadErr, context.Canceled) {
 			s.logger.Error(uploadErr)
 			return
 		}

@@ -74,8 +74,7 @@
                     "b": "2",
                     "pwm": "3"
                 },
-                "ticks_per_rotation": 100,
-                "max_rpm": 100
+                "ticks_per_rotation": 100
             },
             "depends_on": [
                 "board1",
