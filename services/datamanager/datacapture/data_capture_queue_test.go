@@ -90,8 +90,6 @@ func TestCaptureQueueSimple(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}
 			fmt.Println("done pushing")
-			//err = sut.Sync()
-			//test.That(t, err, test.ShouldBeNil)
 
 			var totalReadings int
 			for i := 0; i < tc.popCount; i++ {
@@ -107,7 +105,11 @@ func TestCaptureQueueSimple(t *testing.T) {
 					}
 					fmt.Println("didn't get EOF")
 					test.That(t, err, test.ShouldBeNil)
-					test.That(t, next.GetData(), test.ShouldResemble, pushValue)
+					if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
+						test.That(t, next.GetBinary(), test.ShouldResemble, pushValue.GetBinary())
+					} else {
+						test.That(t, next.GetStruct(), test.ShouldResemble, pushValue.GetStruct())
+					}
 					totalReadings++
 				}
 			}
