@@ -213,7 +213,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			src := camera.SourceFromCamera(cam)
 			defer func() {
 				if err := cam.Close(ctx); err != nil {
-					logger.Debugf("failed to close camera: %v", err)
+					logger.Debugw("failed to close camera", "error", err)
 				}
 			}()
 			for {
