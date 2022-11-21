@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -142,8 +143,9 @@ TEST SETUP:
 */
 func TestResumableUpload(t *testing.T) {
 	tests := []struct {
-		name     string
-		dataType v1.DataType
+		name          string
+		dataType      v1.DataType
+		serviceFailAt int
 	}{
 		{
 			name:     "Previously captured tabular data should be synced at start up.",
@@ -619,6 +621,8 @@ type mockDataSyncServiceServer struct {
 	dataCaptureUploadRequests *[]*v1.DataCaptureUploadRequest
 	fileUploadRequests        *[]*v1.FileUploadRequest
 	lock                      *sync.Mutex
+	failAt                    *atomic.Int32
+	callCount                 *atomic.Int32
 	v1.UnimplementedDataSyncServiceServer
 }
 
@@ -629,9 +633,13 @@ func (m *mockDataSyncServiceServer) getCaptureUploadRequests() []*v1.DataCapture
 }
 
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
+	defer m.callCount.Add(1)
 	(*m.lock).Lock()
 	*m.dataCaptureUploadRequests = append(*m.dataCaptureUploadRequests, ur)
 	(*m.lock).Unlock()
+	if m.failAt.Load() == m.callCount.Load() {
+		return nil, errors.New("oh no error!!")
+	}
 	// TODO: will likely need to make this optionally return errors for testing error cases
 	return &v1.DataCaptureUploadResponse{
 		Code:    200,
@@ -652,6 +660,8 @@ func buildAndStartLocalSyncServer(t *testing.T) (rpc.Server, *mockDataSyncServic
 		dataCaptureUploadRequests:          &[]*v1.DataCaptureUploadRequest{},
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+		failAt:                             &atomic.Int32{},
+		callCount:                          &atomic.Int32{},
 	}
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
