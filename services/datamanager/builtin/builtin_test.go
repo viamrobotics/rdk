@@ -1,9 +1,11 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
+	"image/png"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -25,7 +27,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -78,6 +80,21 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
 	}
 	rs[arm.Named(armKey)] = injectedArm
+
+	injectedCam := &inject.Camera{}
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	var imgBuf bytes.Buffer
+	png.Encode(&imgBuf, img)
+	imgPng, _ := png.Decode(bytes.NewReader(imgBuf.Bytes()))
+	injectedCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(
+			gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+				return imgPng, func() {}, nil
+			}),
+		), nil
+	}
+	rs[camera.Named("c1")] = injectedCam
+
 	r.MockResourcesFromMap(rs)
 	return r
 }
@@ -135,7 +152,7 @@ func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal
 func setupConfig(t *testing.T, relativePath string) *config.Config {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
+	testCfg, err := config.Read(context.Background(), rdkutils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
 	return testCfg

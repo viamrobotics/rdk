@@ -138,7 +138,7 @@ TEST SETUP:
 
 - Variations? Maybe one for binary and one for tabular
 */
-func TestResumesSyncing(t *testing.T) {
+func TestResumableUpload(t *testing.T) {
 	tests := []struct {
 		name     string
 		dataType v1.DataType
@@ -148,7 +148,7 @@ func TestResumesSyncing(t *testing.T) {
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		},
 		{
-			name:     "Previously captured tabular data should be synced at start up.",
+			name:     "Previously captured binary data should be synced at start up.",
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		// TODO: test that no duplicates when sync fails after N calls
@@ -166,6 +166,7 @@ func TestResumesSyncing(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t)
+			fmt.Sprintf("%v", mockService.lock)
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -202,6 +203,7 @@ func TestResumesSyncing(t *testing.T) {
 			// Get all written data.
 			capturedData, err := getAllReadings(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 
 			// Now turn back on with only sync enabled.
 			newDMSvc := newTestDataManager(t, "arm1", "")
@@ -211,7 +213,7 @@ func TestResumesSyncing(t *testing.T) {
 			err = newDMSvc.Update(context.Background(), cfg)
 			fmt.Println("successfully updated to sync")
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond * 1200)
+			time.Sleep(time.Millisecond * 100)
 			err = newDMSvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			fmt.Println("successfully closed")
