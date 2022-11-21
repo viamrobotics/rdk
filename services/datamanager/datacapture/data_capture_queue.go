@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -56,14 +57,13 @@ func (d *Queue) Push(item *v1.SensorData) error {
 	} else if d.nextFile.Size() > maxSize || item.GetBinary() != nil {
 		fmt.Println("item was binary")
 		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
-		if err := d.nextFile.Sync(); err != nil {
+		if err := d.sync(); err != nil {
 			return err
 		}
 		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
 			return err
 		}
-		d.files = append(d.files, d.nextFile)
 		d.nextFile = nextFile
 	}
 
@@ -75,18 +75,15 @@ func (d *Queue) Pop() *File {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
+	// Always push nextFile to queue on Pop.
+	if err := d.sync(); err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
 	// If files queue is empty, return next file.
 	if len(d.files) == 0 {
-		if d.nextFile != nil {
-			if err := d.nextFile.Sync(); err != nil {
-				fmt.Println("error syncing file during p[")
-				return nil
-			}
-			d.files = append(d.files, d.nextFile)
-			d.nextFile = nil
-		} else {
-			return nil
-		}
+		return nil
 	}
 
 	// else, return the next file in the queue, and update the queue
@@ -120,16 +117,26 @@ func (d *Queue) IsClosed() bool {
 	return d.closed
 }
 
-func (d *Queue) Sync() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+func (d *Queue) sync() error {
 	if d.nextFile == nil {
 		return nil
 	}
 	if err := d.nextFile.Sync(); err != nil {
 		return err
 	}
-	d.files = append(d.files, d.nextFile)
+	if err := d.nextFile.Close(); err != nil {
+		return err
+	}
+
+	f, err := os.Open(d.nextFile.file.Name())
+	if err != nil {
+		return err
+	}
+	endOfQueue, err := ReadFile(f)
+	if err != nil {
+		return err
+	}
+	d.files = append(d.files, endOfQueue)
 	d.nextFile = nil
 	return nil
 }
