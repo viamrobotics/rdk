@@ -118,6 +118,9 @@ func (s *syncer) Close() {
 func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
 	fmt.Println("entering SyncCaptureQueues")
 	for _, q := range queues {
+		if q == nil {
+			fmt.Println("damn this q is nil")
+		}
 		s.syncQueue(s.cancelCtx, q)
 	}
 	fmt.Println("exiting sync")
@@ -134,12 +137,22 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 			case <-ctx.Done():
 				return
 			default:
-				next := q.Pop()
-				// We've emptied queue. return.
-				if q.IsClosed() && next == nil {
+				next, err := q.Pop()
+				if errors.Is(err, datacapture.ErrQueueClosed) {
 					fmt.Println("closed and next is nil")
 					return
 				}
+
+				// TODO: handle other error
+				if err != nil {
+					fmt.Println(err)
+				}
+
+				////// We've emptied queue. return.
+				//if q.IsClosed() && next == nil {
+				//	fmt.Println("closed and next is nil")
+				//	return
+				//}
 
 				if next == nil {
 					// TODO: better way to wait than just sleep?

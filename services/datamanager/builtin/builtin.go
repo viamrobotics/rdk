@@ -409,6 +409,9 @@ func (svc *builtIn) syncDataCaptureFiles() {
 	defer svc.lock.Unlock()
 	queues := make([]*datacapture.Queue, len(svc.collectors))
 	for _, collector := range svc.collectors {
+		if collector.Collector.GetTarget() == nil {
+			fmt.Println("collector with empty target in syncDataCaptureFiles")
+		}
 		queues = append(queues, collector.Collector.GetTarget())
 	}
 	svc.syncer.SyncCaptureQueues(queues)
@@ -539,7 +542,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		fmt.Println("sync sure is not disabled")
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-		svc.lock.Unlock()
+		defer svc.lock.Unlock()
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
@@ -548,6 +551,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		fmt.Println("done syncing previously captured")
 		queues := make([]*datacapture.Queue, len(svc.collectors))
 		for _, c := range svc.collectors {
+			if c.Collector.GetTarget() == nil {
+				fmt.Println("collector with nil target in Update")
+			}
 			queues = append(queues, c.Collector.GetTarget())
 		}
 		svc.syncer.SyncCaptureQueues(queues)

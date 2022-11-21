@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"io/fs"
 	"os"
@@ -204,6 +205,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 
 	// Verify that after close is called, the collector is no longer writing.
 	err = dmsvc.Close(context.Background())
+	fmt.Println("Closed")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
