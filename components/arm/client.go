@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var errArmClientModelNotValid = errors.New("arm client has incorrectly configured model and could not complete the operation")
+var errArmClientModelNotValid = errors.New("unable to retrieve a valid arm model from arm client")
 
 // client implements ArmServiceClient.
 type client struct {
