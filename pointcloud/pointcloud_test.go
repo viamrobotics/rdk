@@ -166,3 +166,107 @@ func TestPointCloudMatrix(t *testing.T) {
 	})
 	test.That(t, mcv, test.ShouldResemble, mat.NewDense(1, 7, []float64{1, 2, 3, 123, 45, 67, 5}))
 }
+
+func TestPointCloudSerialization(t *testing.T) {
+	t.Run("Pointcloud serialization of data with no data", func(t *testing.T) {
+		pc := New()
+
+		var dataBytes []byte
+		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			data, err := d.MarshalBinary()
+			if err != nil {
+				return false
+			}
+			dataBytes = append(dataBytes, data...)
+			return true
+		})
+
+		test.That(t, len(dataBytes), test.ShouldEqual, 1*pc.Size())
+
+		dResult := NewBasicData()
+		err := dResult.UnmarshalBinary(dataBytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dResult.HasValue(), test.ShouldBeFalse)
+		test.That(t, dResult.HasColor(), test.ShouldBeFalse)
+	})
+
+	t.Run("Pointcloud serialization of data with only value", func(t *testing.T) {
+		pc := New()
+		p := NewVector(1, 2, 3)
+		d := NewValueData(1)
+		test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+		var dataBytes []byte
+		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			data, err := d.MarshalBinary()
+			if err != nil {
+				return false
+			}
+			dataBytes = append(dataBytes, data...)
+			return true
+		})
+
+		test.That(t, len(dataBytes), test.ShouldEqual, 1*pc.Size())
+
+		dResult := NewBasicData()
+		err := dResult.UnmarshalBinary(dataBytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dResult.HasValue(), test.ShouldBeTrue)
+		test.That(t, dResult.HasColor(), test.ShouldBeFalse)
+		test.That(t, dResult.Value(), test.ShouldEqual, d.Value())
+	})
+
+	t.Run("Pointcloud serialization of data with just color", func(t *testing.T) {
+		pc := New()
+		p := NewVector(1, 6, 3)
+		d := NewColoredData(color.NRGBA{R: 200, G: 7, B: 255, A: 100})
+		test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+		var dataBytes []byte
+		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			data, err := d.MarshalBinary()
+			if err != nil {
+				return false
+			}
+			dataBytes = append(dataBytes, data...)
+			return true
+		})
+
+		test.That(t, len(dataBytes), test.ShouldEqual, 4*pc.Size())
+
+		dResult := NewBasicData()
+		err := dResult.UnmarshalBinary(dataBytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dResult.HasValue(), test.ShouldBeFalse)
+		test.That(t, dResult.HasColor(), test.ShouldBeTrue)
+		test.That(t, dResult.Color(), test.ShouldResemble, d.Color())
+	})
+
+	t.Run("Pointcloud serialization of data with value and color", func(t *testing.T) {
+		pc := New()
+		p := NewVector(1, 6, 3)
+		d := NewValueData(2)
+		d.SetColor(color.NRGBA{R: 200, G: 7, B: 255, A: 100})
+		test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+		var dataBytes []byte
+		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			data, err := d.MarshalBinary()
+			if err != nil {
+				return false
+			}
+			dataBytes = append(dataBytes, data...)
+			return true
+		})
+
+		test.That(t, len(dataBytes), test.ShouldEqual, 5*pc.Size())
+
+		dResult := NewBasicData()
+		err := dResult.UnmarshalBinary(dataBytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dResult.HasValue(), test.ShouldBeTrue)
+		test.That(t, dResult.Value(), test.ShouldEqual, d.Value())
+		test.That(t, dResult.HasColor(), test.ShouldBeTrue)
+		test.That(t, dResult.Color(), test.ShouldResemble, d.Color())
+	})
+}

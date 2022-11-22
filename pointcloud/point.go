@@ -1,9 +1,11 @@
 package pointcloud
 
 import (
+	"encoding"
 	"image/color"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 // NewVector convenience method for creating a vector.
@@ -62,11 +64,11 @@ type Data interface {
 	// Note(erd): we should try to remove this in favor of immutability.
 	SetValue(v int) Data
 
-	// Intensity returns the intensity value, or 0 if it doesn't exist
-	Intensity() uint16
+	// BinaryMarshaler allows the marshaling of Data into a list of bytes.
+	encoding.BinaryMarshaler
 
-	// SetIntensity sets the intensity on the point.
-	SetIntensity(v uint16) Data
+	// BinaryUnmarshaler allows the unmarshaling of a list of bytes in Data.
+	encoding.BinaryUnmarshaler
 }
 
 type basicData struct {
@@ -75,8 +77,6 @@ type basicData struct {
 
 	hasValue bool
 	value    int
-
-	intensity uint16
 }
 
 // NewBasicData returns a point that is solely positionally based.
@@ -126,11 +126,39 @@ func (bp *basicData) Value() int {
 	return bp.value
 }
 
-func (bp *basicData) SetIntensity(v uint16) Data {
-	bp.intensity = v
-	return bp
+// MarshalBinary checks for the presence of color and value data. If present, it will store said data in an order byte
+// array.
+func (bp *basicData) MarshalBinary() (data []byte, err error) {
+	var dataBytes []byte
+
+	if bp.HasColor() {
+		c := color.NRGBAModel.Convert(bp.Color()).(color.NRGBA)
+
+		dataBytes = append(dataBytes, c.R)
+		dataBytes = append(dataBytes, c.G)
+		dataBytes = append(dataBytes, c.B)
+		dataBytes = append(dataBytes, c.A)
+	}
+	if bp.HasValue() {
+		dataBytes = append(dataBytes, byte(bp.Value()))
+	}
+	return dataBytes, nil
 }
 
-func (bp *basicData) Intensity() uint16 {
-	return bp.intensity
+// UnmarshalBinary takes in a bytes array and checking the length and setting the color and values appropriately.
+func (bp *basicData) UnmarshalBinary(dataBytes []byte) error {
+	switch len(dataBytes) {
+	case 5:
+		bp.SetColor(color.NRGBA{R: dataBytes[0], G: dataBytes[1], B: dataBytes[2], A: dataBytes[3]})
+		bp.SetValue(int(dataBytes[4]))
+	case 4:
+		bp.SetColor(color.NRGBA{R: dataBytes[0], G: dataBytes[1], B: dataBytes[2], A: dataBytes[3]})
+	case 1:
+		bp.SetValue(int(dataBytes[0]))
+	case 0:
+	// Invalid data packet size
+	default:
+		return errors.Errorf("error unmarshaling data invalid packet size (%d)", len(dataBytes))
+	}
+	return nil
 }
