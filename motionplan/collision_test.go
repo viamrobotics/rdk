@@ -120,6 +120,6 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG, true)
 	test.That(t, err, test.ShouldBeNil)
-	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}}
+	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 41.6}, {"xArm6:wrist_link", "xArm6:upper_arm", 48.1}}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 }

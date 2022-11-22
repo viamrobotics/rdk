@@ -178,9 +178,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 
 		// if we got more solutions, add them
-		if _, ok := rrt.rm.goalMap[solution]; !ok {
-			rrt.rm.goalMap[solution] = nil
-		}
+		rrt.rm.goalMap[solution] = nil
 	}
 	rrt.rm.startMap[&basicNode{q: seed}] = nil
 
@@ -203,10 +201,13 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
+	
+	mp.logger.Debugf("running CBiRRT with start map of size %d and goal map of size %d", len(rrt.rm.startMap), len(rrt.rm.goalMap))
 
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
+			mp.logger.Debugf("CBiRRT timed out after %d iterations", i)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
 			return
 		default:
@@ -246,6 +247,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Solved!
 		if reachedDelta <= algOpts.JointSolveDist {
+			mp.logger.Debugf("CBiRRT found solution after %d iterations, beginnning smoothing", i)
 			cancel()
 			path := extractPath(rrt.rm.startMap, rrt.rm.goalMap, &nodePair{map1reached, map2reached})
 			if rrt.endpointPreview != nil {
@@ -428,7 +430,8 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
 		select {
 		case <-ctx.Done():
-			return nil
+			mp.logger.Debug("CBiRRT timed out during smoothing, returning best path")
+			return inputSteps
 		default:
 		}
 		// Pick two random non-adjacent indices, excepting the ends
