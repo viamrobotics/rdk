@@ -8,14 +8,20 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
-// NewServer returns a new lightweight (module use) rpc.Server.
-func NewServer() rpc.Server {
-	s := &Server{server: googlegrpc.NewServer()}
+
+
+// NewServer returns a new (module specific) rpc.Server.
+func NewServer(opManager *operation.Manager) rpc.Server {
+	s := &Server{server: googlegrpc.NewServer(
+		googlegrpc.UnaryInterceptor(opManager.UnaryServerInterceptor),
+		googlegrpc.StreamInterceptor(opManager.StreamServerInterceptor),
+	)}
 	reflection.Register(s.server)
 	return s
 }

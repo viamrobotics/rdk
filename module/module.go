@@ -21,6 +21,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -97,6 +98,7 @@ type Module struct {
 	server                  rpc.Server
 	logger                  *zap.SugaredLogger
 	mu                      sync.Mutex
+	operations              *operation.Manager
 	ready                   bool
 	addr                    string
 	parentAddr              string
@@ -108,10 +110,12 @@ type Module struct {
 
 // NewModule returns the basic module framework/structure.
 func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
+	opMgr := operation.NewManager(logger)
 	m := &Module{
 		logger:   logger,
 		addr:     address,
-		server:   NewServer(),
+		operations: opMgr,
+		server:   NewServer(opMgr),
 		ready:    true,
 		handlers: HandlerMap{},
 		services: map[resource.Subtype]subtype.Service{},
@@ -398,6 +402,11 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 	defer m.mu.Unlock()
 	m.handlers[rpcST] = append(m.handlers[rpcST], model)
 	return nil
+}
+
+// OperationManager returns the operation manager for the module.
+func (m *Module) OperationManager() *operation.Manager {
+	return m.operations
 }
 
 // CheckSocketOwner verifies that UID of a filepath/socket matches the current process's UID.

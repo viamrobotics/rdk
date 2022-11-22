@@ -21,6 +21,7 @@ import (
 	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
 	modif "go.viam.com/rdk/module/modmanager/modmaninterface"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -124,6 +125,8 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
+		grpc.WithUnaryInterceptor(operation.UnaryClientInterceptor),
+		grpc.WithStreamInterceptor(operation.StreamClientInterceptor),
 	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")

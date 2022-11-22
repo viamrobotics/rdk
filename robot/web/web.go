@@ -44,6 +44,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -323,7 +324,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		return errors.WithMessage(err, "failed to listen")
 	}
 
-	svc.modServer = module.NewServer()
+	svc.modServer = module.NewServer(operation.NewManager(svc.logger))
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
