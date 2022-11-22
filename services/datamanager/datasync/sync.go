@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -130,19 +131,15 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 				return
 			default:
 				next, err := q.Pop()
-				if errors.Is(err, datacapture.ErrQueueClosed) {
+				if next == nil && q.IsClosed() {
 					return
 				}
 
 				// TODO: handle other error
 				if err != nil {
+					s.logger.Error(err)
+					return
 				}
-
-				////// We've emptied queue. return.
-				// if q.IsClosed() && next == nil {
-				//	fmt.Println("closed and next is nil")
-				//	return
-				//}
 
 				if next == nil {
 					// TODO: better way to wait than just sleep?
@@ -157,12 +154,16 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 					},
 					s.logger,
 				)
+				fmt.Println("exponential retry returned")
 				if uploadErr != nil {
+					fmt.Println("got upload err")
 					s.logger.Error(uploadErr)
 					return
 				}
+				fmt.Println("reached delete")
 				if err := next.Delete(); err != nil {
 					s.logger.Error(err)
+					return
 				}
 			}
 		}
@@ -200,8 +201,13 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 				},
 				s.logger,
 			)
+			fmt.Println("exponential retry returned")
 			if uploadErr != nil {
 				s.logger.Error(uploadErr)
+				return
+			}
+			if err := captureFile.Delete(); err != nil {
+				s.logger.Error(err)
 				return
 			}
 		}

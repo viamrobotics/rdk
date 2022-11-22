@@ -180,8 +180,9 @@ func TestResumableUpload(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t)
-			// MaxSize of 150 => Should be ~2 readings per file/UR
-			datacapture.MaxSize = 150
+			datacapture.MaxFileSize = 150
+			// MaxFileSize of 150 => Should be 2 tabular readings per file/UR
+			sensorDataPerUploadRequest := 2.0
 			failAt := &atomic.Int32{}
 			failAt.Add(tc.serviceFailAt)
 			mockService.failAt = failAt
@@ -220,7 +221,7 @@ func TestResumableUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all written data.
-			capturedData, err := getAllReadings(tmpDir)
+			capturedData, err := getCapturedData(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 
@@ -240,28 +241,16 @@ func TestResumableUpload(t *testing.T) {
 
 			urs := mockService.getCaptureUploadRequests()
 			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-				test.That(t, len(urs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/2.0))
+				test.That(t, len(urs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/sensorDataPerUploadRequest))
 			} else {
 				test.That(t, len(urs), test.ShouldEqual, len(capturedData))
 			}
 
-			var syncedData []*v1.SensorData
-			for _, ur := range mockService.getCaptureUploadRequests() {
-				sd := ur.GetSensorContents()
-				syncedData = append(syncedData, sd...)
-			}
-			test.That(t, len(syncedData), test.ShouldEqual, len(capturedData))
-			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-				for i, _ := range syncedData {
-					test.That(t, syncedData[i].GetStruct(), test.ShouldResemble, capturedData[i].GetStruct())
-					test.That(t, syncedData[i].GetMetadata(), test.ShouldResemble, capturedData[i].GetMetadata())
-				}
-			} else {
-				for i, _ := range syncedData {
-					test.That(t, syncedData[i].GetBinary(), test.ShouldResemble, capturedData[i].GetBinary())
-					test.That(t, syncedData[i].GetMetadata(), test.ShouldResemble, capturedData[i].GetMetadata())
-				}
-			}
+			syncedData := getUploadedData(urs)
+			compareSensorData(t, tc.dataType, syncedData, capturedData)
+
+			// After all uploads succeed, their files should be deleted.
+			test.That(t, len(getAllFiles(tmpDir)), test.ShouldEqual, 0)
 		})
 	}
 }
@@ -269,11 +258,32 @@ func TestResumableUpload(t *testing.T) {
 // TODO: ensure that when syncs fail, files are not deleted. Ensure that when syncs fail transiently, they get retried.
 //
 //	succeed. Ensure that when things repeatedly fail, Close is still respected.
-func TestRetries(t *testing.T) {
+func TestRetriesUploads(t *testing.T) {
+	tests := []struct {
+		name     string
+		dataType v1.DataType
+		numFails int32
+	}{
+		{
+			name:     "If transient errors occur during tabular upload, they should be retried until they succeed.",
+			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			numFails: 2,
+		},
+		{
+			name:     "If transient errors occur during binary upload, they should be retried until they succeed.",
+			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			numFails: 2,
+		},
+	}
 
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+
+		})
+	}
 }
 
-func getAllReadings(dir string) ([]*v1.SensorData, error) {
+func getCapturedData(dir string) ([]*v1.SensorData, error) {
 	var allFiles []*datacapture.File
 	var filePaths []string
 
@@ -314,6 +324,35 @@ func getAllReadings(dir string) ([]*v1.SensorData, error) {
 		}
 	}
 	return ret, nil
+}
+
+func getUploadedData(urs []*v1.DataCaptureUploadRequest) []*v1.SensorData {
+	var syncedData []*v1.SensorData
+	for _, ur := range urs {
+		sd := ur.GetSensorContents()
+		syncedData = append(syncedData, sd...)
+	}
+	return syncedData
+}
+
+func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData, exp []*v1.SensorData) {
+	t.Helper()
+	if len(act) == 0 && len(exp) == 0 {
+		return
+	}
+
+	test.That(t, len(act), test.ShouldEqual, len(exp))
+	if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+		for i := range act {
+			test.That(t, act[i].GetStruct(), test.ShouldResemble, exp[i].GetStruct())
+			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+		}
+	} else {
+		for i := range act {
+			test.That(t, act[i].GetBinary(), test.ShouldResemble, exp[i].GetBinary())
+			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+		}
+	}
 }
 
 // TODO: combine manual, "scheduled", manualandscheduled into single table driven test suite
@@ -636,6 +675,8 @@ type mockDataSyncServiceServer struct {
 	fileUploadRequests        *[]*v1.FileUploadRequest
 	lock                      *sync.Mutex
 	failAt                    *atomic.Int32
+	failFor                   *atomic.Int32
+	failCount                 *atomic.Int32
 	callCount                 *atomic.Int32
 	v1.UnimplementedDataSyncServiceServer
 }
@@ -651,7 +692,13 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 	(*m.lock).Lock()
 	*m.dataCaptureUploadRequests = append(*m.dataCaptureUploadRequests, ur)
 	(*m.lock).Unlock()
-	if m.failAt.Load() != 0 && m.failAt.Load() == m.callCount.Load() {
+	if m.failAt.Load() != 0 && m.callCount.Load() >= m.failAt.Load() {
+		m.failCount.Add(1)
+		return nil, errors.New("oh no error!!")
+	}
+
+	if m.failFor.Load() != 0 && m.failCount.Load() >= m.failFor.Load() {
+		m.failCount.Add(1)
 		return nil, errors.New("oh no error!!")
 	}
 	// TODO: will likely need to make this optionally return errors for testing error cases
@@ -676,6 +723,7 @@ func buildAndStartLocalSyncServer(t *testing.T) (rpc.Server, *mockDataSyncServic
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 		failAt:                             &atomic.Int32{},
 		callCount:                          &atomic.Int32{},
+		failFor:                            &atomic.Int32{},
 	}
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),

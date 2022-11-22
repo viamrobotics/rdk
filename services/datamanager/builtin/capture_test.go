@@ -79,47 +79,42 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up server.
-			tmpDir, err := os.MkdirTemp("", "")
+			// Set up capture directories.
+			initCaptureDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
-				err := os.RemoveAll(tmpDir)
+				err := os.RemoveAll(initCaptureDir)
 				test.That(t, err, test.ShouldBeNil)
 			}()
-			rpcServer, _ := buildAndStartLocalSyncServer(t)
+			updatedCaptureDir, err := os.MkdirTemp("", "")
+			test.That(t, err, test.ShouldBeNil)
 			defer func() {
-				err := rpcServer.Stop()
+				err := os.RemoveAll(updatedCaptureDir)
 				test.That(t, err, test.ShouldBeNil)
 			}()
 
-			// Set up data manager.
-			dmsvc := newTestDataManager(t)
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-
-			var initialConfig *config.Config
+			// Set up robot config.
+			var initConfig *config.Config
 			if tc.initialCollectorDisableStatus {
-				initialConfig = setupConfig(t, disabledTabularCollectorConfigPath)
+				initConfig = setupConfig(t, disabledTabularCollectorConfigPath)
 			} else {
-				initialConfig = setupConfig(t, enabledTabularCollectorConfigPath)
+				initConfig = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
 			// Set up service config.
-			originalSvcConfig, ok1, err := getServiceConfig(initialConfig)
+			initSvcConfig, ok1, err := getServiceConfig(initConfig)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok1, test.ShouldBeTrue)
-			originalSvcConfig.CaptureDisabled = tc.initialServiceDisableStatus
-			originalSvcConfig.ScheduledSyncDisabled = true
-			originalSvcConfig.CaptureDir = tmpDir
+			initSvcConfig.CaptureDisabled = tc.initialServiceDisableStatus
+			initSvcConfig.ScheduledSyncDisabled = true
+			initSvcConfig.CaptureDir = initCaptureDir
 
-			// TODO: Figure out how to edit component configs such that the changes are actually reflected in the
-			//       original config.
-
-			err = dmsvc.Update(context.Background(), initialConfig)
-
-			// Let run for a second, then change status.
+			// Build and start data manager.
+			dmsvc := newTestDataManager(t)
+			err = dmsvc.Update(context.Background(), initConfig)
 			time.Sleep(captureTime)
 
-			// Set up service config.
+			// Set up updated robot config.
 			var updatedConfig *config.Config
 			if tc.newCollectorDisableStatus {
 				updatedConfig = setupConfig(t, disabledTabularCollectorConfigPath)
@@ -127,16 +122,21 @@ func TestDataCaptureEnabled(t *testing.T) {
 				updatedConfig = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
+			// Set up updated service config.
 			updatedServiceConfig, ok, err := getServiceConfig(updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok, test.ShouldBeTrue)
 			updatedServiceConfig.CaptureDisabled = tc.newServiceDisableStatus
 			updatedServiceConfig.ScheduledSyncDisabled = true
-			updatedServiceConfig.CaptureDir = tmpDir
-			err = dmsvc.Update(context.Background(), updatedConfig)
+			updatedServiceConfig.CaptureDir = updatedCaptureDir
 
-			// Check if data has been captured (or not) as we'd expect.
-			initialCaptureFiles := getAllFiles(tmpDir)
+			// Update to new config and let it run for a bit.
+			err = dmsvc.Update(context.Background(), updatedConfig)
+			test.That(t, err, test.ShouldBeNil)
+			time.Sleep(captureTime)
+
+			// Check if initial config captured (or not) as we'd expect.
+			initialCaptureFiles := getAllFiles(initCaptureDir)
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				// TODO: check contents
 				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
@@ -144,15 +144,13 @@ func TestDataCaptureEnabled(t *testing.T) {
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
 
-			// Let run for a second.
-			time.Sleep(captureTime)
-			// Check if data has been captured (or not) as we'd expect.
-			updatedCaptureFiles := getAllFiles(tmpDir)
+			// Check if updated config captured (or not) as we'd expect.
+			updatedCaptureFiles := getAllFiles(updatedCaptureDir)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				//TODO: check contents
-				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
+				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, 0)
 			} else {
-				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})

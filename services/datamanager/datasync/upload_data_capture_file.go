@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -12,9 +13,14 @@ import (
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
 	// Send metadata syncQueue request.
+	fmt.Println("starting data capture upload")
+	defer func() {
+		fmt.Println("finished data capture")
+	}()
 	md := f.ReadMetadata()
 	sensorData, err := getAllSensorData(f)
 	if err != nil {
+		fmt.Println("failed to get all sensor data")
 		return err
 	}
 
@@ -34,10 +40,12 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 	resp, err := client.DataCaptureUpload(ctx, ur)
 	if err != nil {
+		fmt.Println("got error during data capture upload")
 		return err
 	}
 	// TODO: real code handling
 	if resp.GetCode() != 200 {
+		fmt.Println("got non-200 during data capture upload")
 		return errors.New("error making syncQueue request: " + resp.GetMessage())
 	}
 	return nil
