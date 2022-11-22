@@ -40,8 +40,9 @@ type File struct {
 	size     int64
 	metadata *v1.DataCaptureMetadata
 
-	readOffset  int64
-	writeOffset int64
+	initialReadOffset int64
+	readOffset        int64
+	writeOffset       int64
 }
 
 // ReadFile creates a File struct from a passed os.File previously constructed using NewFile.
@@ -61,14 +62,15 @@ func ReadFile(f *os.File) (*File, error) {
 	}
 
 	ret := File{
-		path:        f.Name(),
-		lock:        &sync.Mutex{},
-		file:        f,
-		writer:      bufio.NewWriter(f),
-		size:        finfo.Size(),
-		metadata:    md,
-		readOffset:  int64(initOffset),
-		writeOffset: int64(initOffset),
+		path:              f.Name(),
+		lock:              &sync.Mutex{},
+		file:              f,
+		writer:            bufio.NewWriter(f),
+		size:              finfo.Size(),
+		metadata:          md,
+		initialReadOffset: int64(initOffset),
+		readOffset:        int64(initOffset),
+		writeOffset:       int64(initOffset),
 	}
 
 	return &ret, nil
@@ -153,6 +155,14 @@ func (f *File) Sync() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.writer.Flush()
+}
+
+// Reset resets the read pointer of f.
+func (f *File) Reset() {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.readOffset = f.initialReadOffset
+	return
 }
 
 // Size returns the size of the file.

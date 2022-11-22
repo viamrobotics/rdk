@@ -171,16 +171,17 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 }
 
 func (s *syncer) SyncCaptureFiles(paths []string) {
-	s.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer s.backgroundWorkers.Done()
-		for _, p := range paths {
+	for _, p := range paths {
+		newP := p
+		s.backgroundWorkers.Add(1)
+		goutils.PanicCapturingGo(func() {
+			defer s.backgroundWorkers.Done()
 			select {
 			case <-s.cancelCtx.Done():
 				return
 			default:
 				//nolint:gosec
-				f, err := os.Open(p)
+				f, err := os.Open(newP)
 				if err != nil {
 					s.logger.Errorw("error opening file", "error", err)
 					return
@@ -204,6 +205,7 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 				)
 				fmt.Println("exponential retry returned")
 				if uploadErr != nil {
+					fmt.Println("got error during exponential retry")
 					s.logger.Error(uploadErr)
 					err := f.Close()
 					if err != nil {
@@ -220,9 +222,63 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 					return
 				}
 			}
-		}
-	})
+		})
+	}
 }
+
+//	s.backgroundWorkers.Add(1)
+//	goutils.PanicCapturingGo(func() {
+//		defer s.backgroundWorkers.Done()
+//		for _, p := range paths {
+//			select {
+//			case <-s.cancelCtx.Done():
+//				return
+//			default:
+//				//nolint:gosec
+//				f, err := os.Open(p)
+//				if err != nil {
+//					s.logger.Errorw("error opening file", "error", err)
+//					return
+//				}
+//
+//				captureFile, err := datacapture.ReadFile(f)
+//				if err != nil {
+//					s.logger.Error(err)
+//					err := f.Close()
+//					if err != nil {
+//						s.logger.Errorw("error closing file", "error", err)
+//					}
+//					return
+//				}
+//				uploadErr := exponentialRetry(
+//					s.cancelCtx,
+//					func(ctx context.Context) error {
+//						return s.syncFile(ctx, s.client, captureFile, s.partID)
+//					},
+//					s.logger,
+//				)
+//				fmt.Println("exponential retry returned")
+//				if uploadErr != nil {
+//					fmt.Println("got error during exponential retry")
+//					s.logger.Error(uploadErr)
+//					err := f.Close()
+//					if err != nil {
+//						s.logger.Errorw("error closing file", "error", err)
+//					}
+//					return
+//				}
+//				if err := captureFile.Delete(); err != nil {
+//					s.logger.Error(err)
+//					err := f.Close()
+//					if err != nil {
+//						s.logger.Errorw("error closing file", "error", err)
+//					}
+//					return
+//				}
+//			}
+//		}
+//	})
+//}
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
