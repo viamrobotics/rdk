@@ -83,7 +83,7 @@ func TestServer(t *testing.T) {
 			return discoveries, nil
 		}
 		req := &pb.DiscoverComponentsRequest{
-			Queries: []*pb.DiscoveryQuery{{Subtype: q.Subtype.String(), Model: q.Model.String()}},
+			Queries: []*pb.DiscoveryQuery{{Subtype: q.API.String(), Model: q.Model.String()}},
 		}
 
 		resp, err := server.DiscoverComponents(context.Background(), req)

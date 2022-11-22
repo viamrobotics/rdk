@@ -112,13 +112,13 @@ type Module struct {
 func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
 	opMgr := operation.NewManager(logger)
 	m := &Module{
-		logger:   logger,
-		addr:     address,
+		logger:     logger,
+		addr:       address,
 		operations: opMgr,
-		server:   NewServer(opMgr),
-		ready:    true,
-		handlers: HandlerMap{},
-		services: map[resource.Subtype]subtype.Service{},
+		server:     NewServer(opMgr),
+		ready:      true,
+		handlers:   HandlerMap{},
+		services:   map[resource.Subtype]subtype.Service{},
 	}
 	err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m)
 	if err != nil {

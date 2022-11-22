@@ -694,7 +694,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 	for _, q := range qs {
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: q.Subtype.String(), Model: q.Model.String()},
+			&pb.DiscoveryQuery{Subtype: q.API.String(), Model: q.Model.String()},
 		)
 	}
 
@@ -714,8 +714,8 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 			return nil, err
 		}
 		q := discovery.Query{
-			Subtype: s,
-			Model:   m,
+			API:   s,
+			Model: m,
 		}
 		discoveries = append(
 			discoveries, discovery.Discovery{

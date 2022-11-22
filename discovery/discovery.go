@@ -9,17 +9,17 @@ import (
 )
 
 type (
-	// Query is a tuple of subtype name and model used to lookup discovery functions.
+	// Query is a tuple of subtype (api) and model used to lookup discovery functions.
 	Query struct {
-		Subtype resource.Subtype
-		Model   resource.Model
+		API   resource.Subtype
+		Model resource.Model
 	}
 
 	// Discover is a function that discovers component configurations.
 	Discover func(ctx context.Context) (interface{}, error)
 
 	// Discovery holds a Query and a corresponding discovered component configuration. A
-	// discovered component configuration can be comprised primitives, list of
+	// discovered component configuration can be comprised of primitives, a list of
 	// primitives, maps with string keys (or at least can be decomposed into one), or
 	// lists of the forementioned type of maps. Results with other types of data are not
 	// guaranteed.
@@ -35,7 +35,7 @@ type (
 )
 
 func (e *DiscoverError) Error() string {
-	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Query.Subtype, e.Query.Model)
+	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Query.API, e.Query.Model)
 }
 
 // NewQuery returns a discovery query for a given subtype and model.

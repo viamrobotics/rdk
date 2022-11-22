@@ -244,12 +244,12 @@ func DiscoveryFunctionLookup(q discovery.Query) (discovery.Discover, bool) {
 
 // RegisterDiscoveryFunction registers a discovery function for a given query.
 func RegisterDiscoveryFunction(q discovery.Query, discover discovery.Discover) {
-	_, ok := RegisteredResourceSubtypes()[q.Subtype]
+	_, ok := RegisteredResourceSubtypes()[q.API]
 	if !ok {
-		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.Subtype))
+		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.API))
 	}
 	if _, ok := discoveryFunctions[q]; ok {
-		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.Subtype, q.Model))
+		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.API, q.Model))
 	}
 	discoveryFunctions[q] = discover
 }

@@ -8,13 +8,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"go.viam.com/rdk/operation"
 )
-
-
 
 // NewServer returns a new (module specific) rpc.Server.
 func NewServer(opManager *operation.Manager) rpc.Server {

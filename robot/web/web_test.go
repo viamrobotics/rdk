@@ -811,11 +811,16 @@ func TestRawClientOperation(t *testing.T) {
 		return []robot.Status{}, nil
 	}
 
-	checkOpID := func(md metadata.MD) {
+	checkOpID := func(md metadata.MD, expected bool) {
 		t.Helper()
-		test.That(t, md["opid"], test.ShouldHaveLength, 1)
-		_, err = uuid.Parse(md["opid"][0])
-		test.That(t, err, test.ShouldBeNil)
+		if expected {
+			test.That(t, md["opid"], test.ShouldHaveLength, 1)
+			_, err = uuid.Parse(md["opid"][0])
+			test.That(t, err, test.ShouldBeNil)
+		} else {
+			// StreamStatus is in operations' list of filtered methods, so expect no opID.
+			test.That(t, md["opid"], test.ShouldHaveLength, 0)
+		}
 	}
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
@@ -825,13 +830,13 @@ func TestRawClientOperation(t *testing.T) {
 	var hdr metadata.MD
 	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(hdr)
+	checkOpID(hdr, true)
 
 	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	md, err := streamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md)
+	checkOpID(md, false)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
@@ -843,13 +848,13 @@ func TestRawClientOperation(t *testing.T) {
 	trailers := metadata.MD{} // won't do anything but helps test goutils
 	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(hdr)
+	checkOpID(hdr, true)
 
 	streamClient, err = client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	md, err = streamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md)
+	checkOpID(md, false)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)

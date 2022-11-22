@@ -781,7 +781,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 	for q := range deduped {
 		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
 		if !ok {
-			r.logger.Warnw("no discovery function registered", "subtype", q.Subtype, "model", q.Model)
+			r.logger.Warnw("no discovery function registered", "subtype", q.API, "model", q.Model)
 			continue
 		}
 

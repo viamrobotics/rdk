@@ -150,7 +150,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, err
 		}
-		queries = append(queries, discovery.Query{Subtype: s, Model: m})
+		queries = append(queries, discovery.Query{API: s, Model: m})
 	}
 
 	discoveries, err := s.r.DiscoverComponents(ctx, queries)
@@ -164,7 +164,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbQuery := &pb.DiscoveryQuery{Subtype: discovery.Query.Subtype.String(), Model: discovery.Query.Model.String()}
+		pbQuery := &pb.DiscoveryQuery{Subtype: discovery.Query.API.String(), Model: discovery.Query.Model.String()}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{
