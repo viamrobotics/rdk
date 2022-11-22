@@ -45,11 +45,7 @@ buf: buf-web
 
 buf-web: tool-install
 	npm ci --audit=false
-	# PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
-	# PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
-	# PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml ${BUF_TARGET}
 	npm ci --audit=false --prefix web/frontend
-	# cat web/frontend/scripts/rollup_files.txt | xargs -n1 -P32 npm run rollup --prefix web/frontend
 
 lint: lint-go lint-web
 	PATH=$(PATH_WITH_TOOLS) actionlint
