@@ -149,12 +149,11 @@ func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) re
 	}
 	cfgs := resp.GetFrameSystemConfigs()
 	for _, cfg := range cfgs {
-		part, err := config.ProtobufToFrameSystemPart(cfg)
-		if err != nil {
+		if cfg.GetName() == name {
+			if part, err := config.ProtobufToFrameSystemPart(cfg); err == nil {
+				return part.ModelFrame
+			}
 			return nil
-		}
-		if part.Name == name {
-			return part.ModelFrame
 		}
 	}
 	return nil
