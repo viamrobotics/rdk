@@ -96,7 +96,12 @@
         },
         {
             "name": "test_slam",
-            "type": "slam"
+            "type": "slam",
+            "attributes": {
+                "algorithm" : "test",
+                "data_dir": "path",
+                "config_params": {"mode" : "mode"}
+            }
         },
         {
             "name": "test_motion",

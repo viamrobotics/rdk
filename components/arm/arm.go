@@ -4,7 +4,6 @@ package arm
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -81,12 +80,12 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 	// EndPosition returns the current position of the arm.
-	EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
+	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, pose spatialmath.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one
@@ -186,7 +185,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
+	return &pb.Status{EndPosition: spatialmath.PoseToProtobuf(endPosition), JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 type reconfigurableArm struct {
@@ -206,7 +205,7 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.EndPosition(ctx, extra)
@@ -214,7 +213,7 @@ func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]in
 
 func (r *reconfigurableArm) MoveToPosition(
 	ctx context.Context,
-	pose *commonpb.Pose,
+	pose spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
@@ -345,43 +344,8 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: rArm}, nil
 }
 
-// NewPositionFromMetersAndOV returns a three-dimensional arm position
-// defined by a point in space in meters and an orientation defined as an OrientationVector.
-// See robot.proto for a math explanation.
-func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *commonpb.Pose {
-	return &commonpb.Pose{
-		X:     x * 1000,
-		Y:     y * 1000,
-		Z:     z * 1000,
-		OX:    ox,
-		OY:    oy,
-		OZ:    oz,
-		Theta: th,
-	}
-}
-
-// PositionGridDiff returns the euclidean distance between
-// two arm positions in millimeters.
-func PositionGridDiff(a, b *commonpb.Pose) float64 {
-	diff := utils.Square(a.X-b.X) +
-		utils.Square(a.Y-b.Y) +
-		utils.Square(a.Z-b.Z)
-
-	// Pythagorean theorum in 3d uses sqrt, not cube root
-	// https://www.mathsisfun.com/geometry/pythagoras-3d.html
-	return math.Sqrt(diff)
-}
-
-// PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions.
-func PositionRotationDiff(a, b *commonpb.Pose) float64 {
-	return utils.Square(a.Theta-b.Theta) +
-		utils.Square(a.OX-b.OX) +
-		utils.Square(a.OY-b.OY) +
-		utils.Square(a.OZ-b.OZ)
-}
-
 // Move is a helper function to abstract away movement for general arms.
-func Move(ctx context.Context, r robot.Robot, a Arm, dst *commonpb.Pose, worldState *commonpb.WorldState) error {
+func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *commonpb.WorldState) error {
 	solution, err := Plan(ctx, r, a, dst, worldState)
 	if err != nil {
 		return err
@@ -395,7 +359,7 @@ func Plan(
 	ctx context.Context,
 	r robot.Robot,
 	a Arm,
-	dst *commonpb.Pose,
+	dst spatialmath.Pose,
 	worldState *commonpb.WorldState,
 ) ([][]referenceframe.Input, error) {
 	// build the framesystem
@@ -404,7 +368,7 @@ func Plan(
 		return nil, err
 	}
 	armName := a.ModelFrame().Name()
-	destination := referenceframe.NewPoseInFrame(armName+"_origin", spatialmath.NewPoseFromProtobuf(dst))
+	destination := referenceframe.NewPoseInFrame(armName+"_origin", dst)
 
 	var solutionMap []map[string][]referenceframe.Input
 
@@ -422,7 +386,7 @@ func Plan(
 		if err != nil {
 			return nil, err
 		}
-		destination = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(dst))
+		destination = referenceframe.NewPoseInFrame(referenceframe.World, dst)
 	}
 
 	solutionMap, err = motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)

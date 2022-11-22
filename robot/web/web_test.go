@@ -10,10 +10,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -42,7 +43,7 @@ const arm1String = "arm1"
 
 var resources = []resource.Name{arm.Named(arm1String)}
 
-var pos = &commonpb.Pose{X: 1, Y: 2, Z: 3}
+var pos = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 
 func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -50,10 +51,12 @@ func TestWebStart(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	err := svc.Start(ctx, weboptions.New())
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), "localhost:8080", logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	arm1 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 
@@ -478,8 +481,8 @@ func TestWebUpdate(t *testing.T) {
 
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
-	newPos := &commonpb.Pose{X: 1, Y: 3, Z: 6}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	newPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 3, Z: 6})
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return newPos, nil
 	}
 	rs := map[resource.Name]interface{}{arm.Named(arm1String): injectArm}
@@ -535,8 +538,8 @@ func TestWebUpdate(t *testing.T) {
 	// add a second arm
 	arm2 := "arm2"
 	injectArm2 := &inject.Arm{}
-	pos2 := &commonpb.Pose{X: 2, Y: 3, Z: 4}
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 2, Y: 3, Z: 4})
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pos2, nil
 	}
 	rs[arm.Named(arm2)] = injectArm2
@@ -672,7 +675,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	t.Helper()
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pos, nil
 	}
 	injectRobot := &inject.Robot{}

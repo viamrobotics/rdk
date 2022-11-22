@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -49,10 +49,7 @@ func (s *subtypeServer) GetEndPosition(
 	if err != nil {
 		return nil, err
 	}
-	convertedPos := &commonpb.Pose{
-		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
-	}
-	return &pb.GetEndPositionResponse{Pose: convertedPos}, nil
+	return &pb.GetEndPositionResponse{Pose: spatialmath.PoseToProtobuf(pos)}, nil
 }
 
 // GetJointPositions gets the current joint position of an arm of the underlying robot.
@@ -79,7 +76,12 @@ func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.GetTo(), req.GetWorldState(), req.Extra.AsMap())
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(
+		ctx,
+		spatialmath.NewPoseFromProtobuf(req.GetTo()),
+		req.GetWorldState(),
+		req.Extra.AsMap(),
+	)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
