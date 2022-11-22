@@ -23,7 +23,7 @@ import (
 
 const modelName = "mpu6050"
 
-// AttrConfig is used to configure the attributes of the chip
+// AttrConfig is used to configure the attributes of the chip.
 type AttrConfig struct {
 	BoardName              string `json:"board"`
 	BusID                  string `json:"bus_id"`
@@ -67,13 +67,13 @@ func init() {
 }
 
 type mpu6050 struct {
-	bus board.I2C
+	bus        board.I2C
 	i2cAddress byte
 
-	mu sync.Mutex
+	mu     sync.Mutex
 	logger golog.Logger
 
-	generic.Unimplemented  // Implements DoCommand with an ErrUnimplemented response
+	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
 func NewMpu6050(
@@ -108,9 +108,9 @@ func NewMpu6050(
 	}
 
 	sensor := &mpu6050{
-		bus: bus,
+		bus:        bus,
 		i2cAddress: address,
-		logger: logger,
+		logger:     logger,
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 117 and get
@@ -137,55 +137,55 @@ func NewMpu6050(
 }
 
 func (mpu *mpu6050) readByte(ctx context.Context, register byte) (byte, error) {
-    result, err := mpu.readBlock(ctx, register, 1)
-    if err != nil {
-        return 0, err
-    }
-    return result[0], err
+	result, err := mpu.readBlock(ctx, register, 1)
+	if err != nil {
+		return 0, err
+	}
+	return result[0], err
 }
 
 func (mpu *mpu6050) readBlock(ctx context.Context, register byte, length uint8) ([]byte, error) {
-    handle, err := mpu.bus.OpenHandle(mpu.i2cAddress)
-    if err != nil {
-        return nil, err
-    }
-    defer func() {
-        err := handle.Close()
-        if err != nil {
-            mpu.logger.Error(err)
-        }
-    }()
+	handle, err := mpu.bus.OpenHandle(mpu.i2cAddress)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err := handle.Close()
+		if err != nil {
+			mpu.logger.Error(err)
+		}
+	}()
 
-    results, err := handle.ReadBlockData(ctx, register, length)
-    return results, err
+	results, err := handle.ReadBlockData(ctx, register, length)
+	return results, err
 }
 
 func (mpu *mpu6050) writeByte(ctx context.Context, register, value byte) error {
-    handle, err := mpu.bus.OpenHandle(mpu.i2cAddress)
-    if err != nil {
-        return err
-    }
-    defer func() {
-        err := handle.Close()
-        if err != nil {
-            mpu.logger.Error(err)
-        }
-    }()
+	handle, err := mpu.bus.OpenHandle(mpu.i2cAddress)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := handle.Close()
+		if err != nil {
+			mpu.logger.Error(err)
+		}
+	}()
 
-    return handle.WriteByteData(ctx, register, value)
+	return handle.WriteByteData(ctx, register, value)
 }
 
 // A helper function: takes 2 bytes and reinterprets them as a big-endian signed integer.
 func toSignedValue(data []byte) int {
-    return int(int16(binary.BigEndian.Uint16(data)))
+	return int(int16(binary.BigEndian.Uint16(data)))
 }
 
-// Given a value, scales it so that the range of int16s becomes the range of +/- maxValue
+// Given a value, scales it so that the range of int16s becomes the range of +/- maxValue.
 func setScale(value int, maxValue float64) float64 {
 	return float64(value) * maxValue / (1 << 15)
 }
 
-// A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity
+// A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity.
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 	gx := toSignedValue(data[0:2])
 	gy := toSignedValue(data[2:4])
@@ -199,7 +199,7 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 	}
 }
 
-// A helper function that takes 6 bytes and gives back linear acceleration
+// A helper function that takes 6 bytes and gives back linear acceleration.
 func toLinearAcceleration(data []byte) r3.Vector {
 	x := toSignedValue(data[0:2])
 	y := toSignedValue(data[2:4])
@@ -207,7 +207,7 @@ func toLinearAcceleration(data []byte) r3.Vector {
 
 	// The scale is +/- 2G's, but our units should be mm/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
-    return r3.Vector{
+	return r3.Vector{
 		X: setScale(x, maxAcceleration),
 		Y: setScale(y, maxAcceleration),
 		Z: setScale(z, maxAcceleration),
@@ -265,7 +265,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 
 	// Taken straight from the MPU6050 register map. Yes, these are weird constants.
 	temp := toSignedValue(rawData[6:8])
-	readings["temperature_celcius"] = float64(temp) / 340 + 36.53
+	readings["temperature_celcius"] = float64(temp)/340 + 36.53
 
 	readings["angular_velocity"] = toAngularVelocity(rawData[8:14])
 
@@ -283,7 +283,7 @@ func (mpu *mpu6050) Close(ctx context.Context) {
 	defer mpu.mu.Lock()
 
 	// Set the Sleep bit (bit 6) in the power control register (register 107).
-	err := mpu.writeByte(ctx, 107, 1 << 6)
+	err := mpu.writeByte(ctx, 107, 1<<6)
 	if err != nil {
 		mpu.logger.Error(err)
 	}
