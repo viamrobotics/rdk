@@ -156,7 +156,7 @@ func WriteToLASFile(cloud PointCloud, fn string) (err error) {
 		lp = pr0
 
 		if d != nil {
-			pr0.Intensity = d.Intensity()
+			pr0.Intensity = uint16(d.Value())
 		}
 
 		if meta.HasColor {
