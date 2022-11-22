@@ -208,6 +208,9 @@ func newCollisionGraph(
 				if err != nil {
 					return nil, err
 				}
+				if !depth && cg.adjacencies[i][j] > 0 {
+					return cg, nil
+				}
 			}
 		}
 	}
@@ -260,12 +263,23 @@ func NewCollisionSystemFromReference(
 		return nil, err
 	}
 	cs.graphs = append(cs.graphs, graph)
+	if !depth {
+		if len(cs.Collisions()) > 0 {
+			return cs, nil
+		}
+	}
+	
 	for i := range optional {
 		graph, err = newCollisionGraph(key, optional[i], reference, depth)
 		if err != nil {
 			return nil, err
 		}
 		cs.graphs = append(cs.graphs, graph)
+		if !depth {
+			if len(cs.Collisions()) > 0 {
+				return cs, nil
+			}
+		}
 	}
 	return cs, nil
 }

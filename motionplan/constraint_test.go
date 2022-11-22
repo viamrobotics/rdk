@@ -231,9 +231,10 @@ func BenchmarkCollisionConstraint(b *testing.B) {
 
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
+	var n int
 
 	// loop through cases and check constraint handler processes them correctly
-	for n := 0; n < b.N; n++ {
+	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
 		b1, _ = handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
 	}
