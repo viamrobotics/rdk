@@ -62,21 +62,21 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
-		Model: "file",
+		Model: "image_file",
 		Attributes: config.AttributeMap{
-			"color_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
-			"depth_file_path": "",
-			"aligned":         false,
+			"color_image_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
+			"depth_image_file_path": "",
+			"aligned":               false,
 		},
 	}
 	cameraComp2 := config.Component{
 		Name:  "fake_cam2",
 		Type:  camera.SubtypeName,
-		Model: "file",
+		Model: "image_file",
 		Attributes: config.AttributeMap{
-			"color_file_path": artifact.MustPath("vision/tflite/lion.jpeg"),
-			"depth_file_path": "",
-			"aligned":         false,
+			"color_image_file_path": artifact.MustPath("vision/tflite/lion.jpeg"),
+			"depth_image_file_path": "",
+			"aligned":               false,
 		},
 	}
 
