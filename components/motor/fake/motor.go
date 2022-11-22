@@ -21,7 +21,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "fake"
+const (
+	modelName     = "fake"
+	defaultMaxRpm = 100
+)
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -73,6 +76,11 @@ func init() {
 					}
 				}
 				m.MaxRPM = mcfg.MaxRPM
+
+				if m.MaxRPM == 0 {
+					logger.Infof("Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
+					m.MaxRPM = defaultMaxRpm
+				}
 
 				if mcfg.Encoder != "" {
 					if mcfg.TicksPerRotation <= 0 {
@@ -168,10 +176,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.setPowerPct(powerPct)
 
 	if m.Encoder != nil {
-		if m.MaxRPM == 0 {
-			return errors.New("not supported, define max_rpm attribute != 0")
-		}
-
 		if m.TicksPerRotation <= 0 {
 			return errors.New("need positive nonzero TicksPerRotation")
 		}
@@ -239,9 +243,6 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if m.MaxRPM == 0 {
-		return errors.New("not supported, define max_rpm attribute != 0")
-	}
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -283,10 +284,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]interface{}) error {
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
-	}
-
-	if m.MaxRPM == 0 {
-		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
 	curPos, err := m.Position(ctx, nil)

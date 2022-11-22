@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	commonpb "go.viam.com/api/common/v1"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -75,7 +75,10 @@ func TestDHConversion(t *testing.T) {
 	// Test conversion of a DH param to a dual quaternion
 	dhParam := []float64{-0.425, 0.1333, math.Pi / 2}
 	dq1 := newDualQuaternionFromDH(dhParam[0], dhParam[1], dhParam[2])
-	dq2 := newDualQuaternionFromProtobuf(&commonpb.Pose{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
+	dq2 := newDualQuaternionFromPose(NewPoseFromOrientation(
+		r3.Vector{X: -0.425, Y: 0, Z: 0.1333},
+		&OrientationVectorDegrees{OY: -1, Theta: 90},
+	))
 	quatCompare(t, dq1.Real, dq2.Real)
 	quatCompare(t, dq1.Dual, dq2.Dual)
 }
@@ -108,7 +111,7 @@ func TestQuatConversion(t *testing.T) {
 	ovConvert(t, &OrientationVector{Theta: 2.47208, OX: 0, OY: 1, OZ: 0})
 	ovConvert(t, &OrientationVector{Theta: 2.47208, OX: 0, OY: -1, OZ: 0})
 
-	// Test a small angle that was hitting angleEpsilon erroneously
+	// Test a small angle that was hitting defaultAngleEpsilon erroneously
 	ovConvert(t, &OrientationVector{Theta: 0.02, OX: 0.5048437942940054, OY: 0.5889844266763397, OZ: 0.631054742867507})
 
 	// An OV that initially gave problems in testing
