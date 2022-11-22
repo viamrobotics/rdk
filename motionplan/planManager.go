@@ -16,6 +16,12 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const (
+	defaultOptimalityMultiple = 5.0
+	defaultFallbackTimeout    = 1.5
+	defaultFallbackIK         = 5
+)
+
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
 // Intended information flow should be:
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
@@ -204,7 +210,21 @@ func (mp *planManager) planMotion(
 				}
 			case finalSteps := <-solutionChan:
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-				if finalSteps.err() != nil {
+
+				goodSolution := false
+				if finalSteps.err() == nil {
+					if opt.Fallback != nil {
+						if ok, score := goodPlan(finalSteps, opt); ok {
+							goodSolution = true
+						} else {
+							mp.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, finalSteps.optimal)
+						}
+					} else {
+						goodSolution = true
+					}
+				}
+
+				if !goodSolution {
 					if opt.Fallback != nil {
 						remainingSteps, err = mp.planMotion(
 							ctx,
@@ -361,20 +381,41 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 		// No restrictions on motion
 		fallthrough
 	default:
-		// set up deep copy for fallback
-		try1 := deepAtomicCopyMap(planningOpts)
-		// extra timeout to account for IK
-		try1["timeout"] = 1.5
-		try1["planning_alg"] = "rrtstar"
-		try1Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
-		if err != nil {
-			return nil, err
-		}
+		if planAlg == "" {
+			// set up deep copy for fallback
+			try1 := deepAtomicCopyMap(planningOpts)
+			// No need to generate tons more IK solutions when the first alg will do it
+			opt.MaxSolutions = defaultFallbackIK
 
-		try1Opt.Fallback = opt
-		opt = try1Opt
+			// extra timeout to account for IK
+			try1["timeout"] = defaultFallbackTimeout
+			try1["planning_alg"] = "rrtstar"
+			try1Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
+			if err != nil {
+				return nil, err
+			}
+
+			try1Opt.Fallback = opt
+			opt = try1Opt
+		}
 	}
 	return opt, nil
+}
+
+// check whether the solution is within some amount of the optimal.
+func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+	solutionCost := 0.
+	if pr.steps != nil {
+		if pr.optimal <= 0 {
+			return true, solutionCost
+		}
+		solutionCost = EvaluatePlan(pr, opt)
+		if solutionCost < pr.optimal*defaultOptimalityMultiple {
+			return true, solutionCost
+		}
+	}
+
+	return false, solutionCost
 }
 
 // Copy any atomic values.

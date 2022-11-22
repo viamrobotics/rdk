@@ -168,7 +168,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			// stop and return best path
 			if solved {
 				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
-				rrt.solutionChan <- shortestPath(rrt.rm, shared)
+				rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
 			} else {
 				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
 				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
@@ -198,7 +198,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// calculate the solution and log status of planner
 		if i%defaultSolutionCalculationPeriod == 0 {
-			solution := shortestPath(rrt.rm, shared)
+			solution := shortestPath(rrt.rm, shared, optimalCost)
 			solutionCost = EvaluatePlan(solution, rrt.planOpts)
 			mp.logger.Warnf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
 			// check if an early exit is possible
@@ -210,7 +210,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
-	rrt.solutionChan <- shortestPath(rrt.rm, shared)
+	rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(

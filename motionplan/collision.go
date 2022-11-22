@@ -275,10 +275,8 @@ func NewCollisionSystemFromReference(
 			return nil, err
 		}
 		cs.graphs = append(cs.graphs, graph)
-		if !depth {
-			if len(cs.Collisions()) > 0 {
-				return cs, nil
-			}
+		if !depth && len(cs.Collisions()) > 0 {
+			return cs, nil
 		}
 	}
 	return cs, nil

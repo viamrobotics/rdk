@@ -37,7 +37,7 @@ const (
 	BoxType         = GeometryType("box")
 	SphereType      = GeometryType("sphere")
 	PointType       = GeometryType("point")
-	CollisionBuffer = 0.001 // objects must be separated by this many mm to not be in collision
+	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
 )
 
 // GeometryConfig specifies the format of geometries specified through the configuration file.

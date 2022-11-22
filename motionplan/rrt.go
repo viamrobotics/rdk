@@ -48,6 +48,7 @@ type rrtPlanReturn struct {
 	steps   []node
 	planerr error
 	rm      *rrtMaps
+	optimal float64
 }
 
 func (plan *rrtPlanReturn) toInputs() [][]referenceframe.Input {
@@ -74,7 +75,7 @@ func initRRTMaps() *rrtMaps {
 	}
 }
 
-func shortestPath(rm *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
+func shortestPath(rm *rrtMaps, nodePairs []*nodePair, optimalCost float64) *rrtPlanReturn {
 	if len(nodePairs) == 0 {
 		return &rrtPlanReturn{planerr: errPlannerFailed, rm: rm}
 	}
@@ -86,5 +87,5 @@ func shortestPath(rm *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(rm.startMap, rm.goalMap, nodePairs[minIdx])}
+	return &rrtPlanReturn{steps: extractPath(rm.startMap, rm.goalMap, nodePairs[minIdx]), rm: rm, optimal: optimalCost}
 }

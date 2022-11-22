@@ -22,7 +22,7 @@ const (
 	defaultJointSolveDist = 0.0001
 
 	// Max number of iterations of path smoothing to run.
-	defaultSmoothIter = 350
+	defaultSmoothIter = 750
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
@@ -201,7 +201,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
-	
+
 	mp.logger.Debugf("running CBiRRT with start map of size %d and goal map of size %d", len(rrt.rm.startMap), len(rrt.rm.goalMap))
 
 	for i := 0; i < algOpts.PlanIter; i++ {
