@@ -57,7 +57,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	if argsParsed.Debug {
 		logConfig = golog.NewDebugLoggerConfig()
 	} else {
-		logConfig = golog.NewProductionLoggerConfig()
+		logConfig = golog.NewDevelopmentLoggerConfig()
 	}
 	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
