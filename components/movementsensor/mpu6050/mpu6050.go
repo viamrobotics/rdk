@@ -2,20 +2,17 @@
 package mpu6050
 
 import (
-	"bufio"
 	"context"
-	"encoding/hex"
-	"fmt"
-	"math"
-	"math/rand"
+	"encoding/binary"
 	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
@@ -37,10 +34,10 @@ type AttrConfig struct {
 // depend on.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.BusID == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "bus_id")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_id")
 	}
 
 	var deps []string
@@ -79,15 +76,15 @@ type mpu6050 struct {
 	generic.Unimplemented  // Implements DoCommand with an ErrUnimplemented response
 }
 
-func NewMPU6050(
+func NewMpu6050(
 	ctx context.Context,
 	deps registry.Dependencies,
 	rawConfig config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	cfg, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
 	}
 
 	b, err := board.FromDependencies(deps, cfg.BoardName)
@@ -184,17 +181,17 @@ func toSignedValue(data []byte) int {
 }
 
 // Given a value, scales it so that the range of int16s becomes the range of +/- maxValue
-func setScale(value int, maxValue float64) {
+func setScale(value int, maxValue float64) float64 {
 	return float64(value) * maxValue / (1 << 15)
 }
 
 // A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
-	gx := toSignedValue(rawData[0:2])
-	gy := toSignedValue(rawData[2:4])
-	gz := toSignedValue(rawData[4:6])
+	gx := toSignedValue(data[0:2])
+	gy := toSignedValue(data[2:4])
+	gz := toSignedValue(data[4:6])
 
-	maxRotation := 250 // Degrees per second
+	maxRotation := 250.0 // Degrees per second
 	return spatialmath.AngularVelocity{
 		X: setScale(gx, maxRotation),
 		Y: setScale(gy, maxRotation),
@@ -203,13 +200,13 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 }
 
 // A helper function that takes 6 bytes and gives back linear acceleration
-func toLinearAcceleration(data []byte) re.Vector {
-	x := toSignedValue(rawData[0:2])
-	y := toSignedValue(rawData[2:4])
-	z := toSignedValue(rawData[4:6])
+func toLinearAcceleration(data []byte) r3.Vector {
+	x := toSignedValue(data[0:2])
+	y := toSignedValue(data[2:4])
+	z := toSignedValue(data[4:6])
 
 	// The scale is +/- 2G's, but our units should be mm/sec/sec.
-	maxAcceleration = 2 * 9.81 /* m/sec/sec */ * 1000 /* mm/m */
+	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
     return r3.Vector{
 		X: setScale(x, maxAcceleration),
 		Y: setScale(y, maxAcceleration),
@@ -218,13 +215,13 @@ func toLinearAcceleration(data []byte) re.Vector {
 }
 
 func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	imu.mu.Lock()
-	defer imu.mu.Unlock()
+	mpu.mu.Lock()
+	defer mpu.mu.Unlock()
 
 	// The gyroscope measurements are in registers 67 to 72 (2 bytes for each axis).
 	rawData, err := mpu.readBlock(ctx, 67, 6)
 	if err != nil {
-		return nil, err
+		return spatialmath.AngularVelocity{}, err
 	}
 	return toAngularVelocity(rawData), nil
 }
@@ -234,7 +231,7 @@ func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interfa
 }
 
 func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return spatialmath.Orientation{}, movementsensor.ErrMethodUnimplementedOrientation
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 func (mpu *mpu6050) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
@@ -259,7 +256,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	// slightly different time.
 
 	// We get 2 bytes each for 3 axes of acceleration, 1 temperature, and 3 axes of rotation.
-	rawData := mpu.readBlock(ctx, 59, 14)
+	rawData, err := mpu.readBlock(ctx, 59, 14)
 	if err != nil {
 		return readings, err
 	}
