@@ -15,11 +15,6 @@ import {
   commonApi,
   cameraApi,
   sensorsApi,
-  type Operation,
-  type Status,
-  type StreamStatusResponse,
-  type ServiceError,
-  type ResourceName,
 } from '@viamrobotics/sdk';
 
 import {
@@ -71,8 +66,8 @@ const relevantSubtypesForStatus = [
 
 const passwordInput = $ref<HTMLInputElement>();
 const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
-const rawStatus = $ref<Record<string, Status>>({});
-const status = $ref<Record<string, Status>>({});
+const rawStatus = $ref<Record<string, robotApi.Status>>({});
+const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: grpc.Request | null = null;
@@ -81,8 +76,8 @@ let baseCameraState = new Map<string, boolean>();
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
-let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
-let sensorNames = $ref<ResourceName.AsObject[]>([]);
+let currentOps = $ref<{ op: robotApi.Operation.AsObject, elapsed: number }[]>([]);
+let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let resourcesOnce = false;
 let errorMessage = $ref('');
@@ -285,7 +280,7 @@ const restartStatusStream = () => {
     },
     onMessage: (response) => {
       lastStatusTS = Date.now();
-      updateStatus((response as StreamStatusResponse).getStatusList());
+      updateStatus((response as robotApi.StreamStatusResponse).getStatusList());
     },
     onEnd: (endStatus, endStatusMessage, trailers) => {
       console.error('error streaming robot status', endStatus, ' ', endStatusMessage, ' ', trailers);

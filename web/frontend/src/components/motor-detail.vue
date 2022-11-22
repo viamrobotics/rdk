@@ -1,14 +1,14 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { motorApi, type Status } from '@viamrobotics/sdk';
+import { motorApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
 interface Props {
   name: string
-  status: Status.AsObject
+  status: motorApi.Status.AsObject
 }
 
 const props = defineProps<Props>();

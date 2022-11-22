@@ -14,7 +14,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import { commonApi, motionApi, visionApi, type PointCloudObject, type RectangularPrism, TypedParameter } from '@viamrobotics/sdk';
+import { commonApi, motionApi } from '@viamrobotics/sdk';
 import InfoButton from './info-button.vue';
 
 interface Props {
@@ -33,7 +33,7 @@ let displayGrid = true;
 let transformEnabled = $ref(false);
 const download = $ref<HTMLLinkElement>();
 // let segmenterParameterNames = $ref<TypedParameter[]>();
-const objects = $ref<PointCloudObject[]>([]);
+const objects = $ref<commonApi.PointCloudObject[]>([]);
 const segmenterNames = $ref<string[]>([]);
 // let segmenterParameters = $ref<Record<string, number>>({});
 
@@ -230,7 +230,7 @@ const getSegmenterNames = () => {
   // });
 };
 
-const setBoundingBox = (box: RectangularPrism, centerPoint: THREE.Vector3) => {
+const setBoundingBox = (box: commonApi.RectangularPrism, centerPoint: THREE.Vector3) => {
   const dimensions = box.getDimsMm()!;
   const geometry = new THREE.BoxGeometry(
     dimensions.getX() / 1000,

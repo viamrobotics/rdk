@@ -1,12 +1,12 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { robotApi, type Operation } from '@viamrobotics/sdk';
+import { robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {
   operations: {
-    op: Operation.AsObject
+    op: robotApi.Operation.AsObject
     elapsed: number
   }[],
 

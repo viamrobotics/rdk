@@ -1,11 +1,11 @@
 <script setup lang="ts">
 
 import { computed } from 'vue';
-import type { Status } from '@viamrobotics/sdk';
+import type { inputControllerApi } from '@viamrobotics/sdk';
 
 interface Props {
   name: string
-  status: Status.AsObject
+  status: inputControllerApi.Status.AsObject
 }
 
 const props = defineProps<Props>();
