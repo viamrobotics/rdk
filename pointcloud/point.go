@@ -156,8 +156,8 @@ func (bp *basicData) UnmarshalBinary(dataBytes []byte) error {
 	case 1:
 		bp.SetValue(int(dataBytes[0]))
 	case 0:
-	// Invalid data packet size
 	default:
+		// Invalid data packet size
 		return errors.Errorf("error unmarshaling data invalid packet size (%d)", len(dataBytes))
 	}
 	return nil
