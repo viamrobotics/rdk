@@ -8,14 +8,15 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Arm is an injected arm.
 type Arm struct {
 	arm.LocalArm
 	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
-	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	MoveToPositionFunc       func(ctx context.Context, to spatialmath.Pose, ws *commonpb.WorldState, extra map[string]interface{}) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]interface{}) error
 	JointPositionsFunc       func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
@@ -24,7 +25,7 @@ type Arm struct {
 }
 
 // EndPosition calls the injected EndPosition or the real version.
-func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	if a.EndPositionFunc == nil {
 		return a.LocalArm.EndPosition(ctx, extra)
 	}
@@ -32,7 +33,12 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*c
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (a *Arm) MoveToPosition(
+	ctx context.Context,
+	to spatialmath.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	if a.MoveToPositionFunc == nil {
 		return a.LocalArm.MoveToPosition(ctx, to, worldState, extra)
 	}

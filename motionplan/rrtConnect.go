@@ -5,10 +5,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // rrtConnectMotionPlanner is an object able to quickly solve for valid paths around obstacles to some goal for a given referenceframe.
@@ -32,7 +32,7 @@ func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, se
 }
 
 func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
-	goal *commonpb.Pose,
+	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
@@ -54,7 +54,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
 func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
-	goal *commonpb.Pose,
+	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
 	endpointPreview chan node,

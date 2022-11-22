@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -90,7 +91,7 @@ func (wrapper *Arm) ModelFrame() referenceframe.Model {
 }
 
 // EndPosition returns the set position.
-func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := wrapper.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 // MoveToPosition sets the position.
 func (wrapper *Arm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

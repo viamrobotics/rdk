@@ -4,8 +4,8 @@ import (
 	"context"
 	"image"
 	"path/filepath"
-	"regexp"
 	"strings"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -16,6 +16,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -204,46 +205,50 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
-	}
-
-	var pattern *regexp.Regexp
-	if attrs.PathPattern != "" {
-		pattern, err = regexp.Compile(attrs.PathPattern)
+		cam, err := tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
 		if err != nil {
-			return nil, err
+			return cam, err
 		}
+
+		goutils.PanicCapturingGo(func() {
+			src, err := camera.SourceFromCamera(cam)
+			if err != nil {
+				logger.Debugw("cannot get source from camera", "error", err)
+				return
+			}
+			defer func() {
+				if err := cam.Close(ctx); err != nil {
+					logger.Debugw("failed to close camera", "error", err)
+				}
+			}()
+			for {
+				if goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+					// mediadevices connects to the OS to get the properties for a driver. If the OS no longer knows
+					// about a specific driver then properties will be empty, and we can safely assume the driver no
+					// longer exists and should be closed.
+					if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
+						logger.Debug("closing camera")
+						return
+					}
+				} else {
+					return
+				}
+			}
+		})
+
+		return cam, err
 	}
 
-	labels := gostream.QueryVideoDeviceLabels()
-	for _, label := range labels {
-		if debug {
-			logger.Debugf("%s", label)
-		}
-
-		if pattern != nil && !pattern.MatchString(label) {
-			if debug {
-				logger.Debug("\t skipping because of pattern")
-			}
-			continue
-		}
-
-		s, err := tryWebcamOpen(ctx, attrs, label, true, constraints, logger)
-		if err == nil {
-			if debug {
-				logger.Debug("\t USING")
-			}
-
-			return s, nil
-		}
-		if debug {
-			logger.Debugf("\t %w", err)
-		}
+	source, err := gostream.GetAnyVideoSource(constraints, logger)
+	if err != nil {
+		return nil, errors.Wrapf(err, "found no webcams")
 	}
 
-	return nil, errors.New("found no webcams")
+	return makeCameraFromSource(ctx, source, attrs)
 }
 
+// tryWebcamOpen uses getNamedVideoSource to try and find a video device (gostream.MediaSource).
+// If successful, it will wrap that MediaSource in a camera.
 func tryWebcamOpen(ctx context.Context,
 	attrs *WebcamAttrs,
 	path string,
@@ -255,6 +260,19 @@ func tryWebcamOpen(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	return makeCameraFromSource(ctx, source, attrs)
+}
+
+// makeCameraFromSource takes a gostream.MediaSource and wraps it so that the return
+// is an RDK camera object.
+func makeCameraFromSource(ctx context.Context,
+	source gostream.MediaSource[image.Image],
+	attrs *WebcamAttrs,
+) (camera.Camera, error) {
+	if source == nil {
+		return nil, errors.New("media source not found")
+	}
+
 	return camera.NewFromSource(
 		ctx,
 		source,

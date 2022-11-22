@@ -19,7 +19,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20221004200432-5f6b7167aca8
-	github.com/edaniels/gostream v0.0.0-20221110133428-c35fbf319708
+	github.com/edaniels/gostream v0.0.0-20221118213501-2194e5e2c006
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -72,10 +72,10 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.6-0.20221110152346-b34fdd866c09
+	go.viam.com/api v0.1.6-0.20221111224649-b590360c6265
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.4-0.20221110133338-7838caa75809
+	go.viam.com/utils v0.1.5-0.20221114215037-b710cbb9b4e1
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/tools v0.1.12
@@ -372,7 +372,7 @@ require (
 )
 
 //replace go.viam.com/api => ../api
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221116015116-7b87380ac4ac
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221122211855-f5d92fb9aaf3
 
 //replace go.viam.com/utils => ../goutils
 replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221122194027-9cdfad490212

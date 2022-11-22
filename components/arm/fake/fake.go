@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the string used to refer to the fake arm model.
@@ -103,11 +104,10 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	}
 
 	return &Arm{
-		Name:     cfg.Name,
-		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
-		mp:       mp,
-		model:    model,
+		Name:   cfg.Name,
+		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
+		mp:     mp,
+		model:  model,
 	}, nil
 }
 
@@ -115,7 +115,6 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 type Arm struct {
 	generic.Echo
 	Name       string
-	position   *commonpb.Pose
 	joints     *pb.JointPositions
 	mp         motionplan.MotionPlanner
 	CloseCount int
@@ -128,7 +127,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 }
 
 // EndPosition returns the set position.
-func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -139,7 +138,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*c
 // MoveToPosition sets the position.
 func (a *Arm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

@@ -40,8 +40,9 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/utils"
 )
 
 var (
@@ -257,6 +258,25 @@ type AttrConfig struct {
 	Port             string            `json:"port"`
 }
 
+// Validate creates the list of implicit dependencies.
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	if config.Algorithm == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "algorithm")
+	}
+
+	if config.ConfigParams["mode"] == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "config_params[mode]")
+	}
+
+	if config.DataDirectory == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "data_dir")
+	}
+
+	deps := config.Sensors
+
+	return deps, nil
+}
+
 // builtIn is the structure of the slam service.
 type builtIn struct {
 	cameraName      string
@@ -441,12 +461,12 @@ func (slamSvc *builtIn) GetMap(
 	}
 
 	switch mimeType {
-	case utils.MimeTypeJPEG:
+	case rdkutils.MimeTypeJPEG:
 		imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
 		if err != nil {
 			return "", nil, nil, errors.Wrap(err, "get map decode image failed")
 		}
-	case utils.MimeTypePCD:
+	case rdkutils.MimeTypePCD:
 		pointcloudData := resp.GetPointCloud()
 		if pointcloudData == nil {
 			return "", nil, nil, errors.New("get map read pointcloud unavailable")
@@ -472,7 +492,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
 	cameraName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
@@ -774,20 +794,20 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
-	readImgCtx := gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG))
+	readImgCtx := gostream.WithMIMETypeHint(ctx, rdkutils.WithLazyMIMEType(rdkutils.MimeTypePNG))
 	img, release, err := camera.ReadImage(readImgCtx, cam)
 	if err != nil {
 		return nil, nil, err
 	}
 	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
-		if lazyImg.MIMEType() != utils.MimeTypePNG {
-			return nil, nil, errors.Errorf("expected mime type %v, got %T", utils.MimeTypePNG, img)
+		if lazyImg.MIMEType() != rdkutils.MimeTypePNG {
+			return nil, nil, errors.Errorf("expected mime type %v, got %T", rdkutils.MimeTypePNG, img)
 		}
 		return lazyImg.RawData(), release, nil
 	}
 
 	if ycbcrImg, ok := img.(*image.YCbCr); ok {
-		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, utils.MimeTypePNG)
+		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, rdkutils.MimeTypePNG)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -814,6 +834,9 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
+		if release != nil {
+			defer release()
+		}
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -821,7 +844,6 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		defer release()
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
@@ -846,6 +868,11 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		images, releaseFuncs, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
+		for _, rFunc := range releaseFuncs {
+			if rFunc != nil {
+				defer rFunc()
+			}
+		}
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -853,8 +880,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		defer releaseFuncs[0]()
-		defer releaseFuncs[1]()
+
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err

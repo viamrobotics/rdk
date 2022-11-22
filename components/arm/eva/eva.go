@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the resource model.
@@ -111,7 +112,7 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -120,7 +121,12 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (*c
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+func (e *eva) MoveToPosition(
+	ctx context.Context,
+	pos spatialmath.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.robot, e, pos, worldState)
