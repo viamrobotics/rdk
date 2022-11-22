@@ -19,8 +19,6 @@ import (
 type SolvableFrameSystem struct {
 	frame.FrameSystem
 	logger golog.Logger
-	// TODO(rb): this probably shouldn't live here
-	mpFunc plannerConstructor
 }
 
 // NewSolvableFrameSystem will create a new solver for a frame system.
@@ -115,13 +113,6 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	return steps, nil
-}
-
-// SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
-// A SolvableFrameSystem wraps a complete frame system, and will make solverFrames on the fly to solve for. These
-// solverFrames are used to create the planner here.
-func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golog.Logger) (motionPlanner, error)) {
-	fss.mpFunc = mpFunc
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the

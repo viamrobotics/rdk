@@ -72,11 +72,10 @@ func (ms *builtIn) Move(
 	
 	movingFrame := frameSys.Frame(componentName.ShortName())
 	
+	logger.Debugf("frame system inputs: %v", fsInputs)
 	if movingFrame == nil {
 		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
 	}
-
-	logger.Debugf("frame system inputs: %v", fsInputs)
 
 	// re-evaluate goalPose to be in the frame of World
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName

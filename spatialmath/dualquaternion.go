@@ -159,6 +159,7 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	}
 	//nolint: gocritic
 	if q.Real.Real == 1 {
+		// Since we're working with unit quaternions, if either Real is 1, then that quat is an identity quat
 		newReal = by.Real
 	} else if by.Real.Real == 1 {
 		newReal = q.Real

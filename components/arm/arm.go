@@ -61,7 +61,9 @@ const (
 	SubtypeName = resource.SubtypeName("arm")
 )
 
-var defaultArmPlannerOptions = map[string]interface{}{}
+var defaultArmPlannerOptions = map[string]interface{}{
+	"motion_profile": motionplan.LinearMotionProfile,
+}
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
@@ -368,8 +370,6 @@ func Plan(
 	armName := a.ModelFrame().Name()
 	destination := referenceframe.NewPoseInFrame(armName+"_origin", dst)
 
-	var solution [][]referenceframe.Input
-
 	// PlanRobotMotion needs a frame system which contains the frame being solved for
 	if fs.Frame(armName) == nil {
 		if worldState != nil {
@@ -382,11 +382,7 @@ func Plan(
 		if err != nil {
 			return nil, err
 		}
-		solution, err = motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions)
-		if err != nil {
-			return nil, err
-		}
-		return solution, nil
+		return motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions)
 	}
 	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
 	if err != nil {

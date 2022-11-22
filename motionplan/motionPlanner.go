@@ -30,10 +30,7 @@ type motionPlanner interface {
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
-type (
-	plannerConstructor       func(frame.Frame, int, golog.Logger) (motionPlanner, error)
-	seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error)
-)
+type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
