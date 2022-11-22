@@ -35,8 +35,8 @@ const (
 )
 
 var (
-	initialWaitTimeMillis  = atomic.NewInt32(1000)
-	retryExponentialFactor = 2
+	InitialWaitTimeMillis  = atomic.NewInt32(1000)
+	RetryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 	PollWaitTime           = time.Second
 )
@@ -171,47 +171,57 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 }
 
 func (s *syncer) SyncCaptureFiles(paths []string) {
-	for _, p := range paths {
-		select {
-		case <-s.cancelCtx.Done():
-			return
-		default:
-			//nolint:gosec
-			f, err := os.Open(p)
-			if err != nil {
-				s.logger.Errorw("error opening file", "error", err)
+	s.backgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer s.backgroundWorkers.Done()
+		for _, p := range paths {
+			select {
+			case <-s.cancelCtx.Done():
 				return
-			}
-			defer func(f *os.File) {
-				err := f.Close()
+			default:
+				//nolint:gosec
+				f, err := os.Open(p)
 				if err != nil {
-					s.logger.Errorw("error closing file", "error", err)
+					s.logger.Errorw("error opening file", "error", err)
+					return
 				}
-			}(f)
 
-			captureFile, err := datacapture.ReadFile(f)
-			if err != nil {
-				s.logger.Error(err)
-				return
-			}
-			uploadErr := exponentialRetry(
-				s.cancelCtx,
-				func(ctx context.Context) error {
-					return s.syncFile(ctx, s.client, captureFile, s.partID)
-				},
-				s.logger,
-			)
-			fmt.Println("exponential retry returned")
-			if uploadErr != nil {
-				s.logger.Error(uploadErr)
-				return
-			}
-			if err := captureFile.Delete(); err != nil {
-				s.logger.Error(err)
-				return
+				captureFile, err := datacapture.ReadFile(f)
+				if err != nil {
+					s.logger.Error(err)
+					err := f.Close()
+					if err != nil {
+						s.logger.Errorw("error closing file", "error", err)
+					}
+					return
+				}
+				uploadErr := exponentialRetry(
+					s.cancelCtx,
+					func(ctx context.Context) error {
+						return s.syncFile(ctx, s.client, captureFile, s.partID)
+					},
+					s.logger,
+				)
+				fmt.Println("exponential retry returned")
+				if uploadErr != nil {
+					s.logger.Error(uploadErr)
+					err := f.Close()
+					if err != nil {
+						s.logger.Errorw("error closing file", "error", err)
+					}
+					return
+				}
+				if err := captureFile.Delete(); err != nil {
+					s.logger.Error(err)
+					err := f.Close()
+					if err != nil {
+						s.logger.Errorw("error closing file", "error", err)
+					}
+					return
+				}
 			}
 		}
-	}
+	})
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
@@ -228,8 +238,8 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		return err
 	}
 
-	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
-	nextWait := time.Millisecond * time.Duration(initialWaitTimeMillis.Load())
+	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
+	nextWait := time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
 	ticker := time.NewTicker(nextWait)
 	for {
 		if err := cancelCtx.Err(); err != nil {
@@ -262,9 +272,9 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 
 func getNextWait(lastWait time.Duration) time.Duration {
 	if lastWait == time.Duration(0) {
-		return time.Millisecond * time.Duration(initialWaitTimeMillis.Load())
+		return time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
 	}
-	nextWait := lastWait * time.Duration(retryExponentialFactor)
+	nextWait := lastWait * time.Duration(RetryExponentialFactor)
 	if nextWait > maxRetryInterval {
 		return maxRetryInterval
 	}

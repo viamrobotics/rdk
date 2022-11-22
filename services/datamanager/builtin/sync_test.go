@@ -68,7 +68,7 @@ func TestSyncEnabled(t *testing.T) {
 				err := os.RemoveAll(tmpDir)
 				test.That(t, err, test.ShouldBeNil)
 			}()
-			rpcServer, mockService := buildAndStartLocalSyncServer(t)
+			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0, 0)
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -94,7 +94,7 @@ func TestSyncEnabled(t *testing.T) {
 			time.Sleep(syncTime)
 
 			// Things to validate: that it syncs if expected, that it deletes files if successful
-			initialUploadCount := len(mockService.getCaptureUploadRequests())
+			initialUploadCount := len(mockService.getSuccessfulDCUploadRequests())
 			if !tc.initialServiceDisableStatus {
 				// TODO: check contents
 				test.That(t, initialUploadCount, test.ShouldBeGreaterThan, 0)
@@ -119,7 +119,7 @@ func TestSyncEnabled(t *testing.T) {
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			newUploadCount := len(mockService.getCaptureUploadRequests())
+			newUploadCount := len(mockService.getSuccessfulDCUploadRequests())
 			// TODO: Things to validate: that it syncs if expected, that it deletes files if successful
 			if !tc.newServiceDisableStatus {
 				test.That(t, newUploadCount, test.ShouldBeGreaterThan, initialUploadCount)
@@ -142,11 +142,19 @@ TEST SETUP:
 
 - Variations? Maybe one for binary and one for tabular
 */
-func TestResumableUpload(t *testing.T) {
+func TestDataCaptureUpload(t *testing.T) {
+	datacapture.MaxFileSize = 150
+	// MaxFileSize of 150 => Should be 2 tabular readings per file/UR
+	sensorDataPerUploadRequest := 2.0
+	// Set exponential factor to 1 and retry wait time to 25ms so retries happen very quickly.
+	datasync.RetryExponentialFactor = 1
+	datasync.InitialWaitTimeMillis.Store(int32(100))
+
 	tests := []struct {
 		name          string
 		dataType      v1.DataType
-		serviceFailAt int32
+		serviceFailAt int
+		numFails      int
 	}{
 		{
 			name:     "Previously captured tabular data should be synced at start up.",
@@ -166,6 +174,16 @@ func TestResumableUpload(t *testing.T) {
 			dataType:      v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			serviceFailAt: 2,
 		},
+		{
+			name:     "If tabular uploads fail transiently, they should be retried until they succeed.",
+			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			numFails: 2,
+		},
+		{
+			name:     "If binary uploads fail transiently, they should be retried until they succeed.",
+			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			numFails: 2,
+		},
 	}
 
 	for _, tc := range tests {
@@ -179,13 +197,7 @@ func TestResumableUpload(t *testing.T) {
 				err := os.RemoveAll(tmpDir)
 				test.That(t, err, test.ShouldBeNil)
 			}()
-			rpcServer, mockService := buildAndStartLocalSyncServer(t)
-			datacapture.MaxFileSize = 150
-			// MaxFileSize of 150 => Should be 2 tabular readings per file/UR
-			sensorDataPerUploadRequest := 2.0
-			failAt := &atomic.Int32{}
-			failAt.Add(tc.serviceFailAt)
-			mockService.failAt = failAt
+			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.serviceFailAt, tc.numFails)
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -214,13 +226,13 @@ func TestResumableUpload(t *testing.T) {
 			fmt.Println("successfully updated to capture")
 			test.That(t, err, test.ShouldBeNil)
 
-			// Let run for a second, then close.
+			// Let run for a bit, then close.
 			time.Sleep(time.Millisecond * 100)
 			err = dmsvc.Close(context.Background())
 			fmt.Println("successfully closed capture")
 			test.That(t, err, test.ShouldBeNil)
 
-			// Get all written data.
+			// Get all captured data.
 			capturedData, err := getCapturedData(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
@@ -234,19 +246,36 @@ func TestResumableUpload(t *testing.T) {
 			err = newDMSvc.Update(context.Background(), cfg)
 			fmt.Println("successfully updated to sync")
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * 500)
 			err = newDMSvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			fmt.Println("successfully closed")
 
-			urs := mockService.getCaptureUploadRequests()
-			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-				test.That(t, len(urs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/sensorDataPerUploadRequest))
-			} else {
-				test.That(t, len(urs), test.ShouldEqual, len(capturedData))
+			// If we set failAt, we want to kill the svc and start syncing again.
+			if tc.serviceFailAt > 0 {
+				fmt.Println("entered second sync update")
+				// Now turn back on with only sync enabled.
+				newestDMSvc := newTestDataManager(t)
+				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+				// TODO: this doesn't actually update failAt of running service... figure out how to do that
+				mockService.failAt = 0
+				err = newestDMSvc.Update(context.Background(), cfg)
+				fmt.Println("successfully updated to sync")
+				test.That(t, err, test.ShouldBeNil)
+				time.Sleep(time.Millisecond * 500)
+				err = newestDMSvc.Close(context.Background())
+				test.That(t, err, test.ShouldBeNil)
 			}
 
-			syncedData := getUploadedData(urs)
+			successfulURs := mockService.getSuccessfulDCUploadRequests()
+			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+				test.That(t, len(successfulURs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/sensorDataPerUploadRequest))
+			} else {
+				test.That(t, len(successfulURs), test.ShouldEqual, len(capturedData))
+			}
+
+			// Validate that all captured data was synced.
+			syncedData := getUploadedData(successfulURs)
 			compareSensorData(t, tc.dataType, syncedData, capturedData)
 
 			// After all uploads succeed, their files should be deleted.
@@ -267,12 +296,12 @@ func TestRetriesUploads(t *testing.T) {
 		{
 			name:     "If transient errors occur during tabular upload, they should be retried until they succeed.",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			numFails: 2,
+			numFails: 5,
 		},
 		{
 			name:     "If transient errors occur during binary upload, they should be retried until they succeed.",
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			numFails: 2,
+			numFails: 5,
 		},
 	}
 
@@ -671,37 +700,50 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 }
 
 type mockDataSyncServiceServer struct {
-	dataCaptureUploadRequests *[]*v1.DataCaptureUploadRequest
-	fileUploadRequests        *[]*v1.FileUploadRequest
-	lock                      *sync.Mutex
-	failAt                    *atomic.Int32
-	failFor                   *atomic.Int32
-	failCount                 *atomic.Int32
-	callCount                 *atomic.Int32
+	successfulDCUploadRequests *[]*v1.DataCaptureUploadRequest
+	failedDCUploadRequests     *[]*v1.DataCaptureUploadRequest
+	fileUploadRequests         *[]*v1.FileUploadRequest
+	lock                       *sync.Mutex
+	failAt                     int32
+	failFor                    int32
+	callCount                  *atomic.Int32
 	v1.UnimplementedDataSyncServiceServer
 }
 
-func (m *mockDataSyncServiceServer) getCaptureUploadRequests() []*v1.DataCaptureUploadRequest {
+func (m *mockDataSyncServiceServer) getSuccessfulDCUploadRequests() []*v1.DataCaptureUploadRequest {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return *m.dataCaptureUploadRequests
+	return *m.successfulDCUploadRequests
+}
+
+func (m *mockDataSyncServiceServer) getFailedDCUploadRequests() []*v1.DataCaptureUploadRequest {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return *m.failedDCUploadRequests
 }
 
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
-	defer m.callCount.Add(1)
 	(*m.lock).Lock()
-	*m.dataCaptureUploadRequests = append(*m.dataCaptureUploadRequests, ur)
-	(*m.lock).Unlock()
-	if m.failAt.Load() != 0 && m.callCount.Load() >= m.failAt.Load() {
-		m.failCount.Add(1)
+	defer (*m.lock).Unlock()
+	fmt.Println("called data capture upload")
+	defer m.callCount.Add(1)
+	fmt.Println(fmt.Sprintf("fail at %d", m.failAt))
+	fmt.Println(fmt.Sprintf("fail count %d", m.callCount.Load()))
+	if m.failAt != 0 && m.callCount.Load() >= m.failAt {
+		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
 		return nil, errors.New("oh no error!!")
 	}
 
-	if m.failFor.Load() != 0 && m.failCount.Load() >= m.failFor.Load() {
-		m.failCount.Add(1)
+	//fmt.Println(fmt.Sprintf("failed for %d", m.failFor))
+	//fmt.Println(fmt.Sprintf("fail count %d", m.callCount.Load()))
+	if m.failFor != 0 && m.callCount.Load() < m.failFor {
+		fmt.Println("failed")
+		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
 		return nil, errors.New("oh no error!!")
 	}
+	fmt.Println("succeeded")
 	// TODO: will likely need to make this optionally return errors for testing error cases
+	*m.successfulDCUploadRequests = append(*m.successfulDCUploadRequests, ur)
 	return &v1.DataCaptureUploadResponse{
 		Code:    200,
 		Message: "",
@@ -713,18 +755,23 @@ func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUplo
 }
 
 //nolint:thelper
-func buildAndStartLocalSyncServer(t *testing.T) (rpc.Server, *mockDataSyncServiceServer) {
+func buildAndStartLocalSyncServer(t *testing.T, failAt int, failFor int) (rpc.Server, *mockDataSyncServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
+
 	mockService := mockDataSyncServiceServer{
-		dataCaptureUploadRequests:          &[]*v1.DataCaptureUploadRequest{},
+		successfulDCUploadRequests:         &[]*v1.DataCaptureUploadRequest{},
+		failedDCUploadRequests:             &[]*v1.DataCaptureUploadRequest{},
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
-		failAt:                             &atomic.Int32{},
+		failAt:                             int32(failAt),
 		callCount:                          &atomic.Int32{},
-		failFor:                            &atomic.Int32{},
+		failFor:                            int32(failFor),
 	}
+
+	fmt.Println(mockService.failAt)
+	fmt.Println(mockService.failFor)
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
 		&v1.DataSyncService_ServiceDesc,
