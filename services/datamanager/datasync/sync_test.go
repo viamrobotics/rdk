@@ -286,7 +286,7 @@ const (
 //	t.Skip()
 //
 //	// Set retry related global vars to faster values for test.
-//	initialWaitTimeMillis.Store(50)
+//	InitialWaitTimeMillis.Store(50)
 //	maxRetryInterval = time.Millisecond * 150
 //	uploadChunkSize = 10
 //	// Register mock datasync service with a mock server.
@@ -356,7 +356,7 @@ const (
 //	// TODO: RSDK-640. Make this work. Bidi broke it.
 //	t.Skip()
 //
-//	initialWaitTimeMillis.Store(1000 * 60)
+//	InitialWaitTimeMillis.Store(1000 * 60)
 //	msg1 := []byte("viam")
 //	msg2 := []byte("robotics")
 //	msg3 := []byte("builds cool software")

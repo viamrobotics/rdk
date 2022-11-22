@@ -136,13 +136,18 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
+	fmt.Println("closing collectors")
 	svc.closeCollectors()
+	fmt.Println("done closing collectors")
 	if svc.syncer != nil {
+		fmt.Println("closing syncer")
 		svc.syncer.Close()
+		fmt.Println("done closing syncer")
 	}
 
 	svc.cancelSyncBackgroundRoutine()
 	svc.lock.Unlock()
+	fmt.Println("waiting for background workers")
 	svc.backgroundWorkers.Wait()
 	return nil
 }
@@ -461,6 +466,8 @@ func (svc *builtIn) syncAdditionalSyncPaths() {
 func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
+	fmt.Println("starting update")
+	defer fmt.Println("finished update")
 
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
@@ -540,7 +547,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
+		fmt.Println("starting to sync previously captured")
 		svc.syncPreviouslyCaptured()
+		fmt.Println("finished syncing previously captured")
 		var queues []*datacapture.Queue
 		for _, c := range svc.collectors {
 			queues = append(queues, c.Collector.GetTarget())
