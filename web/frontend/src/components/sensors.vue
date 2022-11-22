@@ -53,7 +53,6 @@ const getReadings = (inputNames: SensorName[]) => {
         rr[key] = value.toJavaScript() as Reading;
       }
 
-      // @ts-expect-error @TODO This typing needs to be fixed
       sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
     }
   });

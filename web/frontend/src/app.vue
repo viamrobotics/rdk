@@ -226,14 +226,11 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
     const statusJs = grpcStatus.getStatus()!.toJavaScript();
 
     try {
-      // @ts-expect-error @TODO type needs to be fixed
       const fixed = fixRawStatus(nameObj, statusJs);
-      // @ts-expect-error @TODO type needs to be fixed
       const name = resourceNameToString(nameObj);
       rawStatus[name] = statusJs as unknown as robotApi.Status;
       status[name] = fixed as unknown as robotApi.Status;
     } catch (error) {
-      // @ts-expect-error @TODO type needs to be fixed
       toast.error(
         `Couldn't fix status for ${resourceNameToString(nameObj)}`,
         error
@@ -339,15 +336,18 @@ const queryMetadata = () => {
         const differences = new Set(
           resources.map((name) => resourceNameToString(name))
         );
-        // @ts-expect-error @TODO this is incorrectly typed.
         const resourceSet = new Set(
+          // @ts-expect-error @TODO this is incorrectly typed.
           resourcesList.map((name) => resourceNameToString(name))
         );
 
         for (const elem of resourceSet) {
+          // @ts-expect-error @TODO this is incorrectly typed.
           if (differences.has(elem)) {
+            // @ts-expect-error @TODO this is incorrectly typed.
             differences.delete(elem);
           } else {
+            // @ts-expect-error @TODO this is incorrectly typed.
             differences.add(elem);
           }
         }
@@ -369,7 +369,6 @@ const queryMetadata = () => {
           }
         }
 
-        // @ts-expect-error @TODO type needs to be fixed
         resources = resourcesList;
         resourcesOnce = true;
         if (resourcesChanged === true) {
@@ -415,7 +414,7 @@ const loadCurrentOps = async () => {
   for (const op of list) {
     currentOps.push({
       op,
-      elapsed: op.started ? now - op.started.seconds * 1000 : -1,
+      elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
     });
   }
 
@@ -750,7 +749,10 @@ onMounted(async () => {
         <input
           ref="passwordInput"
           :disabled="disableAuthElements"
-          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
+          class="
+            mb-2 block w-full appearance-none border p-2 text-gray-700
+            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+          "
           type="password"
           @keyup.enter="doLogin(authType)"
         >

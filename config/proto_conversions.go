@@ -499,7 +499,7 @@ func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 	return &Cloud{
 		ID:     proto.GetId(),
 		Secret: proto.GetSecret(),
-		//nolint:staticcheck
+		
 		LocationSecret:    proto.GetLocationSecret(),
 		LocationSecrets:   locationSecrets,
 		ManagedBy:         proto.GetManagedBy(),
