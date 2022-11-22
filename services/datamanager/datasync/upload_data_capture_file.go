@@ -18,7 +18,10 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		fmt.Println("finished data capture")
 	}()
 	md := f.ReadMetadata()
+	f.Reset()
 	sensorData, err := getAllSensorData(f)
+	fmt.Println("got all sensor data: ")
+	fmt.Println(sensorData)
 	if err != nil {
 		fmt.Println("failed to get all sensor data")
 		return err
@@ -52,6 +55,8 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 }
 
 func getAllSensorData(f *datacapture.File) ([]*v1.SensorData, error) {
+	fmt.Println("getting sensor data from file with size")
+	fmt.Println(f.Size())
 	var ret []*v1.SensorData
 	for {
 		next, err := f.ReadNext()
