@@ -2,6 +2,8 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"encoding/xml"
+	"fmt"
 	"os"
 
 	"github.com/golang/geo/r3"
@@ -41,6 +43,54 @@ type ModelConfig struct {
 		Geometry spatial.GeometryConfig `json:"geometry"`
 	} `json:"dhParams"`
 	RawFrames []FrameMapConfig `json:"frames"`
+}
+
+// RobotURDF represents all supported fields in a Universal Robot Description Format (URDF) file.
+type RobotURDF struct {
+	XMLName xml.Name `xml:"robot"`
+	Name    string   `xml:"name,attr"`
+	Links   []struct{
+		XMLName   xml.Name `xml:"link"`
+		Name      string   `xml:"name,attr"`
+		Collision []struct{
+			XMLName xml.Name `xml:"collision"`
+			Name    string   `xml:"name,attr"`
+			Origin  struct{
+				XMLName xml.Name `xml:"origin"`
+				RPY     string   `xml:"rpy,attr"`
+				XYZ     string   `xml:"xyz,attr"`
+			} `xml:"origin"`
+			Geometry struct{
+				XMLName xml.Name `xml:"geometry"`
+				Box     struct{
+					XMLName xml.Name `xml:"box"`
+					Size    string   `xml:"size,attr"`
+				} `xml:"box"`
+				Sphere struct{
+					XMLName xml.Name `xml:"sphere"`
+					Radius  string   `xml:"radius,attr"`
+				} `xml:"sphere"`
+			} `xml:"geometry"`
+		} `xml:"collision"`
+	} `xml:"link"`
+	Joints            []struct{
+		XMLName xml.Name `xml:"joint"`
+		Name    string   `xml:"name,attr"`
+		Type    string   `xml:"type,attr"`
+		Origin  struct{
+			XMLName xml.Name `xml:"origin"`
+			RPY     string   `xml:"rpy,attr"`
+			XYZ     string   `xml:"xyz,attr"`
+		} `xml:"origin"`
+		Parent struct{
+			XMLName xml.Name `xml:"parent"`
+			Link string `xml:"link"`
+		} `xml:"parent"`
+		Child  struct{
+			XMLName xml.Name `xml:"child"`
+			Link string `xml:"link"`
+		} `xml:"child"`
+	} `xml:"joint"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
@@ -224,4 +274,39 @@ func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
 	}
 
 	return m.ParseConfig(modelName)
+}
+
+// ParseURDFFile will read a given file and parse the contained URDF XML data.
+func ParseURDFFile(filename, modelName string) (Model, error) {
+	//nolint:gosec
+	xmlData, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read URDF file")
+	}
+	return ConvertURDFToConfig(xmlData, modelName)
+}
+
+// ConvertURDFToConfig will transfer the given URDF XML data into an equivalent Config. Direct conversion to a model in
+// the same fashion as ModelJSON is not possible, as URDF data will need to be reconfigured to accomodate differences
+// between the two kinematics encoding schemes.
+func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
+	// empty data probably means that the read URDF has no actionable information
+	if len(xmlData) == 0 {
+		return nil, ErrNoModelInformation
+	}
+
+	u := &RobotURDF{}
+	err := xml.Unmarshal(xmlData, u)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert URDF data to equivalent internal struct")
+	}
+	fmt.Println(u)  // DEBUG(wspies)
+
+	if modelName == "" {
+		modelName = u.Name
+	}
+	model := NewSimpleModel(modelName)
+	fmt.Println(model)  // DEBUG(wspies)
+
+	return nil, errors.New("Unimplemented method")  // DEBUG(wspies)
 }
