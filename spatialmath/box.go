@@ -220,7 +220,7 @@ func boxVsBoxCollision(a, b *box) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > 0 {
+	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > CollisionBuffer {
 		return false
 	}
 
@@ -257,7 +257,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > 0 {
+	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > CollisionBuffer {
 		return boundingSphereDist
 	}
 
@@ -308,7 +308,7 @@ func boxInBox(inner, outer *box) bool {
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
 func boxInSphere(b *box, s *sphere) bool {
 	for _, vertex := range b.Vertices() {
-		if sphereVsPointDistance(s, vertex) > 0 {
+		if sphereVsPointDistance(s, vertex) > CollisionBuffer {
 			return false
 		}
 	}

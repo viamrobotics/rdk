@@ -154,7 +154,6 @@ func NewCollisionConstraint(
 	}
 
 	constraint := func(cInput *ConstraintInput) (bool, float64) {
-		// 40% of compute
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
 		if err != nil && internal == nil {
 			return false, 0
@@ -164,7 +163,6 @@ func NewCollisionConstraint(
 			return false, 0
 		}
 
-		// 60% of compute
 		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG, depth)
 		if err != nil {
 			return false, 0
