@@ -36,6 +36,7 @@ func TestDubinsRRT(t *testing.T) {
 			frame.FloatsToInputs(start[0:2]),
 			obstacleGeometries,
 			map[string]spatial.Geometry{},
+			true,
 		))
 		o := d.AllPaths(start, goal, false)
 		return dubins.checkPath(

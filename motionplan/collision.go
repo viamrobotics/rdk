@@ -58,7 +58,7 @@ type CollisionEntities interface {
 	count() int
 	entityFromIndex(int) *collisionEntity
 	indexFromName(string) (int, error)
-	checkCollision(*collisionEntity, *collisionEntity) (float64, error)
+	checkCollision(*collisionEntity, *collisionEntity, bool) (float64, error)
 	reportCollisions([]float64) []int
 }
 
@@ -103,9 +103,16 @@ func (oce *ObjectCollisionEntities) indexFromName(name string) (int, error) {
 	return -1, fmt.Errorf("collision entity %q not found", name)
 }
 
-func (oce *ObjectCollisionEntities) checkCollision(key, test *collisionEntity) (float64, error) {
-	distance, err := key.geometry.DistanceFrom(test.geometry)
-	return -distance, err // multiply distance by -1 so that weights of edges are positive
+func (oce *ObjectCollisionEntities) checkCollision(key, test *collisionEntity, depth bool) (float64, error) {
+	if depth {
+		distance, err := key.geometry.DistanceFrom(test.geometry)
+		return -distance, err // multiply distance by -1 so that weights of edges are positive
+	}
+	col, err := key.geometry.CollidesWith(test.geometry)
+	if col {
+		return 1, err
+	}
+	return -1, err
 }
 
 func (oce *ObjectCollisionEntities) reportCollisions(distances []float64) []int {
@@ -128,7 +135,7 @@ func NewSpaceCollisionEntities(geometries map[string]spatial.Geometry) (Collisio
 	return spaceCollisionEntities{entities}, err
 }
 
-func (sce spaceCollisionEntities) checkCollision(key, test *collisionEntity) (float64, error) {
+func (sce spaceCollisionEntities) checkCollision(key, test *collisionEntity, depth bool) (float64, error) {
 	encompassed, err := key.geometry.EncompassedBy(test.geometry)
 	if err != nil {
 		return math.NaN(), err
@@ -168,13 +175,20 @@ type collisionGraph struct {
 
 	// triangular is a bool that describes if the adjacencies matrix is triangular, which will be the case when key == test
 	triangular bool
+
+	depth bool
 }
 
 // newCollisionGraph instantiates a collisionGraph object and checks for collisions between the key and test sets of CollisionEntities
 // collisions that are reported in the reference CollisionSystem argument will be ignore and not stored as edges in the graph.
-func newCollisionGraph(key *ObjectCollisionEntities, test CollisionEntities, reference *CollisionSystem) (*collisionGraph, error) {
+func newCollisionGraph(
+	key *ObjectCollisionEntities,
+	test CollisionEntities,
+	reference *CollisionSystem,
+	depth bool,
+) (*collisionGraph, error) {
 	var err error
-	cg := &collisionGraph{key: key, test: test, adjacencies: make([][]float64, key.count()), triangular: key == test}
+	cg := &collisionGraph{key: key, test: test, adjacencies: make([][]float64, key.count()), triangular: key == test, depth: depth}
 	for i := range cg.adjacencies {
 		cg.adjacencies[i] = make([]float64, test.count())
 		keyi := key.entityFromIndex(i)
@@ -190,7 +204,7 @@ func newCollisionGraph(key *ObjectCollisionEntities, test CollisionEntities, ref
 			if reference.CollisionBetween(keyi.name, testj.name) {
 				cg.adjacencies[i][j] = math.NaN() // represent previously seen collisions as NaNs
 			} else {
-				cg.adjacencies[i][j], err = test.checkCollision(keyi, testj)
+				cg.adjacencies[i][j], err = test.checkCollision(keyi, testj, depth)
 				if err != nil {
 					return nil, err
 				}
@@ -218,7 +232,8 @@ func (cg *collisionGraph) collisions() []Collision {
 	var collisions []Collision
 	for i := range cg.adjacencies {
 		for _, j := range cg.test.reportCollisions(cg.adjacencies[i]) {
-			collisions = append(collisions, Collision{cg.key.entityFromIndex(i).name, cg.test.entityFromIndex(j).name, cg.adjacencies[i][j]})
+			collisions = append(collisions,
+				Collision{cg.key.entityFromIndex(i).name, cg.test.entityFromIndex(j).name, cg.adjacencies[i][j]})
 		}
 	}
 	return collisions
@@ -237,15 +252,16 @@ func NewCollisionSystemFromReference(
 	key *ObjectCollisionEntities,
 	optional []CollisionEntities,
 	reference *CollisionSystem,
+	depth bool,
 ) (*CollisionSystem, error) {
 	cs := &CollisionSystem{make([]*collisionGraph, 0)}
-	graph, err := newCollisionGraph(key, key, reference)
+	graph, err := newCollisionGraph(key, key, reference, depth)
 	if err != nil {
 		return nil, err
 	}
 	cs.graphs = append(cs.graphs, graph)
 	for i := range optional {
-		graph, err = newCollisionGraph(key, optional[i], reference)
+		graph, err = newCollisionGraph(key, optional[i], reference, depth)
 		if err != nil {
 			return nil, err
 		}
@@ -256,8 +272,8 @@ func NewCollisionSystemFromReference(
 
 // NewCollisionSystem creates a new collision system that checks for collisions
 // between the entities in the key CollisionEntities and the entities in each of the optional CollisionEntities.
-func NewCollisionSystem(key *ObjectCollisionEntities, optional []CollisionEntities) (*CollisionSystem, error) {
-	return NewCollisionSystemFromReference(key, optional, &CollisionSystem{})
+func NewCollisionSystem(key *ObjectCollisionEntities, optional []CollisionEntities, depth bool) (*CollisionSystem, error) {
+	return NewCollisionSystemFromReference(key, optional, &CollisionSystem{}, depth)
 }
 
 // Collisions returns a list of all the reported collisions in the CollisionSystem.

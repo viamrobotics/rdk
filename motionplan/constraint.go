@@ -130,6 +130,7 @@ func NewCollisionConstraint(
 	frame referenceframe.Frame,
 	goodInput []referenceframe.Input,
 	obstacles, interactionSpaces map[string]spatial.Geometry,
+	depth bool,
 ) Constraint {
 	zeroVols, err := frame.Geometries(goodInput)
 	if err != nil && len(zeroVols.Geometries()) == 0 {
@@ -147,7 +148,7 @@ func NewCollisionConstraint(
 	if err != nil {
 		return nil
 	}
-	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities})
+	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, depth)
 	if err != nil {
 		return nil
 	}
@@ -162,7 +163,7 @@ func NewCollisionConstraint(
 			return false, 0
 		}
 
-		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG)
+		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG, depth)
 		if err != nil {
 			return false, 0
 		}
@@ -170,6 +171,9 @@ func NewCollisionConstraint(
 		collisions := cg.Collisions()
 		if len(collisions) > 0 {
 			return false, 0
+		}
+		if !depth {
+			return true, 0
 		}
 		sum := 0.
 		for _, collision := range collisions {
@@ -186,6 +190,7 @@ func NewCollisionConstraintFromWorldState(
 	fs referenceframe.FrameSystem,
 	worldState *commonpb.WorldState,
 	observationInput map[string][]referenceframe.Input,
+	depth bool,
 ) (Constraint, error) {
 	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*referenceframe.GeometriesInFrame, error) {
 		allGeometries := make(map[string]spatial.Geometry)
@@ -230,7 +235,7 @@ func NewCollisionConstraintFromWorldState(
 	if err != nil {
 		return nil, err
 	}
-	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries()), nil
+	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries(), depth), nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the

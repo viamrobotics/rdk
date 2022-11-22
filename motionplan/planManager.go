@@ -270,7 +270,11 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 
 	opt.extra = planningOpts
 
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(mp.frame, mp.fs, worldState, seedMap)
+	// set this to true to get collision penetration depth
+	// not yet fully supported, but could be used by cbirrt
+	getColDepth := false
+
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(mp.frame, mp.fs, worldState, seedMap, getColDepth)
 	if err != nil {
 		return nil, err
 	}
