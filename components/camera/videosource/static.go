@@ -17,8 +17,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const fileModel = "image_file"
+
 func init() {
-	registry.RegisterComponent(camera.Subtype, "file",
+	registry.RegisterComponent(camera.Subtype, fileModel,
 		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -35,7 +37,7 @@ func init() {
 			)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, fileModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf fileSourceAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -64,8 +66,8 @@ type fileSourceAttrs struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
-	Color                string                             `json:"color_file_path"`
-	Depth                string                             `json:"depth_file_path"`
+	Color                string                             `json:"color_image_file_path,omitempty"`
+	Depth                string                             `json:"depth_image_file_path,omitempty"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
