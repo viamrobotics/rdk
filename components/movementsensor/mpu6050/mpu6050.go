@@ -76,6 +76,7 @@ type mpu6050 struct {
 	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
+// NewMpu6050 constructs a new Mpu6050 object.
 func NewMpu6050(
 	ctx context.Context,
 	deps registry.Dependencies,
@@ -130,7 +131,7 @@ func NewMpu6050(
 	// To do this, we set register 107 to 0.
 	err = sensor.writeByte(ctx, 107, 0)
 	if err != nil {
-		return nil, errors.Errorf("Unable to wake up MPU6050: '%d'", err.Error())
+		return nil, errors.Errorf("Unable to wake up MPU6050: '%s'", err.Error())
 	}
 
 	return sensor, nil
@@ -250,7 +251,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	mpu.mu.Lock()
 	defer mpu.mu.Lock()
 
-	var readings map[string]interface{}
+	readings := make(map[string]interface{})
 	// Instead of this function calling AngularVelocity, we get an atomic snapshot of all the
 	// values together, rather than the angular velocity at one time and everything else at a
 	// slightly different time.
@@ -265,7 +266,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 
 	// Taken straight from the MPU6050 register map. Yes, these are weird constants.
 	temp := toSignedValue(rawData[6:8])
-	readings["temperature_celcius"] = float64(temp)/340 + 36.53
+	readings["temperature_celsius"] = float64(temp)/340 + 36.53
 
 	readings["angular_velocity"] = toAngularVelocity(rawData[8:14])
 
