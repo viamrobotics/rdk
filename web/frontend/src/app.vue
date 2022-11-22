@@ -11,7 +11,6 @@ import { addResizeListeners } from './lib/resize';
 import {
   robotApi,
   RobotService,
-  // TODO: do not export this type explicitly
   ServiceError,
   commonApi,
   cameraApi,
