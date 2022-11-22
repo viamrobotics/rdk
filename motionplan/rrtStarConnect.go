@@ -102,6 +102,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	seed []referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
+	mp.logger.Debug("Starting RRT*")
 	defer close(rrt.solutionChan)
 
 	// setup planner options
@@ -118,6 +119,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, rrt.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
+	mp.logger.Debugf("RRT* found %d IK solutions", len(solutions))
 	if err != nil {
 		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
 		return
@@ -125,6 +127,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if rrt.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
+		mp.logger.Debug("RRT* found early final solution")
 		rrt.endpointPreview <- solutions[0]
 	}
 
@@ -135,10 +138,12 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	for i, solution := range solutions {
 		if i == 0 && mp.checkPath(rrt.planOpts, seed, solution.Q()) {
 			rrt.solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
+			mp.logger.Debug("RRT* could interpolate directly to goal")
 			return
 		}
 		rrt.rm.goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
+	mp.logger.Debugf("RRT* failed to directly interpolate from %v to %v", seed, solutions[0].Q())
 	rrt.rm.startMap[newCostNode(seed, 0)] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
@@ -162,8 +167,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		case <-ctx.Done():
 			// stop and return best path
 			if solved {
+				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
 				rrt.solutionChan <- shortestPath(rrt.rm, shared)
 			} else {
+				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
 				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
 			}
 			return
@@ -202,7 +209,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			}
 		}
 	}
-
+	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.rm, shared)
 }
 

@@ -118,7 +118,7 @@ func (oce *ObjectCollisionEntities) checkCollision(key, test *collisionEntity, d
 func (oce *ObjectCollisionEntities) reportCollisions(distances []float64) []int {
 	var collisionIndices []int
 	for i := range distances {
-		if distances[i] >= 0 {
+		if distances[i] >= -spatial.CollisionBuffer {
 			collisionIndices = append(collisionIndices, i)
 		}
 	}
@@ -150,7 +150,7 @@ func (sce spaceCollisionEntities) checkCollision(key, test *collisionEntity, dep
 func (sce spaceCollisionEntities) reportCollisions(distances []float64) []int {
 	collisionIndices := make([]int, 0)
 	for i := range distances {
-		if distances[i] >= 0 {
+		if distances[i] >= spatial.CollisionBuffer {
 			collisionIndices = append(collisionIndices, i)
 		} else {
 			return []int{}
@@ -208,7 +208,7 @@ func newCollisionGraph(
 				if err != nil {
 					return nil, err
 				}
-				if !depth && cg.adjacencies[i][j] > 0 {
+				if !depth && cg.adjacencies[i][j] > -spatial.CollisionBuffer {
 					return cg, nil
 				}
 			}
@@ -224,7 +224,7 @@ func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
 	if cg.triangular && i > j {
 		i, j = j, i
 	}
-	if iOk == nil && jOk == nil && cg.adjacencies[i][j] >= 0 {
+	if iOk == nil && jOk == nil && cg.adjacencies[i][j] >= -spatial.CollisionBuffer {
 		return true
 	}
 	return false

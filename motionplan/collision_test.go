@@ -93,7 +93,7 @@ func TestUniqueCollisions(t *testing.T) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// zero position of ur5e arm
+	// zero position of xarm6 arm
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)

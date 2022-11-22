@@ -228,14 +228,14 @@ func boxVsBoxCollision(a, b *box) bool {
 	rmB := b.pose.Orientation().RotationMatrix()
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > 0 {
+		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
 			return false
 		}
-		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > 0 {
+		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if separatingAxisTest(centerDist, rmA.Row(i).Cross(rmB.Row(j)), a.halfSize, b.halfSize, rmA, rmB) > 0 {
+			if separatingAxisTest(centerDist, rmA.Row(i).Cross(rmB.Row(j)), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
 				return false
 			}
 		}
@@ -284,7 +284,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if crossProductPlane.Norm() != 0 {
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, 0.00001) {
 				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
 				if separation > max {
 					max = separation

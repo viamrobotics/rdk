@@ -9,7 +9,7 @@ import (
 
 const (
 	// Number of planner iterations before giving up.
-	defaultPlanIter = 2000
+	defaultPlanIter = 20000
 )
 
 type rrtParallelPlanner interface {
