@@ -220,7 +220,7 @@ func boxVsBoxCollision(a, b *box) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm() - (a.boundingSphereR + b.boundingSphereR) > 0 {
+	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > 0 {
 		return false
 	}
 

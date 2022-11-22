@@ -268,7 +268,7 @@ func NewCollisionSystemFromReference(
 			return cs, nil
 		}
 	}
-	
+
 	for i := range optional {
 		graph, err = newCollisionGraph(key, optional[i], reference, depth)
 		if err != nil {
