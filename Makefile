@@ -9,7 +9,6 @@ LDFLAGS = -ldflags "$(shell etc/set_plt.sh) $(shell etc/tag_version.sh) -X 'go.v
 BUILD_TAGS=dynamic
 GO_BUILD_TAGS = -tags $(BUILD_TAGS)
 LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
-BUF_TARGET?=buf.build/viamrobotics/api
 
 default: build lint server
 
@@ -21,7 +20,9 @@ build: build-web build-go
 build-go:
 	go build $(GO_BUILD_TAGS) ./...
 
-build-web: buf-web
+build-web:
+	npm ci --audit=false
+	npm ci --audit=false --prefix web/frontend
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
 	npm run build --prefix web/frontend
 
@@ -40,12 +41,6 @@ tool-install:
 		github.com/bufbuild/buf/cmd/buf \
 		gotest.tools/gotestsum \
 		github.com/rhysd/actionlint/cmd/actionlint
-
-buf: buf-web
-
-buf-web: tool-install
-	npm ci --audit=false
-	npm ci --audit=false --prefix web/frontend
 
 lint: lint-go lint-web
 	PATH=$(PATH_WITH_TOOLS) actionlint
