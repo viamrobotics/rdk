@@ -295,7 +295,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 				yaw += config[channelID].azimuthOffset
 				err := pc.Set(
 					pointFrom(utils.DegToRad(yaw), utils.DegToRad(pitch), float64(c.Distance)/1000),
-					pointcloud.NewBasicData().SetValue(int(c.Reflectivity)*255),
+					pointcloud.NewValueData(int(c.Reflectivity)),
 				)
 				if err != nil {
 					return nil, err
