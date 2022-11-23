@@ -1,8 +1,7 @@
 .PHONY: module buf
 
 buf:
-	cd ../../ && make tool-install
-	PATH="$(PATH):$(shell pwd)/../../bin/gotools/$(shell uname -s)-$(shell uname -m)" buf generate
+	cd apis/proto && make
 
 module:
 	go build -o module/module ./module/module.go
