@@ -21,7 +21,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "mpu6050"
+const modelName = "gyro-mpu6050"
 
 // AttrConfig is used to configure the attributes of the chip.
 type AttrConfig struct {
