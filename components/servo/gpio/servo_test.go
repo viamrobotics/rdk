@@ -1,5 +1,5 @@
-// Package servogeneric implements a generic servo
-package servogeneric
+// Package gpio implements a pin based servo
+package gpio
 
 import (
 	"context"
@@ -162,10 +162,10 @@ func TestServoMove(t *testing.T) {
 	cfg := config.Component{
 		ConvertedAttributes: &attrs,
 	}
-	servo, err := newGenericServo(ctx, deps, cfg, logger)
+	servo, err := newGPIOServo(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, servo, test.ShouldNotBeNil)
-	realServo, ok := servo.(*servoGeneric)
+	realServo, ok := servo.(*servoGPIO)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, realServo.pwmRes, test.ShouldEqual, 255)
 	pos, err := realServo.Position(ctx, nil)
@@ -187,10 +187,10 @@ func TestServoMove(t *testing.T) {
 	cfg = config.Component{
 		ConvertedAttributes: &attrs,
 	}
-	servo, err = newGenericServo(ctx, deps, cfg, logger)
+	servo, err = newGPIOServo(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, servo, test.ShouldNotBeNil)
-	realServo, ok = servo.(*servoGeneric)
+	realServo, ok = servo.(*servoGPIO)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, realServo.pwmRes, test.ShouldEqual, 4095)
 	pos, err = realServo.Position(ctx, nil)

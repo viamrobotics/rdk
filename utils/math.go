@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"sort"
 
-	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
@@ -138,11 +137,6 @@ func SampleRandomIntRange(min, max int, r *rand.Rand) int {
 // Float64AlmostEqual compares two float64s and returns if the difference between them is less than epsilon.
 func Float64AlmostEqual(a, b, epsilon float64) bool {
 	return (a-b) < epsilon && (b-a) < epsilon
-}
-
-// R3VectorAlmostEqual compares two r3.Vector objects and returns if the all elementwise differences are less than epsilon.
-func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
-	return math.Abs(a.X-b.X) < epsilon && math.Abs(a.Y-b.Y) < epsilon && math.Abs(a.Z-b.Z) < epsilon
 }
 
 // Clamp returns min if value is lesser than min, max if value is greater them max or value if the input value is

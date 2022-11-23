@@ -1,5 +1,5 @@
-// Package servogeneric implements a generic servo
-package servogeneric
+// Package gpio implements a pin based servo
+package gpio
 
 import (
 	"context"
@@ -82,12 +82,12 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const model = "generic"
+const model = "gpio"
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, model,
 		registry.Component{
-			Constructor: newGenericServo,
+			Constructor: newGPIOServo,
 		})
 	config.RegisterComponentAttributeMapConverter(servo.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
@@ -97,7 +97,7 @@ func init() {
 		&servoConfig{})
 }
 
-type servoGeneric struct {
+type servoGPIO struct {
 	generic.Unimplemented
 	pin       board.GPIOPin
 	min       float64
@@ -111,7 +111,7 @@ type servoGeneric struct {
 	currPct   float64
 }
 
-func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
 	attr, ok := cfg.ConvertedAttributes.(*servoConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(&servoConfig{}, cfg.ConvertedAttributes)
@@ -165,7 +165,7 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 		maxUs = *attr.MaxWidthUS
 	}
 
-	servo := &servoGeneric{
+	servo := &servoGPIO{
 		min:       minDeg,
 		max:       maxDeg,
 		frequency: frequency,
@@ -190,7 +190,7 @@ func newGenericServo(ctx context.Context, deps registry.Dependencies, cfg config
 	return servo, nil
 }
 
-var _ = servo.LocalServo(&servoGeneric{})
+var _ = servo.LocalServo(&servoGPIO{})
 
 // Given minUs, maxUs, deg and frequency attempt to calculate the corresponding duty cycle pct.
 func mapDegToDutyCylePct(minUs, maxUs uint, deg float64, frequency uint) float64 {
@@ -228,7 +228,7 @@ func mapDutyCylePctToDeg(minUs, maxUs uint, pct float64, frequency uint) float64
 //
 //     if both the expected duty cycle and returned duty cycle are different we approximate
 //     the resolution
-func (s *servoGeneric) findPWMResolution(ctx context.Context) error {
+func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 	periodUs := (1.0 / float64(s.frequency)) * 1000 * 1000
 	currPct := s.currPct
 	realPct, err := s.pin.PWM(ctx, nil)
@@ -289,7 +289,7 @@ func (s *servoGeneric) findPWMResolution(ctx context.Context) error {
 
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one.
-func (s *servoGeneric) Move(ctx context.Context, ang uint8, extra map[string]interface{}) error {
+func (s *servoGPIO) Move(ctx context.Context, ang uint8, extra map[string]interface{}) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	angle := float64(ang)
@@ -312,7 +312,7 @@ func (s *servoGeneric) Move(ctx context.Context, ang uint8, extra map[string]int
 }
 
 // Position returns the current set angle (degrees) of the servo.
-func (s *servoGeneric) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
 	pct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
 		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
@@ -321,7 +321,7 @@ func (s *servoGeneric) Position(ctx context.Context, extra map[string]interface{
 }
 
 // Stop stops the servo. It is assumed the servo stops immediately.
-func (s *servoGeneric) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	if err := s.pin.SetPWM(ctx, 0.0, nil); err != nil {
@@ -331,7 +331,7 @@ func (s *servoGeneric) Stop(ctx context.Context, extra map[string]interface{}) e
 }
 
 // IsMoving returns whether or not the servo is moving.
-func (s *servoGeneric) IsMoving(ctx context.Context) (bool, error) {
+func (s *servoGPIO) IsMoving(ctx context.Context) (bool, error) {
 	res, err := s.pin.PWM(ctx, nil)
 	if err != nil {
 		return false, errors.Wrap(err, "servo error while checking if moving")
