@@ -4,8 +4,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
-import InputController from '../gen/component/inputcontroller/v1/input_controller_pb.esm';
-import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import { inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 
 let gamepadIdx = $ref<number | null>(null);

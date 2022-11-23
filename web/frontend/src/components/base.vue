@@ -2,14 +2,12 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
-import baseApi from '../gen/component/base/v1/base_pb.esm';
-import commonApi from '../gen/common/v1/common_pb.esm';
+import { baseApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { addStream, removeStream } from '../lib/stream';
 import { rcLogConditionally } from '../lib/log';
-import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 
 interface Props {
   name: string;

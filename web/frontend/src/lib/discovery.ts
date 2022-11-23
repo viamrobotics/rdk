@@ -1,12 +1,11 @@
 import { grpc } from '@improbable-eng/grpc-web';
-import type { DiscoverComponentsResponse } from '../gen/robot/v1/robot_pb';
 
-import type { ServiceError } from '../gen/robot/v1/robot_pb_service.esm';
+import type { robotApi, ServiceError } from '@viamrobotics/sdk';
 
 export const fetchCameraDiscoveries = (
   subType: string,
   model: string,
-  callback: (error: ServiceError | null, options: DiscoverComponentsResponse | null) => void
+  callback: (error: ServiceError | null, options: robotApi.DiscoverComponentsResponse | null) => void
 ) => {
   // Build discovery request
   const req = new window.robotApi.DiscoverComponentsRequest();
