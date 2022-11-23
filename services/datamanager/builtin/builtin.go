@@ -540,8 +540,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-ticker.C:
 				svc.syncDataCaptureFiles()
-				// TODO DATA-660: There's a risk of deadlock where we're in this case when Close is called, which
-				//                acquires svc.lock, which prevents this call from ever acquiring the lock/finishing.
 				svc.syncAdditionalSyncPaths()
 			}
 		}

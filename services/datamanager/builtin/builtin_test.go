@@ -56,14 +56,6 @@ func readDir(t *testing.T, dir string) ([]fs.DirEntry, error) {
 	return onlyFiles, err
 }
 
-// TODO: get rid of this and just use os.RemoveAll where needed
-func resetFolder(t *testing.T, path string) {
-	t.Helper()
-	if err := os.RemoveAll(path); err != nil {
-		t.Log(err)
-	}
-}
-
 func getInjectedRobot() *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
@@ -147,7 +139,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
-	defer resetFolder(t, captureDir)
+	defer os.RemoveAll(captureDir)
 	fmt.Println("updating")
 	err := dmsvc.Update(context.Background(), conf)
 	fmt.Println("updated")
