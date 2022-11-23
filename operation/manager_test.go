@@ -25,7 +25,6 @@ var (
 )
 
 func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
-	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
 	ctx1, close1 := som.New(ctx)
@@ -34,8 +33,8 @@ func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
 	defer close2()
 	test.That(t, ctx1.Err(), test.ShouldBeNil)
 }
+
 func TestCallOnDifferentContext(t *testing.T) {
-	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
 	res := int32(0)
@@ -61,7 +60,6 @@ func TestCallOnDifferentContext(t *testing.T) {
 }
 
 func TestWaitForSuccess(t *testing.T) {
-	ctx := context.Background()
 	count := int64(0)
 
 	err := som.WaitForSuccess(
@@ -94,15 +92,17 @@ func TestWaitForError(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, count, test.ShouldEqual, int64(5))
 }
+
 func TestDontCancel(t *testing.T) {
-	ctx, done := som.New(context.Background())
+	ctx, done := som.New(ctx)
 	defer done()
 
 	som.CancelRunning(ctx)
 	test.That(t, ctx.Err(), test.ShouldBeNil)
 }
+
 func TestCancelRace(t *testing.T) {
-	ctx, done := som.New(context.Background())
+	ctx, done := som.New(ctx)
 	defer done()
 
 	var wg sync.WaitGroup
@@ -117,11 +117,10 @@ func TestCancelRace(t *testing.T) {
 	som.CancelRunning(ctx)
 	wg.Wait()
 	test.That(t, ctx.Err(), test.ShouldNotBeNil)
-
 }
 
 func TestStopCalled(t *testing.T) {
-	ctx, done := som.New(context.Background())
+	ctx, done := som.New(ctx)
 	defer done()
 	mock := &mock{stopCount: 0}
 	ctx, cancel := context.WithCancel(ctx)
@@ -141,7 +140,7 @@ func TestStopCalled(t *testing.T) {
 }
 
 func TestErrorContainsStopAndCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mock := &mock{stopCount: 0}
 	var wg sync.WaitGroup
