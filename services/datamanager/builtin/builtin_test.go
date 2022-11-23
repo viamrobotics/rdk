@@ -14,11 +14,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -67,8 +67,8 @@ func getInjectedRobot() *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	injectedArm := &inject.Arm{}
-	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 	rs[arm.Named("arm1")] = injectedArm
 

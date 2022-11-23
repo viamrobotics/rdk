@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
@@ -25,10 +24,6 @@ var (
 	nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
 )
 
-func poseToSlice(p *commonpb.Pose) []float64 {
-	return []float64{p.X, p.Y, p.Z, p.Theta, p.OX, p.OY, p.OZ}
-}
-
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
@@ -36,57 +31,56 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
-	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	pos, err := ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0}})
+	expect := spatial.NewPoseFromOrientation(
+		r3.Vector{X: 300, Y: 0, Z: 360.25},
+		&spatial.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0},
+	)
+	pos, err := ComputePosition(m, &pb.JointPositions{Values: make([]float64, 5)})
 	test.That(t, err, test.ShouldBeNil)
-	actual := poseToSlice(pos)
-
-	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
+	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
 	// Test the 6dof arm we actually have
 	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
-	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}})
+	expect = spatial.NewPoseFromOrientation(
+		r3.Vector{X: 365, Y: 0, Z: 360.25},
+		&spatial.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0},
+	)
+	pos, err = ComputePosition(m, &pb.JointPositions{Values: make([]float64, 6)})
 	test.That(t, err, test.ShouldBeNil)
-	actual = poseToSlice(pos)
-	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
+	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
 	// Test incorrect joints
 	_, err = ComputePosition(m, &pb.JointPositions{Values: []float64{}})
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0, 0}})
+	_, err = ComputePosition(m, &pb.JointPositions{Values: make([]float64, 7)})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	newPos := []float64{45, -45, 0, 0, 0, 0}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
-	actual = poseToSlice(pos)
-	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
-	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
+	expect = spatial.NewPoseFromOrientation(
+		r3.Vector{X: 57.5, Y: 57.5, Z: 545.1208197765168},
+		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0.5, OY: 0.5, OZ: 0.707},
+	)
+	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
-	actual = poseToSlice(pos)
-	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
-	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
+	expect = spatial.NewPoseFromOrientation(
+		r3.Vector{X: 258.0935, Y: -258.0935, Z: 360.25},
+		&spatial.OrientationVectorDegrees{Theta: utils.RadToDeg(0.7854), OX: 0.707, OY: -0.707, OZ: 0},
+	)
+	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
 	// Test out of bounds. Note that ComputePosition will return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, pos, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-}
-
-func floatDelta(l1, l2 []float64) float64 {
-	delta := 0.0
-	for i, v := range l1 {
-		delta += math.Abs(v - l2[i])
-	}
-	return delta
 }
 
 const derivEqualityEpsilon = 1e-16
@@ -280,26 +274,18 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
-	pos := &commonpb.Pose{
-		X:  -46,
-		Y:  -133,
-		Z:  372,
-		OX: 1.79,
-		OY: -1.32,
-		OZ: -1.11,
-	}
+	pos := spatial.NewPoseFromOrientation(
+		r3.Vector{X: -46, Y: -133, Z: 372},
+		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
+	)
 	solution, err := solveTest(context.Background(), ik, pos, home)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
-	pos = &commonpb.Pose{
-		X:  -66,
-		Y:  -133,
-		Z:  372,
-		OX: 1.78,
-		OY: -3.3,
-		OZ: -1.11,
-	}
+	pos = spatial.NewPoseFromOrientation(
+		r3.Vector{X: -66, Y: -133, Z: 372},
+		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
+	)
 	_, err = solveTest(context.Background(), ik, pos, solution[0])
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -335,15 +321,7 @@ func TestSVAvsDH(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		posDH, err := ComputePosition(mDH, joints)
 		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, posSVA.X, test.ShouldAlmostEqual, posDH.X, .01)
-		test.That(t, posSVA.Y, test.ShouldAlmostEqual, posDH.Y, .01)
-		test.That(t, posSVA.Z, test.ShouldAlmostEqual, posDH.Z, .01)
-
-		test.That(t, posSVA.OX, test.ShouldAlmostEqual, posDH.OX, .01)
-		test.That(t, posSVA.OY, test.ShouldAlmostEqual, posDH.OY, .01)
-		test.That(t, posSVA.OZ, test.ShouldAlmostEqual, posDH.OZ, .01)
-		test.That(t, posSVA.Theta, test.ShouldAlmostEqual, posDH.Theta, .01)
+		test.That(t, spatial.PoseAlmostEqual(posSVA, posDH), test.ShouldBeTrue)
 	}
 }
 
@@ -356,13 +334,7 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
 }
 
-func solveTest(ctx context.Context,
-	solver InverseKinematics,
-	goal *commonpb.Pose,
-	seed []frame.Input,
-) ([][]frame.Input, error) {
-	goalPos := spatial.NewPoseFromProtobuf(goal)
-
+func solveTest(ctx context.Context, solver InverseKinematics, goal spatial.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -371,7 +343,7 @@ func solveTest(ctx context.Context,
 	// Spawn the IK solver to generate solutions until done
 	go func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, NewSquaredNormMetric())
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goal, seed, NewSquaredNormMetric())
 	}()
 
 	var solutions [][]frame.Input

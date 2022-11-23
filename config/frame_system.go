@@ -24,19 +24,9 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, referenceframe.ErrNoModelInformation
 	}
-	pose := spatialmath.PoseToProtobuf(part.FrameConfig.Pose())
-	convertedPose := &commonpb.Pose{
-		X:     pose.X,
-		Y:     pose.Y,
-		Z:     pose.Z,
-		OX:    pose.OX,
-		OY:    pose.OY,
-		OZ:    pose.OZ,
-		Theta: pose.Theta,
-	}
 	poseInFrame := &commonpb.PoseInFrame{
 		ReferenceFrame: part.FrameConfig.Parent,
-		Pose:           convertedPose,
+		Pose:           spatialmath.PoseToProtobuf(part.FrameConfig.Pose()),
 	}
 	var modelJSON []byte
 	var err error
@@ -55,17 +45,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
-	poseMsg := fsc.PoseInParentFrame.Pose
-	convertedPose := &commonpb.Pose{
-		X:     poseMsg.X,
-		Y:     poseMsg.Y,
-		Z:     poseMsg.Z,
-		OX:    poseMsg.OX,
-		OY:    poseMsg.OY,
-		OZ:    poseMsg.OZ,
-		Theta: poseMsg.Theta,
-	}
-	pose := spatialmath.NewPoseFromProtobuf(convertedPose)
+	pose := spatialmath.NewPoseFromProtobuf(fsc.PoseInParentFrame.Pose)
 	frameConfig := &Frame{
 		Parent:      fsc.PoseInParentFrame.ReferenceFrame,
 		Translation: pose.Point(),

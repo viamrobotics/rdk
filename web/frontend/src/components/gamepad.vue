@@ -8,7 +8,7 @@ import InputController from '../gen/component/inputcontroller/v1/input_controlle
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 import { toast } from '../lib/toast';
 
-let gamepad = $ref<Gamepad | null>(null);
+let gamepadIdx = $ref<number | null>(null);
 let gamepadConnectedPrev = $ref(false);
 const enabled = $ref(false);
 
@@ -71,7 +71,12 @@ const nextTS = () => {
   return nowTS;
 };
 
+const currentGamepad = () => {
+  return gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
+};
+
 const connectEvent = (con: boolean) => {
+  const gamepad = currentGamepad();
   if (
     (con && (!gamepad || !gamepad.connected)) ||
     (!con && !gamepadConnectedPrev)
@@ -101,8 +106,8 @@ const connectEvent = (con: boolean) => {
   }
 };
 
-const processEvents = () => {
-  if (gamepad && !gamepad.connected) {
+const processEvents = (connected: boolean) => {
+  if (!connected) {
     for (const key of Object.keys(curStates)) {
       curStates[key] = Number.NaN;
     }
@@ -149,7 +154,11 @@ const processEvents = () => {
 };
 
 const tick = () => {
-  if (!gamepad || navigator.getGamepads().length === 0) {
+  const gamepad = currentGamepad();
+  if (!gamepad || !gamepad.connected) {
+    if (enabled) {
+      processEvents(false);
+    }
     return;
   }
 
@@ -189,34 +198,35 @@ const tick = () => {
   curStates.Menu = trunc(gamepad.buttons[16]!.value);
 
   if (enabled) {
-    processEvents();
+    processEvents(true);
   }
+
   handle = window.setTimeout(tick, 10);
 };
 
 onMounted(() => {
   window.addEventListener('gamepadconnected', (event) => {
-    if (gamepad) {
+    if (gamepadIdx) {
       return;
     }
-    gamepad = event.gamepad;
+    gamepadIdx = event.gamepad.index;
     tick();
   });
   window.addEventListener('gamepaddisconnected', (event) => {
-    if (gamepad && event.gamepad.id === gamepad.id) {
-      gamepad = null;
+    if (gamepadIdx === event.gamepad.index || !currentGamepad()?.connected) {
+      gamepadIdx = null;
     }
   });
   // initial search
   const pads = navigator.getGamepads();
   for (const pad of pads) {
     if (pad) {
-      gamepad = pad;
+      gamepadIdx = pad.index;
       break;
     }
   }
 
-  if (!gamepad) {
+  if (!gamepadIdx) {
     return;
   }
   prevStates = { ...prevStates, ...curStates };
@@ -224,7 +234,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  cancelAnimationFrame(handle);
+  clearTimeout(handle);
 });
 
 watch(() => enabled, () => {
@@ -243,12 +253,12 @@ watch(() => enabled, () => {
       crumbs="input_controller"
     />
     <span
-      v-if="gamepad && gamepad.connected"
+      v-if="currentGamepad()?.connected"
       slot="title"
-    > ({{ gamepad.id }})</span>
+    > ({{ currentGamepad()?.id }})</span>
     <div slot="header">
       <span
-        v-if="gamepad && gamepad.connected && enabled"
+        v-if="currentGamepad()?.connected && enabled"
         class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
       >Enabled</span>
       <span
@@ -267,7 +277,7 @@ watch(() => enabled, () => {
       </div>
 
       <div
-        v-if="gamepad && gamepad.connected"
+        v-if="currentGamepad()?.connected"
         class="flex h-full w-full flex-row justify-between gap-2"
       >
         <div
