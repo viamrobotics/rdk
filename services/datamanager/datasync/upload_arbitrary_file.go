@@ -64,7 +64,7 @@ package datasync
 //	return nil
 //}
 //
-//func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
+// func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
 //	select {
 //	case <-ctx.Done():
 //		return nil, context.Canceled
