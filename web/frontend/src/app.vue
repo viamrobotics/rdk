@@ -1,6 +1,5 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
-
 import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
@@ -9,16 +8,14 @@ import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
-import robotApi, {
-  type Operation,
-  type Status,
-  type StreamStatusResponse,
-} from './gen/robot/v1/robot_pb.esm';
-import { RobotService } from './gen/robot/v1/robot_pb_service.esm';
-import type { ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
-import commonApi, { type ResourceName } from './gen/common/v1/common_pb.esm';
-import cameraApi from './gen/component/camera/v1/camera_pb.esm';
-import sensorsApi from './gen/service/sensors/v1/sensors_pb.esm';
+import {
+  robotApi,
+  RobotService,
+  ServiceError,
+  commonApi,
+  cameraApi,
+  sensorsApi,
+} from '@viamrobotics/sdk';
 
 import {
   resourceNameToSubtypeString,
@@ -69,8 +66,8 @@ const relevantSubtypesForStatus = [
 
 const passwordInput = $ref<HTMLInputElement>();
 const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
-const rawStatus = $ref<Record<string, Status>>({});
-const status = $ref<Record<string, Status>>({});
+const rawStatus = $ref<Record<string, robotApi.Status>>({});
+const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: grpc.Request | null = null;
@@ -79,8 +76,10 @@ let baseCameraState = new Map<string, boolean>();
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
-let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
-let sensorNames = $ref<ResourceName.AsObject[]>([]);
+let currentOps = $ref<{ op: robotApi.Operation.AsObject; elapsed: number }[]>(
+  []
+);
+let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let resourcesOnce = false;
 let errorMessage = $ref('');
@@ -114,7 +113,10 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   console.error(message, { error });
 };
 
-const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErrors: unknown) => {
+const handleCallErrors = (
+  statuses: { resources: boolean; ops: boolean },
+  newErrors: unknown
+) => {
   const errorsList = document.createElement('ul');
   errorsList.classList.add('list-disc', 'pl-4');
 
@@ -168,7 +170,12 @@ const stringToResourceName = (nameStr: string) => {
 };
 
 const querySensors = () => {
-  const sensorsName = filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]?.name;
+  const sensorsName = filterNonRemoteResources(
+    resources,
+    'rdk',
+    'service',
+    'sensors'
+  )[0]?.name;
   if (sensorsName === undefined) {
     return;
   }
@@ -218,15 +225,15 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
     const statusJs = grpcStatus.getStatus()!.toJavaScript();
 
     try {
-      // @ts-expect-error @TODO type needs to be fixed
       const fixed = fixRawStatus(nameObj, statusJs);
-      // @ts-expect-error @TODO type needs to be fixed
       const name = resourceNameToString(nameObj);
-      rawStatus[name] = statusJs as unknown as Status;
-      status[name] = fixed as unknown as Status;
+      rawStatus[name] = statusJs as unknown as robotApi.Status;
+      status[name] = fixed as unknown as robotApi.Status;
     } catch (error) {
-      // @ts-expect-error @TODO type needs to be fixed
-      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
+      toast.error(
+        `Couldn't fix status for ${resourceNameToString(nameObj)}`,
+        error
+      );
     }
   }
 };
@@ -245,7 +252,10 @@ const restartStatusStream = () => {
 
   // get all relevant resources
   for (const subtype of relevantSubtypesForStatus) {
-    newResources = [...newResources, ...filterResources(newResources, 'rdk', 'component', subtype)];
+    newResources = [
+      ...newResources,
+      ...filterResources(newResources, 'rdk', 'component', subtype),
+    ];
   }
 
   const names = newResources.map((name) => {
@@ -283,10 +293,17 @@ const restartStatusStream = () => {
     },
     onMessage: (response) => {
       lastStatusTS = Date.now();
-      updateStatus((response as StreamStatusResponse).getStatusList());
+      updateStatus((response as robotApi.StreamStatusResponse).getStatusList());
     },
     onEnd: (endStatus, endStatusMessage, trailers) => {
-      console.error('error streaming robot status', endStatus, ' ', endStatusMessage, ' ', trailers);
+      console.error(
+        'error streaming robot status',
+        endStatus,
+        ' ',
+        endStatusMessage,
+        ' ',
+        trailers
+      );
       statusStream = null;
     },
   });
@@ -298,65 +315,75 @@ const queryMetadata = () => {
     let resourcesChanged = false;
     let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-    window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      if (!resp) {
-        reject(new Error('An unexpected issue occured.'));
-        return;
-      }
-
-      const { resourcesList } = resp.toObject();
-
-      // if resource list has changed, flag that
-      const differences = new Set(resources.map((name) => resourceNameToString(name)));
-      // @ts-expect-error @TODO this is incorrectly typed.
-      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
-
-      for (const elem of resourceSet) {
-        if (differences.has(elem)) {
-          differences.delete(elem);
-        } else {
-          differences.add(elem);
+    window.robotService.resourceNames(
+      new robotApi.ResourceNamesRequest(),
+      new grpc.Metadata(),
+      (err, resp) => {
+        if (err) {
+          reject(err);
+          return;
         }
-      }
 
-      if (differences.size > 0) {
-        resourcesChanged = true;
+        if (!resp) {
+          reject(new Error('An unexpected issue occured.'));
+          return;
+        }
 
-        // restart status stream if resource difference includes a resource we care about
-        for (const elem of differences) {
-          const resource = stringToResourceName(elem);
-          if (
-            resource.namespace === 'rdk' &&
-            resource.type === 'component' &&
-            relevantSubtypesForStatus.includes(resource.subtype!)
-          ) {
-            shouldRestartStatusStream = true;
-            break;
+        const { resourcesList } = resp.toObject();
+
+        // if resource list has changed, flag that
+        const differences = new Set(
+          resources.map((name) => resourceNameToString(name))
+        );
+        const resourceSet = new Set(
+          // @ts-expect-error @TODO this is incorrectly typed.
+          resourcesList.map((name) => resourceNameToString(name))
+        );
+
+        for (const elem of resourceSet) {
+          // @ts-expect-error @TODO this is incorrectly typed.
+          if (differences.has(elem)) {
+            // @ts-expect-error @TODO this is incorrectly typed.
+            differences.delete(elem);
+          } else {
+            // @ts-expect-error @TODO this is incorrectly typed.
+            differences.add(elem);
           }
         }
-      }
 
-      // @ts-expect-error @TODO type needs to be fixed
-      resources = resourcesList;
-      resourcesOnce = true;
-      if (resourcesChanged === true) {
-        querySensors();
+        if (differences.size > 0) {
+          resourcesChanged = true;
+
+          // restart status stream if resource difference includes a resource we care about
+          for (const elem of differences) {
+            const resource = stringToResourceName(elem);
+            if (
+              resource.namespace === 'rdk' &&
+              resource.type === 'component' &&
+              relevantSubtypesForStatus.includes(resource.subtype!)
+            ) {
+              shouldRestartStatusStream = true;
+              break;
+            }
+          }
+        }
+
+        resources = resourcesList;
+        resourcesOnce = true;
+        if (resourcesChanged === true) {
+          querySensors();
+        }
+        if (shouldRestartStatusStream === true) {
+          restartStatusStream();
+        }
+        resolve(resources);
       }
-      if (shouldRestartStatusStream === true) {
-        restartStatusStream();
-      }
-      resolve(resources);
-    });
+    );
   });
 };
 
 const fetchCurrentOps = () => {
-  return new Promise<Operation.AsObject[]>((resolve, reject) => {
+  return new Promise<robotApi.Operation.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
     const now = Date.now();
@@ -421,7 +448,7 @@ const createConnectionManager = () => {
       statuses.resources &&
       statuses.ops &&
       // check status on interval if direct grpc
-      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+      (isWebRtcEnabled() || Date.now() - lastStatusTS! <= checkIntervalMillis)
     );
   };
 
@@ -527,11 +554,13 @@ const rawResourceStatusByName = (resource: Resource) => {
 
 const hasWebGamepad = () => {
   // TODO (APP-146): replace these with constants
-  return resources.some((elem) =>
-    elem.namespace === 'rdk' &&
-    elem.type === 'component' &&
-    elem.subtype === 'input_controller' &&
-    elem.name === 'WebGamepad');
+  return resources.some(
+    (elem) =>
+      elem.namespace === 'rdk' &&
+      elem.type === 'component' &&
+      elem.subtype === 'input_controller' &&
+      elem.name === 'WebGamepad'
+  );
 };
 
 const filteredInputControllerList = () => {
@@ -540,12 +569,14 @@ const filteredInputControllerList = () => {
    * TODO (APP-146): replace these with constants
    * filters out WebGamepad
    */
-  return resources.filter((elem) =>
-    elem.namespace === 'rdk' &&
-    elem.type === 'component' &&
-    elem.subtype === 'input_controller' &&
-    elem.name !== 'WebGamepad' &&
-    resourceStatusByName(elem));
+  return resources.filter(
+    (elem) =>
+      elem.namespace === 'rdk' &&
+      elem.type === 'component' &&
+      elem.subtype === 'input_controller' &&
+      elem.name !== 'WebGamepad' &&
+      resourceStatusByName(elem)
+  );
 };
 
 const viewCamera = async (name: string, isOn: boolean) => {
@@ -580,7 +611,9 @@ const viewManualFrame = (cameraName: string) => {
       return displayError(err);
     }
 
-    const streamContainers = document.querySelectorAll(`[data-stream="${cameraName}"]`);
+    const streamContainers = document.querySelectorAll(
+      `[data-stream="${cameraName}"]`
+    );
     for (const streamContainer of streamContainers) {
       streamContainer.querySelector('video')?.remove();
       streamContainer.querySelector('img')?.remove();
@@ -602,7 +635,9 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
         return displayError(err);
       }
 
-      const streamContainers = document.querySelectorAll(`[data-stream="${cameraName}"]`);
+      const streamContainers = document.querySelectorAll(
+        `[data-stream="${cameraName}"]`
+      );
       for (const streamContainer of streamContainers) {
         streamContainer.querySelector('video')?.remove();
         streamContainer.querySelector('img')?.remove();
@@ -632,7 +667,11 @@ const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
 
-const doConnect = async (authEntity: string, creds: Credentials, onError?: () => void) => {
+const doConnect = async (
+  authEntity: string,
+  creds: Credentials,
+  onError?: () => void
+) => {
   console.debug('connecting');
   document.querySelector('#connecting')!.classList.remove('hidden');
 
@@ -679,7 +718,6 @@ onMounted(async () => {
 
   addResizeListeners();
 });
-
 </script>
 
 <template>
@@ -745,7 +783,11 @@ onMounted(async () => {
 
     <!-- ******* GANTRY *******  -->
     <Gantry
-      v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
+      v-for="gantry in filterRdkComponentsWithStatus(
+        resources,
+        status,
+        'gantry'
+      )"
       :key="gantry.name"
       :name="gantry.name"
       :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
@@ -753,7 +795,12 @@ onMounted(async () => {
 
     <!-- ******* MovementSensor *******  -->
     <MovementSensor
-      v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+      v-for="sensor in filterResources(
+        resources,
+        'rdk',
+        'component',
+        'movement_sensor'
+      )"
       :key="sensor.name"
       :name="sensor.name"
     />
@@ -769,7 +816,12 @@ onMounted(async () => {
 
     <!-- ******* GRIPPER *******  -->
     <Gripper
-      v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
+      v-for="gripper in filterResources(
+        resources,
+        'rdk',
+        'component',
+        'gripper'
+      )"
       :key="gripper.name"
       :name="gripper.name"
     />
@@ -801,9 +853,7 @@ onMounted(async () => {
     />
 
     <!-- ******* WEB CONTROLS *******  -->
-    <Gamepad
-      v-if="hasWebGamepad()"
-    />
+    <Gamepad v-if="hasWebGamepad()" />
 
     <!-- ******* BOARD *******  -->
     <Board
@@ -819,9 +869,21 @@ onMounted(async () => {
       :key="camera.name"
       :camera-name="camera.name"
       :resources="resources"
-      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
-      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
-      @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
+      @toggle-camera="
+        (isOn) => {
+          viewCamera(camera.name, isOn);
+        }
+      "
+      @refresh-camera="
+        (t) => {
+          viewCameraFrame(camera.name, t);
+        }
+      "
+      @selected-camera-view="
+        (t) => {
+          viewCameraFrame(camera.name, t);
+        }
+      "
     />
 
     <!-- ******* NAVIGATION ******* -->
@@ -841,7 +903,12 @@ onMounted(async () => {
 
     <!-- ******* AUDIO INPUTS *******  -->
     <AudioInput
-      v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
+      v-for="audioInput in filterResources(
+        resources,
+        'rdk',
+        'component',
+        'audio_input'
+      )"
       :key="audioInput.name"
       :name="audioInput.name"
     />
@@ -867,13 +934,13 @@ onMounted(async () => {
 </template>
 
 <style>
-  #source {
-    position: relative;
-    width: 50%;
-    height: 50%;
-  }
-  h3 {
-    margin: 0.1em;
-    margin-block-end: 0.1em;
-  }
+#source {
+  position: relative;
+  width: 50%;
+  height: 50%;
+}
+h3 {
+  margin: 0.1em;
+  margin-block-end: 0.1em;
+}
 </style>

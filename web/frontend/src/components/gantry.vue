@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import gantryApi from '../gen/component/gantry/v1/gantry_pb.esm';
+import { gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {

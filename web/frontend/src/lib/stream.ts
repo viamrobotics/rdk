@@ -1,6 +1,6 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
-import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
+import { streamApi } from '@viamrobotics/sdk';
 
 export const addStream = async (name: string) => {
   await new Promise<void>((resolve, reject) => {

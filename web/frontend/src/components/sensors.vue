@@ -1,8 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import sensorsApi from '../gen/service/sensors/v1/sensors_pb.esm';
-import commonApi from '../gen/common/v1/common_pb.esm';
+import { sensorsApi, commonApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 
@@ -54,7 +53,6 @@ const getReadings = (inputNames: SensorName[]) => {
         rr[key] = value.toJavaScript() as Reading;
       }
 
-      // @ts-expect-error @TODO This typing needs to be fixed
       sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
     }
   });
