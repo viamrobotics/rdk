@@ -249,7 +249,7 @@ func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
 	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
 }
 
-// oppositeHemisphere returns true if all sings are opposite between two quats
+// oppositeHemisphere returns true if all sings are opposite between two quats.
 func oppositeHemisphere(q1, q2 quat.Number) bool {
 	if math.Signbit(q1.Real) == math.Signbit(q2.Real) {
 		return false

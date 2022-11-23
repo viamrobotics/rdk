@@ -29,7 +29,7 @@ const (
 	defaultEpsilon = 0.001
 
 	// default number of seconds to try to solve in total before returning.
-	defaultTimeout = 45.
+	defaultTimeout = 300.
 
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
