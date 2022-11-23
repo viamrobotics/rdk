@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script type="module">
       window.webrtcEnabled = {{ .WebRTCEnabled }}
-      window.webrtcHost = {{ .WebRTCHost }}
+      window.host = {{ .Host }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
       window.bakedAuth = {{ .BakedAuth }} || {};
@@ -25,6 +25,12 @@
     {{ else if eq .Env "development" }}
     <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
+
+    <script id="_timeout_worker" type="javascript/worker">
+      self.onmessage = function(e) {
+        setTimeout(() => self.postMessage(""), e.data);
+      };
+    </script>
   </head>
 
   <body>
