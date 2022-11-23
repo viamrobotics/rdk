@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -38,12 +39,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	opt := NewBasicPlannerOptions()
 
-	pos := &commonpb.Pose{
-		X:  206,
-		Y:  100,
-		Z:  120.5,
-		OY: -1,
-	}
+	pos := spatialmath.NewPoseFromOrientation(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 	corners := map[node]bool{}
 
 	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame())

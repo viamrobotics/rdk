@@ -443,10 +443,16 @@ func createSLAMService(
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam", DependsOn: attrCfg.Sensors}
+	cfgService := config.Service{Name: "test", Type: "slam"}
 	cfgService.ConvertedAttributes = attrCfg
 
 	deps := setupDeps(attrCfg)
+
+	sensorDeps, err := attrCfg.Validate("path")
+	if err != nil {
+		return nil, err
+	}
+	test.That(t, sensorDeps, test.ShouldResemble, attrCfg.Sensors)
 
 	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
 	builtin.SetDialMaxTimeoutSecForTesting(1)
@@ -475,9 +481,21 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		attrCfg := &builtin.AttrConfig{}
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("runtime slam config error: "+
-				"%v algorithm specified not in implemented list", attrCfg.Algorithm))
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "algorithm"))
+	})
+
+	t.Run("New slam service with no data dir", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		attrCfg := &builtin.AttrConfig{Algorithm: "test", ConfigParams: map[string]string{"mode": "2d"}}
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "data_dir"))
+	})
+
+	t.Run("New slam service with no mode", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		attrCfg := &builtin.AttrConfig{Algorithm: "test", DataDirectory: "test"}
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "config_params[mode]"))
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {

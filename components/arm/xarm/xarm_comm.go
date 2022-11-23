@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -386,7 +387,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := x.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -397,7 +398,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*
 // MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm) MoveToPosition(
 	ctx context.Context,
-	pos *commonpb.Pose,
+	pos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {

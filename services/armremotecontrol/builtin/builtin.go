@@ -369,7 +369,7 @@ func processArmEndPointEvent(ctx context.Context, svc *builtIn, state *controlle
 		return nil
 	}
 
-	currentPoseBuf, err := svc.arm.EndPosition(ctx, nil)
+	currentPose, err := svc.arm.EndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -400,11 +400,10 @@ func processArmEndPointEvent(ctx context.Context, svc *builtIn, state *controlle
 		}
 	}
 
-	currentPose := spatial.NewPoseFromProtobuf(currentPoseBuf)
 	offsetPose := spatial.NewPoseFromOrientation(offSetPoseVector, offSetEulerAngles)
 	newPose := spatial.Compose(currentPose, offsetPose)
 
-	err = svc.arm.MoveToPosition(ctx, spatial.PoseToProtobuf(newPose), nil, nil)
+	err = svc.arm.MoveToPosition(ctx, newPose, nil, nil)
 	if err != nil {
 		return err
 	}

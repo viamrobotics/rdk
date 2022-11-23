@@ -10,13 +10,6 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-const radToDeg = 180 / math.Pi
-
-// If two angles differ by less than this amount, we consider them the same for the purpose of doing
-// math around the poles of orientation.
-// This needs to be very small in order to account for the small steps taken by IK. Otherwise singularities happen.
-const angleEpsilon = 0.0001
-
 // dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
 // using these instead.
@@ -165,26 +158,6 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	}
 
 	return dualquat.Mul(q.Number, by)
-}
-
-// MatToEuler Converts a 4x4 matrix to Euler angles.
-// Euler angles are terrible, don't use them.
-func MatToEuler(mat mgl64.Mat4) []float64 {
-	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
-	var angles []float64
-	if sy < 1e-6 { // singular
-		angles = append(angles, math.Atan2(-mat.At(1, 2), mat.At(1, 1)))
-		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
-		angles = append(angles, 0)
-	} else {
-		angles = append(angles, math.Atan2(mat.At(2, 1), mat.At(2, 2)))
-		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
-		angles = append(angles, math.Atan2(mat.At(1, 0), mat.At(0, 0)))
-	}
-	for i := range angles {
-		angles[i] *= radToDeg
-	}
-	return angles
 }
 
 // OffsetBy takes two offsets and computes the final position.

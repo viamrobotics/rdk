@@ -3,7 +3,8 @@ package motionplan
 import (
 	"math"
 
-	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current
@@ -12,51 +13,53 @@ import (
 // original goal is returned.
 // Rationale: if clicking the increment buttons in the interface, the user likely wants the most intuitive motion
 // posible. If setting values manually, the user likely wants exactly what they requested.
-func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
-	epsilon := 0.0001
+func fixOvIncrement(goal, seed spatialmath.Pose) spatialmath.Pose {
+	epsilon := 0.01
+	goalPt := goal.Point()
+	goalOrientation := goal.Orientation().OrientationVectorDegrees()
+	seedPt := seed.Point()
+	seedOrientation := seed.Orientation().OrientationVectorDegrees()
+
 	// Nothing to do for spatial translations or theta increments
-	if pos.X != seed.X || pos.Y != seed.Y || pos.Z != seed.Z || pos.Theta != seed.Theta {
-		return pos
+	r := utils.Float64AlmostEqual(goalOrientation.OZ, seedOrientation.OZ, epsilon)
+	_ = r
+	if !spatialmath.R3VectorAlmostEqual(goalPt, seedPt, epsilon) ||
+		!utils.Float64AlmostEqual(goalOrientation.Theta, seedOrientation.Theta, epsilon) {
+		return goal
 	}
 	// Check if seed is pointing directly at pole
-	if 1-math.Abs(seed.OZ) > epsilon || pos.OZ != seed.OZ {
-		return pos
+	if 1-math.Abs(seedOrientation.OZ) > epsilon || !utils.Float64AlmostEqual(goalOrientation.OZ, seedOrientation.OZ, epsilon) {
+		return goal
 	}
 
 	// we only care about negative xInc
-	xInc := pos.OX - seed.OX
-	yInc := math.Abs(pos.OY - seed.OY)
+	xInc := goalOrientation.OX - seedOrientation.OX
+	yInc := math.Abs(goalOrientation.OY - seedOrientation.OY)
 	var adj float64
-	if pos.OX == seed.OX {
+	if utils.Float64AlmostEqual(goalOrientation.OX, seedOrientation.OX, epsilon) {
 		// no OX movement
-		if yInc != 0.1 && yInc != 0.01 {
+		if !utils.Float64AlmostEqual(yInc, 0.1, epsilon) && !utils.Float64AlmostEqual(yInc, 0.01, epsilon) {
 			// nonstandard increment
-			return pos
+			return goal
 		}
 		// If wanting to point towards +Y and OZ<0, add 90 to theta, otherwise subtract 90
-		if pos.OY-seed.OY > 0 {
+		if goalOrientation.OY-seedOrientation.OY > 0 {
 			adj = 90
 		} else {
 			adj = -90
 		}
 	} else {
-		if (xInc != -0.1 && xInc != -0.01) || pos.OY != seed.OY {
-			return pos
+		if (!utils.Float64AlmostEqual(xInc, -0.1, epsilon) && !utils.Float64AlmostEqual(xInc, -0.01, epsilon)) ||
+			!utils.Float64AlmostEqual(goalOrientation.OY, seedOrientation.OY, epsilon) {
+			return goal
 		}
 		// If wanting to point towards -X, increment by 180. Values over 180 or under -180 will be automatically wrapped
 		adj = 180
 	}
-	if pos.OZ > 0 {
+	if goalOrientation.OZ > 0 {
 		adj *= -1
 	}
+	goalOrientation.Theta += adj
 
-	return &commonpb.Pose{
-		X:     pos.X,
-		Y:     pos.Y,
-		Z:     pos.Z,
-		Theta: pos.Theta + adj,
-		OX:    pos.OX,
-		OY:    pos.OY,
-		OZ:    pos.OZ,
-	}
+	return spatialmath.NewPoseFromOrientation(goalPt, goalOrientation)
 }

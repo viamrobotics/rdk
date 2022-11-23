@@ -25,14 +25,14 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := &commonpb.Pose{
+	pos := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,
 		OX: -1.78,
 		OY: -3.3,
 		OZ: -1.11,
-	}
+	})
 	opt := NewBasicPlannerOptions()
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)

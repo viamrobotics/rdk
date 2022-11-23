@@ -98,15 +98,7 @@ var finalResources = []resource.Name{
 	servo.Named("servo3"),
 }
 
-var pose1 = &commonpb.Pose{
-	X:     0.0,
-	Y:     0.0,
-	Z:     0.0,
-	Theta: 0.0,
-	OX:    1.0,
-	OY:    0.0,
-	OZ:    0.0,
-}
+var pose1 = spatialmath.NewZeroPose()
 
 func TestStatusClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -142,7 +134,7 @@ func TestStatusClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -310,7 +302,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, &commonpb.WorldState{}, nil)
+	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -379,7 +371,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, &commonpb.WorldState{}, nil)
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -400,7 +392,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
 	_, err = base.FromRobot(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
@@ -454,7 +446,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos, err = resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -930,7 +922,7 @@ func TestClientReconnect(t *testing.T) {
 	}
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1205,14 +1197,7 @@ func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
 	if frameConfig.Parent != otherFrameConfig.Parent {
 		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
 	}
-	trans := frameConfig.Translation
-	otherTrans := otherFrameConfig.Translation
-	floatDisc := spatialmath.Epsilon
-	transIsEqual := true
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.X, otherTrans.X, floatDisc)
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Y, otherTrans.Y, floatDisc)
-	transIsEqual = transIsEqual && rutils.Float64AlmostEqual(trans.Z, otherTrans.Z, floatDisc)
-	if !transIsEqual {
+	if !spatialmath.R3VectorAlmostEqual(frameConfig.Translation, otherFrameConfig.Translation, 1e-8) {
 		return errors.New("translations of parts not equal")
 	}
 	orient := frameConfig.Orientation
@@ -1605,7 +1590,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1631,7 +1616,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
 	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1650,7 +1635,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 

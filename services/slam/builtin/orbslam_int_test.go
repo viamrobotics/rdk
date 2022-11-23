@@ -20,6 +20,10 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
+const (
+	dataInsertionMaxTimeoutMin = 3
+)
+
 // Creates the vocabulary file required by the orbslam binary.
 func createVocabularyFile(name string) error {
 	source, err := os.Open(artifact.MustPath("slam/ORBvoc.txt"))
@@ -93,8 +97,7 @@ func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	_, err := exec.LookPath("orb_grpc_server")
 	if err != nil {
-		t.Log("Skipping test because orb_grpc_server binary was not found")
-		t.Skip()
+		t.Skip("Skipping test because orb_grpc_server binary was not found")
 	}
 
 	name, err := createTempFolderArchitecture()
@@ -141,9 +144,12 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)
 	releaseImages(t, mode)
+	// Check if orbslam hangs and needs to be shut down
+	orbslam_hangs := false
 	// Wait for orbslam to finish processing images
 	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
+		start_time_sent_image := time.Now()
 		t.Logf("Find log line for image %v", i)
 		releaseImages(t, mode)
 		for {
@@ -153,13 +159,27 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
+			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
+				orbslam_hangs = true
+				t.Log("orbslam hangs: exiting the data loop")
+				break
+			}
+		}
+		if orbslam_hangs {
+			break
 		}
 	}
 
 	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	err = utils.TryClose(context.Background(), svc)
+	if !orbslam_hangs {
+		test.That(t, err, test.ShouldBeNil)
+	} else if err != nil {
+		t.Skip("Skipping test because orbslam hangs and failed to shut down")
+	}
+
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
 
@@ -184,7 +204,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	}
 
 	// Remove any maps
-	test.That(t, os.RemoveAll(name+"/map"), test.ShouldBeNil)
+	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
 
 	// Test offline mode using the config and data generated in the online test
 	t.Log("Testing offline mode")
@@ -211,36 +231,55 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Check if orbslam hangs and needs to be shut down
+	orbslam_hangs = false
+	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
 	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Passed image to SLAM") {
+			start_time_sent_image = time.Now()
+		}
 		if strings.Contains(line, "Finished processing offline images") {
 			break
 		}
 		test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
-	}
-
-	testOrbslamPositionAndMap(t, svc)
-
-	// Wait for the final map to be saved
-	for {
-		line, err := logReader.ReadString('\n')
-		test.That(t, err, test.ShouldBeNil)
-		if strings.Contains(line, "Finished saving final map") {
+		if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
+			orbslam_hangs = true
+			t.Log("orbslam hangs: exiting the data loop")
 			break
 		}
 	}
 
+	testOrbslamPositionAndMap(t, svc)
+
+	if !orbslam_hangs {
+		// Wait for the final map to be saved
+		for {
+			line, err := logReader.ReadString('\n')
+			test.That(t, err, test.ShouldBeNil)
+			if strings.Contains(line, "Finished saving final map") {
+				break
+			}
+		}
+	}
+
 	// Close out slam service
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	err = utils.TryClose(context.Background(), svc)
+	if !orbslam_hangs {
+		test.That(t, err, test.ShouldBeNil)
+	} else if err != nil {
+		t.Skip("Skipping test because orbslam hangs and failed to shut down")
+	}
+
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
-	test.That(t, os.RemoveAll(name+"/data"), test.ShouldBeNil)
+	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
 
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
@@ -282,8 +321,11 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)
 	releaseImages(t, mode)
+	// Check if orbslam hangs and needs to be shut down
+	orbslam_hangs = false
 	// Wait for orbslam to finish processing images
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
+		start_time_sent_image = time.Now()
 		t.Logf("Find log line for image %v", i)
 		releaseImages(t, mode)
 		for {
@@ -293,13 +335,27 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
+			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
+				orbslam_hangs = true
+				t.Log("orbslam hangs: exiting the data loop")
+				break
+			}
+		}
+		if orbslam_hangs {
+			break
 		}
 	}
 
 	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	err = utils.TryClose(context.Background(), svc)
+	if !orbslam_hangs {
+		test.That(t, err, test.ShouldBeNil)
+	} else if err != nil {
+		t.Skip("Skipping test because orbslam hangs and failed to shut down")
+	}
+
 	// Clear out directory
 	closeOutSLAMService(t, name)
 
