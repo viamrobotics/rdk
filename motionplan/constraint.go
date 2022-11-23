@@ -163,7 +163,12 @@ func NewCollisionConstraint(
 			return false, 0
 		}
 
-		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG, reportDistances)
+		cg, err := NewCollisionSystemFromReference(
+			internalEntities,
+			[]CollisionEntities{obstacleEntities, spaceEntities},
+			zeroCG,
+			reportDistances,
+		)
 		if err != nil {
 			return false, 0
 		}

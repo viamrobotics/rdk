@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	// Period of iterations after which a new solution is calculated and updated.
-	defaultSolutionCalculationPeriod = 150
-
 	// The number of nearest neighbors to consider when adding a new sample to the tree.
 	defaultNeighborhoodSize = 10
 )
@@ -34,8 +31,8 @@ type rrtStarConnectOptions struct {
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
 func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
-		NeighborhoodSize:    defaultNeighborhoodSize,
-		rrtOptions:          newRRTOptions(planOpts),
+		NeighborhoodSize: defaultNeighborhoodSize,
+		rrtOptions:       newRRTOptions(planOpts),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
