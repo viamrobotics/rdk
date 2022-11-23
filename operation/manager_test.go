@@ -58,7 +58,6 @@ func TestCallOnDifferentContext(t *testing.T) {
 
 	wg.Wait()
 	test.That(t, res, test.ShouldEqual, 0)
-	// })
 }
 
 func TestWaitForSuccess(t *testing.T) {
@@ -77,7 +76,6 @@ func TestWaitForSuccess(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, count, test.ShouldEqual, int64(5))
-
 }
 
 func TestWaitForError(t *testing.T) {
@@ -107,18 +105,17 @@ func TestCancelRace(t *testing.T) {
 	ctx, done := som.New(context.Background())
 	defer done()
 
-	c := make(chan bool)
-	defer close(c)
+	var wg sync.WaitGroup
 
+	wg.Add(1)
 	go func() {
-		c <- true
 		_, done := som.New(context.Background())
+		wg.Done()
 		defer done()
 	}()
 
-	<-c
-
-	// som.CancelRunning(ctx)
+	som.CancelRunning(ctx)
+	wg.Wait()
 	test.That(t, ctx.Err(), test.ShouldNotBeNil)
 
 }
