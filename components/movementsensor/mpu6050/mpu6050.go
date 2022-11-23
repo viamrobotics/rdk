@@ -27,7 +27,7 @@ const modelName = "mpu6050"
 type AttrConfig struct {
 	BoardName              string `json:"board"`
 	BusID                  string `json:"bus_id"`
-	UseAlternateI2CAddress bool   `json:"use_alt_i2c_address"`
+	UseAlternateI2CAddress bool   `json:"use_alt_i2c_address,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
@@ -107,6 +107,7 @@ func NewMpu6050(
 	} else {
 		address = 0x68
 	}
+	logger.Debugf("Using address %d for MPU6050 sensor", address)
 
 	sensor := &mpu6050{
 		bus:        bus,
