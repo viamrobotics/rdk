@@ -40,18 +40,6 @@ func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger go
 	return &planManager{p, frame, fs}, nil
 }
 
-// Plan on the planManager should be the single point of entry to planning algorithms.
-// This struct is responsible for determining what algorithm to use based on the motion requested and user options, calling any fallbacks,
-// running pre-checks, etc.
-func (mp *planManager) Plan(
-	ctx context.Context,
-	goal *commonpb.Pose,
-	seed []referenceframe.Input,
-	opt *plannerOptions,
-) ([][]referenceframe.Input, error) {
-	return nil, nil
-}
-
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
 func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
@@ -387,7 +375,7 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 			// No need to generate tons more IK solutions when the first alg will do it
 			opt.MaxSolutions = defaultFallbackIK
 
-			// extra timeout to account for IK
+			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
 			try1Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)

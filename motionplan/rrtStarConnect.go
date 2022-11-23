@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early.
-	defaultOptimalityThreshold = .05
-
 	// Period of iterations after which a new solution is calculated and updated.
 	defaultSolutionCalculationPeriod = 150
 
@@ -26,9 +23,6 @@ const (
 )
 
 type rrtStarConnectOptions struct {
-	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early
-	OptimalityThreshold float64 `json:"optimality_threshold"`
-
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
 
@@ -40,7 +34,6 @@ type rrtStarConnectOptions struct {
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
 func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
-		OptimalityThreshold: defaultOptimalityThreshold,
 		NeighborhoodSize:    defaultNeighborhoodSize,
 		rrtOptions:          newRRTOptions(planOpts),
 	}
@@ -146,14 +139,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	mp.logger.Debugf("RRT* failed to directly interpolate from %v to %v", seed, solutions[0].Q())
 	rrt.rm.startMap[newCostNode(seed, 0)] = nil
 
-	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
+	target := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
-
-	// sample until the max number of iterations is reached
-	var solutionCost float64
 
 	m1chan := make(chan node, 1)
 	m2chan := make(chan node, 1)
@@ -195,19 +184,6 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// get next sample, switch map pointers
 		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
-
-		// calculate the solution and log status of planner
-		if i%defaultSolutionCalculationPeriod == 0 {
-			solution := shortestPath(rrt.rm, shared, optimalCost)
-			solutionCost = EvaluatePlan(solution, rrt.planOpts)
-			mp.logger.Warnf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
-			// check if an early exit is possible
-			if solutionCost-optimalCost < algOpts.OptimalityThreshold*optimalCost {
-				mp.logger.Warn("RRT* progress: sufficiently optimal path found, exiting")
-				rrt.solutionChan <- solution
-				return
-			}
-		}
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
@@ -215,7 +191,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 func (mp *rrtStarConnectMotionPlanner) extend(
 	algOpts *rrtStarConnectOptions,
-	tree map[node]node,
+	tree rrtMap,
 	target []referenceframe.Input,
 	mchan chan node,
 ) {
@@ -230,7 +206,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 	for i, neighbor := range neighbors {
 		neighborNode := neighbor.node.(*costNode)
 		cost := neighborNode.cost + neighbor.dist
-		if cost < minCost && mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
+		if mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
 			minIndex = i
 			minCost = cost
 			break

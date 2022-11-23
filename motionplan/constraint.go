@@ -130,7 +130,7 @@ func NewCollisionConstraint(
 	frame referenceframe.Frame,
 	goodInput []referenceframe.Input,
 	obstacles, interactionSpaces map[string]spatial.Geometry,
-	depth bool,
+	reportDistances bool,
 ) Constraint {
 	zeroVols, err := frame.Geometries(goodInput)
 	if err != nil && len(zeroVols.Geometries()) == 0 {
@@ -163,7 +163,7 @@ func NewCollisionConstraint(
 			return false, 0
 		}
 
-		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG, depth)
+		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG, reportDistances)
 		if err != nil {
 			return false, 0
 		}
@@ -172,7 +172,7 @@ func NewCollisionConstraint(
 		if len(collisions) > 0 {
 			return false, 0
 		}
-		if !depth {
+		if !reportDistances {
 			return true, 0
 		}
 		sum := 0.
@@ -190,7 +190,7 @@ func NewCollisionConstraintFromWorldState(
 	fs referenceframe.FrameSystem,
 	worldState *commonpb.WorldState,
 	observationInput map[string][]referenceframe.Input,
-	depth bool,
+	reportDistances bool,
 ) (Constraint, error) {
 	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*referenceframe.GeometriesInFrame, error) {
 		allGeometries := make(map[string]spatial.Geometry)
@@ -235,7 +235,7 @@ func NewCollisionConstraintFromWorldState(
 	if err != nil {
 		return nil, err
 	}
-	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries(), depth), nil
+	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries(), reportDistances), nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
