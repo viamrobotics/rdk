@@ -12,15 +12,16 @@ import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { filterResources, type Resource } from '../lib/resource';
+import { filterResources } from '../lib/resource';
 import { toast } from '../lib/toast';
-import { commonApi, motionApi } from '@viamrobotics/sdk';
+import { Client, commonApi, motionApi } from '@viamrobotics/sdk';
 import InfoButton from './info-button.vue';
 
 interface Props {
-  resources: Resource[]
+  resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   cameraName?: string
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -445,7 +446,7 @@ const handleMove = () => {
   componentName.setName(gripper.name);
   req.setComponentName(componentName);
 
-  window.motionService.move(req, new grpc.Metadata(), (error, response) => {
+  props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(`Error moving: ${error}`);
       return;

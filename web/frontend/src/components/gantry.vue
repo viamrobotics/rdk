@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { gantryApi } from '@viamrobotics/sdk';
+import { Client, gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
       length: number
     }[]
   }
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -27,13 +28,13 @@ const increment = (axis: number, amount: number) => {
   const req = new gantryApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setPositionsMmList(pos);
-  window.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
+  props.client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
 const stop = () => {
   const request = new gantryApi.StopRequest();
   request.setName(props.name);
-  window.gantryService.stop(request, new grpc.Metadata(), displayError);
+  props.client.gantryService.stop(request, new grpc.Metadata(), displayError);
 };
 
 </script>

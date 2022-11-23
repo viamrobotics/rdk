@@ -3,14 +3,14 @@
 
 import { nextTick } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import type { Resource } from '../lib/resource';
-import { slamApi } from '@viamrobotics/sdk';
+import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import PCD from './pcd.vue';
 
 interface Props {
   name: string
-  resources: Resource[]
+  resources: commonApi.ResourceName.AsObject[]
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -31,7 +31,7 @@ const viewSLAMPCDMap = (name: string) => {
     req.setName(name);
     req.setMimeType('pointcloud/pcd');
 
-    window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+    props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
       if (error) {
         return displayError(error);
       }
@@ -46,7 +46,7 @@ const viewSLAMImageMap = (name: string) => {
   req.setName(name);
   req.setMimeType('image/jpeg');
   req.setIncludeRobotMarker(true);
-  window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+  props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       return displayError(error);
     }
@@ -268,6 +268,7 @@ const refreshPCDMap = () => {
             v-if="showPCD"
             :resources="resources"
             :pointcloud="pointcloud"
+            :client="client"
           />
         </div>
       </div>

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 
 import { ref } from 'vue';
-import type { ServiceError } from '@viamrobotics/sdk';
+import type { Client, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { addStream, removeStream } from '../lib/stream';
 
 interface Props {
   name: string
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -20,7 +21,7 @@ const toggleExpand = async () => {
 
   if (isOn) {
     try {
-      await addStream(props.name);
+      await addStream(props.client, props.name);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -28,7 +29,7 @@ const toggleExpand = async () => {
   }
 
   try {
-    await removeStream(props.name);
+    await removeStream(props.client, props.name);
   } catch (error) {
     displayError(error as ServiceError);
   }

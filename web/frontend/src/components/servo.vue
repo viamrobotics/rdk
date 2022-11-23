@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { servoApi } from '@viamrobotics/sdk';
+import { Client, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -9,6 +9,7 @@ interface Props {
   name: string
   status: servoApi.Status.AsObject
   rawStatus: servoApi.Status.AsObject
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -18,7 +19,7 @@ const stop = () => {
   req.setName(props.name);
 
   rcLogConditionally(req);
-  window.servoService.stop(req, new grpc.Metadata(), displayError);
+  props.client.servoService.stop(req, new grpc.Metadata(), displayError);
 };
 
 const move = (amount: number) => {
@@ -32,7 +33,7 @@ const move = (amount: number) => {
   const req = new servoApi.MoveRequest();
   req.setName(props.name);
   req.setAngleDeg(angle);
-  window.servoService.move(req, new grpc.Metadata(), (error) => {
+  props.client.servoService.move(req, new grpc.Metadata(), (error) => {
     if (error) {
       return displayError(error);
     }

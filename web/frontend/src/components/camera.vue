@@ -2,16 +2,16 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
-import type { Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
-import { cameraApi } from '@viamrobotics/sdk';
+import { Client, cameraApi, commonApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
 
 interface Props {
   cameraName: string
-  resources: Resource[]
+  resources: commonApi.ResourceName.AsObject[];
+  client: Client;
 }
 
 interface Emits {
@@ -39,7 +39,7 @@ const renderPCD = () => {
   const request = new cameraApi.GetPointCloudRequest();
   request.setName(props.cameraName);
   request.setMimeType('pointcloud/pcd');
-  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+  props.client.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(`Error getting point cloud: ${error}`);
       return;
@@ -68,7 +68,7 @@ const exportScreenshot = (cameraName: string) => {
   req.setName(cameraName);
   req.setMimeType('image/jpeg');
 
-  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+  props.client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -193,6 +193,7 @@ const exportScreenshot = (cameraName: string) => {
             :resources="resources"
             :pointcloud="pointcloud"
             :camera-name="cameraName"
+            :client="client"
           />
         </div>
       </div>
