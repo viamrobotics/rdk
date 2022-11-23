@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -12,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -36,14 +38,14 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var (
-		capArmPos      *commonpb.Pose
+		capArmPos      spatialmath.Pose
 		capArmJointPos *pb.JointPositions
 		extraOptions   map[string]interface{}
 	)
 
-	pose1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
+	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	positionDegs1 := &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
 	}
@@ -53,7 +55,7 @@ func TestServer(t *testing.T) {
 	}
 	injectArm.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
@@ -74,7 +76,7 @@ func TestServer(t *testing.T) {
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return nil, errors.New("can't get pose")
 	}
 	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
@@ -82,7 +84,7 @@ func TestServer(t *testing.T) {
 	}
 	injectArm2.MoveToPositionFunc = func(
 		ctx context.Context,
-		ap *commonpb.Pose,
+		ap spatialmath.Pose,
 		worldState *commonpb.WorldState,
 		extra map[string]interface{},
 	) error {
@@ -111,7 +113,8 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Pose.String(), test.ShouldResemble, pose1.String())
+		test.That(t, resp.Pose.String(), test.ShouldResemble, spatialmath.PoseToProtobuf(pose1).String())
+
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "EndPosition"})
 
 		_, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: failArmName})
@@ -119,7 +122,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get pose")
 	})
 
-	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -129,13 +131,16 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, To: pose2, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmPos.String(), test.ShouldResemble, pose2.String())
+		test.That(t, spatialmath.PoseAlmostCoincident(capArmPos, spatialmath.NewPoseFromProtobuf(pose2)), test.ShouldBeTrue)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToPosition"})
 
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, To: pose1})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{
+			Name: failArmName,
+			To:   spatialmath.PoseToProtobuf(pose1),
+		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
-		test.That(t, capArmPos.String(), test.ShouldResemble, pose1.String())
+		test.That(t, spatialmath.PoseAlmostCoincident(capArmPos, pose1), test.ShouldBeTrue)
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
@@ -155,7 +160,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get joint positions")
 	})
 
-	//nolint:dupl
 	t.Run("move to joint position", func(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
