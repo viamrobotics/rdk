@@ -57,10 +57,6 @@ func TestSyncEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// TODO: this is a sign of an abstraction leak. Should probably be a construction parameter,
-			//       and then used for a ticker instead of Sleep
-			datasync.PollWaitTime = time.Millisecond * 25
-
 			// Set up server.
 			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
@@ -86,7 +82,7 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.CaptureDisabled = false
 			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
 			originalSvcConfig.CaptureDir = tmpDir
-			originalSvcConfig.SyncIntervalMins = 0.1
+			originalSvcConfig.SyncIntervalMins = 0.001
 
 			err = dmsvc.Update(context.Background(), cfg)
 
@@ -109,7 +105,7 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDisabled = false
 			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
 			updatedSvcConfig.CaptureDir = tmpDir
-			updatedSvcConfig.SyncIntervalMins = 0.016
+			updatedSvcConfig.SyncIntervalMins = 0.001
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -190,8 +186,6 @@ func TestDataCaptureUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			datasync.PollWaitTime = time.Millisecond * 25
-
 			// Set up server.
 			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
@@ -216,13 +210,13 @@ func TestDataCaptureUpload(t *testing.T) {
 			}
 
 			// Set up service config.
-			originalSvcConfig, ok1, err := getServiceConfig(cfg)
+			svcConfig, ok1, err := getServiceConfig(cfg)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok1, test.ShouldBeTrue)
-			originalSvcConfig.CaptureDisabled = false
-			originalSvcConfig.ScheduledSyncDisabled = true
-			originalSvcConfig.SyncIntervalMins = 0.016
-			originalSvcConfig.CaptureDir = tmpDir
+			svcConfig.CaptureDisabled = false
+			svcConfig.ScheduledSyncDisabled = true
+			svcConfig.SyncIntervalMins = 0.001
+			svcConfig.CaptureDir = tmpDir
 
 			err = dmsvc.Update(context.Background(), cfg)
 			fmt.Println("successfully updated to capture")
@@ -243,9 +237,9 @@ func TestDataCaptureUpload(t *testing.T) {
 			// Now turn back on with only sync enabled.
 			newDMSvc := newTestDataManager(t)
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-			originalSvcConfig.CaptureDisabled = true
-			originalSvcConfig.ScheduledSyncDisabled = false
-			originalSvcConfig.SyncIntervalMins = 0.016
+			svcConfig.CaptureDisabled = true
+			svcConfig.ScheduledSyncDisabled = false
+			svcConfig.SyncIntervalMins = 0.001
 			err = newDMSvc.Update(context.Background(), cfg)
 			fmt.Println("successfully updated to sync")
 			test.That(t, err, test.ShouldBeNil)
@@ -268,7 +262,6 @@ func TestDataCaptureUpload(t *testing.T) {
 
 				newestDMSvc := newTestDataManager(t)
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-				// TODO: this doesn't actually update failAt of running service... figure out how to do that
 				err = newestDMSvc.Update(context.Background(), cfg)
 				fmt.Println("successfully updated to sync again")
 				test.That(t, err, test.ShouldBeNil)
@@ -307,34 +300,6 @@ func TestDataCaptureUpload(t *testing.T) {
 
 			// After all uploads succeed, their files should be deleted.
 			test.That(t, len(getAllFiles(tmpDir)), test.ShouldEqual, 0)
-		})
-	}
-}
-
-// TODO: ensure that when syncs fail, files are not deleted. Ensure that when syncs fail transiently, they get retried.
-//
-//	succeed. Ensure that when things repeatedly fail, Close is still respected.
-func TestRetriesUploads(t *testing.T) {
-	tests := []struct {
-		name     string
-		dataType v1.DataType
-		numFails int32
-	}{
-		{
-			name:     "If transient errors occur during tabular upload, they should be retried until they succeed.",
-			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			numFails: 5,
-		},
-		{
-			name:     "If transient errors occur during binary upload, they should be retried until they succeed.",
-			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			numFails: 5,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-
 		})
 	}
 }
@@ -719,11 +684,11 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 //
 //nolint:thelper
 func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config, interval time.Duration) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, interval)
 	}
 }
 

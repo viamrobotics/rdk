@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"go.viam.com/rdk/services/datamanager/datasync"
 	"image"
 	"image/png"
 	"io/fs"
@@ -198,8 +197,6 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 // TODO: add sync testing here too
 // TODO: update to not longer hard code all these paths. Maybe even just include as part of other test suite.
 func TestNewRemoteDataManager(t *testing.T) {
-	datasync.PollWaitTime = time.Millisecond * 25
-
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
 	dmsvc := newTestDataManager(t)
