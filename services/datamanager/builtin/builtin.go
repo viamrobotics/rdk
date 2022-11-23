@@ -136,18 +136,13 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
-	fmt.Println("closing collectors")
 	svc.closeCollectors()
-	fmt.Println("done closing collectors")
 	if svc.syncer != nil {
-		fmt.Println("closing syncer")
 		svc.syncer.Close()
-		fmt.Println("done closing syncer")
 	}
 
 	svc.cancelSyncBackgroundRoutine()
 	svc.lock.Unlock()
-	fmt.Println("waiting for background workers")
 	svc.backgroundWorkers.Wait()
 	return nil
 }
@@ -331,53 +326,7 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 	return nil, nil
 }
 
-//func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
-//	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
-//	// TODO DATA-235: fix that
-//	if svc.syncer != nil {
-//		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-//		svc.syncer.Close()
-//		svc.syncer = nil
-//	}
-//
-//	svc.cancelSyncBackgroundRoutine()
-//
-//	// Kick off syncer if we're running it.
-//	if intervalMins > 0 && !svc.syncDisabled {
-//		syncer, err := svc.syncerConstructor(svc.logger, cfg)
-//		if err != nil {
-//			return errors.Wrap(err, "failed to initialize new syncer")
-//		}
-//		svc.syncer = syncer
-//
-//		// SyncCaptureQueues existing files in captureDir.
-//		var previouslyCaptured []string
-//		//nolint
-//		_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
-//			if err != nil {
-//				return nil
-//			}
-//			if info.IsDir() {
-//				return nil
-//			}
-//			previouslyCaptured = append(previouslyCaptured, path)
-//			return nil
-//		})
-//		svc.syncer.SyncCaptureFiles(previouslyCaptured)
-//
-//		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
-//		// TODO: add this back after adding arbitrary file uploads back
-//		//svc.syncer.SyncCaptureQueues(svc.buildAdditionalSyncPaths())
-//
-//		// Kick off background routine to periodically sync files.
-//		svc.startSyncBackgroundRoutine(intervalMins)
-//	}
-//	return nil
-//}
-
-// TODO: when should I call this? Need to make sure it doesn't collide with the normal sync runs.
-//
-//	should basically cancel all previous ones before running this
+// should basically cancel all previous ones before running this
 func (svc *builtIn) syncPreviouslyCaptured() {
 	// Sync existing files in captureDir.
 	var previouslyCaptured []string
@@ -467,8 +416,6 @@ func (svc *builtIn) syncAdditionalSyncPaths() {
 func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
-	fmt.Println("starting update")
-	defer fmt.Println("finished update")
 
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
@@ -548,9 +495,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		if err := svc.initSyncer(cfg, svcConfig.SyncIntervalMins); err != nil {
 			return err
 		}
-		fmt.Println("starting to sync previously captured")
 		svc.syncPreviouslyCaptured()
-		fmt.Println("finished syncing previously captured")
 		var queues []*datacapture.Queue
 		for _, c := range svc.collectors {
 			queues = append(queues, c.Collector.GetTarget())

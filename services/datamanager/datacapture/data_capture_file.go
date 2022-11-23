@@ -60,8 +60,6 @@ func ReadFile(f *os.File) (*File, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
-	fmt.Println("initOffset")
-	fmt.Println(initOffset)
 
 	ret := File{
 		path:              f.Name(),
@@ -127,15 +125,11 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 		return nil, err
 	}
 	r := v1.SensorData{}
-	fmt.Println("read offset: ")
-	fmt.Println(f.readOffset)
 	read, err := pbutil.ReadDelimited(f.file, &r)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	f.readOffset += int64(read)
-	fmt.Println("read a message successfully")
 
 	return &r, nil
 }

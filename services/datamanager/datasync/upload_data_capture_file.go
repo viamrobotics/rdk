@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -12,19 +11,10 @@ import (
 )
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
-	// Send metadata syncQueue request.
-	fmt.Println("starting data capture upload")
-	defer func() {
-		fmt.Println("finished data capture")
-	}()
 	md := f.ReadMetadata()
 	f.Reset()
 	sensorData, err := getAllSensorData(f)
-	fmt.Println("got all sensor data: ")
-	fmt.Println(sensorData)
 	if err != nil {
-		fmt.Println("failed to get all sensor data")
-		fmt.Println(err)
 		return err
 	}
 
@@ -44,25 +34,20 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 	resp, err := client.DataCaptureUpload(ctx, ur)
 	if err != nil {
-		fmt.Println("got error during data capture upload")
 		return err
 	}
 	// TODO: real code handling
 	if resp.GetCode() != 200 {
-		fmt.Println("got non-200 during data capture upload")
 		return errors.New("error making syncQueue request: " + resp.GetMessage())
 	}
 	return nil
 }
 
 func getAllSensorData(f *datacapture.File) ([]*v1.SensorData, error) {
-	fmt.Println("getting sensor data from file with size")
-	fmt.Println(f.Size())
 	var ret []*v1.SensorData
 	for {
 		next, err := f.ReadNext()
 		if err != nil {
-			fmt.Println(err)
 			if errors.Is(err, io.EOF) {
 				break
 			}

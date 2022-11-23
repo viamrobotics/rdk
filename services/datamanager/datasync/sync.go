@@ -3,7 +3,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -207,9 +206,7 @@ func (s *syncer) syncCaptureFile(f *datacapture.File) {
 		},
 		s.logger,
 	)
-	fmt.Println("exponential retry returned")
 	if uploadErr != nil {
-		fmt.Println("got error during exponential retry")
 		s.logger.Error(uploadErr)
 		err := f.Close()
 		if err != nil {

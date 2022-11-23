@@ -12,15 +12,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-/**
-Things to test!
-
-- Can push then pop binary data, and pushes:pops are 1:1
-- Can push then pop tabular data, and MAX_SIZE is respected. Should push enough to have 2 pops.
-- Can intermix push and pop. E.g. for above two, should do push->pop->push->pop
-- That close is respected: flushes everything, and then trying to pop again errors
-*/
-
 type structReading struct {
 	Field1 bool
 }
