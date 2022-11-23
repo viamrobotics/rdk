@@ -406,7 +406,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: target, EndInput: failpos.EndInput})
 			if dist > algOpts.JointSolveDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-				return mp.constrainNear(ctx, algOpts, mp.randseed, failpos.StartInput, failpos.EndInput)
+				return mp.constrainNear(ctx, algOpts, randseed, failpos.StartInput, failpos.EndInput)
 			}
 		}
 		return nil
