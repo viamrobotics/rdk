@@ -38,7 +38,6 @@ var (
 	InitialWaitTimeMillis  = atomic.NewInt32(1000)
 	RetryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
-	PollWaitTime           = time.Second
 )
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -57,13 +56,14 @@ type syncer struct {
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
+	syncInterval      time.Duration
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config, syncInterval time.Duration) (Manager, error)
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
-func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
+func NewDefaultManager(logger golog.Logger, cfg *config.Config, syncInterval time.Duration) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
@@ -81,12 +81,12 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, syncInterval)
 }
 
 // NewManager returns a new syncer.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
-	conn rpc.ClientConn,
+	conn rpc.ClientConn, syncInterval time.Duration,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
@@ -97,6 +97,7 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
+		syncInterval:      syncInterval,
 	}
 	return &ret, nil
 }
@@ -123,47 +124,43 @@ func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
 func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
+		ticker := time.NewTicker(s.syncInterval)
+		defer ticker.Stop()
 		defer s.backgroundWorkers.Done()
-		// TODO: make respect cancellation
 		for {
+			if err := ctx.Err(); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					s.logger.Error(err)
+				}
+				return
+			}
+
 			select {
 			case <-ctx.Done():
 				return
-			default:
-				next, err := q.Pop()
-				if next == nil && q.IsClosed() {
-					return
-				}
+			case <-ticker.C:
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						next, err := q.Pop()
+						if next == nil && q.IsClosed() {
+							return
+						}
 
-				// TODO: handle other error
-				if err != nil {
-					s.logger.Error(err)
-					return
-				}
+						// TODO: handle other error
+						if err != nil {
+							s.logger.Error(err)
+							return
+						}
 
-				if next == nil {
-					// TODO: better way to wait than just sleep?
-					time.Sleep(PollWaitTime)
-					continue
-				}
-
-				uploadErr := exponentialRetry(
-					ctx,
-					func(ctx context.Context) error {
-						return s.syncFile(ctx, s.client, next, s.partID)
-					},
-					s.logger,
-				)
-				fmt.Println("exponential retry returned")
-				if uploadErr != nil {
-					fmt.Println("got upload err")
-					s.logger.Error(uploadErr)
-					return
-				}
-				fmt.Println("reached delete")
-				if err := next.Delete(); err != nil {
-					s.logger.Error(err)
-					return
+						if next == nil {
+							// TODO: better way to wait than just sleep?
+							continue
+						}
+						s.syncCaptureFile(next)
+					}
 				}
 			}
 		}
@@ -189,96 +186,46 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 
 				captureFile, err := datacapture.ReadFile(f)
 				if err != nil {
-					s.logger.Error(err)
+					s.logger.Errorw("error reading capture file", "error", err)
 					err := f.Close()
 					if err != nil {
 						s.logger.Errorw("error closing file", "error", err)
 					}
 					return
 				}
-				uploadErr := exponentialRetry(
-					s.cancelCtx,
-					func(ctx context.Context) error {
-						return s.syncFile(ctx, s.client, captureFile, s.partID)
-					},
-					s.logger,
-				)
-				fmt.Println("exponential retry returned")
-				if uploadErr != nil {
-					fmt.Println("got error during exponential retry")
-					s.logger.Error(uploadErr)
-					err := f.Close()
-					if err != nil {
-						s.logger.Errorw("error closing file", "error", err)
-					}
-					return
-				}
-				if err := captureFile.Delete(); err != nil {
-					s.logger.Error(err)
-					err := f.Close()
-					if err != nil {
-						s.logger.Errorw("error closing file", "error", err)
-					}
-					return
-				}
+				s.syncCaptureFile(captureFile)
 			}
 		})
 	}
 }
 
-//	s.backgroundWorkers.Add(1)
-//	goutils.PanicCapturingGo(func() {
-//		defer s.backgroundWorkers.Done()
-//		for _, p := range paths {
-//			select {
-//			case <-s.cancelCtx.Done():
-//				return
-//			default:
-//				//nolint:gosec
-//				f, err := os.Open(p)
-//				if err != nil {
-//					s.logger.Errorw("error opening file", "error", err)
-//					return
-//				}
-//
-//				captureFile, err := datacapture.ReadFile(f)
-//				if err != nil {
-//					s.logger.Error(err)
-//					err := f.Close()
-//					if err != nil {
-//						s.logger.Errorw("error closing file", "error", err)
-//					}
-//					return
-//				}
-//				uploadErr := exponentialRetry(
-//					s.cancelCtx,
-//					func(ctx context.Context) error {
-//						return s.syncFile(ctx, s.client, captureFile, s.partID)
-//					},
-//					s.logger,
-//				)
-//				fmt.Println("exponential retry returned")
-//				if uploadErr != nil {
-//					fmt.Println("got error during exponential retry")
-//					s.logger.Error(uploadErr)
-//					err := f.Close()
-//					if err != nil {
-//						s.logger.Errorw("error closing file", "error", err)
-//					}
-//					return
-//				}
-//				if err := captureFile.Delete(); err != nil {
-//					s.logger.Error(err)
-//					err := f.Close()
-//					if err != nil {
-//						s.logger.Errorw("error closing file", "error", err)
-//					}
-//					return
-//				}
-//			}
-//		}
-//	})
-//}
+func (s *syncer) syncCaptureFile(f *datacapture.File) {
+	uploadErr := exponentialRetry(
+		s.cancelCtx,
+		func(ctx context.Context) error {
+			return s.syncFile(ctx, s.client, f, s.partID)
+		},
+		s.logger,
+	)
+	fmt.Println("exponential retry returned")
+	if uploadErr != nil {
+		fmt.Println("got error during exponential retry")
+		s.logger.Error(uploadErr)
+		err := f.Close()
+		if err != nil {
+			s.logger.Errorw("error closing file", "error", err)
+		}
+		return
+	}
+	if err := f.Delete(); err != nil {
+		s.logger.Error(err)
+		err := f.Close()
+		if err != nil {
+			s.logger.Errorw("error closing file", "error", err)
+		}
+		return
+	}
+}
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.

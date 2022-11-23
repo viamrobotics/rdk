@@ -298,8 +298,9 @@ func (svc *builtIn) closeSyncer() {
 	}
 }
 
-func (svc *builtIn) initSyncer(cfg *config.Config) error {
-	syncer, err := svc.syncerConstructor(svc.logger, cfg)
+func (svc *builtIn) initSyncer(cfg *config.Config, intervalMins float64) error {
+	interval := time.Duration(60000.0*intervalMins) * time.Millisecond
+	syncer, err := svc.syncerConstructor(svc.logger, cfg, interval)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -544,7 +545,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		svc.closeSyncer()
 	} else {
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-		if err := svc.initSyncer(cfg); err != nil {
+		if err := svc.initSyncer(cfg, svcConfig.SyncIntervalMins); err != nil {
 			return err
 		}
 		fmt.Println("starting to sync previously captured")
