@@ -99,19 +99,83 @@ func PlanFrameMotion(ctx context.Context,
 // SolvableFS, and solves. It will generate a list of intermediate waypoints as well to pass to the solvable framesystem if possible.
 func PlanWaypoints(ctx context.Context,
 	logger golog.Logger,
-	dst []*frame.PoseInFrame,
+	goals []*frame.PoseInFrame,
 	f frame.Frame,
 	seedMap map[string][]frame.Input,
 	fs frame.FrameSystem,
 	worldState *commonpb.WorldState,
-	planningOpts []map[string]interface{},
+	motionConfigs []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	solvableFS := NewSolvableFrameSystem(fs, logger)
-	if len(dst) == 0 {
+
+	if len(goals) == 0 {
 		return nil, errors.New("no destinations passed to PlanWaypoints")
 	}
 
-	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
+	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
+
+	// Get parentage of solver frame. This will also verify the frame is in the frame system
+	solveFrame := fs.Frame(f.Name())
+	if solveFrame == nil {
+		return nil, fmt.Errorf("frame with name %s not found in frame system", f.Name())
+	}
+	solveFrameList, err := fs.TracebackFrame(solveFrame)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := make([]map[string]interface{}, 0, len(goals))
+
+	// If no planning opts, use default. If one, use for all goals. If one per goal, use respective option. Otherwise error.
+	if len(motionConfigs) != len(goals) {
+		switch len(motionConfigs) {
+		case 0:
+			for range goals {
+				opts = append(opts, map[string]interface{}{})
+			}
+		case 1:
+			// If one config passed, use it for all waypoints
+			for range goals {
+				opts = append(opts, motionConfigs[0])
+			}
+		default:
+			return nil, errors.New("goals and motion configs had different lengths")
+		}
+	} else {
+		opts = motionConfigs
+	}
+
+	// Each goal is a different PoseInFrame and so may have a different destination Frame. Since the motion can be solved from either end,
+	// each goal is solved independently.
+	for i, goal := range goals {
+		// Create a frame to solve for, and an IK solver with that frame.
+		sf, err := newSolverFrame(fs, solveFrameList, goal.FrameName(), seedMap)
+		if err != nil {
+			return nil, err
+		}
+		if len(sf.DoF()) == 0 {
+			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+		}
+
+		sfPlanner, err := newPlanManager(sf, fs, logger, i)
+		if err != nil {
+			return nil, err
+		}
+		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
+		if err != nil {
+			return nil, err
+		}
+		for j, resultSlice := range resultSlices {
+			stepMap := sf.sliceToMap(resultSlice)
+			steps = append(steps, stepMap)
+			if j == len(resultSlices)-1 {
+				// update seed map
+				seedMap = stepMap
+			}
+		}
+	}
+
+	return steps, nil
+	
 }
 
 // FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
