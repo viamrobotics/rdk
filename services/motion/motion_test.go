@@ -116,25 +116,25 @@ func TestRegisteredReconfigurable(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	svc := &mock{name: "svc1"}
-	reconfSvc1, err := motion.WrapWithReconfigurable(svc)
+	reconfSvc1, err := motion.WrapWithReconfigurable(svc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = motion.WrapWithReconfigurable(nil)
+	_, err = motion.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError(nil))
 
-	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1)
+	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
 }
 
 func TestReconfigurable(t *testing.T) {
 	actualSvc1 := &mock{name: "svc1"}
-	reconfSvc1, err := motion.WrapWithReconfigurable(actualSvc1)
+	reconfSvc1, err := motion.WrapWithReconfigurable(actualSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc1, test.ShouldNotBeNil)
 
 	actualArm2 := &mock{name: "svc2"}
-	reconfSvc2, err := motion.WrapWithReconfigurable(actualArm2)
+	reconfSvc2, err := motion.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldNotBeNil)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)

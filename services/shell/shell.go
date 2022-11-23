@@ -74,7 +74,12 @@ func Named(name string) resource.Name {
 
 type reconfigurableShell struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableShell) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableShell) Shell(
@@ -108,7 +113,7 @@ func (svc *reconfigurableShell) Reconfigure(ctx context.Context, newSvc resource
 }
 
 // WrapWithReconfigurable wraps a shell service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -118,5 +123,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableShell{actual: svc}, nil
+	return &reconfigurableShell{name: name, actual: svc}, nil
 }
