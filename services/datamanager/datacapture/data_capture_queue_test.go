@@ -38,6 +38,7 @@ var (
 )
 
 func TestCaptureQueueSimple(t *testing.T) {
+	MaxFileSize = 50
 	tests := []struct {
 		name            string
 		dataType        v1.DataType
@@ -53,16 +54,15 @@ func TestCaptureQueueSimple(t *testing.T) {
 			firstPopCount:  2,
 		},
 		{
-			name:     "Pushing > MaxFileSize + 1 worth of struct data should allow 2 files to be popped.",
+			name:     "Pushing > MaxFileSize + 1 worth of struct data should allow 3 files to be popped.",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			// MaxFileSize / size(structSensorData) = 4096 / VALUE = 2
-			firstPushCount: 400,
+			// MaxFileSize / size(structSensorData) = ceil(50 / 19) = 3 per file => 2 pops for 4 pushes
+			firstPushCount: 4,
 			firstPopCount:  2,
 		},
 		{
-			name:     "Intermixing pushes/pops of binary data should not cause data races.",
-			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			// MaxFileSize / size(structSensorData) = 4096 / VALUE = 2
+			name:            "Intermixing pushes/pops of binary data should not cause data races.",
+			dataType:        v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			firstPushCount:  2,
 			firstPopCount:   2,
 			secondPushCount: 2,
@@ -71,10 +71,10 @@ func TestCaptureQueueSimple(t *testing.T) {
 		{
 			name:     "Intermixing pushes/pops of tabular data should not cause data races.",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			// MaxFileSize / size(structSensorData) = 4096 / VALUE = 2
-			firstPushCount:  400,
+			// MaxFileSize / size(structSensorData) = ceil(50 / 19) = 3 per file => 2 pops for 4 pushes
+			firstPushCount:  4,
 			firstPopCount:   2,
-			secondPushCount: 400,
+			secondPushCount: 4,
 			secondPopCount:  2,
 		},
 	}
@@ -155,9 +155,7 @@ func TestCaptureQueueSimple(t *testing.T) {
 			err = sut.Close()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, sut.IsClosed(), test.ShouldBeTrue)
-			next, err = sut.Pop()
-			test.That(t, errors.Is(err, ErrQueueClosed), test.ShouldBeTrue)
-			test.That(t, next, test.ShouldBeNil)
+
 		})
 	}
 }

@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -24,8 +23,6 @@ import (
 )
 
 func TestSyncEnabled(t *testing.T) {
-	// TODO: this needs to be longer than 1 sec because the syncer hits the queue once a second to check if something is ready to sync
-	//       we should make that configurable and use a smaller value in tests
 	syncTime := time.Millisecond * 100
 
 	tests := []struct {
@@ -89,7 +86,6 @@ func TestSyncEnabled(t *testing.T) {
 			// Let run for a second, then change status.
 			time.Sleep(syncTime)
 
-			// Things to validate: that it syncs if expected, that it deletes files if successful
 			initialUploadCount := len(mockService.getSuccessfulDCUploadRequests())
 			if !tc.initialServiceDisableStatus {
 				// TODO: check contents
@@ -126,18 +122,6 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
-/*
-*
-TEST SETUP:
-- Let capture run for a bit.
-- Kill it.
-- Build new SUT.
-- Let sync run (probably with capture disabled?)
-- Ensure all readings captured were synced.
-- Ensure no files remain
-
-- Variations? Maybe one for binary and one for tabular
-*/
 func TestDataCaptureUpload(t *testing.T) {
 	datacapture.MaxFileSize = 600
 	// MaxFileSize of 600 => Should be 3 tabular readings per file/UR, because the SensorReadings are ~230 bytes each,
@@ -220,18 +204,15 @@ func TestDataCaptureUpload(t *testing.T) {
 			svcConfig.CaptureDir = tmpDir
 
 			err = dmsvc.Update(context.Background(), cfg)
-			fmt.Println("successfully updated to capture")
 			test.That(t, err, test.ShouldBeNil)
 
 			// Let run for a bit, then close.
 			time.Sleep(captureTime)
 			err = dmsvc.Close(context.Background())
-			fmt.Println("successfully closed capture")
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
 			capturedData, err := getCapturedData(tmpDir)
-			fmt.Println(capturedData[0])
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 
@@ -242,17 +223,14 @@ func TestDataCaptureUpload(t *testing.T) {
 			svcConfig.ScheduledSyncDisabled = false
 			svcConfig.SyncIntervalMins = 0.001
 			err = newDMSvc.Update(context.Background(), cfg)
-			fmt.Println("successfully updated to sync")
 			test.That(t, err, test.ShouldBeNil)
 			time.Sleep(syncTime)
 			err = newDMSvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
-			fmt.Println("successfully closed")
 
 			// If we set failAt, we want to restart the service.
 			var newMockService *mockDataSyncServiceServer
 			if tc.serviceFailAt > 0 {
-				fmt.Println("entered second sync update")
 				// Now turn back on with only sync enabled.
 				test.That(t, rpcServer.Stop(), test.ShouldBeNil)
 				rpcServer, newMockService = buildAndStartLocalSyncServer(t, 0, 0)
@@ -264,7 +242,6 @@ func TestDataCaptureUpload(t *testing.T) {
 				newestDMSvc := newTestDataManager(t)
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 				err = newestDMSvc.Update(context.Background(), cfg)
-				fmt.Println("successfully updated to sync again")
 				test.That(t, err, test.ShouldBeNil)
 				time.Sleep(syncTime)
 				err = newestDMSvc.Close(context.Background())
@@ -293,10 +270,6 @@ func TestDataCaptureUpload(t *testing.T) {
 
 			// Validate that all captured data was synced.
 			syncedData := getUploadedData(successfulURs)
-			fmt.Println("length of syncedData")
-			fmt.Println(len(successfulURs))
-			fmt.Println(successfulURs[0])
-			fmt.Println(successfulURs[0].GetSensorContents())
 			compareSensorData(t, tc.dataType, syncedData, capturedData)
 
 			// After all uploads succeed, their files should be deleted.
@@ -352,8 +325,6 @@ func getUploadedData(urs []*v1.DataCaptureUploadRequest) []*v1.SensorData {
 	var syncedData []*v1.SensorData
 	for _, ur := range urs {
 		sd := ur.GetSensorContents()
-		fmt.Println("value of sensor contents")
-		fmt.Println(sd)
 		syncedData = append(syncedData, sd...)
 	}
 	return syncedData
@@ -530,11 +501,7 @@ func (m *mockDataSyncServiceServer) setFailAt(v int32) {
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	fmt.Println("called data capture upload")
 	defer m.callCount.Add(1)
-	fmt.Println(fmt.Sprintf("fail at %d", m.failAt))
-	fmt.Println(fmt.Sprintf("fail count %d", m.callCount.Load()))
-	fmt.Println(fmt.Sprintf("received upload request with contents: %v", ur.GetSensorContents()))
 
 	if m.failAt != 0 && m.callCount.Load() >= m.failAt {
 		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
@@ -542,11 +509,9 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 	}
 
 	if m.failFor != 0 && m.callCount.Load() < m.failFor {
-		fmt.Println("failed")
 		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
 		return nil, errors.New("oh no error!!")
 	}
-	fmt.Println("succeeded")
 	// TODO: will likely need to make this optionally return errors for testing error cases
 	*m.successfulDCUploadRequests = append(*m.successfulDCUploadRequests, ur)
 	return &v1.DataCaptureUploadResponse{
@@ -575,8 +540,6 @@ func buildAndStartLocalSyncServer(t *testing.T, failAt int, failFor int) (rpc.Se
 		failFor:                            int32(failFor),
 	}
 
-	fmt.Println(mockService.failAt)
-	fmt.Println(mockService.failFor)
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
 		&v1.DataSyncService_ServiceDesc,
