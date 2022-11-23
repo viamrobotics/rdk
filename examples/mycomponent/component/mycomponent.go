@@ -119,7 +119,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((MyComponent)(nil), actual)
 }
 
-func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	mc, ok := r.(MyComponent)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -127,7 +127,7 @@ func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := mc.(*reconfigurableMyComponent); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMyComponent{actual: mc}, nil
+	return &reconfigurableMyComponent{name: name, actual: mc}, nil
 }
 
 var (
@@ -137,7 +137,12 @@ var (
 
 type reconfigurableMyComponent struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual MyComponent
+}
+
+func (mc *reconfigurableMyComponent) Name() resource.Name {
+	return mc.name
 }
 
 func (mc *reconfigurableMyComponent) ProxyFor() interface{} {
