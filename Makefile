@@ -21,7 +21,6 @@ build-go:
 	go build $(GO_BUILD_TAGS) ./...
 
 build-web:
-	npm ci --audit=false
 	npm ci --audit=false --prefix web/frontend
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
 	npm run build --prefix web/frontend
