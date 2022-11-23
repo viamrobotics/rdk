@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
@@ -119,9 +121,18 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		return nil, err
 	}
 
-	api, err := resource.NewSubtypeFromString(proto.GetApi())
-	if err != nil {
-		return nil, err
+	var api resource.Subtype
+	if strings.ContainsRune(proto.GetApi(), ':') {
+		api, err = resource.NewSubtypeFromString(proto.GetApi())
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		api = resource.NewSubtype(
+			resource.Namespace(proto.GetName()),
+			resource.ResourceTypeComponent,
+			resource.SubtypeName(proto.GetType()),
+		)
 	}
 
 	component := Component{
