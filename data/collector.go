@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"

@@ -34,7 +34,9 @@ const (
 )
 
 var (
-	InitialWaitTimeMillis  = atomic.NewInt32(1000)
+	// InitialWaitTimeMillis defines the time to wait on the first retried upload attempt.
+	InitialWaitTimeMillis = atomic.NewInt32(1000)
+	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 )
@@ -144,13 +146,11 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 						return
 					default:
 						next, err := q.Pop()
-						if next == nil && q.IsClosed() {
-							return
-						}
-
-						// TODO: handle other error
 						if err != nil {
 							s.logger.Error(err)
+							return
+						}
+						if next == nil && q.IsClosed() {
 							return
 						}
 

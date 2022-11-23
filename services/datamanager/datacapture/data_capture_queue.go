@@ -10,9 +10,8 @@ import (
 var (
 	// ErrQueueClosed indicates that a Push or Pop was attempted on a closed queue.
 	ErrQueueClosed = errors.New("queue is closed")
-	// TODO: make below 65536
 	// MaxFileSize is the maximum size in bytes of a data capture file.
-	MaxFileSize = int64(4096)
+	MaxFileSize = int64(65536)
 )
 
 // Queue is a persistent queue of SensorData backed by a series of datacapture.Files.
@@ -25,6 +24,7 @@ type Queue struct {
 	closed    bool
 }
 
+// NewQueue returns a new Queue.
 func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
 	return &Queue{
 		Directory: dir,
@@ -34,89 +34,93 @@ func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
 	}
 }
 
-func (d *Queue) Push(item *v1.SensorData) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+// Push pushes item onto q.
+func (q *Queue) Push(item *v1.SensorData) error {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
-	if d.closed {
+	if q.closed {
 		return ErrQueueClosed
 	}
 
-	if d.nextFile == nil {
-		nextFile, err := NewFile(d.Directory, d.MetaData)
+	if q.nextFile == nil {
+		nextFile, err := NewFile(q.Directory, q.MetaData)
 		if err != nil {
 			return err
 		}
-		d.nextFile = nextFile
-	} else if d.nextFile.Size() > MaxFileSize || item.GetBinary() != nil {
+		q.nextFile = nextFile
+	} else if q.nextFile.Size() > MaxFileSize || item.GetBinary() != nil {
 		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
-		if err := d.sync(); err != nil {
+		if err := q.pushNextFile(); err != nil {
 			return err
 		}
-		nextFile, err := NewFile(d.Directory, d.MetaData)
+		nextFile, err := NewFile(q.Directory, q.MetaData)
 		if err != nil {
 			return err
 		}
-		d.nextFile = nextFile
+		q.nextFile = nextFile
 	}
 
-	return d.nextFile.WriteNext(item)
+	return q.nextFile.WriteNext(item)
 }
 
-func (d *Queue) Pop() (*File, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+// Pop returns the next File in q.
+func (q *Queue) Pop() (*File, error) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
-	// Always push nextFile to queue on Pop.
-	if err := d.sync(); err != nil {
+	// Push nextFile to queue on Pop.
+	if err := q.pushNextFile(); err != nil {
 		return nil, err
 	}
 
-	// If files queue is empty, return next file.
-	if len(d.files) == 0 {
-		// TODO: this feel unidiomatic to return nil, nil
+	// if queue is empty, return nil.
+	//nolint:nilnil
+	if len(q.files) == 0 {
 		return nil, nil
 	}
 
 	// else, return the next file in the queue, and update the queue
-	ret := d.files[0]
+	ret := q.files[0]
 
-	if len(d.files) == 1 {
-		d.files = []*File{}
+	if len(q.files) == 1 {
+		q.files = []*File{}
 	} else {
-		d.files = d.files[1:]
+		q.files = q.files[1:]
 	}
 	return ret, nil
 }
 
-func (d *Queue) Close() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	d.closed = true
-	if d.nextFile == nil {
+// Close closes the queue, indicating no additional data will be pushed.
+func (q *Queue) Close() error {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	q.closed = true
+	if q.nextFile == nil {
 		return nil
 	}
-	if err := d.nextFile.Sync(); err != nil {
+	if err := q.nextFile.Sync(); err != nil {
 		return err
 	}
-	d.nextFile = nil
+	q.nextFile = nil
 	return nil
 }
 
-func (d *Queue) IsClosed() bool {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	return d.closed
+// IsClosed returns whether or not q is closed.
+func (q *Queue) IsClosed() bool {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	return q.closed
 }
 
-func (d *Queue) sync() error {
-	if d.nextFile == nil {
+func (q *Queue) pushNextFile() error {
+	if q.nextFile == nil {
 		return nil
 	}
-	if err := d.nextFile.Sync(); err != nil {
+	if err := q.nextFile.Sync(); err != nil {
 		return err
 	}
-	d.files = append(d.files, d.nextFile)
-	d.nextFile = nil
+	q.files = append(q.files, q.nextFile)
+	q.nextFile = nil
 	return nil
 }

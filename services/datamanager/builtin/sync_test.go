@@ -139,10 +139,11 @@ TEST SETUP:
 - Variations? Maybe one for binary and one for tabular
 */
 func TestDataCaptureUpload(t *testing.T) {
-	datacapture.MaxFileSize = 150
-	// MaxFileSize of 150 => Should be 2 tabular readings per file/UR
-	sensorDataPerUploadRequest := 2.0
-	// Set exponential factor to 1 and retry wait time to 25ms so retries happen very quickly.
+	datacapture.MaxFileSize = 600
+	// MaxFileSize of 600 => Should be 3 tabular readings per file/UR, because the SensorReadings are ~230 bytes each,
+	// and the we start writing to a new file once the existing file size is > MaxFileSize.
+	sensorDataPerUploadRequest := 3.0
+	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor = 1
 	datasync.InitialWaitTimeMillis.Store(int32(20))
 	captureTime := time.Millisecond * 300
@@ -486,7 +487,6 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 //	}
 //
 // // TODO: mocks below this point. Maybe reconsider organization.
-//
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
 	return func(logger golog.Logger, cfg *config.Config, interval time.Duration) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)

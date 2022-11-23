@@ -130,6 +130,8 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 		return nil, err
 	}
 	f.readOffset += int64(read)
+	fmt.Println("reading size: ")
+	fmt.Println(read)
 
 	return &r, nil
 }
@@ -163,7 +165,6 @@ func (f *File) Reset() {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.readOffset = f.initialReadOffset
-	return
 }
 
 // Size returns the size of the file.
