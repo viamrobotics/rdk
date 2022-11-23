@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1391,6 +1392,39 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
 	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
+}
+
+func TestValidationErrorOnReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	badConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "",
+				Type:      base.SubtypeName,
+				Model:     "random",
+			},
+		},
+		Cloud: &config.Cloud{},
+	}
+	r, err := robotimpl.New(ctx, badConfig, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+
+	name := base.Named("")
+	noBase, err := r.ResourceByName(name)
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		errors.Wrapf(utils.NewConfigValidationFieldRequiredError("", "name"), "resource %q not available", name),
+	)
+	test.That(t, noBase, test.ShouldBeNil)
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
