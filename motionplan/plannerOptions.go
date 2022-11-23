@@ -2,6 +2,8 @@ package motionplan
 
 import (
 	"math"
+
+	"gonum.org/v1/gonum/floats"
 )
 
 // default values for planning options.
@@ -55,11 +57,12 @@ const (
 
 // defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
 func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
-	dist := 0.
+	diff := make([]float64, 0, len(ci.StartInput))
 	for i, f := range ci.StartInput {
-		dist += math.Pow(ci.EndInput[i].Value-f.Value, 2)
+		diff = append(diff, f.Value-ci.EndInput[i].Value)
 	}
-	return true, dist
+	// 2 is the L value returning a standard L2 Normalization
+	return true, floats.Norm(diff, 2)
 }
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.

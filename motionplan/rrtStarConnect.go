@@ -122,7 +122,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := solutions[0].cost
+	_, optimalCost := rrt.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
 
 	// initialize maps
 	for i, solution := range solutions {
@@ -206,6 +206,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		if mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
 			minIndex = i
 			minCost = cost
+			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
 			break
 		}
 	}
