@@ -73,6 +73,14 @@ type mpu6050 struct {
 	mu     sync.Mutex
 	logger golog.Logger
 
+	// The 3 things we can measure: lock the mutex before reading or writing these.
+	angularVelocity    spatialmath.AngularVelocity
+	temperature        float64
+	linearAcceleration r3.Vector
+
+	shouldShutDown bool  // Tell the background goroutine to stop running
+	hasShutDown    chan bool  // Have the background goroutine indicate it has finished
+
 	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
@@ -110,9 +118,11 @@ func NewMpu6050(
 	logger.Debugf("Using address %d for MPU6050 sensor", address)
 
 	sensor := &mpu6050{
-		bus:        bus,
-		i2cAddress: address,
-		logger:     logger,
+		bus:            bus,
+		i2cAddress:     address,
+		logger:         logger,
+		shouldShutDown: false,
+		hasShutDown: make(chan bool)
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 117 and get
@@ -134,6 +144,10 @@ func NewMpu6050(
 	if err != nil {
 		return nil, errors.Errorf("Unable to wake up MPU6050: '%s'", err.Error())
 	}
+
+	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
+	// the object we created.
+	go sensor.pollData()
 
 	return sensor, nil
 }
@@ -216,16 +230,37 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	}
 }
 
+func (mpu *mpu6050) pollData() {
+	while !mpu.shouldShutDown {
+		rawData, err := mpu.readBlock(ctx, 59, 14)
+		if err != nil {
+			mpu.logger.Infof("error reading MPU6050 sensor: %s", err)
+			continue
+		}
+
+		linearAcceleration := toLinearAcceleration(rawData[0:6])
+		// Taken straight from the MPU6050 register map. Yes, these are weird constants.
+		temp := float64(toSignedValue(rawData[6:8])) / 340 + 36.53
+		angularVelocity := toAngularVelocity(rawData[8:14])
+
+		// Lock the mutex before modifying the state within the object. By keeping the mutex
+		// unlocked for everything else, we maximize the time when another thread can read the
+		// values.
+		mpu.mu.Lock()
+		mpu.linearAcceleration = linearAcceleration
+		mpu.temperature = temperature
+		mpu.angularVelocity = angularVelocity
+		mpu.mu.Unlock()
+	}
+	// mpu.shouldShutDown is true, and it's time to tell the rest of the object that we have
+	// completed shutting down.
+	mpu.hasShutDown <- true
+}
+
 func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
-
-	// The gyroscope measurements are in registers 67 to 72 (2 bytes for each axis).
-	rawData, err := mpu.readBlock(ctx, 67, 6)
-	if err != nil {
-		return spatialmath.AngularVelocity{}, err
-	}
-	return toAngularVelocity(rawData), nil
+	return mpu.angularVelocity, nil
 }
 
 func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -250,26 +285,12 @@ func (mpu *mpu6050) Accuracy(ctx context.Context, extra map[string]interface{}) 
 
 func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	mpu.mu.Lock()
-	defer mpu.mu.Lock()
+	defer mpu.mu.Unlock()
 
 	readings := make(map[string]interface{})
-	// Instead of this function calling AngularVelocity, we get an atomic snapshot of all the
-	// values together, rather than the angular velocity at one time and everything else at a
-	// slightly different time.
-
-	// We get 2 bytes each for 3 axes of acceleration, 1 temperature, and 3 axes of rotation.
-	rawData, err := mpu.readBlock(ctx, 59, 14)
-	if err != nil {
-		return readings, err
-	}
-
-	readings["acceleration"] = toLinearAcceleration(rawData[0:6])
-
-	// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-	temp := toSignedValue(rawData[6:8])
-	readings["temperature_celsius"] = float64(temp)/340 + 36.53
-
-	readings["angular_velocity"] = toAngularVelocity(rawData[8:14])
+	readings["acceleration"] = mpu.linearAcceleration
+	readings["temperature_celsius"] = mpu.temperature
+	readings["angular_velocity"] = mpu.angularVelocity
 
 	return readings, nil
 }
@@ -282,7 +303,10 @@ func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}
 
 func (mpu *mpu6050) Close(ctx context.Context) {
 	mpu.mu.Lock()
-	defer mpu.mu.Lock()
+	defer mpu.mu.Unlock()
+
+	mpu.shouldShutDown = true  // Shut down the goroutine running in the background.
+	<- mpu.hasShutDown  // Wait until the goroutine has successfully shut down.
 
 	// Set the Sleep bit (bit 6) in the power control register (register 107).
 	err := mpu.writeByte(ctx, 107, 1<<6)
