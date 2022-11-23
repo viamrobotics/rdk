@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"math/rand"
 	"runtime"
 	"time"
@@ -17,7 +18,7 @@ import (
 )
 
 const (
-	defaultOptimalityMultiple = 5.0
+	defaultOptimalityMultiple = 3.0
 	defaultFallbackTimeout    = 1.5
 	defaultFallbackIK         = 5
 )
@@ -199,50 +200,70 @@ func (mp *planManager) planMotion(
 			case finalSteps := <-solutionChan:
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
+				nextSeed := finalSteps.rm
+
+				// default to fallback; will unset if we have a good path
 				goodSolution := false
+				var ok bool
+				score := math.Inf(1)
+
+				// If there was no error, check path quality. If sufficiently good, move on
 				if finalSteps.err() == nil {
 					if opt.Fallback != nil {
-						if ok, score := goodPlan(finalSteps, opt); ok {
+						if ok, score = goodPlan(finalSteps, opt); ok {
+							mp.logger.Debugf("got path with score %f, close enough to optimal %f", score, finalSteps.optimal)
 							goodSolution = true
 						} else {
 							mp.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, finalSteps.optimal)
+
+							nextSeed = initRRTMaps()
+							opt.Fallback.MaxSolutions = opt.MaxSolutions
 						}
 					} else {
 						goodSolution = true
 					}
 				}
 
+				// Run fallback if necessart.
 				if !goodSolution {
 					if opt.Fallback != nil {
-						remainingSteps, err = mp.planMotion(
+						alternate, err := mp.planMotion(
 							ctx,
-							goals,
+							[]spatialmath.Pose{goal},
 							seed,
-							append([]*plannerOptions{opt.Fallback}, opts[1:]...),
-							finalSteps.rm,
+							[]*plannerOptions{opt.Fallback},
+							nextSeed,
 							iter,
 						)
-						if err != nil {
-							return nil, err
+						if err == nil {
+							altCost := EvaluatePlan(&rrtPlanReturn{steps: stepsToNodes(alternate)}, opt)
+							if altCost < score {
+								mp.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
+								finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
+							} else {
+								mp.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
+							}
 						}
-					} else {
-						return nil, finalSteps.err()
 					}
-				} else {
-					if iter+1 < len(goals) {
-						// in this case, we create the next step (and thus the remaining steps) and the
-						// step from our iteration hangs out in the channel buffer until we're done with it
-						remainingSteps, err = mp.planMotion(
-							ctx,
-							goals,
-							finalSteps.steps[len(finalSteps.steps)-1].Q(),
-							opts,
-							nil,
-							iter+1,
-						)
-						if err != nil {
-							return nil, err
-						}
+				}
+
+				if finalSteps.err() != nil {
+					return nil, finalSteps.err()
+				}
+
+				if iter+1 < len(goals) {
+					// in this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the buffer until we're done with it
+					remainingSteps, err = mp.planMotion(
+						ctx,
+						goals,
+						finalSteps.steps[len(finalSteps.steps)-1].Q(),
+						opts,
+						nil,
+						iter+1,
+					)
+					if err != nil {
+						return nil, err
 					}
 				}
 				results := append(finalSteps.toInputs(), remainingSteps...)
