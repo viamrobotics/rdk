@@ -3,7 +3,7 @@ package datasync
 // TODO: add this back
 // func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, partID string,
 //	f *os.File,
-//) error {
+// ) error {
 //	stream, err := client.Upload(ctx)
 //	if err != nil {
 //		return err

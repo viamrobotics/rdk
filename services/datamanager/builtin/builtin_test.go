@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go.viam.com/rdk/spatialmath"
 	"image"
 	"image/png"
 	"io/fs"
@@ -73,8 +74,8 @@ func getInjectedRobot() *inject.Robot {
 	rs[arm.Named("arm1")] = injectedArm
 
 	injectedRemoteArm := &inject.Arm{}
-	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
+	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return spatialmath.NewZeroPose(), nil
 	}
 	rs[arm.Named("remoteArm")] = injectedRemoteArm
 
