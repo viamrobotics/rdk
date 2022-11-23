@@ -63,31 +63,37 @@ func (ms *builtIn) Move(
 	if err != nil {
 		return false, err
 	}
-	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, solver)
+	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
 	if err != nil {
 		return false, err
 	}
-
+	
+	movingFrame := frameSys.Frame(componentName.ShortName())
+	
 	logger.Debugf("frame system inputs: %v", fsInputs)
+	if movingFrame == nil {
+		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
+	}
 
-	// re-evaluate goalPose to be in the frame we're going to move in
+	// re-evaluate goalPose to be in the frame of World
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := solver.Transform(fsInputs, destination, solvingFrame)
+	tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
 	if err != nil {
 		return false, err
 	}
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := solver.SolveWaypointsWithOptions(ctx,
+	output, err := motionplan.PlanMotion(ctx,
+		logger,
+		goalPose,
+		movingFrame,
 		fsInputs,
-		[]*referenceframe.PoseInFrame{goalPose},
-		componentName.ShortName(),
+		frameSys,
 		worldState,
-		[]map[string]interface{}{extra},
+		extra,
 	)
 	if err != nil {
 		return false, err
