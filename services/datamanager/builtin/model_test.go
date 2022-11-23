@@ -71,7 +71,7 @@ func TestModelDeploy(t *testing.T) {
 
 	defer func() {
 		for i := range allModels {
-			resetFolder(t, allModels[i].Destination)
+			os.RemoveAll(allModels[i].Destination)
 		}
 	}()
 

@@ -88,7 +88,6 @@ func TestSyncEnabled(t *testing.T) {
 
 			initialUploadCount := len(mockService.getSuccessfulDCUploadRequests())
 			if !tc.initialServiceDisableStatus {
-				// TODO: check contents
 				test.That(t, initialUploadCount, test.ShouldBeGreaterThan, 0)
 			} else {
 				test.That(t, initialUploadCount, test.ShouldEqual, 0)
@@ -336,7 +335,7 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 		return
 	}
 
-	// TODO: metadata checks fail because these don't get uploaded in a defined order. should prob use sets instead
+	//TODO: metadata checks fail because these don't get uploaded in a defined order. should prob use sets instead
 	//       of arrays. For now, just don't check metadata
 	test.That(t, len(act), test.ShouldEqual, len(exp))
 	if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
@@ -350,8 +349,8 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 }
 
-// TODO: readd arbitrary file upload tests
-// TODO: readd manual sync tests
+//TODO: readd arbitrary file upload tests
+//TODO: readd manual sync tests
 //
 // // Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
 // // or running into errors.
@@ -458,7 +457,7 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 //		return additionalSyncPaths, numArbitraryFilesToSync, nil
 //	}
 //
-// // TODO: mocks below this point. Maybe reconsider organization.
+
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
 	return func(logger golog.Logger, cfg *config.Config, interval time.Duration) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
@@ -513,7 +512,6 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
 		return nil, errors.New("oh no error!!")
 	}
-	// TODO: will likely need to make this optionally return errors for testing error cases
 	*m.successfulDCUploadRequests = append(*m.successfulDCUploadRequests, ur)
 	return &v1.DataCaptureUploadResponse{
 		Code:    200,
