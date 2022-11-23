@@ -260,7 +260,6 @@ func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config plan
 	}
 }
 
-
 func makeTestFS(t *testing.T) frame.FrameSystem {
 	t.Helper()
 	fs := frame.NewEmptySimpleFrameSystem("test")

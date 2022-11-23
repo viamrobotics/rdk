@@ -106,7 +106,6 @@ func PlanWaypoints(ctx context.Context,
 	worldState *commonpb.WorldState,
 	motionConfigs []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-
 	if len(goals) == 0 {
 		return nil, errors.New("no destinations passed to PlanWaypoints")
 	}
@@ -175,7 +174,6 @@ func PlanWaypoints(ctx context.Context,
 	}
 
 	return steps, nil
-	
 }
 
 // FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
