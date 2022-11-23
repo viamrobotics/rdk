@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -28,25 +29,25 @@ func TestRegisteredReconfigurable(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	svc := &mock{name: testSvcName1}
-	reconfSvc1, err := slam.WrapWithReconfigurable(svc)
+	reconfSvc1, err := slam.WrapWithReconfigurable(svc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = slam.WrapWithReconfigurable(nil)
+	_, err = slam.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, slam.NewUnimplementedInterfaceError(nil))
 
-	reconfSvc2, err := slam.WrapWithReconfigurable(reconfSvc1)
+	reconfSvc2, err := slam.WrapWithReconfigurable(reconfSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
 }
 
 func TestReconfigurable(t *testing.T) {
 	actualSvc1 := &mock{name: testSvcName1}
-	reconfSvc1, err := slam.WrapWithReconfigurable(actualSvc1)
+	reconfSvc1, err := slam.WrapWithReconfigurable(actualSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc1, test.ShouldNotBeNil)
 
 	actualArm2 := &mock{name: testSvcName2}
-	reconfSvc2, err := slam.WrapWithReconfigurable(actualArm2)
+	reconfSvc2, err := slam.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldNotBeNil)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)

@@ -119,24 +119,24 @@ func TestSensorName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
-	reconfSensor1, err := sensor.WrapWithReconfigurable(actualSensor1)
+	reconfSensor1, err := sensor.WrapWithReconfigurable(actualSensor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = sensor.WrapWithReconfigurable(nil)
+	_, err = sensor.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, sensor.NewUnimplementedInterfaceError(nil))
 
-	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
+	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSensor2, test.ShouldEqual, reconfSensor1)
 }
 
 func TestReconfigurableSensor(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
-	reconfSensor1, err := sensor.WrapWithReconfigurable(actualSensor1)
+	reconfSensor1, err := sensor.WrapWithReconfigurable(actualSensor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualSensor2 := &mock{Name: testSensorName2}
-	reconfSensor2, err := sensor.WrapWithReconfigurable(actualSensor2)
+	reconfSensor2, err := sensor.WrapWithReconfigurable(actualSensor2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 0)
 
@@ -160,7 +160,7 @@ func TestReconfigurableSensor(t *testing.T) {
 
 func TestReadings(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
-	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
+	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1, resource.Name{})
 
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
@@ -171,7 +171,7 @@ func TestReadings(t *testing.T) {
 
 func TestReadingsWithExtraParams(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
-	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
+	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1, resource.Name{})
 
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background(), map[string]interface{}{"foo": "bar"})
@@ -183,7 +183,7 @@ func TestReadingsWithExtraParams(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
-	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
+	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1, resource.Name{})
 
 	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfSensor1), test.ShouldBeNil)
