@@ -83,7 +83,7 @@ package datasync
 //	}
 //}
 //
-//func readNextFileChunk(f *os.File) (*v1.FileData, error) {
+// func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 //	byteArr := make([]byte, uploadChunkSize)
 //	numBytesRead, err := f.Read(byteArr)
 //	if numBytesRead < uploadChunkSize {
