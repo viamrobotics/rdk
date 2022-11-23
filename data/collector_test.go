@@ -8,9 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
