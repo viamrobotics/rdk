@@ -112,11 +112,12 @@ func TestSyncEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			newUploadCount := len(mockService.getSuccessfulDCUploadRequests())
-			// TODO: Things to validate: that it syncs if expected, that it deletes files if successful
 			if !tc.newServiceDisableStatus {
 				test.That(t, newUploadCount, test.ShouldBeGreaterThan, initialUploadCount)
 			} else {
-				test.That(t, newUploadCount, test.ShouldEqual, initialUploadCount)
+				// +1 to give leeway if an additional upload call was made between measuring initialUploadCount
+				// and calling Update
+				test.That(t, newUploadCount, test.ShouldBeBetweenOrEqual, initialUploadCount, initialUploadCount+1)
 			}
 		})
 	}
