@@ -11,20 +11,9 @@ import (
 	"go.viam.com/test"
 )
 
-var (
-	ctx = context.Background()
-	som = SingleOperationManager{
-		mu: sync.Mutex{},
-		currentOp: &anOp{
-			ctx: ctx,
-			cancelFunc: func() {
-			},
-			closed: false,
-		},
-	}
-)
-
 func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
+	som := SingleOperationManager{}
+	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
 	ctx1, close1 := som.New(ctx)
@@ -35,6 +24,8 @@ func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
 }
 
 func TestCallOnDifferentContext(t *testing.T) {
+	som := SingleOperationManager{}
+	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
 	res := int32(0)
@@ -60,6 +51,8 @@ func TestCallOnDifferentContext(t *testing.T) {
 }
 
 func TestWaitForSuccess(t *testing.T) {
+	som := SingleOperationManager{}
+	ctx := context.Background()
 	count := int64(0)
 
 	err := som.WaitForSuccess(
@@ -77,6 +70,7 @@ func TestWaitForSuccess(t *testing.T) {
 }
 
 func TestWaitForError(t *testing.T) {
+	som := SingleOperationManager{}
 	count := int64(0)
 
 	err := som.WaitForSuccess(
@@ -94,7 +88,8 @@ func TestWaitForError(t *testing.T) {
 }
 
 func TestDontCancel(t *testing.T) {
-	ctx, done := som.New(ctx)
+	som := SingleOperationManager{}
+	ctx, done := som.New(context.Background())
 	defer done()
 
 	som.CancelRunning(ctx)
@@ -102,7 +97,8 @@ func TestDontCancel(t *testing.T) {
 }
 
 func TestCancelRace(t *testing.T) {
-	ctx, done := som.New(ctx)
+	som := SingleOperationManager{}
+	ctx, done := som.New(context.Background())
 	defer done()
 
 	var wg sync.WaitGroup
@@ -120,7 +116,8 @@ func TestCancelRace(t *testing.T) {
 }
 
 func TestStopCalled(t *testing.T) {
-	ctx, done := som.New(ctx)
+	som := SingleOperationManager{}
+	ctx, done := som.New(context.Background())
 	defer done()
 	mock := &mock{stopCount: 0}
 	ctx, cancel := context.WithCancel(ctx)
@@ -140,7 +137,8 @@ func TestStopCalled(t *testing.T) {
 }
 
 func TestErrorContainsStopAndCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(ctx)
+	som := SingleOperationManager{}
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	mock := &mock{stopCount: 0}
 	var wg sync.WaitGroup
@@ -158,7 +156,8 @@ func TestErrorContainsStopAndCancel(t *testing.T) {
 }
 
 func TestStopNotCalledOnOldContext(t *testing.T) {
-	ctx, done := som.New(ctx)
+	som := SingleOperationManager{}
+	ctx, done := som.New(context.Background())
 	defer done()
 	mock := &mock{stopCount: 0}
 	var wg sync.WaitGroup
@@ -188,5 +187,5 @@ func (m *mock) stopFail(ctx context.Context, extra map[string]interface{}) error
 }
 
 func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-	return true, 0, nil
+	return true, 1, nil
 }
