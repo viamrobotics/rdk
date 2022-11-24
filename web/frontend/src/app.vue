@@ -33,7 +33,7 @@ import AudioInput from './components/audio-input.vue';
 import Base from './components/base.vue';
 import Board from './components/board.vue';
 import Camera from './components/camera.vue';
-import OperationsSessions from './components/operations-sessions.vue';
+import CurrentOperations from './components/current-operations.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
 import Gripper from './components/gripper.vue';
@@ -917,8 +917,8 @@ onMounted(async () => {
       :resources="filterComponentsWithNames(resources)"
     />
 
-    <!-- ******* OPERATIONS AND SESSIONS ******* -->
-    <OperationsSessions
+    <!-- ******* OPERATIONS ******* -->
+    <CurrentOperations
       v-if="connectedOnce"
       :client="client"
       :operations="currentOps"
