@@ -887,6 +887,10 @@ type mockType struct {
 	reconfCount int64
 }
 
+func (mt *mockType) Name() resource.Name {
+	return resource.Name{}
+}
+
 func (mt *mockType) Reconfigure(ctx context.Context, newRes resource.Reconfigurable) error {
 	atomic.AddInt64(&mt.reconfCount, 1)
 	return nil

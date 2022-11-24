@@ -3,8 +3,6 @@ package motionplan
 import (
 	"math"
 
-	"math"
-
 	"gonum.org/v1/gonum/floats"
 )
 
@@ -58,13 +56,6 @@ const (
 )
 
 // defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
-
-	//~ dist := 0.
-	//~ for i, f := range ci.StartInput {
-		//~ dist += math.Pow(ci.EndInput[i].Value-f.Value, 2)
-	//~ }
-	//~ return true, dist
-//~ }.
 func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
 	diff := make([]float64, 0, len(ci.StartInput))
 	for i, f := range ci.StartInput {

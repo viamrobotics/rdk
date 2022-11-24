@@ -185,7 +185,12 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 type reconfigurableMovementSensor struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual MovementSensor
+}
+
+func (r *reconfigurableMovementSensor) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableMovementSensor) Close(ctx context.Context) error {
@@ -277,7 +282,7 @@ func (r *reconfigurableMovementSensor) reconfigure(ctx context.Context, newMovem
 
 // WrapWithReconfigurable - if MovementSensor is already a reconfigurableMovementSensor, then nothing is done.
 // Otherwise wraps in a Reconfigurable.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	ms, ok := r.(MovementSensor)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -285,5 +290,5 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := ms.(*reconfigurableMovementSensor); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMovementSensor{actual: ms}, nil
+	return &reconfigurableMovementSensor{name: name, actual: ms}, nil
 }

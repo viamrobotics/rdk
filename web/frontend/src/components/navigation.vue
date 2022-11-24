@@ -6,10 +6,7 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import type jspb from 'google-protobuf';
 import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
-import commonApi from '../gen/common/v1/common_pb.esm';
-import robotApi from '../gen/robot/v1/robot_pb.esm';
-import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
-import navigationApi, { type Waypoint } from '../gen/service/navigation/v1/navigation_pb.esm';
+import { commonApi, robotApi, navigationApi, type ServiceError } from '@viamrobotics/sdk';
 
 interface Props {
   resources?: Resource[]
@@ -142,7 +139,7 @@ const initNavigation = async () => {
         return;
       }
 
-      let waypoints: Waypoint[] = [];
+      let waypoints: navigationApi.Waypoint[] = [];
 
       if (resp) {
         waypoints = resp.getWaypointsList();

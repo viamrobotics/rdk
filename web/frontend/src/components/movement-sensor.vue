@@ -2,10 +2,8 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import movementsensorApi, {
-  type GetPropertiesResponse,
-} from '../gen/component/movementsensor/v1/movementsensor_pb.esm';
-import type { GeoPoint, Orientation, Vector3 } from '../gen/common/v1/common_pb.esm';
+import { movementSensorApi as movementsensorApi } from '@viamrobotics/sdk';
+import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {
@@ -14,13 +12,13 @@ interface Props {
 
 const props = defineProps<Props>();
 
-let orientation = $ref<Orientation.AsObject | undefined>();
-let angularVelocity = $ref<Vector3.AsObject | undefined>();
-let linearVelocity = $ref<Vector3.AsObject | undefined>();
+let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
+let angularVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
+let linearVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
 let compassHeading = $ref<number | undefined>();
-let coordinate = $ref<GeoPoint.AsObject | undefined>();
+let coordinate = $ref<commonApi.GeoPoint.AsObject | undefined>();
 let altitudeMm = $ref<number | undefined>();
-let properties = $ref<GetPropertiesResponse.AsObject | undefined>();
+let properties = $ref<movementsensorApi.GetPropertiesResponse.AsObject | undefined>();
 
 let refreshId = -1;
 

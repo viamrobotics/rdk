@@ -66,7 +66,9 @@ type Controller interface {
 	// Events returns most recent Event for each input (which should be the current state)
 	Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error)
 
-	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
+	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control.
+	// The callback is called on the same goroutine as the firer and if any long operation is to occur,
+	// the callback should start a goroutine.
 	RegisterControlCallback(
 		ctx context.Context,
 		control Control,
@@ -169,7 +171,7 @@ func DependencyTypeError(name, actual interface{}) error {
 }
 
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -177,7 +179,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableInputController{actual: c}, nil
+	return &reconfigurableInputController{name: name, actual: c}, nil
 }
 
 var (
@@ -243,7 +245,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableInputController struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Controller
+}
+
+func (c *reconfigurableInputController) Name() resource.Name {
+	return c.name
 }
 
 func (c *reconfigurableInputController) ProxyFor() interface{} {

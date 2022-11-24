@@ -1,14 +1,14 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import servoApi, { type Status } from '../gen/component/servo/v1/servo_pb.esm';
+import { servoApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string
-  status: Status.AsObject
-  rawStatus: Status.AsObject
+  status: servoApi.Status.AsObject
+  rawStatus: servoApi.Status.AsObject
 }
 
 const props = defineProps<Props>();
