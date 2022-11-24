@@ -89,7 +89,7 @@ func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (ma
 		}
 		val, ok := req["value"].(float64)
 		if !ok {
-			return nil, fmt.Errorf("value must be a number", req["value"])			
+			return nil, errors.New("value must be a number")
 		}
 		atomic.AddInt64(&c.total, int64(val))
 		// We return the new total after the addition.
