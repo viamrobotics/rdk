@@ -1,5 +1,5 @@
 # CustomResources
-This example demonstrates several ways viam-server can be extended with custom resources. It contains several elements.
+This example demonstrates several ways viam-server can be extended with custom resources. It contains several sections. Note that `make` is used throughout to help script commands. The actual commands being run should be printed before as they are used. You can also look in the various "Makefile" named files throughout, to see the exact targets and what they do.
 
 ## APIs
 APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implmenetations of a grpc client and server.
@@ -12,8 +12,7 @@ Note that this is split into two files. The content of wrapper.go is only needed
 Custom (service) api/protocol called "Summation" (acme:service:summation).
 
 ### protos
-This folder contains the protobuf for the above two APIs. Only the .proto files are human modified. The rest is generated automatically by running "make" from within this directory.
-
+This folder contains the protobuf for the above two APIs. Only the .proto files are human modified. The rest is generated automatically by running "make" from within this directory. Note that the generation is performed using the "buf" command line tool, which itself is installed automatically as part of the make scripting. To generate protocols for other lanaguges, other tooling or commands may be used. The key takeaway is that just the files with the .proto suffix are needed to generate the basic protobuf libraries for any given language.
 
 ## Models
 Models are concrete implementations of a specific type (API) of component or service.
@@ -30,9 +29,12 @@ Custom component (acme:demo:mybase) that implements Viam's built-in Base API (rd
 ### mynavigation
 Custom service (acme:demo:mynavigation) that implements Viam's built-in Nativation API (rdk:service:navigation) and only reports a static location from its config, and allows waypoints to be added/removed. Defaults to Point Nemo.
 
-
 ## Demos
-Each demo showcases an implementation of custom resources.
+Each demo showcases an implementation of custom resources. They fall into two categories.
+
+* One is a module, which is the newer, preferred method of implementing a custom resource. It involves building a small binary that will (after configuration) be automatically started by a parent-viam server process, and communicate with it via GRPC over a Unix (file-like) socket on the local system. All configuration is done via the single parent robot, with relevant bits being passed to the module as neccessary.
+
+* The other demo is the older, deprecated method, which is creating a standalone robot server (very similar to viam-server itself) with the new/custom component, and other non-needed parts stripped out, and then using that as a "remote" from a parent viam-server (even though it would technically run on the same local machine.) This requires two seperate configs, one for the parent, and one for the custom server.
 
 ### complexmodule
 This demo is centered around a custom module that supports all four of the custom models above, including both custom APIs. A client demo is also included in a sub folder.
@@ -51,7 +53,7 @@ Reconfiguration should work live. Simply edit the module.json file while the ser
 Additionally, you can comment out the "Reconfigure()" method in either mygizmo, mynavigation, or mysum to see how reconfiguration becomes replacement. If a resource doesn't support direct reconfiguration, it will automatically be recreated with the new config and replaced instead.
 
 ### simplemodule
-This is a minimal version of a custom resource module, using the built-in Generic API, and where everything for the module is in one file. It supports only [SMURF MORE HERE] and also contains a client demo similar to the complex example.
+This is a minimal version of a custom resource module, using the built-in Generic API, and where everything for the module is in one file. It has a simple "counter" component model included, which uses the rdk:component:generic interface. This component simply takes numbers and adds them to a running total, which can also be fetched. This also contains a client demo similar to the complex example.
 * Start the server `make run-module`
   * This uses module.json
   * This automatically compiles the module itself first, which can be done manually with `make module`.
@@ -76,4 +78,4 @@ This demo provides a standalone server that supports the "mygizmo" component onl
 * From a third terminal, run the client that has loaded the custom gizmo api, and talks to it via the parent `make run-client`.
 
 #### Notes
-The remote server method of implementing custom resources is deprecated, and the modular methods should be used instead. This demo is maintained for testing purposes. (Remotes themselves are still used for connecting to resource on another physical CPU however.)
+The remote server method of implementing custom resources is deprecated, and the modular methods should be used instead. This demo is maintained for testing purposes. Remotes themselves are still used for connecting to viam-server instances on other physical systems however, which was their original intent.

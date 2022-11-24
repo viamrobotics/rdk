@@ -1,4 +1,4 @@
-// Package mysum implements an acme:service:summation.
+// Package mysum implements an acme:service:summation, a demo service which sums (or subtracts) a given list of numbers.
 package mysum
 
 import (

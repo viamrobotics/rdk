@@ -1,4 +1,4 @@
-// Package mynavigation contains an example navigation service that only stores waypoints.
+// Package mynavigation contains an example navigation service that only stores waypoints, and returns a fixed, configurable location.
 package mynavigation
 
 import (

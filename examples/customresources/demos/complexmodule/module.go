@@ -1,3 +1,4 @@
+// Package main is a module, which serves all four custom model types in the customresources examples, including both custom APIs.
 package main
 
 import (

@@ -1,4 +1,4 @@
-// Package main is a standalone server (for use as a remote) serving a demo Gizmo.
+// Package main is a standalone server (for use as a remote) serving a demo Gizmo component.
 package main
 
 import (

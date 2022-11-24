@@ -1,4 +1,4 @@
-// Package summation defines a simple number summing service.
+// Package summation defines a simple number summing service API for demonstration purposes.
 package summationapi
 
 import (

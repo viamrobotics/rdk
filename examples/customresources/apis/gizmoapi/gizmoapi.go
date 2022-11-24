@@ -1,4 +1,4 @@
-// Package gizmoapi implements the acme:component:gizmo API.
+// Package gizmoapi implements the acme:component:gizmo API, a demonstraction API showcasing the available GRPC method types.
 package gizmoapi
 
 import (

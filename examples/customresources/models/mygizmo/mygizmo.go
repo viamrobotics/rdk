@@ -1,4 +1,4 @@
-// Package mygizmo implements an acme:component:gizmo.
+// Package mygizmo implements an acme:component:gizmo, a demonstration component that simply shows the various methods available in grpc.
 package mygizmo
 
 import (
