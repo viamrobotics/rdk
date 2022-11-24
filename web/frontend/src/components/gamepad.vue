@@ -54,7 +54,7 @@ const sendEvent = (newEvent: InputController.Event) => {
   req.setEvent(newEvent);
   props.client.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
     if (error) {
-      if (ConnectionClosedError.IsError(error)) {
+      if (ConnectionClosedError.isError(error)) {
         return;
       }
       const now = Date.now();
@@ -163,6 +163,13 @@ const processEvents = (connected: boolean) => {
   }
 };
 
+const checkVal = (val?: number): number => {
+  if (!val && val !== 0) {
+    return Number.NaN;
+  }
+  return val;
+};
+
 const tick = () => {
   const gamepad = currentGamepad();
   if (!gamepad || !gamepad.connected) {
@@ -176,12 +183,6 @@ const tick = () => {
 
   // eslint-disable-next-line unicorn/no-unsafe-regex
   const re = /^-?\d+(?:.\d{0,4})?/u;
-  const checkVal = (val?: number): number => {
-    if (!val && val !== 0) {
-      return NaN;
-    }
-    return val;
-  }
   const trunc = (val?: number): number => {
     const checkedVal = checkVal(val);
     if (Number.isNaN(checkedVal)) {
@@ -194,8 +195,10 @@ const tick = () => {
     return Number(match![0]!);
   };
 
-  // TODO(RSDK-881): this ought to detect actual controller mappings; for now
-  // just try to not fail.
+  /*
+   * TODO(RSDK-881): this ought to detect actual controller mappings; for now
+   * just try to not fail.
+   */
   curStates.X = trunc(gamepad.axes[0]);
   curStates.Y = trunc(gamepad.axes[1]);
   curStates.RX = trunc(gamepad.axes[2]);
@@ -300,14 +303,14 @@ watch(() => enabled, () => {
         class="flex h-full w-full flex-row justify-between gap-2"
       >
         <div
-          v-for="(value, name) in curStates"
-          :key="name"
+          v-for="(value, stateName) in curStates"
+          :key="stateName"
           class="ml-0 flex w-[8ex] flex-col text-center"
         >
           <p class="subtitle m-0">
-            {{ name }}
+            {{ stateName }}
           </p>
-          {{ /X|Y|Z$/.test(name.toString()) ? value!.toFixed(4) : value!.toFixed() }}
+          {{ /X|Y|Z$/.test(stateName.toString()) ? value!.toFixed(4) : value!.toFixed() }}
         </div>
       </div>
     </div>

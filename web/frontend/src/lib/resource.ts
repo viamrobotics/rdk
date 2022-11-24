@@ -1,4 +1,4 @@
-import type { commonApi } from "@viamrobotics/sdk";
+import type { commonApi } from '@viamrobotics/sdk';
 
 const sortByName = (item1: commonApi.ResourceName.AsObject, item2: commonApi.ResourceName.AsObject) => {
   if (item1.name > item2.name) {
@@ -39,7 +39,12 @@ export const resourceNameToString = (resource: commonApi.ResourceName.AsObject) 
   return strName;
 };
 
-export const filterResources = (resources: commonApi.ResourceName.AsObject[], namespace: string, type: string, subtype: string) => {
+export const filterResources = (
+  resources: commonApi.ResourceName.AsObject[],
+  namespace: string,
+  type: string,
+  subtype: string
+) => {
   const results = [];
 
   for (const resource of resources) {
@@ -55,7 +60,12 @@ export const filterResources = (resources: commonApi.ResourceName.AsObject[], na
   return results.sort(sortByName);
 };
 
-export const filterNonRemoteResources = (resources: commonApi.ResourceName.AsObject[], namespace: string, type: string, subtype: string) => {
+export const filterNonRemoteResources = (
+  resources: commonApi.ResourceName.AsObject[],
+  namespace: string,
+  type: string,
+  subtype: string
+) => {
   return filterResources(resources, namespace, type, subtype).filter((resource) => !resource.name.includes(':'));
 };
 

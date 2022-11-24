@@ -2,11 +2,10 @@
 
 import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import type jspb from 'google-protobuf';
 import { toast } from '../lib/toast';
 import { filterResources } from '../lib/resource';
-import { Client, commonApi, genericApi, robotApi, navigationApi, type ServiceError } from '@viamrobotics/sdk';
+import { Client, commonApi, robotApi, navigationApi, type ServiceError } from '@viamrobotics/sdk';
+import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 
 interface Props {
   resources: commonApi.ResourceName.AsObject[]
@@ -30,7 +29,11 @@ const location = ref('');
 const res = ref();
 const container = ref<HTMLElement>();
 
-const grpcCallback = (error: ServiceError | null, responseMessage: jspb.Message | null, stringify = true) => {
+const grpcCallback = (
+  error: ServiceError | null,
+  responseMessage: (navigationApi.SetModeResponse | null),
+  stringify = true
+) => {
   if (error) {
     toast.error(error);
     return;
@@ -42,9 +45,7 @@ const grpcCallback = (error: ServiceError | null, responseMessage: jspb.Message 
         return;
       }
 
-      res.value = (responseMessage as Struct).toJavaScript
-        ? JSON.stringify((responseMessage as Struct).toJavaScript())
-        : JSON.stringify(responseMessage.toObject());
+      res.value = JSON.stringify(responseMessage.toObject());
     } catch {
       toast.error(error);
     }

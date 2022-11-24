@@ -65,7 +65,7 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ];
 
-const password = $ref<string>("");
+const password = $ref<string>('');
 const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
@@ -105,9 +105,8 @@ const client = new Client(impliedURL, {
   enabled: window.webrtcEnabled,
   host: window.host,
   signalingAddress: window.webrtcSignalingAddress,
-  rtcConfig
+  rtcConfig,
 });
-
 
 let appConnectionManager = $ref<{
   statuses: {
@@ -286,7 +285,6 @@ const restartStatusStream = () => {
   }
 
   const robotSvcWithOpts = client.robotService as unknown as svcWithOpts;
-  client.robotService
   statusStream = grpc.invoke(RobotService.StreamStatus, {
     request: streamReq,
     host: client.robotService.serviceHost,
@@ -460,7 +458,7 @@ const createAppConnectionManager = () => {
 
         statuses.resources = true;
       } catch (error) {
-        if (ConnectionClosedError.IsError(error)) {
+        if (ConnectionClosedError.isError(error)) {
           statuses.resources = false;
         } else {
           newErrors.push(error);
@@ -477,7 +475,7 @@ const createAppConnectionManager = () => {
 
           statuses.ops = true;
         } catch (error) {
-          if (ConnectionClosedError.IsError(error)) {
+          if (ConnectionClosedError.isError(error)) {
             statuses.ops = false;
           } else {
             newErrors.push(error);
@@ -495,7 +493,7 @@ const createAppConnectionManager = () => {
         return;
       }
 
-      if (newErrors.length !== 0) {
+      if (newErrors.length > 0) {
         handleCallErrors(statuses, newErrors);
       }
       errorMessage = 'Connection lost, attempting to reconnect ...';
@@ -515,7 +513,7 @@ const createAppConnectionManager = () => {
         lastStatusTS = Date.now();
         console.log('reconnected');
       } catch (error) {
-        if (ConnectionClosedError.IsError(error)) {
+        if (ConnectionClosedError.isError(error)) {
           console.error('failed to reconnect; retrying');
         } else {
           console.error('failed to reconnect; retrying:', error);
@@ -557,13 +555,13 @@ const rawResourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
 
 const filteredWebGamepads = () => {
   // TODO (APP-146): replace these with constants
-  return filterComponentsWithNames(resources).filter(elem => {
-   if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
-    return false;
-   }
-   let remSplit = elem.name.split(':');
-   return remSplit[remSplit.length - 1] === 'WebGamepad';
-  })
+  return filterComponentsWithNames(resources).filter((elem) => {
+    if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
+      return false;
+    }
+    const remSplit = elem.name.split(':');
+    return remSplit[remSplit.length - 1] === 'WebGamepad';
+  });
 };
 
 const filteredInputControllerList = () => {
@@ -572,13 +570,13 @@ const filteredInputControllerList = () => {
    * TODO (APP-146): replace these with constants
    * filters out WebGamepad
    */
-  return filterComponentsWithNames(resources).filter(elem => {
+  return filterComponentsWithNames(resources).filter((elem) => {
     if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
       return false;
     }
-    let remSplit = elem.name.split(':');
+    const remSplit = elem.name.split(':');
     return remSplit[remSplit.length - 1] !== 'WebGamepad' && resourceStatusByName(elem);
-  })
+  });
 };
 
 const viewCamera = async (name: string, isOn: boolean) => {
@@ -698,8 +696,8 @@ const doLogin = (authType: string) => {
   doConnect(window.host, creds, (error) => {
     document.querySelector('#connecting')!.classList.add('hidden');
     disableAuthElements = false;
-    console.log(error)
-    toast.error('failed to connect: ' + error);
+    console.log(error);
+    toast.error(`failed to connect: ${error}`);
   });
 };
 
