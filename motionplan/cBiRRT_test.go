@@ -34,11 +34,10 @@ func TestSimpleLinearMotion(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(m, 1, rand.New(rand.NewSource(42)), logger)
+	opt := newBasicPlannerOptions()
+	mp, err := newCBiRRTMotionPlanner(m, 1, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
-
-	opt := newBasicPlannerOptions()
 
 	pos := spatialmath.NewPoseFromOrientation(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 	corners := map[node]bool{}

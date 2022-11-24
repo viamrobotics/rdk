@@ -26,11 +26,11 @@ import (
 type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, spatialmath.Pose, []frame.Input, *plannerOptions) ([][]frame.Input, error)
+	Plan(context.Context, spatialmath.Pose, []frame.Input) ([][]frame.Input, error)
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
-type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (motionPlanner, error)
+type seededPlannerConstructor func(frame.Frame, int, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
@@ -195,9 +195,10 @@ type planner struct {
 	logger   golog.Logger
 	randseed *rand.Rand
 	start    time.Time
+	planOpts *plannerOptions
 }
 
-func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {
+func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -207,6 +208,7 @@ func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logge
 		frame:    frame,
 		logger:   logger,
 		randseed: seed,
+		planOpts: opt,
 	}
 	return mp, nil
 }
@@ -215,13 +217,13 @@ func (mp *planner) Frame() frame.Frame {
 	return mp.frame
 }
 
-func (mp *planner) checkInputs(planOpts *plannerOptions, inputs []frame.Input) bool {
+func (mp *planner) checkInputs(inputs []frame.Input) bool {
 	frame := mp.Frame()
 	position, err := frame.Transform(inputs)
 	if err != nil {
 		return false
 	}
-	ok, _ := planOpts.CheckConstraints(&ConstraintInput{
+	ok, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
 		StartPos:   position,
 		EndPos:     position,
 		StartInput: inputs,
@@ -231,17 +233,21 @@ func (mp *planner) checkInputs(planOpts *plannerOptions, inputs []frame.Input) b
 	return ok
 }
 
-func (mp *planner) checkPath(planOpts *plannerOptions, seedInputs, target []frame.Input) bool {
-	ok, _ := planOpts.CheckConstraintPath(
+func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
+	ok, _ := mp.planOpts.CheckConstraintPath(
 		&ConstraintInput{
 			StartInput: seedInputs,
 			EndInput:   target,
 			Frame:      mp.Frame(),
 		},
-		planOpts.Resolution,
+		mp.planOpts.Resolution,
 	)
 	return ok
 }
+
+//~ func (mp *planner) SmoothPath(path [][]frame.Input) {
+	
+//~ }
 
 // node interface is used to wrap a configuration for planning purposes.
 type node interface {
@@ -456,4 +462,3 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	}
 	return path
 }
-

@@ -57,8 +57,9 @@ func newRRTStarConnectMotionPlanner(
 	nCPU int,
 	seed *rand.Rand,
 	logger golog.Logger,
+	opt *plannerOptions,
 ) (motionPlanner, error) {
-	planner, err := newPlanner(frame, nCPU, seed, logger)
+	planner, err := newPlanner(frame, nCPU, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -68,14 +69,13 @@ func newRRTStarConnectMotionPlanner(
 func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
-	if planOpts == nil {
-		planOpts = newBasicPlannerOptions()
+	if mp.planOpts == nil {
+		mp.planOpts = newBasicPlannerOptions()
 	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{planOpts, initRRTMaps(), nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{initRRTMaps(), nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -96,10 +96,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	defer close(rrt.solutionChan)
 
 	// setup planner options
-	if rrt.planOpts == nil {
-		rrt.planOpts = newBasicPlannerOptions()
+	if mp.planOpts == nil {
+		mp.planOpts = newBasicPlannerOptions()
 	}
-	algOpts, err := newRRTStarConnectOptions(rrt.planOpts)
+	algOpts, err := newRRTStarConnectOptions(mp.planOpts)
 	if err != nil {
 		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
 		return
@@ -108,7 +108,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	mp.start = time.Now()
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, rrt.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
+	solutions, err := getSolutions(ctx, mp.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	mp.logger.Debugf("RRT* found %d IK solutions", len(solutions))
 	if err != nil {
 		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
@@ -116,17 +116,17 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	}
 
 	// publish endpoint of plan if it is known
-	if rrt.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
+	if mp.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
 		mp.logger.Debug("RRT* found early final solution")
 		rrt.endpointPreview <- solutions[0]
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	_, optimalCost := rrt.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
+	_, optimalCost := mp.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
 
 	// initialize maps
 	for i, solution := range solutions {
-		if i == 0 && mp.checkPath(rrt.planOpts, seed, solution.Q()) {
+		if i == 0 && mp.checkPath(seed, solution.Q()) {
 			rrt.solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
 			mp.logger.Debug("RRT* could interpolate directly to goal")
 			return
@@ -192,18 +192,18 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 	target []referenceframe.Input,
 	mchan chan node,
 ) {
-	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
+	if validTarget := mp.checkInputs(target); !validTarget {
 		mchan <- nil
 		return
 	}
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(algOpts.planOpts, tree, target, algOpts.NeighborhoodSize)
+	neighbors := kNearestNeighbors(mp.planOpts, tree, target, algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
 	minIndex := -1
 	for i, neighbor := range neighbors {
 		neighborNode := neighbor.node.(*costNode)
 		cost := neighborNode.cost + neighbor.dist
-		if mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
+		if mp.checkPath(neighborNode.Q(), target) {
 			minIndex = i
 			minCost = cost
 			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
@@ -233,7 +233,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			EndInput:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.cost
-		if cost < neighborNode.cost && mp.checkPath(algOpts.planOpts, target, neighborNode.Q()) {
+		if cost < neighborNode.cost && mp.checkPath(target, neighborNode.Q()) {
 			neighborNode.cost = cost
 			tree[neighborNode] = targetNode
 		}

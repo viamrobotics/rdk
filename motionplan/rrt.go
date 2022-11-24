@@ -18,7 +18,6 @@ type rrtParallelPlanner interface {
 }
 
 type rrtParallelPlannerShared struct {
-	planOpts        *plannerOptions
 	rm              *rrtMaps
 	endpointPreview chan node
 	solutionChan    chan *rrtPlanReturn

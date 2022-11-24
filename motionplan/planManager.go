@@ -34,7 +34,7 @@ type planManager struct {
 
 func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), logger)
+	p, err := newPlanner(frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), logger, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,10 +138,22 @@ func (mp *planManager) planMotion(
 	var pathPlanner motionPlanner
 	if seed, ok := opt.extra["rseed"].(int); ok {
 		//nolint: gosec
-		pathPlanner, err = opt.PlannerConstructor(mp.frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), mp.logger)
+		pathPlanner, err = opt.PlannerConstructor(
+			mp.frame,
+			runtime.NumCPU()/2,
+			rand.New(rand.NewSource(int64(seed))),
+			mp.logger,
+			opt,
+		)
 	} else {
 		//nolint: gosec
-		pathPlanner, err = opt.PlannerConstructor(mp.frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(mp.randseed.Int()))), mp.logger)
+		pathPlanner, err = opt.PlannerConstructor(
+			mp.frame,
+			runtime.NumCPU()/2,
+			rand.New(rand.NewSource(int64(mp.randseed.Int()))),
+			mp.logger,
+			opt,
+		)
 	}
 	if err != nil {
 		return nil, err
@@ -160,7 +172,7 @@ func (mp *planManager) planMotion(
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{opt, rm, endpointPreview, solutionChan})
+			parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{rm, endpointPreview, solutionChan})
 		})
 		for {
 			select {
@@ -272,7 +284,7 @@ func (mp *planManager) planMotion(
 			}
 		}
 	} else {
-		resultSlicesRaw, err := pathPlanner.Plan(planctx, goal, seed, opt)
+		resultSlicesRaw, err := pathPlanner.Plan(planctx, goal, seed)
 		if err != nil {
 			return nil, err
 		}

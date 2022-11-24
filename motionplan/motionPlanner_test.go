@@ -243,9 +243,9 @@ func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config plan
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := plannerFunc(cfg.RobotFrame, nCPU/2, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
+	mp, err := plannerFunc(cfg.RobotFrame, nCPU/2, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
-	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start, cfg.Options)
+	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that path doesn't violate constraints

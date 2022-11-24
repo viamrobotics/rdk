@@ -22,7 +22,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger)
+	mp, err := newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -34,14 +34,15 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	})
-	opt := newBasicPlannerOptions()
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
+	opt := newBasicPlannerOptions()
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
+	mp, err = newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger, opt)
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 
