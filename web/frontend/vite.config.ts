@@ -22,8 +22,7 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        control: './src/main.ts',
-        api: './src/api.ts',
+        control: './src/main.ts'
       },
       output: {
         entryFileNames: '[name].js',
