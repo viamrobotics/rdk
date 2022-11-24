@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { robotApi } from '@viamrobotics/sdk';
+import { Client, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {
@@ -15,14 +15,16 @@ interface Props {
   },
 
   sessionOps: Set<string>
+
+  client: Client;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();
   req.setId(id);
-  window.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
+  props.client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
 };
 
 </script>

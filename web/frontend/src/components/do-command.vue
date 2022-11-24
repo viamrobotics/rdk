@@ -2,13 +2,13 @@
 
 import { computed, ref } from 'vue';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import type { Resource } from '../lib/resource';
-import { genericApi } from '@viamrobotics/sdk';
+import { Client, commonApi, genericApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 
 interface Props {
-  resources: Resource[]
+  resources: commonApi.ResourceName.AsObject[];
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -30,7 +30,7 @@ const doCommand = (name: string, command: string) => {
 
   executing.value = true;
 
-  window.genericService.doCommand(request, (error, response) => {
+  props.client.genericService.doCommand(request, (error, response) => {
     if (error) {
       toast.error(`Error executing command on ${name}: ${error}`);
       executing.value = false;
@@ -48,7 +48,7 @@ const doCommand = (name: string, command: string) => {
   });
 };
 
-const namesToPrettySelect = (resourcesToPretty: Resource[]): string => {
+const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[]): string => {
   const simple = new Map<string, number>();
 
   for (const resource of resourcesToPretty) {

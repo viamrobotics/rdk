@@ -1,5 +1,6 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
+
 import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
@@ -9,11 +10,12 @@ import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import {
-  robotApi,
+  Client,
   RobotService,
   ServiceError,
-  commonApi,
   cameraApi,
+  commonApi,
+  robotApi,
   sensorsApi,
 } from '@viamrobotics/sdk';
 
@@ -24,7 +26,6 @@ import {
   filterNonRemoteResources,
   filterRdkComponentsWithStatus,
   filterComponentsWithNames,
-  type Resource,
 } from './lib/resource';
 
 import Arm from './components/arm.vue';
@@ -64,7 +65,7 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ];
 
-const passwordInput = $ref<HTMLInputElement>();
+const password = $ref<string>('');
 const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
@@ -76,18 +77,38 @@ let baseCameraState = new Map<string, boolean>();
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
-let currentOps = $ref<{ op: robotApi.Operation.AsObject; elapsed: number }[]>(
-  []
-);
+let currentOps = $ref<{ op: robotApi.Operation.AsObject, elapsed: number }[]>([]);
 let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
-let resources = $ref<Resource[]>([]);
+let resources = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resourcesOnce = false;
 let errorMessage = $ref('');
+let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
-let connectionManager = $ref<{
+
+const rtcConfig = {
+  iceServers: [
+    {
+      urls: 'stun:global.stun.twilio.com:3478?transport=udp',
+    },
+  ],
+};
+
+if (window.webrtcAdditionalICEServers) {
+  rtcConfig.iceServers = [...rtcConfig.iceServers, ...window.webrtcAdditionalICEServers];
+}
+const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+
+const client = new Client(impliedURL, {
+  enabled: window.webrtcEnabled,
+  host: window.host,
+  signalingAddress: window.webrtcSignalingAddress,
+  rtcConfig,
+});
+
+let appConnectionManager = $ref<{
   statuses: {
     resources: boolean;
     ops: boolean;
@@ -113,10 +134,7 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   console.error(message, { error });
 };
 
-const handleCallErrors = (
-  statuses: { resources: boolean; ops: boolean },
-  newErrors: unknown
-) => {
+const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErrors: unknown) => {
   const errorsList = document.createElement('ul');
   errorsList.classList.add('list-disc', 'pl-4');
 
@@ -128,10 +146,6 @@ const handleCallErrors = (
       }
       case 'ops': {
         errorsList.innerHTML += '<li>Current Operations</li>';
-        break;
-      }
-      case 'streams': {
-        errorsList.innerHTML += '<li>Streams</li>';
         break;
       }
     }
@@ -170,18 +184,13 @@ const stringToResourceName = (nameStr: string) => {
 };
 
 const querySensors = () => {
-  const sensorsName = filterNonRemoteResources(
-    resources,
-    'rdk',
-    'service',
-    'sensors'
-  )[0]?.name;
+  const sensorsName = filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]?.name;
   if (sensorsName === undefined) {
     return;
   }
   const req = new sensorsApi.GetSensorsRequest();
   req.setName(sensorsName);
-  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
+  client.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -189,7 +198,7 @@ const querySensors = () => {
   });
 };
 
-const fixRawStatus = (resource: Resource, statusToFix: unknown) => {
+const fixRawStatus = (resource: commonApi.ResourceName.AsObject, statusToFix: unknown) => {
   switch (resourceNameToSubtypeString(resource)) {
 
     /*
@@ -248,14 +257,11 @@ const restartStatusStream = () => {
     }
   }
 
-  let newResources: Resource[] = [];
+  let newResources: commonApi.ResourceName.AsObject[] = [];
 
   // get all relevant resources
   for (const subtype of relevantSubtypesForStatus) {
-    newResources = [
-      ...newResources,
-      ...filterResources(newResources, 'rdk', 'component', subtype),
-    ];
+    newResources = [...newResources, ...filterResources(newResources, 'rdk', 'component', subtype)];
   }
 
   const names = newResources.map((name) => {
@@ -278,10 +284,10 @@ const restartStatusStream = () => {
     };
   }
 
-  const robotSvcWithOpts = window.robotService as unknown as svcWithOpts;
+  const robotSvcWithOpts = client.robotService as unknown as svcWithOpts;
   statusStream = grpc.invoke(RobotService.StreamStatus, {
     request: streamReq,
-    host: window.robotService.serviceHost,
+    host: client.robotService.serviceHost,
     transport: robotSvcWithOpts.options.transport,
     debug: robotSvcWithOpts.options.debug,
     onHeaders: (headers: grpc.Metadata) => {
@@ -315,70 +321,57 @@ const queryMetadata = () => {
     let resourcesChanged = false;
     let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-    window.robotService.resourceNames(
-      new robotApi.ResourceNamesRequest(),
-      new grpc.Metadata(),
-      (err, resp) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        if (!resp) {
-          reject(new Error('An unexpected issue occured.'));
-          return;
-        }
-
-        const { resourcesList } = resp.toObject();
-
-        // if resource list has changed, flag that
-        const differences = new Set(
-          resources.map((name) => resourceNameToString(name))
-        );
-        const resourceSet = new Set(
-          // @ts-expect-error @TODO this is incorrectly typed.
-          resourcesList.map((name) => resourceNameToString(name))
-        );
-
-        for (const elem of resourceSet) {
-          // @ts-expect-error @TODO this is incorrectly typed.
-          if (differences.has(elem)) {
-            // @ts-expect-error @TODO this is incorrectly typed.
-            differences.delete(elem);
-          } else {
-            // @ts-expect-error @TODO this is incorrectly typed.
-            differences.add(elem);
-          }
-        }
-
-        if (differences.size > 0) {
-          resourcesChanged = true;
-
-          // restart status stream if resource difference includes a resource we care about
-          for (const elem of differences) {
-            const resource = stringToResourceName(elem);
-            if (
-              resource.namespace === 'rdk' &&
-              resource.type === 'component' &&
-              relevantSubtypesForStatus.includes(resource.subtype!)
-            ) {
-              shouldRestartStatusStream = true;
-              break;
-            }
-          }
-        }
-
-        resources = resourcesList;
-        resourcesOnce = true;
-        if (resourcesChanged === true) {
-          querySensors();
-        }
-        if (shouldRestartStatusStream === true) {
-          restartStatusStream();
-        }
-        resolve(resources);
+    client.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
       }
-    );
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occured.'));
+        return;
+      }
+
+      const { resourcesList } = resp.toObject();
+
+      const differences = new Set(resources.map((name) => resourceNameToString(name)));
+      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
+
+      for (const elem of resourceSet) {
+        if (differences.has(elem)) {
+          differences.delete(elem);
+        } else {
+          differences.add(elem);
+        }
+      }
+
+      if (differences.size > 0) {
+        resourcesChanged = true;
+
+        // restart status stream if resource difference includes a resource we care about
+        for (const elem of differences) {
+          const resource = stringToResourceName(elem);
+          if (
+            resource.namespace === 'rdk' &&
+            resource.type === 'component' &&
+            relevantSubtypesForStatus.includes(resource.subtype!)
+          ) {
+            shouldRestartStatusStream = true;
+            break;
+          }
+        }
+      }
+
+      resources = resourcesList;
+      resourcesOnce = true;
+      if (resourcesChanged === true) {
+        querySensors();
+      }
+      if (shouldRestartStatusStream === true) {
+        restartStatusStream();
+      }
+      resolve(resources);
+    });
   });
 };
 
@@ -387,12 +380,12 @@ const fetchCurrentOps = () => {
     const req = new robotApi.GetOperationsRequest();
 
     const now = Date.now();
-    window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
+    client.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         reject(err);
         return;
       }
-      connectionManager.rtt = Math.max(Date.now() - now, 0);
+      appConnectionManager.rtt = Math.max(Date.now() - now, 0);
 
       if (!resp) {
         reject(new Error('An unexpected issue occurred.'));
@@ -432,7 +425,7 @@ const isWebRtcEnabled = () => {
   return window.webrtcEnabled;
 };
 
-const createConnectionManager = () => {
+const createAppConnectionManager = () => {
   const checkIntervalMillis = 10_000;
   const statuses = {
     resources: false,
@@ -448,7 +441,7 @@ const createConnectionManager = () => {
       statuses.resources &&
       statuses.ops &&
       // check status on interval if direct grpc
-      (isWebRtcEnabled() || Date.now() - lastStatusTS! <= checkIntervalMillis)
+      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
     );
   };
 
@@ -465,10 +458,11 @@ const createConnectionManager = () => {
 
         statuses.resources = true;
       } catch (error) {
-        if (error instanceof ConnectionClosedError) {
+        if (ConnectionClosedError.isError(error)) {
           statuses.resources = false;
+        } else {
+          newErrors.push(error);
         }
-        newErrors.push(error);
       }
 
       if (statuses.resources) {
@@ -481,10 +475,11 @@ const createConnectionManager = () => {
 
           statuses.ops = true;
         } catch (error) {
-          if (error instanceof ConnectionClosedError) {
+          if (ConnectionClosedError.isError(error)) {
             statuses.ops = false;
+          } else {
+            newErrors.push(error);
           }
-          newErrors.push(error);
         }
       }
 
@@ -498,7 +493,9 @@ const createConnectionManager = () => {
         return;
       }
 
-      handleCallErrors(statuses, newErrors);
+      if (newErrors.length > 0) {
+        handleCallErrors(statuses, newErrors);
+      }
       errorMessage = 'Connection lost, attempting to reconnect ...';
 
       try {
@@ -511,12 +508,16 @@ const createConnectionManager = () => {
         }
         resourcesOnce = false;
 
-        await window.connect();
+        await client.connect();
         await fetchCurrentOps();
         lastStatusTS = Date.now();
         console.log('reconnected');
       } catch (error) {
-        console.error('failed to reconnect; retrying:', error);
+        if (ConnectionClosedError.isError(error)) {
+          console.error('failed to reconnect; retrying');
+        } else {
+          console.error('failed to reconnect; retrying:', error);
+        }
       }
     } finally {
       timeout = window.setTimeout(manageLoop, 500);
@@ -542,25 +543,25 @@ const createConnectionManager = () => {
     rtt,
   };
 };
-connectionManager = createConnectionManager();
+appConnectionManager = createAppConnectionManager();
 
-const resourceStatusByName = (resource: Resource) => {
+const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return status[resourceNameToString(resource)];
 };
 
-const rawResourceStatusByName = (resource: Resource) => {
+const rawResourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return rawStatus[resourceNameToString(resource)];
 };
 
-const hasWebGamepad = () => {
+const filteredWebGamepads = () => {
   // TODO (APP-146): replace these with constants
-  return resources.some(
-    (elem) =>
-      elem.namespace === 'rdk' &&
-      elem.type === 'component' &&
-      elem.subtype === 'input_controller' &&
-      elem.name === 'WebGamepad'
-  );
+  return filterComponentsWithNames(resources).filter((elem) => {
+    if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
+      return false;
+    }
+    const remSplit = elem.name.split(':');
+    return remSplit[remSplit.length - 1] === 'WebGamepad';
+  });
 };
 
 const filteredInputControllerList = () => {
@@ -569,14 +570,13 @@ const filteredInputControllerList = () => {
    * TODO (APP-146): replace these with constants
    * filters out WebGamepad
    */
-  return resources.filter(
-    (elem) =>
-      elem.namespace === 'rdk' &&
-      elem.type === 'component' &&
-      elem.subtype === 'input_controller' &&
-      elem.name !== 'WebGamepad' &&
-      resourceStatusByName(elem)
-  );
+  return filterComponentsWithNames(resources).filter((elem) => {
+    if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
+      return false;
+    }
+    const remSplit = elem.name.split(':');
+    return remSplit[remSplit.length - 1] !== 'WebGamepad' && resourceStatusByName(elem);
+  });
 };
 
 const viewCamera = async (name: string, isOn: boolean) => {
@@ -584,7 +584,7 @@ const viewCamera = async (name: string, isOn: boolean) => {
     try {
       // only add stream if base camera is not active
       if (!baseCameraState.get(name)) {
-        await addStream(name);
+        await addStream(client, name);
       }
     } catch (error) {
       displayError(error as ServiceError);
@@ -593,7 +593,7 @@ const viewCamera = async (name: string, isOn: boolean) => {
     try {
       // only remove stream if base camera is not active
       if (!baseCameraState.get(name)) {
-        await removeStream(name);
+        await removeStream(client, name);
       }
     } catch (error) {
       displayError(error as ServiceError);
@@ -606,7 +606,7 @@ const viewManualFrame = (cameraName: string) => {
   req.setName(cameraName);
   const mimeType = 'image/jpeg';
   req.setMimeType(mimeType);
-  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+  client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -630,7 +630,7 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
     const req = new cameraApi.RenderFrameRequest();
     req.setName(cameraName);
     req.setMimeType('image/jpeg');
-    window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -667,21 +667,16 @@ const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
 
-const doConnect = async (
-  authEntity: string,
-  creds: Credentials,
-  onError?: () => void
-) => {
+const doConnect = async (authEntity: string, creds: Credentials, onError?: (reason?: unknown) => void) => {
   console.debug('connecting');
   document.querySelector('#connecting')!.classList.remove('hidden');
 
   try {
-    await window.connect(authEntity, creds);
+    await client.connect(authEntity, creds);
   } catch (error) {
     console.error('failed to connect:', error);
     if (onError) {
-      toast.error('failed to connect; retrying');
-      setTimeout(onError, 1000);
+      onError(error);
     } else {
       toast.error('failed to connect');
     }
@@ -691,18 +686,27 @@ const doConnect = async (
   console.debug('connected');
   document.querySelector('#pre-app')!.classList.add('hidden');
   disableAuthElements = false;
+  connectedOnce = true;
   connectedFirstTimeResolve();
 };
 
 const doLogin = (authType: string) => {
   disableAuthElements = true;
-  const creds = { type: authType, payload: passwordInput.value };
-  doConnect('', creds);
+  const creds = { type: authType, payload: password };
+  doConnect(window.host, creds, (error) => {
+    document.querySelector('#connecting')!.classList.add('hidden');
+    disableAuthElements = false;
+    console.log(error);
+    toast.error(`failed to connect: ${error}`);
+  });
 };
 
 const initConnect = () => {
   if (window.supportedAuthTypes.length === 0) {
-    doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, initConnect);
+    doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, () => {
+      toast.error('failed to connect; retrying');
+      setTimeout(initConnect, 1000);
+    });
   }
 };
 
@@ -714,20 +718,15 @@ onMounted(async () => {
   initConnect();
   await connectedFirstTime;
 
-  connectionManager.start();
+  appConnectionManager.start();
 
   addResizeListeners();
 });
+
 </script>
 
 <template>
   <div id="pre-app">
-    <div
-      id="connecting-error"
-      class="border-danger-500 hidden border-l-4 bg-gray-100 px-4 py-3"
-      role="alert"
-    />
-
     <div
       id="connecting"
       class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
@@ -743,23 +742,26 @@ onMounted(async () => {
       v-for="authType in supportedAuthTypes"
       :key="authType"
     >
-      <span>{{ authType }}: </span>
-      <div class="w-96">
-        <input
-          ref="passwordInput"
-          :disabled="disableAuthElements"
-          class="
-            mb-2 block w-full appearance-none border p-2 text-gray-700
-            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-          "
-          type="password"
-          @keyup.enter="doLogin(authType)"
-        >
-        <v-button
-          :disabled="disableAuthElements"
-          label="Login"
-          @click="disableAuthElements ? undefined : doLogin(authType)"
-        />
+      <div class="px-4 py-3">
+        <span>{{ authType }}: </span>
+        <div class="w-96">
+          <input
+            v-model="password"
+            :disabled="disableAuthElements"
+            class="
+              mb-2 block w-full appearance-none border p-2 text-gray-700
+              transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+            "
+            type="password"
+            autocomplete="off"
+            @keyup.enter="doLogin(authType)"
+          >
+          <v-button
+            :disabled="disableAuthElements"
+            label="Login"
+            @click="disableAuthElements ? undefined : doLogin(authType)"
+          />
+        </div>
       </div>
     </template>
   </div>
@@ -777,32 +779,26 @@ onMounted(async () => {
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
       :name="base.name"
+      :client="client"
       :resources="resources"
       @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->
     <Gantry
-      v-for="gantry in filterRdkComponentsWithStatus(
-        resources,
-        status,
-        'gantry'
-      )"
+      v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
       :name="gantry.name"
+      :client="client"
       :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
     />
 
     <!-- ******* MovementSensor *******  -->
     <MovementSensor
-      v-for="sensor in filterResources(
-        resources,
-        'rdk',
-        'component',
-        'movement_sensor'
-      )"
+      v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
       :key="sensor.name"
       :name="sensor.name"
+      :client="client"
     />
 
     <!-- ******* ARM *******  -->
@@ -810,20 +806,17 @@ onMounted(async () => {
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
       :name="arm.name"
+      :client="client"
       :status="(resourceStatusByName(arm) as any)"
       :raw-status="(rawResourceStatusByName(arm) as any)"
     />
 
     <!-- ******* GRIPPER *******  -->
     <Gripper
-      v-for="gripper in filterResources(
-        resources,
-        'rdk',
-        'component',
-        'gripper'
-      )"
+      v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
       :name="gripper.name"
+      :client="client"
     />
 
     <!-- ******* SERVO *******  -->
@@ -831,6 +824,7 @@ onMounted(async () => {
       v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
       :name="servo.name"
+      :client="client"
       :status="(resourceStatusByName(servo) as any)"
       :raw-status="(rawResourceStatusByName(servo) as any)"
     />
@@ -840,6 +834,7 @@ onMounted(async () => {
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
       :key="motor.name"
       :name="motor.name"
+      :client="client"
       :status="(resourceStatusByName(motor) as any)"
     />
 
@@ -853,13 +848,19 @@ onMounted(async () => {
     />
 
     <!-- ******* WEB CONTROLS *******  -->
-    <Gamepad v-if="hasWebGamepad()" />
+    <Gamepad
+      v-for="gamepad in filteredWebGamepads()"
+      :key="gamepad.name"
+      :name="gamepad.name"
+      :client="client"
+    />
 
     <!-- ******* BOARD *******  -->
     <Board
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
       :name="board.name"
+      :client="client"
       :status="(resourceStatusByName(board) as any)"
     />
 
@@ -868,49 +869,36 @@ onMounted(async () => {
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :key="camera.name"
       :camera-name="camera.name"
+      :client="client"
       :resources="resources"
-      @toggle-camera="
-        (isOn) => {
-          viewCamera(camera.name, isOn);
-        }
-      "
-      @refresh-camera="
-        (t) => {
-          viewCameraFrame(camera.name, t);
-        }
-      "
-      @selected-camera-view="
-        (t) => {
-          viewCameraFrame(camera.name, t);
-        }
-      "
+      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
+      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
+      @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
     />
 
     <!-- ******* NAVIGATION ******* -->
     <Navigation
       v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
       :key="nav.name"
-      :resources="nav.resources"
+      :resources="resources"
       :name="nav.name"
+      :client="client"
     />
 
     <!-- ******* SENSORS ******* -->
     <Sensors
       v-if="nonEmpty(sensorNames)"
       :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
+      :client="client"
       :sensor-names="sensorNames"
     />
 
     <!-- ******* AUDIO INPUTS *******  -->
     <AudioInput
-      v-for="audioInput in filterResources(
-        resources,
-        'rdk',
-        'component',
-        'audio_input'
-      )"
+      v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
       :key="audioInput.name"
       :name="audioInput.name"
+      :client="client"
     />
 
     <!-- ******* SLAM *******  -->
@@ -918,16 +906,23 @@ onMounted(async () => {
       v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
       :key="slam.name"
       :name="slam.name"
+      :client="client"
       :resources="resources"
     />
 
     <!-- ******* DO ******* -->
-    <DoCommand :resources="filterComponentsWithNames(resources)" />
+    <DoCommand
+      v-if="connectedOnce"
+      :client="client"
+      :resources="filterComponentsWithNames(resources)"
+    />
 
-    <!-- ******* CURRENT OPERATIONS ******* -->
+    <!-- ******* OPERATIONS ******* -->
     <CurrentOperations
+      v-if="connectedOnce"
+      :client="client"
       :operations="currentOps"
-      :connection-manager="connectionManager"
+      :connection-manager="appConnectionManager"
       :session-ops="sessionOps"
     />
   </div>
