@@ -25,12 +25,6 @@
     {{ else if eq .Env "development" }}
     <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
-
-    <script id="_timeout_worker" type="javascript/worker">
-      self.onmessage = function(e) {
-        setTimeout(() => self.postMessage(""), e.data);
-      };
-    </script>
   </head>
 
   <body>
