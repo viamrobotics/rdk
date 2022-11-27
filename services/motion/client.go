@@ -39,7 +39,7 @@ func (c *client) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -50,7 +50,7 @@ func (c *client) Move(
 		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldState,
+		WorldState:    referenceframe.WorldStateToProtobuf(worldState),
 		Extra:         ext,
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func (c *client) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -74,7 +74,7 @@ func (c *client) MoveSingleComponent(
 		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldState,
+		WorldState:    referenceframe.WorldStateToProtobuf(worldState),
 		Extra:         ext,
 	})
 	if err != nil {

@@ -125,3 +125,4 @@ func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*Geometries
 		geometries: geometries,
 	}, nil
 }
+

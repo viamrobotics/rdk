@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
@@ -53,7 +52,7 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 func (g *Gantry) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	g.positionsMm = positionsMm
@@ -92,5 +91,5 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &referenceframe.WorldState{}, nil)
 }

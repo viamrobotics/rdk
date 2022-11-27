@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	commonpb "go.viam.com/api/common/v1"
 	componentpb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -52,7 +52,7 @@ func TestClient(t *testing.T) {
 	injectArm.MoveToPositionFunc = func(
 		ctx context.Context,
 		ap spatialmath.Pose,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		capArmPos = ap
@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 	injectArm2.MoveToPositionFunc = func(
 		ctx context.Context,
 		ap spatialmath.Pose,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		capArmPos = ap
@@ -139,7 +139,7 @@ func TestClient(t *testing.T) {
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
 
-		err = arm1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
+		err = arm1Client.MoveToPosition(context.Background(), pos2, &referenceframe.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqual(capArmPos, pos2), test.ShouldBeTrue)
 

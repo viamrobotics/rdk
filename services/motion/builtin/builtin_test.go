@@ -44,7 +44,7 @@ func TestMoveFailures(t *testing.T) {
 	ms := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -62,9 +62,7 @@ func TestMoveFailures(t *testing.T) {
 				},
 			},
 		}
-		worldState := &commonpb.WorldState{
-			Transforms: transformMsgs,
-		}
+		worldState := &referenceframe.WorldState{Transforms: transformMsgs}
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(context.Background(), arm.Named("arm1"), poseInFrame, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
@@ -77,19 +75,19 @@ func TestMove1(t *testing.T) {
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when mobile component can be solved for destinations in own frame", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when immobile component can be solved for destinations in own frame", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -115,9 +113,7 @@ func TestMove1(t *testing.T) {
 				},
 			},
 		}
-		worldState := &commonpb.WorldState{
-			Transforms: transformMsgs,
-		}
+		worldState := &referenceframe.WorldState{Transforms: transformMsgs}
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -130, -40}))
 		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
@@ -125,7 +121,6 @@ func TestMove1(t *testing.T) {
 }
 
 func TestMoveWithObstacles(t *testing.T) {
-	var err error
 	ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 
 	t.Run("check a movement that should not succeed due to obstacles", func(t *testing.T) {
@@ -165,14 +160,9 @@ func TestMoveWithObstacles(t *testing.T) {
 				},
 			},
 		}
-		_ = obsMsgs
-		_, err = ms.Move(
-			context.Background(),
-			gripper.Named("pieceArm"),
-			grabPose,
-			&commonpb.WorldState{Obstacles: obsMsgs},
-			map[string]interface{}{},
-		)
+		worldState, err := referenceframe.WorldStateFromProtobuf(&commonpb.WorldState{Obstacles: obsMsgs})
+		test.That(t, err, test.ShouldBeNil)
+		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, worldState, map[string]interface{}{})
 		// This fails due to a large obstacle being in the way
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -188,7 +178,7 @@ func TestMoveSingleComponent(t *testing.T) {
 			context.Background(),
 			arm.Named("pieceArm"),
 			grabPose,
-			&commonpb.WorldState{},
+			&referenceframe.WorldState{},
 			map[string]interface{}{},
 		)
 		// Gripper is not an arm and cannot move
@@ -200,7 +190,7 @@ func TestMoveSingleComponent(t *testing.T) {
 			context.Background(),
 			gripper.Named("pieceGripper"),
 			grabPose,
-			&commonpb.WorldState{},
+			&referenceframe.WorldState{},
 			map[string]interface{}{},
 		)
 		// Gripper is not an arm and cannot move
@@ -224,9 +214,7 @@ func TestMoveSingleComponent(t *testing.T) {
 				},
 			},
 		}
-		worldState := &commonpb.WorldState{
-			Transforms: transformMsgs,
-		}
+		worldState := &referenceframe.WorldState{Transforms: transformMsgs}
 
 		poseToGrab := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: -20., Y: 0., Z: -800.},
@@ -243,7 +231,7 @@ func TestMultiplePieces(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-0, -30, -50}))
-	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
