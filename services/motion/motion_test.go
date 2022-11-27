@@ -44,7 +44,7 @@ func (m *mock) Move(
 	ctx context.Context,
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
@@ -55,7 +55,7 @@ func (m *mock) MoveSingleComponent(
 	ctx context.Context,
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
@@ -85,7 +85,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, false)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)

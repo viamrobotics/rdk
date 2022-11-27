@@ -41,11 +41,15 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return nil, err
+	}
 	success, err := svc.Move(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		req.GetWorldState(),
+		worldState,
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveResponse{Success: success}, err
@@ -59,11 +63,15 @@ func (server *subtypeServer) MoveSingleComponent(
 	if err != nil {
 		return nil, err
 	}
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return nil, err
+	}
 	success, err := svc.MoveSingleComponent(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		req.GetWorldState(),
+		worldState,
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveSingleComponentResponse{Success: success}, err

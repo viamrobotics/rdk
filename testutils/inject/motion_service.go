@@ -18,7 +18,7 @@ type MotionService struct {
 		ctx context.Context,
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPoseFunc func(
@@ -35,7 +35,7 @@ func (mgs *MotionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
@@ -49,7 +49,7 @@ func (mgs *MotionService) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveFunc == nil {

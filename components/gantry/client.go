@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -66,7 +65,7 @@ func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 func (c *client) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	ext, err := protoutils.StructToStructPb(extra)
@@ -76,7 +75,7 @@ func (c *client) MoveToPosition(
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
-		WorldState:  worldState,
+		WorldState:  referenceframe.WorldStateToProtobuf(worldState),
 		Extra:       ext,
 	})
 	return err
@@ -105,7 +104,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
+	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &referenceframe.WorldState{}, nil)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

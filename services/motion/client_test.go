@@ -74,7 +74,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destination *referenceframe.PoseInFrame,
-			worldState *commonpb.WorldState,
+			worldState *referenceframe.WorldState,
 			extra map[string]interface{},
 		) (bool, error) {
 			return success, nil
@@ -93,10 +93,7 @@ func TestClient(t *testing.T) {
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(
-			context.Background(), resourceName, grabPose,
-			&commonpb.WorldState{}, map[string]interface{}{},
-		)
+		result, err := client.Move(context.Background(), resourceName, grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -164,7 +161,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			grabPose *referenceframe.PoseInFrame,
-			worldState *commonpb.WorldState,
+			worldState *referenceframe.WorldState,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr
@@ -180,7 +177,7 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+		resp, err := client2.Move(context.Background(), resourceName, grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})

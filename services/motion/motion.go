@@ -43,14 +43,14 @@ type Service interface {
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponent(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPose(
@@ -110,7 +110,7 @@ func (svc *reconfigurableMotionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
@@ -122,7 +122,7 @@ func (svc *reconfigurableMotionService) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
