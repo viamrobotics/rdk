@@ -235,7 +235,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 
-			// If testing manual sync, call sync. If testing scheduled sync, turn dmsvc back on with sync enabled.
+			// Turn dmsvc back on with capture disabled.
 			newDMSvc := newTestDataManager(t)
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			svcConfig.CaptureDisabled = true
@@ -244,6 +244,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
+			// If testing manual sync, call sync.
 			if tc.manualSync {
 				err = newDMSvc.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)

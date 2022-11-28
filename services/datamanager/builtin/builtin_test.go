@@ -98,21 +98,12 @@ func newTestDataManager(t *testing.T) internal.DMService {
 	}
 	logger := golog.NewTestLogger(t)
 
-	// Create local robot with injected arm.
+	// Create local robot with injected arm and remote.
 	r := getInjectedRobot()
 	remoteRobot := getInjectedRobot()
 	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
 		return remoteRobot, true
 	}
-
-	// If passed, create remote robot with an injected arm.
-	//if remoteArmKey != "" {
-	//	remoteRobot := getInjectedRobot()
-	//
-	//	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
-	//		return remoteRobot, true
-	//	}
-	//}
 
 	svc, err := NewBuiltIn(context.Background(), r, cfgService, logger)
 	if err != nil {
