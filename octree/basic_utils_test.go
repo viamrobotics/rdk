@@ -57,15 +57,7 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = basicOct.splitIntoOctants()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(basicOct.node.children), test.ShouldEqual, 8)
-		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
-		test.That(t, basicOct.node.point, test.ShouldResemble, pc.PointAndData{})
-
-		for _, child := range basicOct.node.children {
-			test.That(t, child.node.nodeType, test.ShouldResemble, LeafNodeEmpty)
-			test.That(t, child.node.point, test.ShouldResemble, pc.PointAndData{})
-		}
+		test.That(t, err, test.ShouldBeError, errors.New("error attempted to split empty leaf node"))
 	})
 
 	t.Run("Splitting filled basic octree node into octants", func(t *testing.T) {
@@ -85,14 +77,25 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, basicOct.node.point, test.ShouldResemble, pc.PointAndData{})
 
 		filledLeaves := []*basicOctree{}
+		emptyLeaves := []*basicOctree{}
+		internalLeaves := []*basicOctree{}
 
 		for _, child := range basicOct.node.children {
-			if child.node.nodeType == LeafNodeFilled {
+			switch child.node.nodeType {
+			case LeafNodeFilled:
 				filledLeaves = append(filledLeaves, child)
+			case LeafNodeEmpty:
+				emptyLeaves = append(emptyLeaves, child)
+			case InternalNode:
+				internalLeaves = append(internalLeaves, child)
 			}
 		}
 		test.That(t, len(filledLeaves), test.ShouldEqual, 1)
+		test.That(t, len(emptyLeaves), test.ShouldEqual, 7)
+		test.That(t, len(internalLeaves), test.ShouldEqual, 0)
 		test.That(t, filledLeaves[0].node.point, test.ShouldResemble, pc.PointAndData{P: p, D: d})
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Splitting internal basic octree node with point into octants", func(t *testing.T) {
@@ -167,12 +170,85 @@ func TestCheckPointPlacement(t *testing.T) {
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: 1000, Y: -1000, Z: 5}), test.ShouldBeTrue)
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: 1000, Y: -994, Z: .5}), test.ShouldBeTrue)
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: -1000, Y: 0, Z: 0}), test.ShouldBeFalse)
+
+	validateBasicOctree(t, basicOct, center, side)
+}
+
+// Helper function that recursively checks a basic octree's structure and metadata
+func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, sideLength float64) int32 {
+	t.Helper()
+
+	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
+	test.That(t, center, test.ShouldResemble, bOct.center)
+
+	// TODO: add check of internal metadata once iterate function is available for easy looping over all points.
+	//metadata := pc.NewMetaData()
+	// test.That(t, metadata, test.ShouldResemble, bOCt.meta)
+
+	var size int32
+
+	switch bOct.node.nodeType {
+	case InternalNode:
+		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
+		test.That(t, bOct.node.point, test.ShouldResemble, pc.PointAndData{})
+
+		numLeafNodeFilledNodes := 0
+		numLeafNodeEmptyNodes := 0
+		numInternalNodes := 0
+		for c, child := range bOct.node.children {
+			var i, j, k float64
+			if c%8 < 4 {
+				i = -1
+			} else {
+				i = 1
+			}
+			if c%4 < 2 {
+				j = -1
+			} else {
+				j = 1
+			}
+			if c%2 < 1 {
+				k = -1
+			} else {
+				k = 1
+			}
+
+			switch child.node.nodeType {
+			case InternalNode:
+				numInternalNodes++
+			case LeafNodeFilled:
+				numLeafNodeFilledNodes++
+			case LeafNodeEmpty:
+				numLeafNodeEmptyNodes++
+			}
+
+			size += validateBasicOctree(t, child, r3.Vector{
+				X: center.X + i*sideLength/4.,
+				Y: center.Y + j*sideLength/4.,
+				Z: center.Z + k*sideLength/4.,
+			}, sideLength/2.)
+		}
+		test.That(t, size, test.ShouldEqual, bOct.size)
+		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
+	case LeafNodeFilled:
+		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
+		test.That(t, bOct.node.point, test.ShouldNotResemble, pc.PointAndData{})
+		test.That(t, bOct.checkPointPlacement(bOct.node.point.P), test.ShouldBeTrue)
+		test.That(t, bOct.size, test.ShouldEqual, 1)
+		size = bOct.size
+	case LeafNodeEmpty:
+		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
+		test.That(t, bOct.node.point, test.ShouldResemble, pc.PointAndData{})
+		test.That(t, bOct.size, test.ShouldEqual, 0)
+		size = bOct.size
+	}
+	return size
 }
 
 // Helper functions for visualizing octree during testing
 //
 //nolint:unused
-func stringNodeType(n NodeType) string {
+func stringBasicOctreeNodeType(n NodeType) string {
 	switch n {
 	case InternalNode:
 		return "InternalNode"
@@ -185,16 +261,16 @@ func stringNodeType(n NodeType) string {
 }
 
 //nolint:unused
-func printOctree(bOct *basicOctree, s string) {
+func printBasicOctree(bOct *basicOctree, s string) {
 	bOct.logger.Infof("%v %.2f %.2f %.2f - %v | Children: %v Side: %v Size: %v\n", s,
 		bOct.center.X, bOct.center.Y, bOct.center.Z,
-		stringNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
+		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
 
 	if bOct.node.nodeType == LeafNodeFilled {
 		bOct.logger.Infof("%s (%.2f %.2f %.2f) - Val: %v\n", s,
 			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
 	}
 	for _, v := range bOct.node.children {
-		printOctree(v, s+"-+-")
+		printBasicOctree(v, s+"-+-")
 	}
 }

@@ -83,6 +83,8 @@ func TestBasicOctreeNew(t *testing.T) {
 		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
 		test.That(t, basicOct.meta, test.ShouldResemble, pc.NewMetaData())
 	})
+
+	validateBasicOctree(t, basicOct, center, sideValid)
 }
 
 // Test the Set()function which adds points and associated data to an octree.
@@ -104,6 +106,8 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeFilled(point1, data1))
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set point into filled leaf node into basic octree", func(t *testing.T) {
@@ -117,6 +121,8 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 2)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set point into internal node node into basic octree", func(t *testing.T) {
@@ -133,6 +139,8 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 3)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set point that lies outside the basic octree", func(t *testing.T) {
@@ -141,6 +149,8 @@ func TestBasicOctreeSet(t *testing.T) {
 
 		err = basicOct.Set(r3.Vector{X: 2, Y: 0, Z: 0}, pc.NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set point at intersection of multiple basic octree nodes", func(t *testing.T) {
@@ -154,6 +164,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.size, test.ShouldEqual, 2)
 
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set same point with new data in basic octree", func(t *testing.T) {
@@ -170,6 +181,8 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, val)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set point into invalid internal node", func(t *testing.T) {
@@ -215,6 +228,8 @@ func TestBasicOctreeAt(t *testing.T) {
 		d, ok = basicOct.At(0.0001, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("At check of multi level basic octree", func(t *testing.T) {
@@ -251,6 +266,8 @@ func TestBasicOctreeAt(t *testing.T) {
 		d, ok = basicOct.At(-.6, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("At check of empty basic octree", func(t *testing.T) {
@@ -260,6 +277,8 @@ func TestBasicOctreeAt(t *testing.T) {
 		d, ok := basicOct.At(0, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("At check of point outside octree bounds", func(t *testing.T) {
@@ -269,6 +288,8 @@ func TestBasicOctreeAt(t *testing.T) {
 		d, ok := basicOct.At(3, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
+
+		validateBasicOctree(t, basicOct, center, side)
 	})
 }
 
@@ -303,4 +324,6 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
 	test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta)
 	// TODO: Add iterate check of each point pointcloud to see if it is in octree (next JIRA ticket)
+
+	validateBasicOctree(t, basicOct, center, side)
 }
