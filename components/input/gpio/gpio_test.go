@@ -568,6 +568,5 @@ func TestGPIOInput(t *testing.T) {
 			test.That(t, s.axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 40*time.Millisecond)
 			s.axisMu.RUnlock()
 		}
-
 	})
 }
