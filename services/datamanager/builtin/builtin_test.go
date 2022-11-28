@@ -3,7 +3,6 @@ package builtin
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"go.viam.com/rdk/spatialmath"
 	"image"
 	"image/png"
@@ -119,46 +118,6 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	test.That(t, err, test.ShouldBeNil)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
 	return testCfg
-}
-
-// TODO: add sync testing here too
-// TODO: update to not longer hard code all these paths. Maybe even just include as part of other test suite.
-func TestNewRemoteDataManager(t *testing.T) {
-	// Empty config at initialization.
-	captureDir := "/tmp/capture"
-	dmsvc := newTestDataManager(t)
-
-	// Set capture parameters in Update.
-	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
-	defer os.RemoveAll(captureDir)
-	fmt.Println("updating")
-	err := dmsvc.Update(context.Background(), conf)
-	fmt.Println("updated")
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Verify that after close is called, the collector is no longer writing.
-	fmt.Println("closing")
-	err = dmsvc.Close(context.Background())
-	fmt.Println("Closed")
-	test.That(t, err, test.ShouldBeNil)
-
-	// Verify that the local and remote collectors wrote to their files.
-	localArmDir := captureDir + "/arm/arm1/EndPosition"
-	filesInLocalArmDir, err := readDir(t, localArmDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
-	info, err := filesInLocalArmDir[0].Info()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
-
-	remoteArmDir := captureDir + "/arm/remoteArm/EndPosition"
-	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
-	info, err = filesInRemoteArmDir[0].Info()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
 }
 
 // TODO: add arbitrary file sync tests, including with syncAdditionalPaths
