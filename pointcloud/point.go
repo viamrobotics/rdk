@@ -132,12 +132,10 @@ func (bp *basicData) MarshalBinary() (data []byte, err error) {
 	var dataBytes []byte
 
 	if bp.HasColor() {
-		c := color.NRGBAModel.Convert(bp.Color()).(color.NRGBA)
-
-		dataBytes = append(dataBytes, c.R)
-		dataBytes = append(dataBytes, c.G)
-		dataBytes = append(dataBytes, c.B)
-		dataBytes = append(dataBytes, c.A)
+		dataBytes = append(dataBytes, bp.c.R)
+		dataBytes = append(dataBytes, bp.c.G)
+		dataBytes = append(dataBytes, bp.c.B)
+		dataBytes = append(dataBytes, bp.c.A)
 	}
 	if bp.HasValue() {
 		dataBytes = append(dataBytes, byte(bp.Value()))
