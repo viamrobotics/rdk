@@ -38,7 +38,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 	// TODO: real code handling
 	if resp.GetCode() != 200 {
-		return errors.New("error making syncQueue request: " + resp.GetMessage())
+		return errors.New("error making syncQueueOnInterval request: " + resp.GetMessage())
 	}
 	return nil
 }
