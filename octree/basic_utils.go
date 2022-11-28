@@ -12,7 +12,7 @@ import (
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
-		tree:     nil,
+		children: nil,
 		nodeType: LeafNodeEmpty,
 		point:    pc.PointAndData{},
 	}
@@ -22,7 +22,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 // Creates a new InternalNode with specified children nodes.
 func newInternalNode(tree []*basicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
-		tree:     tree,
+		children: tree,
 		nodeType: InternalNode,
 		point:    pc.PointAndData{},
 	}
@@ -32,7 +32,7 @@ func newInternalNode(tree []*basicOctree) basicOctreeNode {
 // Creates a new LeafNodeFilled and stores specified position and data.
 func newLeafNodeFilled(p r3.Vector, d pc.Data) basicOctreeNode {
 	octNode := basicOctreeNode{
-		tree:     nil,
+		children: nil,
 		nodeType: LeafNodeFilled,
 		point:    pc.PointAndData{P: p, D: d},
 	}
@@ -40,32 +40,32 @@ func newLeafNodeFilled(p r3.Vector, d pc.Data) basicOctreeNode {
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
-// node. Note: splitOctants should only be called when an octree is a LeafNodeFilled.
+// node. Note: splitIntoOctants should only be called when an octree is a LeafNodeFilled.
 func (octree *basicOctree) splitIntoOctants() error {
 	if octree.node.nodeType == InternalNode {
 		return errors.New("error attempted to split internal node")
 	}
 
 	children := []*basicOctree{}
-	newSideLength := octree.side / 2
+	newSideLength := octree.sideLength / 2
 	for _, i := range []float64{-1.0, 1.0} {
 		for _, j := range []float64{-1.0, 1.0} {
 			for _, k := range []float64{-1.0, 1.0} {
 				centerOffset := r3.Vector{
-					X: i * newSideLength,
-					Y: j * newSideLength,
-					Z: k * newSideLength,
+					X: i * newSideLength / 2.,
+					Y: j * newSideLength / 2.,
+					Z: k * newSideLength / 2.,
 				}
 				newCenter := octree.center.Add(centerOffset)
 
-				// Create new basic octree children
+				// Create a new basic octree child
 				child := &basicOctree{
-					center: newCenter,
-					side:   newSideLength,
-					size:   0,
-					logger: octree.logger,
-					node:   newLeafNodeEmpty(),
-					meta:   pc.NewMetaData(),
+					center:     newCenter,
+					sideLength: newSideLength,
+					size:       0,
+					logger:     octree.logger,
+					node:       newLeafNodeEmpty(),
+					meta:       pc.NewMetaData(),
 				}
 				children = append(children, child)
 			}
@@ -83,8 +83,9 @@ func (octree *basicOctree) splitIntoOctants() error {
 }
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
-func checkPointPlacement(center r3.Vector, sideLength float64, p r3.Vector) bool {
-	return ((math.Abs(center.X-p.X) <= sideLength) &&
-		(math.Abs(center.Y-p.Y) <= sideLength) &&
-		(math.Abs(center.Z-p.Z) <= sideLength))
+func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
+	//fmt.Printf("Center:%.2f,%.2f,%.2f Side: %.2f | Point:%.2f,%.2f,%.2f\n", octree.center.X, octree.center.Y, octree.center.Z, octree.sideLength, p.X, p.Y, p.Z)
+	return ((math.Abs(octree.center.X-p.X) <= octree.sideLength/2.) &&
+		(math.Abs(octree.center.Y-p.Y) <= octree.sideLength/2.) &&
+		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
 }

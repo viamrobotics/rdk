@@ -26,7 +26,7 @@ func createNewOctree(ctx context.Context, center r3.Vector, side float64, logger
 	return basicOct, err
 }
 
-// makePointCloud from an artifact path.
+// Makes and returns a PointCloud from an artifact path.
 func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pc.PointCloud, error) {
 	t.Helper()
 	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
@@ -77,21 +77,10 @@ func TestBasicOctreeNew(t *testing.T) {
 	basicOct, err := createNewOctree(ctx, center, sideValid, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// // newOctreeMetadata := MetaData{
-	// // 	Version:    octreeVersion,
-	// // 	CenterX:    center.X,
-	// // 	CenterY:    center.Y,
-	// // 	CenterZ:    center.Z,
-	// // 	Side:       sideValid,
-	// // 	Size:       0,
-	// // 	PCMetaData: pc.NewMetaData(),
-	// // }
-	// newOctreeMetadata
-
 	t.Run("New Octree as basic octree", func(t *testing.T) {
 		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
 		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
-		test.That(t, basicOct.side, test.ShouldAlmostEqual, sideValid)
+		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
 		test.That(t, basicOct.meta, test.ShouldResemble, pc.NewMetaData())
 	})
 }
@@ -102,7 +91,7 @@ func TestBasicOctreeSet(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
-	side := 1.0
+	side := 2.0
 
 	t.Run("Set point into empty leaf node into basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
@@ -154,7 +143,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 	})
 
-	t.Run("Set point at split in basic octree", func(t *testing.T) {
+	t.Run("Set point at intersection of multiple basic octree nodes", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -164,6 +153,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, pc.NewValueData(1))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.size, test.ShouldEqual, 2)
+
 	})
 
 	t.Run("Set same point with new data in basic octree", func(t *testing.T) {
@@ -190,6 +180,15 @@ func TestBasicOctreeSet(t *testing.T) {
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
+
+	t.Run("Set point into invalid internal node", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		basicOct.node = newInternalNode([]*basicOctree{})
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(1))
+		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
+	})
 }
 
 // Test the At() function for basic octrees which returns the data at a specific location should it exist.
@@ -198,7 +197,7 @@ func TestBasicOctreeAt(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
-	side := 1.0
+	side := 2.0
 
 	t.Run("At check of single node basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
@@ -262,9 +261,18 @@ func TestBasicOctreeAt(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
 	})
+
+	t.Run("At check of point outside octree bounds", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		d, ok := basicOct.At(3, 0, 0)
+		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, d, test.ShouldBeNil)
+	})
 }
 
-// Test the functionalities involved with converting in pointcloud into a basic octree.
+// Test the functionalities involved with converting a pointcloud into a basic octree.
 func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 	test.That(t, err, test.ShouldBeNil)
@@ -273,12 +281,14 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	center := r3.Vector{
-		X: (startPC.MetaData().MaxX - startPC.MetaData().MinX) / 2,
-		Y: (startPC.MetaData().MaxY - startPC.MetaData().MinY) / 2,
-		Z: (startPC.MetaData().MaxZ - startPC.MetaData().MinZ) / 2,
+		X: startPC.MetaData().MinX + (startPC.MetaData().MaxX-startPC.MetaData().MinX)/2,
+		Y: startPC.MetaData().MinY + (startPC.MetaData().MaxY-startPC.MetaData().MinY)/2,
+		Z: startPC.MetaData().MinZ + (startPC.MetaData().MaxZ-startPC.MetaData().MinZ)/2,
 	}
 
-	side := math.Max(center.X*2, math.Max(center.Y*2, center.Z*2)) * 1.01
+	side := math.Max((startPC.MetaData().MaxX-startPC.MetaData().MinX),
+		math.Max((startPC.MetaData().MaxY-startPC.MetaData().MinY),
+			(startPC.MetaData().MaxZ-startPC.MetaData().MinZ))) * 1.01
 
 	basicOct, err := createNewOctree(ctx, center, side, logger)
 	test.That(t, err, test.ShouldBeNil)
