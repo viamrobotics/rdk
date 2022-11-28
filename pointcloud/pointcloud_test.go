@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"image/color"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -268,5 +269,30 @@ func TestPointCloudSerialization(t *testing.T) {
 		test.That(t, dResult.Value(), test.ShouldEqual, d.Value())
 		test.That(t, dResult.HasColor(), test.ShouldBeTrue)
 		test.That(t, dResult.Color(), test.ShouldResemble, d.Color())
+	})
+
+	t.Run("Pointcloud serialization of data with max int value", func(t *testing.T) {
+		pc := New()
+		p := NewVector(1, 2, 3)
+		d := NewValueData(math.MaxInt)
+		test.That(t, pc.Set(p, d), test.ShouldBeNil)
+
+		var dataBytes []byte
+		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			data, err := d.MarshalBinary()
+			if err != nil {
+				return false
+			}
+			dataBytes = append(dataBytes, data...)
+			return true
+		})
+
+		test.That(t, len(dataBytes), test.ShouldEqual, 1*pc.Size())
+
+		dResult := NewBasicData()
+		err := dResult.UnmarshalBinary(dataBytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dResult.HasValue(), test.ShouldBeTrue)
+		test.That(t, dResult.HasColor(), test.ShouldBeFalse)
 	})
 }

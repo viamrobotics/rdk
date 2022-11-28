@@ -271,7 +271,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cloud := New()
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(7, 6, 1), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(1, 2, 9), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(1, 2, 9), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
