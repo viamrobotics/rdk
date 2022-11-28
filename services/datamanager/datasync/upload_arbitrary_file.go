@@ -95,7 +95,7 @@ package datasync
 //	return &v1.FileData{Data: byteArr}, nil
 //}
 //
-//func recvFileUploadResponses(ctx context.Context, stream v1.DataSyncService_UploadClient) error {
+// func recvFileUploadResponses(ctx context.Context, stream v1.DataSyncService_UploadClient) error {
 //	for {
 //		recvChannel := make(chan error)
 //		go func() {

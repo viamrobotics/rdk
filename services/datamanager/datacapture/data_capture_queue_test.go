@@ -155,7 +155,6 @@ func TestCaptureQueueSimple(t *testing.T) {
 			err = sut.Close()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, sut.IsClosed(), test.ShouldBeTrue)
-
 		})
 	}
 }
