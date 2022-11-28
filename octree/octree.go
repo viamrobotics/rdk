@@ -19,9 +19,9 @@ const (
 // NodeType represents the possible types of nodes in an octree.
 type NodeType uint8
 
-// Octree is a data structure recursively partitions 3D space into octants to represent occupancy. It is
-// a storage format for a pointcloud that allows for better searchability and serialization. Each node is
-// either an internal node, empty node or child node. This implementation of an octree is compatible with
+// Octree is a data structure that recursively partitions 3D space into octants to represent occupancy. It
+// is a storage format for a pointcloud that allows for better searchability and serialization. Each node
+// is either an internal node, empty node or child node. This implementation of an octree is compatible with
 // the pointcloud representation and includes a marshaling function.
 type Octree interface {
 	pc.PointCloud

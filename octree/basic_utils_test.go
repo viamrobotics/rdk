@@ -94,6 +94,7 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, len(emptyLeaves), test.ShouldEqual, 7)
 		test.That(t, len(internalLeaves), test.ShouldEqual, 0)
 		test.That(t, filledLeaves[0].node.point, test.ShouldResemble, pc.PointAndData{P: p, D: d})
+		test.That(t, filledLeaves[0].checkPointPlacement(p), test.ShouldBeTrue)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -174,7 +175,7 @@ func TestCheckPointPlacement(t *testing.T) {
 	validateBasicOctree(t, basicOct, center, side)
 }
 
-// Helper function that recursively checks a basic octree's structure and metadata
+// Helper function that recursively checks a basic octree's structure and metadata.
 func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, sideLength float64) int32 {
 	t.Helper()
 
@@ -182,8 +183,6 @@ func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, side
 	test.That(t, center, test.ShouldResemble, bOct.center)
 
 	// TODO: add check of internal metadata once iterate function is available for easy looping over all points.
-	//metadata := pc.NewMetaData()
-	// test.That(t, metadata, test.ShouldResemble, bOCt.meta)
 
 	var size int32
 

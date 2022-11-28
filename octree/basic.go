@@ -66,8 +66,6 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 		return errors.New("error point is outside the bounds of this octree")
 	}
 
-	//fmt.Printf("Center: %v , Side: %v | Point: %.2f, %.2f, %.2f\n", octree.center, octree.side, p.X, p.Y, p.Z)
-
 	switch octree.node.nodeType {
 	case InternalNode:
 		for _, childNode := range octree.node.children {

@@ -75,8 +75,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 			}
 		}
 
-		// Extract potential data before redefining node as InternalNode with eight new children
-		// nodes
+		// Extract data before redefining node as InternalNode with eight new children nodes
 		p := octree.node.point.P
 		d := octree.node.point.D
 		octree.node = newInternalNode(children)
@@ -89,7 +88,6 @@ func (octree *basicOctree) splitIntoOctants() error {
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
 func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
-
 	return ((math.Abs(octree.center.X-p.X) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Y-p.Y) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
