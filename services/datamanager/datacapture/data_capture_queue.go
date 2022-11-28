@@ -82,12 +82,7 @@ func (q *Queue) Pop() (*File, error) {
 
 	// else, return the next file in the queue, and update the queue
 	ret := q.files[0]
-
-	if len(q.files) == 1 {
-		q.files = []*File{}
-	} else {
-		q.files = q.files[1:]
-	}
+	q.files = q.files[1:]
 	return ret, nil
 }
 
