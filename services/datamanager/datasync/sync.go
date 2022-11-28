@@ -156,7 +156,6 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 							}
 
 							if next == nil {
-								// TODO: better way to wait than just sleep?
 								continue
 							}
 							s.syncCaptureFile(next)
@@ -181,7 +180,6 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 					}
 
 					if next == nil {
-						// TODO: better way to wait than just sleep?
 						continue
 					}
 					s.syncCaptureFile(next)
