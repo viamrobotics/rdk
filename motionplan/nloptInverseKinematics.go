@@ -37,7 +37,6 @@ type NloptIK struct {
 	solveEpsilon  float64
 	logger        golog.Logger
 	jump          float64
-	randSeed      *rand.Rand
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
@@ -45,8 +44,7 @@ type NloptIK struct {
 // to the default of 5000.
 func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
-	//nolint:gosec
-	ik.randSeed = rand.New(rand.NewSource(1))
+
 	ik.model = mdl
 	ik.id = 0
 	// How close we want to get to the goal
@@ -71,7 +69,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	newGoal spatial.Pose,
 	seed []referenceframe.Input,
 	m Metric,
+	rseed int,
 ) error {
+	//nolint: gosec
+	randSeed := rand.New(rand.NewSource(int64(rseed)))
 	var err error
 
 	tries := 1
@@ -108,11 +109,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		dist := m(eePos, newGoal)
 
 		if len(gradient) > 0 {
-			xBak := append([]float64{}, x...)
 			for i := range gradient {
-				xBak[i] += ik.jump
-				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(xBak))
-				xBak[i] -= ik.jump
+				x[i] += ik.jump
+				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
+				x[i] -= ik.jump
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
@@ -154,7 +154,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
-			startingPos = ik.GenerateRandomPositions()
+			startingPos = ik.GenerateRandomPositions(randSeed)
 			tries = constrainedTries
 		}
 	}
@@ -202,7 +202,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			if err != nil {
 				return err
 			}
-			startingPos = ik.GenerateRandomPositions()
+			startingPos = ik.GenerateRandomPositions(randSeed)
 		}
 	}
 	if solutionsFound > 0 {
@@ -211,14 +211,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	return multierr.Combine(err, errNoSolve)
 }
 
-// SetSeed sets the random seed of this solver.
-func (ik *NloptIK) SetSeed(seed int64) {
-	//nolint:gosec
-	ik.randSeed = rand.New(rand.NewSource(seed))
-}
-
 // GenerateRandomPositions generates a random set of positions within the limits of this solver.
-func (ik *NloptIK) GenerateRandomPositions() []referenceframe.Input {
+func (ik *NloptIK) GenerateRandomPositions(randSeed *rand.Rand) []referenceframe.Input {
 	pos := make([]referenceframe.Input, len(ik.model.DoF()))
 	for i, l := range ik.lowerBound {
 		u := ik.upperBound[i]
@@ -234,7 +228,7 @@ func (ik *NloptIK) GenerateRandomPositions() []referenceframe.Input {
 		jRange := math.Abs(u - l)
 		// Note that rand is unseeded and so will produce the same sequence of floats every time
 		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
-		pos[i] = referenceframe.Input{ik.randSeed.Float64()*jRange + l}
+		pos[i] = referenceframe.Input{randSeed.Float64()*jRange + l}
 	}
 	return pos
 }

@@ -134,7 +134,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableServo struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Servo
+}
+
+func (r *reconfigurableServo) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableServo) ProxyFor() interface{} {
@@ -220,7 +225,7 @@ func (r *reconfigurableLocalServo) Reconfigure(ctx context.Context, newServo res
 
 // WrapWithReconfigurable converts a regular Servo implementation to a reconfigurableServo.
 // If servo is already a reconfigurableServo, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	servo, ok := r.(Servo)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -228,7 +233,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil
 	}
-	rServo := &reconfigurableServo{actual: servo}
+	rServo := &reconfigurableServo{name: name, actual: servo}
 	gLocal, ok := r.(LocalServo)
 	if !ok {
 		return rServo, nil

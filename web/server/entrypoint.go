@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -58,6 +59,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 		logConfig = golog.NewDebugLoggerConfig()
 	} else {
 		logConfig = golog.NewProductionLoggerConfig()
+		logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")

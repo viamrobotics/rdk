@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
@@ -32,30 +31,16 @@ type planConfig struct {
 	Start      []frame.Input
 	Goal       spatialmath.Pose
 	RobotFrame frame.Frame
-	Options    *PlannerOptions
+	Options    *plannerOptions
 }
 
-type (
-	seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
-	planConfigConstructor    func() (*planConfig, error)
-)
-
-func BenchmarkUnconstrainedMotion(b *testing.B) {
-	config, err := simpleUR5eMotion()
-	test.That(b, err, test.ShouldBeNil)
-	mp, err := NewRRTConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger.Sugar())
-	test.That(b, err, test.ShouldBeNil)
-	plan, err := mp.Plan(context.Background(), config.Goal, config.Start, config.Options)
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-}
+type planConfigConstructor func() (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []seededPlannerConstructor{
-		NewRRTStarConnectMotionPlannerWithSeed,
-		NewRRTConnectMotionPlannerWithSeed,
-		NewCBiRRTMotionPlannerWithSeed,
+		newRRTStarConnectMotionPlanner,
+		newCBiRRTMotionPlanner,
 	}
 	testCases := []struct {
 		name   string
@@ -68,8 +53,8 @@ func TestUnconstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			for _, planner := range planners {
-				testPlanner(t, planner, testCase.config, 1)
+			for _, p := range planners {
+				testPlanner(t, p, testCase.config, 1)
 			}
 		})
 	}
@@ -78,7 +63,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []seededPlannerConstructor{
-		NewCBiRRTMotionPlannerWithSeed,
+		newCBiRRTMotionPlanner,
 	}
 	testCases := []struct {
 		name   string
@@ -89,8 +74,8 @@ func TestConstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			for _, planner := range planners {
-				testPlanner(t, planner, testCase.config, 1)
+			for _, p := range planners {
+				testPlanner(t, p, testCase.config, 1)
 			}
 		})
 	}
@@ -106,7 +91,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	// Test ability to arrive at another position
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
@@ -184,7 +169,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	toMap := func(geometries []spatialmath.Geometry) map[string]spatialmath.Geometry {
 		geometryMap := make(map[string]spatialmath.Geometry, 0)
 		for i, geometry := range geometries {
@@ -193,7 +178,7 @@ func simple2DMap() (*planConfig, error) {
 		return geometryMap
 	}
 	startInput := frame.FloatsToInputs([]float64{-90., 90.})
-	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatialmath.Geometry{box}), nil))
+	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatialmath.Geometry{box}), nil, false))
 
 	return &planConfig{
 		Start:      startInput,
@@ -211,8 +196,8 @@ func simpleXArmMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil))
+	opt := newBasicPlannerOptions()
+	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil, false))
 
 	return &planConfig{
 		Start:      home7,
@@ -230,8 +215,8 @@ func simpleUR5eMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil))
+	opt := newBasicPlannerOptions()
+	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil, false))
 
 	return &planConfig{
 		Start:      home6,
@@ -243,13 +228,13 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config planConfigConstructor, seed int) {
 	t.Helper()
 
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := planner(cfg.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
+	mp, err := plannerFunc(cfg.RobotFrame, nCPU/2, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
 	test.That(t, err, test.ShouldBeNil)
 	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
