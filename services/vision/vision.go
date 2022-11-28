@@ -149,7 +149,12 @@ type Attributes struct {
 
 type reconfigurableVision struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableVision) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableVision) GetModelParameterSchema(
@@ -281,16 +286,11 @@ func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resourc
 		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
-	/*
-		theOldServ := svc.actual.(*visionService)
-		theNewSerc := rSvc.actual.(*visionService)
-		*theOldServ = *theNewSerc
-	*/
 	return nil
 }
 
 // WrapWithReconfigurable wraps a vision service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -300,5 +300,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableVision{actual: svc}, nil
+	return &reconfigurableVision{name: name, actual: svc}, nil
 }

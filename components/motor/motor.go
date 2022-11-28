@@ -206,7 +206,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableMotor struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Motor
+}
+
+func (r *reconfigurableMotor) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableMotor) ProxyFor() interface{} {
@@ -330,7 +335,7 @@ func (r *reconfigurableLocalMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
 // If motor is already a reconfigurableMotor, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	m, ok := r.(Motor)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -338,7 +343,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := m.(*reconfigurableMotor); ok {
 		return reconfigurable, nil
 	}
-	rMotor := &reconfigurableMotor{actual: m}
+	rMotor := &reconfigurableMotor{name: name, actual: m}
 	mLocal, ok := r.(LocalMotor)
 	if !ok {
 		return rMotor, nil
