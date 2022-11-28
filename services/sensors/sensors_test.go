@@ -75,25 +75,25 @@ func TestRegisteredReconfigurable(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	svc := &mock{name: testSvcName1}
-	reconfSvc1, err := sensors.WrapWithReconfigurable(svc)
+	reconfSvc1, err := sensors.WrapWithReconfigurable(svc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = sensors.WrapWithReconfigurable(nil)
+	_, err = sensors.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError(nil))
 
-	reconfSvc2, err := sensors.WrapWithReconfigurable(reconfSvc1)
+	reconfSvc2, err := sensors.WrapWithReconfigurable(reconfSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
 }
 
 func TestReconfigurable(t *testing.T) {
 	actualSvc1 := &mock{name: testSvcName1}
-	reconfSvc1, err := sensors.WrapWithReconfigurable(actualSvc1)
+	reconfSvc1, err := sensors.WrapWithReconfigurable(actualSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc1, test.ShouldNotBeNil)
 
 	actualArm2 := &mock{name: testSvcName2}
-	reconfSvc2, err := sensors.WrapWithReconfigurable(actualArm2)
+	reconfSvc2, err := sensors.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldNotBeNil)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)

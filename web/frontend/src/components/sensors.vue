@@ -1,8 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import sensorsApi from '../gen/service/sensors/v1/sensors_pb.esm';
-import commonApi from '../gen/common/v1/common_pb.esm';
+import { Client, sensorsApi, commonApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 
@@ -16,6 +15,7 @@ interface SensorName {
 interface Props {
   name: string
   sensorNames: SensorName[]
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -41,7 +41,7 @@ const getReadings = (inputNames: SensorName[]) => {
   req.setName(props.name);
   req.setSensorNamesList(names);
 
-  window.sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
+  props.client.sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       return toast.error(error.message);
     }
@@ -54,14 +54,12 @@ const getReadings = (inputNames: SensorName[]) => {
         rr[key] = value.toJavaScript() as Reading;
       }
 
-      // @ts-expect-error @TODO This typing needs to be fixed
       sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
     }
   });
 };
 
 const getData = (sensorName: SensorName) => {
-  // @ts-expect-error @TODO This typing needs to be fixed
   return sensorReadings[resourceNameToString(sensorName)];
 };
 
