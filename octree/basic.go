@@ -65,7 +65,7 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 	if !octree.checkPointPlacement(p) {
 		return errors.New("error point is outside the bounds of this octree")
 	}
-	//fmt.Println("-------------")
+
 	//fmt.Printf("Center: %v , Side: %v | Point: %.2f, %.2f, %.2f\n", octree.center, octree.side, p.X, p.Y, p.Z)
 
 	switch octree.node.nodeType {
@@ -108,7 +108,6 @@ func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
 // is returned along with true. If a point does not exist, no data is returned and the boolean is returned false.
 func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
-
 	// Check if point could exist in octree given bounds
 	if !octree.checkPointPlacement(r3.Vector{X: x, Y: y, Z: z}) {
 		return nil, false

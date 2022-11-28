@@ -89,7 +89,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
 func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
-	//fmt.Printf("Center:%.2f,%.2f,%.2f Side: %.2f | Point:%.2f,%.2f,%.2f\n", octree.center.X, octree.center.Y, octree.center.Z, octree.sideLength, p.X, p.Y, p.Z)
+
 	return ((math.Abs(octree.center.X-p.X) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Y-p.Y) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
