@@ -31,13 +31,13 @@ type rrtOptions struct {
 	Ncpu int `json:"ncpu"`
 
 	// Contains constraints, IK solving params, etc
-	planOpts *plannerOptions
+	*plannerOptions
 }
 
 func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 	return &rrtOptions{
 		PlanIter: defaultPlanIter,
-		planOpts: planOpts,
+		plannerOptions: planOpts,
 	}
 }
 

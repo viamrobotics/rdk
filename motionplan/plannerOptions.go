@@ -33,6 +33,9 @@ const (
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
 
+	// default number of times to try to smooth the path.
+	defaultSmoothIter = 20
+
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
 	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
@@ -79,6 +82,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
 	opt.PlannerConstructor = defaultPlanner
+	opt.SmoothIter = defaultSmoothIter
 
 	return opt
 }
@@ -105,6 +109,9 @@ type plannerOptions struct {
 
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
+
+	// Number of times to try to smooth the path
+	SmoothIter int `json:"smooth_iter"`
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here

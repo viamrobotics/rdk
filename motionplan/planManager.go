@@ -19,7 +19,7 @@ import (
 
 const (
 	defaultOptimalityMultiple = 3.0
-	defaultFallbackTimeout    = 1.5
+	defaultFallbackTimeout    = 2.5
 	defaultFallbackIK         = 5
 )
 
@@ -213,6 +213,7 @@ func (mp *planManager) planMotion(
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
 				nextSeed := finalSteps.rm
+				finalSteps.steps = parPlan.smoothPath(ctx, finalSteps.steps)
 
 				// default to fallback; will unset if we have a good path
 				goodSolution := false

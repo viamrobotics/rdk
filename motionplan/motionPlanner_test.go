@@ -301,7 +301,7 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	return fs
 }
 
-func TestFrameSystemSolver(t *testing.T) {
+func TestArmAndGantrySolve(t *testing.T) {
 	fs := makeTestFS(t)
 	positions := frame.StartPositions(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
@@ -325,10 +325,14 @@ func TestFrameSystemSolver(t *testing.T) {
 	solvedPose, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal1, 0.01), test.ShouldBeTrue)
+}
 
+func TestMultiArmSolve(t *testing.T) {
+	fs := makeTestFS(t)
+	positions := frame.StartPositions(fs)
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
 	goal2 := spatialmath.NewPoseFromOrientation(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	newPos, err = PlanMotion(
+	newPos, err := PlanMotion(
 		context.Background(),
 		logger.Sugar(),
 		frame.NewPoseInFrame("urCamera", goal2),
@@ -341,7 +345,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err = fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), "urCamera")
+	solvedPose, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), "urCamera")
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()), "xArmVgripper")
 	test.That(t, err, test.ShouldBeNil)

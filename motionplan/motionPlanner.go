@@ -27,6 +27,7 @@ type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, spatialmath.Pose, []frame.Input) ([][]frame.Input, error)
+	smoothPath(context.Context, []node) []node
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
@@ -245,9 +246,46 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	return ok
 }
 
-//~ func (mp *planner) SmoothPath(path [][]frame.Input) {
-	
-//~ }
+// smoothPath will try to naively smooth the path by picking points partway between waypoints and seeing if it can interpolate
+// directly between them.
+func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
+	mp.logger.Debugf("running simple smoother on path of len %d", len(path))
+	if mp.planOpts == nil {
+		mp.logger.Debug("nil opts, cannot shortcut")
+		return path
+	}
+	if len(path) <= 2 {
+		mp.logger.Debug("path too short, cannot shortcut")
+		return path
+	}
+
+	waypoints := []float64{0.25, 0.5, 0.75}
+
+	for i := 0; i < mp.planOpts.SmoothIter; i++ {
+		select {
+		case <-ctx.Done():
+			return path
+		default:
+		}
+		// get start node of first edge. Cannot be either the last or second-to-last node.
+		// Intn will return an int in the half-open interval half-open interval [0,n)
+		firstEdge := mp.randseed.Intn(len(path) - 2)
+		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+
+		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+
+		if mp.checkPath(wayPoint1, wayPoint2) {
+			newpath := []node{}
+			newpath = append(newpath, path[:firstEdge+1]...)
+			newpath = append(newpath, &basicNode{wayPoint1}, &basicNode{wayPoint2})
+			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
+			newpath = append(newpath, path[secondEdge+1:]...)
+			path = newpath
+		}
+	}
+	return path
+}
 
 // node interface is used to wrap a configuration for planning purposes.
 type node interface {
