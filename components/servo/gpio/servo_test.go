@@ -37,13 +37,9 @@ func TestValidate(t *testing.T) {
 	cfg.MinDeg = Ptr(-1.5)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_angle_deg cannot be lower than 0.0")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_angle_deg cannot be lower than 0")
 	cfg.MinDeg = Ptr(1.5)
 
-	cfg.MaxDeg = Ptr(181.0)
-	_, err = cfg.Validate("test")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": max_angle_deg cannot be higher than 180.0")
 	cfg.MaxDeg = Ptr(90.0)
 
 	cfg.MinWidthUS = Ptr(uint(450))
