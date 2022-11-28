@@ -15,7 +15,7 @@ package datasync
 //		FileName: filepath.Base(f.Name()),
 //	}
 //
-//	// Send metadata syncQueue request.
+//	// Send metadata syncQueueOnInterval request.
 //	req := &v1.UploadRequest{
 //		UploadPacket: &v1.UploadRequest_Metadata{
 //			Metadata: md,

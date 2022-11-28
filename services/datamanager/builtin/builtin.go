@@ -340,7 +340,6 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 	return nil, nil
 }
 
-// should basically cancel all previous ones before running this
 func (svc *builtIn) syncPreviouslyCaptured() {
 	// Sync existing files in captureDir.
 	var previouslyCaptured []string

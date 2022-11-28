@@ -115,78 +115,37 @@ func (s *syncer) Close() {
 }
 
 // TODO: expose errors somehow
-// Sync uploads everything in queue until it is closed and emptied.
+
+// SyncCaptureQueues uploads everything in queue until it is closed and emptied.
 func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
 	for _, q := range queues {
-		s.syncQueue(s.cancelCtx, q)
-	}
-}
-
-func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
-	s.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		if s.syncInterval > 0.0 {
-			ticker := time.NewTicker(s.syncInterval)
-			defer ticker.Stop()
+		s.backgroundWorkers.Add(1)
+		goutils.PanicCapturingGo(func() {
 			defer s.backgroundWorkers.Done()
-			for {
-				if err := ctx.Err(); err != nil {
-					if !errors.Is(err, context.Canceled) {
-						s.logger.Error(err)
-					}
-					return
-				}
-
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					for {
-						select {
-						case <-ctx.Done():
-							return
-						default:
-							next, err := q.Pop()
-							if err != nil {
-								s.logger.Error(err)
-								return
-							}
-							if next == nil && q.IsClosed() {
-								return
-							}
-
-							if next == nil {
-								continue
-							}
-							s.syncCaptureFile(next)
+			if s.syncInterval > 0.0 {
+				ticker := time.NewTicker(s.syncInterval)
+				defer ticker.Stop()
+				defer s.backgroundWorkers.Done()
+				for {
+					if err := s.cancelCtx.Err(); err != nil {
+						if !errors.Is(err, context.Canceled) {
+							s.logger.Error(err)
 						}
-					}
-				}
-			}
-		} else {
-			// TODO: make this its own function
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					next, err := q.Pop()
-					if err != nil {
-						s.logger.Error(err)
-						return
-					}
-					if next == nil && q.IsClosed() {
 						return
 					}
 
-					if next == nil {
-						continue
+					select {
+					case <-s.cancelCtx.Done():
+						return
+					case <-ticker.C:
+						s.syncQueue(s.cancelCtx, q)
 					}
-					s.syncCaptureFile(next)
 				}
+			} else {
+				s.syncQueue(s.cancelCtx, q)
 			}
-		}
-	})
+		})
+	}
 }
 
 func (s *syncer) SyncCaptureFiles(paths []string) {
@@ -218,6 +177,29 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 				s.syncCaptureFile(captureFile)
 			}
 		})
+	}
+}
+
+func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			next, err := q.Pop()
+			if err != nil {
+				s.logger.Error(err)
+				return
+			}
+			if next == nil && q.IsClosed() {
+				return
+			}
+
+			if next == nil {
+				continue
+			}
+			s.syncCaptureFile(next)
+		}
 	}
 }
 
