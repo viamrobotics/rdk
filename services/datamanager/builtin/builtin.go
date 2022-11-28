@@ -92,6 +92,7 @@ type Config struct {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	r                         robot.Robot
+	cfg                       *config.Config
 	logger                    golog.Logger
 	syncLogger                golog.Logger
 	captureDir                string
@@ -359,9 +360,18 @@ func (svc *builtIn) syncPreviouslyCaptured() {
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
+	svc.lock.Lock()
 	if svc.syncer == nil {
-		return errors.New("called Sync on data manager service with nil syncer")
+		err := svc.initSyncer(svc.cfg, 0.0)
+		if err != nil {
+			svc.lock.Unlock()
+			return err
+		}
 	}
+	if svc.syncDisabled {
+		svc.syncPreviouslyCaptured()
+	}
+	svc.lock.Unlock()
 	svc.syncDataCaptureFiles()
 	svc.syncAdditionalSyncPaths()
 	return nil
@@ -429,6 +439,7 @@ func (svc *builtIn) syncAdditionalSyncPaths() {
 func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
+	svc.cfg = cfg
 
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.

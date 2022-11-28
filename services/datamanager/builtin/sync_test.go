@@ -134,10 +134,12 @@ func TestDataCaptureUpload(t *testing.T) {
 	syncTime := time.Millisecond * 100
 
 	tests := []struct {
-		name          string
-		dataType      v1.DataType
-		serviceFailAt int
-		numFails      int
+		name                  string
+		dataType              v1.DataType
+		manualSync            bool
+		scheduledSyncDisabled bool
+		serviceFailAt         int
+		numFails              int
 	}{
 		{
 			name:     "Previously captured tabular data should be synced at start up.",
@@ -146,6 +148,23 @@ func TestDataCaptureUpload(t *testing.T) {
 		{
 			name:     "Previously captured binary data should be synced at start up.",
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		{
+			name:                  "Manual sync should successfully sync captured tabular data.",
+			dataType:              v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			manualSync:            true,
+			scheduledSyncDisabled: true,
+		},
+		{
+			name:                  "Manual sync should successfully sync captured binary data.",
+			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			manualSync:            true,
+			scheduledSyncDisabled: true,
+		},
+		{
+			name:       "Running manual and scheduled sync concurrently should not cause data races or duplicate uploads.",
+			dataType:   v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			manualSync: true,
 		},
 		{
 			name:          "If tabular sync fails part way through, it should be resumed without duplicate uploads",
@@ -216,19 +235,24 @@ func TestDataCaptureUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 
-			// Now turn back on with only sync enabled.
+			// If testing manual sync, call sync. If testing scheduled sync, turn dmsvc back on with sync enabled.
 			newDMSvc := newTestDataManager(t)
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			svcConfig.CaptureDisabled = true
-			svcConfig.ScheduledSyncDisabled = false
+			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			svcConfig.SyncIntervalMins = 0.001
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
+
+			if tc.manualSync {
+				err = newDMSvc.Sync(context.Background(), nil)
+				test.That(t, err, test.ShouldBeNil)
+			}
 			time.Sleep(syncTime)
 			err = newDMSvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			// If we set failAt, we want to restart the service.
+			// If we set failAt, we want to restart the service to simulate when the backend fails.
 			var newMockService *mockDataSyncServiceServer
 			if tc.serviceFailAt > 0 {
 				// Now turn back on with only sync enabled.
@@ -262,6 +286,7 @@ func TestDataCaptureUpload(t *testing.T) {
 				test.That(t, len(failedURs), test.ShouldBeGreaterThan, 0)
 			}
 
+			// Validate expected number of upload requests were sent based on the quantity of data and chunking params.
 			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 				test.That(t, len(successfulURs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/sensorDataPerUploadRequest))
 			} else {
@@ -272,7 +297,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			syncedData := getUploadedData(successfulURs)
 			compareSensorData(t, tc.dataType, syncedData, capturedData)
 
-			// After all uploads succeed, their files should be deleted.
+			// After all uploads succeed, all files should be deleted.
 			test.That(t, len(getAllFiles(tmpDir)), test.ShouldEqual, 0)
 		})
 	}
@@ -348,69 +373,6 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 		}
 	}
 }
-
-//TODO: readd arbitrary file upload tests
-//TODO: readd manual sync tests
-//
-// // Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
-// // or running into errors.
-//
-//	func TestManualAndScheduledSync(t *testing.T) {
-//		// Register mock datasync service with a mock server.
-//		rpcServer, mockService := buildAndStartLocalSyncServer(t)
-//		defer func() {
-//			err := rpcServer.Stop()
-//			test.That(t, err, test.ShouldBeNil)
-//		}()
-//
-//		dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
-//		defer func() {
-//			for _, dir := range dirs {
-//				resetFolder(t, dir)
-//			}
-//		}()
-//		defer resetFolder(t, captureDir)
-//		defer resetFolder(t, armDir)
-//		if err != nil {
-//			t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
-//		}
-//		testCfg := setupConfig(t, configPath)
-//		dmCfg, err := getDataManagerConfig(testCfg)
-//		test.That(t, err, test.ShouldBeNil)
-//		dmCfg.SyncIntervalMins = configSyncIntervalMins
-//		dmCfg.AdditionalSyncPaths = dirs
-//
-//		// Make the captureDir where we're logging data for our arm.
-//		captureDir := "/tmp/capture"
-//		armDir := captureDir + "/arm/arm1/EndPosition"
-//		defer resetFolder(t, armDir)
-//
-//		// Initialize the data manager and update it with our config.
-//		dmsvc := newTestDataManager(t, "arm1", "")
-//		dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-//		dmsvc.SetWaitAfterLastModifiedSecs(0)
-//		err = dmsvc.Update(context.TODO(), testCfg)
-//		test.That(t, err, test.ShouldBeNil)
-//
-//		// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
-//		time.Sleep(time.Millisecond * 250)
-//		err = dmsvc.Sync(context.TODO(), map[string]interface{}{})
-//		test.That(t, err, test.ShouldBeNil)
-//		time.Sleep(syncWaitTime)
-//		_ = dmsvc.Close(context.TODO())
-//
-//		// Verify that two data capture files were uploaded, two additional_sync_paths files were uploaded,
-//		// and that no two uploaded files are the same.
-//		test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+2)
-//		test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
-//
-//		// We've uploaded (and thus deleted) the first two files and should now be collecting a single new one.
-//		filesInArmDir, err := readDir(t, armDir)
-//		if err != nil {
-//			t.Fatalf("failed to list files in armDir")
-//		}
-//		test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-//	}
 
 // // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
 // // syncing of data in the service's additional_sync_paths.

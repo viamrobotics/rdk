@@ -125,41 +125,66 @@ func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
 func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		ticker := time.NewTicker(s.syncInterval)
-		defer ticker.Stop()
-		defer s.backgroundWorkers.Done()
-		for {
-			if err := ctx.Err(); err != nil {
-				if !errors.Is(err, context.Canceled) {
-					s.logger.Error(err)
-				}
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				for {
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						next, err := q.Pop()
-						if err != nil {
-							s.logger.Error(err)
-							return
-						}
-						if next == nil && q.IsClosed() {
-							return
-						}
-
-						if next == nil {
-							// TODO: better way to wait than just sleep?
-							continue
-						}
-						s.syncCaptureFile(next)
+		if s.syncInterval > 0.0 {
+			ticker := time.NewTicker(s.syncInterval)
+			defer ticker.Stop()
+			defer s.backgroundWorkers.Done()
+			for {
+				if err := ctx.Err(); err != nil {
+					if !errors.Is(err, context.Canceled) {
+						s.logger.Error(err)
 					}
+					return
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						default:
+							next, err := q.Pop()
+							if err != nil {
+								s.logger.Error(err)
+								return
+							}
+							if next == nil && q.IsClosed() {
+								return
+							}
+
+							if next == nil {
+								// TODO: better way to wait than just sleep?
+								continue
+							}
+							s.syncCaptureFile(next)
+						}
+					}
+				}
+			}
+		} else {
+			// TODO: make this its own function
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					next, err := q.Pop()
+					if err != nil {
+						s.logger.Error(err)
+						return
+					}
+					if next == nil && q.IsClosed() {
+						return
+					}
+
+					if next == nil {
+						// TODO: better way to wait than just sleep?
+						continue
+					}
+					s.syncCaptureFile(next)
 				}
 			}
 		}
