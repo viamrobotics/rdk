@@ -24,6 +24,15 @@ var (
 	nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
 )
 
+func BenchmarkFK(b *testing.B) {
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
+	test.That(b, err, test.ShouldBeNil)
+	for n := 0; n < b.N; n++ {
+		_, err := ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0}})
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
@@ -343,7 +352,7 @@ func solveTest(ctx context.Context, solver InverseKinematics, goal spatial.Pose,
 	// Spawn the IK solver to generate solutions until done
 	go func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goal, seed, NewSquaredNormMetric())
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goal, seed, NewSquaredNormMetric(), 1)
 	}()
 
 	var solutions [][]frame.Input

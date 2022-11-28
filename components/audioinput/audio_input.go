@@ -76,7 +76,7 @@ func DependencyTypeError(name, actual interface{}) error {
 }
 
 // WrapWithReconfigurable wraps an audio input with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	i, ok := r.(AudioInput)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -86,6 +86,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &reconfigurableAudioInput{
+		name:      name,
 		actual:    i,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
@@ -194,9 +195,14 @@ func (as *audioSource) Close(ctx context.Context) error {
 
 type reconfigurableAudioInput struct {
 	mu        sync.RWMutex
+	name      resource.Name
 	actual    AudioInput
 	cancelCtx context.Context
 	cancel    func()
+}
+
+func (i *reconfigurableAudioInput) Name() resource.Name {
+	return i.name
 }
 
 func (i *reconfigurableAudioInput) ProxyFor() interface{} {

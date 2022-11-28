@@ -1,12 +1,6 @@
-export interface Resource {
-  resources: Resource[] | undefined;
-  name: string
-  type: string
-  subtype: string
-  namespace: string
-}
+import type { commonApi } from '@viamrobotics/sdk';
 
-const sortByName = (item1: Resource, item2: Resource) => {
+const sortByName = (item1: commonApi.ResourceName.AsObject, item2: commonApi.ResourceName.AsObject) => {
   if (item1.name > item2.name) {
     return 1;
   } else if (item1.name < item2.name) {
@@ -25,7 +19,7 @@ const sortByName = (item1: Resource, item2: Resource) => {
   return item1.namespace > item2.namespace ? 1 : -1;
 };
 
-export const resourceNameToSubtypeString = (resource: Resource) => {
+export const resourceNameToSubtypeString = (resource: commonApi.ResourceName.AsObject) => {
   if (!resource) {
     return '';
   }
@@ -33,7 +27,7 @@ export const resourceNameToSubtypeString = (resource: Resource) => {
   return `${resource.namespace}:${resource.type}:${resource.subtype}`;
 };
 
-export const resourceNameToString = (resource: Resource) => {
+export const resourceNameToString = (resource: commonApi.ResourceName.AsObject) => {
   if (!resource) {
     return '';
   }
@@ -45,7 +39,12 @@ export const resourceNameToString = (resource: Resource) => {
   return strName;
 };
 
-export const filterResources = (resources: Resource[], namespace: string, type: string, subtype: string) => {
+export const filterResources = (
+  resources: commonApi.ResourceName.AsObject[],
+  namespace: string,
+  type: string,
+  subtype: string
+) => {
   const results = [];
 
   for (const resource of resources) {
@@ -61,12 +60,17 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
   return results.sort(sortByName);
 };
 
-export const filterNonRemoteResources = (resources: Resource[], namespace: string, type: string, subtype: string) => {
+export const filterNonRemoteResources = (
+  resources: commonApi.ResourceName.AsObject[],
+  namespace: string,
+  type: string,
+  subtype: string
+) => {
   return filterResources(resources, namespace, type, subtype).filter((resource) => !resource.name.includes(':'));
 };
 
 export const filterRdkComponentsWithStatus = (
-  resources: Resource[],
+  resources: commonApi.ResourceName.AsObject[],
   status: Record<string, unknown>,
   subtype: string
 ) => {
@@ -78,7 +82,7 @@ export const filterRdkComponentsWithStatus = (
       status[resourceNameToString(resource)]).sort(sortByName);
 };
 
-export const filterComponentsWithNames = (resources: Resource[]) => {
+export const filterComponentsWithNames = (resources: commonApi.ResourceName.AsObject[]) => {
   return resources
     .filter((resource) => Boolean(resource.name) && resource.type === 'component')
     .sort(sortByName);

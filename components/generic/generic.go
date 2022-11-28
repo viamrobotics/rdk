@@ -117,7 +117,12 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableGeneric struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Generic
+}
+
+func (r *reconfigurableGeneric) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableGeneric) Close(ctx context.Context) error {
@@ -154,7 +159,7 @@ func (r *reconfigurableGeneric) Reconfigure(ctx context.Context, newGeneric reso
 
 // WrapWithReconfigurable converts a regular Generic implementation to a reconfigurableGeneric.
 // If Generic is already a reconfigurableGeneric, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	Generic, ok := r.(Generic)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -162,7 +167,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := Generic.(*reconfigurableGeneric); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGeneric{actual: Generic}, nil
+	return &reconfigurableGeneric{name: name, actual: Generic}, nil
 }
 
 // RegisterService is a helper for testing in other components.

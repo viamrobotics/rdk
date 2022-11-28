@@ -90,7 +90,12 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableSensor struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Sensor
+}
+
+func (r *reconfigurableSensor) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableSensor) Close(ctx context.Context) error {
@@ -134,7 +139,7 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 
 // WrapWithReconfigurable converts a regular Sensor implementation to a reconfigurableSensor.
 // If Sensor is already a reconfigurableSensor, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	Sensor, ok := r.(Sensor)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -142,5 +147,5 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := Sensor.(*reconfigurableSensor); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableSensor{actual: Sensor}, nil
+	return &reconfigurableSensor{name: name, actual: Sensor}, nil
 }

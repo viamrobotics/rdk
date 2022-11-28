@@ -30,7 +30,7 @@ type DubinsRRTMotionPlanner struct {
 }
 
 // NewDubinsRRTMotionPlanner creates a DubinsRRTMotionPlanner object.
-func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
+func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (*DubinsRRTMotionPlanner, error) {
 	mp := &DubinsRRTMotionPlanner{frame: frame, logger: logger, nCPU: nCPU, D: d}
 
 	// TODO(rb): this should support PlannerOptions in the way the other planners do
@@ -58,11 +58,11 @@ func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
-	solutionChan := make(chan *planReturn, 1)
+	solutionChan := make(chan *rrtPlanReturn, 1)
 	if planOpts == nil {
-		planOpts = NewBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions()
 	}
 
 	utils.PanicCapturingGo(func() {
@@ -72,7 +72,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err
+		return plan.toInputs(), plan.err()
 	}
 }
 
@@ -82,8 +82,8 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
-	solutionChan chan *planReturn,
+	planOpts *plannerOptions,
+	solutionChan chan *rrtPlanReturn,
 	goalRate float64,
 ) {
 	defer close(solutionChan)
@@ -112,7 +112,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
-			solutionChan <- &planReturn{err: ctx.Err()}
+			solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 			return
 		default:
 		}
@@ -201,7 +201,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
 			}
 
-			solutionChan <- &planReturn{steps: inputSteps}
+			solutionChan <- &rrtPlanReturn{steps: inputSteps}
 			for _, step := range inputSteps {
 				mp.logger.Debugf("%v\n", step)
 			}
@@ -209,7 +209,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 		}
 	}
 
-	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+	solutionChan <- &rrtPlanReturn{planerr: errors.New("could not solve path")}
 }
 
 func updateChildren(
@@ -226,7 +226,7 @@ func updateChildren(
 
 func (mp *DubinsRRTMotionPlanner) checkPath(
 	from, to node,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	dm *dubinPathAttrManager,
 	o DubinPathAttr,
 ) bool {

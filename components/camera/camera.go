@@ -192,6 +192,14 @@ type videoSource struct {
 	streamType   StreamType
 }
 
+// SourceFromCamera returns a gostream.VideoSource from a camera.Camera if possible, else nil.
+func SourceFromCamera(cam Camera) (gostream.VideoSource, error) {
+	if asSrc, ok := cam.(*videoSource); ok {
+		return asSrc.videoSource, nil
+	}
+	return nil, errors.Errorf("invalid conversion from %T to %v", cam, "*camera.videoSource")
+}
+
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
@@ -263,7 +271,7 @@ func DependencyTypeError(name, actual interface{}) error {
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	c, ok := r.(Camera)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -273,6 +281,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &reconfigurableCamera{
+		name:      name,
 		actual:    c,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
@@ -319,9 +328,14 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableCamera struct {
 	mu        sync.RWMutex
+	name      resource.Name
 	actual    Camera
 	cancelCtx context.Context
 	cancel    func()
+}
+
+func (c *reconfigurableCamera) Name() resource.Name {
+	return c.name
 }
 
 func (c *reconfigurableCamera) ProxyFor() interface{} {

@@ -75,6 +75,7 @@ func TestConfig1(t *testing.T) {
 
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c1.(resource.Reconfigurable).Name(), test.ShouldResemble, camera.Named("c1"))
 	pic, _, err := camera.ReadImage(context.Background(), c1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -221,8 +222,10 @@ func TestConfigRemote(t *testing.T) {
 		utils.NewStringSet(expectedRemotes...),
 	)
 
-	arm1, err := r2.ResourceByName(arm.Named("bar:pieceArm"))
+	arm1Name := arm.Named("bar:pieceArm")
+	arm1, err := r2.ResourceByName(arm1Name)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm1.(resource.Reconfigurable).Name(), test.ShouldResemble, arm1Name)
 	pos1, err := arm1.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
