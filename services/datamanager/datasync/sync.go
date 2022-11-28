@@ -58,6 +58,7 @@ type syncer struct {
 	cancelCtx         context.Context
 	cancelFunc        func()
 	syncInterval      time.Duration
+	inProgress        map[string]bool
 }
 
 // ManagerConstructor is a function for building a Manager.
@@ -99,6 +100,7 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		cancelFunc:        cancelFunc,
 		partID:            partID,
 		syncInterval:      syncInterval,
+		inProgress:        make(map[string]bool),
 	}
 	return &ret, nil
 }
@@ -204,6 +206,11 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 }
 
 func (s *syncer) syncCaptureFile(f *datacapture.File) {
+	if s.inProgress[f.GetPath()] {
+		return
+	}
+	s.inProgress[f.GetPath()] = true
+
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
@@ -227,6 +234,7 @@ func (s *syncer) syncCaptureFile(f *datacapture.File) {
 		}
 		return
 	}
+	s.inProgress[f.GetPath()] = false
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
