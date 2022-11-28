@@ -247,9 +247,8 @@ func TestDataCaptureUpload(t *testing.T) {
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
-			// If testing manual sync, call sync. Call it multiple times to ensure this is safe.
+			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
 			if tc.manualSync {
-				// TODO: currently this double uploads
 				err = newDMSvc.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 				err = newDMSvc.Sync(context.Background(), nil)
