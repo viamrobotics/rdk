@@ -130,7 +130,7 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
 	}
 	if attr.Frequency != nil {
-		if frequency > 450 || frequency == 0 {
+		if *attr.Frequency > 450 || *attr.Frequency == 0 {
 			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", frequency)
 		}
 
@@ -300,7 +300,6 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 	if s.pwmRes != 0 {
 		realTick := math.Round(pct * float64(s.pwmRes))
 		pct = realTick / float64(s.pwmRes)
-		s.logger.Debugf("real pct %.3f", pct)
 	}
 	if err := s.pin.SetPWM(ctx, pct, nil); err != nil {
 		return errors.Wrap(err, "couldn't move the servo")
