@@ -355,6 +355,8 @@ func (svc *builtIn) syncPreviouslyCaptured() {
 		return nil
 	})
 	svc.syncer.SyncCaptureFiles(previouslyCaptured)
+
+	// TODO: Sync existing arbitrary files.
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
