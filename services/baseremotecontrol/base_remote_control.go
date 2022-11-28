@@ -50,7 +50,12 @@ type Service interface {
 
 type reconfigurableBaseRemoteControl struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableBaseRemoteControl) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
@@ -74,7 +79,7 @@ func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, new
 }
 
 // WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
 		return reconfigurable, nil
 	}
@@ -83,5 +88,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return nil, utils.NewUnimplementedInterfaceError("baseremotecontrol.Service", s)
 	}
 
-	return &reconfigurableBaseRemoteControl{actual: svc}, nil
+	return &reconfigurableBaseRemoteControl{name: name, actual: svc}, nil
 }

@@ -104,7 +104,12 @@ func FirstFromRobot(r robot.Robot) (Service, error) {
 
 type reconfigurableSensors struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableSensors) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableSensors) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
@@ -151,7 +156,7 @@ func (svc *reconfigurableSensors) Reconfigure(ctx context.Context, newSvc resour
 }
 
 // WrapWithReconfigurable wraps a Sensors service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -161,5 +166,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableSensors{actual: svc}, nil
+	return &reconfigurableSensors{name: name, actual: svc}, nil
 }

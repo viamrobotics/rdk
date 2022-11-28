@@ -2,25 +2,24 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import movementsensorApi, {
-  type GetPropertiesResponse,
-} from '../gen/component/movementsensor/v1/movementsensor_pb.esm';
-import type { GeoPoint, Orientation, Vector3 } from '../gen/common/v1/common_pb.esm';
+import { Client, movementSensorApi as movementsensorApi } from '@viamrobotics/sdk';
+import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {
   name: string
+  client: Client
 }
 
 const props = defineProps<Props>();
 
-let orientation = $ref<Orientation.AsObject | undefined>();
-let angularVelocity = $ref<Vector3.AsObject | undefined>();
-let linearVelocity = $ref<Vector3.AsObject | undefined>();
+let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
+let angularVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
+let linearVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
 let compassHeading = $ref<number | undefined>();
-let coordinate = $ref<GeoPoint.AsObject | undefined>();
+let coordinate = $ref<commonApi.GeoPoint.AsObject | undefined>();
 let altitudeMm = $ref<number | undefined>();
-let properties = $ref<GetPropertiesResponse.AsObject | undefined>();
+let properties = $ref<movementsensorApi.GetPropertiesResponse.AsObject | undefined>();
 
 let refreshId = -1;
 
@@ -28,7 +27,7 @@ const refresh = async () => {
   properties = await new Promise((resolve) => {
     const req = new movementsensorApi.GetPropertiesRequest();
     req.setName(props.name);
-    window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
+    props.client.movementSensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -41,7 +40,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetOrientationRequest();
     req.setName(props.name);
 
-    window.movementsensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
+    props.client.movementSensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -54,7 +53,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetAngularVelocityRequest();
     req.setName(props.name);
 
-    window.movementsensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
+    props.client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -67,7 +66,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetLinearVelocityRequest();
     req.setName(props.name);
 
-    window.movementsensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
+    props.client.movementSensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -80,7 +79,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetCompassHeadingRequest();
     req.setName(props.name);
 
-    window.movementsensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
+    props.client.movementSensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -93,7 +92,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetPositionRequest();
     req.setName(props.name);
 
-    window.movementsensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
+    props.client.movementSensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }

@@ -43,7 +43,12 @@ var _ = resource.Reconfigurable(&reconfigurableArmRemoteControl{})
 
 type reconfigurableArmRemoteControl struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableArmRemoteControl) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableArmRemoteControl) Close(ctx context.Context) error {
@@ -67,7 +72,7 @@ func (svc *reconfigurableArmRemoteControl) Reconfigure(ctx context.Context, newS
 }
 
 // WrapWithReconfigurable wraps a ArmRemoteControl as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := s.(*reconfigurableArmRemoteControl); ok {
 		return reconfigurable, nil
 	}
@@ -77,5 +82,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return nil, rdkutils.NewUnimplementedInterfaceError("armremotecontrol.Service", s)
 	}
 
-	return &reconfigurableArmRemoteControl{actual: svc}, nil
+	return &reconfigurableArmRemoteControl{name: name, actual: svc}, nil
 }

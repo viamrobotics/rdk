@@ -124,11 +124,11 @@ func TestPoseTrackerName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	poseTracker := &inject.PoseTracker{}
-	reconfPT, err := posetracker.WrapWithReconfigurable(poseTracker)
+	reconfPT, err := posetracker.WrapWithReconfigurable(poseTracker, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
-	_, err = posetracker.WrapWithReconfigurable(nil)
+	_, err = posetracker.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, posetracker.NewUnimplementedInterfaceError(nil))
-	reconfPT2, err := posetracker.WrapWithReconfigurable(reconfPT)
+	reconfPT2, err := posetracker.WrapWithReconfigurable(reconfPT, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfPT2, test.ShouldEqual, reconfPT)
 }
@@ -163,11 +163,11 @@ func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 
 func TestReconfigurablePoseTracker(t *testing.T) {
 	actualPT1 := &mock{Name: workingPTName}
-	reconfPT1, err := posetracker.WrapWithReconfigurable(actualPT1)
+	reconfPT1, err := posetracker.WrapWithReconfigurable(actualPT1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualPT2 := &mock{Name: "differentPT"}
-	reconfPT2, err := posetracker.WrapWithReconfigurable(actualPT2)
+	reconfPT2, err := posetracker.WrapWithReconfigurable(actualPT2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualPT1.reconfCount, test.ShouldEqual, 0)
 
@@ -193,7 +193,7 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 
 func TestReadings(t *testing.T) {
 	actualPT1 := &mock{Name: workingPTName}
-	reconfPT1, err := posetracker.WrapWithReconfigurable(actualPT1)
+	reconfPT1, err := posetracker.WrapWithReconfigurable(actualPT1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	sensorPT1, isSensor := reconfPT1.(sensor.Sensor)
 	test.That(t, isSensor, test.ShouldBeTrue)
@@ -210,7 +210,7 @@ func TestReadings(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualPT := &mock{Name: workingPTName}
-	reconfPT, err := posetracker.WrapWithReconfigurable(actualPT)
+	reconfPT, err := posetracker.WrapWithReconfigurable(actualPT, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualPT.reconfCount, test.ShouldEqual, 0)
@@ -220,7 +220,7 @@ func TestClose(t *testing.T) {
 
 func TestExtraOptions(t *testing.T) {
 	actualPT := &mock{Name: workingPTName}
-	reconfPT, err := posetracker.WrapWithReconfigurable(actualPT)
+	reconfPT, err := posetracker.WrapWithReconfigurable(actualPT, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualPT.extra, test.ShouldEqual, nil)
