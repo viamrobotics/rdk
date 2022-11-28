@@ -23,7 +23,7 @@ const (
 	dataFlagDestination    = "destination"
 	dataFlagDataType       = "data_type"
 	dataFlagOrgIDs         = "org_ids"
-	dataFlagLocations      = "locations"
+	dataFlagLocationIDs    = "location_ids"
 	dataFlagRobotID        = "robot_id"
 	dataFlagPartID         = "part_id"
 	dataFlagRobotName      = "robot_name"
@@ -214,7 +214,7 @@ func main() {
 				Name:  "data",
 				Usage: "download data from Viam cloud",
 				UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
-					dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocations, dataFlagRobotID, dataFlagRobotName,
+					dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
 					dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
 					dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),
 				Flags: []cli.Flag{
@@ -234,7 +234,7 @@ func main() {
 						Usage:    "orgs filter",
 					},
 					&cli.StringSliceFlag{
-						Name:     dataFlagLocations,
+						Name:     dataFlagLocationIDs,
 						Required: false,
 						Usage:    "locations filter",
 					},
@@ -709,8 +709,8 @@ func DataCommand(c *cli.Context) error {
 	if c.StringSlice(dataFlagOrgIDs) != nil {
 		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
 	}
-	if c.StringSlice(dataFlagLocations) != nil {
-		filter.LocationIds = c.StringSlice(dataFlagLocations)
+	if c.StringSlice(dataFlagLocationIDs) != nil {
+		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
 	}
 	if c.String(dataFlagRobotID) != "" {
 		filter.RobotId = c.String(dataFlagRobotID)
