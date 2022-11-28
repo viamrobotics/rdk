@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -25,25 +26,25 @@ func TestRegisteredReconfigurable(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	svc := &mock1{name: testSvcName1}
-	reconfSvc1, err := vision.WrapWithReconfigurable(svc)
+	reconfSvc1, err := vision.WrapWithReconfigurable(svc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = vision.WrapWithReconfigurable(nil)
+	_, err = vision.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, vision.NewUnimplementedInterfaceError(nil))
 
-	reconfSvc2, err := vision.WrapWithReconfigurable(reconfSvc1)
+	reconfSvc2, err := vision.WrapWithReconfigurable(reconfSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
 }
 
 func TestReconfigurable(t *testing.T) {
 	actualSvc1 := &mock1{name: testSvcName1}
-	reconfSvc1, err := vision.WrapWithReconfigurable(actualSvc1)
+	reconfSvc1, err := vision.WrapWithReconfigurable(actualSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc1, test.ShouldNotBeNil)
 
 	actualArm2 := &mock1{name: testSvcName2}
-	reconfSvc2, err := vision.WrapWithReconfigurable(actualArm2)
+	reconfSvc2, err := vision.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldNotBeNil)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)

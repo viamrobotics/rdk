@@ -32,7 +32,7 @@ Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/c
 
 ### Examples
 * [SimpleServer](https://pkg.go.dev/go.viam.com/rdk/examples/simpleserver) - example for creating a simple custom server.
-* [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor,
+* [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor.
 * [MyComponent](https://pkg.go.dev/go.viam.com/rdk/examples/mycomponent) - example for creating a custom resource subtype.
 
 ### SDKs
@@ -65,6 +65,10 @@ The API is defined with Protocol Buffers/gRPC which can be found at https://gith
 To start the client development environment, first run the same `go run` command mentioned in Building and Using, but with the environmental variable `ENV=development` (e.g. `ENV=development go run web/cmd/server/main.go -debug -config etc/configs/fake.json`). 
 
 Then navigate to `web/frontend` and run `npm start` in a new terminal tab. Visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
+
+#### Frontend against a remote host
+
+See documentation in [Direct Remote Control](./web/cmd/directremotecontrol/main.go).
 
 ### License check
 

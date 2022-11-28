@@ -5,6 +5,7 @@ import (
 	"image"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -15,6 +16,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -202,7 +204,38 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
+		cam, err := tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
+		if err != nil {
+			return cam, err
+		}
+
+		goutils.PanicCapturingGo(func() {
+			src, err := camera.SourceFromCamera(cam)
+			if err != nil {
+				logger.Debugw("cannot get source from camera", "error", err)
+				return
+			}
+			defer func() {
+				if err := cam.Close(ctx); err != nil {
+					logger.Debugw("failed to close camera", "error", err)
+				}
+			}()
+			for {
+				if goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+					// mediadevices connects to the OS to get the properties for a driver. If the OS no longer knows
+					// about a specific driver then properties will be empty, and we can safely assume the driver no
+					// longer exists and should be closed.
+					if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
+						logger.Debug("closing camera")
+						return
+					}
+				} else {
+					return
+				}
+			}
+		})
+
+		return cam, err
 	}
 
 	source, err := gostream.GetAnyVideoSource(constraints, logger)

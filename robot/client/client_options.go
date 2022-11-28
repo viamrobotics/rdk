@@ -26,6 +26,9 @@ type robotClientOpts struct {
 
 	// dialOptions are options using for clients dialing gRPC servers.
 	dialOptions []rpc.DialOption
+
+	// the name of the robot.
+	remoteName string
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -69,6 +72,13 @@ func WithCheckConnectedEvery(checkConnectedEvery time.Duration) RobotClientOptio
 func WithReconnectEvery(reconnectEvery time.Duration) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.reconnectEvery = &reconnectEvery
+	})
+}
+
+// WithRemoteName returns a RobotClientOption setting the name of the remote robot.
+func WithRemoteName(remoteName string) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.remoteName = remoteName
 	})
 }
 

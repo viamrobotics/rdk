@@ -12,18 +12,16 @@ import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { filterResources, type Resource } from '../lib/resource';
+import { filterResources } from '../lib/resource';
 import { toast } from '../lib/toast';
-import type { PointCloudObject, RectangularPrism } from '../gen/common/v1/common_pb';
-import motionApi from '../gen/service/motion/v1/motion_pb.esm';
-import commonApi from '../gen/common/v1/common_pb.esm';
-// import visionApi, { type TypedParameter } from '../gen/service/vision/v1/vision_pb.esm';
+import { Client, commonApi, motionApi } from '@viamrobotics/sdk';
 import InfoButton from './info-button.vue';
 
 interface Props {
-  resources: Resource[]
+  resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   cameraName?: string
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -36,7 +34,7 @@ let displayGrid = true;
 let transformEnabled = $ref(false);
 const download = $ref<HTMLLinkElement>();
 // let segmenterParameterNames = $ref<TypedParameter[]>();
-const objects = $ref<PointCloudObject[]>([]);
+const objects = $ref<commonApi.PointCloudObject[]>([]);
 const segmenterNames = $ref<string[]>([]);
 // let segmenterParameters = $ref<Record<string, number>>({});
 
@@ -233,7 +231,7 @@ const getSegmenterNames = () => {
   // });
 };
 
-const setBoundingBox = (box: RectangularPrism, centerPoint: THREE.Vector3) => {
+const setBoundingBox = (box: commonApi.RectangularPrism, centerPoint: THREE.Vector3) => {
   const dimensions = box.getDimsMm()!;
   const geometry = new THREE.BoxGeometry(
     dimensions.getX() / 1000,
@@ -448,7 +446,7 @@ const handleMove = () => {
   componentName.setName(gripper.name);
   req.setComponentName(componentName);
 
-  window.motionService.move(req, new grpc.Metadata(), (error, response) => {
+  props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(`Error moving: ${error}`);
       return;
