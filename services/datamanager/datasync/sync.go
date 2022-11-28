@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -58,7 +59,9 @@ type syncer struct {
 	cancelCtx         context.Context
 	cancelFunc        func()
 	syncInterval      time.Duration
-	inProgress        map[string]bool
+
+	progressLock *sync.Mutex
+	inProgress   map[string]bool
 }
 
 // ManagerConstructor is a function for building a Manager.
@@ -100,6 +103,7 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		cancelFunc:        cancelFunc,
 		partID:            partID,
 		syncInterval:      syncInterval,
+		progressLock:      &sync.Mutex{},
 		inProgress:        make(map[string]bool),
 	}
 	return &ret, nil
@@ -117,6 +121,7 @@ func (s *syncer) Close() {
 }
 
 // TODO: expose errors somehow
+// TODO: sync arbitrary files on ticker too
 
 // SyncCaptureQueues uploads everything in queue until it is closed and emptied.
 func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
@@ -176,7 +181,7 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 					}
 					return
 				}
-				s.syncCaptureFile(captureFile)
+				s.syncDataCaptureFile(captureFile)
 			}
 		})
 	}
@@ -200,21 +205,20 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 			if next == nil {
 				continue
 			}
-			s.syncCaptureFile(next)
+			s.syncDataCaptureFile(next)
 		}
 	}
 }
 
-func (s *syncer) syncCaptureFile(f *datacapture.File) {
-	if s.inProgress[f.GetPath()] {
+func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
+	if !s.markInProgress(f.GetPath()) {
 		return
 	}
-	s.inProgress[f.GetPath()] = true
 
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			return s.syncFile(ctx, s.client, f, s.partID)
+			return uploadDataCaptureFile(ctx, s.client, f, s.partID)
 		},
 		s.logger,
 	)
@@ -234,7 +238,53 @@ func (s *syncer) syncCaptureFile(f *datacapture.File) {
 		}
 		return
 	}
-	s.inProgress[f.GetPath()] = false
+	s.unmarkInProgress(f.GetPath())
+}
+
+func (s *syncer) syncArbitraryFile(f *os.File) {
+	if !s.markInProgress(f.Name()) {
+		return
+	}
+
+	uploadErr := exponentialRetry(
+		s.cancelCtx,
+		func(ctx context.Context) error {
+			return uploadArbitraryFile(ctx, s.client, f, s.partID)
+		},
+		s.logger,
+	)
+	if uploadErr != nil {
+		s.logger.Error(uploadErr)
+		err := f.Close()
+		if err != nil {
+			s.logger.Errorw("error closing file", "error", err)
+		}
+		return
+	}
+	if err := os.Remove(f.Name()); err != nil {
+		s.logger.Error(fmt.Sprintf("error deleting file %s", f.Name()), "error", err)
+		return
+	}
+	s.unmarkInProgress(f.Name())
+}
+
+// markInProgress marks path as in progress in s.inProgress. It returns true if it changed the progress status,
+// or false if the path was already in progress.
+func (s *syncer) markInProgress(path string) bool {
+	s.progressLock.Lock()
+	defer s.progressLock.Unlock()
+	if s.inProgress[path] {
+		return false
+	}
+	s.inProgress[path] = true
+	return true
+}
+
+func (s *syncer) unmarkInProgress(path string) {
+	s.progressLock.Lock()
+	defer s.progressLock.Unlock()
+	s.inProgress[path] = false
+	return
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
@@ -292,9 +342,4 @@ func getNextWait(lastWait time.Duration) time.Duration {
 		return maxRetryInterval
 	}
 	return nextWait
-}
-
-// TODO: add arbitrary files back.
-func (s *syncer) syncFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
-	return uploadDataCaptureFile(ctx, client, f, partID)
 }
