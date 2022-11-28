@@ -1,11 +1,12 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { gripperApi } from '@viamrobotics/sdk';
+import { Client, gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
 interface Props {
   name: string
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -13,19 +14,19 @@ const props = defineProps<Props>();
 const stop = () => {
   const request = new gripperApi.StopRequest();
   request.setName(props.name);
-  window.gripperService.stop(request, new grpc.Metadata(), displayError);
+  props.client.gripperService.stop(request, new grpc.Metadata(), displayError);
 };
 
 const open = () => {
   const request = new gripperApi.OpenRequest();
   request.setName(props.name);
-  window.gripperService.open(request, new grpc.Metadata(), displayError);
+  props.client.gripperService.open(request, new grpc.Metadata(), displayError);
 };
 
 const grab = () => {
   const request = new gripperApi.GrabRequest();
   request.setName(props.name);
-  window.gripperService.grab(request, new grpc.Metadata(), displayError);
+  props.client.gripperService.grab(request, new grpc.Metadata(), displayError);
 };
 
 </script>
