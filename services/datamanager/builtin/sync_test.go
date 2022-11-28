@@ -122,8 +122,9 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
-//TODO: Should test concurrent capture and sync. But maybe more fitting for builtin_test? Since essentially
-//      testing that those two play well together
+// TODO: Should test concurrent capture and sync. But maybe more fitting for builtin_test? Since essentially
+//
+//	testing that those two play well together
 func TestDataCaptureUpload(t *testing.T) {
 	datacapture.MaxFileSize = 600
 	// MaxFileSize of 600 => Should be 3 tabular readings per file/UR, because the SensorReadings are ~230 bytes each,
@@ -246,8 +247,11 @@ func TestDataCaptureUpload(t *testing.T) {
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
-			// If testing manual sync, call sync.
+			// If testing manual sync, call sync. Call it multiple times to ensure this is safe.
 			if tc.manualSync {
+				// TODO: currently this double uploads
+				err = newDMSvc.Sync(context.Background(), nil)
+				test.That(t, err, test.ShouldBeNil)
 				err = newDMSvc.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
