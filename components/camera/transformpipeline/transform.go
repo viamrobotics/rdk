@@ -99,7 +99,8 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 	schemas := make([]*jsonschema.Schema, 0, len(registeredTransformConfigs))
 	for _, transformReg := range registeredTransformConfigs {
 		transformSchema := jsonschema.Reflect(transformReg.retType)
-		transformSchema.Type = transformReg.name
+		transformSchema.Title = transformReg.name
+		transformSchema.Type = "object"
 		transformSchema.Description = transformReg.description
 		schemas = append(schemas, transformSchema)
 	}
