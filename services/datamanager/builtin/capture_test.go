@@ -14,6 +14,7 @@ var (
 	enabledTabularCollectorConfigPath  = "services/datamanager/data/fake_robot_with_data_manager.json"
 	disabledTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
 	enabledBinaryCollectorConfigPath   = "services/datamanager/data/robot_with_cam_capture.json"
+	remoteCollectorConfigPath          = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -25,6 +26,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 		newServiceDisableStatus       bool
 		initialCollectorDisableStatus bool
 		newCollectorDisableStatus     bool
+		remoteCollector               bool
 	}{
 		{
 			name:                          "Config with data capture service disabled should capture nothing.",
@@ -75,6 +77,10 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     false,
 		},
+		{
+			name:            "Capture should work for remotes too.",
+			remoteCollector: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -95,7 +101,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Set up robot config.
 			var initConfig *config.Config
-			if tc.initialCollectorDisableStatus {
+			if tc.remoteCollector {
+				initConfig = setupConfig(t, remoteCollectorConfigPath)
+			} else if tc.initialCollectorDisableStatus {
 				initConfig = setupConfig(t, disabledTabularCollectorConfigPath)
 			} else {
 				initConfig = setupConfig(t, enabledTabularCollectorConfigPath)
