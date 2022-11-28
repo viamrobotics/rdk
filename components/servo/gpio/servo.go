@@ -57,14 +57,17 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 		return nil, viamutils.NewConfigValidationFieldRequiredError(path, "pin")
 	}
 	if config.StartPos != nil {
-		if config.MinDeg != nil && *config.StartPos < *config.MinDeg {
-			return nil, viamutils.NewConfigValidationError(path, errors.New("starting_position_degs cannot be lower than min_angle_deg"))
+		minDeg := defaultMinDeg
+		maxDeg := defaultMaxDeg
+		if config.MinDeg != nil {
+			minDeg = *config.MinDeg
 		}
-		if config.MaxDeg != nil && *config.StartPos > *config.MaxDeg {
-			return nil, viamutils.NewConfigValidationError(path, errors.New("starting_position_degs cannot be higher than max_angle_deg"))
+		if config.MaxDeg != nil {
+			maxDeg = *config.MaxDeg
 		}
-		if *config.StartPos < defaultMinDeg || *config.StartPos > defaultMaxDeg {
-			return nil, viamutils.NewConfigValidationError(path, errors.New("starting_position_degs should be between 0 and 180"))
+		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
+			return nil, viamutils.NewConfigValidationError(path,
+				errors.Errorf("starting_position_degs should be between %.1f and %.1f", minDeg, maxDeg))
 		}
 	}
 	if config.MinDeg != nil && *config.MinDeg < 0 {
