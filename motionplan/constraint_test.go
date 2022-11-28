@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -21,7 +22,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
+	mp, err := newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -33,7 +34,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	})
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -155,7 +156,7 @@ func TestLineFollow(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, lastGood := opt.CheckConstraintPath(
@@ -200,7 +201,7 @@ func TestCollisionConstraint(t *testing.T) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}, false))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
@@ -209,4 +210,33 @@ func TestCollisionConstraint(t *testing.T) {
 			test.That(t, response, test.ShouldEqual, c.expected)
 		})
 	}
+}
+
+var bt bool
+
+func BenchmarkCollisionConstraint(b *testing.B) {
+	// define external obstacles
+	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
+	test.That(b, err, test.ShouldBeNil)
+	obstacles := make(map[string]spatial.Geometry)
+	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())
+	obstacles["obstacle2"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+
+	// setup zero position as reference CollisionGraph and use it in handler
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(b, err, test.ShouldBeNil)
+	handler := &constraintHandler{}
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}, false))
+
+	rseed := rand.New(rand.NewSource(1))
+	var b1 bool
+	var n int
+
+	// loop through cases and check constraint handler processes them correctly
+	for n = 0; n < b.N; n++ {
+		rfloats := frame.GenerateRandomConfiguration(model, rseed)
+		b1, _ = handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
+	}
+	bt = b1
 }

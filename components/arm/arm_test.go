@@ -248,21 +248,21 @@ func TestArmName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualArm1 arm.Arm = &mock{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = arm.WrapWithReconfigurable(nil)
+	_, err = arm.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedInterfaceError(nil))
 
-	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
+	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm2, test.ShouldEqual, reconfArm1)
 
 	var actualArm2 arm.LocalArm = &mockLocal{Name: testArmName}
-	reconfArm3, err := arm.WrapWithReconfigurable(actualArm2)
+	reconfArm3, err := arm.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	reconfArm4, err := arm.WrapWithReconfigurable(reconfArm3)
+	reconfArm4, err := arm.WrapWithReconfigurable(reconfArm3, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm4, test.ShouldResemble, reconfArm3)
 
@@ -272,12 +272,12 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 func TestReconfigurableArm(t *testing.T) {
 	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm1, test.ShouldNotBeNil)
 
 	actualArm2 := &mockLocal{Name: testArmName2}
-	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2)
+	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm2, test.ShouldNotBeNil)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
@@ -300,7 +300,7 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, nil))
 
 	actualArm3 := &mock{Name: failArmName}
-	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3)
+	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm3, test.ShouldNotBeNil)
 
@@ -314,7 +314,7 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm3, reconfArm1))
 
 	actualArm4 := &mock{Name: testArmName2}
-	reconfArm4, err := arm.WrapWithReconfigurable(actualArm4)
+	reconfArm4, err := arm.WrapWithReconfigurable(actualArm4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm4, test.ShouldNotBeNil)
 
@@ -325,7 +325,7 @@ func TestReconfigurableArm(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualArm1.stopCount, test.ShouldEqual, 0)
@@ -335,7 +335,7 @@ func TestStop(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
@@ -345,7 +345,7 @@ func TestClose(t *testing.T) {
 
 func TestExtraOptions(t *testing.T) {
 	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
+	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualArm1.extra, test.ShouldEqual, nil)

@@ -103,7 +103,12 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 
 type reconfigurableMotionService struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableMotionService) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableMotionService) Move(
@@ -164,7 +169,7 @@ func (svc *reconfigurableMotionService) Reconfigure(ctx context.Context, newSvc 
 }
 
 // WrapWithReconfigurable wraps a Motion Service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -174,5 +179,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableMotionService{actual: svc}, nil
+	return &reconfigurableMotionService{name: name, actual: svc}, nil
 }

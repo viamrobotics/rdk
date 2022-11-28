@@ -291,6 +291,9 @@ func ReconfigureResource(ctx context.Context, old, newR interface{}) (interface{
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
 type Reconfigurable interface {
+	// TODO(RSDK-895): hold over until all resources have names. This doesn't guarantee
+	// everything is named since everything may not be a reconfigurable (but should be).
+	Name() Name
 	// Reconfigure reconfigures the resource
 	Reconfigure(ctx context.Context, newResource Reconfigurable) error
 }
@@ -318,4 +321,20 @@ type Stoppable interface {
 type OldStoppable interface {
 	// Stop stops all movement for the resource
 	Stop(context.Context) error
+}
+
+// StopResource attempts to stops the given resource.
+func StopResource(ctx context.Context, res interface{}, extra map[string]interface{}) error {
+	sr, ok := res.(Stoppable)
+	if ok {
+		return sr.Stop(ctx, extra)
+	}
+
+	// TODO[njooma]: OldStoppable - Will be deprecated
+	osr, ok := res.(OldStoppable)
+	if ok {
+		return osr.Stop(ctx)
+	}
+
+	return nil
 }

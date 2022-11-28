@@ -77,7 +77,7 @@ func TestRobotReconfigure(t *testing.T) {
 			if config.ConvertedAttributes.(*mockFakeConfig).ShouldFail {
 				return nil, errors.Errorf("cannot build %q for some obscure reason", config.Name)
 			}
-			return &mockFake{x: 5}, nil
+			return &mockFake{name: config.ResourceName(), x: 5}, nil
 		},
 	})
 
@@ -98,7 +98,7 @@ func TestRobotReconfigure(t *testing.T) {
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if reconfigurableTrue && testReconfiguringMismatch {
 				reconfigurableTrue = false
-				return &mockFake{x: 5}, nil
+				return &mockFake{name: config.ResourceName(), x: 5}, nil
 			}
 			return &mockFake2{x: 5}, nil
 		},
@@ -2632,6 +2632,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 }
 
 type mockFake struct {
+	name        resource.Name
 	x           int
 	reconfCount int
 }
@@ -2640,6 +2641,10 @@ type mockFakeConfig struct {
 	InferredDep []string `json:"inferred_dep"`
 	ShouldFail  bool     `json:"should_fail"`
 	Blah        int      `json:"blah"`
+}
+
+func (m *mockFake) Name() resource.Name {
+	return m.name
 }
 
 func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfigurable) error {

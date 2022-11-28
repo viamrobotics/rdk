@@ -163,7 +163,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 // WrapWithReconfigurable wraps a gantry or localGantry with a reconfigurable
 // and locking interface.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -172,7 +172,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	rGantry := &reconfigurableGantry{actual: g}
+	rGantry := &reconfigurableGantry{name: name, actual: g}
 	gLocal, ok := r.(LocalGantry)
 	if !ok {
 		return rGantry, nil
@@ -193,7 +193,12 @@ var (
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Gantry
+}
+
+func (g *reconfigurableGantry) Name() resource.Name {
+	return g.name
 }
 
 func (g *reconfigurableGantry) ProxyFor() interface{} {
