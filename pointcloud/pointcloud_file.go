@@ -157,7 +157,7 @@ func WriteToLASFile(cloud PointCloud, fn string) (err error) {
 
 		if d != nil {
 			if d.Value() < 0 {
-				lastErr = errors.New("value given is below zero, can not be set as uint16 in lidario's PointRecord intensity field")
+				lastErr = errors.New("value given is below zero, cannot be set as uint16 in lidario's PointRecord intensity field")
 				return false
 			}
 			pr0.Intensity = uint16(d.Value())
