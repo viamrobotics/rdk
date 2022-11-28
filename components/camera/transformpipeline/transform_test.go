@@ -16,6 +16,6 @@ func TestJSONSchema(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	jsonString := string(jsonBytes)
 	for transformName := range registeredTransformConfigs {
-		test.That(t, jsonString, test.ShouldContainSubstring, fmt.Sprintf("\"type\": \"%s\"", transformName))
+		test.That(t, jsonString, test.ShouldContainSubstring, fmt.Sprintf("\"title\": \"%s\"", transformName))
 	}
 }
