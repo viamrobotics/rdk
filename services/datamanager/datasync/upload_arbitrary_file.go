@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"io"
@@ -10,10 +11,12 @@ import (
 )
 
 var (
-	uploadChunkSize = 64 * 1024
+	UploadChunkSize = 64 * 1024
 )
 
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
+	fmt.Println("starting to upload arbitrary file")
+
 	stream, err := client.FileUpload(ctx)
 	if err != nil {
 		return err
@@ -99,9 +102,9 @@ func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.FileUploadRe
 }
 
 func readNextFileChunk(f *os.File) (*v1.FileData, error) {
-	byteArr := make([]byte, uploadChunkSize)
+	byteArr := make([]byte, UploadChunkSize)
 	numBytesRead, err := f.Read(byteArr)
-	if numBytesRead < uploadChunkSize {
+	if numBytesRead < UploadChunkSize {
 		byteArr = byteArr[:numBytesRead]
 	}
 	if err != nil {

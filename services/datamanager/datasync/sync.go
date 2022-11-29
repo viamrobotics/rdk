@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -46,6 +47,7 @@ var (
 type Manager interface {
 	SyncCaptureFiles(paths []string)
 	SyncCaptureQueues(queues []*datacapture.Queue)
+	SyncArbitraryFiles(paths []string)
 	Close()
 }
 
@@ -59,16 +61,17 @@ type syncer struct {
 	cancelCtx         context.Context
 	cancelFunc        func()
 	syncInterval      time.Duration
+	lastModifiedSecs  int
 
 	progressLock *sync.Mutex
 	inProgress   map[string]bool
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(logger golog.Logger, cfg *config.Config, syncInterval time.Duration) (Manager, error)
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config, syncInterval time.Duration, lastModSecs int) (Manager, error)
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
-func NewDefaultManager(logger golog.Logger, cfg *config.Config, syncInterval time.Duration) (Manager, error) {
+func NewDefaultManager(logger golog.Logger, cfg *config.Config, syncInterval time.Duration, lastModSecs int) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
@@ -86,12 +89,12 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, syncInterval tim
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn, syncInterval)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, syncInterval, lastModSecs)
 }
 
 // NewManager returns a new syncer.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
-	conn rpc.ClientConn, syncInterval time.Duration,
+	conn rpc.ClientConn, syncInterval time.Duration, lastModifiedSecs int,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
@@ -105,6 +108,7 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		syncInterval:      syncInterval,
 		progressLock:      &sync.Mutex{},
 		inProgress:        make(map[string]bool),
+		lastModifiedSecs:  lastModifiedSecs,
 	}
 	return &ret, nil
 }
@@ -187,6 +191,34 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 	}
 }
 
+func (s *syncer) SyncArbitraryFiles(dirs []string) {
+	var paths []string
+	for _, dir := range dirs {
+		paths = append(paths, getAllFilePaths(dir)...)
+	}
+
+	for _, p := range paths {
+		newP := p
+		s.backgroundWorkers.Add(1)
+		goutils.PanicCapturingGo(func() {
+			defer s.backgroundWorkers.Done()
+			select {
+			case <-s.cancelCtx.Done():
+				return
+			default:
+				//nolint:gosec
+				f, err := os.Open(newP)
+				if err != nil {
+					s.logger.Errorw("error opening file", "error", err)
+					return
+				}
+
+				s.syncArbitraryFile(f)
+			}
+		})
+	}
+}
+
 func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 	for {
 		select {
@@ -242,6 +274,7 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 }
 
 func (s *syncer) syncArbitraryFile(f *os.File) {
+
 	if !s.markInProgress(f.Name()) {
 		return
 	}
@@ -342,4 +375,20 @@ func getNextWait(lastWait time.Duration) time.Duration {
 		return maxRetryInterval
 	}
 	return nextWait
+}
+
+func getAllFilePaths(dir string) []string {
+	var filePaths []string
+
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		filePaths = append(filePaths, path)
+		return nil
+	})
+	return filePaths
 }

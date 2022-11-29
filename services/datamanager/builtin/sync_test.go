@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -10,8 +11,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"math"
 	"os"
@@ -20,6 +19,10 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+)
+
+var (
+	testLastModifiedSecs = 1
 )
 
 func TestSyncEnabled(t *testing.T) {
@@ -280,7 +283,7 @@ func TestDataCaptureUpload(t *testing.T) {
 
 			// Calculate combined successful/failed requests
 			var successfulURs []*v1.DataCaptureUploadRequest
-			if newMockService != nil {
+			if tc.serviceFailAt > 0 {
 				successfulURs = append(mockService.getSuccessfulDCUploadRequests(), newMockService.getSuccessfulDCUploadRequests()...)
 			} else {
 				successfulURs = mockService.getSuccessfulDCUploadRequests()
@@ -309,8 +312,128 @@ func TestDataCaptureUpload(t *testing.T) {
 	}
 }
 
-func getCapturedData(dir string) ([]*v1.SensorData, error) {
-	var allFiles []*datacapture.File
+// Cases: manual sync, successful, unsuccessful
+// To validate: uploaded all data once, deleted file if no error, builds additional sync paths if none exist
+func TestArbitraryFileUpload(t *testing.T) {
+	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
+	datasync.RetryExponentialFactor = 1
+	datasync.InitialWaitTimeMillis.Store(int32(20))
+	syncTime := time.Millisecond * 100
+	datasync.UploadChunkSize = 1024
+	fileName := "some_file_name.txt"
+	fileExt := ".txt"
+
+	tests := []struct {
+		name                 string
+		manualSync           bool
+		scheduleSyncDisabled bool
+		serviceFail          bool
+	}{
+		{
+			name:                 "Scheduled sync of arbitrary files should work.",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			serviceFail:          false,
+		},
+		{
+			name:                 "Manual sync of arbitrary files should work.",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			serviceFail:          false,
+		},
+		{
+			name:                 "Running manual and scheduled sync concurrently should work and not lead to duplicate uploads.",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			serviceFail:          false,
+		},
+		{
+			name:                 "If an error response is received from the backend, local files should not be deleted.",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			serviceFail:          false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up server.
+			tmpDir, err := os.MkdirTemp("", "")
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			var failFor int
+			if tc.serviceFail {
+				failFor = 100
+			}
+			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0, failFor)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			// Set up data manager.
+			dmsvc := newTestDataManager(t)
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
+			cfg := setupConfig(t, enabledTabularCollectorConfigPath)
+
+			// Set up service config.
+			svcConfig, ok, err := getServiceConfig(cfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok, test.ShouldBeTrue)
+			svcConfig.CaptureDisabled = true
+			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
+			svcConfig.SyncIntervalMins = 0.001
+			svcConfig.AdditionalSyncPaths = []string{tmpDir}
+
+			// Start dmsvc.
+			dmsvc.SetWaitAfterLastModifiedSecs(testLastModifiedSecs)
+			err = dmsvc.Update(context.Background(), cfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Write some files to the path.
+			fileContents := make([]byte, datasync.UploadChunkSize*4)
+			fileContents = append(fileContents, []byte("happy cows come from california")...)
+			tmpFile, err := os.Create(filepath.Join(tmpDir, "temp_file.txt"))
+			test.That(t, err, test.ShouldBeNil)
+			_, err = tmpFile.Write(fileContents)
+			test.That(t, err, test.ShouldBeNil)
+			time.Sleep(time.Millisecond * 1100)
+
+			// Call manual sync if desired.
+			if tc.manualSync {
+				err = dmsvc.Sync(context.Background(), nil)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			time.Sleep(syncTime)
+
+			// Validate error and URs.
+			remainingFiles := getAllFilePaths(tmpDir)
+			if tc.serviceFail {
+				// Error case.
+				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
+			} else {
+				// Validate first metadata message.
+				actMD := mockService.getSuccessfulDCUploadRequests()[0].GetMetadata()
+				test.That(t, actMD, test.ShouldNotBeNil)
+				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
+				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
+				test.That(t, actMD.GetPartId(), test.ShouldEqual, cfg.Cloud.ID)
+
+				// Validate ensuing data messages.
+
+				// Validate file no longer exists.
+				test.That(t, len(remainingFiles), test.ShouldEqual, 0)
+			}
+		})
+	}
+}
+
+func getAllFilePaths(dir string) []string {
 	var filePaths []string
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -323,6 +446,12 @@ func getCapturedData(dir string) ([]*v1.SensorData, error) {
 		filePaths = append(filePaths, path)
 		return nil
 	})
+	return filePaths
+}
+
+func getCapturedData(dir string) ([]*v1.SensorData, error) {
+	var allFiles []*datacapture.File
+	filePaths := getAllFilePaths(dir)
 
 	for _, f := range filePaths {
 		osFile, err := os.Open(f)
@@ -380,60 +509,14 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 }
 
-// // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
-// // syncing of data in the service's additional_sync_paths.
-// // nolint
-//
-//	func populateAdditionalSyncPaths() ([]string, int, error) {
-//		var additionalSyncPaths []string
-//		numArbitraryFilesToSync := 0
-//
-//		// Generate additional_sync_paths "dummy" dirs & files.
-//		for i := 0; i < 2; i++ {
-//			// Create a temp dir that will be in additional_sync_paths.
-//			td, err := os.MkdirTemp("", "additional_sync_path_dir_")
-//			if err != nil {
-//				return []string{}, 0, errors.New("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
-//			}
-//			additionalSyncPaths = append(additionalSyncPaths, td)
-//
-//			// Make the first dir empty.
-//			if i == 0 {
-//				continue
-//			} else {
-//				// Make the dirs that will contain two file.
-//				for i := 0; i < 2; i++ {
-//					// Generate data that will be in a temp file.
-//					fileData := []byte("This is file data. It will be stored in a directory included in the user's specified additional sync paths. Hopefully it is uploaded from the robot to the cloud!")
-//
-//					// Create arbitrary file that will be in the temp dir generated above.
-//					tf, err := os.CreateTemp(td, "arbitrary_file_")
-//					if err != nil {
-//						return nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
-//					}
-//
-//					// Write data to the temp file.
-//					if _, err := tf.Write(fileData); err != nil {
-//						return nil, 0, errors.New("cannot write arbitrary data to temporary file")
-//					}
-//
-//					// Increment number of files to be synced.
-//					numArbitraryFilesToSync++
-//				}
-//			}
-//		}
-//		return additionalSyncPaths, numArbitraryFilesToSync, nil
-//	}
-//
-
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config, interval time.Duration) (datasync.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config, interval time.Duration, lastModSecs int) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		if err != nil {
 			return nil, err
 		}
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, interval)
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, interval, lastModSecs)
 	}
 }
 
@@ -488,7 +571,26 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 }
 
 func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUploadServer) error {
-	return status.Errorf(codes.Unimplemented, "method FileUpload not implemented")
+	fmt.Println("starting file upload in mock service")
+
+	(*m.lock).Lock()
+	defer (*m.lock).Unlock()
+
+	if m.failFor > 0 {
+		return errors.New("oh no, error")
+	}
+
+	for {
+		ur, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		*m.fileUploadRequests = append(*m.fileUploadRequests, ur)
+	}
+	return nil
 }
 
 //nolint:thelper
