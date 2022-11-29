@@ -281,10 +281,11 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewQueue(svc.captureDir, captureMetadata),
-		QueueSize:     captureQueueSize,
-		BufferSize:    captureBufferSize,
-		Logger:        svc.logger,
+		Target: datacapture.NewQueue(filepath.Join(svc.captureDir, time.Now().Format(time.RFC3339Nano)),
+			captureMetadata),
+		QueueSize:  captureQueueSize,
+		BufferSize: captureBufferSize,
+		Logger:     svc.logger,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
@@ -338,11 +339,10 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 	return nil, nil
 }
 
-func (svc *builtIn) syncPreviouslyCaptured() {
-	// Sync existing files in captureDir.
+func getAllFilePaths(dir string) []string {
 	var previouslyCaptured []string
 	//nolint
-	_ = filepath.Walk(svc.captureDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -352,8 +352,14 @@ func (svc *builtIn) syncPreviouslyCaptured() {
 		previouslyCaptured = append(previouslyCaptured, path)
 		return nil
 	})
-	svc.syncer.SyncCaptureFiles(previouslyCaptured)
+	return previouslyCaptured
 }
+
+//func (svc *builtIn) syncPreviouslyCaptured() {
+//	// Sync existing files in captureDir.
+//	previouslyCaptured := getAllFilePaths(svc.captureDir)
+//	svc.syncer.SyncCaptureFiles(previouslyCaptured)
+//}
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
@@ -366,12 +372,23 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 			return err
 		}
 	}
-	svc.lock.Unlock()
 
 	// TODO: manual and scheduled clash if we're capturing stuff and I don't know how to fix it
-	svc.syncCollectorQueues()
+	// TODO: think i did it
+
+	// First, get all current files in capture directory.
+	previouslyCaptured := getAllFilePaths(svc.captureDir)
+
+	// Then, reset all current queues. This ensures scheduled syncs pulling from this queue won't pull the previously
+	// capture files.
+	for _, c := range svc.collectors {
+		c.Collector.GetTarget().Reset()
+	}
+	svc.lock.Unlock()
+
+	// Then, sync the above files, as well as all arbitrary files.
+	svc.syncer.SyncCaptureFiles(previouslyCaptured)
 	svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
-	svc.syncPreviouslyCaptured()
 	return nil
 }
 
@@ -471,17 +488,27 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	// TODO: don't cancel in progress arbitrary file uploads on Update unless sync has been disabled or
+	//       additional_sync_paths has changed.
 	svc.closeSyncer()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
-		svc.syncPreviouslyCaptured()
+		previouslyCaptured := getAllFilePaths(svc.captureDir)
+		svc.syncer.SyncCaptureFiles(previouslyCaptured)
+		svc.resetCollectorTargets()
 		svc.startSyncBackgroundRoutine(svc.syncIntervalMins)
 	}
 
 	return nil
+}
+
+func (svc *builtIn) resetCollectorTargets() {
+	for _, c := range svc.collectors {
+		c.Collector.GetTarget().Reset()
+	}
 }
 
 func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {

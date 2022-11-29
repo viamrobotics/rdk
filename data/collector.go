@@ -85,7 +85,7 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw(fmt.Sprintf("failed to write to directory %s", c.target.Directory), "error", err)
+			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Directory), "error", err)
 		}
 	})
 }
@@ -230,6 +230,9 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
 
+	fmt.Println("building collector with target")
+	fmt.Println(params.Target.Directory)
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),
@@ -241,14 +244,13 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		cancelCtx:         cancelCtx,
 		cancel:            cancelFunc,
 		capturer:          capturer,
-
-		// TODO
-		target: params.Target,
+		target:            params.Target,
 	}, nil
 }
 
 func (c *collector) write() error {
 	for msg := range c.queue {
+		fmt.Println("writing to queue")
 		if err := c.target.Push(msg); err != nil {
 			return err
 		}

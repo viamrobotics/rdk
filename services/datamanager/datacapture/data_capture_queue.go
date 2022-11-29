@@ -108,6 +108,14 @@ func (q *Queue) IsClosed() bool {
 	return q.closed
 }
 
+// Reset removes all items from the queue. It does not delete the underlying files from disk.
+func (q *Queue) Reset() {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	q.nextFile = nil
+	q.files = []*File{}
+}
+
 func (q *Queue) pushNextFile() error {
 	if q.nextFile == nil {
 		return nil
