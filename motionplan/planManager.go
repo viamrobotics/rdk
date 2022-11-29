@@ -86,7 +86,7 @@ func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 		if !ok {
 			pathStepSize = defaultPathStepSize
 		}
-		numSteps := GetSteps(seedPos, goalPos, pathStepSize)
+		numSteps := PathStepCount(seedPos, goalPos, pathStepSize)
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {

@@ -4,7 +4,6 @@ package motionplan
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
-	vutil "go.viam.com/rdk/utils"
 )
 
 // motionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
@@ -177,19 +175,6 @@ func PlanWaypoints(ctx context.Context,
 	return steps, nil
 }
 
-// FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
-func FrameStepsFromRobotPath(frameName string, path []map[string][]frame.Input) ([][]frame.Input, error) {
-	solution := make([][]frame.Input, 0, len(path))
-	for _, step := range path {
-		frameStep, ok := step[frameName]
-		if !ok {
-			return nil, fmt.Errorf("frame named %s not found in solved motion path", frameName)
-		}
-		solution = append(solution, frameStep)
-	}
-	return solution, nil
-}
-
 type planner struct {
 	solver   InverseKinematics
 	frame    frame.Frame
@@ -331,35 +316,6 @@ func (np *nodePair) sumCosts() float64 {
 		return 0
 	}
 	return a.cost + b.cost
-}
-
-// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan planReturn, planOpts *plannerOptions) (totalCost float64) {
-	if errors.Is(plan.err(), errPlannerFailed) {
-		return math.Inf(1)
-	}
-	steps := plan.toInputs()
-	for i := 0; i < len(steps)-1; i++ {
-		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
-		totalCost += cost
-	}
-	return totalCost
-}
-
-// GetSteps will determine the number of steps which should be used to get from the seed to the goal.
-// The returned value is guaranteed to be at least 1.
-// stepSize represents both the max mm movement per step, and max R4AA degrees per step.
-func GetSteps(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
-	// use a default size of 1 if zero is passed in to avoid divide-by-zero
-	if stepSize == 0 {
-		stepSize = 1.
-	}
-
-	mmDist := seedPos.Point().Distance(goalPos.Point())
-	rDist := spatialmath.OrientationBetween(seedPos.Orientation(), goalPos.Orientation()).AxisAngles()
-
-	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(vutil.RadToDeg(rDist.Theta)/stepSize))
-	return int(nSteps) + 1
 }
 
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
