@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	commonpb "go.viam.com/api/common/v1"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -25,7 +23,7 @@ type MotionService struct {
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
-		supplementalTransforms []*commonpb.Transform,
+		supplementalTransforms []*referenceframe.PoseInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
@@ -63,7 +61,7 @@ func (mgs *MotionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if mgs.GetPoseFunc == nil {

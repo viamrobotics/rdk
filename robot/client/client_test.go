@@ -1259,14 +1259,14 @@ func TestClientConfig(t *testing.T) {
 
 	workingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return nil, configErr
 	}

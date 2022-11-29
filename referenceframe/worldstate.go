@@ -12,7 +12,7 @@ import (
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
 	Obstacles, InteractionSpaces []*GeometriesInFrame
-	Transforms                   []*commonpb.Transform
+	Transforms                   []*PoseInFrame
 }
 
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
@@ -31,11 +31,15 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	if proto == nil {
 		return &WorldState{}, nil
 	}
-	obstacles, err := convertProtoGeometries(proto.Obstacles)
+	obstacles, err := convertProtoGeometries(proto.GetObstacles())
 	if err != nil {
 		return nil, err
 	}
-	interactionSpaces, err := convertProtoGeometries(proto.InteractionSpaces)
+	interactionSpaces, err := convertProtoGeometries(proto.GetInteractionSpaces())
+	if err != nil {
+		return nil, err
+	}
+	transforms, err := PoseInFrameSliceFromTransformProtobuf(proto.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
@@ -43,12 +47,12 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	return &WorldState{
 		Obstacles:         obstacles,
 		InteractionSpaces: interactionSpaces,
-		Transforms:        proto.GetTransforms(),
+		Transforms:        transforms,
 	}, nil
 }
 
 // WorldStateToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
-func WorldStateToProtobuf(worldState *WorldState) *commonpb.WorldState {
+func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) {
 	convertGeometriesToProto := func(allGeometries []*GeometriesInFrame) []*commonpb.GeometriesInFrame {
 		list := make([]*commonpb.GeometriesInFrame, 0)
 		for _, geometries := range allGeometries {
@@ -57,11 +61,16 @@ func WorldStateToProtobuf(worldState *WorldState) *commonpb.WorldState {
 		return list
 	}
 
+	transforms, err := PoseInFrameSliceToTransformProtobuf(worldState.Transforms)
+	if err != nil {
+		return nil, err
+	}
+
 	return &commonpb.WorldState{
 		Obstacles:         convertGeometriesToProto(worldState.Obstacles),
 		InteractionSpaces: convertGeometriesToProto(worldState.InteractionSpaces),
-		Transforms:        worldState.Transforms,
-	}
+		Transforms:        transforms,
+	}, nil
 }
 
 // ToWorldFrame takes a frame system and a set of inputs for that frame system and converts all the geometries

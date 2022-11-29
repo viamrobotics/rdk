@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	// register.
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
@@ -66,7 +64,7 @@ func (m *mock) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	return &referenceframe.PoseInFrame{}, nil

@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -175,7 +174,7 @@ func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {
