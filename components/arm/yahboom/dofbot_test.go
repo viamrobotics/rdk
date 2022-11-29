@@ -28,15 +28,18 @@ func TestDofBotIK(t *testing.T) {
 
 	model, err := Model("test")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
-	test.That(t, err, test.ShouldBeNil)
 
 	goal := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 206.59, Y: -1.57, Z: 253.05},
 		&spatialmath.OrientationVectorDegrees{Theta: -180, OX: -.53, OY: 0, OZ: .85},
 	)
-	opt := motionplan.NewBasicPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	_, err = mp.Plan(ctx, goal, model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}), opt)
+	_, err = motionplan.PlanFrameMotion(
+		ctx,
+		logger,
+		goal,
+		model,
+		model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}),
+		map[string]interface{}{"motion_profile": "position_only"},
+	)
 	test.That(t, err, test.ShouldBeNil)
 }

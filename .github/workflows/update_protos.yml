@@ -21,11 +21,10 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update go mod
-        run: go mod -u
-
-      - name: Update frontend
-        run: make buf
+      - name: Update api package
+        run: |
+          go get -u go.viam.com/api
+          go mod tidy
 
       - name: Make build lint
         run: make build lint

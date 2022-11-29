@@ -23,7 +23,7 @@ func TestNearestNeighbor(t *testing.T) {
 
 	seed := []referenceframe.Input{{23.1}}
 	// test serial NN
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	nn := nm.nearestNeighbor(ctx, opt, seed, rrtMap)
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 23.0)
 

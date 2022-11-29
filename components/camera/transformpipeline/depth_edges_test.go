@@ -41,8 +41,9 @@ func TestDepthSource(t *testing.T) {
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, stream, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 	_, _, err = camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
@@ -72,8 +73,9 @@ func (h *depthSourceTestHelper) Process(
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, stream, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 	edges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
@@ -87,8 +89,9 @@ func (h *depthSourceTestHelper) Process(
 
 	// preprocess depth map
 	source = &videosource.StaticSource{DepthImg: dm}
-	rs, err := newDepthPreprocessTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}))
+	rs, stream, err := newDepthPreprocessTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
 	output, _, err := camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
@@ -102,8 +105,9 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
 	source = &videosource.StaticSource{DepthImg: preprocessed}
-	ds, err = newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, stream, err = newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 	processedEdges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
