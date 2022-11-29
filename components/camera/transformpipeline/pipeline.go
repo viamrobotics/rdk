@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -64,7 +65,6 @@ func init() {
 type transformConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
 	Source               string                             `json:"source"`
 	Pipeline             []Transformation                   `json:"pipeline"`
@@ -79,23 +79,38 @@ func newTransformPipeline(
 	if len(cfg.Pipeline) == 0 {
 		return nil, errors.New("pipeline has no transforms in it")
 	}
+	// check if the source produces a depth image or color image
+	img, release, err := camera.ReadImage(ctx, source)
+	if err != nil {
+		return nil, err
+	}
+	var streamType camera.StreamType
+	if _, ok := img.(*rimage.DepthMap); ok {
+		streamType = camera.DepthStream
+	} else if _, ok := img.(*image.Gray16); ok {
+		streamType = camera.DepthStream
+	} else {
+		streamType = camera.ColorStream
+	}
+	release()
 	// loop through the pipeline and create the image flow
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, err := buildTransform(ctx, r, lastSource, cfg, tr)
+		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
 			return nil, err
 		}
 		pipeline = append(pipeline, src)
 		lastSource = src
+		streamType = newStreamType
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
 	return camera.NewFromReader(
 		ctx,
 		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters},
-		&transform.PinholeCameraModel{cfg.CameraParameters, nil},
-		camera.StreamType(cfg.Stream),
+		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		streamType,
 	)
 }
 

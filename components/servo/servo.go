@@ -57,10 +57,10 @@ var Subtype = resource.NewSubtype(
 type Servo interface {
 	// Move moves the servo to the given angle (0-180 degrees)
 	// This will block until done or a new operation cancels this one
-	Move(ctx context.Context, angleDeg uint8, extra map[string]interface{}) error
+	Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error
 
 	// Position returns the current set angle (degrees) of the servo.
-	Position(ctx context.Context, extra map[string]interface{}) (uint8, error)
+	Position(ctx context.Context, extra map[string]interface{}) (uint32, error)
 
 	// Stop stops the servo. It is assumed the servo stops immediately.
 	Stop(ctx context.Context, extra map[string]interface{}) error
@@ -129,7 +129,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{PositionDeg: uint32(position), IsMoving: isMoving}, nil
+	return &pb.Status{PositionDeg: position, IsMoving: isMoving}, nil
 }
 
 type reconfigurableServo struct {
@@ -155,13 +155,13 @@ func (r *reconfigurableServo) DoCommand(ctx context.Context, cmd map[string]inte
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8, extra map[string]interface{}) error {
+func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Move(ctx, angleDeg, extra)
 }
 
-func (r *reconfigurableServo) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (r *reconfigurableServo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Position(ctx, extra)

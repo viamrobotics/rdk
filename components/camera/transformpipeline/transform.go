@@ -36,18 +36,17 @@ type Transformation struct {
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
-	ctx context.Context, r robot.Robot, source gostream.VideoSource, cfg *transformConfig, tr Transformation,
-) (gostream.VideoSource, error) {
-	stream := camera.StreamType(cfg.Stream)
+	ctx context.Context, r robot.Robot, source gostream.VideoSource, stream camera.StreamType, tr Transformation,
+) (gostream.VideoSource, camera.StreamType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:
-		return source, nil
+		return source, stream, nil
 	case transformTypeRotate:
 		return newRotateTransform(ctx, source, stream)
 	case transformTypeResize:
 		return newResizeTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDepthPretty:
-		return newDepthToPrettyTransform(ctx, source, stream, cfg.CameraParameters)
+		return newDepthToPrettyTransform(ctx, source, stream)
 	case transformTypeOverlay:
 		return newOverlayTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeUndistort:
@@ -59,6 +58,6 @@ func buildTransform(
 	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(ctx, source)
 	default:
-		return nil, errors.Errorf("do not know camera transform of type %q", tr.Type)
+		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
 }

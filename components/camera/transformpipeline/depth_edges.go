@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -27,18 +28,28 @@ type depthEdgesSource struct {
 	blurRadius float64
 }
 
-func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am config.AttributeMap) (gostream.VideoSource, error) {
+func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am config.AttributeMap,
+) (gostream.VideoSource, camera.StreamType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesAttrs{}), am)
 	if err != nil {
-		return nil, err
+		return nil, camera.UnspecifiedStream, err
 	}
 	attrs, ok := conf.(*depthEdgesAttrs)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	var cameraModel *transform.PinholeCameraModel
+	if cameraSrc, ok := source.(camera.Camera); ok {
+		props, err := cameraSrc.Properties(ctx)
+		if err != nil {
+			return nil, camera.UnspecifiedStream, err
+		}
+		cameraModel = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(attrs.HiThresh, attrs.LoThresh, true)
 	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
-	return camera.NewFromReader(ctx, videoSrc, nil, camera.DepthStream)
+	cam, err := camera.NewFromReader(ctx, videoSrc, cameraModel, camera.DepthStream)
+	return cam, camera.DepthStream, err
 }
 
 // Next applies a canny edge detector on the depth map of the next image.
