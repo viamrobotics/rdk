@@ -391,7 +391,6 @@ func TestFixedPointCloudICP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
 	attrs := &JoinAttrs{
-		Stream:        "",
 		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
@@ -413,7 +412,6 @@ func TestTwinPointCloudICP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
-		Stream:        "",
 		Debug:         true,
 		SourceCameras: []string{"cam3", "cam4"},
 		TargetFrame:   "cam3",
@@ -439,7 +437,6 @@ func TestMultiPointCloudICP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
-		Stream:        "",
 		Debug:         true,
 		SourceCameras: []string{"cam3", "cam4", "cam5"},
 		TargetFrame:   "cam3",
