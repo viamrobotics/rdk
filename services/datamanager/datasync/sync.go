@@ -235,7 +235,7 @@ func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
 			}
 
 			if next == nil {
-				continue
+				break
 			}
 			s.syncDataCaptureFile(next)
 		}
