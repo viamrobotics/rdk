@@ -23,7 +23,7 @@ func (m method) String() string {
 
 // Position wraps the returned set angle (degrees) value.
 type Position struct {
-	Position uint8
+	Position uint32
 }
 
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
