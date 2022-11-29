@@ -309,7 +309,7 @@ func (svc *builtIn) closeSyncer() {
 
 func (svc *builtIn) initSyncer(cfg *config.Config, intervalMins float64) error {
 	interval := time.Duration(60000.0*intervalMins) * time.Millisecond
-	syncer, err := svc.syncerConstructor(svc.logger, cfg, interval)
+	syncer, err := svc.syncerConstructor(svc.logger, cfg, interval, svc.waitAfterLastModifiedSecs)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -390,50 +390,11 @@ func (svc *builtIn) syncDataCaptureFiles() {
 	return
 }
 
-// TODO: pretty sure this will only be called in update. Ensure lock is held.
-func (svc *builtIn) buildAdditionalSyncPaths() []string {
-	currAdditionalSyncPaths := svc.additionalSyncPaths
-	waitAfterLastModified := svc.waitAfterLastModifiedSecs
-
-	var filepathsToSync []string
-	// Loop through additional sync paths and add files from each to the syncer.
-	for _, asp := range currAdditionalSyncPaths {
-		// Check that additional sync paths directories exist. If not, create directories accordingly.
-		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
-			err := os.Mkdir(asp, os.ModePerm)
-			if err != nil {
-				svc.logger.Errorw("data manager unable to create a directory specified as an additional sync path", "error", err)
-			}
-		} else {
-			// Traverse all files in 'asp' directory and append them to a list of files to be synced.
-			now := time.Now()
-			//nolint
-			_ = filepath.Walk(asp, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil
-				}
-				if info.IsDir() {
-					return nil
-				}
-				// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
-				// may still be being written).
-				if diff := now.Sub(info.ModTime()); diff < (time.Duration(waitAfterLastModified) * time.Second) {
-					return nil
-				}
-				filepathsToSync = append(filepathsToSync, path)
-				return nil
-			})
-		}
-	}
-	return filepathsToSync
-}
-
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
-	// TODO: reimpliment arbitary file uploads
-	//svc.syncer.SyncCaptureFiles(svc.buildAdditionalSyncPaths())
+	svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
 }
 
 // Update updates the data manager service when the config has changed.
