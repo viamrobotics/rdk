@@ -74,12 +74,12 @@ func (meta *MetaData) TotalX() float64 {
 
 // TotalY returns the totalY stored in metadata.
 func (meta *MetaData) TotalY() float64 {
-	return meta.totalX
+	return meta.totalY
 }
 
 // TotalZ returns the totalZ stored in metadata.
 func (meta *MetaData) TotalZ() float64 {
-	return meta.totalX
+	return meta.totalZ
 }
 
 // Merge updates the meta data with the new data.
