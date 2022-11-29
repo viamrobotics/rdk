@@ -502,8 +502,6 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		epsilon := 15 * time.Millisecond
-
 		// Note: the first Set() command must be != 0 to trigger a change event
 		target := 0
 		for i := 1; i < 10; i++ {
@@ -524,6 +522,7 @@ func TestGPIOInput(t *testing.T) {
 				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i)
 			})
 			s.axisMu.RLock()
+			epsilon := 15 * time.Millisecond
 			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 70*time.Millisecond, 100*time.Millisecond+epsilon)
 			s.axisMu.RUnlock()
 		}
