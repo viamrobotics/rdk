@@ -510,13 +510,13 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 }
 
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config, interval time.Duration, lastModSecs int) (datasync.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config, lastModSecs int) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		if err != nil {
 			return nil, err
 		}
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, interval, lastModSecs)
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, lastModSecs)
 	}
 }
 
