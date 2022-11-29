@@ -165,7 +165,7 @@ type alignColorDepth struct {
 	color, depth gostream.VideoStream
 	aligner      transform.Aligner
 	projector    transform.Projector
-	stream       camera.StreamType
+	stream       camera.ImageType
 	height       int // height of the aligned image
 	width        int // width of the aligned image
 	debug        bool
@@ -187,7 +187,7 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		)
 	}
 	// get the projector for the alignment camera
-	stream := camera.StreamType(attrs.Stream)
+	stream := camera.ImageType(attrs.Stream)
 	var props camera.Properties
 	var intrinsicParams *transform.PinholeCameraIntrinsics
 	switch {

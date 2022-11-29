@@ -31,7 +31,7 @@ func init() {
 				ctx,
 				videoSrc,
 				&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
-				camera.StreamType(attrs.Stream),
+				camera.ImageType(attrs.Stream),
 			)
 		}})
 
