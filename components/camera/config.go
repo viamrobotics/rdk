@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// StreamType specifies what kind of image stream is coming from the camera.
+// ImageType specifies what kind of image stream is coming from the camera.
 type ImageType string
 
 // The allowed types of streams that can come from a VideoSource.
