@@ -18,7 +18,7 @@ type WorldState struct {
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
 func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	convertProtoGeometries := func(allProtoGeometries []*commonpb.GeometriesInFrame) ([]*GeometriesInFrame, error) {
-		list := make([]*GeometriesInFrame, 0)
+		list := make([]*GeometriesInFrame, 0, len(allProtoGeometries))
 		for _, protoGeometries := range allProtoGeometries {
 			geometries, err := ProtobufToGeometriesInFrame(protoGeometries)
 			if err != nil {
@@ -54,7 +54,7 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 // WorldStateToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
 func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) {
 	convertGeometriesToProto := func(allGeometries []*GeometriesInFrame) []*commonpb.GeometriesInFrame {
-		list := make([]*commonpb.GeometriesInFrame, 0)
+		list := make([]*commonpb.GeometriesInFrame, 0, len(allGeometries))
 		for _, geometries := range allGeometries {
 			list = append(list, GeometriesInFrameToProtobuf(geometries))
 		}
