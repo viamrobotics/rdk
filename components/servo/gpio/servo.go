@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	minDeg     float64 = 0.0
-	maxDeg     float64 = 180.0
-	minWidthUs uint    = 500  // absolute minimum pwm width
-	maxWidthUs uint    = 2500 // absolute maximum pwm width
+	defaultMinDeg float64 = 0.0
+	defaultMaxDeg float64 = 180.0
+	minWidthUs    uint    = 500  // absolute minimum pwm width
+	maxWidthUs    uint    = 2500 // absolute maximum pwm width
 )
 
 type servoConfig struct {
@@ -57,21 +57,21 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 		return nil, viamutils.NewConfigValidationFieldRequiredError(path, "pin")
 	}
 	if config.StartPos != nil {
-		if config.MinDeg != nil && *config.StartPos < *config.MinDeg {
-			return nil, viamutils.NewConfigValidationError(path, errors.New("starting_position_degs cannot be lower than min_angle_deg"))
+		minDeg := defaultMinDeg
+		maxDeg := defaultMaxDeg
+		if config.MinDeg != nil {
+			minDeg = *config.MinDeg
 		}
-		if config.MaxDeg != nil && *config.StartPos > *config.MaxDeg {
-			return nil, viamutils.NewConfigValidationError(path, errors.New("starting_position_degs cannot be higher than max_angle_deg"))
+		if config.MaxDeg != nil {
+			maxDeg = *config.MaxDeg
 		}
 		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
-			return nil, viamutils.NewConfigValidationError(path, errors.New("starting_position_degs should be between 0 and 180"))
+			return nil, viamutils.NewConfigValidationError(path,
+				errors.Errorf("starting_position_degs should be between %.1f and %.1f", minDeg, maxDeg))
 		}
 	}
-	if config.MinDeg != nil && *config.MinDeg < minDeg {
-		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("min_angle_deg cannot be lower than %f", minDeg))
-	}
-	if config.MaxDeg != nil && *config.MaxDeg > maxDeg {
-		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("max_angle_deg cannot be higher than %f", maxDeg))
+	if config.MinDeg != nil && *config.MinDeg < 0 {
+		return nil, viamutils.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
 	}
 	if config.MinWidthUS != nil && *config.MinWidthUS < minWidthUs {
 		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
@@ -133,7 +133,7 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
 	}
 	if attr.Frequency != nil {
-		if frequency > 450 || frequency == 0 {
+		if *attr.Frequency > 450 || *attr.Frequency == 0 {
 			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", frequency)
 		}
 
@@ -144,8 +144,8 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 		frequency = *attr.Frequency
 	}
 
-	minDeg := minDeg
-	maxDeg := maxDeg
+	minDeg := defaultMinDeg
+	maxDeg := defaultMaxDeg
 	if attr.MinDeg != nil {
 		minDeg = *attr.MinDeg
 	}
@@ -176,14 +176,14 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 		currPct:   0,
 	}
 
-	if err := servo.Move(ctx, uint8(startPos), nil); err != nil {
+	if err := servo.Move(ctx, uint32(startPos), nil); err != nil {
 		return nil, errors.Wrap(err, "couldn't move servo to start position")
 	}
 	if servo.pwmRes == 0 {
 		if err := servo.findPWMResolution(ctx); err != nil {
 			return nil, errors.Wrap(err, "failed to guess the pwm resolution")
 		}
-		if err := servo.Move(ctx, uint8(startPos), nil); err != nil {
+		if err := servo.Move(ctx, uint32(startPos), nil); err != nil {
 			return nil, errors.Wrap(err, "couldn't move servo to start position")
 		}
 	}
@@ -193,7 +193,7 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 var _ = servo.LocalServo(&servoGPIO{})
 
 // Given minUs, maxUs, deg and frequency attempt to calculate the corresponding duty cycle pct.
-func mapDegToDutyCylePct(minUs, maxUs uint, deg float64, frequency uint) float64 {
+func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequency uint) float64 {
 	period := 1.0 / float64(frequency) // dutyCycle in s
 	degRange := maxDeg - minDeg        // servo moves from minDeg to maxDeg
 	uSRange := float64(maxUs - minUs)  // pulse width between minUs to maxUs
@@ -205,7 +205,7 @@ func mapDegToDutyCylePct(minUs, maxUs uint, deg float64, frequency uint) float64
 }
 
 // Given minUs, maxUs, deg and frequency returns the corresponding duty cycle pct.
-func mapDutyCylePctToDeg(minUs, maxUs uint, pct float64, frequency uint) float64 {
+func mapDutyCylePctToDeg(minUs, maxUs uint, minDeg, maxDeg, pct float64, frequency uint) float64 {
 	period := 1.0 / float64(frequency) // dutyCycle in s
 	pwmWidthUs := pct * period * 1000 * 1000
 	degRange := maxDeg - minDeg       // servo moves from minDeg to maxDeg
@@ -289,7 +289,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one.
-func (s *servoGPIO) Move(ctx context.Context, ang uint8, extra map[string]interface{}) error {
+func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]interface{}) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	angle := float64(ang)
@@ -299,7 +299,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint8, extra map[string]interf
 	if angle > s.max {
 		angle = s.max
 	}
-	pct := mapDegToDutyCylePct(s.minUs, s.maxUs, angle, s.frequency)
+	pct := mapDegToDutyCylePct(s.minUs, s.maxUs, s.min, s.max, angle, s.frequency)
 	if s.pwmRes != 0 {
 		realTick := math.Round(pct * float64(s.pwmRes))
 		pct = realTick / float64(s.pwmRes)
@@ -312,12 +312,12 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint8, extra map[string]interf
 }
 
 // Position returns the current set angle (degrees) of the servo.
-func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	pct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
 		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
 	}
-	return uint8(mapDutyCylePctToDeg(s.minUs, s.maxUs, pct, s.frequency)), nil
+	return uint32(mapDutyCylePctToDeg(s.minUs, s.maxUs, s.min, s.max, pct, s.frequency)), nil
 }
 
 // Stop stops the servo. It is assumed the servo stops immediately.

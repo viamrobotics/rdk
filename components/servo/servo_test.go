@@ -107,8 +107,8 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
-	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
-		return uint8(status.PositionDeg), nil
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+		return status.PositionDeg, nil
 	}
 	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
 		return true, nil
@@ -138,7 +138,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+		injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 			return 0, errFail
 		}
 		_, err = servo.CreateStatus(context.Background(), injectServo)
@@ -314,12 +314,12 @@ type mockLocal struct {
 	extra       map[string]interface{}
 }
 
-func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint8, extra map[string]interface{}) error {
+func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint32, extra map[string]interface{}) error {
 	mServo.extra = extra
 	return nil
 }
 
-func (mServo *mockLocal) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (mServo *mockLocal) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	mServo.posCount++
 	mServo.extra = extra
 	return pos, nil
