@@ -337,13 +337,13 @@ func TestArbitraryFileUpload(t *testing.T) {
 		},
 		{
 			name:                 "Manual sync of arbitrary files should work.",
-			manualSync:           false,
-			scheduleSyncDisabled: false,
+			manualSync:           true,
+			scheduleSyncDisabled: true,
 			serviceFail:          false,
 		},
 		{
 			name:                 "Running manual and scheduled sync concurrently should work and not lead to duplicate uploads.",
-			manualSync:           false,
+			manualSync:           true,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,
 		},
@@ -397,11 +397,11 @@ func TestArbitraryFileUpload(t *testing.T) {
 			// Write some files to the path.
 			fileContents := make([]byte, datasync.UploadChunkSize*4)
 			fileContents = append(fileContents, []byte("happy cows come from california")...)
-			tmpFile, err := os.Create(filepath.Join(tmpDir, "temp_file.txt"))
+			tmpFile, err := os.Create(filepath.Join(tmpDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond * 1100)
+			time.Sleep(time.Millisecond * 1200)
 
 			// Call manual sync if desired.
 			if tc.manualSync {
@@ -417,7 +417,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
 			} else {
 				// Validate first metadata message.
-				actMD := mockService.getSuccessfulDCUploadRequests()[0].GetMetadata()
+				actMD := mockService.getFileUploadRequests()[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
 				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
 				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
@@ -543,6 +543,12 @@ func (m *mockDataSyncServiceServer) getFailedDCUploadRequests() []*v1.DataCaptur
 	return *m.failedDCUploadRequests
 }
 
+func (m *mockDataSyncServiceServer) getFileUploadRequests() []*v1.FileUploadRequest {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return *m.fileUploadRequests
+}
+
 func (m *mockDataSyncServiceServer) setFailAt(v int32) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -583,6 +589,13 @@ func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUplo
 	for {
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
+			err := stream.SendAndClose(&v1.FileUploadResponse{
+				Code:    200,
+				Message: "yay",
+			})
+			if err != nil {
+				return err
+			}
 			break
 		}
 		if err != nil {
@@ -602,6 +615,7 @@ func buildAndStartLocalSyncServer(t *testing.T, failAt int, failFor int) (rpc.Se
 	mockService := mockDataSyncServiceServer{
 		successfulDCUploadRequests:         &[]*v1.DataCaptureUploadRequest{},
 		failedDCUploadRequests:             &[]*v1.DataCaptureUploadRequest{},
+		fileUploadRequests:                 &[]*v1.FileUploadRequest{},
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 		failAt:                             int32(failAt),

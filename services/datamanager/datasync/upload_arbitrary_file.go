@@ -47,6 +47,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 	if err != nil {
 		return errors.Wrapf(err, "received error response while syncing %s", f.Name())
 	}
+
 	if resp.GetCode() != 200 {
 		return errors.Wrapf(err, "received non-200 response %d while syncing %s: %s", resp.GetCode(), f.Name(),
 			resp.GetMessage())
