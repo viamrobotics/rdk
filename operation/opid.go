@@ -134,7 +134,7 @@ func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string,
 
 	o := m.Find(id)
 	if o != nil {
-		m.logger.Warnf("attempt to create duplicate operation ID %s with method %s", id.String(), method)
+		m.logger.Warnw("attempt to create duplicate operation", "id", id.String(), "method", method)
 	}
 
 	op := &Operation{

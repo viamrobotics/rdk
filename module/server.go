@@ -85,13 +85,23 @@ func (s *Server) RegisterServiceServer(
 
 // GatewayHandler is unsupported.
 func (s *Server) GatewayHandler() http.Handler {
-	return nil
+	return &httpHandler{}
 }
 
 // GRPCHandler is unsupported.
 func (s *Server) GRPCHandler() http.Handler {
-	return nil
+	return &httpHandler{}
 }
 
 // ServeHTTP is unsupported.
-func (s *Server) ServeHTTP(http.ResponseWriter, *http.Request) {}
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h := &httpHandler{}
+	h.ServeHTTP(w, r)
+}
+
+type httpHandler struct{}
+
+// ServeHTTP returns only an error message.
+func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "http unsupported", http.StatusInternalServerError)
+}

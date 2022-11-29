@@ -75,18 +75,18 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 			return nil, errors.New("whoops! failed to start up")
 		}
 
-		switch converted.ArmModel {
-		case string(xarm.ModelName6DOF.Name):
+		switch resource.ModelName(converted.ArmModel) {
+		case xarm.ModelName6DOF.Name:
 			model, err = xarm.Model(cfg.Name, 6)
-		case string(xarm.ModelName7DOF.Name):
+		case xarm.ModelName7DOF.Name:
 			model, err = xarm.Model(cfg.Name, 7)
-		case string(ur.ModelName.Name):
+		case ur.ModelName.Name:
 			model, err = ur.Model(cfg.Name)
-		case string(yahboom.ModelName.Name):
+		case yahboom.ModelName.Name:
 			model, err = yahboom.Model(cfg.Name)
-		case string(eva.ModelName.Name):
+		case eva.ModelName.Name:
 			model, err = eva.Model(cfg.Name)
-		case string(ModelName.Name), "":
+		case ModelName.Name, "":
 			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 		default:
 			return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", cfg.ConvertedAttributes.(*AttrConfig).ArmModel)

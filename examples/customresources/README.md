@@ -1,8 +1,8 @@
 # CustomResources
-This example demonstrates several ways viam-server can be extended with custom resources. It contains several sections. Note that `make` is used throughout to help script commands. The actual commands being run should be printed before as they are used. You can also look in the various "Makefile" named files throughout, to see the exact targets and what they do.
+This example demonstrates several ways RDK can be extended with custom resources. It contains several sections. Note that `make` is used throughout to help script commands. The actual commands being run should be printed as they are used. You can also look in the various "Makefile" named files throughout, to see the exact targets and what they do.
 
 ## APIs
-APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implmenetations of a grpc client and server.
+APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implmenetations of a gRPC client and server.
 
 ### gizmoapi
 Custom (component) api/protocol called "Gizmo" (acme:component:gizmo).
@@ -32,7 +32,7 @@ Custom service (acme:demo:mynavigation) that implements Viam's built-in Nativati
 ## Demos
 Each demo showcases an implementation of custom resources. They fall into two categories.
 
-* One is a module, which is the newer, preferred method of implementing a custom resource. It involves building a small binary that will (after configuration) be automatically started by a parent-viam server process, and communicate with it via GRPC over a Unix (file-like) socket on the local system. All configuration is done via the single parent robot, with relevant bits being passed to the module as neccessary.
+* One is a module, which is the newer, preferred method of implementing a custom resource. It involves building a small binary that will (after configuration) be automatically started by a parent-viam server process, and communicate with it via gRPC over a Unix (file-like) socket on the local system. All configuration is done via the single parent robot, with relevant bits being passed to the module as neccessary.
 
 * The other demo is the older, deprecated method, which is creating a standalone robot server (very similar to viam-server itself) with the new/custom component, and other non-needed parts stripped out, and then using that as a "remote" from a parent viam-server (even though it would technically run on the same local machine.) This requires two seperate configs, one for the parent, and one for the custom server.
 

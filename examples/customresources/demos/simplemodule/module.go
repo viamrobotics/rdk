@@ -25,7 +25,7 @@ func main() {
 	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("SimpleModule"))
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	// Here we validate that we've been passed a socket path as the first argument.
 	if len(args) < 2 {
 		return errors.New("need socket path as command line argument")

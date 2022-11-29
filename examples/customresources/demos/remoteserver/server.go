@@ -16,18 +16,30 @@ import (
 
 var logger = golog.NewDebugLogger("gizmoserver")
 
+// Arguments for the command.
+type Arguments struct {
+	ConfigFile                 string `flag:"config,usage=robot config file"`
+}
+
 func main() {
 	goutils.ContextualMain(mainWithArgs, logger)
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	if len(args) != 3 || args[1] != "-config" || len(args[2]) <= 0 {
-		return errors.New("need -config option and valid json config file")
+	var argsParsed Arguments
+	if err := goutils.ParseFlags(args, &argsParsed); err != nil {
+		return err
 	}
-	cfg, err := config.Read(ctx, args[2], logger)
+
+	if argsParsed.ConfigFile == "" {
+		return errors.New("please specify a config file through the -config parameter.")
+	}
+
+	cfg, err := config.Read(ctx, argsParsed.ConfigFile, logger)
 	if err != nil {
 		return err
 	}
+
 	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err

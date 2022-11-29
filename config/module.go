@@ -11,7 +11,7 @@ var moduleNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 const reservedModuleName = "parent"
 
-// Module represents an external resource module, with path to a binary.
+// Module represents an external resource module, with a path to the binary module file.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
 	Name string `json:"name"`

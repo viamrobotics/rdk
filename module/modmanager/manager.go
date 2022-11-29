@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
-	modif "go.viam.com/rdk/module/modmanager/modmaninterface"
+	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -175,8 +175,8 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 func (mgr *Manager) AddResource(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	module := mgr.getModule(cfg)
-	if module == nil {
+	module, ok := mgr.getModule(cfg)
+	if !ok {
 		return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
 	}
 
@@ -203,8 +203,8 @@ func (mgr *Manager) AddResource(ctx context.Context, cfg config.Component, deps 
 func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	module := mgr.getModule(cfg)
-	if module == nil {
+	module, ok := mgr.getModule(cfg)
+	if !ok {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
 	}
 
@@ -224,7 +224,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Componen
 func (mgr *Manager) NeedsModule(cfg config.Component) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	return mgr.getModule(cfg) != nil
+	_, ok := mgr.getModule(cfg)
+	return ok
 }
 
 // IsModularResource returns true if an existing resource IS handled by a module.
@@ -248,7 +249,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	return err
 }
 
-func (mgr *Manager) getModule(cfg config.Component) *module {
+func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 	for _, module := range mgr.modules {
 		var api resource.RPCSubtype
 		var ok bool
@@ -264,11 +265,11 @@ func (mgr *Manager) getModule(cfg config.Component) *module {
 		}
 		for _, model := range module.handles[api] {
 			if cfg.Model == model {
-				return module
+				return module, true
 			}
 		}
 	}
-	return nil
+	return nil, false
 }
 
 func (m *module) checkReady(ctx context.Context, addr string) error {

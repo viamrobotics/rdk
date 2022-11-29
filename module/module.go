@@ -120,8 +120,7 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 		handlers:   HandlerMap{},
 		services:   map[resource.Subtype]subtype.Service{},
 	}
-	err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m)
-	if err != nil {
+	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -174,8 +173,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.parent == nil {
-		err := CheckSocketOwner(m.parentAddr)
-		if err != nil {
+		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger)
@@ -212,18 +210,18 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
 		if err != nil {
-			return &pb.AddResourceResponse{}, err
+			return nil, err
 		}
 		c, err := m.GetParentResource(ctx, name)
 		if err != nil {
-			return &pb.AddResourceResponse{}, err
+			return nil, err
 		}
 		deps[name] = c
 	}
 
 	cfg, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
-		return &pb.AddResourceResponse{}, err
+		return nil, err
 	}
 
 	var res interface{}
@@ -240,20 +238,20 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 			res, err = creator.Constructor(ctx, deps, config.ServiceConfigFromShared(*cfg), m.logger)
 		}
 	default:
-		return &pb.AddResourceResponse{}, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
+		return nil, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
 	}
 
 	if err != nil {
-		return &pb.AddResourceResponse{}, err
+		return nil, err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	subSvc, ok := m.services[cfg.API]
 	if !ok {
-		return &pb.AddResourceResponse{}, errors.Errorf("module can't service api: %s", cfg.API)
+		return nil, errors.Errorf("module cannot service api: %s", cfg.API)
 	}
-	return &pb.AddResourceResponse{}, subSvc.Add(cfg.ResourceName(), res)
+	return nil, subSvc.Add(cfg.ResourceName(), res)
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.
@@ -263,18 +261,18 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
 		if err != nil {
-			return &pb.ReconfigureResourceResponse{}, err
+			return nil, err
 		}
 		c, err := m.GetParentResource(ctx, name)
 		if err != nil {
-			return &pb.ReconfigureResourceResponse{}, err
+			return nil, err
 		}
 		deps[name] = c
 	}
 
 	cfg, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
-		return &pb.ReconfigureResourceResponse{}, err
+		return nil, err
 	}
 
 	m.mu.Lock()
@@ -282,7 +280,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	svc, ok := m.services[cfg.API]
 	if !ok {
-		return &pb.ReconfigureResourceResponse{}, errors.Errorf("no rpc service for %+v", cfg)
+		return nil, errors.Errorf("no rpc service for %+v", cfg)
 	}
 	res = svc.Resource(cfg.ResourceName().Name)
 
@@ -299,8 +297,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	// If it can't reconfigure, replace it.
-	err = utils.TryClose(ctx, res)
-	if err != nil {
+	if err := utils.TryClose(ctx, res); err != nil {
 		m.logger.Error(err)
 	}
 
@@ -310,7 +307,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		if creator != nil && creator.Constructor != nil {
 			comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
 			if err != nil {
-				return &pb.ReconfigureResourceResponse{}, err
+				return nil, err
 			}
 			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), comp)
 		}
@@ -320,16 +317,16 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		if creator != nil && creator.Constructor != nil {
 			s, err := creator.Constructor(ctx, deps, config.ServiceConfigFromShared(*cfg), m.logger)
 			if err != nil {
-				return &pb.ReconfigureResourceResponse{}, err
+				return nil, err
 			}
 			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), s)
 		}
 
 	default:
-		return &pb.ReconfigureResourceResponse{}, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
+		return nil, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
 	}
 
-	return &pb.ReconfigureResourceResponse{}, errors.Errorf("can't recreate resource %+v", req.Config)
+	return nil, errors.Errorf("can't recreate resource %+v", req.Config)
 }
 
 // RemoveResource receives the request for resource removal.
@@ -339,19 +336,18 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 
 	name, err := resource.NewFromString(req.Name)
 	if err != nil {
-		return &pb.RemoveResourceResponse{}, err
+		return nil, err
 	}
 
 	svc, ok := m.services[name.Subtype]
 	if !ok {
-		return &pb.RemoveResourceResponse{}, errors.Errorf("no grpc service for %+v", name)
+		return nil, errors.Errorf("no grpc service for %+v", name)
 	}
 	comp := svc.Resource(name.Name)
-	err = utils.TryClose(ctx, comp)
-	if err != nil {
+	if err := utils.TryClose(ctx, comp); err != nil {
 		m.logger.Error(err)
 	}
-	return &pb.RemoveResourceResponse{}, svc.Remove(name)
+	return nil, svc.Remove(name)
 }
 
 // addAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.

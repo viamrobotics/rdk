@@ -21,7 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/module/modmanager"
-	modif "go.viam.com/rdk/module/modmanager/modmaninterface"
+	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"

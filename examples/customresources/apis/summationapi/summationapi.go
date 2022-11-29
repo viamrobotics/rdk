@@ -52,15 +52,10 @@ type Summation interface {
 	Sum(ctx context.Context, nums []float64) (float64, error)
 }
 
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Summation)(nil), actual)
-}
-
 func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	mc, ok := r.(Summation)
 	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
+		return nil, utils.NewUnimplementedInterfaceError((Summation)(nil), r)
 	}
 	if reconfigurable, ok := mc.(*reconfigurableSummation); ok {
 		return reconfigurable, nil

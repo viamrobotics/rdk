@@ -261,7 +261,10 @@ func FindValidServiceModels(rName resource.Name) []resource.Model {
 		if strings.Contains(key, rName.Subtype.String()) {
 			splitName := strings.Split(key, "/")
 			model, err := resource.NewModelFromString(splitName[1])
-			utils.UncheckedError(err)
+			if err != nil {
+				utils.UncheckedError(err)
+				continue
+			}
 			validModels = append(validModels, model)
 		}
 	}

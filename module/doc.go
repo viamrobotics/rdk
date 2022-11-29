@@ -51,7 +51,7 @@ Shutdown is hooked so that during the Close() of the resource manager, resources
 RemoveResource() is called after the parent-side rpc client is closed. The grpc module service is also kept open as late as possible.
 Otherwise, shutdown happens as normal, including the closing of components in topological (dependency) order.
 
-# Module Requirements
+# Module Protocol Requirements
 
 A module can technically be built in any language, with or without support of this RDK or other Viam SDKs. From a technical point of view,
 all that's required is that the module:
@@ -59,8 +59,8 @@ all that's required is that the module:
     as python.
   - Looks at the first argument passed to it at execution, and uses that as it's grpc socket path.
   - Listens with plaintext GRPC on that socket.
-  - GRPC must provide the Module service, a reflection service, and any APIs needed for the resources it intends to serve. Note that the
-    "robot" service itself is NOT required.
+  - GRPC must provide the Module service (https://github.com/viamrobotics/api/tree/main/proto/viam/module/v1/module.proto), a reflection
+    service, and any APIs needed for the resources it intends to serve. Note that the "robot" service itself is NOT required.
   - Handles the Module service's calls for Ready(), and Add/Remove/ReconfigureResource()
   - Cleanly exits when sent a SIGINT or SIGTERM signal.
 
