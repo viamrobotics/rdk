@@ -68,7 +68,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 
 // PoseInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
 func PoseInFrameToFrameSystemPart(transform *referenceframe.PoseInFrame) (*FrameSystemPart, error) {
-	if transform.Name == "" || transform.FrameName() == "" {
+	if transform.Name() == "" || transform.FrameName() == "" {
 		return nil, referenceframe.ErrEmptyStringFrameName
 	}
 	frameConfig := &Frame{
@@ -77,7 +77,7 @@ func PoseInFrameToFrameSystemPart(transform *referenceframe.PoseInFrame) (*Frame
 		Orientation: transform.Pose().Orientation(),
 	}
 	part := &FrameSystemPart{
-		Name:        transform.Name,
+		Name:        transform.Name(),
 		FrameConfig: frameConfig,
 	}
 	return part, nil

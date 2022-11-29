@@ -86,7 +86,7 @@ func TestClient(t *testing.T) {
 			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			for _, tf := range supplementalTransforms {
-				receivedTransforms[tf.Name] = tf
+				receivedTransforms[tf.Name()] = tf
 			}
 			return referenceframe.NewPoseInFrame(
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
@@ -108,7 +108,7 @@ func TestClient(t *testing.T) {
 
 		tfMap := make(map[string]*referenceframe.PoseInFrame)
 		for _, tf := range transforms {
-			tfMap[tf.Name] = tf
+			tfMap[tf.Name()] = tf
 		}
 		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
@@ -118,7 +118,7 @@ func TestClient(t *testing.T) {
 		test.That(t, poseResult.Pose().Point().Z, test.ShouldEqual, 3)
 		for name, tf := range tfMap {
 			receivedTf := receivedTransforms[name]
-			test.That(t, tf.Name, test.ShouldEqual, receivedTf.Name)
+			test.That(t, tf.Name(), test.ShouldEqual, receivedTf.Name())
 			test.That(t, tf.FrameName(), test.ShouldEqual, receivedTf.FrameName())
 			test.That(t, spatialmath.PoseAlmostEqual(tf.Pose(), receivedTf.Pose()), test.ShouldBeTrue)
 		}

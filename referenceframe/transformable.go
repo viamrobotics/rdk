@@ -19,7 +19,7 @@ type Transformable interface {
 type PoseInFrame struct {
 	frame string
 	pose  spatialmath.Pose
-	Name  string
+	name  string
 }
 
 // FrameName returns the name of the frame in which the pose was observed.
@@ -30,6 +30,11 @@ func (pF *PoseInFrame) FrameName() string {
 // Pose returns the pose that was observed.
 func (pF *PoseInFrame) Pose() spatialmath.Pose {
 	return pF.pose
+}
+
+// Name returns the name of the PoseInFrame.
+func (pF *PoseInFrame) Name() string {
+	return pF.name
 }
 
 // Transform changes the PoseInFrame pF into the reference frame specified by the tf argument.
@@ -51,7 +56,7 @@ func NewNamedPoseInFrame(frame string, pose spatialmath.Pose, name string) *Pose
 	return &PoseInFrame{
 		frame: frame,
 		pose:  pose,
-		Name:  name,
+		name:  name,
 	}
 }
 
@@ -74,11 +79,11 @@ func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 
 // PoseInFrameToTransformProtobuf converts a PoseInFrame struct to a Transform protobuf message.
 func PoseInFrameToTransformProtobuf(framedPose *PoseInFrame) (*commonpb.Transform, error) {
-	if framedPose.Name == "" {
+	if framedPose.name == "" {
 		return nil, ErrEmptyStringFrameName
 	}
 	return &commonpb.Transform{
-		ReferenceFrame:      framedPose.Name,
+		ReferenceFrame:      framedPose.name,
 		PoseInObserverFrame: PoseInFrameToProtobuf(framedPose),
 	}, nil
 }
@@ -101,7 +106,7 @@ func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, 
 
 // PoseInFrameSliceToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
 func PoseInFrameSliceToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
-	protoTransforms := make([]*commonpb.Transform, 0)
+	protoTransforms := make([]*commonpb.Transform, 0, len(poseSlice))
 	for _, transform := range poseSlice {
 		protoTf, err := PoseInFrameToTransformProtobuf(transform)
 		if err != nil {
@@ -113,9 +118,9 @@ func PoseInFrameSliceToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.
 }
 
 // PoseInFrameSliceFromTransformProtobuf converts a slice of Transform protobuf messages to a slice of PoseInFrame structs.
-func PoseInFrameSliceFromTransformProtobuf(proto []*commonpb.Transform) ([]*PoseInFrame, error) {
-	transforms := make([]*PoseInFrame, 0)
-	for _, protoTransform := range proto {
+func PoseInFrameSliceFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*PoseInFrame, error) {
+	transforms := make([]*PoseInFrame, 0, len(protoSlice))
+	for _, protoTransform := range protoSlice {
 		transform, err := PoseInFrameFromTransformProtobuf(protoTransform)
 		if err != nil {
 			return nil, err
