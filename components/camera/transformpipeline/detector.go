@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	rdkutils "go.viam.com/rdk/utils"
@@ -33,14 +34,22 @@ type detectorSource struct {
 func newDetectionsTransform(
 	ctx context.Context,
 	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
-) (gostream.VideoSource, error) {
+) (gostream.VideoSource, camera.StreamType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
 	if err != nil {
-		return nil, err
+		return nil, camera.UnspecifiedStream, err
 	}
 	attrs, ok := conf.(*detectorAttrs)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	var cameraModel *transform.PinholeCameraModel
+	if cameraSrc, ok := source.(camera.Camera); ok {
+		props, err := cameraSrc.Properties(ctx)
+		if err != nil {
+			return nil, camera.UnspecifiedStream, err
+		}
+		cameraModel = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
 	}
 	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 	detector := &detectorSource{
@@ -49,7 +58,8 @@ func newDetectionsTransform(
 		confFilter,
 		r,
 	}
-	return camera.NewFromReader(ctx, detector, nil, camera.ColorStream)
+	cam, err := camera.NewFromReader(ctx, detector, cameraModel, camera.ColorStream)
+	return cam, camera.ColorStream, err
 }
 
 // Next returns the image overlaid with the detection bounding boxes.
