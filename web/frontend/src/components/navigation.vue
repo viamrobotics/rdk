@@ -2,18 +2,15 @@
 
 import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import type jspb from 'google-protobuf';
 import { toast } from '../lib/toast';
-import { filterResources, type Resource } from '../lib/resource';
-import commonApi from '../gen/common/v1/common_pb.esm';
-import robotApi from '../gen/robot/v1/robot_pb.esm';
-import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
-import navigationApi, { type Waypoint } from '../gen/service/navigation/v1/navigation_pb.esm';
+import { filterResources } from '../lib/resource';
+import { Client, commonApi, robotApi, navigationApi, type ServiceError } from '@viamrobotics/sdk';
+import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 
 interface Props {
-  resources?: Resource[]
+  resources: commonApi.ResourceName.AsObject[]
   name:string
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -32,21 +29,23 @@ const location = ref('');
 const res = ref();
 const container = ref<HTMLElement>();
 
-const grpcCallback = (error: ServiceError | null, response: jspb.Message | Struct | null, stringify = true) => {
+const grpcCallback = (
+  error: ServiceError | null,
+  responseMessage: (navigationApi.SetModeResponse | null),
+  stringify = true
+) => {
   if (error) {
     toast.error(error);
     return;
   }
   if (stringify) {
     try {
-      if (response === null) {
+      if (responseMessage === null) {
         res.value = null;
         return;
       }
 
-      res.value = (response as Struct).toJavaScript
-        ? JSON.stringify((response as Struct).toJavaScript())
-        : JSON.stringify(response.toObject());
+      res.value = JSON.stringify(responseMessage.toObject());
     } catch {
       toast.error(error);
     }
@@ -65,7 +64,7 @@ const setNavigationMode = (mode: 'manual' | 'waypoint') => {
   const req = new navigationApi.SetModeRequest();
   req.setName(props.name);
   req.setMode(pbMode);
-  window.navigationService.setMode(req, new grpc.Metadata(), grpcCallback);
+  props.client.navigationService.setMode(req, new grpc.Metadata(), grpcCallback);
 };
 
 const setNavigationLocation = () => {
@@ -100,7 +99,7 @@ const setNavigationLocation = () => {
     })
   );
 
-  window.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
+  props.client.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
 };
 
 const initNavigation = async () => {
@@ -123,7 +122,7 @@ const initNavigation = async () => {
     req.setName(props.name);
     req.setLocation(point);
 
-    window.navigationService.addWaypoint(req, new grpc.Metadata(), grpcCallback);
+    props.client.navigationService.addWaypoint(req, new grpc.Metadata(), grpcCallback);
   });
 
   let centered = false;
@@ -134,7 +133,7 @@ const initNavigation = async () => {
     const req = new navigationApi.GetWaypointsRequest();
     req.setName(props.name);
 
-    window.navigationService.getWaypoints(req, new grpc.Metadata(), (err, resp) => {
+    props.client.navigationService.getWaypoints(req, new grpc.Metadata(), (err, resp) => {
       grpcCallback(err, resp, false);
 
       if (err) {
@@ -142,7 +141,7 @@ const initNavigation = async () => {
         return;
       }
 
-      let waypoints: Waypoint[] = [];
+      let waypoints: navigationApi.Waypoint[] = [];
 
       if (resp) {
         waypoints = resp.getWaypointsList();
@@ -182,7 +181,7 @@ const initNavigation = async () => {
           const waypointRequest = new navigationApi.RemoveWaypointRequest();
           waypointRequest.setName(props.name);
           waypointRequest.setId(waypoint.getId());
-          window.navigationService.removeWaypoint(waypointRequest, new grpc.Metadata(), grpcCallback);
+          props.client.navigationService.removeWaypoint(waypointRequest, new grpc.Metadata(), grpcCallback);
         });
       }
 
@@ -206,7 +205,7 @@ const initNavigation = async () => {
     const req = new navigationApi.GetLocationRequest();
 
     req.setName(props.name);
-    window.navigationService.getLocation(req, new grpc.Metadata(), (err, resp) => {
+    props.client.navigationService.getLocation(req, new grpc.Metadata(), (err, resp) => {
       grpcCallback(err, resp, false);
 
       if (err) {

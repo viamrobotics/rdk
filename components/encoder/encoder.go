@@ -103,7 +103,12 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableEncoder struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Encoder
+}
+
+func (r *reconfigurableEncoder) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableEncoder) ProxyFor() interface{} {
@@ -156,7 +161,7 @@ func (r *reconfigurableEncoder) reconfigure(ctx context.Context, newEncoder reso
 
 // WrapWithReconfigurable converts a regular Encoder implementation to a reconfigurableEncoder.
 // If encoder is already a reconfigurableEncoder, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	m, ok := r.(Encoder)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -164,5 +169,5 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := m.(*reconfigurableEncoder); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableEncoder{actual: m}, nil
+	return &reconfigurableEncoder{name: name, actual: m}, nil
 }

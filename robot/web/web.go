@@ -89,6 +89,19 @@ func (app *robotWebApp) Init() error {
 	return nil
 }
 
+// AppTemplateData is used to render the remote control page.
+type AppTemplateData struct {
+	External                   bool                     `json:"external"`
+	WebRTCEnabled              bool                     `json:"webrtc_enabled"`
+	WebRTCSignalingAddress     string                   `json:"webrtc_signaling_address"`
+	WebRTCAdditionalICEServers []map[string]interface{} `json:"webrtc_additional_ice_servers"`
+	Env                        string                   `json:"env"`
+	Host                       string                   `json:"host"`
+	SupportedAuthTypes         []string                 `json:"supported_auth_types"`
+	AuthEntity                 string                   `json:"auth_entity"`
+	BakedAuth                  map[string]interface{}   `json:"baked_auth"`
+}
+
 // ServeHTTP serves the UI.
 func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -103,46 +116,35 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type Temp struct {
-		External                   bool
-		WebRTCEnabled              bool
-		Env                        string
-		WebRTCHost                 string
-		WebRTCSignalingAddress     string
-		WebRTCAdditionalICEServers []map[string]interface{}
-		SupportedAuthTypes         []string
-		BakedAuth                  map[string]interface{}
-	}
-
-	var temp Temp
+	var data AppTemplateData
 
 	if err := r.ParseForm(); err != nil {
 		app.logger.Debugw("failed to parse form", "error", err)
 	}
 
 	if os.Getenv("ENV") == "development" {
-		temp.Env = "development"
+		data.Env = "development"
 	} else {
-		temp.Env = "production"
+		data.Env = "production"
 	}
 
+	data.Host = app.options.FQDN
 	if app.options.WebRTC && r.Form.Get("grpc") != "true" {
-		temp.WebRTCEnabled = true
-		temp.WebRTCHost = app.options.FQDN
+		data.WebRTCEnabled = true
 	}
 
 	if app.options.Managed && len(app.options.Auth.Handlers) == 1 {
-		temp.BakedAuth = map[string]interface{}{
+		data.BakedAuth = map[string]interface{}{
 			"authEntity": app.options.BakedAuthEntity,
 			"creds":      app.options.BakedAuthCreds,
 		}
 	} else {
 		for _, handler := range app.options.Auth.Handlers {
-			temp.SupportedAuthTypes = append(temp.SupportedAuthTypes, string(handler.Type))
+			data.SupportedAuthTypes = append(data.SupportedAuthTypes, string(handler.Type))
 		}
 	}
 
-	err := app.template.Execute(w, temp)
+	err := app.template.Execute(w, data)
 	if err != nil {
 		app.logger.Debugf("couldn't execute web page: %s", err)
 	}

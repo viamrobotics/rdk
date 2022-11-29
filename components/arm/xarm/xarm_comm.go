@@ -392,7 +392,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(x.mp.Frame(), joints)
+	return motionplan.ComputePosition(x.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

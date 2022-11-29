@@ -1642,7 +1642,12 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
 	registry.RegisterResourceSubtype(
 		subtype,
-		registry.ResourceSubtype{Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) { return nil, nil }},
+		registry.ResourceSubtype{Reconfigurable: func(
+			resource interface{},
+			name resource.Name,
+		) (resource.Reconfigurable, error) {
+			return nil, nil
+		}},
 	)
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
@@ -1718,15 +1723,21 @@ func TestUpdateConfig(t *testing.T) {
 
 var _ = resource.Reconfigurable(&mock{})
 
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	sMock, _ := s.(*mock)
 	sMock.wrap++
+	sMock.name = name
 	return sMock, nil
 }
 
 type mock struct {
+	name          resource.Name
 	wrap          int
 	reconfigCount int
+}
+
+func (m *mock) Name() resource.Name {
+	return m.name
 }
 
 func (m *mock) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {

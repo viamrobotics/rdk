@@ -33,10 +33,11 @@ type GeometryType string
 
 // The set of allowed representations for orientation.
 const (
-	UnknownType = GeometryType("")
-	BoxType     = GeometryType("box")
-	SphereType  = GeometryType("sphere")
-	PointType   = GeometryType("point")
+	UnknownType     = GeometryType("")
+	BoxType         = GeometryType("box")
+	SphereType      = GeometryType("sphere")
+	PointType       = GeometryType("point")
+	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
 )
 
 // GeometryConfig specifies the format of geometries specified through the configuration file.

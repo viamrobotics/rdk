@@ -231,6 +231,12 @@ func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
 	q1 := mgl64.Quat{qN1.Real, mgl64.Vec3{qN1.Imag, qN1.Jmag, qN1.Kmag}}
 	q2 := mgl64.Quat{qN2.Real, mgl64.Vec3{qN2.Imag, qN2.Jmag, qN2.Kmag}}
 
+	// check we don't have a double cover issue
+	// interpolating to the opposite hemisphere will produce unexpected results
+	if oppositeHemisphere(qN1, qN2) {
+		q2 = q2.Scale(-1)
+	}
+
 	// Use mgl64's quats because they have nlerp and slerp built in
 	q1, q2 = q1.Normalize(), q2.Normalize()
 	var q mgl64.Quat
@@ -241,6 +247,23 @@ func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
 		q = mgl64.QuatSlerp(q1, q2, by)
 	}
 	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
+}
+
+// oppositeHemisphere returns true if all sings are opposite between two quats.
+func oppositeHemisphere(q1, q2 quat.Number) bool {
+	if math.Signbit(q1.Real) == math.Signbit(q2.Real) {
+		return false
+	}
+	if math.Signbit(q1.Imag) == math.Signbit(q2.Imag) {
+		return false
+	}
+	if math.Signbit(q1.Jmag) == math.Signbit(q2.Jmag) {
+		return false
+	}
+	if math.Signbit(q1.Kmag) == math.Signbit(q2.Kmag) {
+		return false
+	}
+	return true
 }
 
 // MarshalJSON marshals to W, X, Y, Z json.
