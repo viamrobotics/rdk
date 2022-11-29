@@ -1453,7 +1453,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 	// Test Service Error
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: Config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
