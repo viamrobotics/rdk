@@ -49,7 +49,7 @@ type Config struct {
 
 	// DisablepartialStart ensures that a robot will only start when all the components,
 	// services, and remotes pass config validation. This value is false by default
-	DisablePartialStart bool `json:"disablepartialstart"`
+	DisablePartialStart bool `json:"disable_partial_start"`
 }
 
 // Ensure ensures all parts of the config are valid.
@@ -65,7 +65,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Error(err)
+			golog.Global().Debug(errors.Wrap(err, "Remote config error, starting robot without remote: "+c.Remotes[idx].Name))
 		}
 	}
 
@@ -76,7 +76,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			golog.Global().Error(fullErr)
+			golog.Global().Debug(errors.Wrap(err, "Component config error, starting robot without component: "+c.Components[idx].Name))
 		} else {
 			c.Components[idx].ImplicitDependsOn = dependsOn
 		}
@@ -87,7 +87,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Error(err)
+			golog.Global().Debug(errors.Wrap(err, "Process config error, starting robot without process: "+c.Processes[idx].Name))
 		}
 	}
 
@@ -97,7 +97,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Error(err)
+			golog.Global().Debug(errors.Wrap(err, "Service config error, starting robot without service: "+c.Services[idx].Name))
 		} else {
 			c.Services[idx].ImplicitDependsOn = dependsOn
 		}

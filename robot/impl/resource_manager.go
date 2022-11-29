@@ -379,7 +379,7 @@ func (manager *resourceManager) completeConfig(
 		if c, ok := wrap.config.(config.Component); ok {
 			_, err := c.Validate("")
 			if err != nil {
-				wrap.err = err
+				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
 				continue
 			}
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
@@ -392,7 +392,7 @@ func (manager *resourceManager) completeConfig(
 		} else if s, ok := wrap.config.(config.Service); ok {
 			_, err := s.Validate("")
 			if err != nil {
-				wrap.err = err
+				wrap.err = errors.Wrap(err, "Config validation error found in service: "+s.Name)
 				continue
 			}
 			iface, err := manager.processService(ctx, s, wrap.real, robot)
@@ -405,7 +405,7 @@ func (manager *resourceManager) completeConfig(
 		} else if rc, ok := wrap.config.(config.Remote); ok {
 			err := rc.Validate("")
 			if err != nil {
-				wrap.err = err
+				wrap.err = errors.Wrap(err, "Config validation error found in remote: "+rc.Name)
 				continue
 			}
 			rr, err := manager.processRemote(ctx, rc)
