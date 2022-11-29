@@ -353,12 +353,11 @@ func (svc *builtIn) syncPreviouslyCaptured() {
 		return nil
 	})
 	svc.syncer.SyncCaptureFiles(previouslyCaptured)
-
-	// TODO: Sync existing arbitrary files.
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
+	fmt.Println("called ManualSync")
 	svc.lock.Lock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(svc.cfg)
@@ -367,16 +366,16 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 			return err
 		}
 	}
-	if svc.syncDisabled {
-		svc.syncPreviouslyCaptured()
-	}
 	svc.lock.Unlock()
-	svc.syncDataCaptureFiles()
-	svc.syncAdditionalSyncPaths()
+
+	// TODO: manual and scheduled clash if we're capturing stuff and I don't know how to fix it
+	svc.syncCollectorQueues()
+	svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
+	svc.syncPreviouslyCaptured()
 	return nil
 }
 
-func (svc *builtIn) syncDataCaptureFiles() {
+func (svc *builtIn) syncCollectorQueues() {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	var queues []*datacapture.Queue
@@ -384,7 +383,6 @@ func (svc *builtIn) syncDataCaptureFiles() {
 		queues = append(queues, collector.Collector.GetTarget())
 	}
 	svc.syncer.SyncCaptureQueues(queues)
-
 	return
 }
 
@@ -473,20 +471,14 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
-	if svc.syncDisabled || svc.syncIntervalMins == 0.0 {
-		svc.closeSyncer()
-	} else {
+	svc.closeSyncer()
+	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
-		var queues []*datacapture.Queue
-		for _, c := range svc.collectors {
-			queues = append(queues, c.Collector.GetTarget())
-		}
 		svc.syncPreviouslyCaptured()
-		svc.syncer.SyncCaptureQueues(queues)
-		svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
+		svc.startSyncBackgroundRoutine(svc.syncIntervalMins)
 	}
 
 	return nil
@@ -506,6 +498,7 @@ func (svc *builtIn) cancelSyncBackgroundRoutine() {
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
+	fmt.Println("started uploadData")
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -526,7 +519,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-ticker.C:
 				fmt.Println("uploadData ticket hit")
-				svc.syncDataCaptureFiles()
+				svc.syncCollectorQueues()
 				svc.syncAdditionalSyncPaths()
 			}
 		}

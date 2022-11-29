@@ -178,30 +178,30 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 
 func (s *syncer) SyncArbitraryFiles(dirs []string) {
 	fmt.Println("reached SyncArbitraryFiles in sync")
+	fmt.Println(fmt.Sprintf("uploading files in %v", dirs))
 	var paths []string
 	for _, dir := range dirs {
-		paths = append(paths, getAllFilePaths(dir)...)
+		paths = append(paths, getAllFilesToSync(dir, s.lastModifiedSecs)...)
 	}
+	fmt.Println(fmt.Sprintf("uploading paths: %v", paths))
 
 	for _, p := range paths {
 		newP := p
 		s.backgroundWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
+			fmt.Println(fmt.Sprintf("uploading %s", newP))
 			defer s.backgroundWorkers.Done()
+			if !s.markInProgress(newP) {
+				return
+			}
+			defer s.unmarkInProgress(newP)
+
 			f, err := os.Open(newP)
 			if err != nil {
 				s.logger.Errorw("error opening file", "error", err)
 				return
 			}
-			for {
-				if err := s.cancelCtx.Err(); err != nil {
-					if !errors.Is(err, context.Canceled) {
-						s.logger.Error(err)
-					}
-					return
-				}
-				s.syncArbitraryFile(f)
-			}
+			s.syncArbitraryFile(f)
 		})
 	}
 }
@@ -261,10 +261,6 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 }
 
 func (s *syncer) syncArbitraryFile(f *os.File) {
-	if !s.markInProgress(f.Name()) {
-		return
-	}
-
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
@@ -284,7 +280,6 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		s.logger.Error(fmt.Sprintf("error deleting file %s", f.Name()), "error", err)
 		return
 	}
-	s.unmarkInProgress(f.Name())
 }
 
 // markInProgress marks path as in progress in s.inProgress. It returns true if it changed the progress status,
@@ -363,14 +358,21 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getAllFilePaths(dir string) []string {
+func getAllFilesToSync(dir string, lastModifiedSecs int) []string {
+	fmt.Println("getting all files to sync")
 	var filePaths []string
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		fmt.Println(path)
 		if err != nil {
 			return nil
 		}
 		if info.IsDir() {
+			return nil
+		}
+		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
+		// may still be being written).
+		if diff := time.Now().Sub(info.ModTime()); diff < (time.Duration(lastModifiedSecs) * time.Second) {
 			return nil
 		}
 		filePaths = append(filePaths, path)
