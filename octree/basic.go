@@ -131,8 +131,10 @@ func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
 	return nil, false
 }
 
-// Iterate TODO: Implement iterate for octree.
+// Iterate takes in the number of batches, a myBatch id and a function passing them to iterateRecursive along with the
+// starting index (0) to iterate though a basic octree if the given number of batches is greater than 0.
 func (octree *basicOctree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d pc.Data) bool) {
+	octree.iterateRecursive(numBatches, myBatch, 0, fn)
 }
 
 // MarshalOctree TODO: Implement marshalling for octree.

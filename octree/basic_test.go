@@ -26,7 +26,17 @@ func createNewOctree(ctx context.Context, center r3.Vector, side float64, logger
 	return basicOct, err
 }
 
-// Makes and returns a PointCloud from an artifact path.
+// Helper function that adds a list of points to a given basic octree.
+func addPoints(basicOct *basicOctree, pointsAndData []pc.PointAndData) error {
+	for _, pd := range pointsAndData {
+		if err := basicOct.Set(pd.P, pd.D); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Helper function that makes and returns a PointCloud from an artifact path.
 func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pc.PointCloud, error) {
 	t.Helper()
 	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
@@ -216,14 +226,15 @@ func TestBasicOctreeAt(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p1 := r3.Vector{X: 0, Y: 0, Z: 0}
-		d1 := pc.NewValueData(1)
-		err = basicOct.Set(p1, d1)
-		test.That(t, err, test.ShouldBeNil)
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+		}
 
-		d, ok := basicOct.At(0, 0, 0)
+		err = addPoints(basicOct, pointsAndData)
+
+		d, ok := basicOct.At(pointsAndData[0].P.X, pointsAndData[0].P.Y, pointsAndData[0].P.Z)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d1)
+		test.That(t, d, test.ShouldResemble, pointsAndData[0].D)
 
 		d, ok = basicOct.At(0.0001, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
@@ -236,32 +247,26 @@ func TestBasicOctreeAt(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p1 := r3.Vector{X: 0, Y: 0, Z: 0}
-		d1 := pc.NewValueData(1)
-		err = basicOct.Set(p1, d1)
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+			{P: r3.Vector{X: -.5, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+			{P: r3.Vector{X: -0.4, Y: 0, Z: 0}, D: pc.NewValueData(3)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		p2 := r3.Vector{X: -.5, Y: 0, Z: 0}
-		d2 := pc.NewValueData(2)
-		err = basicOct.Set(p2, d2)
-		test.That(t, err, test.ShouldBeNil)
-
-		p3 := r3.Vector{X: -.4, Y: 0, Z: 0}
-		d3 := pc.NewValueData(3)
-		err = basicOct.Set(p3, d3)
-		test.That(t, err, test.ShouldBeNil)
-
-		d, ok := basicOct.At(p1.X, p1.Y, p1.Z)
+		d, ok := basicOct.At(pointsAndData[0].P.X, pointsAndData[0].P.Y, pointsAndData[0].P.Z)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d1)
+		test.That(t, d, test.ShouldResemble, pointsAndData[0].D)
 
-		d, ok = basicOct.At(p2.X, p2.Y, p2.Z)
+		d, ok = basicOct.At(pointsAndData[1].P.X, pointsAndData[1].P.Y, pointsAndData[1].P.Z)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d2)
+		test.That(t, d, test.ShouldResemble, pointsAndData[1].D)
 
-		d, ok = basicOct.At(p3.X, p3.Y, p3.Z)
+		d, ok = basicOct.At(pointsAndData[2].P.X, pointsAndData[2].P.Y, pointsAndData[2].P.Z)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d3)
+		test.That(t, d, test.ShouldResemble, pointsAndData[2].D)
 
 		d, ok = basicOct.At(-.6, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
@@ -290,6 +295,169 @@ func TestBasicOctreeAt(t *testing.T) {
 		test.That(t, d, test.ShouldBeNil)
 
 		validateBasicOctree(t, basicOct, center, side)
+	})
+}
+
+// Test the Iterate() function which will apply a specified  function to every point in an octree until one returns a
+// false value.
+func TestBasicOctreeIterate(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 2.0
+
+	t.Run("Iterate zero batch check of an empty basic octree", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		total := 0
+		basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, 0)
+	})
+
+	t.Run("Iterate zero batch check of an filled basic octree", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
+		test.That(t, err, test.ShouldBeNil)
+
+		// All true (full iteration)
+		total := 0
+		basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
+
+		// False return (partial iteration)
+		total = 0
+		basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+			if d.Value() == 1 {
+				total += d.Value()
+			}
+			return true
+		})
+		test.That(t, total, test.ShouldNotEqual, pointsAndData[0].D.Value())
+	})
+
+	t.Run("Iterate zero batch check of an multi-level basic octree", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+			{P: r3.Vector{X: .6, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
+		test.That(t, err, test.ShouldBeNil)
+
+		// All true (full iteration)
+		total := 0
+		basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value()+
+			pointsAndData[1].D.Value()+
+			pointsAndData[2].D.Value())
+
+		// False return (partial iteration)
+		total = 0
+		basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+			if d.Value() == 1 {
+				total += d.Value()
+				return true
+			}
+			return false
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
+	})
+
+	t.Run("Iterate non-zero batch check of an filled basic octree", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Matching batch id
+		total := 0
+		basicOct.Iterate(1, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
+
+		// Non-matching batch id
+		total = 0
+		basicOct.Iterate(1, 1, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, 0)
+	})
+
+	t.Run("Iterate non-zero batch check of an multi-level basic octree", func(t *testing.T) {
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+			{P: r3.Vector{X: .6, Y: 0, Z: 0}, D: pc.NewValueData(3)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Batched processing with match for first data point
+		total := 0
+		basicOct.Iterate(9, 1, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
+
+		// Batched processing with match for second data point
+		total = 0
+		basicOct.Iterate(9, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[1].D.Value())
+
+		// Batched processing no matching data point
+		total = 0
+		basicOct.Iterate(9, 2, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, 0)
+
+		// Batched processing all matching data points
+		total = 0
+		basicOct.Iterate(1, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value()+
+			pointsAndData[1].D.Value()+
+			pointsAndData[2].D.Value())
 	})
 }
 
