@@ -182,10 +182,9 @@ func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, side
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
 	test.That(t, center, test.ShouldResemble, bOct.center)
 
-	// TODO: add check of internal metadata once iterate function is available for easy looping over all points.
+	validateMetadata(t, bOct)
 
 	var size int32
-
 	switch bOct.node.nodeType {
 	case InternalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -242,6 +241,29 @@ func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, side
 		size = bOct.size
 	}
 	return size
+}
+
+// Helper function for checking basic octree metadata.
+func validateMetadata(t *testing.T, bOct *basicOctree) {
+	t.Helper()
+
+	metadata := pc.NewMetaData()
+	bOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+		metadata.Merge(p, d)
+		return true
+	})
+
+	test.That(t, bOct.meta.HasColor, test.ShouldEqual, metadata.HasColor)
+	test.That(t, bOct.meta.HasValue, test.ShouldEqual, metadata.HasValue)
+	test.That(t, bOct.meta.MaxX, test.ShouldEqual, metadata.MaxX)
+	test.That(t, bOct.meta.MinX, test.ShouldEqual, metadata.MinX)
+	test.That(t, bOct.meta.MaxY, test.ShouldEqual, metadata.MaxY)
+	test.That(t, bOct.meta.MinY, test.ShouldEqual, metadata.MinY)
+	test.That(t, bOct.meta.MaxZ, test.ShouldEqual, metadata.MaxZ)
+	test.That(t, bOct.meta.MinZ, test.ShouldEqual, metadata.MinZ)
+	test.That(t, bOct.meta.TotalX(), test.ShouldAlmostEqual, metadata.TotalX())
+	test.That(t, bOct.meta.TotalY(), test.ShouldAlmostEqual, metadata.TotalY())
+	test.That(t, bOct.meta.TotalZ(), test.ShouldAlmostEqual, metadata.TotalZ())
 }
 
 // Helper functions for visualizing octree during testing
