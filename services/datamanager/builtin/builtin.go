@@ -100,7 +100,6 @@ type builtIn struct {
 	collectors                map[componentMethodMetadata]collectorAndConfig
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	updateCollectorsCancelFn  func()
 	waitAfterLastModifiedSecs int
 
 	additionalSyncPaths []string
@@ -155,7 +154,6 @@ func (svc *builtIn) Close(_ context.Context) error {
 		svc.syncer.Close()
 	}
 
-	svc.cancelSyncBackgroundRoutine()
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 	return nil
@@ -392,6 +390,7 @@ func (svc *builtIn) syncDataCaptureFiles() {
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
+	fmt.Println("called sync additional sync paths in rdk")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
@@ -481,12 +480,13 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		if err := svc.initSyncer(cfg, svcConfig.SyncIntervalMins); err != nil {
 			return err
 		}
-		svc.syncPreviouslyCaptured()
 		var queues []*datacapture.Queue
 		for _, c := range svc.collectors {
 			queues = append(queues, c.Collector.GetTarget())
 		}
+		svc.syncPreviouslyCaptured()
 		svc.syncer.SyncCaptureQueues(queues)
+		svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
 	}
 
 	return nil
@@ -512,24 +512,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
+				fmt.Println("uploadData ticket hit")
 				svc.syncDataCaptureFiles()
 				svc.syncAdditionalSyncPaths()
 			}
 		}
 	})
-}
-
-func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {
-	cancelCtx, fn := context.WithCancel(context.Background())
-	svc.updateCollectorsCancelFn = fn
-	svc.uploadData(cancelCtx, intervalMins)
-}
-
-func (svc *builtIn) cancelSyncBackgroundRoutine() {
-	if svc.updateCollectorsCancelFn != nil {
-		svc.updateCollectorsCancelFn()
-		svc.updateCollectorsCancelFn = nil
-	}
 }
 
 // Get the config associated with the data manager service.
