@@ -13,7 +13,7 @@ func NewResourceNotFoundError(name resource.Name) error {
 
 // NewResourceNotAvailableError is used when a resource is not available because of some error.
 func NewResourceNotAvailableError(name resource.Name, err error) error {
-	return errors.Wrapf(err, "resource %q not available", name)
+	return errors.Wrapf(err, "resource %q not available", name.Name)
 }
 
 // NewRemoteResourceClashError is used when you are more than one resource with the same name exist.

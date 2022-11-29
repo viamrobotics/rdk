@@ -52,6 +52,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
@@ -1393,6 +1394,14 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
 }
 
+type attrs struct {
+	Thing string
+}
+
+func (attrs) Validate(path string) error {
+	return errors.New("fail")
+}
+
 func TestValidationErrorOnReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
@@ -1400,12 +1409,26 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 	badConfig := &config.Config{
 		Components: []config.Component{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "",
-				Type:      base.SubtypeName,
-				Model:     "random",
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "test",
+				Type:                base.SubtypeName,
+				Model:               "random",
+				ConvertedAttributes: attrs{},
 			},
 		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                "navigation",
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Remotes: []config.Remote{{
+			Name:     "remote",
+			Insecure: true,
+			Address:  "",
+		}},
 		Cloud: &config.Cloud{},
 	}
 	r, err := robotimpl.New(ctx, badConfig, logger)
@@ -1414,16 +1437,25 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 	}()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r, test.ShouldNotBeNil)
-
-	name := base.Named("")
+	// Test Component Error
+	name := base.Named("test")
 	noBase, err := r.ResourceByName(name)
 	test.That(
 		t,
 		err,
 		test.ShouldBeError,
-		errors.Wrapf(utils.NewConfigValidationFieldRequiredError("", "name"), "resource %q not available", name),
+		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
+	// Test Service Error
+	s, err := r.ResourceByName(navigation.Named("fake1"))
+	test.That(t, s, test.ShouldBeNil)
+	errTmp := errors.New("resource \"fake1\" not available: Config validation error found in service: fake1: fail")
+	test.That(t, err, test.ShouldBeError, errTmp)
+	// Test Remote Error
+	rem, ok := r.RemoteByName("remote")
+	test.That(t, rem, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
