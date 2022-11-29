@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"math"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -57,18 +60,18 @@ type RobotURDF struct {
 			Name    string   `xml:"name,attr"`
 			Origin  struct{
 				XMLName xml.Name `xml:"origin"`
-				RPY     string   `xml:"rpy,attr"`
-				XYZ     string   `xml:"xyz,attr"`
+				RPY     string   `xml:"rpy,attr"`  // "r p y" format
+				XYZ     string   `xml:"xyz,attr"`  // "x y z" format
 			} `xml:"origin"`
 			Geometry struct{
 				XMLName xml.Name `xml:"geometry"`
 				Box     struct{
 					XMLName xml.Name `xml:"box"`
-					Size    string   `xml:"size,attr"`
+					Size    string   `xml:"size,attr"`  // "x y z" format
 				} `xml:"box"`
 				Sphere struct{
 					XMLName xml.Name `xml:"sphere"`
-					Radius  string   `xml:"radius,attr"`
+					Radius  float64   `xml:"radius,attr"`
 				} `xml:"sphere"`
 			} `xml:"geometry"`
 		} `xml:"collision"`
@@ -79,17 +82,26 @@ type RobotURDF struct {
 		Type    string   `xml:"type,attr"`
 		Origin  struct{
 			XMLName xml.Name `xml:"origin"`
-			RPY     string   `xml:"rpy,attr"`
-			XYZ     string   `xml:"xyz,attr"`
+			RPY     string   `xml:"rpy,attr"`  // "r p y" format
+			XYZ     string   `xml:"xyz,attr"`  // "x y z" format
 		} `xml:"origin"`
 		Parent struct{
 			XMLName xml.Name `xml:"parent"`
-			Link string `xml:"link"`
+			Link    string   `xml:"link,attr"`
 		} `xml:"parent"`
-		Child  struct{
+		Child struct{
 			XMLName xml.Name `xml:"child"`
-			Link string `xml:"link"`
+			Link    string   `xml:"link,attr"`
 		} `xml:"child"`
+		Axis struct{
+			XMLName xml.Name `xml:"axis"`
+			XYZ     string   `xml:"xyz,attr"`  // "x y z" format
+		} `xml:"axis"`
+		Limit struct{
+			XMLName xml.Name `xml:"limit"`
+			Lower   float64  `xml:"lower,attr"`
+			Upper   float64  `xml:"upper,attr"`
+		} `xml:"limit"`
 	} `xml:"joint"`
 }
 
@@ -295,18 +307,77 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		return nil, ErrNoModelInformation
 	}
 
-	u := &RobotURDF{}
-	err := xml.Unmarshal(xmlData, u)
+	urdf := &RobotURDF{}
+	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert URDF data to equivalent internal struct")
 	}
-	fmt.Println(u)  // DEBUG(wspies)
+	fmt.Println(urdf)  // DEBUG(wspies)
 
+	// Code below this point could be split off into another function, similarly to ParseConfig
 	if modelName == "" {
-		modelName = u.Name
+		modelName = urdf.Name
 	}
 	model := NewSimpleModel(modelName)
-	fmt.Println(model)  // DEBUG(wspies)
+	transforms := map[string]Frame{}
 
-	return nil, errors.New("Unimplemented method")  // DEBUG(wspies)
+	// TODO(wspies): 
+
+	// Handle joints first
+	for _, joint := range urdf.Joints {
+		// TODO(wspies): Keep Track of Parent and Child relationships to links
+
+		// Parse Axis and Origin combination
+		axes, _ := convStringAttr(joint.Axis.XYZ)
+
+		// TODO(wspies): Can probably combine logic for continuous and revolute case, change limit handling appropriately
+		switch joint.Type {
+		case "continuous":
+			fmt.Println(axes)
+
+			transforms[joint.Name], err = NewRotationalFrame(joint.Name, spatial.R4AA{RX: axes[0], RY: axes[1], RZ: axes[2]}, Limit{Min: -math.Pi, Max: math.Pi})
+			fmt.Println(transforms)
+
+			fmt.Println("continuous type")
+		case "revolute":
+			transforms[joint.Name], err = NewRotationalFrame(joint.Name, spatial.R4AA{RX: axes[0], RY: axes[1], RZ: axes[2]}, Limit{Min: joint.Limit.Lower, Max: joint.Limit.Upper})
+			fmt.Println(transforms)
+
+			fmt.Println("revolute type")
+		case "prismatic":
+			transforms[joint.Name], err = NewTranslationalFrame(joint.Name, r3.Vector{X: axes[0], Y: axes[1], Z: axes[2]}, Limit{Min: joint.Limit.Lower, Max: joint.Limit.Upper})
+			fmt.Println("prismatic type")
+		case "fixed":
+			fmt.Println("fixed type")
+		default:
+			fmt.Println("Unsupported joint type")
+		}
+		fmt.Println(joint)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, link := range urdf.Links {
+		fmt.Println(link)
+		// TODO(wspies): Implement
+	}
+
+	return model, nil
+	//return nil, errors.New("Unimplemented method")  // DEBUG(wspies)
+}
+
+// TODO(wspies): Add documentation for this method
+// TODO(wspies): Add error if it fails to convert for some reason?
+func convStringAttr(attr string) ([]float64, error) {
+	var converted []float64
+	attr_slice := strings.Fields(attr)
+
+	for _, value := range attr_slice {
+		value, _ := strconv.ParseFloat(value, 64)
+		converted = append(converted, value)
+	}
+
+	return converted, nil
 }
