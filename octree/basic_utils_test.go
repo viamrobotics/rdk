@@ -64,10 +64,11 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p := r3.Vector{X: 0, Y: 0, Z: 0}
-		d := pc.NewValueData(1.0)
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+		}
 
-		err = basicOct.Set(p, d)
+		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = basicOct.splitIntoOctants()
@@ -93,8 +94,9 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, len(filledLeaves), test.ShouldEqual, 1)
 		test.That(t, len(emptyLeaves), test.ShouldEqual, 7)
 		test.That(t, len(internalLeaves), test.ShouldEqual, 0)
-		test.That(t, filledLeaves[0].node.point, test.ShouldResemble, pc.PointAndData{P: p, D: d})
-		test.That(t, filledLeaves[0].checkPointPlacement(p), test.ShouldBeTrue)
+		test.That(t, filledLeaves[0].node.point, test.ShouldResemble,
+			pc.PointAndData{P: pointsAndData[0].P, D: pointsAndData[0].D})
+		test.That(t, filledLeaves[0].checkPointPlacement(pointsAndData[0].P), test.ShouldBeTrue)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -103,23 +105,21 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p1 := r3.Vector{X: 0, Y: 0, Z: 0}
-		d1 := pc.NewValueData(1.0)
-		basicOct.Set(p1, d1)
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		p2 := r3.Vector{X: .5, Y: 0, Z: 0}
-		d2 := pc.NewValueData(2.0)
-		basicOct.Set(p2, d2)
-		test.That(t, err, test.ShouldBeNil)
-
-		d, ok := basicOct.At(p1.X, p1.Y, p1.Z)
+		d, ok := basicOct.At(pointsAndData[0].P.X, pointsAndData[0].P.Y, pointsAndData[0].P.Z)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d1)
+		test.That(t, d, test.ShouldResemble, pointsAndData[0].D)
 
-		d, ok = basicOct.At(p2.X, p2.Y, p2.Z)
+		d, ok = basicOct.At(pointsAndData[1].P.X, pointsAndData[1].P.Y, pointsAndData[1].P.Z)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d2)
+		test.That(t, d, test.ShouldResemble, pointsAndData[1].D)
 
 		_, ok = basicOct.At(0, 1, .5)
 		test.That(t, ok, test.ShouldBeFalse)
