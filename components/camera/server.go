@@ -53,8 +53,12 @@ func (s *subtypeServer) GetImage(
 		return nil, err
 	}
 
-	if req.MimeType == "" {
-		req.MimeType = utils.MimeTypeRawRGBALazy
+	if req.MimeType == "" { // there is no explicitly requested mimetype
+		req.MimeType = utils.MimeTypeJPEG
+		props, _ := cam.Properties(ctx)
+		if props.ImageType == DepthStream{
+			req.MimeType = utils.MimeTypePNG
+		}
 	}
 
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
