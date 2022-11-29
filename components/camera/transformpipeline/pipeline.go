@@ -84,7 +84,7 @@ func newTransformPipeline(
 	if err != nil {
 		return nil, err
 	}
-	var streamType camera.StreamType
+	var streamType camera.ImageType
 	if _, ok := img.(*rimage.DepthMap); ok {
 		streamType = camera.DepthStream
 	} else if _, ok := img.(*image.Gray16); ok {

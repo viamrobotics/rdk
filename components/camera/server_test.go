@@ -176,9 +176,8 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeJPEG)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
-		test.That(t, resp.Image[rimage.RawRGBAHeaderLength:], test.ShouldResemble, img.Pix)
 
 		imageReleasedMu.Lock()
 		imageReleased = false
