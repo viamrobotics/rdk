@@ -105,6 +105,7 @@ type builtIn struct {
 	additionalSyncPaths []string
 	syncDisabled        bool
 	syncIntervalMins    float64
+	syncRoutineCancelFn context.CancelFunc
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
 
@@ -305,9 +306,8 @@ func (svc *builtIn) closeSyncer() {
 	}
 }
 
-func (svc *builtIn) initSyncer(cfg *config.Config, intervalMins float64) error {
-	interval := time.Duration(60000.0*intervalMins) * time.Millisecond
-	syncer, err := svc.syncerConstructor(svc.logger, cfg, interval, svc.waitAfterLastModifiedSecs)
+func (svc *builtIn) initSyncer(cfg *config.Config) error {
+	syncer, err := svc.syncerConstructor(svc.logger, cfg, svc.waitAfterLastModifiedSecs)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -361,7 +361,7 @@ func (svc *builtIn) syncPreviouslyCaptured() {
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
 	if svc.syncer == nil {
-		err := svc.initSyncer(svc.cfg, 0.0)
+		err := svc.initSyncer(svc.cfg)
 		if err != nil {
 			svc.lock.Unlock()
 			return err
@@ -477,7 +477,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		svc.closeSyncer()
 	} else {
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-		if err := svc.initSyncer(cfg, svcConfig.SyncIntervalMins); err != nil {
+		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
 		var queues []*datacapture.Queue
@@ -490,6 +490,19 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {
+	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.syncRoutineCancelFn = fn
+	svc.uploadData(cancelCtx, intervalMins)
+}
+
+func (svc *builtIn) cancelSyncBackgroundRoutine() {
+	if svc.syncRoutineCancelFn != nil {
+		svc.syncRoutineCancelFn()
+		svc.syncRoutineCancelFn = nil
+	}
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {

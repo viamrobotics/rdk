@@ -60,7 +60,6 @@ type syncer struct {
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
-	syncInterval      time.Duration
 	lastModifiedSecs  int
 
 	progressLock *sync.Mutex
@@ -68,10 +67,10 @@ type syncer struct {
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(logger golog.Logger, cfg *config.Config, syncInterval time.Duration, lastModSecs int) (Manager, error)
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModSecs int) (Manager, error)
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
-func NewDefaultManager(logger golog.Logger, cfg *config.Config, syncInterval time.Duration, lastModSecs int) (Manager, error) {
+func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModSecs int) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
@@ -89,12 +88,12 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, syncInterval tim
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn, syncInterval, lastModSecs)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, lastModSecs)
 }
 
 // NewManager returns a new syncer.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
-	conn rpc.ClientConn, syncInterval time.Duration, lastModifiedSecs int,
+	conn rpc.ClientConn, lastModifiedSecs int,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
@@ -105,7 +104,6 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
-		syncInterval:      syncInterval,
 		progressLock:      &sync.Mutex{},
 		inProgress:        make(map[string]bool),
 		lastModifiedSecs:  lastModifiedSecs,
@@ -133,26 +131,13 @@ func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
 		s.backgroundWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer s.backgroundWorkers.Done()
-			if s.syncInterval > 0.0 {
-				ticker := time.NewTicker(s.syncInterval)
-				defer ticker.Stop()
-				defer s.backgroundWorkers.Done()
-				for {
-					if err := s.cancelCtx.Err(); err != nil {
-						if !errors.Is(err, context.Canceled) {
-							s.logger.Error(err)
-						}
-						return
+			for {
+				if err := s.cancelCtx.Err(); err != nil {
+					if !errors.Is(err, context.Canceled) {
+						s.logger.Error(err)
 					}
-
-					select {
-					case <-s.cancelCtx.Done():
-						return
-					case <-ticker.C:
-						s.syncQueue(s.cancelCtx, q)
-					}
+					return
 				}
-			} else {
 				s.syncQueue(s.cancelCtx, q)
 			}
 		})
@@ -208,27 +193,13 @@ func (s *syncer) SyncArbitraryFiles(dirs []string) {
 				s.logger.Errorw("error opening file", "error", err)
 				return
 			}
-
-			if s.syncInterval > 0.0 {
-				ticker := time.NewTicker(s.syncInterval)
-				defer ticker.Stop()
-				defer s.backgroundWorkers.Done()
-				for {
-					if err := s.cancelCtx.Err(); err != nil {
-						if !errors.Is(err, context.Canceled) {
-							s.logger.Error(err)
-						}
-						return
+			for {
+				if err := s.cancelCtx.Err(); err != nil {
+					if !errors.Is(err, context.Canceled) {
+						s.logger.Error(err)
 					}
-
-					select {
-					case <-s.cancelCtx.Done():
-						return
-					case <-ticker.C:
-						s.syncArbitraryFile(f)
-					}
+					return
 				}
-			} else {
 				s.syncArbitraryFile(f)
 			}
 		})
