@@ -55,8 +55,8 @@ func (s *subtypeServer) GetImage(
 
 	if req.MimeType == "" { // there is no explicitly requested mimetype
 		req.MimeType = utils.MimeTypeJPEG
-		props, _ := cam.Properties(ctx)
-		if props.ImageType == DepthStream{
+		props, _ := cam.Properties(ctx) // nolint:errcheck
+		if props.ImageType == DepthStream {
 			req.MimeType = utils.MimeTypePNG
 		}
 	}
