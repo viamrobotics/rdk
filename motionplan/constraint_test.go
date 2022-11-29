@@ -42,7 +42,7 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger, opt)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }

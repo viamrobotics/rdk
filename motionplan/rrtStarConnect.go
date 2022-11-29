@@ -49,7 +49,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 // rrtStarConnectMotionPlanner is an object able to asymptotically optimally path around obstacles to some goal for a given referenceframe.
 // It uses the RRT*-Connect algorithm, Klemm et al 2015
 // https://ieeexplore.ieee.org/document/7419012
-type rrtStarConnectMotionPlanner struct{
+type rrtStarConnectMotionPlanner struct {
 	*planner
 	algOpts *rrtStarConnectOptions
 }
@@ -62,6 +62,9 @@ func newRRTStarConnectMotionPlanner(
 	logger golog.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
+	if opt == nil {
+		opt = newBasicPlannerOptions()
+	}
 	mp, err := newPlanner(frame, nCPU, seed, logger, opt)
 	if err != nil {
 		return nil, err
@@ -77,9 +80,6 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([][]referenceframe.Input, error) {
-	if mp.planOpts == nil {
-		mp.planOpts = newBasicPlannerOptions()
-	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{initRRTMaps(), nil, solutionChan})

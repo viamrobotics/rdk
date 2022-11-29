@@ -36,7 +36,7 @@ type rrtOptions struct {
 
 func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 	return &rrtOptions{
-		PlanIter: defaultPlanIter,
+		PlanIter:       defaultPlanIter,
 		plannerOptions: planOpts,
 	}
 }

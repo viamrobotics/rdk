@@ -47,8 +47,6 @@ const (
 	defaultPathStepSize = 10
 )
 
-var defaultPlanner = newCBiRRTMotionPlanner
-
 // the set of supported motion profiles.
 const (
 	FreeMotionProfile         = "free"
@@ -81,7 +79,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
-	opt.PlannerConstructor = defaultPlanner
+	opt.PlannerConstructor = newCBiRRTMotionPlanner
 	opt.SmoothIter = defaultSmoothIter
 
 	return opt

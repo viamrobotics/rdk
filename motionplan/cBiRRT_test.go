@@ -102,6 +102,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := cbirrt.smoothPath(ctx, inputSteps, corners)
+	finalSteps := cbirrt.smoothPath(ctx, inputSteps)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }

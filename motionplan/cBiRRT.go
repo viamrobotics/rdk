@@ -76,8 +76,8 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 type cBiRRTMotionPlanner struct {
 	*planner
 	fastGradDescent *NloptIK
-	algOpts *cbirrtOptions
-	corners map[node]bool
+	algOpts         *cbirrtOptions
+	corners         map[node]bool
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -88,6 +88,9 @@ func newCBiRRTMotionPlanner(
 	logger golog.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
+	if opt == nil {
+		opt = newBasicPlannerOptions()
+	}
 	mp, err := newPlanner(frame, nCPU, seed, logger, opt)
 	if err != nil {
 		return nil, err
@@ -104,8 +107,8 @@ func newCBiRRTMotionPlanner(
 	return &cBiRRTMotionPlanner{
 		planner:         mp,
 		fastGradDescent: nlopt,
-		algOpts: algOpts,
-		corners: map[node]bool{},
+		algOpts:         algOpts,
+		corners:         map[node]bool{},
 	}, nil
 }
 
@@ -113,16 +116,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([][]referenceframe.Input, error) {
-	if mp.planOpts == nil {
-		mp.planOpts = newBasicPlannerOptions()
-	}
-	if mp.algOpts == nil {
-		algOpts, err := newCbirrtOptions(mp.planOpts, mp.frame)
-		if err != nil {
-			return nil, err
-		}
-		mp.algOpts = algOpts
-	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{initRRTMaps(), nil, solutionChan})
