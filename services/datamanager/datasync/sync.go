@@ -192,6 +192,7 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 }
 
 func (s *syncer) SyncArbitraryFiles(dirs []string) {
+	fmt.Println("reached SyncArbitraryFiles in sync")
 	var paths []string
 	for _, dir := range dirs {
 		paths = append(paths, getAllFilePaths(dir)...)
@@ -202,17 +203,32 @@ func (s *syncer) SyncArbitraryFiles(dirs []string) {
 		s.backgroundWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer s.backgroundWorkers.Done()
-			select {
-			case <-s.cancelCtx.Done():
+			f, err := os.Open(newP)
+			if err != nil {
+				s.logger.Errorw("error opening file", "error", err)
 				return
-			default:
-				//nolint:gosec
-				f, err := os.Open(newP)
-				if err != nil {
-					s.logger.Errorw("error opening file", "error", err)
-					return
-				}
+			}
 
+			if s.syncInterval > 0.0 {
+				ticker := time.NewTicker(s.syncInterval)
+				defer ticker.Stop()
+				defer s.backgroundWorkers.Done()
+				for {
+					if err := s.cancelCtx.Err(); err != nil {
+						if !errors.Is(err, context.Canceled) {
+							s.logger.Error(err)
+						}
+						return
+					}
+
+					select {
+					case <-s.cancelCtx.Done():
+						return
+					case <-ticker.C:
+						s.syncArbitraryFile(f)
+					}
+				}
+			} else {
 				s.syncArbitraryFile(f)
 			}
 		})
@@ -274,7 +290,6 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 }
 
 func (s *syncer) syncArbitraryFile(f *os.File) {
-
 	if !s.markInProgress(f.Name()) {
 		return
 	}
