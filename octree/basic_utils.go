@@ -102,8 +102,7 @@ func (octree *basicOctree) iterateRecursive(numBatches, myBatch, idx int, fn fun
 	switch octree.node.nodeType {
 	case InternalNode:
 		for _, child := range octree.node.children {
-			idx, ok = child.iterateRecursive(numBatches, myBatch, idx+1, fn)
-			if !ok {
+			if idx, ok = child.iterateRecursive(numBatches, myBatch, idx+1, fn); !ok {
 				ok = false
 				break
 			}
