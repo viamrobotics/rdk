@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -46,11 +45,15 @@ func (c *client) Move(
 	if err != nil {
 		return false, err
 	}
+	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	if err != nil {
+		return false, err
+	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
 		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    referenceframe.WorldStateToProtobuf(worldState),
+		WorldState:    worldStateMsg,
 		Extra:         ext,
 	})
 	if err != nil {
@@ -70,11 +73,15 @@ func (c *client) MoveSingleComponent(
 	if err != nil {
 		return false, err
 	}
+	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	if err != nil {
+		return false, err
+	}
 	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
 		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    referenceframe.WorldStateToProtobuf(worldState),
+		WorldState:    worldStateMsg,
 		Extra:         ext,
 	})
 	if err != nil {
@@ -87,10 +94,14 @@ func (c *client) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	transforms, err := referenceframe.PoseInFrameSliceToTransformProtobuf(supplementalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +109,7 @@ func (c *client) GetPose(
 		Name:                   c.name,
 		ComponentName:          protoutils.ResourceNameToProto(componentName),
 		DestinationFrame:       destinationFrame,
-		SupplementalTransforms: supplementalTransforms,
+		SupplementalTransforms: transforms,
 		Extra:                  ext,
 	})
 	if err != nil {

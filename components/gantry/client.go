@@ -72,10 +72,14 @@ func (c *client) MoveToPosition(
 	if err != nil {
 		return err
 	}
+	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	if err != nil {
+		return err
+	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
-		WorldState:  referenceframe.WorldStateToProtobuf(worldState),
+		WorldState:  worldStateMsg,
 		Extra:       ext,
 	})
 	return err

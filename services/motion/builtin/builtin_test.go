@@ -53,16 +53,8 @@ func TestMoveFailures(t *testing.T) {
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
-		transformMsgs := []*commonpb.Transform{
-			{
-				ReferenceFrame: "frame2",
-				PoseInObserverFrame: &commonpb.PoseInFrame{
-					ReferenceFrame: "noParent",
-					Pose:           spatialmath.PoseToProtobuf(testPose),
-				},
-			},
-		}
-		worldState := &referenceframe.WorldState{Transforms: transformMsgs}
+		transforms := []*referenceframe.PoseInFrame{referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2")}
+		worldState := &referenceframe.WorldState{Transforms: transforms}
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(context.Background(), arm.Named("arm1"), poseInFrame, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
@@ -97,23 +89,12 @@ func TestMove1(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
-		transformMsgs := []*commonpb.Transform{
-			{
-				ReferenceFrame: "testFrame",
-				PoseInObserverFrame: &commonpb.PoseInFrame{
-					ReferenceFrame: "pieceArm",
-					Pose:           spatialmath.PoseToProtobuf(testPose),
-				},
-			},
-			{
-				ReferenceFrame: "testFrame2",
-				PoseInObserverFrame: &commonpb.PoseInFrame{
-					ReferenceFrame: "world",
-					Pose:           spatialmath.PoseToProtobuf(testPose),
-				},
-			},
+		transforms := []*referenceframe.PoseInFrame{
+			referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2"),
+			referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "testFrame"),
 		}
-		worldState := &referenceframe.WorldState{Transforms: transformMsgs}
+
+		worldState := &referenceframe.WorldState{Transforms: transforms}
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -130, -40}))
 		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
@@ -204,17 +185,8 @@ func TestMoveSingleComponent(t *testing.T) {
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
-
-		transformMsgs := []*commonpb.Transform{
-			{
-				ReferenceFrame: "testFrame2",
-				PoseInObserverFrame: &commonpb.PoseInFrame{
-					ReferenceFrame: "world",
-					Pose:           spatialmath.PoseToProtobuf(testPose),
-				},
-			},
-		}
-		worldState := &referenceframe.WorldState{Transforms: transformMsgs}
+		transforms := []*referenceframe.PoseInFrame{referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2")}
+		worldState := &referenceframe.WorldState{Transforms: transforms}
 
 		poseToGrab := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: -20., Y: 0., Z: -800.},
@@ -278,23 +250,12 @@ func TestGetPose(t *testing.T) {
 		r3.Vector{X: 0., Y: 0., Z: 0.},
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
-	transformMsgs := []*commonpb.Transform{
-		{
-			ReferenceFrame: "testFrame",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "testFrame2",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "testFrame",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
+	transforms := []*referenceframe.PoseInFrame{
+		referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame"),
+		referenceframe.NewNamedPoseInFrame("testFrame", testPose, "testFrame2"),
 	}
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transformMsgs, map[string]interface{}{})
+
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, -501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
@@ -304,16 +265,8 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Orientation().AxisAngles().RZ, test.ShouldEqual, 0)
 	test.That(t, pose.Pose().Orientation().AxisAngles().Theta, test.ShouldAlmostEqual, math.Pi)
 
-	transformMsgs = []*commonpb.Transform{
-		{
-			ReferenceFrame: "testFrame",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "noParent",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-	}
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transformMsgs, map[string]interface{}{})
+	transforms = []*referenceframe.PoseInFrame{referenceframe.NewNamedPoseInFrame("noParent", testPose, "testFrame")}
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }
