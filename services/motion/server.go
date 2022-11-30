@@ -85,7 +85,7 @@ func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if req.ComponentName == nil {
 		return nil, errors.New("must provide component name")
 	}
-	transforms, err := referenceframe.PoseInFrameSliceFromTransformProtobuf(req.GetSupplementalTransforms())
+	transforms, err := referenceframe.PoseInFramesFromTransformProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
 		return nil, err
 	}
