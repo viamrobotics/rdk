@@ -723,7 +723,7 @@ func (rc *RobotClient) FrameSystemConfig(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.PoseInFrame,
 ) (framesystemparts.Parts, error) {
-	transforms, err := referenceframe.PoseInFrameSliceToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -750,7 +750,7 @@ func (rc *RobotClient) TransformPose(
 	destination string,
 	additionalTransforms []*referenceframe.PoseInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.PoseInFrameSliceToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}

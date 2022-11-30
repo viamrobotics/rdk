@@ -101,7 +101,7 @@ func (c *client) GetPose(
 	if err != nil {
 		return nil, err
 	}
-	transforms, err := referenceframe.PoseInFrameSliceToTransformProtobuf(supplementalTransforms)
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(supplementalTransforms)
 	if err != nil {
 		return nil, err
 	}

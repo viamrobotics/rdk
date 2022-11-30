@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"strconv"
 
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
@@ -104,26 +105,28 @@ func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, 
 	return NewNamedPoseInFrame(parentFrame, pose, frameName), nil
 }
 
-// PoseInFrameSliceToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
-func PoseInFrameSliceToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
+// PoseInFramesToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
+// TODO(rb): use generics to operate on lists of arbirary types
+func PoseInFramesToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
 	protoTransforms := make([]*commonpb.Transform, 0, len(poseSlice))
-	for _, transform := range poseSlice {
+	for i, transform := range poseSlice {
 		protoTf, err := PoseInFrameToTransformProtobuf(transform)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "conversion error at index %d", i)
 		}
 		protoTransforms = append(protoTransforms, protoTf)
 	}
 	return protoTransforms, nil
 }
 
-// PoseInFrameSliceFromTransformProtobuf converts a slice of Transform protobuf messages to a slice of PoseInFrame structs.
-func PoseInFrameSliceFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*PoseInFrame, error) {
+// PoseInFramesFromTransformProtobuf converts a slice of Transform protobuf messages to a slice of PoseInFrame structs.
+// TODO(rb): use generics to operate on lists of arbirary proto types
+func PoseInFramesFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*PoseInFrame, error) {
 	transforms := make([]*PoseInFrame, 0, len(protoSlice))
-	for _, protoTransform := range protoSlice {
+	for i, protoTransform := range protoSlice {
 		transform, err := PoseInFrameFromTransformProtobuf(protoTransform)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "conversion error at index %d", i)
 		}
 		transforms = append(transforms, transform)
 	}
