@@ -138,13 +138,11 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 type WebcamAttrs struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
-	Format               string                             `json:"format"`
-	Path                 string                             `json:"video_path"`
-	PathPattern          string                             `json:"video_path_pattern"`
-	Width                int                                `json:"width_px"`
-	Height               int                                `json:"height_px"`
+	Format               string                             `json:"format,omitempty"`
+	Path                 string                             `json:"video_path,omitempty"`
+	Width                int                                `json:"width_px,omitempty"`
+	Height               int                                `json:"height_px,omitempty"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
@@ -276,7 +274,7 @@ func makeCameraFromSource(ctx context.Context,
 		ctx,
 		source,
 		&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
-		camera.StreamType(attrs.Stream),
+		camera.ColorStream,
 	)
 }
 

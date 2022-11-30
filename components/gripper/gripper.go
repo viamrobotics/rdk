@@ -93,7 +93,7 @@ func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 }
 
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	g, ok := r.(Gripper)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -101,7 +101,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
 	}
-	rGripper := &reconfigurableGripper{actual: g}
+	rGripper := &reconfigurableGripper{name: name, actual: g}
 	gLocal, ok := r.(LocalGripper)
 	if !ok {
 		return rGripper, nil
@@ -156,7 +156,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.Actuator
 
 type reconfigurableGripper struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Gripper
+}
+
+func (g *reconfigurableGripper) Name() resource.Name {
+	return g.name
 }
 
 func (g *reconfigurableGripper) ProxyFor() interface{} {

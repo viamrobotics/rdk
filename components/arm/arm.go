@@ -189,7 +189,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Arm
+}
+
+func (r *reconfigurableArm) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -320,7 +325,7 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm
 // and a localArm into a reconfigurableLocalArm
 // If arm is already a Reconfigurable, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	arm, ok := r.(Arm)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -330,7 +335,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	rArm := &reconfigurableArm{actual: arm}
+	rArm := &reconfigurableArm{name: name, actual: arm}
 	localArm, ok := r.(LocalArm)
 	if !ok {
 		// is an arm but is not a local arm

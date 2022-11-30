@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
 
 // preprocessDepthTransform applies pre-processing functions to depth maps in order to smooth edges and fill holes.
@@ -17,9 +18,19 @@ type preprocessDepthTransform struct {
 	stream gostream.VideoStream
 }
 
-func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSource) (gostream.VideoSource, error) {
+func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSource,
+) (gostream.VideoSource, camera.StreamType, error) {
 	reader := &preprocessDepthTransform{gostream.NewEmbeddedVideoStream(source)}
-	return camera.NewFromReader(ctx, reader, nil, camera.DepthStream)
+	var cameraModel *transform.PinholeCameraModel
+	if cameraSrc, ok := source.(camera.Camera); ok {
+		props, err := cameraSrc.Properties(ctx)
+		if err != nil {
+			return nil, camera.UnspecifiedStream, err
+		}
+		cameraModel = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+	}
+	cam, err := camera.NewFromReader(ctx, reader, cameraModel, camera.DepthStream)
+	return cam, camera.DepthStream, err
 }
 
 // Next applies depth preprocessing to the next image.

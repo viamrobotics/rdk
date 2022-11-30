@@ -105,7 +105,12 @@ func (config *Config) Validate(path string) error {
 
 type reconfigurableNavigation struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableNavigation) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableNavigation) Mode(ctx context.Context, extra map[string]interface{}) (Mode, error) {
@@ -172,7 +177,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 }
 
 // WrapWithReconfigurable wraps a navigation service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -182,5 +187,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableNavigation{actual: svc}, nil
+	return &reconfigurableNavigation{name: name, actual: svc}, nil
 }

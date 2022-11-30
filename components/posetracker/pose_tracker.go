@@ -107,7 +107,12 @@ func Readings(ctx context.Context, poseTracker PoseTracker) (map[string]interfac
 
 type reconfigurablePoseTracker struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual PoseTracker
+}
+
+func (r *reconfigurablePoseTracker) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurablePoseTracker) ProxyFor() interface{} {
@@ -162,7 +167,7 @@ func (r *reconfigurablePoseTracker) Reconfigure(
 
 // WrapWithReconfigurable converts a regular PoseTracker implementation to a reconfigurablePoseTracker.
 // If pose tracker is already a reconfigurablePoseTracker, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	poseTracker, ok := r.(PoseTracker)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -170,5 +175,5 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := poseTracker.(*reconfigurablePoseTracker); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurablePoseTracker{actual: poseTracker}, nil
+	return &reconfigurablePoseTracker{name: name, actual: poseTracker}, nil
 }
