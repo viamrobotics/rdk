@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,9 +25,10 @@ import (
 
 // FileExt defines the file extension for Viam data capture files.
 const (
-	FileExt        = ".capture"
-	readImage      = "ReadImage"
-	nextPointCloud = "NextPointCloud"
+	InProgressFileExt = ".prog"
+	FileExt           = ".capture"
+	readImage         = "ReadImage"
+	nextPointCloud    = "NextPointCloud"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -77,13 +79,13 @@ func ReadFile(f *os.File) (*File, error) {
 }
 
 // NewFile creates a new File with the specified md in the specified directory.
-func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
+func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
 	// First create directories and the file in it.
-	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
+	fileDir := filepath.Join(dir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
-	fileName := filepath.Join(fileDir, getFileTimestampName()) + FileExt
+	fileName := filepath.Join(fileDir, getFileTimestampName()) + InProgressFileExt
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o700)
 	if err != nil {
@@ -182,6 +184,13 @@ func (f *File) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.writer.Flush(); err != nil {
+		return err
+	}
+
+	// Rename file to indicate that it is done being written.
+	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
+	newName := filepath.Join(withoutExt, FileExt)
+	if err := os.Rename(f.file.Name(), newName); err != nil {
 		return err
 	}
 	return f.file.Close()

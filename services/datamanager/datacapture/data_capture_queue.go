@@ -20,7 +20,6 @@ type Queue struct {
 	MetaData  *v1.DataCaptureMetadata
 	nextFile  *File
 	lock      *sync.Mutex
-	files     []*File
 	closed    bool
 }
 
@@ -28,7 +27,6 @@ type Queue struct {
 func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
 	return &Queue{
 		Directory: dir,
-		files:     []*File{},
 		lock:      &sync.Mutex{},
 		MetaData:  md,
 	}
@@ -51,7 +49,7 @@ func (q *Queue) Push(item *v1.SensorData) error {
 		q.nextFile = nextFile
 	} else if q.nextFile.Size() > MaxFileSize || item.GetBinary() != nil {
 		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
-		if err := q.pushNextFile(); err != nil {
+		if err := q.nextFile.Close(); err != nil {
 			return err
 		}
 		nextFile, err := NewFile(q.Directory, q.MetaData)
@@ -64,28 +62,6 @@ func (q *Queue) Push(item *v1.SensorData) error {
 	return q.nextFile.WriteNext(item)
 }
 
-// Pop returns the next File in q.
-func (q *Queue) Pop() (*File, error) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	// Push nextFile to queue on Pop.
-	if err := q.pushNextFile(); err != nil {
-		return nil, err
-	}
-
-	// if queue is empty, return nil.
-	//nolint:nilnil
-	if len(q.files) == 0 {
-		return nil, nil
-	}
-
-	// else, return the next file in the queue, and update the queue
-	ret := q.files[0]
-	q.files = q.files[1:]
-	return ret, nil
-}
-
 // Close closes the queue, indicating no additional data will be pushed.
 func (q *Queue) Close() error {
 	q.lock.Lock()
@@ -94,36 +70,9 @@ func (q *Queue) Close() error {
 	if q.nextFile == nil {
 		return nil
 	}
-	if err := q.nextFile.Sync(); err != nil {
+	if err := q.nextFile.Close(); err != nil {
 		return err
 	}
-	q.nextFile = nil
-	return nil
-}
-
-// IsClosed returns whether or not q is closed.
-func (q *Queue) IsClosed() bool {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-	return q.closed
-}
-
-// Reset removes all items from the queue. It does not delete the underlying files from disk.
-func (q *Queue) Reset() {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-	q.nextFile = nil
-	q.files = []*File{}
-}
-
-func (q *Queue) pushNextFile() error {
-	if q.nextFile == nil {
-		return nil
-	}
-	if err := q.nextFile.Sync(); err != nil {
-		return err
-	}
-	q.files = append(q.files, q.nextFile)
 	q.nextFile = nil
 	return nil
 }

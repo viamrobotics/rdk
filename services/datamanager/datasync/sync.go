@@ -45,9 +45,7 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	SyncCaptureFiles(paths []string)
-	SyncCaptureQueues(queues []*datacapture.Queue)
-	SyncArbitraryFiles(paths []string)
+	SyncDirectory(dir string)
 	Close()
 }
 
@@ -125,26 +123,8 @@ func (s *syncer) Close() {
 // TODO: expose errors somehow
 // TODO: sync arbitrary files on ticker too
 
-// SyncCaptureQueues uploads everything in queue until it is closed and emptied.
-func (s *syncer) SyncCaptureQueues(queues []*datacapture.Queue) {
-	for _, q := range queues {
-		s.backgroundWorkers.Add(1)
-		goutils.PanicCapturingGo(func() {
-			defer s.backgroundWorkers.Done()
-			for {
-				if err := s.cancelCtx.Err(); err != nil {
-					if !errors.Is(err, context.Canceled) {
-						s.logger.Error(err)
-					}
-					return
-				}
-				s.syncQueue(s.cancelCtx, q)
-			}
-		})
-	}
-}
-
-func (s *syncer) SyncCaptureFiles(paths []string) {
+func (s *syncer) SyncDirectory(dir string) {
+	paths := getAllFilesToSync(dir, s.lastModifiedSecs)
 	for _, p := range paths {
 		newP := p
 		s.backgroundWorkers.Add(1)
@@ -161,71 +141,22 @@ func (s *syncer) SyncCaptureFiles(paths []string) {
 					return
 				}
 
-				captureFile, err := datacapture.ReadFile(f)
-				if err != nil {
-					s.logger.Errorw("error reading capture file", "error", err)
-					err := f.Close()
+				if datacapture.IsDataCaptureFile(f) {
+					captureFile, err := datacapture.ReadFile(f)
 					if err != nil {
-						s.logger.Errorw("error closing file", "error", err)
+						s.logger.Errorw("error reading capture file", "error", err)
+						err := f.Close()
+						if err != nil {
+							s.logger.Errorw("error closing file", "error", err)
+						}
+						return
 					}
-					return
+					s.syncDataCaptureFile(captureFile)
+				} else {
+					s.syncArbitraryFile(f)
 				}
-				s.syncDataCaptureFile(captureFile)
 			}
 		})
-	}
-}
-
-func (s *syncer) SyncArbitraryFiles(dirs []string) {
-	fmt.Println("reached SyncArbitraryFiles in sync")
-	fmt.Println(fmt.Sprintf("uploading files in %v", dirs))
-	var paths []string
-	for _, dir := range dirs {
-		paths = append(paths, getAllFilesToSync(dir, s.lastModifiedSecs)...)
-	}
-	fmt.Println(fmt.Sprintf("uploading paths: %v", paths))
-
-	for _, p := range paths {
-		newP := p
-		s.backgroundWorkers.Add(1)
-		goutils.PanicCapturingGo(func() {
-			fmt.Println(fmt.Sprintf("uploading %s", newP))
-			defer s.backgroundWorkers.Done()
-			if !s.markInProgress(newP) {
-				return
-			}
-			defer s.unmarkInProgress(newP)
-
-			f, err := os.Open(newP)
-			if err != nil {
-				s.logger.Errorw("error opening file", "error", err)
-				return
-			}
-			s.syncArbitraryFile(f)
-		})
-	}
-}
-
-func (s *syncer) syncQueue(ctx context.Context, q *datacapture.Queue) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			next, err := q.Pop()
-			if err != nil {
-				s.logger.Error(err)
-				return
-			}
-			if next == nil && q.IsClosed() {
-				return
-			}
-
-			if next == nil {
-				break
-			}
-			s.syncDataCaptureFile(next)
-		}
 	}
 }
 
@@ -297,7 +228,7 @@ func (s *syncer) markInProgress(path string) bool {
 func (s *syncer) unmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
-	s.inProgress[path] = false
+	delete(s.inProgress, path)
 	return
 }
 
@@ -372,7 +303,8 @@ func getAllFilesToSync(dir string, lastModifiedSecs int) []string {
 		}
 		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
 		// may still be being written).
-		if diff := time.Now().Sub(info.ModTime()); diff < (time.Duration(lastModifiedSecs) * time.Second) {
+		timeSinceMod := time.Now().Sub(info.ModTime())
+		if timeSinceMod < (time.Duration(lastModifiedSecs)*time.Second) || filepath.Ext(path) == datacapture.InProgressFileExt {
 			return nil
 		}
 		filePaths = append(filePaths, path)
