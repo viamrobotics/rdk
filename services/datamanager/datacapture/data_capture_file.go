@@ -189,7 +189,7 @@ func (f *File) Close() error {
 
 	// Rename file to indicate that it is done being written.
 	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
-	newName := filepath.Join(withoutExt, FileExt)
+	newName := withoutExt + FileExt
 	if err := os.Rename(f.file.Name(), newName); err != nil {
 		return err
 	}

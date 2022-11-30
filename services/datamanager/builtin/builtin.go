@@ -91,16 +91,16 @@ type Config struct {
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
-	r                         robot.Robot
-	cfg                       *config.Config
-	logger                    golog.Logger
-	syncLogger                golog.Logger
-	captureDir                string
-	captureDisabled           bool
-	collectors                map[componentMethodMetadata]collectorAndConfig
-	lock                      sync.Mutex
-	backgroundWorkers         sync.WaitGroup
-	waitAfterLastModifiedSecs int
+	r                           robot.Robot
+	cfg                         *config.Config
+	logger                      golog.Logger
+	syncLogger                  golog.Logger
+	captureDir                  string
+	captureDisabled             bool
+	collectors                  map[componentMethodMetadata]collectorAndConfig
+	lock                        sync.Mutex
+	backgroundWorkers           sync.WaitGroup
+	waitAfterLastModifiedMillis int
 
 	additionalSyncPaths []string
 	syncDisabled        bool
@@ -130,18 +130,18 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &builtIn{
-		r:                         r,
-		logger:                    logger,
-		syncLogger:                syncLogger,
-		captureDir:                viamCaptureDotDir,
-		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
-		backgroundWorkers:         sync.WaitGroup{},
-		lock:                      sync.Mutex{},
-		syncIntervalMins:          0,
-		additionalSyncPaths:       []string{},
-		waitAfterLastModifiedSecs: 10,
-		syncerConstructor:         datasync.NewDefaultManager,
-		modelManagerConstructor:   model.NewDefaultManager,
+		r:                           r,
+		logger:                      logger,
+		syncLogger:                  syncLogger,
+		captureDir:                  viamCaptureDotDir,
+		collectors:                  make(map[componentMethodMetadata]collectorAndConfig),
+		backgroundWorkers:           sync.WaitGroup{},
+		lock:                        sync.Mutex{},
+		syncIntervalMins:            0,
+		additionalSyncPaths:         []string{},
+		waitAfterLastModifiedMillis: 10000,
+		syncerConstructor:           datasync.NewDefaultManager,
+		modelManagerConstructor:     model.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
@@ -308,7 +308,7 @@ func (svc *builtIn) closeSyncer() {
 }
 
 func (svc *builtIn) initSyncer(cfg *config.Config) error {
-	syncer, err := svc.syncerConstructor(svc.logger, cfg, svc.waitAfterLastModifiedSecs)
+	syncer, err := svc.syncerConstructor(svc.logger, cfg, svc.waitAfterLastModifiedMillis)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -358,8 +358,6 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
 	fmt.Println("called sync additional sync paths in rdk")
-	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	for _, dir := range svc.additionalSyncPaths {
 		svc.syncer.SyncDirectory(dir)
 	}
@@ -370,6 +368,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.cfg = cfg
+	fmt.Println(fmt.Sprintf("dmsvc last modified millis: %v", svc.waitAfterLastModifiedMillis))
 
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
@@ -445,7 +444,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	// TODO: don't cancel in progress arbitrary file uploads on Update unless sync has been disabled or
 	//       additional_sync_paths has changed.
+	fmt.Println("calling close syncer")
 	svc.closeSyncer()
+	fmt.Println("closed syncer")
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
@@ -491,9 +492,11 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
+				svc.lock.Lock()
 				fmt.Println("uploadData ticket hit")
 				svc.syncer.SyncDirectory(svc.captureDir)
 				svc.syncAdditionalSyncPaths()
+				svc.lock.Unlock()
 			}
 		}
 	})
