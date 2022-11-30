@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	testLastModifiedSecs = 1
+	testLastModifiedMillis = 10
 )
 
 func TestSyncEnabled(t *testing.T) {
@@ -243,10 +243,12 @@ func TestDataCaptureUpload(t *testing.T) {
 
 			// Turn dmsvc back on with capture disabled.
 			newDMSvc := newTestDataManager(t)
+			newDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			svcConfig.SyncIntervalMins = 0.001
+			time.Sleep(time.Duration(testLastModifiedMillis) * time.Millisecond)
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -390,7 +392,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			svcConfig.AdditionalSyncPaths = []string{tmpDir}
 
 			// Start dmsvc.
-			dmsvc.SetWaitAfterLastModifiedSecs(testLastModifiedSecs)
+			dmsvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -510,13 +512,13 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 }
 
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config, lastModSecs int) (datasync.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config, lastModMillis int) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		if err != nil {
 			return nil, err
 		}
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, lastModSecs)
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, lastModMillis)
 	}
 }
 

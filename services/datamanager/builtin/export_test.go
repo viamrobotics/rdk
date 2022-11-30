@@ -17,8 +17,8 @@ func (svc *builtIn) SetModelManagerConstructor(fn model.ManagerConstructor) {
 }
 
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
-func (svc *builtIn) SetWaitAfterLastModifiedSecs(s int) {
-	svc.waitAfterLastModifiedSecs = s
+func (svc *builtIn) SetWaitAfterLastModifiedMillis(s int) {
+	svc.waitAfterLastModifiedMillis = s
 }
 
 // Make getServiceConfig global for tests.

@@ -6,7 +6,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"image"
 	"image/png"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,22 +37,6 @@ var (
 	// Robot config which specifies data manager service.
 	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
 )
-
-// readDir filters out folders from a slice of FileInfos.
-func readDir(t *testing.T, dir string) ([]fs.DirEntry, error) {
-	t.Helper()
-	filesAndFolders, err := os.ReadDir(dir)
-	if err != nil {
-		t.Log(err)
-	}
-	var onlyFiles []fs.DirEntry
-	for _, s := range filesAndFolders {
-		if !s.IsDir() {
-			onlyFiles = append(onlyFiles, s)
-		}
-	}
-	return onlyFiles, err
-}
 
 func getInjectedRobot() *inject.Robot {
 	r := &inject.Robot{}

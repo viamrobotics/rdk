@@ -51,24 +51,24 @@ type Manager interface {
 
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
-	partID            string
-	conn              rpc.ClientConn
-	client            v1.DataSyncServiceClient
-	logger            golog.Logger
-	backgroundWorkers sync.WaitGroup
-	cancelCtx         context.Context
-	cancelFunc        func()
-	lastModifiedSecs  int
+	partID             string
+	conn               rpc.ClientConn
+	client             v1.DataSyncServiceClient
+	logger             golog.Logger
+	backgroundWorkers  sync.WaitGroup
+	cancelCtx          context.Context
+	cancelFunc         func()
+	lastModifiedMillis int
 
 	progressLock *sync.Mutex
 	inProgress   map[string]bool
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModSecs int) (Manager, error)
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error)
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
-func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModSecs int) (Manager, error) {
+func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
@@ -86,25 +86,25 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModSecs int)
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn, lastModSecs)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, lastModMillis)
 }
 
 // NewManager returns a new syncer.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
-	conn rpc.ClientConn, lastModifiedSecs int,
+	conn rpc.ClientConn, lastModifiedMillis int,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		conn:              conn,
-		client:            client,
-		logger:            logger,
-		backgroundWorkers: sync.WaitGroup{},
-		cancelCtx:         cancelCtx,
-		cancelFunc:        cancelFunc,
-		partID:            partID,
-		progressLock:      &sync.Mutex{},
-		inProgress:        make(map[string]bool),
-		lastModifiedSecs:  lastModifiedSecs,
+		conn:               conn,
+		client:             client,
+		logger:             logger,
+		backgroundWorkers:  sync.WaitGroup{},
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		partID:             partID,
+		progressLock:       &sync.Mutex{},
+		inProgress:         make(map[string]bool),
+		lastModifiedMillis: lastModifiedMillis,
 	}
 	return &ret, nil
 }
@@ -124,7 +124,7 @@ func (s *syncer) Close() {
 // TODO: sync arbitrary files on ticker too
 
 func (s *syncer) SyncDirectory(dir string) {
-	paths := getAllFilesToSync(dir, s.lastModifiedSecs)
+	paths := getAllFilesToSync(dir, s.lastModifiedMillis)
 	for _, p := range paths {
 		newP := p
 		s.backgroundWorkers.Add(1)
@@ -135,6 +135,7 @@ func (s *syncer) SyncDirectory(dir string) {
 				return
 			default:
 				//nolint:gosec
+				fmt.Println(fmt.Sprintf("trying to sync %s", newP))
 				f, err := os.Open(newP)
 				if err != nil {
 					s.logger.Errorw("error opening file", "error", err)
@@ -289,12 +290,11 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getAllFilesToSync(dir string, lastModifiedSecs int) []string {
+func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	fmt.Println("getting all files to sync")
 	var filePaths []string
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		fmt.Println(path)
 		if err != nil {
 			return nil
 		}
@@ -304,11 +304,18 @@ func getAllFilesToSync(dir string, lastModifiedSecs int) []string {
 		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
 		// may still be being written).
 		timeSinceMod := time.Now().Sub(info.ModTime())
-		if timeSinceMod < (time.Duration(lastModifiedSecs)*time.Second) || filepath.Ext(path) == datacapture.InProgressFileExt {
+		fmt.Println(fmt.Sprintf("walking over %s", path))
+		fmt.Println(fmt.Sprintf("modified in last modifiedMillis: %v", timeSinceMod < (time.Duration(lastModifiedMillis)*time.Millisecond)))
+		fmt.Println(fmt.Sprintf("time since last mod: %v", timeSinceMod))
+		fmt.Println(fmt.Sprintf("last modified millis time: %v", time.Duration(lastModifiedMillis)*time.Millisecond))
+		fmt.Println(fmt.Sprintf("extension is in progress: %v", filepath.Ext(path) == datacapture.InProgressFileExt))
+		if timeSinceMod < (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.InProgressFileExt {
 			return nil
 		}
 		filePaths = append(filePaths, path)
 		return nil
 	})
+	fmt.Println("going to sync")
+	fmt.Println(filePaths)
 	return filePaths
 }
