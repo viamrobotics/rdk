@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"errors"
 	"fmt"
 	"math"
 
@@ -39,14 +38,13 @@ func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 	return int(nSteps) + 1
 }
 
-// evaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func evaluatePlan(plan planReturn, planOpts *plannerOptions) (totalCost float64) {
-	if errors.Is(plan.err(), errPlannerFailed) {
+// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
+func EvaluatePlan(plan [][]referenceframe.Input, distFunc Constraint) (totalCost float64) {
+	if len(plan) < 2 {
 		return math.Inf(1)
 	}
-	steps := plan.toInputs()
-	for i := 0; i < len(steps)-1; i++ {
-		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
+	for i := 0; i < len(plan)-1; i++ {
+		_, cost := distFunc(&ConstraintInput{StartInput: plan[i], EndInput: plan[i+1]})
 		totalCost += cost
 	}
 	return totalCost

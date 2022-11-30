@@ -158,7 +158,7 @@ func (pm *planManager) planMotion(
 
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
-		planSeed := initRRTMaps(ctx, pathPlanner, goal, seed)
+		planSeed := initRRTsolutions(ctx, pathPlanner, goal, seed)
 		if planSeed.planerr != nil {
 			return nil, planSeed.planerr
 		}
@@ -294,7 +294,7 @@ func (pm *planManager) planMotion(
 						if err == nil {
 							// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 							// The fallback should emerge pre-smoothed, so that should be a non-issue
-							altCost := evaluatePlan(&rrtPlanReturn{steps: stepsToNodes(alternate)}, opt)
+							altCost := EvaluatePlan(alternate, opt.DistanceFunc)
 							if altCost < score {
 								pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
 								finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
@@ -479,7 +479,7 @@ func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 		if pr.maps.optNode.cost <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = evaluatePlan(pr, opt)
+		solutionCost = EvaluatePlan(pr.toInputs(), opt.DistanceFunc)
 		if solutionCost < pr.maps.optNode.cost*defaultOptimalityMultiple {
 			return true, solutionCost
 		}

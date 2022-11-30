@@ -46,12 +46,12 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
-	
+
 	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
-	// var defaultPlanner = newCBiRRTMotionPlanner
+	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
 
-var defaultNcpu = runtime.NumCPU()/2
+var defaultNcpu = runtime.NumCPU() / 2
 
 // the set of supported motion profiles.
 const (
@@ -92,7 +92,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.PlannerConstructor = newCBiRRTMotionPlanner
 
 	opt.SmoothIter = defaultSmoothIter
-	
+
 	opt.Ncpu = defaultNcpu
 
 	return opt

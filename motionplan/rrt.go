@@ -60,7 +60,9 @@ type rrtMaps struct {
 	optNode  *costNode // The highest quality IK solution
 }
 
-func initRRTMaps(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
+// initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
+// map, and will check if any of those goals are able to be directly interpolated to.
+func initRRTsolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
 	rrt := &rrtPlanReturn{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
@@ -121,12 +123,6 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 type node interface {
 	// return the configuration associated with the node
 	Q() []referenceframe.Input
-}
-
-type planReturn interface {
-	// return the steps in Input form
-	toInputs() [][]referenceframe.Input
-	err() error
 }
 
 type basicNode struct {
