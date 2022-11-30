@@ -132,7 +132,7 @@ func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), erro
 		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false)
 		return depth, func() {}, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(ds.Stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(ds.Stream)
 	}
 }
 
@@ -213,7 +213,7 @@ func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
 		depth, err := readDepthURL(ctx, s.client, s.URL, false)
 		return depth, func() {}, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(s.stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(s.stream)
 	}
 }
 

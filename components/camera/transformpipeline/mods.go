@@ -58,7 +58,7 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 		}
 		return dm.Rotate(180), release, nil
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(rs.stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(rs.stream)
 	}
 }
 
@@ -126,7 +126,7 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 		draw.NearestNeighbor.Scale(dst, dst.Bounds(), dm, dm.Bounds(), draw.Over, nil)
 		return dst, release, nil
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(rs.stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(rs.stream)
 	}
 }
 

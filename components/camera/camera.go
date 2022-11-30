@@ -252,6 +252,7 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	if (vs.system.PinholeCameraIntrinsics != nil) && (vs.imageType == DepthStream) {
 		result.SupportsPCD = true
 	}
+	result.ImageType = vs.imageType
 	result.IntrinsicParams = vs.system.PinholeCameraIntrinsics
 	result.DistortionParams = vs.system.Distortion
 	return result, nil
