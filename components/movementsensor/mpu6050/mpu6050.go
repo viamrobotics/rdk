@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -67,19 +68,22 @@ func init() {
 }
 
 type mpu6050 struct {
-	bus        board.I2C
-	i2cAddress byte
-
-	mu     sync.Mutex
-	logger golog.Logger
+	bus                     board.I2C
+	i2cAddress              byte
+	mu                      sync.Mutex
 
 	// The 3 things we can measure: lock the mutex before reading or writing these.
-	angularVelocity    spatialmath.AngularVelocity
-	temperature        float64
-	linearAcceleration r3.Vector
+	angularVelocity         spatialmath.AngularVelocity
+	temperature             float64
+	linearAcceleration      r3.Vector
+	// Stores the most recent error from the background goroutine
+	lastError               error
 
-	shouldShutDown bool  // Tell the background goroutine to stop running
-	hasShutDown    chan bool  // Have the background goroutine indicate it has finished
+	// Used to shut down the background goroutine which polls the sensor.
+	backgroundContext       context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 
 	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
@@ -117,12 +121,13 @@ func NewMpu6050(
 	}
 	logger.Debugf("Using address %d for MPU6050 sensor", address)
 
+	backgroundContext, cancelFunc := context.WithCancel(ctx)
 	sensor := &mpu6050{
-		bus:            bus,
-		i2cAddress:     address,
-		logger:         logger,
-		shouldShutDown: false,
-		hasShutDown: make(chan bool)
+		bus:               bus,
+		i2cAddress:        address,
+		logger:            logger,
+		backgroundContext: backgroundContext,
+		cancelFunc:        cancelFunc,
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 117 and get
@@ -147,7 +152,8 @@ func NewMpu6050(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	go sensor.pollData()
+	sensor.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(sensor.pollData)
 
 	return sensor, nil
 }
@@ -231,16 +237,23 @@ func toLinearAcceleration(data []byte) r3.Vector {
 }
 
 func (mpu *mpu6050) pollData() {
-	while !mpu.shouldShutDown {
-		rawData, err := mpu.readBlock(ctx, 59, 14)
+	defer mpu.activeBackgroundWorkers.Done()
+
+	for mpu.backgroundContext.Err() == nil {
+		// Reading data and re-checking for context errors once per millisecond is probably fast
+		// enough.
+		time.Sleep(time.Millisecond)
+
+		rawData, err := mpu.readBlock(mpu.backgroundContext, 59, 14)
 		if err != nil {
 			mpu.logger.Infof("error reading MPU6050 sensor: %s", err)
+			mpu.lastError = err
 			continue
 		}
 
 		linearAcceleration := toLinearAcceleration(rawData[0:6])
 		// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-		temp := float64(toSignedValue(rawData[6:8])) / 340 + 36.53
+		temperature := float64(toSignedValue(rawData[6:8])) / 340 + 36.53
 		angularVelocity := toAngularVelocity(rawData[8:14])
 
 		// Lock the mutex before modifying the state within the object. By keeping the mutex
@@ -252,9 +265,6 @@ func (mpu *mpu6050) pollData() {
 		mpu.angularVelocity = angularVelocity
 		mpu.mu.Unlock()
 	}
-	// mpu.shouldShutDown is true, and it's time to tell the rest of the object that we have
-	// completed shutting down.
-	mpu.hasShutDown <- true
 }
 
 func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -305,8 +315,8 @@ func (mpu *mpu6050) Close(ctx context.Context) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
 
-	mpu.shouldShutDown = true  // Shut down the goroutine running in the background.
-	<- mpu.hasShutDown  // Wait until the goroutine has successfully shut down.
+	mpu.cancelFunc()
+	mpu.activeBackgroundWorkers.Wait()
 
 	// Set the Sleep bit (bit 6) in the power control register (register 107).
 	err := mpu.writeByte(ctx, 107, 1<<6)
