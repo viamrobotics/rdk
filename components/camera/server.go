@@ -59,7 +59,7 @@ func (s *subtypeServer) GetImage(
 
 	// Determine the mimeType we should try to use based on camera properties
 	if req.MimeType == "" {
-		if s.imgType == nil { // if we don't have it in the server struct, populate it
+		if s.imgType == nil {
 			props, err := cam.Properties(ctx)
 			if err != nil {
 				s.logger.Warn("camera properties not found, assuming color images")
@@ -69,12 +69,13 @@ func (s *subtypeServer) GetImage(
 				s.imgType = &props.ImageType
 			}
 		}
-
 		switch *s.imgType {
 		case ColorStream:
 			req.MimeType = utils.MimeTypeJPEG
 		case DepthStream:
 			req.MimeType = utils.MimeTypePNG
+		case UnspecifiedStream:
+			req.MimeType = utils.MimeTypeJPEG
 		default:
 			req.MimeType = utils.MimeTypeJPEG
 		}
