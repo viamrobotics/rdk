@@ -36,7 +36,7 @@ type rrtStarConnectOptions struct {
 func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
 		NeighborhoodSize: defaultNeighborhoodSize,
-		rrtOptions:       newRRTOptions(planOpts),
+		rrtOptions:       newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)

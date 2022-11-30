@@ -79,12 +79,12 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
-	
+
 	// Note the direct reference to a default here.
 	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
 	// is placed in a global default var.
 	opt.PlannerConstructor = newCBiRRTMotionPlanner
-	
+
 	opt.SmoothIter = defaultSmoothIter
 
 	return opt

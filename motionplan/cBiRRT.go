@@ -53,7 +53,7 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 		JointSolveDist:  defaultJointSolveDist,
 		SolutionsToSeed: defaultSolutionsToSeed,
 		IterBeforeRand:  defaultIterBeforeRand,
-		rrtOptions:      newRRTOptions(planOpts),
+		rrtOptions:      newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)

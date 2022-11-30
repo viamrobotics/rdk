@@ -31,9 +31,9 @@ type rrtOptions struct {
 	Ncpu int `json:"ncpu"`
 }
 
-func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
+func newRRTOptions() *rrtOptions {
 	return &rrtOptions{
-		PlanIter:       defaultPlanIter,
+		PlanIter: defaultPlanIter,
 	}
 }
 
@@ -42,7 +42,7 @@ type rrtMap map[node]node
 type rrtPlanReturn struct {
 	steps   []node
 	planerr error
-	maps      *rrtMaps
+	maps    *rrtMaps
 }
 
 func (plan *rrtPlanReturn) toInputs() [][]referenceframe.Input {
