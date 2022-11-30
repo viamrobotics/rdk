@@ -18,6 +18,7 @@ interface Props {
 
 interface Emits {
   (event: 'download-raw-data'): void
+  (event: 'clear-interval'): void
   (event: 'selected-camera-view', value: string): void
   (event: 'refresh-camera', value: string): void
 }
@@ -27,8 +28,8 @@ const emit = defineEmits<Emits>();
 
 let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();
+let camera = $ref(false);
 
-const camera = ref(false);
 const selectedValue = ref('live');
 
 const initStreamState = () => {
@@ -37,21 +38,21 @@ const initStreamState = () => {
 
 const viewCamera = async (isOn: boolean) => {
   if (isOn) {
+    cameraStreamStates.set(props.cameraName, true);
     try {
       // only add stream if not already active
       if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
         await addStream(props.client, props.cameraName);
-        cameraStreamStates.set(props.cameraName, true);
       }
     } catch (error) {
       displayError(error as ServiceError);
     }
   } else {
+    cameraStreamStates.set(props.cameraName, false);
     try {
       // only remove camera stream if active and base stream is not active
       if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
         await removeStream(props.client, props.cameraName);
-        cameraStreamStates.set(props.cameraName, false);
       }
     } catch (error) {
       displayError(error as ServiceError);
@@ -60,8 +61,8 @@ const viewCamera = async (isOn: boolean) => {
 };
 
 const toggleExpand = () => {
-  camera.value = !camera.value;
-  viewCamera(camera.value);
+  camera = !camera;
+  viewCamera(camera);
 };
 
 const renderPCD = () => {
@@ -85,16 +86,20 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  console.log('selectCameraView', selectCameraView);
-
   if (selectedValue.value !== 'Live') {
     console.log('!LIVE');
     viewCamera(false);
     emit('selected-camera-view', selectedValue.value);
   } else {
+    emit('clear-interval');
     viewCamera(true);
   }
 };
+
+const refreshCamera  = () => {
+  emit('selected-camera-view', selectedValue.value);
+  emit('clear-interval');
+}
 
 const exportScreenshot = (cameraName: string) => {
   const req = new cameraApi.RenderFrameRequest();
@@ -149,7 +154,6 @@ onMounted(() => {
                     <v-select
                       v-model="selectedValue"
                       label="Refresh frequency"
-                      class=""
                       aria-label="Default select example"
                       @input="selectCameraView"
                       options="Manual Refresh, Every 30 Seconds, Every 10 Seconds, Every Second, Live"
@@ -161,7 +165,7 @@ onMounted(() => {
                     v-if="(camera && selectedValue !== 'Live')"
                     icon="refresh"
                     label="Refresh"
-                    @click="viewCamera"
+                    @click="refreshCamera"
                   />
                 </div>
                 <div class="self-end">

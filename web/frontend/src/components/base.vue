@@ -32,12 +32,6 @@ type MovementModes = 'Straight' | 'Spin'
 type SpinTypes = 'Clockwise' | 'Counterclockwise'
 type Directions = 'Forwards' | 'Backwards'
 
-interface Emits {
-  (event: 'base-camera-state', value: Map<string, boolean>): void
-}
-
-const emit = defineEmits<Emits>();
-
 const selectedItem = ref<Tabs>('Keyboard');
 const movementMode = ref<MovementModes>('Straight');
 const movementType = ref<MovementTypes>('Continuous');
