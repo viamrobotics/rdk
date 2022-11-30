@@ -156,7 +156,9 @@ func TestServer(t *testing.T) {
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: fakeCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
+
 		// color camera
+		// ensure that RawRGBA mimetype request will return RawRGBA mimetype response
 		resp, err := cameraServer.GetImage(
 			context.Background(),
 			&pb.GetImageRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
@@ -168,6 +170,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image[rimage.RawRGBAHeaderLength:], test.ShouldResemble, img.Pix)
 
+		// ensure that empty mimetype request will return JPEG mimetype response
 		resp, err = cameraServer.GetImage(
 			context.Background(),
 			&pb.GetImageRequest{Name: testCameraName, MimeType: ""},

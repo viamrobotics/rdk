@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -19,12 +20,15 @@ import (
 // subtypeServer implements the CameraService from camera.proto.
 type subtypeServer struct {
 	pb.UnimplementedCameraServiceServer
-	s subtype.Service
+	s       subtype.Service
+	imgType *ImageType
+	logger  golog.Logger
 }
 
 // NewServer constructs an camera gRPC service server.
 func NewServer(s subtype.Service) pb.CameraServiceServer {
-	return &subtypeServer{s: s}
+	logger := golog.NewLogger("camserver")
+	return &subtypeServer{s: s, logger: logger}
 }
 
 // getCamera returns the camera specified, nil if not.
@@ -53,11 +57,26 @@ func (s *subtypeServer) GetImage(
 		return nil, err
 	}
 
-	if req.MimeType == "" { // there is no explicitly requested mimetype
-		req.MimeType = utils.MimeTypeJPEG
-		props, _ := cam.Properties(ctx) //nolint:errcheck
-		if props.ImageType == DepthStream {
+	// Determine the mimeType we should try to use based on camera properties
+	if req.MimeType == "" {
+		if s.imgType == nil { // if we don't have it in the server struct, populate it
+			props, err := cam.Properties(ctx)
+			if err != nil {
+				s.logger.Warn("camera properties not found, assuming color images")
+				cs := ColorStream
+				s.imgType = &cs
+			} else {
+				s.imgType = &props.ImageType
+			}
+		}
+
+		switch *s.imgType {
+		case ColorStream:
+			req.MimeType = utils.MimeTypeJPEG
+		case DepthStream:
 			req.MimeType = utils.MimeTypePNG
+		default:
+			req.MimeType = utils.MimeTypeJPEG
 		}
 	}
 

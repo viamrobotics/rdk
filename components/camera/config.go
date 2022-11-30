@@ -14,7 +14,7 @@ const (
 	DepthStream       = ImageType("depth")
 )
 
-// NewUnsupportedStreamError is when the stream type is unknown.
-func NewUnsupportedStreamError(s ImageType) error {
-	return errors.Errorf("stream of type %q not supported", s)
+// NewUnsupportedImageTypeError is when the stream type is unknown.
+func NewUnsupportedImageTypeError(s ImageType) error {
+	return errors.Errorf("image type %q not supported", s)
 }
