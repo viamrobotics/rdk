@@ -8,6 +8,7 @@ import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { addStream, removeStream } from '../lib/stream';
 import { rcLogConditionally } from '../lib/log';
+import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
   name: string;
@@ -49,7 +50,6 @@ const speed = ref(200);
 const spinSpeed = ref(90);
 const angle = ref(0);
 
-const videoStreamStates = new Map<string, boolean>();
 const selectCameras = ref('');
 
 const pressed = new Set<Keys>();
@@ -57,7 +57,7 @@ let stopped = true;
 
 const initStreamState = () => {
   for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
-    videoStreamStates.set(value.name, false);
+    baseStreamStates.set(value.name, false);
   }
 };
 
@@ -198,30 +198,26 @@ const baseRun = () => {
 };
 
 const viewPreviewCamera = (name: string) => {
-  for (const [key, value] of videoStreamStates) {
-    const streamContainers = document.querySelector(`[data-stream="${key}"]`);
-
+  for (const [key, value] of baseStreamStates) {
     // Only turn on if state is off
     if (name.includes(key) && value === false) {
+      baseStreamStates.set(key, true);
       try {
         // Only add stream if other components have not already
-        if (streamContainers?.classList.contains('hidden')) {
+        if (!cameraStreamStates.get(name)) {
           addStream(props.client, key);
         }
-        videoStreamStates.set(key, true);
-        emit('base-camera-state', videoStreamStates);
       } catch (error) {
         displayError(error as ServiceError);
       }
     // Only turn off if state is on
     } else if (!name.includes(key) && value === true) {
+      baseStreamStates.set(key, false);
       try {
         // Only remove stream if other components are not using the stream
-        if (streamContainers?.classList.contains('hidden')) {
+        if (!cameraStreamStates.get(name)) {
           removeStream(props.client, key);
         }
-        videoStreamStates.set(key, false);
-        emit('base-camera-state', videoStreamStates);
       } catch (error) {
         displayError(error as ServiceError);
       }
@@ -247,7 +243,6 @@ const handleTabSelect = (tab: Tabs) => {
 onMounted(() => {
   initStreamState();
 });
-
 </script>
 
 <template>
@@ -312,7 +307,7 @@ onMounted(() => {
               <div
                 v-if="basecamera"
                 :data-stream-preview="basecamera.name"
-                :class="{ 'hidden': !videoStreamStates.get(basecamera.name) }"
+                :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
               />
             </template>
           </div>
