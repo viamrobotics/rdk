@@ -24,18 +24,18 @@ func init() {
 // A Servo allows setting and reading a single angle.
 type Servo struct {
 	Name  string
-	angle uint8
+	angle uint32
 	generic.Echo
 }
 
 // Move sets the given angle.
-func (s *Servo) Move(ctx context.Context, angleDeg uint8, extra map[string]interface{}) error {
+func (s *Servo) Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error {
 	s.angle = angleDeg
 	return nil
 }
 
 // Position returns the set angle.
-func (s *Servo) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (s *Servo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	return s.angle, nil
 }
 

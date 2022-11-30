@@ -38,7 +38,7 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {
-	rf := func(r interface{}) (resource.Reconfigurable, error) {
+	rf := func(r interface{}, n resource.Name) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
 	statf := func(context.Context, interface{}) (interface{}, error) {

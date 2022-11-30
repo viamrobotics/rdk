@@ -53,6 +53,7 @@ var (
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
+	remoteName      string
 	address         string
 	conn            rpc.ClientConn
 	client          pb.RobotServiceClient
@@ -182,6 +183,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	closeCtx, cancel := context.WithCancel(ctx)
 
 	rc := &RobotClient{
+		remoteName:              rOpts.remoteName,
 		address:                 address,
 		cancelBackgroundWorkers: cancel,
 		mu:                      &sync.RWMutex{},
@@ -523,7 +525,7 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 	if c.Reconfigurable == nil {
 		return resourceClient, nil
 	}
-	return c.Reconfigurable(resourceClient)
+	return c.Reconfigurable(resourceClient, name.PrependRemote(resource.RemoteName(rc.remoteName)))
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {

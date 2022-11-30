@@ -2,14 +2,15 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import motorApi, { type Status } from '../gen/component/motor/v1/motor_pb.esm';
+import { Client, motorApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
 interface Props {
   name: string
-  status: Status.AsObject
+  status: motorApi.Status.AsObject
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -66,7 +67,7 @@ const setPower = () => {
   req.setPowerPct(powerPct);
 
   rcLogConditionally(req);
-  window.motorService.setPower(req, new grpc.Metadata(), displayError);
+  props.client.motorService.setPower(req, new grpc.Metadata(), displayError);
 };
 
 const goFor = () => {
@@ -76,7 +77,7 @@ const goFor = () => {
   req.setRevolutions(revolutions);
 
   rcLogConditionally(req);
-  window.motorService.goFor(req, new grpc.Metadata(), displayError);
+  props.client.motorService.goFor(req, new grpc.Metadata(), displayError);
 };
 
 const goTo = () => {
@@ -86,7 +87,7 @@ const goTo = () => {
   req.setPositionRevolutions(position);
 
   rcLogConditionally(req);
-  window.motorService.goTo(req, new grpc.Metadata(), displayError);
+  props.client.motorService.goTo(req, new grpc.Metadata(), displayError);
 };
 
 const motorRun = () => {
@@ -108,7 +109,7 @@ const motorStop = () => {
   req.setName(props.name);
 
   rcLogConditionally(req);
-  window.motorService.stop(req, new grpc.Metadata(), displayError);
+  props.client.motorService.stop(req, new grpc.Metadata(), displayError);
 };
 
 </script>

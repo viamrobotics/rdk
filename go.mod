@@ -71,10 +71,10 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.9
+	go.viam.com/api v0.1.12
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.5-0.20221123160035-f5ec28423fd2
+	go.viam.com/utils v0.1.5-0.20221130171221-05b38aebe11e
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69
 	golang.org/x/tools v0.1.12

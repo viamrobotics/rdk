@@ -166,21 +166,8 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 			continue
 		}
 
-		sr, ok := res.(resource.Stoppable)
-		if ok {
-			err = sr.Stop(ctx, extra[name])
-			if err != nil {
-				resourceErrs = append(resourceErrs, name.Name)
-			}
-		}
-
-		// TODO[njooma]: OldStoppable - Will be deprecated
-		osr, ok := res.(resource.OldStoppable)
-		if ok {
-			err = osr.Stop(ctx)
-			if err != nil {
-				resourceErrs = append(resourceErrs, name.Name)
-			}
+		if err := resource.StopResource(ctx, res, extra[name]); err != nil {
+			resourceErrs = append(resourceErrs, name.Name)
 		}
 	}
 
@@ -526,7 +513,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if c == nil || c.Reconfigurable == nil {
 		return svc, nil
 	}
-	return c.Reconfigurable(svc)
+	return c.Reconfigurable(svc, rName)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
@@ -573,7 +560,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
 	}
-	wrapped, err := c.Reconfigurable(newResource)
+	wrapped, err := c.Reconfigurable(newResource, rName)
 	if err != nil {
 		return nil, multierr.Combine(err, goutils.TryClose(ctx, newResource))
 	}
@@ -712,12 +699,13 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 	return discoveries, nil
 }
 
-func dialRobotClient(ctx context.Context,
+func dialRobotClient(
+	ctx context.Context,
 	config config.Remote,
 	logger golog.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
-	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...)}
+	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...), client.WithRemoteName(config.Name)}
 
 	if config.ConnectionCheckInterval != 0 {
 		rOpts = append(rOpts, client.WithCheckConnectedEvery(config.ConnectionCheckInterval))

@@ -145,17 +145,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	// initialize maps
 	corners := map[node]bool{}
-	for k, v := range rrt.rm.startMap {
-		if v != nil {
-			corners[k] = true
-		}
-	}
-	for k, v := range rrt.rm.goalMap {
-		if v != nil {
-			corners[k] = true
-		}
-	}
-
 	// TODO(rb) package neighborManager better
 	nm := &neighborManager{nCPU: algOpts.Ncpu}
 	nmContext, cancel := context.WithCancel(ctx)
@@ -486,13 +475,6 @@ func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []nod
 	incDir := make([]int, 0, len(startPos.Q()))
 	hitCorners := []node{}
 
-	if corners[startPos] {
-		hitCorners = append(hitCorners, startPos)
-	}
-	if corners[nextPos] {
-		hitCorners = append(hitCorners, nextPos)
-	}
-
 	check := func(v1, v2 float64) int {
 		if v1 > v2 {
 			return 1
@@ -509,7 +491,7 @@ func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []nod
 
 	// Check for any direction changes
 	changes := 0
-	for k := i + 2; k < j; k++ {
+	for k := i + 1; k < j; k++ {
 		for h, v := range nextPos.Q() {
 			// Get 1, 0, or -1 depending on directionality
 			newV := check(v.Value, inputSteps[k].Q()[h].Value)

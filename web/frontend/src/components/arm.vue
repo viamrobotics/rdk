@@ -1,8 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import armApi from '../gen/component/arm/v1/arm_pb.esm';
-import commonApi from '../gen/common/v1/common_pb.esm';
+import { Client, armApi, commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
 
@@ -29,6 +28,7 @@ interface Props {
   name: string
   status?: ArmStatus,
   rawStatus?: RawArmStatus
+  client: Client
 }
 
 type GetterKeys = 'getX' | 'getY' | 'getZ' | 'getOX' | 'getOY' | 'getOZ' | 'getTheta'
@@ -51,7 +51,7 @@ const toggle = $ref<Record<string, ArmStatus>>({});
 const stop = () => {
   const request = new armApi.StopRequest();
   request.setName(props.name);
-  window.armService.stop(request, new grpc.Metadata(), displayError);
+  props.client.armService.stop(request, new grpc.Metadata(), displayError);
 };
 
 const armModifyAllDoEndPosition = () => {
@@ -67,7 +67,7 @@ const armModifyAllDoEndPosition = () => {
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setTo(newPose);
-  window.armService.moveToPosition(req, new grpc.Metadata(), displayError);
+  props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 
   delete toggle[props.name];
 };
@@ -91,7 +91,7 @@ const armModifyAllDoJoint = () => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
-  window.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
+  props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
   delete toggle[props.name];
 };
 
@@ -114,7 +114,7 @@ const armEndPositionInc = (getterSetter: string, amount: number) => {
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setTo(newPose);
-  window.armService.moveToPosition(req, new grpc.Metadata(), displayError);
+  props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
 const armJointInc = (field: number, amount: number) => {
@@ -127,7 +127,7 @@ const armJointInc = (field: number, amount: number) => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
-  window.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
+  props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
 };
 
 const armHome = () => {
@@ -144,7 +144,7 @@ const armHome = () => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
-  window.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
+  props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
 };
 
 const armModifyAll = () => {
