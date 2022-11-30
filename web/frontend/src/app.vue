@@ -584,39 +584,47 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewIntervalFrame = (cameraName: string, time: string) => {
-  const selectedInterval = selectedMap[time as keyof typeof selectedMap];
+const viewFrame = (cameraName: string) => {
+  const req = new cameraApi.RenderFrameRequest();
+  req.setName(cameraName);
+  req.setMimeType('image/jpeg');
+  client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
 
-  cameraFrameIntervalId = window.setInterval(() => {
-    const req = new cameraApi.RenderFrameRequest();
-    req.setName(cameraName);
-    req.setMimeType('image/jpeg');
-    client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
-
-      const streamContainers = document.querySelectorAll(
-        `[data-stream="${cameraName}"]`
-      );
-      for (const streamContainer of streamContainers) {
-        streamContainer.querySelector('video')?.remove();
-        streamContainer.querySelector('img')?.remove();
-        const image = new Image();
-        const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-        image.src = URL.createObjectURL(blob);
-        streamContainer.append(image);
-      }
-    });
-  }, Number(selectedInterval) * 1000);
-};
+    const streamContainers = document.querySelectorAll(
+      `[data-stream="${cameraName}"]`
+    );
+    for (const streamContainer of streamContainers) {
+      streamContainer.querySelector('video')?.remove();
+      streamContainer.querySelector('img')?.remove();
+      const image = new Image();
+      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+      image.src = URL.createObjectURL(blob);
+      streamContainer.append(image);
+    }
+  });
+}
 
 const viewCameraFrame = (cameraName: string, time: string) => {
-  window.clearInterval(cameraFrameIntervalId);
-  if (time !== 'Manual Refresh') {
-    viewIntervalFrame(cameraName, time);
+  clearFrameInterval();
+  const selectedInterval = selectedMap[time as keyof typeof selectedMap];
+
+  // console.log('time',time);return;
+
+  if (time === 'Manual Refresh') {
+    viewFrame(cameraName);
+  } else {
+    cameraFrameIntervalId = window.setInterval(() => {
+      viewFrame(cameraName);
+    }, Number(selectedInterval) * 1000);
   }
 };
+
+const clearFrameInterval = () => {
+  window.clearInterval(cameraFrameIntervalId);
+}
 
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
@@ -822,6 +830,7 @@ onMounted(async () => {
       :client="client"
       :resources="resources"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
+      @clear-interval="clearFrameInterval"
     />
 
     <!-- ******* NAVIGATION ******* -->
