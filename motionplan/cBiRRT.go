@@ -118,7 +118,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{initRRTMaps(), nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -151,38 +151,15 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer cancel()
 	mp.start = time.Now()
 
-	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, mp.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
-
-	if err != nil && len(rrt.rm.goalMap) == 0 {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
-		return
-	}
-
-	for i, solution := range solutions {
-		if i == 0 && mp.checkPath(seed, solution.Q()) {
-			// Check if we can directly interpolate to the best solution
-			rrt.solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
+	if rrt.rm == nil || len(rrt.rm.goalMap) == 0 {
+		planSeed := initRRTMaps(ctx, mp, goal, seed)
+		if planSeed.planerr != nil || planSeed.steps != nil {
+			rrt.solutionChan <- planSeed
 			return
 		}
-
-		// if we got more solutions, add them
-		rrt.rm.goalMap[solution] = nil
+		rrt.rm = planSeed.rm
 	}
-	rrt.rm.startMap[&basicNode{q: seed}] = nil
-
-	target := mp.sample(&basicNode{q: seed}, mp.randseed.Int())
-
-	if len(solutions) > 0 {
-		// publish endpoint of plan if it is known
-		if mp.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
-			rrt.endpointPreview <- solutions[0]
-			rrt.endpointPreview = nil
-		}
-
-		// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-		target = referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
-	}
+	target := referenceframe.InterpolateInputs(seed, rrt.rm.optNode.Q(), 0.5)
 
 	map1, map2 := rrt.rm.startMap, rrt.rm.goalMap
 

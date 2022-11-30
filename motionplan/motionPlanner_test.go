@@ -247,7 +247,6 @@ func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config plan
 	test.That(t, err, test.ShouldBeNil)
 	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
-
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(path)-1; j++ {

@@ -25,8 +25,15 @@ type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, spatialmath.Pose, []frame.Input) ([][]frame.Input, error)
-	smoothPath(context.Context, []node) []node
+
+	// Everything below this point should be covered by anything that wraps the generic `planner`
 	Frame() frame.Frame // Frame will return the frame used for planning
+	smoothPath(context.Context, []node) []node
+	checkPath([]frame.Input, []frame.Input) bool
+	checkInputs([]frame.Input) bool
+	getSolutions(context.Context, spatialmath.Pose, []frame.Input) ([]*costNode, error)
+	golog() golog.Logger
+	opt() *plannerOptions
 }
 
 type seededPlannerConstructor func(frame.Frame, int, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
@@ -231,8 +238,17 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	return ok
 }
 
+func (mp *planner) golog() golog.Logger {
+	return mp.logger
+}
+
+func (mp *planner) opt() *plannerOptions {
+	return mp.planOpts
+}
+
 // smoothPath will try to naively smooth the path by picking points partway between waypoints and seeing if it can interpolate
-// directly between them.
+// directly between them. This will significantly improve paths from RRT*, as it will shortcut the randomly-selected configurations.
+// This will only ever improve paths (or leave them untouched), and runs very quickly.
 func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 	mp.logger.Debugf("running simple smoother on path of len %d", len(path))
 	if mp.planOpts == nil {
@@ -244,6 +260,7 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		return path
 	}
 
+	// Randomly pick which quarter of motion to check from; this increases flexibility of smoothing.
 	waypoints := []float64{0.25, 0.5, 0.75}
 
 	for i := 0; i < mp.planOpts.SmoothIter; i++ {
@@ -271,6 +288,107 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		}
 	}
 	return path
+}
+
+// getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
+// If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
+// If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
+func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed []frame.Input) ([]*costNode, error) {
+	// Linter doesn't properly handle loop labels
+	nSolutions := mp.planOpts.MaxSolutions
+	if nSolutions == 0 {
+		nSolutions = defaultSolutionsToSeed
+	}
+
+	seedPos, err := mp.frame.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+	goalPos := fixOvIncrement(goal, seedPos)
+
+	solutionGen := make(chan []frame.Input)
+	ikErr := make(chan error, 1)
+	defer func() { <-ikErr }()
+
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Spawn the IK solver to generate solutions until done
+	utils.PanicCapturingGo(func() {
+		defer close(ikErr)
+		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, mp.planOpts.metric, mp.randseed.Int())
+	})
+
+	solutions := map[float64][]frame.Input{}
+
+	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
+IK:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		select {
+		case step := <-solutionGen:
+			cPass, cScore := mp.planOpts.CheckConstraints(&ConstraintInput{
+				seedPos,
+				goalPos,
+				seed,
+				step,
+				mp.frame,
+			})
+			endPass, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
+				goalPos,
+				goalPos,
+				step,
+				step,
+				mp.frame,
+			})
+
+			if cPass && endPass {
+				if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
+					solutions = map[float64][]frame.Input{}
+					solutions[cScore] = step
+					// good solution, stopping early
+					break IK
+				}
+
+				solutions[cScore] = step
+				if len(solutions) >= nSolutions {
+					// sufficient solutions found, stopping early
+					break IK
+				}
+			}
+			// Skip the return check below until we have nothing left to read from solutionGen
+			continue IK
+		default:
+		}
+
+		select {
+		case <-ikErr:
+			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
+			// until we've drained the channel
+			break IK
+		default:
+		}
+	}
+	if len(solutions) == 0 {
+		return nil, errIKSolve
+	}
+
+	keys := make([]float64, 0, len(solutions))
+	for k := range solutions {
+		keys = append(keys, k)
+	}
+	sort.Float64s(keys)
+
+	orderedSolutions := make([]*costNode, 0)
+	for _, key := range keys {
+		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
+	}
+	return orderedSolutions, nil
 }
 
 // node interface is used to wrap a configuration for planning purposes.
@@ -316,114 +434,6 @@ func (np *nodePair) sumCosts() float64 {
 		return 0
 	}
 	return a.cost + b.cost
-}
-
-// getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
-// If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
-// If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context,
-	planOpts *plannerOptions,
-	solver InverseKinematics,
-	goal spatialmath.Pose,
-	seed []frame.Input,
-	f frame.Frame,
-	rseed int,
-) ([]*costNode, error) {
-	// Linter doesn't properly handle loop labels
-	nSolutions := planOpts.MaxSolutions
-	if nSolutions == 0 {
-		nSolutions = defaultSolutionsToSeed
-	}
-
-	seedPos, err := f.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	goalPos := fixOvIncrement(goal, seedPos)
-
-	solutionGen := make(chan []frame.Input)
-	ikErr := make(chan error, 1)
-	defer func() { <-ikErr }()
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Spawn the IK solver to generate solutions until done
-	utils.PanicCapturingGo(func() {
-		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, planOpts.metric, rseed)
-	})
-
-	solutions := map[float64][]frame.Input{}
-
-	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
-IK:
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		select {
-		case step := <-solutionGen:
-			cPass, cScore := planOpts.CheckConstraints(&ConstraintInput{
-				seedPos,
-				goalPos,
-				seed,
-				step,
-				f,
-			})
-			endPass, _ := planOpts.CheckConstraints(&ConstraintInput{
-				goalPos,
-				goalPos,
-				step,
-				step,
-				f,
-			})
-
-			if cPass && endPass {
-				if cScore < planOpts.MinScore && planOpts.MinScore > 0 {
-					solutions = map[float64][]frame.Input{}
-					solutions[cScore] = step
-					// good solution, stopping early
-					break IK
-				}
-
-				solutions[cScore] = step
-				if len(solutions) >= nSolutions {
-					// sufficient solutions found, stopping early
-					break IK
-				}
-			}
-			// Skip the return check below until we have nothing left to read from solutionGen
-			continue IK
-		default:
-		}
-
-		select {
-		case <-ikErr:
-			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
-			// until we've drained the channel
-			break IK
-		default:
-		}
-	}
-	if len(solutions) == 0 {
-		return nil, errIKSolve
-	}
-
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-
-	orderedSolutions := make([]*costNode, 0)
-	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
-	}
-	return orderedSolutions, nil
 }
 
 func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {

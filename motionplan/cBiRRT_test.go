@@ -26,6 +26,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 })
 
 // This should test a simple linear motion.
+// This test will step through the different stages of cbirrt and test each one in turn.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
 	inputSteps := []node{}
@@ -42,7 +43,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	pos := spatialmath.NewPoseFromOrientation(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 	corners := map[node]bool{}
 
-	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame(), cbirrt.randseed.Int())
+	solutions, err := mp.getSolutions(ctx, pos, home7)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &basicNode{q: home7}

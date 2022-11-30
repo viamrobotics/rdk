@@ -17,6 +17,10 @@ import (
 const (
 	// The number of nearest neighbors to consider when adding a new sample to the tree.
 	defaultNeighborhoodSize = 10
+
+	defaultOptimalityThreshold = 1.05
+
+	defaultOptimalityCheckIter = 5
 )
 
 type rrtStarConnectOptions struct {
@@ -82,7 +86,7 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{initRRTMaps(), nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -106,44 +110,18 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	if mp.planOpts == nil {
 		mp.planOpts = newBasicPlannerOptions()
 	}
-	algOpts, err := newRRTStarConnectOptions(mp.planOpts)
-	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
-		return
-	}
 
 	mp.start = time.Now()
 
-	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, mp.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
-	mp.logger.Debugf("RRT* found %d IK solutions", len(solutions))
-	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
-		return
-	}
-
-	// publish endpoint of plan if it is known
-	if mp.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
-		mp.logger.Debug("RRT* found early final solution")
-		rrt.endpointPreview <- solutions[0]
-	}
-
-	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	_, optimalCost := mp.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
-
-	// initialize maps
-	for i, solution := range solutions {
-		if i == 0 && mp.checkPath(seed, solution.Q()) {
-			rrt.solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
-			mp.logger.Debug("RRT* could interpolate directly to goal")
+	if rrt.rm == nil || len(rrt.rm.goalMap) == 0 {
+		planSeed := initRRTMaps(ctx, mp, goal, seed)
+		if planSeed.planerr != nil || planSeed.steps != nil {
+			rrt.solutionChan <- planSeed
 			return
 		}
-		rrt.rm.goalMap[newCostNode(solution.Q(), 0)] = nil
+		rrt.rm = planSeed.rm
 	}
-	mp.logger.Debugf("RRT* failed to directly interpolate from %v to %v", seed, solutions[0].Q())
-	rrt.rm.startMap[newCostNode(seed, 0)] = nil
-
-	target := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+	target := referenceframe.InterpolateInputs(seed, rrt.rm.optNode.Q(), 0.5)
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -153,15 +131,15 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	defer close(m1chan)
 	defer close(m2chan)
 
-	solved := false
+	nSolved := 0
 
-	for i := 0; i < algOpts.PlanIter; i++ {
+	for i := 0; i < mp.algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			// stop and return best path
-			if solved {
+			if nSolved > 0 {
 				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
-				rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
+				rrt.solutionChan <- shortestPath(rrt.rm, shared)
 			} else {
 				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
 				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
@@ -182,15 +160,27 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		if map1reached != nil && map2reached != nil {
 			// target was added to both map
-			solved = true
 			shared = append(shared, &nodePair{map1reached, map2reached})
+
+			// Check if we can return
+			if nSolved%defaultOptimalityCheckIter == 0 {
+				solution := shortestPath(rrt.rm, shared)
+				solutionCost := EvaluatePlan(solution, mp.algOpts.plannerOptions)
+				if solutionCost-rrt.rm.optNode.cost < defaultOptimalityThreshold*rrt.rm.optNode.cost {
+					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
+					rrt.solutionChan <- solution
+					return
+				}
+			}
+
+			nSolved++
 		}
 
 		// get next sample, switch map pointers
 		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
-	rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
+	rrt.solutionChan <- shortestPath(rrt.rm, shared)
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(

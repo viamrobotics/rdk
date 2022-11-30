@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math"
 	"math/rand"
 	"runtime"
 	"time"
@@ -18,7 +17,7 @@ import (
 )
 
 const (
-	defaultOptimalityMultiple = 3.0
+	defaultOptimalityMultiple = 2.0
 	defaultFallbackTimeout    = 2.5
 	defaultFallbackIK         = 5
 )
@@ -158,22 +157,61 @@ func (mp *planManager) planMotion(
 	if err != nil {
 		return nil, err
 	}
+	remainingSteps := [][]referenceframe.Input{}
 
+	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if rm == nil {
-		rm = initRRTMaps()
+		planSeed := initRRTMaps(ctx, pathPlanner, goal, seed)
+		if planSeed.planerr != nil {
+			return nil, planSeed.planerr
+		}
+		if planSeed.steps != nil {
+			if iter+1 < len(goals) {
+				// in this case, we create the next step (and thus the remaining steps) and the
+				// step from our iteration hangs out in the buffer until we're done with it
+				remainingSteps, err = mp.planMotion(
+					ctx,
+					goals,
+					planSeed.steps[len(planSeed.steps)-1].Q(),
+					opts,
+					nil,
+					iter+1,
+				)
+				if err != nil {
+					return nil, err
+				}
+			}
+			results := append(planSeed.toInputs(), remainingSteps...)
+			return results, nil
+		}
+
+		rm = planSeed.rm
 	}
 
 	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
 	defer cancel()
 
-	remainingSteps := [][]referenceframe.Input{}
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
+		// publish endpoint of plan if it is known
+		var nextSeed node
+		if len(rm.goalMap) == 1 {
+			mp.logger.Debug("found early final solution")
+			for key := range rm.goalMap {
+				nextSeed = key
+			}
+		}
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{rm, endpointPreview, solutionChan})
+			if nextSeed == nil {
+				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{rm, endpointPreview, solutionChan})
+			} else {
+				endpointPreview <- nextSeed
+				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{rm, nil, solutionChan})
+			}
 		})
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -181,7 +219,7 @@ func (mp *planManager) planMotion(
 			default:
 			}
 			select {
-			case nextSeed := <-endpointPreview:
+			case nextSeed = <-endpointPreview:
 				// Got a solution preview, start solving the next motion in a new thread.
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
@@ -213,23 +251,22 @@ func (mp *planManager) planMotion(
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
 				nextSeed := finalSteps.rm
-				finalSteps.steps = parPlan.smoothPath(ctx, finalSteps.steps)
 
 				// default to fallback; will unset if we have a good path
 				goodSolution := false
-				var ok bool
-				score := math.Inf(1)
 
 				// If there was no error, check path quality. If sufficiently good, move on
 				if finalSteps.err() == nil {
 					if opt.Fallback != nil {
-						if ok, score = goodPlan(finalSteps, opt); ok {
-							mp.logger.Debugf("got path with score %f, close enough to optimal %f", score, finalSteps.optimal)
+						if ok, score := goodPlan(finalSteps, opt); ok {
+							mp.logger.Debugf("got path with score %f, close enough to optimal %f", score, rm.optNode.cost)
 							goodSolution = true
 						} else {
-							mp.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, finalSteps.optimal)
+							mp.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, rm.optNode.cost)
 
-							nextSeed = initRRTMaps()
+							// If we have a connected but bad path, we recreate new IK solutions and start from scratch
+							// rather than seeding with a completed, known-bad tree
+							nextSeed = nil
 							opt.Fallback.MaxSolutions = opt.MaxSolutions
 						}
 					} else {
@@ -237,8 +274,12 @@ func (mp *planManager) planMotion(
 					}
 				}
 
-				// Run fallback if necessart.
+				// Run fallback if necessary. This will also run smoothing if our score isn't good enough.
 				if !goodSolution {
+					smoothChan := make(chan []node, 1)
+					utils.PanicCapturingGo(func() {
+						smoothChan <- parPlan.smoothPath(ctx, finalSteps.steps)
+					})
 					if opt.Fallback != nil {
 						alternate, err := mp.planMotion(
 							ctx,
@@ -248,6 +289,8 @@ func (mp *planManager) planMotion(
 							nextSeed,
 							iter,
 						)
+						finalSteps.steps = <-smoothChan
+						_, score := goodPlan(finalSteps, opt)
 						if err == nil {
 							altCost := EvaluatePlan(&rrtPlanReturn{steps: stepsToNodes(alternate)}, opt)
 							if altCost < score {
@@ -257,6 +300,8 @@ func (mp *planManager) planMotion(
 								mp.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
 							}
 						}
+					} else {
+						finalSteps.steps = <-smoothChan
 					}
 				}
 
@@ -428,11 +473,11 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 	solutionCost := 0.
 	if pr.steps != nil {
-		if pr.optimal <= 0 {
+		if pr.rm.optNode.cost <= 0 {
 			return true, solutionCost
 		}
 		solutionCost = EvaluatePlan(pr, opt)
-		if solutionCost < pr.optimal*defaultOptimalityMultiple {
+		if solutionCost < pr.rm.optNode.cost*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
 	}
