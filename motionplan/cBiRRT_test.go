@@ -36,7 +36,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	opt := newBasicPlannerOptions()
-	mp, err := newCBiRRTMotionPlanner(m, 1, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 

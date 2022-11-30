@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"math"
+	"runtime"
 
 	"gonum.org/v1/gonum/floats"
 )
@@ -45,7 +46,12 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
+	
+	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
+	// var defaultPlanner = newCBiRRTMotionPlanner
 )
+
+var defaultNcpu = runtime.NumCPU()/2
 
 // the set of supported motion profiles.
 const (
@@ -86,6 +92,8 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.PlannerConstructor = newCBiRRTMotionPlanner
 
 	opt.SmoothIter = defaultSmoothIter
+	
+	opt.Ncpu = defaultNcpu
 
 	return opt
 }
@@ -115,6 +123,9 @@ type plannerOptions struct {
 
 	// Number of times to try to smooth the path
 	SmoothIter int `json:"smooth_iter"`
+
+	// Number of cpu cores to use
+	Ncpu int `json:"ncpu"`
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here

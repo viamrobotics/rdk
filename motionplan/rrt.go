@@ -26,9 +26,6 @@ type rrtParallelPlannerShared struct {
 type rrtOptions struct {
 	// Number of planner iterations before giving up.
 	PlanIter int `json:"plan_iter"`
-
-	// Number of CPU cores to use for RRT*
-	Ncpu int `json:"ncpu"`
 }
 
 func newRRTOptions() *rrtOptions {

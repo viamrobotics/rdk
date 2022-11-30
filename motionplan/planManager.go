@@ -6,7 +6,6 @@ import (
 	"errors"
 	"math"
 	"math/rand"
-	"runtime"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -33,7 +32,7 @@ type planManager struct {
 
 func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), logger, nil)
+	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +138,6 @@ func (pm *planManager) planMotion(
 		//nolint: gosec
 		pathPlanner, err = opt.PlannerConstructor(
 			pm.frame,
-			runtime.NumCPU()/2,
 			rand.New(rand.NewSource(int64(seed))),
 			pm.logger,
 			opt,
@@ -148,7 +146,6 @@ func (pm *planManager) planMotion(
 		//nolint: gosec
 		pathPlanner, err = opt.PlannerConstructor(
 			pm.frame,
-			runtime.NumCPU()/2,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			opt,

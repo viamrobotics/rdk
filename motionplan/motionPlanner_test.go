@@ -243,7 +243,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := plannerFunc(cfg.RobotFrame, nCPU/2, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
+	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
 	path, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)

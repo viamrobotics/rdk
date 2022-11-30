@@ -33,7 +33,7 @@ type motionPlanner interface {
 	opt() *plannerOptions
 }
 
-type plannerConstructor func(frame.Frame, int, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
+type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
@@ -188,8 +188,8 @@ type planner struct {
 	planOpts *plannerOptions
 }
 
-func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
+func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
+	ik, err := CreateCombinedIKSolver(frame, logger, opt.Ncpu)
 	if err != nil {
 		return nil, err
 	}

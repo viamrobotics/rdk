@@ -83,7 +83,6 @@ type cBiRRTMotionPlanner struct {
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
 func newCBiRRTMotionPlanner(
 	frame referenceframe.Frame,
-	nCPU int,
 	seed *rand.Rand,
 	logger golog.Logger,
 	opt *plannerOptions,
@@ -91,7 +90,7 @@ func newCBiRRTMotionPlanner(
 	if opt == nil {
 		opt = newBasicPlannerOptions()
 	}
-	mp, err := newPlanner(frame, nCPU, seed, logger, opt)
+	mp, err := newPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +145,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	// initialize maps
 	corners := map[node]bool{}
 	// TODO(rb) package neighborManager better
-	nm := &neighborManager{nCPU: mp.algOpts.Ncpu}
+	nm := &neighborManager{nCPU: mp.planOpts.Ncpu}
 	nmContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mp.start = time.Now()
