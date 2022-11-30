@@ -85,6 +85,14 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
+const selectedMap = {
+  'Live': 'live',
+  'Manual Refresh': 0,
+  'Every 30 Seconds': 30,
+  'Every 10 Seconds': 10,
+  'Every Second': 1,
+} as const;
+
 const rtcConfig = {
   iceServers: [
     {
@@ -576,31 +584,9 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewManualFrame = (cameraName: string) => {
-  const req = new cameraApi.RenderFrameRequest();
-  req.setName(cameraName);
-  const mimeType = 'image/jpeg';
-  req.setMimeType(mimeType);
-  client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-
-    const streamContainers = document.querySelectorAll(
-      `[data-stream="${cameraName}"]`
-    );
-    for (const streamContainer of streamContainers) {
-      streamContainer.querySelector('video')?.remove();
-      streamContainer.querySelector('img')?.remove();
-      const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
-      image.src = URL.createObjectURL(blob);
-      streamContainer.append(image);
-    }
-  });
-};
-
 const viewIntervalFrame = (cameraName: string, time: string) => {
+  const selectedInterval = selectedMap[time as keyof typeof selectedMap];
+
   cameraFrameIntervalId = window.setInterval(() => {
     const req = new cameraApi.RenderFrameRequest();
     req.setName(cameraName);
@@ -622,18 +608,12 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
         streamContainer.append(image);
       }
     });
-  }, Number(time) * 1000);
+  }, Number(selectedInterval) * 1000);
 };
 
 const viewCameraFrame = (cameraName: string, time: string) => {
   window.clearInterval(cameraFrameIntervalId);
-  if (time === 'manual') {
-    viewCamera(cameraName, false);
-    viewManualFrame(cameraName);
-  } else if (time === 'live') {
-    viewCamera(cameraName, true);
-  } else {
-    viewCamera(cameraName, false);
+  if (time !== 'Manual Refresh') {
     viewIntervalFrame(cameraName, time);
   }
 };
@@ -688,7 +668,9 @@ const initConnect = () => {
 onMounted(async () => {
   initConnect();
   await connectedFirstTime;
+
   appConnectionManager.start();
+
   addResizeListeners();
 });
 
@@ -839,7 +821,6 @@ onMounted(async () => {
       :camera-name="camera.name"
       :client="client"
       :resources="resources"
-      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
     />
 

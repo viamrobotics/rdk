@@ -85,11 +85,15 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  emit('selected-camera-view', selectedValue.value);
-};
+  console.log('selectCameraView', selectCameraView);
 
-const refreshCamera = () => {
-  emit('refresh-camera', selectedValue.value);
+  if (selectedValue.value !== 'Live') {
+    console.log('!LIVE');
+    viewCamera(false);
+    emit('selected-camera-view', selectedValue.value);
+  } else {
+    viewCamera(true);
+  }
 };
 
 const exportScreenshot = (cameraName: string) => {
@@ -138,68 +142,36 @@ onMounted(() => {
             <div class="flex flex-wrap">
               <div
                 v-if="camera"
-                class="w-64"
+                class="flex flex-wrap justify-items-end gap-2"
               >
-                <p class="font-label mb-1 text-gray-800">
-                  Refresh frequency
-                </p>
-                <div class="relative">
-                  <select
-                    v-model="selectedValue"
-                    class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding
-                      px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
-                    "
-                    aria-label="Default select example"
-                    @change="selectCameraView"
-                  >
-                    <option value="manual">
-                      Manual Refresh
-                    </option>
-                    <option value="30">
-                      Every 30 seconds
-                    </option>
-                    <option value="10">
-                      Every 10 seconds
-                    </option>
-                    <option value="1">
-                      Every second
-                    </option>
-                    <option value="live">
-                      Live
-                    </option>
-                  </select>
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                  >
-                    <svg
-                      class="h-4 w-4 stroke-2 text-gray-700"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                      fill="none"
-                    >
-                      <path d="M18 16L12 22L6 16" />
-                    </svg>
+                <div class="">
+                  <div class="relative">
+                    <v-select
+                      v-model="selectedValue"
+                      label="Refresh frequency"
+                      class=""
+                      aria-label="Default select example"
+                      @input="selectCameraView"
+                      options="Manual Refresh, Every 30 Seconds, Every 10 Seconds, Every Second, Live"
+                    />
                   </div>
                 </div>
-              </div>
-              <div class="px-2 pt-7">
-                <v-button
-                  v-if="camera"
-                  icon="refresh"
-                  label="Refresh"
-                  @click="refreshCamera"
-                />
-              </div>
-              <div class="pr-2 pt-7">
-                <v-button
-                  v-if="camera"
-                  icon="camera"
-                  label="Export Screenshot"
-                  @click="exportScreenshot(cameraName)"
-                />
+                <div class="self-end">
+                  <v-button
+                    v-if="(camera && selectedValue !== 'Live')"
+                    icon="refresh"
+                    label="Refresh"
+                    @click="viewCamera"
+                  />
+                </div>
+                <div class="self-end">
+                  <v-button
+                    v-if="camera"
+                    icon="camera"
+                    label="Export Screenshot"
+                    @click="exportScreenshot(cameraName)"
+                  />
+                </div>
               </div>
             </div>
           </div>
