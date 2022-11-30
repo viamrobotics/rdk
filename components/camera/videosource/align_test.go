@@ -142,29 +142,6 @@ func TestAlignWarp(t *testing.T) {
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
-//nolint:dupl
-func TestAlignHomography(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("components/camera/videosource/data/gripper_cam.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	c := conf.FindComponent("combined")
-	test.That(t, c, test.ShouldNotBeNil)
-
-	attrs := c.ConvertedAttributes.(*alignAttrs)
-	test.That(t, attrs, test.ShouldNotBeNil)
-	attrs.IntrinsicExtrinsic = nil
-	attrs.Warp = nil
-	attrs.Height = 768
-	attrs.Width = 1024
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
-	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("align/intel515/chairs.png"))
-	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
-	test.That(t, aligned, test.ShouldNotBeNil)
-}
-
 type alignTestHelper struct {
 	attrs *alignAttrs
 	name  string
