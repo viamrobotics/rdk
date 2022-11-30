@@ -18,7 +18,7 @@ type rrtParallelPlanner interface {
 }
 
 type rrtParallelPlannerShared struct {
-	rm              *rrtMaps
+	maps            *rrtMaps
 	endpointPreview chan node
 	solutionChan    chan *rrtPlanReturn
 }
@@ -29,15 +29,11 @@ type rrtOptions struct {
 
 	// Number of CPU cores to use for RRT*
 	Ncpu int `json:"ncpu"`
-
-	// Contains constraints, IK solving params, etc
-	*plannerOptions
 }
 
 func newRRTOptions(planOpts *plannerOptions) *rrtOptions {
 	return &rrtOptions{
 		PlanIter:       defaultPlanIter,
-		plannerOptions: planOpts,
 	}
 }
 
@@ -46,7 +42,7 @@ type rrtMap map[node]node
 type rrtPlanReturn struct {
 	steps   []node
 	planerr error
-	rm      *rrtMaps
+	maps      *rrtMaps
 }
 
 func (plan *rrtPlanReturn) toInputs() [][]referenceframe.Input {
@@ -69,13 +65,13 @@ type rrtMaps struct {
 
 func initRRTMaps(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
 	rrt := &rrtPlanReturn{
-		rm: &rrtMaps{
+		maps: &rrtMaps{
 			startMap: map[node]node{},
 			goalMap:  map[node]node{},
 		},
 	}
 	seedNode := newCostNode(seed, 0)
-	rrt.rm.startMap[seedNode] = nil
+	rrt.maps.startMap[seedNode] = nil
 
 	// get many potential end goals from IK solver
 	solutions, err := mp.getSolutions(ctx, goal, seed)
@@ -83,11 +79,10 @@ func initRRTMaps(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, s
 		rrt.planerr = err
 		return rrt
 	}
-	mp.golog().Debugf("found %d IK solutions", len(solutions))
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
 	_, optimalCost := mp.opt().DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
-	rrt.rm.optNode = newCostNode(solutions[0].Q(), optimalCost)
+	rrt.maps.optNode = newCostNode(solutions[0].Q(), optimalCost)
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
 	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
@@ -98,7 +93,6 @@ func initRRTMaps(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, s
 			_, cost := mp.opt().DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
-					mp.golog().Debug("could interpolate directly to goal")
 					rrt.steps = []node{seedNode, solution}
 					return rrt
 				}
@@ -106,15 +100,14 @@ func initRRTMaps(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, s
 				canInterp = false
 			}
 		}
-		rrt.rm.goalMap[newCostNode(solution.Q(), 0)] = nil
+		rrt.maps.goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
-	mp.golog().Debugf("failed to directly interpolate from %v to %v", seed, solutions[0].Q())
 	return rrt
 }
 
-func shortestPath(rm *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
+func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{planerr: errPlannerFailed, rm: rm}
+		return &rrtPlanReturn{planerr: errPlannerFailed, maps: maps}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()
@@ -124,5 +117,82 @@ func shortestPath(rm *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(rm.startMap, rm.goalMap, nodePairs[minIdx]), rm: rm}
+	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx]), maps: maps}
+}
+
+// node interface is used to wrap a configuration for planning purposes.
+type node interface {
+	// return the configuration associated with the node
+	Q() []referenceframe.Input
+}
+
+type planReturn interface {
+	// return the steps in Input form
+	toInputs() [][]referenceframe.Input
+	err() error
+}
+
+type basicNode struct {
+	q []referenceframe.Input
+}
+
+func (n *basicNode) Q() []referenceframe.Input {
+	return n.q
+}
+
+type costNode struct {
+	node
+	cost float64
+}
+
+func newCostNode(q []referenceframe.Input, cost float64) *costNode {
+	return &costNode{&basicNode{q: q}, cost}
+}
+
+// nodePair groups together nodes in a tuple
+// TODO(rb): in the future we might think about making this into a list of nodes.
+type nodePair struct{ a, b node }
+
+func (np *nodePair) sumCosts() float64 {
+	a, aok := np.a.(*costNode)
+	if !aok {
+		return 0
+	}
+	b, bok := np.b.(*costNode)
+	if !bok {
+		return 0
+	}
+	return a.cost + b.cost
+}
+
+func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
+	// need to figure out which of the two nodes is in the start map
+	var startReached, goalReached node
+	if _, ok := startMap[pair.a]; ok {
+		startReached, goalReached = pair.a, pair.b
+	} else {
+		startReached, goalReached = pair.b, pair.a
+	}
+
+	// extract the path to the seed
+	path := make([]node, 0)
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = startMap[startReached]
+	}
+
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+
+	// skip goalReached node and go directly to its parent in order to not repeat this node
+	goalReached = goalMap[goalReached]
+
+	// extract the path to the goal
+	for goalReached != nil {
+		path = append(path, goalReached)
+		goalReached = goalMap[goalReached]
+	}
+	return path
 }

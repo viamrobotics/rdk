@@ -3,7 +3,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"sort"
 	"time"
@@ -24,19 +23,17 @@ import (
 type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, spatialmath.Pose, []frame.Input) ([][]frame.Input, error)
+	plan(context.Context, spatialmath.Pose, []frame.Input) ([][]frame.Input, error)
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
-	Frame() frame.Frame // Frame will return the frame used for planning
 	smoothPath(context.Context, []node) []node
 	checkPath([]frame.Input, []frame.Input) bool
 	checkInputs([]frame.Input) bool
 	getSolutions(context.Context, spatialmath.Pose, []frame.Input) ([]*costNode, error)
-	golog() golog.Logger
 	opt() *plannerOptions
 }
 
-type seededPlannerConstructor func(frame.Frame, int, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
+type plannerConstructor func(frame.Frame, int, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
@@ -121,7 +118,7 @@ func PlanWaypoints(ctx context.Context,
 	// Get parentage of solver frame. This will also verify the frame is in the frame system
 	solveFrame := fs.Frame(f.Name())
 	if solveFrame == nil {
-		return nil, fmt.Errorf("frame with name %s not found in frame system", f.Name())
+		return nil, frame.NewFrameMissingError(f.Name())
 	}
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
@@ -184,7 +181,7 @@ func PlanWaypoints(ctx context.Context,
 
 type planner struct {
 	solver   InverseKinematics
-	frame    frame.Frame
+	f        frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand
 	start    time.Time
@@ -198,7 +195,7 @@ func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logge
 	}
 	mp := &planner{
 		solver:   ik,
-		frame:    frame,
+		f:        frame,
 		logger:   logger,
 		randseed: seed,
 		planOpts: opt,
@@ -206,13 +203,8 @@ func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logge
 	return mp, nil
 }
 
-func (mp *planner) Frame() frame.Frame {
-	return mp.frame
-}
-
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	frame := mp.Frame()
-	position, err := frame.Transform(inputs)
+	position, err := mp.f.Transform(inputs)
 	if err != nil {
 		return false
 	}
@@ -221,7 +213,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 		EndPos:     position,
 		StartInput: inputs,
 		EndInput:   inputs,
-		Frame:      frame,
+		Frame:      mp.f,
 	})
 	return ok
 }
@@ -231,15 +223,11 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 		&ConstraintInput{
 			StartInput: seedInputs,
 			EndInput:   target,
-			Frame:      mp.Frame(),
+			Frame:      mp.f,
 		},
 		mp.planOpts.Resolution,
 	)
 	return ok
-}
-
-func (mp *planner) golog() golog.Logger {
-	return mp.logger
 }
 
 func (mp *planner) opt() *plannerOptions {
@@ -300,7 +288,7 @@ func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed
 		nSolutions = defaultSolutionsToSeed
 	}
 
-	seedPos, err := mp.frame.Transform(seed)
+	seedPos, err := mp.f.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
@@ -337,14 +325,14 @@ IK:
 				goalPos,
 				seed,
 				step,
-				mp.frame,
+				mp.f,
 			})
 			endPass, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
 				goalPos,
 				goalPos,
 				step,
 				step,
-				mp.frame,
+				mp.f,
 			})
 
 			if cPass && endPass {
@@ -389,81 +377,4 @@ IK:
 		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
 	}
 	return orderedSolutions, nil
-}
-
-// node interface is used to wrap a configuration for planning purposes.
-type node interface {
-	// return the configuration associated with the node
-	Q() []frame.Input
-}
-
-type planReturn interface {
-	// return the steps in Input form
-	toInputs() [][]frame.Input
-	err() error
-}
-
-type basicNode struct {
-	q []frame.Input
-}
-
-func (n *basicNode) Q() []frame.Input {
-	return n.q
-}
-
-type costNode struct {
-	node
-	cost float64
-}
-
-func newCostNode(q []frame.Input, cost float64) *costNode {
-	return &costNode{&basicNode{q: q}, cost}
-}
-
-// nodePair groups together nodes in a tuple
-// TODO(rb): in the future we might think about making this into a list of nodes.
-type nodePair struct{ a, b node }
-
-func (np *nodePair) sumCosts() float64 {
-	a, aok := np.a.(*costNode)
-	if !aok {
-		return 0
-	}
-	b, bok := np.b.(*costNode)
-	if !bok {
-		return 0
-	}
-	return a.cost + b.cost
-}
-
-func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
-	// need to figure out which of the two nodes is in the start map
-	var startReached, goalReached node
-	if _, ok := startMap[pair.a]; ok {
-		startReached, goalReached = pair.a, pair.b
-	} else {
-		startReached, goalReached = pair.b, pair.a
-	}
-
-	// extract the path to the seed
-	path := make([]node, 0)
-	for startReached != nil {
-		path = append(path, startReached)
-		startReached = startMap[startReached]
-	}
-
-	// reverse the slice
-	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
-		path[i], path[j] = path[j], path[i]
-	}
-
-	// skip goalReached node and go directly to its parent in order to not repeat this node
-	goalReached = goalMap[goalReached]
-
-	// extract the path to the goal
-	for goalReached != nil {
-		path = append(path, goalReached)
-		goalReached = goalMap[goalReached]
-	}
-	return path
 }

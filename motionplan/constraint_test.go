@@ -34,7 +34,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	})
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -43,7 +43,7 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 

@@ -23,19 +23,6 @@ func FrameStepsFromRobotPath(frameName string, path []map[string][]referencefram
 	return solution, nil
 }
 
-// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan planReturn, planOpts *plannerOptions) (totalCost float64) {
-	if errors.Is(plan.err(), errPlannerFailed) {
-		return math.Inf(1)
-	}
-	steps := plan.toInputs()
-	for i := 0; i < len(steps)-1; i++ {
-		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
-		totalCost += cost
-	}
-	return totalCost
-}
-
 // PathStepCount will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
@@ -50,6 +37,19 @@ func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 
 	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
+}
+
+// evaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
+func evaluatePlan(plan planReturn, planOpts *plannerOptions) (totalCost float64) {
+	if errors.Is(plan.err(), errPlannerFailed) {
+		return math.Inf(1)
+	}
+	steps := plan.toInputs()
+	for i := 0; i < len(steps)-1; i++ {
+		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
+		totalCost += cost
+	}
+	return totalCost
 }
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current

@@ -42,17 +42,17 @@ func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger go
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
-func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
+func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	seedMap map[string][]referenceframe.Input,
 	goalPos spatialmath.Pose,
 	worldState *commonpb.WorldState,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
-	seed, err := mp.frame.mapToSlice(seedMap)
+	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
 	}
-	seedPos, err := mp.frame.Transform(seed)
+	seedPos, err := pm.frame.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +68,8 @@ func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	// If we are world rooted, translate the goal pose into the world frame
-	if mp.frame.worldRooted {
-		tf, err := mp.frame.fss.Transform(seedMap, referenceframe.NewPoseInFrame(mp.frame.goalFrame.Name(), goalPos), referenceframe.World)
+	if pm.frame.worldRooted {
+		tf, err := pm.frame.fss.Transform(seedMap, referenceframe.NewPoseInFrame(pm.frame.goalFrame.Name(), goalPos), referenceframe.World)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, motionConfig)
+			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -103,13 +103,13 @@ func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 		seedPos = from
 	}
 	goals = append(goals, goalPos)
-	opt, err := mp.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, motionConfig)
+	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, motionConfig)
 	if err != nil {
 		return nil, err
 	}
 	opts = append(opts, opt)
 
-	resultSlices, err := mp.planMotion(ctx, goals, seed, opts, nil, 0)
+	resultSlices, err := pm.planMotion(ctx, goals, seed, opts, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -118,12 +118,12 @@ func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 
 // planMotion will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning the next
 // motion as soon as its starting point is known.
-func (mp *planManager) planMotion(
+func (pm *planManager) planMotion(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	opts []*plannerOptions,
-	rm *rrtMaps,
+	maps *rrtMaps,
 	iter int,
 ) ([][]referenceframe.Input, error) {
 	var err error
@@ -138,19 +138,19 @@ func (mp *planManager) planMotion(
 	if seed, ok := opt.extra["rseed"].(int); ok {
 		//nolint: gosec
 		pathPlanner, err = opt.PlannerConstructor(
-			mp.frame,
+			pm.frame,
 			runtime.NumCPU()/2,
 			rand.New(rand.NewSource(int64(seed))),
-			mp.logger,
+			pm.logger,
 			opt,
 		)
 	} else {
 		//nolint: gosec
 		pathPlanner, err = opt.PlannerConstructor(
-			mp.frame,
+			pm.frame,
 			runtime.NumCPU()/2,
-			rand.New(rand.NewSource(int64(mp.randseed.Int()))),
-			mp.logger,
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			pm.logger,
 			opt,
 		)
 	}
@@ -160,7 +160,7 @@ func (mp *planManager) planMotion(
 	remainingSteps := [][]referenceframe.Input{}
 
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
-	if rm == nil {
+	if maps == nil {
 		planSeed := initRRTMaps(ctx, pathPlanner, goal, seed)
 		if planSeed.planerr != nil {
 			return nil, planSeed.planerr
@@ -169,7 +169,7 @@ func (mp *planManager) planMotion(
 			if iter+1 < len(goals) {
 				// in this case, we create the next step (and thus the remaining steps) and the
 				// step from our iteration hangs out in the buffer until we're done with it
-				remainingSteps, err = mp.planMotion(
+				remainingSteps, err = pm.planMotion(
 					ctx,
 					goals,
 					planSeed.steps[len(planSeed.steps)-1].Q(),
@@ -185,7 +185,7 @@ func (mp *planManager) planMotion(
 			return results, nil
 		}
 
-		rm = planSeed.rm
+		maps = planSeed.maps
 	}
 
 	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
@@ -194,9 +194,9 @@ func (mp *planManager) planMotion(
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
 		// publish endpoint of plan if it is known
 		var nextSeed node
-		if len(rm.goalMap) == 1 {
-			mp.logger.Debug("found early final solution")
-			for key := range rm.goalMap {
+		if len(maps.goalMap) == 1 {
+			pm.logger.Debug("found early final solution")
+			for key := range maps.goalMap {
 				nextSeed = key
 			}
 		}
@@ -205,10 +205,10 @@ func (mp *planManager) planMotion(
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
 			if nextSeed == nil {
-				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{rm, endpointPreview, solutionChan})
+				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{maps, endpointPreview, solutionChan})
 			} else {
 				endpointPreview <- nextSeed
-				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{rm, nil, solutionChan})
+				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{maps, nil, solutionChan})
 			}
 		})
 
@@ -224,7 +224,7 @@ func (mp *planManager) planMotion(
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = mp.planMotion(ctx, goals, nextSeed.Q(), opts, nil, iter+1)
+					remainingSteps, err = pm.planMotion(ctx, goals, nextSeed.Q(), opts, nil, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -250,7 +250,7 @@ func (mp *planManager) planMotion(
 			case finalSteps := <-solutionChan:
 				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
-				nextSeed := finalSteps.rm
+				nextSeed := finalSteps.maps
 
 				// default to fallback; will unset if we have a good path
 				goodSolution := false
@@ -259,10 +259,10 @@ func (mp *planManager) planMotion(
 				if finalSteps.err() == nil {
 					if opt.Fallback != nil {
 						if ok, score := goodPlan(finalSteps, opt); ok {
-							mp.logger.Debugf("got path with score %f, close enough to optimal %f", score, rm.optNode.cost)
+							pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.cost)
 							goodSolution = true
 						} else {
-							mp.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, rm.optNode.cost)
+							pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.cost)
 
 							// If we have a connected but bad path, we recreate new IK solutions and start from scratch
 							// rather than seeding with a completed, known-bad tree
@@ -273,15 +273,16 @@ func (mp *planManager) planMotion(
 						goodSolution = true
 					}
 				}
-
-				// Run fallback if necessary. This will also run smoothing if our score isn't good enough.
+				smoothChan := make(chan []node, 1)
+				utils.PanicCapturingGo(func() {
+					smoothChan <- parPlan.smoothPath(ctx, finalSteps.steps)
+				})
+				smoothingDone := false
+				// Run fallback only if we don't have a very good path
 				if !goodSolution {
-					smoothChan := make(chan []node, 1)
-					utils.PanicCapturingGo(func() {
-						smoothChan <- parPlan.smoothPath(ctx, finalSteps.steps)
-					})
+					// If we have a fallback, then it should be run
 					if opt.Fallback != nil {
-						alternate, err := mp.planMotion(
+						alternate, err := pm.planMotion(
 							ctx,
 							[]spatialmath.Pose{goal},
 							seed,
@@ -289,20 +290,26 @@ func (mp *planManager) planMotion(
 							nextSeed,
 							iter,
 						)
+						// This will allow smoothing to run in parallel with the fallback
 						finalSteps.steps = <-smoothChan
+						smoothingDone = true
 						_, score := goodPlan(finalSteps, opt)
 						if err == nil {
-							altCost := EvaluatePlan(&rrtPlanReturn{steps: stepsToNodes(alternate)}, opt)
+							// If the fallback successfully found a path, check if it is better than our smoothed previous path.
+							// The fallback should emerge pre-smoothed, so that should be a non-issue
+							altCost := evaluatePlan(&rrtPlanReturn{steps: stepsToNodes(alternate)}, opt)
 							if altCost < score {
-								mp.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
+								pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
 								finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
 							} else {
-								mp.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
+								pm.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
 							}
 						}
-					} else {
-						finalSteps.steps = <-smoothChan
 					}
+				}
+				// If the fallback wasn't done, we need to get the smoothed path out of the channel
+				if !smoothingDone {
+					finalSteps.steps = <-smoothChan
 				}
 
 				if finalSteps.err() != nil {
@@ -312,7 +319,7 @@ func (mp *planManager) planMotion(
 				if iter+1 < len(goals) {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the buffer until we're done with it
-					remainingSteps, err = mp.planMotion(
+					remainingSteps, err = pm.planMotion(
 						ctx,
 						goals,
 						finalSteps.steps[len(finalSteps.steps)-1].Q(),
@@ -330,13 +337,13 @@ func (mp *planManager) planMotion(
 			}
 		}
 	} else {
-		resultSlicesRaw, err := pathPlanner.Plan(planctx, goal, seed)
+		resultSlicesRaw, err := pathPlanner.plan(planctx, goal, seed)
 		if err != nil {
 			return nil, err
 		}
 		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps)
-			remainingSteps, err = mp.planMotion(ctx, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, nil, iter+1)
+			remainingSteps, err = pm.planMotion(ctx, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, nil, iter+1)
 			if err != nil {
 				return nil, err
 			}
@@ -346,7 +353,7 @@ func (mp *planManager) planMotion(
 }
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
-func (mp *planManager) plannerSetupFromMoveRequest(
+func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *commonpb.WorldState,
@@ -361,7 +368,7 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 	// not yet fully supported, but could be used by cbirrt
 	getColDepth := false
 
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(mp.frame, mp.fs, worldState, seedMap, getColDepth)
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(pm.frame, pm.fs, worldState, seedMap, getColDepth)
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +463,7 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := mp.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
 			if err != nil {
 				return nil, err
 			}
@@ -472,11 +479,11 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
-		if pr.rm.optNode.cost <= 0 {
+		if pr.maps.optNode.cost <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = EvaluatePlan(pr, opt)
-		if solutionCost < pr.rm.optNode.cost*defaultOptimalityMultiple {
+		solutionCost = evaluatePlan(pr, opt)
+		if solutionCost < pr.maps.optNode.cost*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
 	}

@@ -39,7 +39,7 @@ type planConfigConstructor func() (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
-	planners := []seededPlannerConstructor{
+	planners := []plannerConstructor{
 		newRRTStarConnectMotionPlanner,
 		newCBiRRTMotionPlanner,
 	}
@@ -63,7 +63,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
-	planners := []seededPlannerConstructor{
+	planners := []plannerConstructor{
 		newCBiRRTMotionPlanner,
 	}
 	testCases := []struct {
@@ -237,7 +237,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfigConstructor, seed int) {
 	t.Helper()
 
 	// plan
@@ -245,7 +245,7 @@ func testPlanner(t *testing.T, plannerFunc seededPlannerConstructor, config plan
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(cfg.RobotFrame, nCPU/2, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
-	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start)
+	path, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)

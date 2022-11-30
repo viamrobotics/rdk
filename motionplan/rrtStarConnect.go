@@ -80,7 +80,7 @@ func newRRTStarConnectMotionPlanner(
 	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
 }
 
-func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
+func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([][]referenceframe.Input, error) {
@@ -113,15 +113,15 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	mp.start = time.Now()
 
-	if rrt.rm == nil || len(rrt.rm.goalMap) == 0 {
+	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
 		planSeed := initRRTMaps(ctx, mp, goal, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
 		}
-		rrt.rm = planSeed.rm
+		rrt.maps = planSeed.maps
 	}
-	target := referenceframe.InterpolateInputs(seed, rrt.rm.optNode.Q(), 0.5)
+	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -139,10 +139,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			// stop and return best path
 			if nSolved > 0 {
 				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
-				rrt.solutionChan <- shortestPath(rrt.rm, shared)
+				rrt.solutionChan <- shortestPath(rrt.maps, shared)
 			} else {
 				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
-				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
+				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
 			}
 			return
 		default:
@@ -150,10 +150,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// try to connect the target to map 1
 		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.rm.startMap, target, m1chan)
+			mp.extend(rrt.maps.startMap, target, m1chan)
 		})
 		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.rm.goalMap, target, m2chan)
+			mp.extend(rrt.maps.goalMap, target, m2chan)
 		})
 		map1reached := <-m1chan
 		map2reached := <-m2chan
@@ -164,9 +164,9 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
-				solution := shortestPath(rrt.rm, shared)
-				solutionCost := EvaluatePlan(solution, mp.algOpts.plannerOptions)
-				if solutionCost-rrt.rm.optNode.cost < defaultOptimalityThreshold*rrt.rm.optNode.cost {
+				solution := shortestPath(rrt.maps, shared)
+				solutionCost := evaluatePlan(solution, mp.planOpts)
+				if solutionCost-rrt.maps.optNode.cost < defaultOptimalityThreshold*rrt.maps.optNode.cost {
 					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution
 					return
@@ -177,10 +177,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 
 		// get next sample, switch map pointers
-		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+		target = referenceframe.RandomFrameInputs(mp.f, mp.randseed)
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
-	rrt.solutionChan <- shortestPath(rrt.rm, shared)
+	rrt.solutionChan <- shortestPath(rrt.maps, shared)
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(
@@ -193,7 +193,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		return
 	}
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(mp.algOpts.plannerOptions, tree, target, mp.algOpts.NeighborhoodSize)
+	neighbors := kNearestNeighbors(mp.planOpts, tree, target, mp.algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
 	minIndex := -1
 	for i, neighbor := range neighbors {
@@ -224,7 +224,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 
 		// check to see if a shortcut is possible, and rewire the node if it is
 		neighborNode := neighbor.node.(*costNode)
-		_, connectionCost := mp.algOpts.DistanceFunc(&ConstraintInput{
+		_, connectionCost := mp.planOpts.DistanceFunc(&ConstraintInput{
 			StartInput: neighborNode.Q(),
 			EndInput:   targetNode.Q(),
 		})
