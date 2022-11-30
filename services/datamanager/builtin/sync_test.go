@@ -276,6 +276,7 @@ func TestDataCaptureUpload(t *testing.T) {
 
 				newestDMSvc := newTestDataManager(t)
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
+				newestDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
 				err = newestDMSvc.Update(context.Background(), cfg)
 				test.That(t, err, test.ShouldBeNil)
 				time.Sleep(syncTime)
