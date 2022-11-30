@@ -12,7 +12,6 @@ import { addResizeListeners } from './lib/resize';
 import {
   Client,
   RobotService,
-  ServiceError,
   cameraApi,
   commonApi,
   robotApi,
@@ -54,7 +53,6 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from './lib/fixers';
-import { addStream, removeStream } from './lib/stream';
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -73,7 +71,6 @@ const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: grpc.Request | null = null;
 let statusStreamOpID: string | undefined;
-let baseCameraState = new Map<string, boolean>();
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -579,28 +576,6 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewCamera = async (name: string, isOn: boolean) => {
-  if (isOn) {
-    try {
-      // only add stream if base camera is not active
-      if (!baseCameraState.get(name)) {
-        await addStream(client, name);
-      }
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  } else {
-    try {
-      // only remove stream if base camera is not active
-      if (!baseCameraState.get(name)) {
-        await removeStream(client, name);
-      }
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  }
-};
-
 const viewManualFrame = (cameraName: string) => {
   const req = new cameraApi.RenderFrameRequest();
   req.setName(cameraName);
@@ -710,16 +685,10 @@ const initConnect = () => {
   }
 };
 
-const updatedBaseCameraState = (event: Map<string, boolean>) => {
-  baseCameraState = event;
-};
-
 onMounted(async () => {
   initConnect();
   await connectedFirstTime;
-
   appConnectionManager.start();
-
   addResizeListeners();
 });
 
@@ -781,7 +750,6 @@ onMounted(async () => {
       :name="base.name"
       :client="client"
       :resources="resources"
-      @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->
@@ -871,7 +839,6 @@ onMounted(async () => {
       :camera-name="camera.name"
       :client="client"
       :resources="resources"
-      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
     />

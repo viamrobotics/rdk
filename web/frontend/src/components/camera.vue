@@ -1,12 +1,14 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import { Client, cameraApi, commonApi } from '@viamrobotics/sdk';
+import { Client, cameraApi, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
+import { addStream, removeStream } from '../lib/stream';
+import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
   cameraName: string
@@ -16,7 +18,6 @@ interface Props {
 
 interface Emits {
   (event: 'download-raw-data'): void
-  (event: 'toggle-camera', camera: boolean): void
   (event: 'selected-camera-view', value: string): void
   (event: 'refresh-camera', value: string): void
 }
@@ -30,9 +31,37 @@ let pointcloud = $ref<Uint8Array | undefined>();
 const camera = ref(false);
 const selectedValue = ref('live');
 
+const initStreamState = () => {
+  cameraStreamStates.set(props.cameraName, false);
+};
+
+const viewCamera = async (isOn: boolean) => {
+  if (isOn) {
+    try {
+      // only add stream if not already active
+      if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
+        await addStream(props.client, props.cameraName);
+        cameraStreamStates.set(props.cameraName, true);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+  } else {
+    try {
+      // only remove camera stream if active and base stream is not active
+      if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
+        await removeStream(props.client, props.cameraName);
+        cameraStreamStates.set(props.cameraName, false);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+  }
+};
+
 const toggleExpand = () => {
   camera.value = !camera.value;
-  emit('toggle-camera', camera.value);
+  viewCamera(camera.value);
 };
 
 const renderPCD = () => {
@@ -78,6 +107,9 @@ const exportScreenshot = (cameraName: string) => {
   });
 };
 
+onMounted(() => {
+  initStreamState();
+});
 </script>
 
 <template>
