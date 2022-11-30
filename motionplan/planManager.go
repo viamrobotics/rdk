@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"math/rand"
 	"runtime"
 	"time"
@@ -18,8 +19,7 @@ import (
 
 const (
 	defaultOptimalityMultiple = 2.0
-	defaultFallbackTimeout    = 2.5
-	defaultFallbackIK         = 5
+	defaultFallbackTimeout    = 1.5
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -452,7 +452,6 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 			// set up deep copy for fallback
 			try1 := deepAtomicCopyMap(planningOpts)
 			// No need to generate tons more IK solutions when the first alg will do it
-			opt.MaxSolutions = defaultFallbackIK
 
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
@@ -471,7 +470,7 @@ func (mp *planManager) plannerSetupFromMoveRequest(
 
 // check whether the solution is within some amount of the optimal.
 func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
-	solutionCost := 0.
+	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.rm.optNode.cost <= 0 {
 			return true, solutionCost

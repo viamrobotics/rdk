@@ -20,7 +20,7 @@ const (
 
 	defaultOptimalityThreshold = 1.05
 
-	defaultOptimalityCheckIter = 5
+	defaultOptimalityCheckIter = 10
 )
 
 type rrtStarConnectOptions struct {
