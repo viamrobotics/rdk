@@ -134,6 +134,9 @@ func (s *syncer) SyncDirectory(dir string) {
 			case <-s.cancelCtx.Done():
 				return
 			default:
+				if !s.markInProgress(newP) {
+					return
+				}
 				//nolint:gosec
 				fmt.Println(fmt.Sprintf("trying to sync %s", newP))
 				f, err := os.Open(newP)
@@ -156,16 +159,13 @@ func (s *syncer) SyncDirectory(dir string) {
 				} else {
 					s.syncArbitraryFile(f)
 				}
+				s.unmarkInProgress(newP)
 			}
 		})
 	}
 }
 
 func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
-	if !s.markInProgress(f.GetPath()) {
-		return
-	}
-
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
@@ -189,7 +189,6 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		}
 		return
 	}
-	s.unmarkInProgress(f.GetPath())
 }
 
 func (s *syncer) syncArbitraryFile(f *os.File) {
