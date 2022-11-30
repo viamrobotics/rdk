@@ -106,7 +106,7 @@ func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, 
 }
 
 // PoseInFramesToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
-// TODO(rb): use generics to operate on lists of arbirary types
+// TODO(rb): use generics to operate on lists of arbirary types.
 func PoseInFramesToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
 	protoTransforms := make([]*commonpb.Transform, 0, len(poseSlice))
 	for i, transform := range poseSlice {
@@ -120,7 +120,7 @@ func PoseInFramesToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Tran
 }
 
 // PoseInFramesFromTransformProtobuf converts a slice of Transform protobuf messages to a slice of PoseInFrame structs.
-// TODO(rb): use generics to operate on lists of arbirary proto types
+// TODO(rb): use generics to operate on lists of arbirary proto types.
 func PoseInFramesFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*PoseInFrame, error) {
 	transforms := make([]*PoseInFrame, 0, len(protoSlice))
 	for i, protoTransform := range protoSlice {
