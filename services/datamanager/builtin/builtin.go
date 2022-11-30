@@ -339,28 +339,6 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 	return nil, nil
 }
 
-func getAllFilePaths(dir string) []string {
-	var previouslyCaptured []string
-	//nolint
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		previouslyCaptured = append(previouslyCaptured, path)
-		return nil
-	})
-	return previouslyCaptured
-}
-
-//func (svc *builtIn) syncPreviouslyCaptured() {
-//	// Sync existing files in captureDir.
-//	previouslyCaptured := getAllFilePaths(svc.captureDir)
-//	svc.syncer.SyncCaptureFiles(previouslyCaptured)
-//}
-
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	fmt.Println("called ManualSync")
@@ -373,34 +351,8 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	// TODO: manual and scheduled clash if we're capturing stuff and I don't know how to fix it
-	// TODO: think i did it
-
-	// First, get all current files in capture directory.
-	previouslyCaptured := getAllFilePaths(svc.captureDir)
-
-	// Then, reset all current queues. This ensures scheduled syncs pulling from this queue won't pull the previously
-	// capture files.
-	for _, c := range svc.collectors {
-		c.Collector.GetTarget().Reset()
-	}
-	svc.lock.Unlock()
-
-	// Then, sync the above files, as well as all arbitrary files.
-	svc.syncer.SyncCaptureFiles(previouslyCaptured)
-	svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
+	svc.syncer.SyncDirectory(svc.captureDir)
 	return nil
-}
-
-func (svc *builtIn) syncCollectorQueues() {
-	svc.lock.Lock()
-	defer svc.lock.Unlock()
-	var queues []*datacapture.Queue
-	for _, collector := range svc.collectors {
-		queues = append(queues, collector.Collector.GetTarget())
-	}
-	svc.syncer.SyncCaptureQueues(queues)
-	return
 }
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
@@ -408,7 +360,9 @@ func (svc *builtIn) syncAdditionalSyncPaths() {
 	fmt.Println("called sync additional sync paths in rdk")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
-	svc.syncer.SyncArbitraryFiles(svc.additionalSyncPaths)
+	for _, dir := range svc.additionalSyncPaths {
+		svc.syncer.SyncDirectory(dir)
+	}
 }
 
 // Update updates the data manager service when the config has changed.
@@ -488,27 +442,19 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	// TODO: don't cancel in progress arbitrary file uploads on Update unless sync has been disabled or
 	//       additional_sync_paths has changed.
 	svc.closeSyncer()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
-		previouslyCaptured := getAllFilePaths(svc.captureDir)
-		svc.syncer.SyncCaptureFiles(previouslyCaptured)
-		svc.resetCollectorTargets()
-		svc.startSyncBackgroundRoutine(svc.syncIntervalMins)
+		svc.syncer.SyncDirectory(svc.captureDir)
+		svc.syncAdditionalSyncPaths()
 	}
 
 	return nil
-}
-
-func (svc *builtIn) resetCollectorTargets() {
-	for _, c := range svc.collectors {
-		c.Collector.GetTarget().Reset()
-	}
 }
 
 func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {
@@ -546,7 +492,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-ticker.C:
 				fmt.Println("uploadData ticket hit")
-				svc.syncCollectorQueues()
+				svc.syncer.SyncDirectory(svc.captureDir)
 				svc.syncAdditionalSyncPaths()
 			}
 		}
