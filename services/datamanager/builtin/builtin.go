@@ -352,6 +352,7 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	}
 
 	svc.syncer.SyncDirectory(svc.captureDir)
+	svc.lock.Unlock()
 	return nil
 }
 
