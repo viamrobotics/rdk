@@ -386,7 +386,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 			}
 			svc.services[s] = subtypeSvc
 		} else {
-			if err := subtypeSvc.Replace(v); err != nil {
+			if err := subtypeSvc.ReplaceAll(v); err != nil {
 				return err
 			}
 		}

@@ -67,6 +67,12 @@ func (t Type) Validate() error {
 	if err := ContainsReservedCharacter(string(t.ResourceType)); err != nil {
 		return err
 	}
+	if !singleFieldRegexValidator.MatchString(string(t.Namespace)) {
+		return errors.Errorf("string %q is not a valid type namespace", t.Namespace)
+	}
+	if !singleFieldRegexValidator.MatchString(string(t.ResourceType)) {
+		return errors.Errorf("string %q is not a valid type name", t.ResourceType)
+	}
 	return nil
 }
 
@@ -115,6 +121,9 @@ func (s Subtype) Validate() error {
 	if err := ContainsReservedCharacter(string(s.ResourceSubtype)); err != nil {
 		return err
 	}
+	if !singleFieldRegexValidator.MatchString(string(s.ResourceSubtype)) {
+		return errors.Errorf("string %q is not a valid subtype name", s.ResourceSubtype)
+	}
 	return nil
 }
 
@@ -143,7 +152,7 @@ func (s *Subtype) UnmarshalJSON(data []byte) error {
 	s.ResourceType = TypeName(tempSt["type"])
 	s.ResourceSubtype = SubtypeName(tempSt["subtype"])
 
-	return nil
+	return s.Validate()
 }
 
 // Name represents a known component/service representation of a robot.
@@ -195,12 +204,11 @@ func NewFromString(resourceName string) (Name, error) {
 
 // NewSubtypeFromString creates a new Subtype from string like: %s:%s:%s.
 func NewSubtypeFromString(subtypeName string) (Subtype, error) {
-	if !resRegexValidator.MatchString(subtypeName) {
+	if !subtypeRegexValidator.MatchString(subtypeName) {
 		return Subtype{}, errors.Errorf("string %q is not a valid subtype name", subtypeName)
 	}
-	matches := resRegexValidator.FindStringSubmatch(subtypeName)
-	rSubtypeParts := strings.Split(matches[1], ":")
-	return NewSubtype(Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2])), nil
+	matches := subtypeRegexValidator.FindStringSubmatch(subtypeName)
+	return NewSubtype(Namespace(matches[1]), TypeName(matches[2]), SubtypeName(matches[3])), nil
 }
 
 // PrependRemote returns a Name with a remote prepended.

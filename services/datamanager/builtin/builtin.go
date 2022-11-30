@@ -668,8 +668,9 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
+					// SMURF link jira for triplets
 					attrs.Model = c.Model
-					attrs.Type = c.API
+					attrs.Type = c.ResourceName().Subtype // Using this instead of c.API to guarantee it's backward compatible
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
 			}

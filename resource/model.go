@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	// "github.com/jhump/protoreflect/desc".
 	"github.com/pkg/errors"
 )
 
@@ -23,9 +22,9 @@ const DefaultModelFamilyName = ModelFamilyName("builtin")
 
 var (
 	// DefaultModelFamily is the rdk:builtin model family for built-in resources.
-	DefaultModelFamily       = ModelFamily{ResourceNamespaceRDK, DefaultModelFamilyName}
-	modelRegexValidator      = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
-	shortModelRegexValidator = regexp.MustCompile(`^([\w-]+)$`)
+	DefaultModelFamily        = ModelFamily{ResourceNamespaceRDK, DefaultModelFamilyName}
+	modelRegexValidator       = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
+	singleFieldRegexValidator = regexp.MustCompile(`^([\w-]+)$`)
 )
 
 // ModelFamily is a family of related models.
@@ -52,6 +51,12 @@ func (f ModelFamily) Validate() error {
 	}
 	if err := ContainsReservedCharacter(string(f.Family)); err != nil {
 		return err
+	}
+	if !singleFieldRegexValidator.MatchString(string(f.Namespace)) {
+		return errors.Errorf("string %q is not a valid model namespace", f.Namespace)
+	}
+	if !singleFieldRegexValidator.MatchString(string(f.Family)) {
+		return errors.Errorf("string %q is not a valid model family", f.Family)
 	}
 	return nil
 }
@@ -84,7 +89,9 @@ func NewModelFromString(modelStr string) (Model, error) {
 		matches := modelRegexValidator.FindStringSubmatch(modelStr)
 		return NewModel(Namespace(matches[1]), ModelFamilyName(matches[2]), ModelName(matches[3])), nil
 	}
-	if shortModelRegexValidator.MatchString(modelStr) {
+
+	// TODO Remove when triplet support complete (SMURF link jira triplet issue)
+	if singleFieldRegexValidator.MatchString(modelStr) {
 		return NewModel(ResourceNamespaceRDK, DefaultModelFamilyName, ModelName(modelStr)), nil
 	}
 	return Model{}, errors.Errorf("string %q is not a valid model name", modelStr)
@@ -101,6 +108,9 @@ func (m Model) Validate() error {
 	if err := ContainsReservedCharacter(string(m.Name)); err != nil {
 		return err
 	}
+	if !singleFieldRegexValidator.MatchString(string(m.Name)) {
+		return errors.Errorf("string %q is not a valid model name", m.Name)
+	}
 	return nil
 }
 
@@ -109,7 +119,7 @@ func (m Model) String() string {
 	return fmt.Sprintf("%s:%s", m.ModelFamily, m.Name)
 }
 
-// UnmarshalJSON pareses namespace:family:modelname strings to the full Model{} struct.
+// UnmarshalJSON parses namespace:family:modelname strings to the full Model{} struct.
 func (m *Model) UnmarshalJSON(data []byte) error {
 	modelStr := strings.Trim(string(data), "\"'")
 	if modelRegexValidator.MatchString(modelStr) {
@@ -119,7 +129,9 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 		m.Name = ModelName(matches[3])
 		return nil
 	}
-	if shortModelRegexValidator.MatchString(modelStr) {
+
+	// TODO Remove when triplet support complete (SMURF link jira triplet issue)
+	if singleFieldRegexValidator.MatchString(modelStr) {
 		m.Namespace = ResourceNamespaceRDK
 		m.ModelFamily.Family = DefaultModelFamilyName
 		m.Name = ModelName(modelStr)
@@ -135,5 +147,5 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 	m.ModelFamily.Family = ModelFamilyName(tempModel["model_family"])
 	m.Name = ModelName(tempModel["name"])
 
-	return nil
+	return m.Validate()
 }
