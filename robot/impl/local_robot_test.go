@@ -1574,9 +1574,14 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	robotRemote, _ := robotimpl.New(ctx, &cfg, logger)
+	robotRemote, err := robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robotRemote, test.ShouldNotBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robotRemote), test.ShouldBeNil)
+	}()
 	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-	err := robotRemote.StartWeb(context.Background(), options1)
+	err = robotRemote.StartWeb(context.Background(), options1)
 	test.That(t, err, test.ShouldBeNil)
 
 	goodConfig := &config.Config{
