@@ -57,7 +57,6 @@ func TestWriteViam(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	moveFrame := eraserFrame
-	fss := motionplan.NewSolvableFrameSystem(fs, logger)
 
 	// draw pos start
 	goal := spatial.NewPoseFromProtobuf(&pb.Pose{
@@ -71,15 +70,15 @@ func TestWriteViam(t *testing.T) {
 
 	seedMap[m.Name()] = home7
 
-	steps, err := fss.SolvePose(ctx, seedMap, frame.NewPoseInFrame(fs.World().Name(), goal), moveFrame.Name())
+	steps, err := motionplan.PlanMotion(ctx, logger, frame.NewPoseInFrame(fs.World().Name(), goal), moveFrame, seedMap, fs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := []map[string]interface{}{{"motion_profile": motionplan.LinearMotionProfile}}
+	opt := map[string]interface{}{"motion_profile": motionplan.LinearMotionProfile}
 
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
 		goalPiF := frame.NewPoseInFrame(fs.World().Name(), goal)
 
-		waysteps, err := fss.SolveWaypointsWithOptions(ctx, seedMap, []*frame.PoseInFrame{goalPiF}, moveFrame.Name(), nil, opt)
+		waysteps, err := motionplan.PlanMotion(ctx, logger, goalPiF, moveFrame, seedMap, fs, nil, opt)
 		test.That(t, err, test.ShouldBeNil)
 		return waysteps[len(waysteps)-1]
 	}
