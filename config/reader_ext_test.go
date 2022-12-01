@@ -36,7 +36,8 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"components": [{}]}`), logger)
+	_, err = config.FromReader(context.Background(),
+		"somepath", strings.NewReader(`{"disable_partial_start":true,"components": [{}]}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)

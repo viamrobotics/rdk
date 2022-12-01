@@ -52,6 +52,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
@@ -1394,6 +1395,285 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
 	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
+}
+
+type attrs struct {
+	Thing string
+}
+
+func (attrs) Validate(path string) error {
+	return errors.New("fail")
+}
+
+func TestValidationErrorOnReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	badConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "test",
+				Type:                base.SubtypeName,
+				Model:               "random",
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                "navigation",
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Remotes: []config.Remote{{
+			Name:     "remote",
+			Insecure: true,
+			Address:  "",
+		}},
+		Cloud: &config.Cloud{},
+	}
+	r, err := robotimpl.New(ctx, badConfig, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+	// Test Component Error
+	name := base.Named("test")
+	noBase, err := r.ResourceByName(name)
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+	)
+	test.That(t, noBase, test.ShouldBeNil)
+	// Test Service Error
+	s, err := r.ResourceByName(navigation.Named("fake1"))
+	test.That(t, s, test.ShouldBeNil)
+	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: Config validation error found in service: fake1: fail")
+	test.That(t, err, test.ShouldBeError, errTmp)
+	// Test Remote Error
+	rem, ok := r.RemoteByName("remote")
+	test.That(t, rem, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	badConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "test",
+				Type:                base.SubtypeName,
+				Model:               "fake",
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                config.ServiceType(datamanager.SubtypeName),
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Remotes: []config.Remote{{
+			Name:     "remote",
+			Insecure: true,
+			Address:  "",
+		}},
+		Cloud: &config.Cloud{},
+	}
+	r, err := robotimpl.New(ctx, badConfig, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r.StartWeb(context.Background(), options1)
+	test.That(t, err, test.ShouldBeNil)
+
+	goodConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "test",
+				Type:      base.SubtypeName,
+				Model:     "fake",
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                config.ServiceType(datamanager.SubtypeName),
+				Model:               resource.DefaultModelName,
+				ConvertedAttributes: &builtin.Config{},
+			},
+		},
+		Remotes: []config.Remote{{
+			Name:     "remote",
+			Insecure: true,
+			Address:  addr1,
+		}},
+		Cloud: &config.Cloud{},
+	}
+
+	// Test Component Error
+	name := base.Named("test")
+	noBase, err := base.FromRobot(r, "test")
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+	)
+	test.That(t, noBase, test.ShouldBeNil)
+	// Test Service Error
+	s, err := r.ResourceByName(datamanager.Named("fake1"))
+	test.That(t, s, test.ShouldBeNil)
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	test.That(t, err, test.ShouldBeError, errTmp)
+	// Test Remote Error
+	rem, ok := r.RemoteByName("remote")
+	test.That(t, rem, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	r.Reconfigure(ctx, goodConfig)
+	// Test Component Valid
+	noBase, err = base.FromRobot(r, "test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, noBase, test.ShouldNotBeNil)
+	// Test Service Valid
+	s, err = r.ResourceByName(datamanager.Named("fake1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s, test.ShouldNotBeNil)
+	// Test Remote Valid
+	rem, ok = r.RemoteByName("remote")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, rem, test.ShouldNotBeNil)
+}
+
+func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	armConfig := config.Component{
+		Namespace: resource.ResourceNamespaceRDK,
+		Name:      "arm1",
+		Type:      arm.SubtypeName,
+		Model:     "fake",
+	}
+	cfg := config.Config{
+		Components: []config.Component{armConfig},
+	}
+
+	robotRemote, err := robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robotRemote, test.ShouldNotBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robotRemote), test.ShouldBeNil)
+	}()
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	err = robotRemote.StartWeb(context.Background(), options1)
+	test.That(t, err, test.ShouldBeNil)
+
+	goodConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "test",
+				Type:      base.SubtypeName,
+				Model:     "fake",
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                config.ServiceType(datamanager.SubtypeName),
+				Model:               resource.DefaultModelName,
+				ConvertedAttributes: &builtin.Config{},
+			},
+		},
+		Remotes: []config.Remote{{
+			Name:     "remote",
+			Insecure: true,
+			Address:  addr1,
+		}},
+		Cloud: &config.Cloud{},
+	}
+	r, err := robotimpl.New(ctx, goodConfig, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+
+	badConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "test",
+				Type:                base.SubtypeName,
+				Model:               "fake",
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace:           resource.ResourceNamespaceRDK,
+				Name:                "fake1",
+				Type:                config.ServiceType(datamanager.SubtypeName),
+				ConvertedAttributes: attrs{},
+			},
+		},
+		Remotes: []config.Remote{{
+			Name:     "remote",
+			Insecure: true,
+			Address:  "",
+		}},
+		Cloud: &config.Cloud{},
+	}
+	// Test Component Valid
+	noBase, err := base.FromRobot(r, "test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, noBase, test.ShouldNotBeNil)
+	// Test Service Valid
+	s, err := r.ResourceByName(datamanager.Named("fake1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s, test.ShouldNotBeNil)
+	// Test Remote Valid
+	rem, ok := r.RemoteByName("remote")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, rem, test.ShouldNotBeNil)
+
+	r.Reconfigure(ctx, badConfig)
+	// Test Component Error
+	name := base.Named("test")
+	noBase, err = base.FromRobot(r, "test")
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+	)
+	test.That(t, noBase, test.ShouldBeNil)
+	// Test Service Error
+	s, err = r.ResourceByName(datamanager.Named("fake1"))
+	test.That(t, s, test.ShouldBeNil)
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	test.That(t, err, test.ShouldBeError, errTmp)
+	// Test Remote Error
+	rem, ok = r.RemoteByName("remote")
+	test.That(t, rem, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {

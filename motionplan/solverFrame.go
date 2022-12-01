@@ -1,11 +1,8 @@
 package motionplan
 
 import (
-	"context"
 	"errors"
-	"fmt"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -13,112 +10,11 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// SolvableFrameSystem wraps a FrameSystem to allow solving between frames of the frame system.
-// Note that this needs to live in motionplan, not referenceframe, to avoid circular dependencies.
-type SolvableFrameSystem struct {
-	frame.FrameSystem
-	logger golog.Logger
-}
-
-// NewSolvableFrameSystem will create a new solver for a frame system.
-func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *SolvableFrameSystem {
-	return &SolvableFrameSystem{FrameSystem: fs, logger: logger}
-}
-
-// SolvePose will take a set of starting positions, a goal frame, a frame to solve for, and a pose. The function will
-// then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
-// For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
-// to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
-// the world frame. It will use the default planner options.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
-	seedMap map[string][]frame.Input,
-	goal *frame.PoseInFrame,
-	solveFrameName string,
-) ([]map[string][]frame.Input, error) {
-	return fss.SolveWaypointsWithOptions(ctx, seedMap, []*frame.PoseInFrame{goal}, solveFrameName, nil, nil)
-}
-
-// SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
-// set of PlannerOptions. It will solve the solveFrame to the goal poses with respect to the goal frame using the provided
-// planning options.
-func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
-	seedMap map[string][]frame.Input,
-	goals []*frame.PoseInFrame,
-	solveFrameName string,
-	worldState *frame.WorldState,
-	motionConfigs []map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
-
-	// Get parentage of solver frame. This will also verify the frame is in the frame system
-	solveFrame := fss.Frame(solveFrameName)
-	if solveFrame == nil {
-		return nil, fmt.Errorf("frame with name %s not found in frame system", solveFrameName)
-	}
-	solveFrameList, err := fss.TracebackFrame(solveFrame)
-	if err != nil {
-		return nil, err
-	}
-
-	opts := make([]map[string]interface{}, 0, len(goals))
-
-	// If no planning opts, use default. If one, use for all goals. If one per goal, use respective option. Otherwise error.
-	if len(motionConfigs) != len(goals) {
-		switch len(motionConfigs) {
-		case 0:
-			for range goals {
-				opts = append(opts, map[string]interface{}{})
-			}
-		case 1:
-			// If one config passed, use it for all waypoints
-			for range goals {
-				opts = append(opts, motionConfigs[0])
-			}
-		default:
-			return nil, errors.New("goals and motion configs had different lengths")
-		}
-	} else {
-		opts = motionConfigs
-	}
-
-	// Each goal is a different PoseInFrame and so may have a different destination Frame. Since the motion can be solved from either end,
-	// each goal is solved independently.
-	for i, goal := range goals {
-		// Create a frame to solve for, and an IK solver with that frame.
-		sf, err := newSolverFrame(fss, solveFrameList, goal.FrameName(), seedMap)
-		if err != nil {
-			return nil, err
-		}
-		if len(sf.DoF()) == 0 {
-			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
-		}
-
-		sfPlanner, err := newPlanManager(sf, fss, fss.logger, i)
-		if err != nil {
-			return nil, err
-		}
-		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
-		if err != nil {
-			return nil, err
-		}
-		for j, resultSlice := range resultSlices {
-			stepMap := sf.sliceToMap(resultSlice)
-			steps = append(steps, stepMap)
-			if j == len(resultSlices)-1 {
-				// update seed map
-				seedMap = stepMap
-			}
-		}
-	}
-
-	return steps, nil
-}
-
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
 	name       string
-	fss        *SolvableFrameSystem
+	fss        frame.FrameSystem
 	movingGeom []string      // List of names of all frames that could move, used for collision detection
 	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame frame.Frame
@@ -131,7 +27,7 @@ type solverFrame struct {
 }
 
 func newSolverFrame(
-	fss *SolvableFrameSystem,
+	fss frame.FrameSystem,
 	solveFrameList []frame.Frame,
 	goalFrameName string,
 	seedMap map[string][]frame.Input,
