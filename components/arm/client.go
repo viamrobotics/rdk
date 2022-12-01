@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -55,17 +54,21 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 func (c *client) MoveToPosition(
 	ctx context.Context,
 	pose spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
+	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	if err != nil {
+		return err
+	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:       c.name,
 		To:         spatialmath.PoseToProtobuf(pose),
-		WorldState: worldState,
+		WorldState: worldStateMsg,
 		Extra:      ext,
 	})
 	return err

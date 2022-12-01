@@ -137,52 +137,20 @@ func TestFramesFromPart(t *testing.T) {
 }
 
 func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
-	zeroPose := spatial.PoseToProtobuf(spatial.NewZeroPose())
 	t.Run("fails on missing reference frame name", func(t *testing.T) {
-		transform := &commonpb.Transform{
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "parent",
-				Pose:           zeroPose,
-			},
-		}
-		part, err := ConvertTransformProtobufToFrameSystemPart(transform)
-		test.That(t, err, test.ShouldBeError, NewMissingReferenceFrameError(&commonpb.Transform{}))
-		test.That(t, part, test.ShouldBeNil)
-	})
-	t.Run("fails on missing reference frame name", func(t *testing.T) {
-		transform := &commonpb.Transform{
-			ReferenceFrame: "child",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				Pose: zeroPose,
-			},
-		}
-		part, err := ConvertTransformProtobufToFrameSystemPart(transform)
-		test.That(t, err, test.ShouldBeError, NewMissingReferenceFrameError(&commonpb.PoseInFrame{}))
+		transform := referenceframe.NewPoseInFrame("parent", spatial.NewZeroPose())
+		part, err := PoseInFrameToFrameSystemPart(transform)
+		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 		test.That(t, part, test.ShouldBeNil)
 	})
 	t.Run("converts to frame system part", func(t *testing.T) {
-		testPose := spatial.NewPoseFromOrientation(
-			r3.Vector{X: 1., Y: 2., Z: 3.},
-			&spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0},
-		)
-		transform := &commonpb.Transform{
-			ReferenceFrame: "child",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "parent",
-				Pose:           spatial.PoseToProtobuf(testPose),
-			},
-		}
-		transformPOF := transform.GetPoseInObserverFrame()
-		posePt := testPose.Point()
-		part, err := ConvertTransformProtobufToFrameSystemPart(transform)
+		testPose := spatial.NewPoseFromOrientation(r3.Vector{X: 1., Y: 2., Z: 3.}, &spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0})
+		transform := referenceframe.NewNamedPoseInFrame("parent", testPose, "child")
+		part, err := PoseInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, part.Name, test.ShouldEqual, transform.GetReferenceFrame())
-		test.That(t, part.FrameConfig.Parent, test.ShouldEqual, transformPOF.GetReferenceFrame())
-		partTrans := part.FrameConfig.Translation
-		partOrient := part.FrameConfig.Orientation
-		test.That(t, partTrans.X, test.ShouldAlmostEqual, posePt.X)
-		test.That(t, partTrans.Y, test.ShouldAlmostEqual, posePt.Y)
-		test.That(t, partTrans.Z, test.ShouldAlmostEqual, posePt.Z)
-		test.That(t, spatial.OrientationAlmostEqual(partOrient, testPose.Orientation()), test.ShouldBeTrue)
+		test.That(t, part.Name, test.ShouldEqual, transform.Name())
+		test.That(t, part.FrameConfig.Parent, test.ShouldEqual, transform.FrameName())
+		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.Translation, testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.Orientation, testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
