@@ -48,7 +48,9 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Component{
-		// TODO: can this be simplified?
+		// Note: this looks like it can be simplified to just be `Constructor: NewMpu6050`.
+		// However, if you try that, the compiler says the types are subtly incompatible. Just
+		// leave it like this.
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
