@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
@@ -59,7 +58,7 @@ func TestServerMove(t *testing.T) {
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, passedErr
@@ -73,7 +72,7 @@ func TestServerMove(t *testing.T) {
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil
@@ -93,7 +92,7 @@ func TestServerMove(t *testing.T) {
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil

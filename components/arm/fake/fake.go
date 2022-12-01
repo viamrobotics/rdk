@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
@@ -133,7 +132,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 func (a *Arm) MoveToPosition(
 	ctx context.Context,
 	pos spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	joints, err := a.JointPositions(ctx, extra)

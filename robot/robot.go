@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
@@ -54,14 +53,14 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// FrameSystemConfig returns the individual parts that make up a robot's frame system
-	FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+	FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error)
 
 	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 	TransformPose(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (*referenceframe.PoseInFrame, error)
 
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.

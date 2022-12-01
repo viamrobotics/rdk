@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -626,24 +625,24 @@ func TestMoveToPosition(t *testing.T) {
 		limitHigh: true,
 	}
 	pos := []float64{1, 2}
-	err := fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err := fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 2")
 
 	pos = []float64{1}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 1.00 max is 0.00")
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
 	fakegantry.motor = &inject.Motor{StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("err") }}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
@@ -662,7 +661,7 @@ func TestMoveToPosition(t *testing.T) {
 	}
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPinGood, nil }}
@@ -672,13 +671,13 @@ func TestMoveToPosition(t *testing.T) {
 			return errors.New("err")
 		},
 	}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 		return nil
 	}}
-	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
