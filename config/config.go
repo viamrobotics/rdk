@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -27,8 +28,7 @@ type Config struct {
 	Services   []Service             `json:"services,omitempty"`
 	Network    NetworkConfig         `json:"network"`
 	Auth       AuthConfig            `json:"auth"`
-
-	Debug bool `json:"debug,omitempty"`
+	Debug      bool                  `json:"debug,omitempty"`
 
 	ConfigFilePath string `json:"-"`
 
@@ -46,6 +46,10 @@ type Config struct {
 	// If false, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool `json:"-"`
+
+	// DisablePartialStart ensures that a robot will only start when all the components,
+	// services, and remotes pass config validation. This value is false by default
+	DisablePartialStart bool `json:"disable_partial_start"`
 }
 
 // Ensure ensures all parts of the config are valid.
@@ -58,30 +62,45 @@ func (c *Config) Ensure(fromCloud bool) error {
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
 		if err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			return err
+			if c.DisablePartialStart {
+				return err
+			}
+			golog.Global().Debug(errors.Wrap(err, "Remote config error, starting robot without remote: "+c.Remotes[idx].Name))
 		}
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
 		if err != nil {
-			return errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
+			fullErr := errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
+			if c.DisablePartialStart {
+				return fullErr
+			}
+			golog.Global().Debug(errors.Wrap(err, "Component config error, starting robot without component: "+c.Components[idx].Name))
+		} else {
+			c.Components[idx].ImplicitDependsOn = dependsOn
 		}
-		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
 
 	for idx := 0; idx < len(c.Processes); idx++ {
 		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			return err
+			if c.DisablePartialStart {
+				return err
+			}
+			golog.Global().Debug(errors.Wrap(err, "Process config error, starting robot without process: "+c.Processes[idx].Name))
 		}
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx))
 		if err != nil {
-			return err
+			if c.DisablePartialStart {
+				return err
+			}
+			golog.Global().Debug(errors.Wrap(err, "Service config error, starting robot without service: "+c.Services[idx].Name))
+		} else {
+			c.Services[idx].ImplicitDependsOn = dependsOn
 		}
-		c.Services[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if err := c.Network.Validate("network"); err != nil {

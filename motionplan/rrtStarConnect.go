@@ -17,6 +17,10 @@ import (
 const (
 	// The number of nearest neighbors to consider when adding a new sample to the tree.
 	defaultNeighborhoodSize = 10
+
+	defaultOptimalityThreshold = 1.05
+
+	defaultOptimalityCheckIter = 10
 )
 
 type rrtStarConnectOptions struct {
@@ -32,7 +36,7 @@ type rrtStarConnectOptions struct {
 func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
 		NeighborhoodSize: defaultNeighborhoodSize,
-		rrtOptions:       newRRTOptions(planOpts),
+		rrtOptions:       newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -49,33 +53,39 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 // rrtStarConnectMotionPlanner is an object able to asymptotically optimally path around obstacles to some goal for a given referenceframe.
 // It uses the RRT*-Connect algorithm, Klemm et al 2015
 // https://ieeexplore.ieee.org/document/7419012
-type rrtStarConnectMotionPlanner struct{ *planner }
+type rrtStarConnectMotionPlanner struct {
+	*planner
+	algOpts *rrtStarConnectOptions
+}
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
 func newRRTStarConnectMotionPlanner(
 	frame referenceframe.Frame,
-	nCPU int,
 	seed *rand.Rand,
 	logger golog.Logger,
+	opt *plannerOptions,
 ) (motionPlanner, error) {
-	planner, err := newPlanner(frame, nCPU, seed, logger)
+	if opt == nil {
+		opt = newBasicPlannerOptions()
+	}
+	mp, err := newPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
-	return &rrtStarConnectMotionPlanner{planner}, nil
+	algOpts, err := newRRTStarConnectOptions(opt)
+	if err != nil {
+		return nil, err
+	}
+	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
 }
 
-func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
+func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
-	if planOpts == nil {
-		planOpts = newBasicPlannerOptions()
-	}
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{planOpts, initRRTMaps(), nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -96,47 +106,21 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	defer close(rrt.solutionChan)
 
 	// setup planner options
-	if rrt.planOpts == nil {
-		rrt.planOpts = newBasicPlannerOptions()
-	}
-	algOpts, err := newRRTStarConnectOptions(rrt.planOpts)
-	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
-		return
+	if mp.planOpts == nil {
+		mp.planOpts = newBasicPlannerOptions()
 	}
 
 	mp.start = time.Now()
 
-	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, rrt.planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
-	mp.logger.Debugf("RRT* found %d IK solutions", len(solutions))
-	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
-		return
-	}
-
-	// publish endpoint of plan if it is known
-	if rrt.planOpts.MaxSolutions == 1 && rrt.endpointPreview != nil {
-		mp.logger.Debug("RRT* found early final solution")
-		rrt.endpointPreview <- solutions[0]
-	}
-
-	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	_, optimalCost := rrt.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
-
-	// initialize maps
-	for i, solution := range solutions {
-		if i == 0 && mp.checkPath(rrt.planOpts, seed, solution.Q()) {
-			rrt.solutionChan <- &rrtPlanReturn{steps: []node{&basicNode{q: seed}, solution}}
-			mp.logger.Debug("RRT* could interpolate directly to goal")
+	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
+		planSeed := initRRTSolutions(ctx, mp, goal, seed)
+		if planSeed.planerr != nil || planSeed.steps != nil {
+			rrt.solutionChan <- planSeed
 			return
 		}
-		rrt.rm.goalMap[newCostNode(solution.Q(), 0)] = nil
+		rrt.maps = planSeed.maps
 	}
-	mp.logger.Debugf("RRT* failed to directly interpolate from %v to %v", seed, solutions[0].Q())
-	rrt.rm.startMap[newCostNode(seed, 0)] = nil
-
-	target := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -146,18 +130,18 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	defer close(m1chan)
 	defer close(m2chan)
 
-	solved := false
+	nSolved := 0
 
-	for i := 0; i < algOpts.PlanIter; i++ {
+	for i := 0; i < mp.algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			// stop and return best path
-			if solved {
+			if nSolved > 0 {
 				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
-				rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
+				rrt.solutionChan <- shortestPath(rrt.maps, shared)
 			} else {
 				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
-				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), rm: rrt.rm}
+				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
 			}
 			return
 		default:
@@ -165,45 +149,56 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// try to connect the target to map 1
 		utils.PanicCapturingGo(func() {
-			mp.extend(algOpts, rrt.rm.startMap, target, m1chan)
+			mp.extend(rrt.maps.startMap, target, m1chan)
 		})
 		utils.PanicCapturingGo(func() {
-			mp.extend(algOpts, rrt.rm.goalMap, target, m2chan)
+			mp.extend(rrt.maps.goalMap, target, m2chan)
 		})
 		map1reached := <-m1chan
 		map2reached := <-m2chan
 
 		if map1reached != nil && map2reached != nil {
 			// target was added to both map
-			solved = true
 			shared = append(shared, &nodePair{map1reached, map2reached})
+
+			// Check if we can return
+			if nSolved%defaultOptimalityCheckIter == 0 {
+				solution := shortestPath(rrt.maps, shared)
+				solutionCost := EvaluatePlan(solution.toInputs(), mp.planOpts.DistanceFunc)
+				if solutionCost-rrt.maps.optNode.cost < defaultOptimalityThreshold*rrt.maps.optNode.cost {
+					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
+					rrt.solutionChan <- solution
+					return
+				}
+			}
+
+			nSolved++
 		}
 
 		// get next sample, switch map pointers
 		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
-	rrt.solutionChan <- shortestPath(rrt.rm, shared, optimalCost)
+	rrt.solutionChan <- shortestPath(rrt.maps, shared)
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(
-	algOpts *rrtStarConnectOptions,
 	tree rrtMap,
 	target []referenceframe.Input,
 	mchan chan node,
 ) {
-	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
+	if validTarget := mp.checkInputs(target); !validTarget {
 		mchan <- nil
 		return
 	}
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(algOpts.planOpts, tree, target, algOpts.NeighborhoodSize)
+	neighbors := kNearestNeighbors(mp.planOpts, tree, target, mp.algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
 	minIndex := -1
 	for i, neighbor := range neighbors {
 		neighborNode := neighbor.node.(*costNode)
 		cost := neighborNode.cost + neighbor.dist
-		if mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
+		if mp.checkPath(neighborNode.Q(), target) {
 			minIndex = i
 			minCost = cost
 			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
@@ -228,12 +223,12 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 
 		// check to see if a shortcut is possible, and rewire the node if it is
 		neighborNode := neighbor.node.(*costNode)
-		_, connectionCost := algOpts.planOpts.DistanceFunc(&ConstraintInput{
+		_, connectionCost := mp.planOpts.DistanceFunc(&ConstraintInput{
 			StartInput: neighborNode.Q(),
 			EndInput:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.cost
-		if cost < neighborNode.cost && mp.checkPath(algOpts.planOpts, target, neighborNode.Q()) {
+		if cost < neighborNode.cost && mp.checkPath(target, neighborNode.Q()) {
 			neighborNode.cost = cost
 			tree[neighborNode] = targetNode
 		}

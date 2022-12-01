@@ -22,7 +22,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(m, nCPU, rand.New(rand.NewSource(1)), logger)
+	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -34,14 +34,16 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	})
-	opt := newBasicPlannerOptions()
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
+	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
+	opt := newBasicPlannerOptions()
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
+	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -82,8 +84,6 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
-	logger := golog.NewDebugLogger("armplay")
-
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,
@@ -139,20 +139,19 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(markerFrame, m)
 	test.That(t, err, test.ShouldBeNil)
-	fss := NewSolvableFrameSystem(fs, logger)
 
 	solveFrame := markerFrame
 	goalFrame := fs.World()
 
-	sFrames, err := fss.TracebackFrame(solveFrame)
+	sFrames, err := fs.TracebackFrame(solveFrame)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf, err := newSolverFrame(
-		fss,
+		fs,
 		sFrames,
 		goalFrame.Name(),
-		frame.StartPositions(fss),
+		frame.StartPositions(fs),
 	)
 	test.That(t, err, test.ShouldBeNil)
 

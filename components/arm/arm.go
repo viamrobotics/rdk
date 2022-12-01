@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -85,7 +84,7 @@ type Arm interface {
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, pose spatialmath.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, pose spatialmath.Pose, worldState *referenceframe.WorldState, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one
@@ -219,7 +218,7 @@ func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]in
 func (r *reconfigurableArm) MoveToPosition(
 	ctx context.Context,
 	pose spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	r.mu.RLock()
@@ -350,7 +349,7 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 }
 
 // Move is a helper function to abstract away movement for general arms.
-func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *commonpb.WorldState) error {
+func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *referenceframe.WorldState) error {
 	solution, err := Plan(ctx, r, a, dst, worldState)
 	if err != nil {
 		return err
@@ -365,10 +364,10 @@ func Plan(
 	r robot.Robot,
 	a Arm,
 	dst spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 ) ([][]referenceframe.Input, error) {
 	// build the framesystem
-	fs, err := framesystem.RobotFrameSystem(ctx, r, worldState.GetTransforms())
+	fs, err := framesystem.RobotFrameSystem(ctx, r, worldState.Transforms)
 	if err != nil {
 		return nil, err
 	}

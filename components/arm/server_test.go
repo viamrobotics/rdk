@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -56,7 +57,7 @@ func TestServer(t *testing.T) {
 	injectArm.MoveToPositionFunc = func(
 		ctx context.Context,
 		ap spatialmath.Pose,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		capArmPos = ap
@@ -85,7 +86,7 @@ func TestServer(t *testing.T) {
 	injectArm2.MoveToPositionFunc = func(
 		ctx context.Context,
 		ap spatialmath.Pose,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		capArmPos = ap

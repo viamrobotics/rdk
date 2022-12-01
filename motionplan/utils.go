@@ -1,12 +1,54 @@
 package motionplan
 
 import (
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+// FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
+func FrameStepsFromRobotPath(frameName string, path []map[string][]referenceframe.Input) ([][]referenceframe.Input, error) {
+	solution := make([][]referenceframe.Input, 0, len(path))
+	for _, step := range path {
+		frameStep, ok := step[frameName]
+		if !ok {
+			return nil, fmt.Errorf("frame named %s not found in solved motion path", frameName)
+		}
+		solution = append(solution, frameStep)
+	}
+	return solution, nil
+}
+
+// PathStepCount will determine the number of steps which should be used to get from the seed to the goal.
+// The returned value is guaranteed to be at least 1.
+// stepSize represents both the max mm movement per step, and max R4AA degrees per step.
+func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
+	// use a default size of 1 if zero is passed in to avoid divide-by-zero
+	if stepSize == 0 {
+		stepSize = 1.
+	}
+
+	mmDist := seedPos.Point().Distance(goalPos.Point())
+	rDist := spatialmath.OrientationBetween(seedPos.Orientation(), goalPos.Orientation()).AxisAngles()
+
+	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
+	return int(nSteps) + 1
+}
+
+// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
+func EvaluatePlan(plan [][]referenceframe.Input, distFunc Constraint) (totalCost float64) {
+	if len(plan) < 2 {
+		return math.Inf(1)
+	}
+	for i := 0; i < len(plan)-1; i++ {
+		_, cost := distFunc(&ConstraintInput{StartInput: plan[i], EndInput: plan[i+1]})
+		totalCost += cost
+	}
+	return totalCost
+}
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current
 // position, in which case it will detect whether we are leaving a pole. If we are an OV increment and leaving a pole,
