@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
@@ -29,9 +28,6 @@ func NewController(ctx context.Context, _ registry.Dependencies, config config.C
 	var w webGamepad
 	w.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
 	w.lastEvents = make(map[input.Control]input.Event)
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	w.cancelFunc = cancel
-	w.ctxWithCancel = ctxWithCancel
 	w.controls = []input.Control{
 		input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY,
 		input.AbsoluteZ, input.AbsoluteRZ, input.AbsoluteHat0X, input.AbsoluteHat0Y,
@@ -46,17 +42,14 @@ var _ = input.Controller(&webGamepad{})
 
 // webGamepad is an input.Controller.
 type webGamepad struct {
-	controls                []input.Control
-	lastEvents              map[input.Control]input.Event
-	mu                      sync.RWMutex
-	activeBackgroundWorkers sync.WaitGroup
-	ctxWithCancel           context.Context
-	cancelFunc              func()
-	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
+	controls   []input.Control
+	lastEvents map[input.Control]input.Event
+	mu         sync.RWMutex
+	callbacks  map[input.Control]map[input.EventType]input.ControlFunction
 	generic.Unimplemented
 }
 
-func (w *webGamepad) makeCallbacks(eventOut input.Event) {
+func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	w.mu.Lock()
 	w.lastEvents[eventOut.Control] = eventOut
 	w.mu.Unlock()
@@ -74,27 +67,13 @@ func (w *webGamepad) makeCallbacks(eventOut input.Event) {
 
 	ctrlFunc, ok := w.callbacks[eventOut.Control][eventOut.Event]
 	if ok && ctrlFunc != nil {
-		w.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer w.activeBackgroundWorkers.Done()
-			ctrlFunc(w.ctxWithCancel, eventOut)
-		})
+		ctrlFunc(ctx, eventOut)
 	}
 
 	ctrlFuncAll, ok := w.callbacks[eventOut.Control][input.AllEvents]
 	if ok && ctrlFuncAll != nil {
-		w.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer w.activeBackgroundWorkers.Done()
-			ctrlFuncAll(w.ctxWithCancel, eventOut)
-		})
+		ctrlFuncAll(ctx, eventOut)
 	}
-}
-
-// Close terminates background worker threads.
-func (w *webGamepad) Close() {
-	w.cancelFunc()
-	w.activeBackgroundWorkers.Wait()
 }
 
 // Controls lists the inputs of the gamepad.
@@ -141,6 +120,6 @@ func (w *webGamepad) RegisterControlCallback(
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
 func (w *webGamepad) TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error {
-	w.makeCallbacks(event)
+	w.makeCallbacks(ctx, event)
 	return nil
 }

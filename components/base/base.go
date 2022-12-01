@@ -159,7 +159,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.Actuator
 
 type reconfigurableBase struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Base
+}
+
+func (r *reconfigurableBase) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableBase) ProxyFor() interface{} {
@@ -272,7 +277,7 @@ func (r *reconfigurableLocalBase) Reconfigure(ctx context.Context, newBase resou
 
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.
 // If base is already a reconfigurableBase, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	base, ok := r.(Base)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -281,7 +286,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	rBase := &reconfigurableBase{actual: base}
+	rBase := &reconfigurableBase{name: name, actual: base}
 	localBase, ok := r.(LocalBase)
 	if !ok {
 		return rBase, nil

@@ -165,24 +165,24 @@ func TestCameraName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualCamera1 camera.Camera = &mock{Name: testCameraName}
-	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1)
+	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = camera.WrapWithReconfigurable(nil)
+	_, err = camera.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, camera.NewUnimplementedInterfaceError(nil))
 
-	reconfCamera2, err := camera.WrapWithReconfigurable(reconfCamera1)
+	reconfCamera2, err := camera.WrapWithReconfigurable(reconfCamera1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfCamera2, test.ShouldEqual, reconfCamera1)
 }
 
 func TestReconfigurableCamera(t *testing.T) {
 	actualCamera1 := &mock{Name: testCameraName}
-	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1)
+	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualCamera2 := &mock{Name: testCameraName2}
-	reconfCamera2, err := camera.WrapWithReconfigurable(actualCamera2)
+	reconfCamera2, err := camera.WrapWithReconfigurable(actualCamera2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
@@ -221,7 +221,7 @@ func TestReconfigurableCamera(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualCamera1 := &mock{Name: testCameraName}
-	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1)
+	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
@@ -366,7 +366,7 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, *(cam4props.IntrinsicParams), test.ShouldNotResemble, *(cam2props.IntrinsicParams))
 
 	// cam4 wrapped with reconfigurable
-	reconfig, err := camera.WrapWithReconfigurable(cam4)
+	reconfig, err := camera.WrapWithReconfigurable(cam4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	fakeCamera := reconfig.(camera.Camera)
 	props, _ = fakeCamera.Properties(context.Background())

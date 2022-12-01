@@ -80,7 +80,12 @@ type Service interface {
 
 type reconfigurableSlam struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableSlam) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableSlam) Position(
@@ -127,7 +132,7 @@ func (svc *reconfigurableSlam) Reconfigure(ctx context.Context, newSvc resource.
 }
 
 // WrapWithReconfigurable wraps a slam service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -137,5 +142,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableSlam{actual: svc}, nil
+	return &reconfigurableSlam{name: name, actual: svc}, nil
 }

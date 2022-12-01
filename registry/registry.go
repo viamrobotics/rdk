@@ -89,7 +89,7 @@ type (
 	CreateComponent func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error)
 
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
-	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
+	CreateReconfigurable func(resource interface{}, name resource.Name) (resource.Reconfigurable, error)
 
 	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
 	// (or it should be possible to decompose it into string keys) and values comprised of primitives, list of primitives,
