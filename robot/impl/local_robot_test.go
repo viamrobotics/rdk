@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1528,7 +1529,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 
 	// Test Component Error
 	name := base.Named("test")
-	noBase, err := r.ResourceByName(name)
+	noBase, err := base.FromRobot(r, "test")
 	test.That(
 		t,
 		err,
@@ -1547,15 +1548,15 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	r.Reconfigure(ctx, goodConfig)
-	// Test Component Error
-	noBase, err = r.ResourceByName(base.Named("test"))
+	// Test Component Valid
+	noBase, err = base.FromRobot(r, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, noBase, test.ShouldNotBeNil)
-	// Test Service Error
+	// Test Service Valid
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	// Test Remote Error
+	// Test Remote Valid
 	rem, ok = r.RemoteByName("remote")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, rem, test.ShouldNotBeNil)
@@ -1641,15 +1642,15 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		}},
 		Cloud: &config.Cloud{},
 	}
-	// Test Component Error
-	noBase, err := r.ResourceByName(base.Named("test"))
+	// Test Component Valid
+	noBase, err := base.FromRobot(r, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, noBase, test.ShouldNotBeNil)
-	// Test Service Error
+	// Test Service Valid
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	// Test Remote Error
+	// Test Remote Valid
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, rem, test.ShouldNotBeNil)
@@ -1657,7 +1658,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	r.Reconfigure(ctx, badConfig)
 	// Test Component Error
 	name := base.Named("test")
-	noBase, err = r.ResourceByName(name)
+	noBase, err = base.FromRobot(r, "test")
 	test.That(
 		t,
 		err,
