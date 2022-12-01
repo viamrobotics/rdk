@@ -47,7 +47,7 @@ type Config struct {
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool `json:"-"`
 
-	// DisablepartialStart ensures that a robot will only start when all the components,
+	// DisablePartialStart ensures that a robot will only start when all the components,
 	// services, and remotes pass config validation. This value is false by default
 	DisablePartialStart bool `json:"disable_partial_start"`
 }
