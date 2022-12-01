@@ -23,6 +23,12 @@ jobs:
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
+  slam_integration_test:
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+    uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
+
   # This lets people add an "appimage" tag to have appimages built for the PR
   appimage:
     needs: test

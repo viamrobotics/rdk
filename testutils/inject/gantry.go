@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
@@ -15,7 +14,7 @@ type Gantry struct {
 	gantry.LocalGantry
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
-	MoveToPositionFunc func(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPositionFunc func(ctx context.Context, pos []float64, ws *referenceframe.WorldState, extra map[string]interface{}) error
 	LengthsFunc        func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc       func(context.Context) (bool, error)
@@ -35,7 +34,7 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 func (g *Gantry) MoveToPosition(
 	ctx context.Context,
 	positions []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	if g.MoveToPositionFunc == nil {
