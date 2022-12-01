@@ -24,6 +24,8 @@ var (
 	testLastModifiedMillis = 10
 )
 
+// TODO DATA-849: Add a test that validates that sync interval is accurately respected.
+
 func TestSyncEnabled(t *testing.T) {
 	syncTime := time.Millisecond * 100
 
@@ -124,9 +126,7 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
-// TODO: Should test concurrent capture and sync. But maybe more fitting for builtin_test? Since essentially
-//
-//	testing that those two play well together
+// TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUpload(t *testing.T) {
 	datacapture.MaxFileSize = 600
 	// MaxFileSize of 600 => Should be 3 tabular readings per file/UR, because the SensorReadings are ~230 bytes each,
