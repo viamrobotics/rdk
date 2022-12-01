@@ -414,8 +414,8 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries := make(map[string]spatialmath.Geometry)
 	geometries["obstacle"] = obstacle
-	obstacles := []*commonpb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, geometries))}
-	worldState := &commonpb.WorldState{Obstacles: obstacles}
+	obstacles := frame.NewGeometriesInFrame(frame.World, geometries)
+	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)

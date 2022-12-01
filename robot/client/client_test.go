@@ -177,12 +177,12 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectServo := &inject.Servo{}
-	var capServoAngle uint8
-	injectServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
+	var capServoAngle uint32
+	injectServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 5, nil
 	}
 
@@ -302,7 +302,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
+	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -371,7 +371,11 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
+	err = resource1.(arm.Arm).MoveToPosition(
+		context.Background(),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1}),
+		&referenceframe.WorldState{}, nil,
+	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -1259,14 +1263,14 @@ func TestClientConfig(t *testing.T) {
 
 	workingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return nil, configErr
 	}
