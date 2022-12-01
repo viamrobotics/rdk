@@ -20,15 +20,16 @@ import (
 // subtypeServer implements the CameraService from camera.proto.
 type subtypeServer struct {
 	pb.UnimplementedCameraServiceServer
-	s       subtype.Service
-	imgType *ImageType
-	logger  golog.Logger
+	s        subtype.Service
+	imgTypes map[string]ImageType
+	logger   golog.Logger
 }
 
 // NewServer constructs an camera gRPC service server.
 func NewServer(s subtype.Service) pb.CameraServiceServer {
 	logger := golog.NewLogger("camserver")
-	return &subtypeServer{s: s, logger: logger}
+	imgTypes := make(map[string]ImageType)
+	return &subtypeServer{s: s, logger: logger, imgTypes: imgTypes}
 }
 
 // getCamera returns the camera specified, nil if not.
@@ -59,23 +60,22 @@ func (s *subtypeServer) GetImage(
 
 	// Determine the mimeType we should try to use based on camera properties
 	if req.MimeType == "" {
-		if s.imgType == nil {
+		if val, ok := s.imgTypes[req.Name]; !ok {
 			props, err := cam.Properties(ctx)
 			if err != nil {
-				s.logger.Warn("camera properties not found, assuming color images")
-				cs := ColorStream
-				s.imgType = &cs
+				s.logger.Warnf("camera properties not found for %s, assuming color images: %v", req.Name, err)
+				s.imgTypes[req.Name] = ColorStream
 			} else {
-				s.imgType = &props.ImageType
+				s.imgTypes[req.Name] = props.ImageType
 			}
+		} else {
+			s.logger.Warnf("No need to trip, we found %v", val)
 		}
-		switch *s.imgType {
-		case ColorStream:
+		switch s.imgTypes[req.Name] {
+		case ColorStream, UnspecifiedStream:
 			req.MimeType = utils.MimeTypeJPEG
 		case DepthStream:
 			req.MimeType = utils.MimeTypePNG
-		case UnspecifiedStream:
-			req.MimeType = utils.MimeTypeJPEG
 		default:
 			req.MimeType = utils.MimeTypeJPEG
 		}
