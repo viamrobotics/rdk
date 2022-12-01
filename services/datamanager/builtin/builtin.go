@@ -154,6 +154,7 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
+	svc.cancelSyncBackgroundRoutine()
 
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
@@ -341,7 +342,6 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
-	fmt.Println("called ManualSync")
 	svc.lock.Lock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(svc.cfg)
@@ -352,13 +352,13 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	}
 
 	svc.syncer.SyncDirectory(svc.captureDir)
+	svc.syncAdditionalSyncPaths()
 	svc.lock.Unlock()
 	return nil
 }
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *builtIn) syncAdditionalSyncPaths() {
-	fmt.Println("called sync additional sync paths in rdk")
 	for _, dir := range svc.additionalSyncPaths {
 		svc.syncer.SyncDirectory(dir)
 	}
@@ -369,7 +369,6 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.cfg = cfg
-	fmt.Println(fmt.Sprintf("dmsvc last modified millis: %v", svc.waitAfterLastModifiedMillis))
 
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
@@ -445,15 +444,13 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	// TODO: don't cancel in progress arbitrary file uploads on Update unless sync has been disabled or
 	//       additional_sync_paths has changed.
-	fmt.Println("calling close syncer")
+	svc.cancelSyncBackgroundRoutine()
 	svc.closeSyncer()
-	fmt.Println("closed syncer")
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
-		svc.syncer.SyncDirectory(svc.captureDir)
-		svc.syncAdditionalSyncPaths()
+		svc.startSyncBackgroundRoutine(svc.syncIntervalMins)
 	}
 
 	return nil
@@ -473,7 +470,6 @@ func (svc *builtIn) cancelSyncBackgroundRoutine() {
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
-	fmt.Println("started uploadData")
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -494,7 +490,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-ticker.C:
 				svc.lock.Lock()
-				fmt.Println("uploadData ticket hit")
 				svc.syncer.SyncDirectory(svc.captureDir)
 				svc.syncAdditionalSyncPaths()
 				svc.lock.Unlock()

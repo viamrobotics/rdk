@@ -28,11 +28,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	captureWaitTime = time.Millisecond * 25
-	syncWaitTime    = time.Millisecond * 100
-)
-
 var (
 	// Robot config which specifies data manager service.
 	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
