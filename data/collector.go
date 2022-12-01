@@ -65,8 +65,8 @@ func (c *collector) Close() {
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if err := c.target.Close(); err != nil {
-		c.logger.Errorw("failed to close capture queue", "error", err)
+	if err := c.target.Sync(); err != nil {
+		c.logger.Errorw("failed to sync capture queue", "error", err)
 	}
 }
 
@@ -230,9 +230,6 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
 
-	fmt.Println("building collector with target")
-	fmt.Println(params.Target.Directory)
-
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),
@@ -250,7 +247,6 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 
 func (c *collector) write() error {
 	for msg := range c.queue {
-		fmt.Println("writing to queue")
 		if err := c.target.Push(msg); err != nil {
 			return err
 		}

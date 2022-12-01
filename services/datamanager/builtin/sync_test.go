@@ -59,6 +59,7 @@ func TestSyncEnabled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
 			tmpDir, err := os.MkdirTemp("", "")
+			fmt.Println(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
 				err := os.RemoveAll(tmpDir)
@@ -73,7 +74,7 @@ func TestSyncEnabled(t *testing.T) {
 			// Set up data manager.
 			dmsvc := newTestDataManager(t)
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
-			cfg := setupConfig(t, enabledTabularCollectorConfigPath)
+			cfg := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
 			originalSvcConfig, ok1, err := getServiceConfig(cfg)
@@ -105,6 +106,7 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDir = tmpDir
 			updatedSvcConfig.SyncIntervalMins = 0.001
 
+			fmt.Println("starting to ")
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -404,7 +406,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond * 1200)
+			time.Sleep(time.Millisecond * 100)
 
 			// Call manual sync if desired.
 			if tc.manualSync {
@@ -420,6 +422,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
 			} else {
 				// Validate first metadata message.
+				test.That(t, len(mockService.getFileUploadRequests()), test.ShouldBeGreaterThan, 0)
 				actMD := mockService.getFileUploadRequests()[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
 				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)

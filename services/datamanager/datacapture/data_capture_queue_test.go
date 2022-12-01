@@ -1,9 +1,12 @@
 package datacapture
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -33,113 +36,107 @@ var (
 	}
 )
 
-// TODO: rewrite tests
+// TODO: rewrite tests.
 func TestCaptureQueue(t *testing.T) {
-	//MaxFileSize = 50
-	//tests := []struct {
-	//	name               string
-	//	dataType           v1.DataType
-	//	pushCount          int
-	//	expCompleteFiles   int
-	//	expInProgressFiles int
-	//}{
-	//	{
-	//		name:      "Files that are still being written to should have the InProgressFileExt extension.",
-	//		dataType:  v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-	//		pushCount: 1,
-	//	},
-	//	{
-	//		name:             "Pushing N binary data should write N files.",
-	//		dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
-	//		pushCount:        2,
-	//		expCompleteFiles: 2,
-	//	},
-	//	{
-	//		name:     "Pushing > MaxFileSize + 1 worth of struct data should write two files.",
-	//		dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-	//		// MaxFileSize / size(structSensorData) = ceil(50 / 19) = 3 per file => 2 pops for 4 pushes
-	//		pushCount:          4,
-	//		expCompleteFiles:   1,
-	//		expInProgressFiles: 1,
-	//	},
-	//}
-	//
-	//for _, tc := range tests {
-	//	t.Run(tc.name, func(t *testing.T) {
-	//		tmpDir, err := os.MkdirTemp("", "")
-	//		defer os.RemoveAll(tmpDir)
-	//		test.That(t, err, test.ShouldBeNil)
-	//		md := &v1.DataCaptureMetadata{Type: tc.dataType}
-	//		sut := NewQueue(tmpDir, md)
-	//		var pushValue *v1.SensorData
-	//		if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
-	//			pushValue = binarySensorData
-	//		} else {
-	//			pushValue = structSensorData
-	//		}
-	//
-	//		for i := 0; i < tc.pushCount; i++ {
-	//			err := sut.Push(pushValue)
-	//			test.That(t, err, test.ShouldBeNil)
-	//		}
-	//
-	//		var totalReadings1 int
-	//		for i := 0; i < tc.expCompleteFiles; i++ {
-	//			popped, err := sut.Pop()
-	//			test.That(t, err, test.ShouldBeNil)
-	//			test.That(t, popped, test.ShouldNotBeNil)
-	//			test.That(t, popped, test.ShouldNotBeNil)
-	//			for {
-	//				next, err := popped.ReadNext()
-	//				if errors.Is(err, io.EOF) {
-	//					break
-	//				}
-	//				test.That(t, err, test.ShouldBeNil)
-	//				if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
-	//					test.That(t, next.GetBinary(), test.ShouldResemble, pushValue.GetBinary())
-	//				} else {
-	//					test.That(t, next.GetStruct(), test.ShouldResemble, pushValue.GetStruct())
-	//				}
-	//				totalReadings1++
-	//			}
-	//		}
-	//		test.That(t, totalReadings1, test.ShouldEqual, tc.pushCount)
-	//
-	//		for i := 0; i < tc.pushCount; i++ {
-	//			err := sut.Push(pushValue)
-	//			test.That(t, err, test.ShouldBeNil)
-	//		}
-	//
-	//		var totalReadings2 int
-	//		for i := 0; i < tc.expCompleteFiles; i++ {
-	//			popped, err := sut.Pop()
-	//			test.That(t, err, test.ShouldBeNil)
-	//			test.That(t, popped, test.ShouldNotBeNil)
-	//			test.That(t, popped, test.ShouldNotBeNil)
-	//			for {
-	//				next, err := popped.ReadNext()
-	//				if errors.Is(err, io.EOF) {
-	//					break
-	//				}
-	//				test.That(t, err, test.ShouldBeNil)
-	//				if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
-	//					test.That(t, next.GetBinary(), test.ShouldResemble, pushValue.GetBinary())
-	//				} else {
-	//					test.That(t, next.GetStruct(), test.ShouldResemble, pushValue.GetStruct())
-	//				}
-	//				totalReadings2++
-	//			}
-	//		}
-	//		test.That(t, totalReadings2, test.ShouldEqual, tc.pushCount)
-	//
-	//		next, err := sut.Pop()
-	//		test.That(t, err, test.ShouldBeNil)
-	//		test.That(t, next, test.ShouldBeNil)
-	//
-	//		// Test that close is respected: after closing, all files should no longer be in progress..
-	//		err = sut.Close()
-	//		test.That(t, err, test.ShouldBeNil)
-	//		test.That(t, sut.IsClosed(), test.ShouldBeTrue)
-	//	})
-	//}
+	MaxFileSize = 50
+	tests := []struct {
+		name               string
+		dataType           v1.DataType
+		pushCount          int
+		expCompleteFiles   int
+		expInProgressFiles int
+	}{
+		{
+			name:               "Files that are still being written to should have the InProgressFileExt extension.",
+			dataType:           v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			pushCount:          1,
+			expCompleteFiles:   0,
+			expInProgressFiles: 1,
+		},
+		{
+			name:               "Pushing N binary data should write N files.",
+			dataType:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			pushCount:          2,
+			expCompleteFiles:   2,
+			expInProgressFiles: 0,
+		},
+		{
+			name:     "Pushing > MaxFileSize + 1 worth of struct data should write two files.",
+			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			// MaxFileSize / size(structSensorData) = ceil(50 / 19) = 3 readings per file => 2 files, one in progress
+			pushCount:          4,
+			expCompleteFiles:   1,
+			expInProgressFiles: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "")
+			defer os.RemoveAll(tmpDir)
+			test.That(t, err, test.ShouldBeNil)
+			md := &v1.DataCaptureMetadata{Type: tc.dataType}
+			sut := NewQueue(tmpDir, md)
+			var pushValue *v1.SensorData
+			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
+				pushValue = binarySensorData
+			} else {
+				pushValue = structSensorData
+			}
+
+			for i := 0; i < tc.pushCount; i++ {
+				err := sut.Push(pushValue)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			dcFiles, inProgressFiles := getCaptureFiles(tmpDir)
+			test.That(t, len(dcFiles), test.ShouldEqual, tc.expCompleteFiles)
+			test.That(t, len(inProgressFiles), test.ShouldEqual, tc.expInProgressFiles)
+
+			// Test that sync is respected: after closing, all files should no longer be in progress.
+			err = sut.Sync()
+			test.That(t, err, test.ShouldBeNil)
+			completeFiles, remainingProgFiles := getCaptureFiles(tmpDir)
+			test.That(t, len(remainingProgFiles), test.ShouldEqual, 0)
+
+			// Validate correct values were written.
+			var actCaptures []*v1.SensorData
+			for i := 0; i < len(completeFiles); i++ {
+				c, err := GetAllReadings(completeFiles[i])
+				test.That(t, err, test.ShouldBeNil)
+				actCaptures = append(actCaptures, c...)
+			}
+			test.That(t, len(actCaptures), test.ShouldEqual, tc.pushCount)
+			for _, capture := range actCaptures {
+				if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
+					test.That(t, capture.GetBinary(), test.ShouldNotBeNil)
+					test.That(t, capture.GetBinary(), test.ShouldResemble, binarySensorData.GetBinary())
+				}
+				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+					test.That(t, capture.GetStruct(), test.ShouldNotBeNil)
+					test.That(t, capture.GetStruct(), test.ShouldResemble, structSensorData.GetStruct())
+				}
+			}
+		})
+	}
+}
+
+//nolint
+func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == FileExt {
+			dcFiles = append(dcFiles, path)
+		}
+		if filepath.Ext(path) == InProgressFileExt {
+			progFiles = append(progFiles, path)
+		}
+		return nil
+	})
+	return dcFiles, progFiles
 }

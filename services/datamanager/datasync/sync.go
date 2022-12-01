@@ -120,9 +120,6 @@ func (s *syncer) Close() {
 	}
 }
 
-// TODO: expose errors somehow
-// TODO: sync arbitrary files on ticker too
-
 func (s *syncer) SyncDirectory(dir string) {
 	paths := getAllFilesToSync(dir, s.lastModifiedMillis)
 	for _, p := range paths {
@@ -138,7 +135,6 @@ func (s *syncer) SyncDirectory(dir string) {
 					return
 				}
 				//nolint:gosec
-				fmt.Println(fmt.Sprintf("trying to sync %s", newP))
 				f, err := os.Open(newP)
 				if err != nil {
 					s.logger.Errorw("error opening file", "error", err)
@@ -229,7 +225,6 @@ func (s *syncer) unmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	delete(s.inProgress, path)
-	return
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
@@ -289,10 +284,9 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
-	fmt.Println("getting all files to sync")
 	var filePaths []string
-
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -302,19 +296,11 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		}
 		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
 		// may still be being written).
-		timeSinceMod := time.Now().Sub(info.ModTime())
-		fmt.Println(fmt.Sprintf("walking over %s", path))
-		fmt.Println(fmt.Sprintf("modified in last modifiedMillis: %v", timeSinceMod < (time.Duration(lastModifiedMillis)*time.Millisecond)))
-		fmt.Println(fmt.Sprintf("time since last mod: %v", timeSinceMod))
-		fmt.Println(fmt.Sprintf("last modified millis time: %v", time.Duration(lastModifiedMillis)*time.Millisecond))
-		fmt.Println(fmt.Sprintf("extension is in progress: %v", filepath.Ext(path) == datacapture.InProgressFileExt))
-		if timeSinceMod < (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.InProgressFileExt {
-			return nil
+		timeSinceMod := time.Since(info.ModTime())
+		if timeSinceMod > (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
+			filePaths = append(filePaths, path)
 		}
-		filePaths = append(filePaths, path)
 		return nil
 	})
-	fmt.Println("going to sync")
-	fmt.Println(filePaths)
 	return filePaths
 }

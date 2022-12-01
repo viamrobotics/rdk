@@ -3,16 +3,11 @@ package datacapture
 import (
 	"sync"
 
-	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 )
 
-var (
-	// ErrQueueClosed indicates that a Push or Pop was attempted on a closed queue.
-	ErrQueueClosed = errors.New("queue is closed")
-	// MaxFileSize is the maximum size in bytes of a data capture file.
-	MaxFileSize = int64(65536)
-)
+// MaxFileSize is the maximum size in bytes of a data capture file.
+var MaxFileSize = int64(65536)
 
 // Queue is a persistent queue of SensorData backed by a series of datacapture.Files.
 type Queue struct {
@@ -20,7 +15,6 @@ type Queue struct {
 	MetaData  *v1.DataCaptureMetadata
 	nextFile  *File
 	lock      *sync.Mutex
-	closed    bool
 }
 
 // NewQueue returns a new Queue.
@@ -37,8 +31,18 @@ func (q *Queue) Push(item *v1.SensorData) error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	if q.closed {
-		return ErrQueueClosed
+	if item.GetBinary() != nil {
+		binFile, err := NewFile(q.Directory, q.MetaData)
+		if err != nil {
+			return err
+		}
+		if err := binFile.WriteNext(item); err != nil {
+			return err
+		}
+		if err := binFile.Close(); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if q.nextFile == nil {
@@ -47,7 +51,7 @@ func (q *Queue) Push(item *v1.SensorData) error {
 			return err
 		}
 		q.nextFile = nextFile
-	} else if q.nextFile.Size() > MaxFileSize || item.GetBinary() != nil {
+	} else if q.nextFile.Size() > MaxFileSize {
 		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
 		if err := q.nextFile.Close(); err != nil {
 			return err
@@ -62,11 +66,10 @@ func (q *Queue) Push(item *v1.SensorData) error {
 	return q.nextFile.WriteNext(item)
 }
 
-// Close closes the queue, indicating no additional data will be pushed.
-func (q *Queue) Close() error {
+// Sync flushes all buffered data to disk and marks any in progress file as complete.
+func (q *Queue) Sync() error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-	q.closed = true
 	if q.nextFile == nil {
 		return nil
 	}

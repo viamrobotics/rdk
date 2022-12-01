@@ -4,6 +4,7 @@ package datacapture
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -231,7 +232,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
-	return filepath.Ext(f.Name()) == FileExt
+	return filepath.Ext(f.Name()) == FileExt || filepath.Ext(f.Name()) == InProgressFileExt
 }
 
 // Create a filename based on the current time.
@@ -281,4 +282,30 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 		return defaultFileExt
 	}
 	return defaultFileExt
+}
+
+// GetAllReadings returns all readings in the file at filePath.
+func GetAllReadings(filePath string) ([]*v1.SensorData, error) {
+	var readings []*v1.SensorData
+	//nolint:gosec
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	dcFile, err := ReadFile(f)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		next, err := dcFile.ReadNext()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		readings = append(readings, next)
+	}
+	return readings, nil
 }

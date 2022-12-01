@@ -2,21 +2,18 @@ package datasync
 
 import (
 	"context"
-	"fmt"
-	"github.com/pkg/errors"
-	v1 "go.viam.com/api/app/datasync/v1"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/app/datasync/v1"
 )
 
-var (
-	UploadChunkSize = 64 * 1024
-)
+// UploadChunkSize defines the size of the data included in each message of a FileUpload stream.
+var UploadChunkSize = 64 * 1024
 
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
-	fmt.Println("starting to upload arbitrary file")
-
 	stream, err := client.FileUpload(ctx)
 	if err != nil {
 		return err
