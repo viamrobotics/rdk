@@ -121,6 +121,7 @@ func TestServer(t *testing.T) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
+			ImageType:       camera.DepthStream,
 		}, nil
 	}
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -180,6 +181,18 @@ func TestServer(t *testing.T) {
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeJPEG)
+		test.That(t, resp.Image, test.ShouldNotBeNil)
+
+		// ensure that empty mimetype request from depth cam will return PNG mimetype response
+		resp, err = cameraServer.GetImage(
+			context.Background(),
+			&pb.GetImageRequest{Name: depthCameraName, MimeType: ""},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
+		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
 		imageReleasedMu.Lock()
