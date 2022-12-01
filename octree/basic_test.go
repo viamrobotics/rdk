@@ -36,6 +36,17 @@ func addPoints(basicOct *basicOctree, pointsAndData []pc.PointAndData) error {
 	return nil
 }
 
+// Helper function that checks that all valid points from the given list have been added to the basic octree.
+func checkPoints(t *testing.T, basicOct *basicOctree, pointsAndData []pc.PointAndData) {
+	t.Helper()
+
+	for _, point := range pointsAndData {
+		d, ok := basicOct.At(point.P.X, point.P.Y, point.P.Z)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, d, test.ShouldResemble, point.D)
+	}
+}
+
 // Helper function that makes and returns a PointCloud from an artifact path.
 func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pc.PointCloud, error) {
 	t.Helper()
@@ -233,11 +244,9 @@ func TestBasicOctreeAt(t *testing.T) {
 		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		d, ok := basicOct.At(pointsAndData[0].P.X, pointsAndData[0].P.Y, pointsAndData[0].P.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, pointsAndData[0].D)
+		checkPoints(t, basicOct, pointsAndData)
 
-		d, ok = basicOct.At(0.0001, 0, 0)
+		d, ok := basicOct.At(0.0001, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
 
@@ -257,19 +266,9 @@ func TestBasicOctreeAt(t *testing.T) {
 		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		d, ok := basicOct.At(pointsAndData[0].P.X, pointsAndData[0].P.Y, pointsAndData[0].P.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, pointsAndData[0].D)
+		checkPoints(t, basicOct, pointsAndData)
 
-		d, ok = basicOct.At(pointsAndData[1].P.X, pointsAndData[1].P.Y, pointsAndData[1].P.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, pointsAndData[1].D)
-
-		d, ok = basicOct.At(pointsAndData[2].P.X, pointsAndData[2].P.Y, pointsAndData[2].P.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, pointsAndData[2].D)
-
-		d, ok = basicOct.At(-.6, 0, 0)
+		d, ok := basicOct.At(-.6, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, d, test.ShouldBeNil)
 
@@ -299,8 +298,8 @@ func TestBasicOctreeAt(t *testing.T) {
 	})
 }
 
-// Test the Iterate() function which will apply a specified  function to every point in an octree until one returns a
-// false value.
+// Test the Iterate() function, which will apply a specified function to every point in a basic octree until
+// the function returns a false value.
 func TestBasicOctreeIterate(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -322,7 +321,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 		validateBasicOctree(t, basicOct, center, side)
 	})
 
-	t.Run("Iterate zero batch check of an filled basic octree", func(t *testing.T) {
+	t.Run("Iterate zero batch check of a filled basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -503,7 +502,7 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
 	test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta)
 
-	// Check all points from pointcloud exist in new basic octree
+	// Check all points from the pointcloud have been properly added to the new basic octree
 	startPC.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
 		test.That(t, ok, test.ShouldBeTrue)
