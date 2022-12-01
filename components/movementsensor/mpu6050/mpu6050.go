@@ -4,6 +4,7 @@ package mpu6050
 import (
 	"context"
 	"encoding/binary"
+	"math"
 	"sync"
 	"time"
 
@@ -209,17 +210,19 @@ func setScale(value int, maxValue float64) float64 {
 	return float64(value) * maxValue / (1 << 15)
 }
 
-// A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity.
+// A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity, in
+// radians per second.
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 	gx := toSignedValue(data[0:2])
 	gy := toSignedValue(data[2:4])
 	gz := toSignedValue(data[4:6])
 
-	maxRotation := 250.0 // Degrees per second
+	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
+	radiansPerDegree := math.Pi / 180.0
 	return spatialmath.AngularVelocity{
-		X: setScale(gx, maxRotation),
-		Y: setScale(gy, maxRotation),
-		Z: setScale(gz, maxRotation),
+		X: setScale(gx, maxRotation * radiansPerDegree),
+		Y: setScale(gy, maxRotation * radiansPerDegree),
+		Z: setScale(gz, maxRotation * radiansPerDegree),
 	}
 }
 
@@ -300,7 +303,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	defer mpu.mu.Unlock()
 
 	readings := make(map[string]interface{})
-	readings["acceleration"] = mpu.linearAcceleration
+	readings["linear_acceleration"] = mpu.linearAcceleration
 	readings["temperature_celsius"] = mpu.temperature
 	readings["angular_velocity"] = mpu.angularVelocity
 
