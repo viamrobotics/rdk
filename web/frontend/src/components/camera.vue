@@ -38,7 +38,6 @@ const initStreamState = () => {
 
 const viewCamera = async (isOn: boolean) => {
   if (isOn) {
-    cameraStreamStates.set(props.cameraName, true);
     try {
       // only add stream if not already active
       if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
@@ -47,8 +46,8 @@ const viewCamera = async (isOn: boolean) => {
     } catch (error) {
       displayError(error as ServiceError);
     }
+    cameraStreamStates.set(props.cameraName, true);
   } else {
-    cameraStreamStates.set(props.cameraName, false);
     try {
       // only remove camera stream if active and base stream is not active
       if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
@@ -57,6 +56,7 @@ const viewCamera = async (isOn: boolean) => {
     } catch (error) {
       displayError(error as ServiceError);
     }
+    cameraStreamStates.set(props.cameraName, false);
   }
 };
 
@@ -86,20 +86,20 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  if (selectedValue.value !== 'Live') {
-    console.log('!LIVE');
+  if (selectedValue.value !== 'live') {
     viewCamera(false);
     emit('selected-camera-view', selectedValue.value);
-  } else {
-    emit('clear-interval');
-    viewCamera(true);
+    return;
   }
+
+  emit('clear-interval');
+  viewCamera(true);
 };
 
-const refreshCamera  = () => {
+const refreshCamera = () => {
   emit('selected-camera-view', selectedValue.value);
   emit('clear-interval');
-}
+};
 
 const exportScreenshot = (cameraName: string) => {
   const req = new cameraApi.RenderFrameRequest();
@@ -155,14 +155,14 @@ onMounted(() => {
                       v-model="selectedValue"
                       label="Refresh frequency"
                       aria-label="Default select example"
-                      @input="selectCameraView"
                       options="Manual Refresh, Every 30 Seconds, Every 10 Seconds, Every Second, Live"
+                      @input="selectCameraView"
                     />
                   </div>
                 </div>
                 <div class="self-end">
                   <v-button
-                    v-if="(camera && selectedValue !== 'Live')"
+                    v-if="(camera && selectedValue === 'Manual Refresh')"
                     icon="refresh"
                     label="Refresh"
                     @click="refreshCamera"

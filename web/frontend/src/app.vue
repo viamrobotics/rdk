@@ -605,13 +605,19 @@ const viewFrame = (cameraName: string) => {
       streamContainer.append(image);
     }
   });
-}
+};
+
+const clearFrameInterval = () => {
+  window.clearInterval(cameraFrameIntervalId);
+};
 
 const viewCameraFrame = (cameraName: string, time: string) => {
   clearFrameInterval();
   const selectedInterval = selectedMap[time as keyof typeof selectedMap];
 
-  // console.log('time',time);return;
+  if (time === 'Live') {
+    return;
+  }
 
   if (time === 'Manual Refresh') {
     viewFrame(cameraName);
@@ -621,10 +627,6 @@ const viewCameraFrame = (cameraName: string, time: string) => {
     }, Number(selectedInterval) * 1000);
   }
 };
-
-const clearFrameInterval = () => {
-  window.clearInterval(cameraFrameIntervalId);
-}
 
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
@@ -659,7 +661,7 @@ const doLogin = (authType: string) => {
   doConnect(window.host, creds, (error) => {
     document.querySelector('#connecting')!.classList.add('hidden');
     disableAuthElements = false;
-    console.log(error);
+    console.error(error);
     toast.error(`failed to connect: ${error}`);
   });
 };
