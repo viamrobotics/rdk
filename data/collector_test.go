@@ -149,7 +149,10 @@ func TestSuccessfulWrite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
-			defer os.RemoveAll(tmpDir)
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				test.That(t, err, test.ShouldBeNil)
+			}()
 			md := v1.DataCaptureMetadata{}
 			target := datacapture.NewQueue(tmpDir, &md)
 			test.That(t, target, test.ShouldNotBeNil)

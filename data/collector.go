@@ -41,7 +41,6 @@ func (cf CaptureFunc) Capture(ctx context.Context, params map[string]*anypb.Any)
 type Collector interface {
 	Close()
 	Collect()
-	GetTarget() *datacapture.Queue
 }
 
 type collector struct {
@@ -54,13 +53,17 @@ type collector struct {
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
 	capturer          Capturer
+	closed            bool
 
 	target *datacapture.Queue
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
-// leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
+// leaking goroutines.
 func (c *collector) Close() {
+	if c.closed {
+		return
+	}
 	c.cancel()
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
@@ -68,6 +71,7 @@ func (c *collector) Close() {
 	if err := c.target.Sync(); err != nil {
 		c.logger.Errorw("failed to sync capture queue", "error", err)
 	}
+	c.closed = true
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
@@ -88,12 +92,6 @@ func (c *collector) Collect() {
 			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Directory), "error", err)
 		}
 	})
-}
-
-func (c *collector) GetTarget() *datacapture.Queue {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return c.target
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
