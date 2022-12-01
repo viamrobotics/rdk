@@ -32,7 +32,7 @@ type client struct {
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
 	c := pb.NewArmServiceClient(conn)
-	r := robotpb.NewRobotServiceClient(conn) // TODO(rb): remove the robot service client when we can use the framesystem as a dependency
+	r := robotpb.NewRobotServiceClient(conn) // TODO: RSDK-882 will update this so that this is not necessary
 	return &client{
 		name:   name,
 		conn:   conn,
