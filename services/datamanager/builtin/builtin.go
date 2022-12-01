@@ -402,19 +402,18 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	svc.captureDisabled = svcConfig.CaptureDisabled
-	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if svc.captureDisabled {
-		svc.closeCollectors()
-		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-	}
-
 	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
 	if err != nil {
 		return err
 	}
 
 	svc.captureDir = svcConfig.CaptureDir
+	svc.captureDisabled = svcConfig.CaptureDisabled
+	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
+	if svc.captureDisabled {
+		svc.closeCollectors()
+		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
+	}
 
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)

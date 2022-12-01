@@ -154,8 +154,8 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	return nil
 }
 
-// Sync flushes any buffered writes to disk.
-func (f *File) Sync() error {
+// Flush flushes any buffered writes to disk.
+func (f *File) Flush() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.writer.Flush()
