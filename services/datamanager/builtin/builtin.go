@@ -158,6 +158,7 @@ func (svc *builtIn) Close(_ context.Context) error {
 
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
+	//svc.lock.Unlock()
 	return nil
 }
 
@@ -459,6 +460,8 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.syncRoutineCancelFn = fn
+	svc.backgroundWorkers.Add(1)
+	svc.backgroundWorkers.Done()
 	svc.uploadData(cancelCtx, intervalMins)
 }
 

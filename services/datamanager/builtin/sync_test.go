@@ -27,6 +27,7 @@ var (
 
 func TestSyncEnabled(t *testing.T) {
 	syncTime := time.Millisecond * 100
+	//datacapture.MaxFileSize = 500
 
 	tests := []struct {
 		name                        string
@@ -106,13 +107,14 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDir = tmpDir
 			updatedSvcConfig.SyncIntervalMins = 0.001
 
-			fmt.Println("starting to ")
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Let run for a second, then change status.
 			time.Sleep(syncTime)
+			fmt.Println("called dmsvc close")
 			err = dmsvc.Close(context.Background())
+			fmt.Println("dmsvc closed")
 			test.That(t, err, test.ShouldBeNil)
 
 			newUploadCount := len(mockService.getSuccessfulDCUploadRequests())
@@ -123,6 +125,7 @@ func TestSyncEnabled(t *testing.T) {
 				// and calling Update
 				test.That(t, newUploadCount, test.ShouldBeBetweenOrEqual, initialUploadCount, initialUploadCount+1)
 			}
+			time.Sleep(time.Second * 3)
 		})
 	}
 }
@@ -435,6 +438,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				// Validate file no longer exists.
 				test.That(t, len(remainingFiles), test.ShouldEqual, 0)
 			}
+			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
 }
