@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -14,5 +13,15 @@ func TestConvertURDF(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, u.Name(), test.ShouldEqual, "ur5")
 
-	fmt.Println(u.Name())
+	simpleM, ok := u.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, len(u.DoF()), test.ShouldEqual, 6)
+
+	err = simpleM.validInputs(FloatsToInputs([]float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = simpleM.validInputs(FloatsToInputs([]float64{100.0, 0.0, 0.0, 0.0, 0.0, 0.0}))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// TODO(wspies): Finish out writing tests
 }
