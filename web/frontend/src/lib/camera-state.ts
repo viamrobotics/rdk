@@ -1,2 +1,2 @@
-export let baseStreamStates = new Map<string, boolean>();
-export let cameraStreamStates = new Map<string, boolean>();
+export const baseStreamStates = new Map<string, boolean>();
+export const cameraStreamStates = new Map<string, boolean>();
