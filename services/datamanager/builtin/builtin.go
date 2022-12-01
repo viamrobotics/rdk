@@ -485,6 +485,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				}
 				return
 			}
+
 			select {
 			case <-cancelCtx.Done():
 				return
