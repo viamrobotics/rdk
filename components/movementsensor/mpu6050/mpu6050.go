@@ -243,32 +243,38 @@ func toLinearAcceleration(data []byte) r3.Vector {
 
 func (mpu *mpu6050) pollData() {
 	defer mpu.activeBackgroundWorkers.Done()
+	// Reading data a thousand times per second is probably fast enough.
+	timer := time.NewTicker(time.Duration(time.Millisecond))
+	defer timer.Stop()
 
-	for mpu.backgroundContext.Err() == nil {
-		// Reading data and re-checking for context errors once per millisecond is probably fast
-		// enough.
-		time.Sleep(time.Millisecond)
+	for {
+		select {
+		case <- mpu.backgroundContext.Done():
+			return
+		case <- timer.C:
+			rawData, err := mpu.readBlock(mpu.backgroundContext, 59, 14)
+			if err != nil {
+				mpu.logger.Infof("error reading MPU6050 sensor: '%s'", err)
+				mpu.mu.Lock()
+				mpu.lastError = err
+				mpu.mu.Unlock()
+				continue
+			}
 
-		rawData, err := mpu.readBlock(mpu.backgroundContext, 59, 14)
-		if err != nil {
-			mpu.logger.Infof("error reading MPU6050 sensor: %s", err)
-			mpu.lastError = err
-			continue
+			linearAcceleration := toLinearAcceleration(rawData[0:6])
+			// Taken straight from the MPU6050 register map. Yes, these are weird constants.
+			temperature := float64(toSignedValue(rawData[6:8]))/340.0 + 36.53
+			angularVelocity := toAngularVelocity(rawData[8:14])
+
+			// Lock the mutex before modifying the state within the object. By keeping the mutex
+			// unlocked for everything else, we maximize the time when another thread can read the
+			// values.
+			mpu.mu.Lock()
+			mpu.linearAcceleration = linearAcceleration
+			mpu.temperature = temperature
+			mpu.angularVelocity = angularVelocity
+			mpu.mu.Unlock()
 		}
-
-		linearAcceleration := toLinearAcceleration(rawData[0:6])
-		// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-		temperature := float64(toSignedValue(rawData[6:8]))/340 + 36.53
-		angularVelocity := toAngularVelocity(rawData[8:14])
-
-		// Lock the mutex before modifying the state within the object. By keeping the mutex
-		// unlocked for everything else, we maximize the time when another thread can read the
-		// values.
-		mpu.mu.Lock()
-		mpu.linearAcceleration = linearAcceleration
-		mpu.temperature = temperature
-		mpu.angularVelocity = angularVelocity
-		mpu.mu.Unlock()
 	}
 }
 
