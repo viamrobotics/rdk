@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"math"
+	"runtime"
 
 	"gonum.org/v1/gonum/floats"
 )
@@ -33,6 +34,9 @@ const (
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
 
+	// default number of times to try to smooth the path.
+	defaultSmoothIter = 20
+
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
 	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
@@ -42,9 +46,12 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
+
+	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
+	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
 
-var defaultPlanner = newCBiRRTMotionPlanner
+var defaultNumThreads = runtime.NumCPU() / 2
 
 // the set of supported motion profiles.
 const (
@@ -78,7 +85,15 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
-	opt.PlannerConstructor = defaultPlanner
+
+	// Note the direct reference to a default here.
+	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
+	// is placed in a global default var.
+	opt.PlannerConstructor = newCBiRRTMotionPlanner
+
+	opt.SmoothIter = defaultSmoothIter
+
+	opt.NumThreads = defaultNumThreads
 
 	return opt
 }
@@ -106,11 +121,17 @@ type plannerOptions struct {
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
 
+	// Number of times to try to smooth the path
+	SmoothIter int `json:"smooth_iter"`
+
+	// Number of cpu cores to use
+	NumThreads int `json:"num_threads"`
+
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
 	DistanceFunc Constraint
 
-	PlannerConstructor seededPlannerConstructor
+	PlannerConstructor plannerConstructor
 
 	Fallback *plannerOptions
 }
