@@ -377,6 +377,11 @@ func (manager *resourceManager) completeConfig(
 		}
 		manager.logger.Debugw("we are now handling the resource", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
+			_, err := c.Validate("")
+			if err != nil {
+				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
+				continue
+			}
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
 				manager.logger.Errorw("error building component", "resource", c.ResourceName(), "model", c.Model, "error", err)
@@ -385,6 +390,11 @@ func (manager *resourceManager) completeConfig(
 			}
 			manager.resources.AddNode(r, iface)
 		} else if s, ok := wrap.config.(config.Service); ok {
+			_, err := s.Validate("")
+			if err != nil {
+				wrap.err = errors.Wrap(err, "Config validation error found in service: "+s.Name)
+				continue
+			}
 			iface, err := manager.processService(ctx, s, wrap.real, robot)
 			if err != nil {
 				manager.logger.Errorw("error building service", "resource", s.ResourceName(), "model", s.Model, "error", err)
@@ -393,6 +403,11 @@ func (manager *resourceManager) completeConfig(
 			}
 			manager.resources.AddNode(r, iface)
 		} else if rc, ok := wrap.config.(config.Remote); ok {
+			err := rc.Validate("")
+			if err != nil {
+				wrap.err = errors.Wrap(err, "Config validation error found in remote: "+rc.Name)
+				continue
+			}
 			rr, err := manager.processRemote(ctx, rc)
 			if err != nil {
 				manager.logger.Errorw("error connecting to remote", "remote", rc.Name, "error", err)
