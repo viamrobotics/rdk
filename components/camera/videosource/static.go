@@ -29,11 +29,15 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
+			imgType := camera.ColorStream
+			if attrs.Color == "" {
+				imgType = camera.DepthStream
+			}
 			return camera.NewFromReader(
 				ctx,
 				videoSrc,
 				&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
-				camera.StreamType(attrs.Stream),
+				imgType,
 			)
 		}})
 
@@ -64,7 +68,6 @@ type fileSource struct {
 type fileSourceAttrs struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
 	Color                string                             `json:"color_image_file_path,omitempty"`
 	Depth                string                             `json:"depth_image_file_path,omitempty"`
