@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
@@ -399,7 +398,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 func (x *xArm) MoveToPosition(
 	ctx context.Context,
 	pos spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	ctx, done := x.opMgr.New(ctx)

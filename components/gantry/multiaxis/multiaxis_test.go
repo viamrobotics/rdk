@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gantry"
@@ -23,7 +22,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return positions, nil
 		},
-		MoveToPositionFunc: func(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
+		MoveToPositionFunc: func(ctx context.Context, pos []float64, ws *referenceframe.WorldState, extra map[string]interface{}) error {
 			return nil
 		},
 		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
@@ -114,17 +113,17 @@ func TestMoveToPosition(t *testing.T) {
 	positions := []float64{}
 
 	fakemultiaxis := &multiAxis{}
-	err := fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{}, nil)
+	err := fakemultiaxis.MoveToPosition(ctx, positions, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	positions = []float64{1, 2, 3}
-	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{}, nil)
+	err = fakemultiaxis.MoveToPosition(ctx, positions, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	positions = []float64{1, 2}
-	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{}, nil)
+	err = fakemultiaxis.MoveToPosition(ctx, positions, &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 

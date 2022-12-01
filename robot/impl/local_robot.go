@@ -13,7 +13,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -614,7 +613,10 @@ func (r *localRobot) Refresh(ctx context.Context) error {
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
-func (r *localRobot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+func (r *localRobot) FrameSystemConfig(
+	ctx context.Context,
+	additionalTransforms []*referenceframe.PoseInFrame,
+) (framesystemparts.Parts, error) {
 	framesystem, err := r.fsService()
 	if err != nil {
 		return nil, err
@@ -628,7 +630,7 @@ func (r *localRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	framesystem, err := r.fsService()
 	if err != nil {
