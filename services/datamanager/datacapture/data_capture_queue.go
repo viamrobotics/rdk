@@ -7,7 +7,7 @@ import (
 )
 
 // MaxFileSize is the maximum size in bytes of a data capture file.
-var MaxFileSize = int64(65536)
+var MaxFileSize = int64(64 * 1024)
 
 // Queue is a persistent queue of SensorData backed by a series of datacapture.Files.
 type Queue struct {
