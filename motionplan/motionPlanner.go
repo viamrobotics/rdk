@@ -11,7 +11,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -39,7 +38,7 @@ func PlanMotion(ctx context.Context,
 	f frame.Frame,
 	seedMap map[string][]frame.Input,
 	fs frame.FrameSystem,
-	worldState *commonpb.WorldState,
+	worldState *frame.WorldState,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	return PlanWaypoints(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
@@ -51,7 +50,7 @@ func PlanRobotMotion(ctx context.Context,
 	f frame.Frame,
 	r robot.Robot,
 	fs frame.FrameSystem,
-	worldState *commonpb.WorldState,
+	worldState *frame.WorldState,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
@@ -103,7 +102,7 @@ func PlanWaypoints(ctx context.Context,
 	f frame.Frame,
 	seedMap map[string][]frame.Input,
 	fs frame.FrameSystem,
-	worldState *commonpb.WorldState,
+	worldState *frame.WorldState,
 	planningOpts []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	solvableFS := NewSolvableFrameSystem(fs, logger)
@@ -394,4 +393,3 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	}
 	return path
 }
-

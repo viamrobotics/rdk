@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -43,21 +42,21 @@ type Service interface {
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponent(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
-		supplementalTransforms []*commonpb.Transform,
+		supplementalTransforms []*referenceframe.PoseInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
@@ -115,7 +114,7 @@ func (svc *reconfigurableMotionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
@@ -127,7 +126,7 @@ func (svc *reconfigurableMotionService) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
@@ -139,7 +138,7 @@ func (svc *reconfigurableMotionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()

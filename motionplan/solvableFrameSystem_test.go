@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -161,8 +160,8 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries := make(map[string]spatial.Geometry)
 	geometries["obstacle"] = obstacle
-	obstacles := []*commonpb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, geometries))}
-	worldState := &commonpb.WorldState{Obstacles: obstacles}
+	obstacles := frame.NewGeometriesInFrame(frame.World, geometries)
+	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
 	sfPlanner, err = newPlanManager(sf, solver, solver.logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)

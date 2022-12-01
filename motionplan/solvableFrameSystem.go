@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -46,7 +45,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goals []*frame.PoseInFrame,
 	solveFrameName string,
-	worldState *commonpb.WorldState,
+	worldState *frame.WorldState,
 	motionConfigs []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)

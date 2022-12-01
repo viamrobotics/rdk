@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
@@ -46,7 +45,7 @@ func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger go
 func (mp *planManager) PlanSingleWaypoint(ctx context.Context,
 	seedMap map[string][]referenceframe.Input,
 	goalPos spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	seed, err := mp.frame.mapToSlice(seedMap)
@@ -291,7 +290,7 @@ func (mp *planManager) planMotion(
 func (mp *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
 	// Start with normal options
