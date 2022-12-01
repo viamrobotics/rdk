@@ -70,16 +70,16 @@ func init() {
 }
 
 type mpu6050 struct {
-	bus                     board.I2C
-	i2cAddress              byte
-	mu                      sync.Mutex
+	bus        board.I2C
+	i2cAddress byte
+	mu         sync.Mutex
 
 	// The 3 things we can measure: lock the mutex before reading or writing these.
-	angularVelocity         spatialmath.AngularVelocity
-	temperature             float64
-	linearAcceleration      r3.Vector
+	angularVelocity    spatialmath.AngularVelocity
+	temperature        float64
+	linearAcceleration r3.Vector
 	// Stores the most recent error from the background goroutine
-	lastError               error
+	lastError error
 
 	// Used to shut down the background goroutine which polls the sensor.
 	backgroundContext       context.Context
@@ -255,7 +255,7 @@ func (mpu *mpu6050) pollData() {
 
 		linearAcceleration := toLinearAcceleration(rawData[0:6])
 		// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-		temperature := float64(toSignedValue(rawData[6:8])) / 340 + 36.53
+		temperature := float64(toSignedValue(rawData[6:8]))/340 + 36.53
 		angularVelocity := toAngularVelocity(rawData[8:14])
 
 		// Lock the mutex before modifying the state within the object. By keeping the mutex
