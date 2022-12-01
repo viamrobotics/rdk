@@ -241,7 +241,7 @@ func TestClientModel(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{&config.FrameSystemPart{
 			Name: testArmName,
