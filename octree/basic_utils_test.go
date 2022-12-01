@@ -94,9 +94,9 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, len(filledLeaves), test.ShouldEqual, 1)
 		test.That(t, len(emptyLeaves), test.ShouldEqual, 7)
 		test.That(t, len(internalLeaves), test.ShouldEqual, 0)
-		test.That(t, filledLeaves[0].node.point, test.ShouldResemble,
-			pc.PointAndData{P: pointsAndData[0].P, D: pointsAndData[0].D})
 		test.That(t, filledLeaves[0].checkPointPlacement(pointsAndData[0].P), test.ShouldBeTrue)
+
+		checkPoints(t, basicOct, pointsAndData)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -113,16 +113,11 @@ func TestSplitIntoOctants(t *testing.T) {
 		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		d, ok := basicOct.At(pointsAndData[0].P.X, pointsAndData[0].P.Y, pointsAndData[0].P.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, pointsAndData[0].D)
+		checkPoints(t, basicOct, pointsAndData)
 
-		d, ok = basicOct.At(pointsAndData[1].P.X, pointsAndData[1].P.Y, pointsAndData[1].P.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, pointsAndData[1].D)
-
-		_, ok = basicOct.At(0, 1, .5)
+		d, ok := basicOct.At(0, 1, .5)
 		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, d, test.ShouldBeNil)
 
 		err = basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error attempted to split internal node"))
