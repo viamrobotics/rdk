@@ -3,8 +3,6 @@ package datasync
 import (
 	"testing"
 
-	"testing"
-
 	testutilsext "go.viam.com/utils/testutils/ext"
 )
 

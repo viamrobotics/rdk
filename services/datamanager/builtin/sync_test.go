@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -27,7 +26,6 @@ var (
 
 func TestSyncEnabled(t *testing.T) {
 	syncTime := time.Millisecond * 100
-	//datacapture.MaxFileSize = 500
 
 	tests := []struct {
 		name                        string
@@ -60,7 +58,6 @@ func TestSyncEnabled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
 			tmpDir, err := os.MkdirTemp("", "")
-			fmt.Println(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
 				err := os.RemoveAll(tmpDir)
@@ -112,9 +109,7 @@ func TestSyncEnabled(t *testing.T) {
 
 			// Let run for a second, then change status.
 			time.Sleep(syncTime)
-			fmt.Println("called dmsvc close")
 			err = dmsvc.Close(context.Background())
-			fmt.Println("dmsvc closed")
 			test.That(t, err, test.ShouldBeNil)
 
 			newUploadCount := len(mockService.getSuccessfulDCUploadRequests())
@@ -125,7 +120,6 @@ func TestSyncEnabled(t *testing.T) {
 				// and calling Update
 				test.That(t, newUploadCount, test.ShouldBeBetweenOrEqual, initialUploadCount, initialUploadCount+1)
 			}
-			time.Sleep(time.Second * 3)
 		})
 	}
 }
@@ -587,8 +581,6 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 }
 
 func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUploadServer) error {
-	fmt.Println("starting file upload in mock service")
-
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 
