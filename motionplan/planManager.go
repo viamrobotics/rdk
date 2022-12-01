@@ -158,7 +158,7 @@ func (pm *planManager) planMotion(
 
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
-		planSeed := initRRTsolutions(ctx, pathPlanner, goal, seed)
+		planSeed := initRRTSolutions(ctx, pathPlanner, goal, seed)
 		if planSeed.planerr != nil {
 			return nil, planSeed.planerr
 		}

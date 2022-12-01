@@ -99,7 +99,7 @@ func newCBiRRTMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newCbirrtOptions(opt, mp.f)
+	algOpts, err := newCbirrtOptions(opt, mp.frame)
 	if err != nil {
 		return nil, err
 	}
@@ -145,13 +145,13 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	// initialize maps
 	corners := map[node]bool{}
 	// TODO(rb) package neighborManager better
-	nm := &neighborManager{nCPU: mp.planOpts.Ncpu}
+	nm := &neighborManager{nCPU: mp.planOpts.NumThreads}
 	nmContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
-		planSeed := initRRTsolutions(ctx, mp, goal, seed)
+		planSeed := initRRTSolutions(ctx, mp, goal, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
@@ -230,10 +230,10 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) []referencefram
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= mp.algOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		return referenceframe.RandomFrameInputs(mp.f, mp.randseed)
+		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := referenceframe.RestrictedRandomFrameInputs(mp.f, mp.randseed, 0.1)
+	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1)
 	for j, v := range rSeed.Q() {
 		q[j].Value += v.Value
 	}
@@ -323,11 +323,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	default:
 	}
 
-	seedPos, err := mp.f.Transform(seedInputs)
+	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return nil
 	}
-	goalPos, err := mp.f.Transform(target)
+	goalPos, err := mp.frame.Transform(target)
 	if err != nil {
 		return nil
 	}
@@ -337,7 +337,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		goalPos,
 		seedInputs,
 		target,
-		mp.f,
+		mp.frame,
 	}, mp.planOpts.Resolution)
 	if ok {
 		return target
@@ -357,7 +357,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	ok, failpos := mp.planOpts.CheckConstraintPath(
-		&ConstraintInput{StartInput: seedInputs, EndInput: solved, Frame: mp.f},
+		&ConstraintInput{StartInput: seedInputs, EndInput: solved, Frame: mp.frame},
 		mp.planOpts.Resolution,
 	)
 	if !ok {

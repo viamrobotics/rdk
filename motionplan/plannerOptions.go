@@ -51,7 +51,7 @@ const (
 	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
 
-var defaultNcpu = runtime.NumCPU() / 2
+var defaultNumThreads = runtime.NumCPU() / 2
 
 // the set of supported motion profiles.
 const (
@@ -93,7 +93,7 @@ func newBasicPlannerOptions() *plannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.Ncpu = defaultNcpu
+	opt.NumThreads = defaultNumThreads
 
 	return opt
 }
@@ -125,7 +125,7 @@ type plannerOptions struct {
 	SmoothIter int `json:"smooth_iter"`
 
 	// Number of cpu cores to use
-	Ncpu int `json:"ncpu"`
+	NumThreads int `json:"num_threads"`
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here

@@ -62,7 +62,7 @@ type rrtMaps struct {
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTsolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
+func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
 	rrt := &rrtPlanReturn{
 		maps: &rrtMaps{
 			startMap: map[node]node{},

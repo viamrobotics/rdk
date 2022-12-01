@@ -113,7 +113,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
-		planSeed := initRRTsolutions(ctx, mp, goal, seed)
+		planSeed := initRRTSolutions(ctx, mp, goal, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
@@ -176,7 +176,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 
 		// get next sample, switch map pointers
-		target = referenceframe.RandomFrameInputs(mp.f, mp.randseed)
+		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.maps, shared)

@@ -181,7 +181,7 @@ func PlanWaypoints(ctx context.Context,
 
 type planner struct {
 	solver   InverseKinematics
-	f        frame.Frame
+	frame    frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand
 	start    time.Time
@@ -189,13 +189,13 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, opt.Ncpu)
+	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
 		solver:   ik,
-		f:        frame,
+		frame:    frame,
 		logger:   logger,
 		randseed: seed,
 		planOpts: opt,
@@ -204,7 +204,7 @@ func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *pl
 }
 
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	position, err := mp.f.Transform(inputs)
+	position, err := mp.frame.Transform(inputs)
 	if err != nil {
 		return false
 	}
@@ -213,7 +213,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 		EndPos:     position,
 		StartInput: inputs,
 		EndInput:   inputs,
-		Frame:      mp.f,
+		Frame:      mp.frame,
 	})
 	return ok
 }
@@ -223,7 +223,7 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 		&ConstraintInput{
 			StartInput: seedInputs,
 			EndInput:   target,
-			Frame:      mp.f,
+			Frame:      mp.frame,
 		},
 		mp.planOpts.Resolution,
 	)
@@ -288,7 +288,7 @@ func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed
 		nSolutions = defaultSolutionsToSeed
 	}
 
-	seedPos, err := mp.f.Transform(seed)
+	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
@@ -325,14 +325,14 @@ IK:
 				goalPos,
 				seed,
 				step,
-				mp.f,
+				mp.frame,
 			})
 			endPass, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
 				goalPos,
 				goalPos,
 				step,
 				step,
-				mp.f,
+				mp.frame,
 			})
 
 			if cPass && endPass {
