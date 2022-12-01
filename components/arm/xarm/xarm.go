@@ -8,7 +8,6 @@ import (
 	"errors"
 	"math"
 	"net"
-	"runtime"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -16,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -44,7 +42,6 @@ type xArm struct {
 	accel    float32 // acceleration=rad/s^2
 	moveHZ   float64 // Number of joint positions to send per second
 	moveLock sync.Mutex
-	mp       motionplan.MotionPlanner
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
@@ -134,12 +131,6 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		return nil, err
 	}
 
-	nCPU := runtime.NumCPU()
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
-	if err != nil {
-		return nil, err
-	}
-
 	xA := xArm{
 		dof:     dof,
 		tid:     0,
@@ -147,7 +138,6 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		speed:   speed * math.Pi / 180,
 		accel:   acceleration * math.Pi / 180,
 		moveHZ:  100.,
-		mp:      mp,
 		model:   model,
 		started: false,
 		robot:   r,

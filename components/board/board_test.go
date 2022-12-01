@@ -160,21 +160,21 @@ var (
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualBoard board.Board = newLocalBoard(testBoardName)
 
-	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = board.WrapWithReconfigurable(nil)
+	_, err = board.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, board.NewUnimplementedInterfaceError(nil))
 
-	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1)
+	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfBoard2, test.ShouldEqual, reconfBoard1)
 
 	var actualBoard2 board.LocalBoard = &mockLocal{Name: testBoardName}
-	reconfBoard3, err := board.WrapWithReconfigurable(actualBoard2)
+	reconfBoard3, err := board.WrapWithReconfigurable(actualBoard2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	reconfBoard4, err := board.WrapWithReconfigurable(reconfBoard3)
+	reconfBoard4, err := board.WrapWithReconfigurable(reconfBoard3, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfBoard4, test.ShouldResemble, reconfBoard3)
 
@@ -189,11 +189,11 @@ func TestReconfigurableBoard(t *testing.T) {
 	}
 
 	for _, actualBoard1 := range actualBoards {
-		reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1)
+		reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1, resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 
 		actualBoard2 := newBoard(testBoardName2)
-		reconfBoard2, err := board.WrapWithReconfigurable(actualBoard2)
+		reconfBoard2, err := board.WrapWithReconfigurable(actualBoard2, resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 0)
 
@@ -203,7 +203,7 @@ func TestReconfigurableBoard(t *testing.T) {
 		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 1)
 
 		actualBoard3 := newLocalBoard(testBoardName2)
-		reconfBoard3, err := board.WrapWithReconfigurable(actualBoard3)
+		reconfBoard3, err := board.WrapWithReconfigurable(actualBoard3, resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualBoard3.reconfCount, test.ShouldEqual, 0)
 
@@ -212,13 +212,13 @@ func TestReconfigurableBoard(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfBoard3, reconfBoard1))
 
 		actualBoard4 := &mock{Name: testBoardName2}
-		reconfBoard4, err := board.WrapWithReconfigurable(actualBoard4)
+		reconfBoard4, err := board.WrapWithReconfigurable(actualBoard4, resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, reconfBoard4, test.ShouldNotBeNil)
 	}
 
 	actualBoard1 := &mock{Name: testBoardName}
-	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1)
+	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfBoard1, test.ShouldNotBeNil)
 }
@@ -230,11 +230,11 @@ func TestReconfigurableLocalBoard(t *testing.T) {
 	}
 
 	for _, actualBoard1 := range actualBoards {
-		reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1)
+		reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1, resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 
 		actualBoard2 := newLocalBoard(testBoardName2)
-		reconfBoard2, err := board.WrapWithReconfigurable(actualBoard2)
+		reconfBoard2, err := board.WrapWithReconfigurable(actualBoard2, resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 0)
 
@@ -262,7 +262,7 @@ func TestReconfigurableLocalBoard(t *testing.T) {
 
 func TestSetGPIO(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 0)
 	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
@@ -277,7 +277,7 @@ func TestSetGPIO(t *testing.T) {
 
 func TestGetGPIO(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 0)
 	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
@@ -291,9 +291,10 @@ func TestGetGPIO(t *testing.T) {
 	test.That(t, actualBoard.gpioPin.extra, test.ShouldResemble, extra)
 }
 
+//nolint:dupl
 func TestSetPWM(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 0)
 	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
@@ -306,9 +307,10 @@ func TestSetPWM(t *testing.T) {
 	test.That(t, actualBoard.gpioPin.extra, test.ShouldResemble, extra)
 }
 
+//nolint:dupl
 func TestSetPWMFreq(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 0)
 	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
@@ -323,7 +325,7 @@ func TestSetPWMFreq(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	test.That(t, actualBoard.statusCount, test.ShouldEqual, 0)
 	test.That(t, actualBoard.extra, test.ShouldBeNil)
@@ -337,7 +339,7 @@ func TestStatus(t *testing.T) {
 
 func TestSPIs(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	reconfSPINames := reconfBoard.(board.LocalBoard).SPINames()
 	test.That(t, reconfSPINames, test.ShouldResemble, []string{"spi1"})
@@ -351,7 +353,7 @@ func TestSPIs(t *testing.T) {
 
 func TestI2Cs(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	reconfI2CNames := reconfBoard.(board.LocalBoard).I2CNames()
 	test.That(t, reconfI2CNames, test.ShouldResemble, []string{"i2c1"})
@@ -366,7 +368,7 @@ func TestI2Cs(t *testing.T) {
 //nolint:dupl
 func TestAnalogReaders(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	reconfAnalogReaderNames := reconfBoard.(board.LocalBoard).AnalogReaderNames()
 	test.That(t, reconfAnalogReaderNames, test.ShouldResemble, []string{"analog1"})
@@ -384,7 +386,7 @@ func TestAnalogReaders(t *testing.T) {
 //nolint:dupl
 func TestDigitalInterrupts(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
-	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
+	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard, resource.Name{})
 
 	reconfDigitalInterruptNames := reconfBoard.(board.LocalBoard).DigitalInterruptNames()
 	test.That(t, reconfDigitalInterruptNames, test.ShouldResemble, []string{"digital1"})
@@ -401,7 +403,7 @@ func TestDigitalInterrupts(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualBoard1 := &mockLocal{Name: testBoardName}
-	reconfBoard1, _ := board.WrapWithReconfigurable(actualBoard1)
+	reconfBoard1, _ := board.WrapWithReconfigurable(actualBoard1, resource.Name{})
 
 	test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfBoard1), test.ShouldBeNil)

@@ -15,7 +15,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-type undistortConfig struct {
+type undistortAttrs struct {
 	CameraParams     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters"`
 }
@@ -30,24 +30,26 @@ type undistortSource struct {
 
 func newUndistortTransform(
 	ctx context.Context, source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
-) (gostream.VideoSource, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(undistortConfig{}), am)
+) (gostream.VideoSource, camera.StreamType, error) {
+	conf, err := config.TransformAttributeMapToStruct(&(undistortAttrs{}), am)
 	if err != nil {
-		return nil, err
+		return nil, camera.UnspecifiedStream, err
 	}
-	attrs, ok := conf.(*undistortConfig)
+	attrs, ok := conf.(*undistortAttrs)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 	if attrs.CameraParams == nil {
-		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
+		return nil, camera.UnspecifiedStream, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
+	cameraModel := &transform.PinholeCameraModel{attrs.CameraParams, attrs.DistortionParams}
 	reader := &undistortSource{
 		gostream.NewEmbeddedVideoStream(source),
 		stream,
-		&transform.PinholeCameraModel{attrs.CameraParams, attrs.DistortionParams},
+		cameraModel,
 	}
-	return camera.NewFromReader(ctx, reader, nil, stream)
+	cam, err := camera.NewFromReader(ctx, reader, cameraModel, stream)
+	return cam, stream, err
 }
 
 // Read undistorts the original image according to the camera parameters.

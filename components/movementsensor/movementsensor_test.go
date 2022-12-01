@@ -154,24 +154,24 @@ func TestMovementSensorName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualMovementSensor1 movementsensor.MovementSensor = &mock{Name: testMovementSensorName}
-	reconfMovementSensor1, err := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
+	reconfMovementSensor1, err := movementsensor.WrapWithReconfigurable(actualMovementSensor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = movementsensor.WrapWithReconfigurable(nil)
+	_, err = movementsensor.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, movementsensor.NewUnimplementedInterfaceError(nil))
 
-	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(reconfMovementSensor1)
+	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(reconfMovementSensor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMovementSensor2, test.ShouldEqual, reconfMovementSensor1)
 }
 
 func TestReconfigurableMovementSensor(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
-	reconfMovementSensor1, err := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
+	reconfMovementSensor1, err := movementsensor.WrapWithReconfigurable(actualMovementSensor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualMovementSensor2 := &mock{Name: testMovementSensorName2}
-	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(actualMovementSensor2)
+	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(actualMovementSensor2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 0)
 
@@ -193,14 +193,14 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMovementSensor1, nil))
 
 	actualMovementSensor3 := &mock{Name: failMovementSensorName}
-	reconfMovementSensor3, err := movementsensor.WrapWithReconfigurable(actualMovementSensor3)
+	reconfMovementSensor3, err := movementsensor.WrapWithReconfigurable(actualMovementSensor3, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMovementSensor3, test.ShouldNotBeNil)
 }
 
 func TestPosition(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
-	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1, resource.Name{})
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
 	loc1, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).Position(context.Background(), make(map[string]interface{}))
@@ -211,7 +211,7 @@ func TestPosition(t *testing.T) {
 
 func TestLinearVelocity(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
-	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1, resource.Name{})
 
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 0)
 	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).LinearVelocity(context.Background(), make(map[string]interface{}))
@@ -222,7 +222,7 @@ func TestLinearVelocity(t *testing.T) {
 
 func TestReadings(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
-	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1, resource.Name{})
 
 	readings1, err := movementsensor.Readings(context.Background(), actualMovementSensor1, make(map[string]interface{}))
 	allReadings := map[string]interface{}{
@@ -249,7 +249,7 @@ func TestReadings(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
-	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
+	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1, resource.Name{})
 
 	test.That(t, actualMovementSensor1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfMovementSensor1), test.ShouldBeNil)

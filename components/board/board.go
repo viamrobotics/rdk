@@ -208,9 +208,14 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableBoard struct {
 	mu       sync.RWMutex
+	name     resource.Name
 	actual   Board
 	analogs  map[string]*reconfigurableAnalogReader
 	digitals map[string]*reconfigurableDigitalInterrupt
+}
+
+func (r *reconfigurableBoard) Name() resource.Name {
+	return r.name
 }
 
 func (r *reconfigurableBoard) ProxyFor() interface{} {
@@ -458,7 +463,7 @@ func (r *reconfigurableLocalBoard) Reconfigure(ctx context.Context, newBoard res
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
 // If board is already a reconfigurableBoard, then nothing is done.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	board, ok := r.(Board)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -469,6 +474,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 
 	rb := reconfigurableBoard{
+		name:     name,
 		actual:   board,
 		analogs:  map[string]*reconfigurableAnalogReader{},
 		digitals: map[string]*reconfigurableDigitalInterrupt{},

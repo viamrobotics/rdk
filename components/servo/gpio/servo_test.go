@@ -37,13 +37,9 @@ func TestValidate(t *testing.T) {
 	cfg.MinDeg = Ptr(-1.5)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_angle_deg cannot be lower than 0.0")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_angle_deg cannot be lower than 0")
 	cfg.MinDeg = Ptr(1.5)
 
-	cfg.MaxDeg = Ptr(181.0)
-	_, err = cfg.Validate("test")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": max_angle_deg cannot be higher than 180.0")
 	cfg.MaxDeg = Ptr(90.0)
 
 	cfg.MinWidthUS = Ptr(uint(450))
@@ -63,14 +59,14 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs cannot be higher than max_angle_deg")
+		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
 
 	cfg.StartPos = Ptr(1.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs cannot be lower than min_angle_deg")
+		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
 
 	cfg.StartPos = Ptr(199.0)
 	cfg.MaxDeg = nil
@@ -79,7 +75,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 0 and 180")
+		"error validating \"test\": starting_position_degs should be between 0.0 and 180.0")
 
 	cfg.StartPos = Ptr(0.0)
 	_, err = cfg.Validate("test")

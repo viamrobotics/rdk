@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
@@ -35,12 +34,12 @@ type Robot struct {
 	CloseFunc               func(ctx context.Context) error
 	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	RefreshFunc             func(ctx context.Context) error
-	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
+	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error)
 	TransformPoseFunc       func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	StatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 
@@ -203,7 +202,7 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) 
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
-func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.FrameSystemConfigFunc == nil {
@@ -218,7 +217,7 @@ func (r *Robot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
