@@ -244,14 +244,14 @@ func toLinearAcceleration(data []byte) r3.Vector {
 func (mpu *mpu6050) pollData() {
 	defer mpu.activeBackgroundWorkers.Done()
 	// Reading data a thousand times per second is probably fast enough.
-	timer := time.NewTicker(time.Duration(time.Millisecond))
+	timer := time.NewTicker(time.Millisecond)
 	defer timer.Stop()
 
 	for {
 		select {
-		case <- mpu.backgroundContext.Done():
+		case <-mpu.backgroundContext.Done():
 			return
-		case <- timer.C:
+		case <-timer.C:
 			rawData, err := mpu.readBlock(mpu.backgroundContext, 59, 14)
 			if err != nil {
 				mpu.logger.Infof("error reading MPU6050 sensor: '%s'", err)
