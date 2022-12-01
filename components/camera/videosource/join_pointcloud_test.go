@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -93,7 +92,8 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 		},
 	}
 	r.FrameSystemConfigFunc = func(
-		ctx context.Context, additionalTransforms []*commonpb.Transform,
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}
@@ -349,7 +349,8 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 		},
 	}
 	r.FrameSystemConfigFunc = func(
-		ctx context.Context, additionalTransforms []*commonpb.Transform,
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}
