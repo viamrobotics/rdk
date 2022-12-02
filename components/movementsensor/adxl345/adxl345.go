@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-const modelName = "adxl345"
+const modelName = "accel-adxl345"
 
 // AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
 type AttrConfig struct {
@@ -66,8 +66,17 @@ func init() {
 type adxl345 struct {
 	bus        board.I2C
 	i2cAddress byte
-	mu         sync.Mutex
 	logger     golog.Logger
+
+	// Lock the mutex when you want to read or write either the acceleration or the last error.
+	mu                 sync.Mutex
+	linearAcceleration r3.Vector
+	lastError          error
+
+	// Used to shut down the background goroutine which polls the sensor.
+	backgroundContext       context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
 
 	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
@@ -100,10 +109,14 @@ func NewAdxl345(
 		address = 0x53
 	}
 
+	backgroundContext, cancelFunc := context.WithCancel(ctx)
+
 	sensor := &adxl345{
-		bus:        bus,
-		i2cAddress: address,
-		logger:     logger,
+		bus:               bus,
+		i2cAddress:        address,
+		logger:            logger,
+		backgroundContext: backgroundContext,
+		cancelFunc:        cancelFunc,
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -124,6 +137,11 @@ func NewAdxl345(
 	if err != nil {
 		return nil, errors.Errorf("unable to put ADXL345 into measurement mode: '%s'", err.Error())
 	}
+
+	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
+	// the object we created.
+	sensor.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(sensor.pollData)
 
 	return sensor, nil
 }
@@ -172,19 +190,63 @@ func toSignedValue(data []byte) int {
 	return int(int16(binary.LittleEndian.Uint16(data)))
 }
 
+// Given a value, scales it so that the range of int16s becomes the range of +/- maxValue.
+func setScale(value int, maxValue float64) float64 {
+	return float64(value) * maxValue / (1 << 15)
+}
+
+func (adxl *adxl345) pollData() {
+	defer adxl.activeBackgroundWorkers.Done()
+	// Reading data a thousand times per second is probably fast enough.
+	timer := time.NewTicker(time.Millisecond)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <- adxl.backgroundContext.Done():
+			return
+		case <- timer.C:
+			// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
+			rawData, err := adxl.readBlock(ctx, 0x32, 6)
+			if err != nil {
+				adxl.mu.Lock()
+				adxl.lastError = err
+				adxl.mu.Unlock()
+				continue
+			}
+
+			linearAcceleration := toLinearAcceleration(rawData)
+			// Only lock the mutex to write to the shared data, so other threads can read the data
+			// as often as they want.
+			adxl.mu.Lock()
+			adxl.linearAcceleration = linearAcceleration
+			adxl.mu.Unlock()
+		}
+	}
+}
+
+func toLinearAcceleration(data []byte) r3.Vector {
+	x := toSignedValue(data[0:2])
+	y := toSignedValue(data[2:4])
+	z := toSignedValue(data[4:6])
+
+	// The default scale is +/- 2G's, but our units should be mm/sec/sec.
+	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
+	return r3.Vector{
+		X: setScale(x, maxAcceleration),
+		Y: setScale(y, maxAcceleration),
+		Z: setScale(z, maxAcceleration),
+	}
+}
+
 func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-	// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-	rawData, err := adxl.readBlock(ctx, 0x32, 6)
-	if err != nil {
-		return nil, err
-	}
 
-	x := toSignedValue(rawData[0:2])
-	y := toSignedValue(rawData[2:4])
-	z := toSignedValue(rawData[4:6])
-	return map[string]interface{}{"x": x, "y": y, "z": z}, nil
+	// We're going to return the most recent error, if any, and then clear it.
+	lastError := adxl.lastError
+	adxl.lastError = nil
+	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, lastError
 }
 
 // Puts the chip into standby mode.
@@ -194,6 +256,6 @@ func (adxl *adxl345) Close(ctx context.Context) {
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, 0x2D, 0x00)
 	if err != nil {
-		adxl.logger.Error(err)
+		adxl.logger.Errorf("Unable to turn off ADXL345 accelerometer: '%s'", err)
 	}
 }
