@@ -340,6 +340,9 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 	return nil, nil
 }
 
+// TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
+//       If so, how could a user cancel it?
+
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
@@ -441,15 +444,16 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-	// TODO: don't cancel in progress arbitrary file uploads on Update unless sync has been disabled or
-	//       additional_sync_paths has changed.
 	svc.cancelSyncBackgroundRoutine()
-	svc.closeSyncer()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-		if err := svc.initSyncer(cfg); err != nil {
-			return err
+		if svc.syncer == nil {
+			if err := svc.initSyncer(cfg); err != nil {
+				return err
+			}
 		}
 		svc.startSyncBackgroundRoutine(svc.syncIntervalMins)
+	} else {
+		svc.closeSyncer()
 	}
 
 	return nil
