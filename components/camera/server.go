@@ -60,7 +60,7 @@ func (s *subtypeServer) GetImage(
 
 	// Determine the mimeType we should try to use based on camera properties
 	if req.MimeType == "" {
-		if val, ok := s.imgTypes[req.Name]; !ok {
+		if _, ok := s.imgTypes[req.Name]; !ok {
 			props, err := cam.Properties(ctx)
 			if err != nil {
 				s.logger.Warnf("camera properties not found for %s, assuming color images: %v", req.Name, err)
@@ -68,8 +68,6 @@ func (s *subtypeServer) GetImage(
 			} else {
 				s.imgTypes[req.Name] = props.ImageType
 			}
-		} else {
-			s.logger.Warnf("No need to trip, we found %v", val)
 		}
 		switch s.imgTypes[req.Name] {
 		case ColorStream, UnspecifiedStream:
