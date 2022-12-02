@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"fmt"
 	"encoding/binary"
 	"encoding/json"
 	"math"
