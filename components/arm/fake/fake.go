@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
@@ -98,16 +97,11 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		return nil, err
 	}
 
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Arm{
 		Name:   cfg.Name,
 		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
-		mp:     mp,
 		model:  model,
+		logger: logger,
 	}, nil
 }
 
@@ -116,8 +110,8 @@ type Arm struct {
 	generic.Echo
 	Name       string
 	joints     *pb.JointPositions
-	mp         motionplan.MotionPlanner
 	CloseCount int
+	logger     golog.Logger
 	model      referenceframe.Model
 }
 
@@ -132,21 +126,21 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition sets the position.
 func (a *Arm) MoveToPosition(
 	ctx context.Context,
 	pos spatialmath.Pose,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, a.model.InputFromProtobuf(joints), nil)
+	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), nil)
 	if err != nil {
 		return err
 	}

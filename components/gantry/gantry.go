@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -72,7 +71,7 @@ type Gantry interface {
 	// MoveToPosition is in meters
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *referenceframe.WorldState, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
@@ -162,7 +161,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 // WrapWithReconfigurable wraps a gantry or localGantry with a reconfigurable
 // and locking interface.
-func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -171,7 +170,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	rGantry := &reconfigurableGantry{actual: g}
+	rGantry := &reconfigurableGantry{name: name, actual: g}
 	gLocal, ok := r.(LocalGantry)
 	if !ok {
 		return rGantry, nil
@@ -192,7 +191,12 @@ var (
 
 type reconfigurableGantry struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Gantry
+}
+
+func (g *reconfigurableGantry) Name() resource.Name {
+	return g.name
 }
 
 func (g *reconfigurableGantry) ProxyFor() interface{} {
@@ -225,7 +229,7 @@ func (g *reconfigurableGantry) Lengths(ctx context.Context, extra map[string]int
 func (g *reconfigurableGantry) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	g.mu.Lock()

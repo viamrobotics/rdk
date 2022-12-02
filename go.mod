@@ -40,7 +40,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.2
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3
 	github.com/invopop/jsonschema v0.6.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jedib0t/go-pretty/v6 v6.3.3
@@ -72,14 +72,14 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.6-0.20221111224649-b590360c6265
+	go.viam.com/api v0.1.12
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.5-0.20221114215037-b710cbb9b4e1
+	go.viam.com/utils v0.1.5-0.20221130171221-05b38aebe11e
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
+	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69
 	golang.org/x/tools v0.1.12
-	gonum.org/v1/gonum v0.11.0
+	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.11.0
 	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
 	google.golang.org/grpc v1.50.1
@@ -372,7 +372,7 @@ require (
 )
 
 //replace go.viam.com/api => ../api
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221122211855-f5d92fb9aaf3
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221202202559-36c73633d1bb
 
 //replace go.viam.com/utils => ../goutils
-replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221122194027-9cdfad490212
+replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221202202521-de8cc39af99b

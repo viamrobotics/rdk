@@ -11,7 +11,7 @@ import (
 // solutions to the provided channel until cancelled or otherwise completes.
 type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
-	Solve(ctx context.Context, c chan<- []referenceframe.Input, goal spatial.Pose, seed []referenceframe.Input, m Metric) error
+	Solve(context.Context, chan<- []referenceframe.Input, spatial.Pose, []referenceframe.Input, Metric, int) error
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {

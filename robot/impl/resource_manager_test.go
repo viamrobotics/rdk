@@ -13,7 +13,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
 	boardpb "go.viam.com/api/component/board/v1"
@@ -492,7 +491,7 @@ func TestManagerAdd(t *testing.T) {
 		ctx context.Context,
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, nil
@@ -1643,7 +1642,12 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
 	registry.RegisterResourceSubtype(
 		subtype,
-		registry.ResourceSubtype{Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) { return nil, nil }},
+		registry.ResourceSubtype{Reconfigurable: func(
+			resource interface{},
+			name resource.Name,
+		) (resource.Reconfigurable, error) {
+			return nil, nil
+		}},
 	)
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
@@ -1719,15 +1723,21 @@ func TestUpdateConfig(t *testing.T) {
 
 var _ = resource.Reconfigurable(&mock{})
 
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	sMock, _ := s.(*mock)
 	sMock.wrap++
+	sMock.name = name
 	return sMock, nil
 }
 
 type mock struct {
+	name          resource.Name
 	wrap          int
 	reconfigCount int
+}
+
+func (m *mock) Name() resource.Name {
+	return m.name
 }
 
 func (m *mock) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
@@ -1789,7 +1799,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (interface{}, error) {
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
 func (rr *dummyRobot) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (framesystemparts.Parts, error) {
 	panic("change to return nil")
 }
@@ -1798,7 +1808,7 @@ func (rr *dummyRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	panic("change to return nil")
 }

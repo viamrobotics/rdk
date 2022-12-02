@@ -264,21 +264,21 @@ func TestMotorName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualMotor1 motor.Motor = &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = motor.WrapWithReconfigurable(nil)
+	_, err = motor.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedInterfaceError(nil))
 
-	reconfMotor2, err := motor.WrapWithReconfigurable(reconfMotor1)
+	reconfMotor2, err := motor.WrapWithReconfigurable(reconfMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMotor2, test.ShouldEqual, reconfMotor1)
 
 	var actualMotor2 motor.LocalMotor = &mockLocal{Name: testMotorName}
-	reconfMotor3, err := motor.WrapWithReconfigurable(actualMotor2)
+	reconfMotor3, err := motor.WrapWithReconfigurable(actualMotor2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	reconfMotor4, err := motor.WrapWithReconfigurable(reconfMotor3)
+	reconfMotor4, err := motor.WrapWithReconfigurable(reconfMotor3, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMotor4, test.ShouldResemble, reconfMotor3)
 
@@ -288,11 +288,11 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 func TestReconfigurableMotor(t *testing.T) {
 	actualMotor1 := &mockLocal{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualMotor2 := &mockLocal{Name: testMotorName2}
-	reconfMotor2, err := motor.WrapWithReconfigurable(actualMotor2)
+	reconfMotor2, err := motor.WrapWithReconfigurable(actualMotor2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMotor1.reconfCount, test.ShouldEqual, 0)
 
@@ -314,7 +314,7 @@ func TestReconfigurableMotor(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMotor1, nil))
 
 	actualMotor3 := &mock{Name: failMotorName}
-	reconfMotor3, err := motor.WrapWithReconfigurable(actualMotor3)
+	reconfMotor3, err := motor.WrapWithReconfigurable(actualMotor3, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMotor3, test.ShouldNotBeNil)
 
@@ -328,7 +328,7 @@ func TestReconfigurableMotor(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfMotor3, reconfMotor1))
 
 	actualMotor4 := &mock{Name: testMotorName2}
-	reconfMotor4, err := motor.WrapWithReconfigurable(actualMotor4)
+	reconfMotor4, err := motor.WrapWithReconfigurable(actualMotor4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfMotor4, test.ShouldNotBeNil)
 
@@ -339,7 +339,7 @@ func TestReconfigurableMotor(t *testing.T) {
 
 func TestSetPower(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.powerCount, test.ShouldEqual, 0)
@@ -350,7 +350,7 @@ func TestSetPower(t *testing.T) {
 
 func TestGoFor(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.goForCount, test.ShouldEqual, 0)
@@ -361,7 +361,7 @@ func TestGoFor(t *testing.T) {
 
 func TestGoTo(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.goToCount, test.ShouldEqual, 0)
@@ -372,7 +372,7 @@ func TestGoTo(t *testing.T) {
 
 func TestResetZeroPosition(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.zeroCount, test.ShouldEqual, 0)
@@ -383,7 +383,7 @@ func TestResetZeroPosition(t *testing.T) {
 
 func TestPosition(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
@@ -395,7 +395,7 @@ func TestPosition(t *testing.T) {
 
 func TestProperties(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.featuresCount, test.ShouldEqual, 0)
@@ -407,7 +407,7 @@ func TestProperties(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.stopCount, test.ShouldEqual, 0)
@@ -418,7 +418,7 @@ func TestStop(t *testing.T) {
 
 func TestIsPowered(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.poweredCount, test.ShouldEqual, 0)
@@ -430,7 +430,7 @@ func TestIsPowered(t *testing.T) {
 
 func TestGoTillStop(t *testing.T) {
 	actualMotor := &mockLocal{Name: testMotorName}
-	reconfMotor, err := motor.WrapWithReconfigurable(actualMotor)
+	reconfMotor, err := motor.WrapWithReconfigurable(actualMotor, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor.goTillStopCount, test.ShouldEqual, 0)
@@ -441,7 +441,7 @@ func TestGoTillStop(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.reconfCount, test.ShouldEqual, 0)
@@ -451,7 +451,7 @@ func TestClose(t *testing.T) {
 
 func TestExtra(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
-	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
+	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.extra, test.ShouldEqual, nil)

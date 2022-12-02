@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
@@ -103,7 +102,7 @@ func newMultiAxis(
 func (g *multiAxis) MoveToPosition(
 	ctx context.Context,
 	positions []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	ctx, done := g.opMgr.New(ctx)
@@ -144,7 +143,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &commonpb.WorldState{}, nil)
+		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &referenceframe.WorldState{}, nil)
 		if err != nil {
 			return err
 		}

@@ -139,13 +139,11 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 type WebcamAttrs struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
-	Format               string                             `json:"format"`
-	Path                 string                             `json:"video_path"`
-	PathPattern          string                             `json:"video_path_pattern"`
-	Width                int                                `json:"width_px"`
-	Height               int                                `json:"height_px"`
+	Format               string                             `json:"format,omitempty"`
+	Path                 string                             `json:"video_path,omitempty"`
+	Width                int                                `json:"width_px,omitempty"`
+	Height               int                                `json:"height_px,omitempty"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
@@ -196,55 +194,54 @@ func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediad
 	}
 }
 
-// NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
-	var err error
-
+// findCamera finds a video device and returns a camera with that video device as the source.
+func findCamera(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	debug := attrs.Debug
-
 	constraints := makeConstraints(attrs, debug, logger)
-
 	if attrs.Path != "" {
-		cam, err := tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
-		if err != nil {
-			return cam, err
-		}
-
-		goutils.PanicCapturingGo(func() {
-			src, err := camera.SourceFromCamera(cam)
-			if err != nil {
-				logger.Debugw("cannot get source from camera", "error", err)
-				return
-			}
-			defer func() {
-				if err := cam.Close(ctx); err != nil {
-					logger.Debugw("failed to close camera", "error", err)
-				}
-			}()
-			for {
-				if goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
-					// mediadevices connects to the OS to get the properties for a driver. If the OS no longer knows
-					// about a specific driver then properties will be empty, and we can safely assume the driver no
-					// longer exists and should be closed.
-					if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
-						logger.Debug("closing camera")
-						return
-					}
-				} else {
-					return
-				}
-			}
-		})
-
-		return cam, err
+		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
 	}
 
 	source, err := gostream.GetAnyVideoSource(constraints, logger)
 	if err != nil {
-		return nil, errors.Wrapf(err, "found no webcams")
+		return nil, errors.Wrap(err, "found no webcams")
+	}
+	return makeCameraFromSource(ctx, source, attrs)
+}
+
+// NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
+func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
+	cam, err := findCamera(ctx, attrs, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not find video source for camera")
 	}
 
-	return makeCameraFromSource(ctx, source, attrs)
+	goutils.PanicCapturingGo(func() {
+		src, err := camera.SourceFromCamera(cam)
+		if err != nil {
+			logger.Debugw("cannot get source from camera", "error", err)
+			return
+		}
+
+		defer func() {
+			logger.Debug("closing camera")
+			goutils.UncheckedError(cam.Close(ctx))
+		}()
+		for {
+			if goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+				// mediadevices connects to the OS to get the properties for a driver. If the OS no longer knows
+				// about a specific driver then properties will be empty, and we can safely assume the driver no
+				// longer exists and should be closed.
+				if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
+					return
+				}
+			} else {
+				return
+			}
+		}
+	})
+
+	return cam, nil
 }
 
 // tryWebcamOpen uses getNamedVideoSource to try and find a video device (gostream.MediaSource).
@@ -277,7 +274,7 @@ func makeCameraFromSource(ctx context.Context,
 		ctx,
 		source,
 		&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
-		camera.StreamType(attrs.Stream),
+		camera.ColorStream,
 	)
 }
 

@@ -53,6 +53,7 @@ var (
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
+	remoteName      string
 	address         string
 	conn            rpc.ClientConn
 	client          pb.RobotServiceClient
@@ -182,6 +183,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	closeCtx, cancel := context.WithCancel(ctx)
 
 	rc := &RobotClient{
+		remoteName:              rOpts.remoteName,
 		address:                 address,
 		cancelBackgroundWorkers: cancel,
 		mu:                      &sync.RWMutex{},
@@ -523,7 +525,7 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 	if c.Reconfigurable == nil {
 		return resourceClient, nil
 	}
-	return c.Reconfigurable(resourceClient)
+	return c.Reconfigurable(resourceClient, name.PrependRemote(resource.RemoteName(rc.remoteName)))
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
@@ -727,10 +729,15 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (rc *RobotClient) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
-	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{
-		SupplementalTransforms: additionalTransforms,
-	})
+func (rc *RobotClient) FrameSystemConfig(
+	ctx context.Context,
+	additionalTransforms []*referenceframe.PoseInFrame,
+) (framesystemparts.Parts, error) {
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{SupplementalTransforms: transforms})
 	if err != nil {
 		return nil, err
 	}
@@ -751,12 +758,16 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (*referenceframe.PoseInFrame, error) {
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
 		Destination:            destination,
 		Source:                 referenceframe.PoseInFrameToProtobuf(query),
-		SupplementalTransforms: additionalTransforms,
+		SupplementalTransforms: transforms,
 	})
 	if err != nil {
 		return nil, err

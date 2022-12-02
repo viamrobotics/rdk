@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	mc, ok := r.(Gizmo)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
@@ -21,7 +21,7 @@ func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := mc.(*reconfigurableGizmo); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableGizmo{actual: mc}, nil
+	return &reconfigurableGizmo{actual: mc, name: name}, nil
 }
 
 var (
@@ -31,6 +31,7 @@ var (
 
 type reconfigurableGizmo struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Gizmo
 }
 
@@ -82,4 +83,10 @@ func (g *reconfigurableGizmo) Reconfigure(ctx context.Context, newGizmo resource
 	}
 	g.actual = actual.actual
 	return nil
+}
+
+func (g *reconfigurableGizmo) Name() resource.Name {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.name
 }

@@ -106,24 +106,24 @@ func TestGenericName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualGeneric1 generic.Generic = &mock{Name: testGenericName}
-	reconfGeneric1, err := generic.WrapWithReconfigurable(actualGeneric1)
+	reconfGeneric1, err := generic.WrapWithReconfigurable(actualGeneric1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = generic.WrapWithReconfigurable(nil)
+	_, err = generic.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, generic.NewUnimplementedInterfaceError(nil))
 
-	reconfGeneric2, err := generic.WrapWithReconfigurable(reconfGeneric1)
+	reconfGeneric2, err := generic.WrapWithReconfigurable(reconfGeneric1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGeneric2, test.ShouldEqual, reconfGeneric1)
 }
 
 func TestReconfigurableGeneric(t *testing.T) {
 	actualGeneric1 := &mock{Name: testGenericName}
-	reconfGeneric1, err := generic.WrapWithReconfigurable(actualGeneric1)
+	reconfGeneric1, err := generic.WrapWithReconfigurable(actualGeneric1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualGeneric2 := &mock{Name: testGenericName2}
-	reconfGeneric2, err := generic.WrapWithReconfigurable(actualGeneric2)
+	reconfGeneric2, err := generic.WrapWithReconfigurable(actualGeneric2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualGeneric1.reconfCount, test.ShouldEqual, 0)
 
@@ -147,7 +147,7 @@ func TestReconfigurableGeneric(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualGeneric1 := &mock{Name: testGenericName}
-	reconfGeneric1, err := generic.WrapWithReconfigurable(actualGeneric1)
+	reconfGeneric1, err := generic.WrapWithReconfigurable(actualGeneric1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualGeneric1.reconfCount, test.ShouldEqual, 0)

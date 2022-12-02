@@ -52,7 +52,7 @@ type Summation interface {
 	Sum(ctx context.Context, nums []float64) (float64, error)
 }
 
-func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	mc, ok := r.(Summation)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError((Summation)(nil), r)
@@ -60,7 +60,7 @@ func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := mc.(*reconfigurableSummation); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableSummation{actual: mc}, nil
+	return &reconfigurableSummation{actual: mc, name: name}, nil
 }
 
 var (
@@ -70,6 +70,7 @@ var (
 
 type reconfigurableSummation struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Summation
 }
 
@@ -97,6 +98,12 @@ func (g *reconfigurableSummation) Sum(ctx context.Context, nums []float64) (floa
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual.Sum(ctx, nums)
+}
+
+func (g *reconfigurableSummation) Name() resource.Name {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.name
 }
 
 // subtypeServer implements the Summation RPC service from summation.proto.

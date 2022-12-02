@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -21,27 +22,41 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-func TestGPIOInput(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+type setupResult struct {
+	ctx                                            context.Context
+	logger                                         *zap.SugaredLogger
+	b                                              *fakeboard.Board
+	dev                                            input.Controller
+	btn1Callbacks, btn2Callbacks                   int64
+	axis1Callbacks, axis2Callbacks, axis3Callbacks int64
+	axis1Time, axis2Time                           time.Time
+	axisMu                                         sync.RWMutex
+}
 
-	b := &fakeboard.Board{
+func setup(t *testing.T) *setupResult {
+	t.Helper()
+	s := setupResult{}
+
+	s.ctx = context.Background()
+	s.logger = golog.NewTestLogger(t)
+
+	s.b = &fakeboard.Board{
 		Digitals: map[string]board.DigitalInterrupt{},
 		Analogs:  map[string]*fakeboard.Analog{},
 	}
 
-	b.Analogs["analog1"] = &fakeboard.Analog{}
-	b.Analogs["analog2"] = &fakeboard.Analog{}
-	b.Analogs["analog3"] = &fakeboard.Analog{}
+	s.b.Analogs["analog1"] = &fakeboard.Analog{}
+	s.b.Analogs["analog2"] = &fakeboard.Analog{}
+	s.b.Analogs["analog3"] = &fakeboard.Analog{}
 
 	var err error
-	b.Digitals["interrupt1"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
+	s.b.Digitals["interrupt1"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
-	b.Digitals["interrupt2"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
+	s.b.Digitals["interrupt2"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
 	deps := make(registry.Dependencies)
-	deps[board.Named("main")] = b
+	deps[board.Named("main")] = s.b
 
 	ic := gpio.Config{
 		Board: "main",
@@ -49,7 +64,7 @@ func TestGPIOInput(t *testing.T) {
 			"interrupt1": {
 				Control:    input.ButtonNorth,
 				Invert:     false,
-				DebounceMs: 0,
+				DebounceMs: 20,
 			},
 			"interrupt2": {
 				Control:    input.ButtonSouth,
@@ -94,419 +109,423 @@ func TestGPIOInput(t *testing.T) {
 	inputReg := registry.ComponentLookup(input.Subtype, resource.NewDefaultModel("gpio"))
 	test.That(t, inputReg, test.ShouldNotBeNil)
 
-	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)
+	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, s.logger)
 	test.That(t, err, test.ShouldBeNil)
-	dev, ok := res.(input.Controller)
+
+	var ok bool
+	s.dev, ok = res.(input.Controller)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, dev, test.ShouldNotBeNil)
+	test.That(t, s.dev, test.ShouldNotBeNil)
 
-	var btn1Callbacks, btn2Callbacks int64
-	var axis1Callbacks, axis2Callbacks, axis3Callbacks int64
-	var axis1Time, axis2Time time.Time
-	var axisMu sync.RWMutex
-
-	err = dev.RegisterControlCallback(ctx, input.ButtonNorth, []input.EventType{input.ButtonChange},
+	err = s.dev.RegisterControlCallback(s.ctx, input.ButtonNorth, []input.EventType{input.ButtonChange},
 		func(ctx context.Context, event input.Event) {
-			atomic.AddInt64(&btn1Callbacks, 1)
+			atomic.AddInt64(&s.btn1Callbacks, 1)
 		},
 		map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = dev.RegisterControlCallback(ctx, input.ButtonSouth, []input.EventType{input.ButtonChange},
+	err = s.dev.RegisterControlCallback(s.ctx, input.ButtonSouth, []input.EventType{input.ButtonChange},
 		func(ctx context.Context, event input.Event) {
-			atomic.AddInt64(&btn2Callbacks, 1)
+			atomic.AddInt64(&s.btn2Callbacks, 1)
 		},
 		map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = dev.RegisterControlCallback(ctx, input.AbsoluteX, []input.EventType{input.PositionChangeAbs},
+	err = s.dev.RegisterControlCallback(s.ctx, input.AbsoluteX, []input.EventType{input.PositionChangeAbs},
 		func(ctx context.Context, event input.Event) {
-			axisMu.Lock()
-			axis1Time = time.Now()
-			axisMu.Unlock()
-			atomic.AddInt64(&axis1Callbacks, 1)
+			s.axisMu.Lock()
+			s.axis1Time = time.Now()
+			s.axisMu.Unlock()
+			atomic.AddInt64(&s.axis1Callbacks, 1)
 		},
 		map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = dev.RegisterControlCallback(ctx, input.AbsoluteY, []input.EventType{input.PositionChangeAbs},
+	err = s.dev.RegisterControlCallback(s.ctx, input.AbsoluteY, []input.EventType{input.PositionChangeAbs},
 		func(ctx context.Context, event input.Event) {
-			axisMu.Lock()
-			axis2Time = time.Now()
-			axisMu.Unlock()
-			atomic.AddInt64(&axis2Callbacks, 1)
+			s.axisMu.Lock()
+			s.axis2Time = time.Now()
+			s.axisMu.Unlock()
+			atomic.AddInt64(&s.axis2Callbacks, 1)
 		},
 		map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = dev.RegisterControlCallback(ctx, input.AbsoluteRX, []input.EventType{input.PositionChangeAbs},
+	err = s.dev.RegisterControlCallback(s.ctx, input.AbsoluteRX, []input.EventType{input.PositionChangeAbs},
 		func(ctx context.Context, event input.Event) {
-			atomic.AddInt64(&axis3Callbacks, 1)
+			atomic.AddInt64(&s.axis3Callbacks, 1)
 		},
 		map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	defer func() {
-		test.That(t, utils.TryClose(context.Background(), dev), test.ShouldBeNil)
-	}()
+	return &s
+}
 
-	// Test initial button state
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
-		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.Connect)
-	})
+func teardown(t *testing.T, s *setupResult) {
+	t.Helper()
+	test.That(t, utils.TryClose(context.Background(), s.dev), test.ShouldBeNil)
+}
 
-	// Test normal button press
-	err = b.Digitals["interrupt1"].Tick(ctx, true, uint64(time.Now().UnixNano()))
-	test.That(t, err, test.ShouldBeNil)
+func TestGPIOInput(t *testing.T) {
+	t.Run("initial button state", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
 
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 1)
-		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonPress)
-		test.That(tb, atomic.LoadInt64(&btn1Callbacks), test.ShouldEqual, 1)
-	})
-
-	err = b.Digitals["interrupt1"].Tick(ctx, false, uint64(time.Now().UnixNano()))
-	test.That(t, err, test.ShouldBeNil)
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
-		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonRelease)
-		test.That(tb, atomic.LoadInt64(&btn1Callbacks), test.ShouldEqual, 2)
-	})
-
-	// Test debounce at 5ms (default)
-	for i := 0; i < 20; i++ {
-		err = b.Digitals["interrupt1"].Tick(ctx, false, uint64(time.Now().UnixNano()))
-		test.That(t, err, test.ShouldBeNil)
-		err = b.Digitals["interrupt1"].Tick(ctx, true, uint64(time.Now().UnixNano()))
-		test.That(t, err, test.ShouldBeNil)
-	}
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 1)
-		test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonPress)
-		test.That(tb, atomic.LoadInt64(&btn1Callbacks), test.ShouldEqual, 3)
-	})
-
-	time.Sleep(time.Millisecond * 10)
-	test.That(t, atomic.LoadInt64(&btn1Callbacks), test.ShouldEqual, 3)
-
-	// Test inverted, non-debounced button
-
-	// Test initial button state
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 0)
-		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.Connect)
-	})
-
-	// Test inverted button press
-	err = b.Digitals["interrupt2"].Tick(ctx, true, uint64(time.Now().UnixNano()))
-	test.That(t, err, test.ShouldBeNil)
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 0)
-		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonRelease)
-		test.That(tb, atomic.LoadInt64(&btn2Callbacks), test.ShouldEqual, 1)
-	})
-
-	err = b.Digitals["interrupt2"].Tick(ctx, false, uint64(time.Now().UnixNano()))
-	test.That(t, err, test.ShouldBeNil)
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
-		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
-		test.That(tb, atomic.LoadInt64(&btn2Callbacks), test.ShouldEqual, 2)
-	})
-
-	// Test with debounce disabled
-	for i := 0; i < 20; i++ {
-		err = b.Digitals["interrupt2"].Tick(ctx, true, uint64(time.Now().UnixNano()))
-		test.That(t, err, test.ShouldBeNil)
-		time.Sleep(time.Millisecond)
-		err = b.Digitals["interrupt2"].Tick(ctx, false, uint64(time.Now().UnixNano()))
-		test.That(t, err, test.ShouldBeNil)
-		time.Sleep(time.Millisecond)
-	}
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
-		test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
-		test.That(tb, atomic.LoadInt64(&btn2Callbacks), test.ShouldEqual, 42)
-	})
-
-	time.Sleep(time.Millisecond * 10)
-	test.That(t, atomic.LoadInt64(&btn2Callbacks), test.ShouldEqual, 42)
-
-	// Test axis1 (default)
-	b.Analogs["analog1"].Set(0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0, 0.005)
-		test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.Connect)
-		test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 0)
-	})
-
-	b.Analogs["analog1"].Set(1023)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 1, 0.005)
-		test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 1)
-	})
-
-	b.Analogs["analog1"].Set(511)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0.5, 0.005)
-		test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 2)
-	})
-
-	// Test deadzone
-	b.Analogs["analog2"].Set(511)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 1)
-	})
-
-	b.Analogs["analog2"].Set(511 + 20)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.04, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 2)
-	})
-
-	b.Analogs["analog2"].Set(511 - 20)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, -0.04, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 3)
-	})
-
-	b.Analogs["analog2"].Set(511 + 19)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 4)
-	})
-
-	b.Analogs["analog2"].Set(511 - 19)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 4)
-	})
-
-	// Test min change (default)
-
-	b.Analogs["analog2"].Set(600)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 5)
-	})
-
-	b.Analogs["analog2"].Set(600 + 14)
-	time.Sleep(time.Millisecond * 30)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 5)
-	})
-
-	b.Analogs["analog2"].Set(600 - 14)
-	time.Sleep(time.Millisecond * 30)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 5)
-	})
-
-	b.Analogs["analog2"].Set(600 - 15)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.14, 0.005)
-		test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 6)
-	})
-
-	// Test negative input and inversion
-
-	b.Analogs["analog3"].Set(5000)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, -1, 0.005)
-		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis3Callbacks), test.ShouldEqual, 1)
-	})
-
-	b.Analogs["analog3"].Set(-1000)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 0.2, 0.005)
-		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis3Callbacks), test.ShouldEqual, 2)
-	})
-
-	// Test range capping
-	b.Analogs["analog3"].Set(-6000)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 1, 0.005)
-		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis3Callbacks), test.ShouldEqual, 3)
-	})
-
-	b.Analogs["analog3"].Set(6000)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, -1, 0.005)
-		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis3Callbacks), test.ShouldEqual, 4)
-	})
-
-	b.Analogs["analog3"].Set(0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 0, 0.005)
-		test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(tb, atomic.LoadInt64(&axis3Callbacks), test.ShouldEqual, 5)
-	})
-
-	// Test poll frequency
-
-	b.Analogs["analog1"].Set(0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0, 0.005)
-		test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 3)
-	})
-
-	target := 0
-	for i := 1; i < 10; i++ {
-		startTime := time.Now()
-		if target == 0 {
-			target = 1
-			b.Analogs["analog1"].Set(1023)
-		} else {
-			target = 0
-			b.Analogs["analog1"].Set(0)
-		}
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			state, err := dev.Events(ctx, map[string]interface{}{})
+			state, err := (s.dev).Events(s.ctx, map[string]interface{}{})
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, target, 0.005)
-			test.That(tb, atomic.LoadInt64(&axis1Callbacks), test.ShouldEqual, 3+i)
+			test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
+			test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.Connect)
+			test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 0)
+			test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.Connect)
 		})
-		axisMu.RLock()
-		test.That(t, axis1Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 110*time.Millisecond)
-		axisMu.RUnlock()
-	}
-
-	b.Analogs["analog2"].Set(0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		state, err := dev.Events(ctx, map[string]interface{}{})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, -1, 0.005)
-		test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 7)
 	})
 
-	target = -1
-	for i := 1; i < 20; i++ {
-		startTime := time.Now()
-		if target == -1 {
-			target = 1
-			b.Analogs["analog2"].Set(1023)
-		} else {
-			target = -1
-			b.Analogs["analog2"].Set(0)
-		}
+	//nolint:dupl
+	t.Run("button press and release", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		err := s.b.Digitals["interrupt1"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			state, err := dev.Events(ctx, map[string]interface{}{})
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, target, 0.005)
-			test.That(tb, atomic.LoadInt64(&axis2Callbacks), test.ShouldEqual, 7+i)
+			test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 1)
+			test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonPress)
+			test.That(tb, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 1)
 		})
-		axisMu.RLock()
-		test.That(t, axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 40*time.Millisecond)
-		axisMu.RUnlock()
-	}
+
+		err = s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
+			test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonRelease)
+			test.That(tb, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 2)
+		})
+	})
+
+	// Testing methodology: Issue many events within the debounce time and confirm that only one is registered
+	// Note: This is a time-sensitive test and is prone to flakiness.
+	t.Run("button press debounce", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		// this loop must complete within the debounce time
+		for i := 0; i < 20; i++ {
+			err := s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
+			test.That(t, err, test.ShouldBeNil)
+			err = s.b.Digitals["interrupt1"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
+			test.That(t, err, test.ShouldBeNil)
+		}
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 1)
+			test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.ButtonPress)
+			test.That(tb, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 1)
+		})
+
+		time.Sleep(time.Millisecond * 10)
+		test.That(t, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 1)
+	})
+
+	//nolint:dupl
+	t.Run("inverted button press and release", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 0)
+			test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonRelease)
+			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, 1)
+		})
+
+		err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
+			test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
+			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, 2)
+		})
+	})
+
+	t.Run("inverted button press with debounce disabled", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		iterations := 50
+
+		for i := 0; i < iterations; i++ {
+			err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
+			test.That(t, err, test.ShouldBeNil)
+			err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
+			test.That(t, err, test.ShouldBeNil)
+		}
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
+			test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
+			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, iterations*2)
+		})
+
+		time.Sleep(time.Millisecond * 10)
+		test.That(t, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, iterations*2)
+	})
+
+	t.Run("axis1 (default)", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0, 0.005)
+			test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.Connect)
+			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 0)
+		})
+
+		s.b.Analogs["analog1"].Set(1023)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 1, 0.005)
+			test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog1"].Set(511)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 0.5, 0.005)
+			test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 2)
+		})
+	})
+
+	t.Run("axis deadzone", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		s.b.Analogs["analog2"].Set(511)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog2"].Set(511 + 20)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.04, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 2)
+		})
+
+		s.b.Analogs["analog2"].Set(511 - 20)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, -0.04, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 3)
+		})
+
+		s.b.Analogs["analog2"].Set(511 + 19)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 4)
+		})
+
+		s.b.Analogs["analog2"].Set(511 - 19)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 4)
+		})
+	})
+
+	t.Run("axis min change (default)", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		s.b.Analogs["analog2"].Set(600)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog2"].Set(600 + 14)
+		time.Sleep(time.Millisecond * 30)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog2"].Set(600 - 14)
+		time.Sleep(time.Millisecond * 30)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.17, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog2"].Set(600 - 15)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 0.14, 0.005)
+			test.That(tb, state["AbsoluteY"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 2)
+		})
+	})
+
+	t.Run("axis negative input and inversion", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		s.b.Analogs["analog3"].Set(5000)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, -1, 0.005)
+			test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog3"].Set(-1000)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 0.2, 0.005)
+			test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 2)
+		})
+	})
+
+	t.Run("axis range capping", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		s.b.Analogs["analog3"].Set(-6000)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 1, 0.005)
+			test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 1)
+		})
+
+		s.b.Analogs["analog3"].Set(6000)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, -1, 0.005)
+			test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 2)
+		})
+
+		s.b.Analogs["analog3"].Set(0)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, state["AbsoluteRX"].Value, test.ShouldAlmostEqual, 0, 0.005)
+			test.That(tb, state["AbsoluteRX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 3)
+		})
+	})
+
+	// Test methodology: Issue n updates and ensure that each update is processed
+	// in the time based on the 'PollHz' config. e.g. a little over 100ms for 10hz.
+	// Note: This is a time-sensitive test and is prone to flakiness.
+	t.Run("axis poll frequency", func(t *testing.T) {
+		s := setup(t)
+		defer teardown(t, s)
+
+		// Note: the first Set() command must be != 0 to trigger a change event
+		target := 0
+		for i := 1; i < 10; i++ {
+			startTime := time.Now()
+			if target == 0 {
+				target = 1
+				s.b.Analogs["analog1"].Set(1023)
+			} else {
+				target = 0
+				s.b.Analogs["analog1"].Set(0)
+			}
+			testutils.WaitForAssertionWithSleep(t, 5*time.Millisecond, 25, func(tb testing.TB) {
+				tb.Helper()
+				state, err := s.dev.Events(s.ctx, map[string]interface{}{})
+				test.That(tb, err, test.ShouldBeNil)
+				test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, target, 0.005)
+				test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i)
+			})
+			s.axisMu.RLock()
+			epsilon := 15 * time.Millisecond
+			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 70*time.Millisecond, 100*time.Millisecond+epsilon)
+			s.axisMu.RUnlock()
+		}
+	})
 }
