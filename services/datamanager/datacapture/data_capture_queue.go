@@ -66,8 +66,8 @@ func (q *Queue) Push(item *v1.SensorData) error {
 	return q.nextFile.WriteNext(item)
 }
 
-// Sync flushes all buffered data to disk and marks any in progress file as complete.
-func (q *Queue) Sync() error {
+// Flush flushes all buffered data to disk and marks any in progress file as complete.
+func (q *Queue) Flush() error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	if q.nextFile == nil {

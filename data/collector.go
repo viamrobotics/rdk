@@ -68,7 +68,7 @@ func (c *collector) Close() {
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if err := c.target.Sync(); err != nil {
+	if err := c.target.Flush(); err != nil {
 		c.logger.Errorw("failed to sync capture queue", "error", err)
 	}
 	c.closed = true
