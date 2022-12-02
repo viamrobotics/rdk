@@ -48,12 +48,61 @@
   </joint>
 
   <link name="world"/>
-  <link name="base_link" />
-  <link name="link1" />
-  <link name="link2" />
-  <link name="link3" />
-  <link name="link4" />
-  <link name="link5" />
-  <link name="link6" />
-  <link name="ee_link" />
+  <link name="base_link">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link1">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link2">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.28"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link3">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.25"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link4">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link5">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link6">
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="ee_link"/>
 </robot>
