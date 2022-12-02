@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"errors"
 	"math"
 	"math/rand"
@@ -391,7 +390,7 @@ IK:
 	return solutions, nil
 }
 
-// Test model loading for different kinematics parameter styles and using FK to compare the results
+// Test model loading for different kinematics parameter styles and using FK to compare the results.
 func TestModelLoadingSVAvsDH(t *testing.T) {
 	numTests := 10000
 
@@ -412,9 +411,9 @@ func TestModelLoadingSVAvsDH(t *testing.T) {
 	}
 }
 
-// Test loading model kinematics of the same arm via ModelJSON parsing and URDF parsing and comparing results
+// Test loading model kinematics of the same arm via ModelJSON parsing and URDF parsing and comparing results.
 func TestKinematicsJSONvsURDF(t *testing.T) {
-	numTests := 1
+	numTests := 100
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -429,7 +428,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		posURDF, err := ComputePosition(mURDF, joints)
 		test.That(t, err, test.ShouldBeNil)
-		fmt.Println(posJSON, "versus", posURDF)
+
 		test.That(t, spatial.PoseAlmostEqual(posJSON, posURDF), test.ShouldBeTrue)
 	}
 }

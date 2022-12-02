@@ -17,55 +17,55 @@ import (
 type URDFConfig struct {
 	XMLName xml.Name `xml:"robot"`
 	Name    string   `xml:"name,attr"`
-	Links   []struct{
+	Links   []struct {
 		XMLName   xml.Name `xml:"link"`
 		Name      string   `xml:"name,attr"`
-		Collision []struct{
+		Collision []struct {
 			XMLName xml.Name `xml:"collision"`
 			Name    string   `xml:"name,attr"`
-			Origin  struct{
+			Origin  struct {
 				XMLName xml.Name `xml:"origin"`
-				RPY     string   `xml:"rpy,attr"`  // Fixed frame angle "r p y" format, in radians
-				XYZ     string   `xml:"xyz,attr"`  // "x y z" format, in meters
+				RPY     string   `xml:"rpy,attr"` // Fixed frame angle "r p y" format, in radians
+				XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
 			} `xml:"origin"`
-			Geometry struct{
+			Geometry struct {
 				XMLName xml.Name `xml:"geometry"`
-				Box     struct{
+				Box     struct {
 					XMLName xml.Name `xml:"box"`
-					Size    string   `xml:"size,attr"`  // "x y z" format, in meters
+					Size    string   `xml:"size,attr"` // "x y z" format, in meters
 				} `xml:"box"`
-				Sphere struct{
+				Sphere struct {
 					XMLName xml.Name `xml:"sphere"`
-					Radius  float64   `xml:"radius,attr"`  // in meters
+					Radius  float64  `xml:"radius,attr"` // in meters
 				} `xml:"sphere"`
 			} `xml:"geometry"`
 		} `xml:"collision"`
 	} `xml:"link"`
-	Joints            []struct{
+	Joints []struct {
 		XMLName xml.Name `xml:"joint"`
 		Name    string   `xml:"name,attr"`
 		Type    string   `xml:"type,attr"`
-		Origin  struct{
+		Origin  struct {
 			XMLName xml.Name `xml:"origin"`
-			RPY     string   `xml:"rpy,attr"`  // Fixed frame angle "r p y" format, in radians
-			XYZ     string   `xml:"xyz,attr"`  // "x y z" format, in meters
+			RPY     string   `xml:"rpy,attr"` // Fixed frame angle "r p y" format, in radians
+			XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
 		} `xml:"origin"`
-		Parent struct{
+		Parent struct {
 			XMLName xml.Name `xml:"parent"`
 			Link    string   `xml:"link,attr"`
 		} `xml:"parent"`
-		Child struct{
+		Child struct {
 			XMLName xml.Name `xml:"child"`
 			Link    string   `xml:"link,attr"`
 		} `xml:"child"`
-		Axis struct{
+		Axis struct {
 			XMLName xml.Name `xml:"axis"`
-			XYZ     string   `xml:"xyz,attr"`  // "x y z" format, in meters
+			XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
 		} `xml:"axis"`
-		Limit struct{
+		Limit struct {
 			XMLName xml.Name `xml:"limit"`
-			Lower   float64  `xml:"lower,attr"`  // translation limits are in meters, revolute limits are in radians
-			Upper   float64  `xml:"upper,attr"`  // translation limits are in meters, revolute limits are in radians
+			Lower   float64  `xml:"lower,attr"` // translation limits are in meters, revolute limits are in radians
+			Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
 		} `xml:"limit"`
 	} `xml:"joint"`
 }
@@ -81,7 +81,7 @@ func ParseURDFFile(filename, modelName string) (Model, error) {
 }
 
 // ConvertURDFToConfig will transfer the given URDF XML data into an equivalent Config. Direct conversion to a model in
-// the same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accomodate differences
+// the same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
 func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 	// empty data probably means that the read URDF has no actionable information
@@ -111,17 +111,15 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 	for _, jointElem := range urdf.Joints {
 		jointName := jointElem.Name
 
-		// TODO(wspies): Consider this joint more carefully
-		if strings.Contains(jointName, World) {
+		// Special case in the event that a "world" link is present in the URDF
+		if jointElem.Parent.Link == World {
 			firstLink = jointElem.Child.Link
-			transforms[firstLink] = NewZeroStaticFrame(firstLink)
-			continue
 		}
 
-		// Parse important details about each joint, including axes, limits, and relationships
+		// Parse important details about each joint, including axes and limits
 		jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
 		jointLimits := Limit{Min: jointElem.Limit.Lower, Max: jointElem.Limit.Upper}
-		childMap[jointElem.Parent.Link] = jointName  // This will get used to find the terminal link(s) quickly
+		childMap[jointElem.Parent.Link] = jointName // This will get used to find the terminal link(s) quickly
 		parentMap[jointElem.Child.Link] = jointName
 		parentMap[jointName] = jointElem.Parent.Link
 
@@ -129,13 +127,13 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		switch jointElem.Type {
 		case "continuous", "revolute":
 			if jointElem.Type == "continuous" {
-				jointLimits.Min, jointLimits.Max = -math.Pi, math.Pi  // TODO(wspies): PR comment bait for limit constants
+				jointLimits.Min, jointLimits.Max = -math.Pi, math.Pi
 			}
 			transforms[jointName], err = NewRotationalFrame(jointName,
 				spatial.R4AA{RX: jointAxes[0], RY: jointAxes[1], RZ: jointAxes[2]}, jointLimits)
 		case "prismatic":
 			transforms[jointName], err = NewTranslationalFrame(jointName,
-				r3.Vector{X: jointAxes[0]*1000, Y: jointAxes[1]*1000, Z: jointAxes[2]*1000}, jointLimits)
+				r3.Vector{X: jointAxes[0] * 1000, Y: jointAxes[1] * 1000, Z: jointAxes[2] * 1000}, jointLimits)
 		case "fixed":
 			transforms[jointName] = NewZeroStaticFrame(jointName)
 		default:
@@ -146,7 +144,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		// has geometry data
 		linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 		linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
-		linkPose := spatial.NewPoseFromOrientation(r3.Vector{X: linkXYZ[0]*1000, Y: linkXYZ[1]*1000, Z: linkXYZ[2]*1000},
+		linkPose := spatial.NewPoseFromOrientation(r3.Vector{X: linkXYZ[0] * 1000, Y: linkXYZ[1] * 1000, Z: linkXYZ[2] * 1000},
 			&spatial.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]})
 		transforms[jointElem.Child.Link], err = NewStaticFrame(jointElem.Child.Link, linkPose)
 
@@ -162,8 +160,8 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		linkName := linkElem.Name
 		var refLinkPose spatial.Pose
 
-		// TODO(wspies): Consider this link more carefully
-		if strings.Contains(linkName, World) {
+		// World links are ignored (that is a reserved name) when parsing links.
+		if linkName == World {
 			continue
 		}
 
@@ -183,7 +181,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			offsetXYZ := convStringAttrToFloats(linkElem.Collision[0].Origin.XYZ)
 			offsetRPY := convStringAttrToFloats(linkElem.Collision[0].Origin.RPY)
 			offsetPose := spatial.NewPoseFromOrientation(
-				r3.Vector{X: offsetXYZ[0]*1000, Y: offsetXYZ[1]*1000, Z: offsetXYZ[2]*1000},
+				r3.Vector{X: offsetXYZ[0] * 1000, Y: offsetXYZ[1] * 1000, Z: offsetXYZ[2] * 1000},
 				&spatial.EulerAngles{Roll: offsetRPY[0], Pitch: offsetRPY[1], Yaw: offsetRPY[2]})
 
 			// Select the geometry creator for the appropriate geometry element
@@ -191,11 +189,11 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			var geometryCreator spatial.GeometryCreator
 			if len(boxGeometry.Size) > 0 {
 				boxDims := convStringAttrToFloats(linkElem.Collision[0].Geometry.Box.Size)
-				boxSize := r3.Vector{X: boxDims[0]*1000, Y: boxDims[1]*1000, Z: boxDims[2]*1000}
+				boxSize := r3.Vector{X: boxDims[0] * 1000, Y: boxDims[1] * 1000, Z: boxDims[2] * 1000}
 				geometryCreator, err = spatial.NewBoxCreator(boxSize, offsetPose, linkElem.Collision[0].Name)
 				transforms[linkName], err = NewStaticFrameWithGeometry(linkName, refLinkPose, geometryCreator)
 			} else if sphereGeometry.Radius > 0 {
-				sphereRadius := linkElem.Collision[0].Geometry.Sphere.Radius*1000
+				sphereRadius := linkElem.Collision[0].Geometry.Sphere.Radius * 1000
 				geometryCreator, err = spatial.NewSphereCreator(sphereRadius, offsetPose, linkElem.Collision[0].Name)
 				transforms[linkName], err = NewStaticFrameWithGeometry(linkName, refLinkPose, geometryCreator)
 			} else {
@@ -222,7 +220,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 	return model, nil
 }
 
-// Convenience method to split up space-delimited fields in URDFs, such as xyz or rpy attributes
+// Convenience method to split up space-delimited fields in URDFs, such as xyz or rpy attributes.
 func convStringAttrToFloats(attr string) []float64 {
 	var converted []float64
 	attr_slice := strings.Fields(attr)
