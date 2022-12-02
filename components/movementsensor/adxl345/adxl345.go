@@ -205,9 +205,9 @@ func (adxl *adxl345) pollData() {
 
 	for {
 		select {
-		case <- adxl.backgroundContext.Done():
+		case <-adxl.backgroundContext.Done():
 			return
-		case <- timer.C:
+		case <-timer.C:
 			// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
 			rawData, err := adxl.readBlock(adxl.backgroundContext, 0x32, 6)
 			if err != nil {
