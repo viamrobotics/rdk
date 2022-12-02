@@ -251,7 +251,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", cfg.API)
 	}
-	return nil, subSvc.Add(cfg.ResourceName(), res)
+	return &pb.AddResourceResponse{}, subSvc.Add(cfg.ResourceName(), res)
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.
@@ -347,7 +347,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	if err := utils.TryClose(ctx, comp); err != nil {
 		m.logger.Error(err)
 	}
-	return nil, svc.Remove(name)
+	return &pb.RemoveResourceResponse{}, svc.Remove(name)
 }
 
 // addAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.
