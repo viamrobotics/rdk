@@ -281,7 +281,9 @@ func (mpu *mpu6050) pollData() {
 func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
-	return mpu.angularVelocity, nil
+	lastError := mpu.lastError
+	mpu.lastError = nil
+	return mpu.angularVelocity, lastError
 }
 
 func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -313,7 +315,10 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	readings["temperature_celsius"] = mpu.temperature
 	readings["angular_velocity"] = mpu.angularVelocity
 
-	return readings, nil
+	// Return the last error, if there was one, and clear it.
+	lastError := mpu.lastError
+	mpu.lastError = nil
+	return readings, lastError
 }
 
 func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
