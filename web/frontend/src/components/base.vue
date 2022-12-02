@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { Client, type ServiceError, baseApi, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
@@ -127,7 +127,13 @@ const digestInput = () => {
   req.setAngular(angular);
 
   rcLogConditionally(req);
-  props.client.baseService.setPower(req, new grpc.Metadata(), displayError);
+  props.client.baseService.setPower(req, new grpc.Metadata(), (error) => {
+    displayError(error);
+
+    if (pressed.size <= 0) {
+      stop();
+    }
+  });
 };
 
 const handleKeyDown = (key: Keys) => {
@@ -244,8 +250,21 @@ const handleTabSelect = (tab: Tabs) => {
   }
 };
 
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'hidden') {
+    pressed.clear();
+    stop();
+  }
+};
+
 onMounted(() => {
   initStreamState();
+  window.addEventListener('visibilitychange', handleVisibilityChange);
+});
+
+onUnmounted(() => {
+  stop();
+  window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
 </script>
