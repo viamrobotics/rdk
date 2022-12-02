@@ -187,6 +187,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 				&spatial.EulerAngles{Roll: offsetRPY[0], Pitch: offsetRPY[1], Yaw: offsetRPY[2]})
 
 			// Select the geometry creator for the appropriate geometry element
+			// Note that dimensions are converted from meters to millimeters
 			var geometryCreator spatial.GeometryCreator
 			if len(boxGeometry.Size) > 0 {
 				boxDims := convStringAttrToFloats(linkElem.Collision[0].Geometry.Box.Size)
