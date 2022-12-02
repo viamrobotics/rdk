@@ -30,7 +30,7 @@ func NewUnsupportedJointTypeError(jointType string) error {
 	return errors.Errorf("unsupported joint type detected: %q", jointType)
 }
 
-// NewCircularReferenceError returns an error indicating that a circular path exists somewhere between the end effector and the world
+// NewCircularReferenceError returns an error indicating that a circular path exists somewhere between the end effector and the world.
 func NewCircularReferenceError() error {
 	return errors.Errorf("infinite loop finding path from end effector to world")
 }

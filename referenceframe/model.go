@@ -241,8 +241,8 @@ func floatsToString(inputs []Input) string {
 	return string(b)
 }
 
-// Create an ordered list of transforms given a parent mapping, keeping an eye out for a sentinel string (World)
-func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, start string, finish string) ([]Frame, error) {
+// Create an ordered list of transforms given a parent mapping, keeping an eye out for a sentinel string (World).
+func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, start, finish string) ([]Frame, error) {
 	seen := map[string]bool{}
 
 	nextTransform := unsorted[start]
