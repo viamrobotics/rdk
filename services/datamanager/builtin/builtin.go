@@ -154,7 +154,7 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
-	svc.cancelSyncBackgroundRoutine()
+	svc.cancelSyncScheduler()
 
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
@@ -444,14 +444,17 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-	svc.cancelSyncBackgroundRoutine()
+
+	// TODO DATA-861: this means that the ticker is reset everytime we call Update with sync enabled, regardless of
+	//      whether or not the interval has changed. We should not do that.
+	svc.cancelSyncScheduler()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 		if svc.syncer == nil {
 			if err := svc.initSyncer(cfg); err != nil {
 				return err
 			}
 		}
-		svc.startSyncBackgroundRoutine(svc.syncIntervalMins)
+		svc.startSyncScheduler(svc.syncIntervalMins)
 	} else {
 		svc.closeSyncer()
 	}
@@ -459,13 +462,16 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {
+// startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
+func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.syncRoutineCancelFn = fn
 	svc.uploadData(cancelCtx, intervalMins)
 }
 
-func (svc *builtIn) cancelSyncBackgroundRoutine() {
+// cancelSyncScheduler cancels the goroutine that calls Sync repeatedly if scheduled sync is enabled.
+// It does not close the syncer or any in progress uploads.
+func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 		svc.syncRoutineCancelFn = nil
