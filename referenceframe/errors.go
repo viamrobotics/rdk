@@ -21,3 +21,13 @@ func NewFrameAlreadyExistsError(frameName string) error {
 func NewIncorrectInputLengthError(actual, expected int) error {
 	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
 }
+
+// NewUnsupportedJointTypeError returns an error indicating that a given joint type is not supported by current model parsing.
+func NewUnsupportedJointTypeError(jointType string) error {
+	return errors.Errorf("unsupported joint type detected: %q", jointType)
+}
+
+// NewCircularReferenceError returns an error indicating that a circular path exists somewhere between the end effector and the world
+func NewCircularReferenceError() error {
+	return errors.Errorf("infinite loop finding path from end effector to world")
+}
