@@ -933,7 +933,7 @@ func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error 
 			svc.services[s] = newSvc
 		}
 
-		if rs.RegisterRPCService != nil && svc.rpcServer != nil {
+		if rs.RegisterRPCService != nil {
 			if mod {
 				if err := rs.RegisterRPCService(ctx, svc.modServer, subtypeSvc); err != nil {
 					return err
