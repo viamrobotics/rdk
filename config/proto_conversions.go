@@ -42,6 +42,11 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 		cfg.Auth = *auth
 	}
 
+	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Modules config from proto")
+	}
+
 	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting Components config from proto")
@@ -81,10 +86,12 @@ func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
-	if component.API.Namespace == "" {
-		component.API.Namespace = component.Namespace
-		component.API.ResourceType = resource.ResourceTypeComponent
-		component.API.ResourceSubtype = component.Type
+	if err := component.fixAPI(); err != nil {
+		return nil, errors.Wrap(err, "failed to convert namespace/type/API config")
+	}
+
+	if err := component.Model.Validate(); err != nil {
+		return nil, errors.Wrap(err, "failed to convert component model")
 	}
 
 	proto := pb.ComponentConfig{
@@ -121,29 +128,35 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		return nil, err
 	}
 
-	var api resource.Subtype
-	if strings.ContainsRune(proto.GetApi(), ':') {
-		api, err = resource.NewSubtypeFromString(proto.GetApi())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		api = resource.NewSubtype(
-			resource.Namespace(proto.GetName()),
-			resource.ResourceTypeComponent,
-			resource.SubtypeName(proto.GetType()),
-		)
+	// for consistency, nil out empty maps and configs (otherwise go>proto>go conversion doesn't match)
+	attrs := proto.GetAttributes().AsMap()
+	if len(attrs) == 0 {
+		attrs = nil
+	}
+
+	if len(serviceConfigs) == 0 {
+		serviceConfigs = nil
 	}
 
 	component := Component{
 		Name:          proto.GetName(),
 		Type:          resource.SubtypeName(proto.GetType()),
 		Namespace:     resource.Namespace(proto.GetNamespace()),
-		API:           api,
 		Model:         model,
-		Attributes:    proto.GetAttributes().AsMap(),
+		Attributes:    attrs,
 		DependsOn:     proto.GetDependsOn(),
 		ServiceConfig: serviceConfigs,
+	}
+
+	if strings.ContainsRune(proto.GetApi(), ':') {
+		component.API, err = resource.NewSubtypeFromString(proto.GetApi())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := component.fixAPI(); err != nil {
+		return nil, err
 	}
 
 	if proto.GetFrame() != nil {
@@ -203,12 +216,18 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
+	// for consistency, nil out empty map (otherwise go>proto>go conversion doesn't match)
+	attrs := proto.GetAttributes().AsMap()
+	if len(attrs) == 0 {
+		attrs = nil
+	}
+
 	service := Service{
 		Name:       proto.GetName(),
 		Namespace:  resource.Namespace(proto.GetNamespace()),
 		Type:       resource.SubtypeName(proto.GetType()),
 		Model:      model,
-		Attributes: proto.GetAttributes().AsMap(),
+		Attributes: attrs,
 		DependsOn:  proto.GetDependsOn(),
 	}
 

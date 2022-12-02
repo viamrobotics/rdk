@@ -142,7 +142,7 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 // component configurations.
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
 	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
-	// TODO (@Otterverse) remove this logic when App and other dependencies are updated with triplets.
+	// TODO remove this after (SMURF link triplet issue, APP specific)
 	var nonTriplet bool
 	queries := make([]discovery.Query, 0, len(req.Queries))
 	for _, q := range req.Queries {

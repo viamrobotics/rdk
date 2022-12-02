@@ -102,10 +102,8 @@ func (config *Component) String() string {
 
 // ResourceName returns the  ResourceName for the component.
 func (config *Component) ResourceName() resource.Name {
-	if config.API.Namespace == "" {
-		config.API.Namespace = config.Namespace
-		config.API.ResourceType = resource.ResourceTypeComponent
-		config.API.ResourceSubtype = config.Type
+	if err := config.fixAPI(); err != nil {
+		utils.UncheckedError(err)
 	}
 	remotes := strings.Split(config.Name, ":")
 	if len(remotes) > 1 {
@@ -118,33 +116,37 @@ func (config *Component) ResourceName() resource.Name {
 // Validate ensures all parts of the config are valid and returns dependencies.
 func (config *Component) Validate(path string) ([]string, error) {
 	var deps []string
+	if err := config.fixAPI(); err != nil {
+		return nil, err
+	}
+
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
-	if config.API.Namespace == "" {
-		config.API.Namespace = config.Namespace
-		config.API.ResourceType = resource.ResourceTypeComponent
-		config.API.ResourceSubtype = config.Type
-	}
+
 	if config.Model.Namespace == "" {
 		config.Model.Namespace = resource.ResourceNamespaceRDK
 		config.Model.ModelFamily = resource.DefaultModelFamily
 	}
 
-	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
-		return nil, err
-	}
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
-		return nil, err
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
 	}
+
+	if err := config.Model.Validate(); err != nil {
+		return nil, err
+	}
+
+	// this effectively checks reserved characters and the rest for namespace and type
+	if err := config.API.Validate(); err != nil {
+		return nil, err
+	}
+
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
 		switch v := value.(type) {
@@ -192,10 +194,40 @@ func (config *Component) Get() interface{} {
 	return config
 }
 
+// fixAPI updates Namespace and Type into the API (subtype field), or vice versa, depending on what fields are empty.
+func (config *Component) fixAPI() error {
+	//nolint:gocritic
+	if config.API.Namespace == "" && config.Namespace == "" {
+		config.Namespace = resource.ResourceNamespaceRDK
+		config.API.Namespace = config.Namespace
+	} else if config.API.Namespace == "" {
+		config.API.Namespace = config.Namespace
+	} else {
+		config.Namespace = config.API.Namespace
+	}
+
+	if config.API.ResourceType == "" {
+		config.API.ResourceType = resource.ResourceTypeComponent
+	}
+
+	if config.API.ResourceSubtype == "" {
+		config.API.ResourceSubtype = config.Type
+	} else if config.Type == "" {
+		config.Type = config.API.ResourceSubtype
+	}
+
+	// this shouldn't be able to happen except with directly instantiated config structs
+	if config.API.Namespace != config.Namespace || config.API.ResourceSubtype != config.Type {
+		return errors.New("Component.Namespace and/or Component.Type do not match Component.API field")
+	}
+	return nil
+}
+
 // ParseComponentFlag parses a component flag from command line arguments.
 //
 //nolint:dupl
 func ParseComponentFlag(flag string) (Component, error) {
+	// TODO Needs triplet support for model and API/subtype (SMURF link jira triplet)
 	cmp := Component{}
 	componentParts := strings.Split(flag, ",")
 	for _, part := range componentParts {
@@ -280,6 +312,7 @@ func (config *Service) ResourceName() resource.Name {
 // ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
+	// TODO Needs triplet support (SMURF link jira triplet)
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeService,
@@ -383,6 +416,11 @@ func (config *Service) Validate(path string) ([]string, error) {
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
 	}
+
+	if err := config.Model.Validate(); err != nil {
+		return nil, err
+	}
+
 	var deps []string
 	for key, value := range config.Attributes {
 		switch v := value.(type) {

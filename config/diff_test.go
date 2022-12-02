@@ -18,7 +18,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var fakeModel = resource.NewDefaultModel("fake")
+var (
+	fakeModel = resource.NewDefaultModel("fake")
+	extModel  = resource.NewModel("acme", "test", "model")
+)
 
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
@@ -117,7 +120,7 @@ func TestDiffConfigs(t *testing.T) {
 				Name:      "base1",
 				Type:      base.SubtypeName,
 				API:       base.Subtype,
-				Model:     fakeModel,
+				Model:     extModel,
 				Attributes: config.AttributeMap{
 					"three": float64(3),
 				},
@@ -276,7 +279,7 @@ func TestDiffConfigs(t *testing.T) {
 							Name:      "arm1",
 							Type:      arm.SubtypeName,
 							API:       arm.Subtype,
-							Model:     fakeModel,
+							Model:     extModel,
 							Attributes: config.AttributeMap{
 								"two": float64(2),
 							},

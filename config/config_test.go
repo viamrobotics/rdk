@@ -183,29 +183,35 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidComponents.Components[0].Name = "foo"
+	invalidComponents.Components[0] = config.Component{
+		Name:      "foo",
+		Namespace: "rdk",
+		Type:      "base",
+		Model:     fakeModel,
+	}
+
 	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
-	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1", Model: resource.NewDefaultModel("c1")}
+	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1", Type: "base", Model: resource.NewDefaultModel("c1")}
 	c2 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c2", Model: resource.NewDefaultModel("c2"),
+		Namespace: resource.ResourceNamespaceRDK, Name: "c2", Type: "base", Model: resource.NewDefaultModel("c2"),
 		DependsOn: []string{"c1"},
 	}
 	c3 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c3", Model: resource.NewDefaultModel("c3"),
+		Namespace: resource.ResourceNamespaceRDK, Name: "c3", Type: "base", Model: resource.NewDefaultModel("c3"),
 		DependsOn: []string{"c1", "c2"},
 	}
 	c4 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c4", Model: resource.NewDefaultModel("c4"),
+		Namespace: resource.ResourceNamespaceRDK, Name: "c4", Type: "base", Model: resource.NewDefaultModel("c4"),
 		DependsOn: []string{"c1", "c3"},
 	}
 	c5 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c5", Model: resource.NewDefaultModel("c5"),
+		Namespace: resource.ResourceNamespaceRDK, Name: "c5", Type: "base", Model: resource.NewDefaultModel("c5"),
 		DependsOn: []string{"c2", "c4"},
 	}
-	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6", Model: resource.NewDefaultModel("c6")}
+	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Type: "base", Name: "c6", Model: resource.NewDefaultModel("c6")}
 	c7 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c7", Model: resource.NewDefaultModel("c7"),
+		Namespace: resource.ResourceNamespaceRDK, Name: "c7", Type: "base", Model: resource.NewDefaultModel("c7"),
 		DependsOn: []string{"c6", "c4"},
 	}
 	components := config.Config{

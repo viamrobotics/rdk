@@ -31,6 +31,7 @@ linters:
     - goimports
     - golint
     - gomnd
+    - gomoddirectives #SMURF REMOVE BEFORE MERGE! (Allows replace in go.mod for testing.)
     - ifshort
     - importas
     - interfacebloat
