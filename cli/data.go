@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -18,9 +19,23 @@ import (
 )
 
 const (
-	dataDir     = "data"
-	metadataDir = "metadata"
+	dataDir       = "data"
+	metadataDir   = "metadata"
+	maxRetryCount = 5
+	logEveryN     = 100
 )
+
+func (c *AppClient) SendBinaryDataByFilterRequest(filter *datapb.Filter, last string) (*datapb.BinaryDataByFilterResponse, error) {
+	return c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
+		DataRequest: &datapb.DataRequest{
+			Filter: filter,
+			Limit:  1,
+			Last:   last,
+		},
+		IncludeBinary: true,
+		CountOnly:     false,
+	})
+}
 
 // BinaryData downloads binary data matching filter to dst.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
@@ -33,16 +48,17 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	}
 
 	var last string
+	i := 0
+	dataDir := filepath.Join(dst, "data")
 	for {
-		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
-			DataRequest: &datapb.DataRequest{
-				Filter: filter,
-				Limit:  1,
-				Last:   last,
-			},
-			IncludeBinary: true,
-			CountOnly:     false,
-		})
+		var err error
+		var resp *datapb.BinaryDataByFilterResponse
+		for count := 0; count < maxRetryCount; i++ {
+			resp, err = c.SendBinaryDataByFilterRequest(filter, last)
+			if err == nil {
+				break
+			}
+		}
 		if err != nil {
 			return errors.Wrapf(err, "received error from server")
 		}
@@ -65,7 +81,9 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		//nolint:gosec
-		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetMetadata().GetId()+".json"))
+		timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+		fileName := filepath.Join(dst, "metadata", timeRequested+"-"+datum.GetMetadata().GetId()+".json")
+		jsonFile, err := os.Create(fileName)
 		if err != nil {
 			return err
 		}
@@ -80,7 +98,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		//nolint:gosec
-		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
+		fileName = timeRequested + "-" + datum.GetMetadata().GetId() + datum.GetMetadata().GetFileExt()
+		dataFile, err := os.Create(filepath.Join(dataDir, fileName))
 		if err != nil {
 			return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
 		}
@@ -91,8 +110,15 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		if err := r.Close(); err != nil {
 			return err
 		}
+		i += 1
+		if i%logEveryN == 0 {
+			fmt.Fprintf(c.c.App.Writer, "downloaded %d total files\n", i)
+		}
 	}
-
+	if i%logEveryN != 0 {
+		fmt.Println(dataDir)
+		fmt.Fprintf(c.c.App.Writer, "downloaded %d total files to %s\n", i, dataDir)
+	}
 	return nil
 }
 
