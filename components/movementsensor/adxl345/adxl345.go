@@ -8,8 +8,10 @@ import (
 	"context"
 	"encoding/binary"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -207,7 +209,7 @@ func (adxl *adxl345) pollData() {
 			return
 		case <- timer.C:
 			// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-			rawData, err := adxl.readBlock(ctx, 0x32, 6)
+			rawData, err := adxl.readBlock(adxl.backgroundContext, 0x32, 6)
 			if err != nil {
 				adxl.mu.Lock()
 				adxl.lastError = err
@@ -239,7 +241,7 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	}
 }
 
-func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 
