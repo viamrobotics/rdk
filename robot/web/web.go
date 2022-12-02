@@ -479,7 +479,7 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 }
 
 func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypeJPEG))
+	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		return webstream.StreamVideoSource(ctxWithJPEGHint, source, stream, opts)
 	})
