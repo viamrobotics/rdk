@@ -2,7 +2,7 @@
 This example demonstrates several ways RDK can be extended with custom resources. It contains several sections. Note that `make` is used throughout to help script commands. The actual commands being run should be printed as they are used. You can also look in the various "Makefile" named files throughout, to see the exact targets and what they do.
 
 ## APIs
-APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implmenetations of a gRPC client and server.
+APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implementations of a gRPC client and server.
 
 ### gizmoapi
 Custom (component) api/protocol called "Gizmo" (acme:component:gizmo).
@@ -12,7 +12,7 @@ Note that this is split into two files. The content of wrapper.go is only needed
 Custom (service) api/protocol called "Summation" (acme:service:summation).
 
 ### protos
-This folder contains the protobuf for the above two APIs. Only the .proto files are human modified. The rest is generated automatically by running "make" from within this directory. Note that the generation is performed using the "buf" command line tool, which itself is installed automatically as part of the make scripting. To generate protocols for other lanaguges, other tooling or commands may be used. The key takeaway is that just the files with the .proto suffix are needed to generate the basic protobuf libraries for any given language.
+This folder contains the protobuf for the above two APIs. Only the .proto files are human modified. The rest is generated automatically by running "make" from within this directory. Note that the generation is performed using the "buf" command line tool, which itself is installed automatically as part of the make scripting. To generate protocols for other languages, other tooling or commands may be used. The key takeaway is that just the files with the .proto suffix are needed to generate the basic protobuf libraries for any given language.
 
 ## Models
 Models are concrete implementations of a specific type (API) of component or service.

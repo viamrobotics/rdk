@@ -42,7 +42,7 @@ func init() {
 		},
 		RPCServiceDesc: &pb.GizmoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return newClientFromConn(conn, name, logger)
+			return NewClientFromConn(conn, name, logger)
 		},
 	})
 
@@ -190,7 +190,7 @@ func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.Do
 	return &pb.DoTwoResponse{Ret1: resp}, nil
 }
 
-func newClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Gizmo {
+func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
