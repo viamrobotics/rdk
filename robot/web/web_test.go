@@ -29,8 +29,10 @@ import (
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
@@ -71,6 +73,58 @@ func TestWebStart(t *testing.T) {
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestModule(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+
+	svc := web.New(ctx, injectRobot, logger)
+
+	err := svc.StartModule(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	arm1 := arm.NewClientFromConn(context.Background(), conn1, arm1String, logger)
+	arm1Position, err := arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm1Position, test.ShouldResemble, pos)
+
+	err = svc.StartModule(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
+
+	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn2, err := rgrpc.Dial(context.Background(), svc.Address(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	arm2 := arm.NewClientFromConn(context.Background(), conn2, arm1String, logger)
+
+	arm2Position, err := arm2.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm2Position, test.ShouldResemble, pos)
+
+	svc.Stop()
+
+	_, err = arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = arm2.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	err = utils.TryClose(context.Background(), svc)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
 
 func TestWebStartOptions(t *testing.T) {
@@ -686,6 +740,9 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context, at []*referenceframe.PoseInFrame) (framesystemparts.Parts, error) {
+		return nil, nil
+	}
 
 	return context.Background(), injectRobot
 }

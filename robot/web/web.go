@@ -313,6 +313,9 @@ func (svc *webService) ModuleAddress() string {
 func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	if svc.modServer != nil {
+		return errors.New("module service already started")
+	}
 	oldMask := syscall.Umask(0o077)
 	dir, err := os.MkdirTemp("", "viam-module-*")
 	if err != nil {
