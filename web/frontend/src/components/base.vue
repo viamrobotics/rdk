@@ -84,10 +84,13 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 const stop = () => {
   stopped = true;
   const req = new baseApi.StopRequest();
   req.setName(props.name);
+  rcLogConditionally(req);
   props.client.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
@@ -132,10 +135,11 @@ const digestInput = () => {
 
 const handleKeyDown = (key: Keys) => {
   pressed.add(key);
+  stopped = false;
   digestInput();
 };
 
-const handleKeyUp = (key: Keys) => {
+const handleKeyUp = async (key: Keys) => {
   pressed.delete(key);
 
   if (pressed.size > 0) {
@@ -143,6 +147,12 @@ const handleKeyUp = (key: Keys) => {
     digestInput();
   } else {
     stop();
+    await sleep(200);
+
+    // another stop just in case, but only if we're supposed to be stopped
+    if (stopped) {
+      stop();
+    }
   }
 };
 
