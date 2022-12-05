@@ -194,9 +194,12 @@ func toSignedValue(data []byte) int {
 	return int(int16(binary.LittleEndian.Uint16(data)))
 }
 
-// Given a value, scales it so that the range of int16s becomes the range of +/- maxValue.
+// Given a value, scales it so that the range of values read in becomes the range of +/- maxValue.
+// The trick here is that although the values are stored in 16 bits, the sensor only has 10 bits of
+// resolution. So, there are only (1 << 9) possible positive values, and a similar number of
+// negative ones.
 func setScale(value int, maxValue float64) float64 {
-	return float64(value) * maxValue / (1 << 15)
+	return float64(value) * maxValue / (1 << 9)
 }
 
 func (adxl *adxl345) pollData() {
