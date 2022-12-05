@@ -84,7 +84,7 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const stop = () => {
   stopped = true;
