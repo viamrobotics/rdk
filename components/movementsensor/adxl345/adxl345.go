@@ -12,6 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const modelName = "accel-adxl345"
@@ -241,6 +243,30 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	}
 }
 
+func (adxl *adxl345) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
+}
+
+func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
+}
+
+func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
+}
+
+func (adxl *adxl345) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+}
+
+func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
+}
+
+func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+}
+
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
@@ -249,6 +275,12 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 	lastError := adxl.lastError
 	adxl.lastError = nil
 	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, lastError
+}
+
+func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	// We don't implement any of the MovementSensor interface yet, though hopefully
+	// LinearAcceleration will be added to the interface soon.
+	return &movementsensor.Properties{}, nil
 }
 
 // Puts the chip into standby mode.
