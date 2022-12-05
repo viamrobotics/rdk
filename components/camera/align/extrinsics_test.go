@@ -53,4 +53,21 @@ func TestAlignExtrinsics(t *testing.T) {
 	test.That(t, colorCam.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, depthCam.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, is.Close(context.Background()), test.ShouldBeNil)
+
+	// set necessary fields to nil, expect errors
+	attrs.CameraParameters = nil
+	_, err = newColorDepthExtrinsics(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, transform.ErrNoIntrinsics)
+
+	attrs.CameraParameters = &transform.PinholeCameraParameters{Width: -1, Height: -1}
+	_, err = newColorDepthExtrinsics(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
+
+	attrs.attrs.IntrinsicExtrinsic = nil
+	_, err = newColorDepthExtrinsics(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "sdf")
+
 }

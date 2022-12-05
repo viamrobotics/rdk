@@ -84,53 +84,47 @@ func (cfg *joinAttrs) Validate(path string) ([]string, error) {
 
 // joinColorDepth takes a color and depth image source and aligns them together.
 type joinColorDepth struct {
-	color, depth gostream.VideoStream
-	projector    transform.Projector
-	imageType    camera.StreamType
-	debug        bool
-	logger       golog.Logger
+	color, depth         gostream.VideoStream
+	colorName, depthName string
+	projector            transform.Projector
+	imageType            camera.ImageType
+	debug                bool
+	logger               golog.Logger
 }
 
 // newJoinColorDepth creates a gostream.VideoSource that aligned color and depth channels.
 func newJoinColorDepth(ctx context.Context, color, depth camera.Camera, attrs *joinAttrs, logger golog.Logger,
 ) (camera.Camera, error) {
 
+	imgType := camera.ImageType(attrs.ImageType)
 	videoSrc := &joinColorDepth{
 		color:     gostream.NewEmbeddedVideoStream(color),
+		colorName: attrs.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
-		projector: intrinsicParams,
-		imageType: stream,
+		depthName: attrs.Depth,
+		projector: attrs.CameraParameters,
+		imageType: imgType,
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsicParams, nil}, stream)
+	return camera.NewFromReader(
+		ctx,
+		videoSrc,
+		&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
+		imgType,
+	)
 }
 
-// Read aligns the next images from the color and the depth sources to the frame of the color camera.
-// stream parameter will determine which channel gets streamed.
+// Read returns the next image from either the color or depth camera..
+// imageType parameter will determine which channel gets streamed.
 func (jcd *joinColorDepth) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "videosource::joinColorDepth::Read")
 	defer span.End()
-	switch jcd.stream {
+	switch jcd.imageType {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		// things are being aligned to the color image, so just return the color image.
 		return jcd.color.Next(ctx)
 	case camera.DepthStream:
-		// don't need to request the color image, just its dimensions
-		colDimImage := rimage.NewImage(jcd.width, jcd.height)
-		depth, depthCloser, err := jcd.depth.Next(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		dm, err := rimage.ConvertImageToDepthMap(ctx, depth)
-		if err != nil {
-			return nil, nil, err
-		}
-		if jcd.aligner == nil {
-			return dm, depthCloser, nil
-		}
-		_, alignedDepth, err := jcd.aligner.AlignColorAndDepthImage(colDimImage, dm)
-		return alignedDepth, depthCloser, err
+		return jcd.depth.Next(ctx)
 	default:
 		return nil, nil, camera.NewUnsupportedStreamError(jcd.stream)
 	}
@@ -143,17 +137,13 @@ func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Point
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, jcd.color, jcd.depth)
-	if col == nil || dm == nil {
-		return nil, errors.New("requested color or depth image from camera is nil")
+	if col == nil {
+		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", jcd.colorName)
 	}
-	if jcd.aligner == nil {
-		return jcd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
+	if dm == nil {
+		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", jcd.depthName)
 	}
-	alignedColor, alignedDepth, err := jcd.aligner.AlignColorAndDepthImage(rimage.ConvertImage(col), dm)
-	if err != nil {
-		return nil, err
-	}
-	return jcd.projector.RGBDToPointCloud(alignedColor, alignedDepth)
+	return jcd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 }
 
 func (jcd *joinColorDepth) Close(ctx context.Context) error {
