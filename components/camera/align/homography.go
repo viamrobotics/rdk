@@ -85,14 +85,15 @@ func (cfg *homographyAttrs) Validate(path string) ([]string, error) {
 
 // colorDepthHomography takes a color and depth image source and aligns them together using homography.
 type colorDepthHomography struct {
-	color, depth gostream.VideoStream
-	aligner      transform.Aligner
-	projector    transform.Projector
-	imageType    camera.StreamType
-	height       int // height of the aligned image
-	width        int // width of the aligned image
-	debug        bool
-	logger       golog.Logger
+	color, depth         gostream.VideoStream
+	colorName, depthName string
+	aligner              transform.Aligner
+	projector            transform.Projector
+	imageType            camera.ImageType
+	height               int // height of the aligned image
+	width                int // width of the aligned image
+	debug                bool
+	logger               golog.Logger
 }
 
 // newColorDepthHomography creates a gostream.VideoSource that aligned color and depth channels.
@@ -115,11 +116,13 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.Camera, at
 	if err != nil {
 		return nil, err
 	}
-	imgType := camera.StreamType(attrs.ImageType)
+	imgType := camera.ImageType(attrs.ImageType)
 
 	videoSrc := &colorDepthHomography{
 		color:     gostream.NewEmbeddedVideoStream(color),
+		colorName: attrs.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
+		depthName: attrs.Depth,
 		aligner:   homography,
 		projector: attrs.CameraParameters,
 		imageType: imgType,
@@ -173,8 +176,11 @@ func (acd *colorDepthHomography) NextPointCloud(ctx context.Context) (pointcloud
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, acd.color, acd.depth)
-	if col == nil || dm == nil {
-		return nil, errors.New("requested color or depth image from camera is nil")
+	if col == nil {
+		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", jcd.colorName)
+	}
+	if dm == nil {
+		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", jcd.depthName)
 	}
 	if acd.aligner == nil {
 		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)

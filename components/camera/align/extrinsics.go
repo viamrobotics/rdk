@@ -101,14 +101,15 @@ func (cfg *extrinsicsAttrs) Validate(path string) ([]string, error) {
 
 // colorDepthExtrinsics takes a color and depth image source and aligns them together.
 type colorDepthExtrinsics struct {
-	color, depth gostream.VideoStream
-	aligner      transform.Aligner
-	projector    transform.Projector
-	imageType    camera.StreamType
-	height       int // height of the aligned image
-	width        int // width of the aligned image
-	debug        bool
-	logger       golog.Logger
+	color, depth         gostream.VideoStream
+	colorName, depthName string
+	aligner              transform.Aligner
+	projector            transform.Projector
+	imageType            camera.ImageType
+	height               int // height of the aligned image
+	width                int // width of the aligned image
+	debug                bool
+	logger               golog.Logger
 }
 
 // newColorDepthExtrinsics creates a gostream.VideoSource that aligned color and depth channels.
@@ -118,6 +119,9 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.Camera, at
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(alignment, attrs.IntrinsicExtrinsic)
 	}
+	if attrs.CameraParameters == nil {
+		return nil, transform.ErrNoIntrinsics
+	}
 	if attrs.CameraParameters.Height <= 0 || attrs.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
 			"colorDepthExtrinsics needs Width and Height fields set in intrinsic_parameters. Got illegal dimensions (%d, %d)",
@@ -126,10 +130,12 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.Camera, at
 		)
 	}
 	// get the projector for the alignment camera
-	imgType := camera.StreamType(attrs.ImageType)
+	imgType := camera.ImageType(attrs.ImageType)
 	videoSrc := &colorDepthExtrinsics{
 		color:     gostream.NewEmbeddedVideoStream(color),
+		colorName: attrs.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
+		depthName: attrs.Depth,
 		aligner:   alignment,
 		projector: attrs.CameraParameters,
 		imageType: imgType,
@@ -183,8 +189,11 @@ func (cde *colorDepthExtrinsics) NextPointCloud(ctx context.Context) (pointcloud
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, cde.color, cde.depth)
-	if col == nil || dm == nil {
-		return nil, errors.New("requested color or depth image from camera is nil")
+	if col == nil {
+		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", cde.colorName)
+	}
+	if dm == nil {
+		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", cde.depthName)
 	}
 	if cde.aligner == nil {
 		return cde.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
