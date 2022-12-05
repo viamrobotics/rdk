@@ -1,6 +1,6 @@
-// Package adxl345 implements the Sensor interface for the ADXL345 accelerometer attached to the
-// I2C bus of the robot (the chip supports communicating over SPI as well, but this package does
-// not support that interface). The manual for this chip is available at:
+// Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer attached
+// to the I2C bus of the robot (the chip supports communicating over SPI as well, but this package
+// does not support that interface). The manual for this chip is available at:
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
 package adxl345
 
@@ -17,7 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -46,7 +46,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(sensor.Subtype, modelName, registry.Component{
+	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -57,7 +57,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -89,7 +89,7 @@ func NewAdxl345(
 	deps registry.Dependencies,
 	rawConfig config.Component,
 	logger golog.Logger,
-) (sensor.Sensor, error) {
+) (movementsensor.MovementSensor, error) {
 	cfg := rawConfig.ConvertedAttributes.(*AttrConfig)
 	b, err := board.FromDependencies(deps, cfg.BoardName)
 	if err != nil {
