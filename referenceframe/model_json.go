@@ -13,34 +13,40 @@ import (
 
 // ModelConfig represents all supported fields in a kinematics JSON file.
 type ModelConfig struct {
-	Name         string `json:"name"`
-	KinParamType string `json:"kinematic_param_type"`
-	Links        []struct {
-		ID          string                    `json:"id"`
-		Parent      string                    `json:"parent"`
-		Translation spatial.TranslationConfig `json:"translation"`
-		Orientation spatial.OrientationConfig `json:"orientation"`
-		Geometry    spatial.GeometryConfig    `json:"geometry"`
-	} `json:"links"`
-	Joints []struct {
-		ID     string             `json:"id"`
-		Type   string             `json:"type"`
-		Parent string             `json:"parent"`
-		Axis   spatial.AxisConfig `json:"axis"`
-		Max    float64            `json:"max"` // in mm or degs
-		Min    float64            `json:"min"` // in mm or degs
-	} `json:"joints"`
-	DHParams []struct {
-		ID       string                 `json:"id"`
-		Parent   string                 `json:"parent"`
-		A        float64                `json:"a"`
-		D        float64                `json:"d"`
-		Alpha    float64                `json:"alpha"`
-		Max      float64                `json:"max"` // in mm or degs
-		Min      float64                `json:"min"` // in mm or degs
-		Geometry spatial.GeometryConfig `json:"geometry"`
-	} `json:"dhParams"`
-	RawFrames []FrameMapConfig `json:"frames"`
+	Name         string           `json:"name"`
+	KinParamType string           `json:"kinematic_param_type"`
+	Links        []JsonLink       `json:"links"`
+	Joints       []JsonJoint      `json:"joints"`
+	DHParams     []JsonDHParam    `json:"dhParams"`
+	RawFrames    []FrameMapConfig `json:"frames"`
+}
+
+type JsonLink struct {
+	ID          string                    `json:"id"`
+	Parent      string                    `json:"parent"`
+	Translation spatial.TranslationConfig `json:"translation"`
+	Orientation spatial.OrientationConfig `json:"orientation"`
+	Geometry    spatial.GeometryConfig    `json:"geometry"`
+}
+
+type JsonJoint struct {
+	ID     string             `json:"id"`
+	Type   string             `json:"type"`
+	Parent string             `json:"parent"`
+	Axis   spatial.AxisConfig `json:"axis"`
+	Max    float64            `json:"max"` // in mm or degs
+	Min    float64            `json:"min"` // in mm or degs
+}
+
+type JsonDHParam struct {
+	ID       string                 `json:"id"`
+	Parent   string                 `json:"parent"`
+	A        float64                `json:"a"`
+	D        float64                `json:"d"`
+	Alpha    float64                `json:"alpha"`
+	Max      float64                `json:"max"` // in mm or degs
+	Min      float64                `json:"min"` // in mm or degs
+	Geometry spatial.GeometryConfig `json:"geometry"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
