@@ -543,6 +543,4 @@ func TestBasicOctreePointcloudIngestion2(t *testing.T) {
 	basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		return true
 	})
-
-	//validateBasicOctree(t, basicOct, center, side)
 }
