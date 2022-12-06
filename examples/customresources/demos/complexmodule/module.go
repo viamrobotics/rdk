@@ -57,7 +57,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	myMod.AddModelFromRegistry(ctx, navigation.Subtype, mynavigation.Model)
 
 	err = myMod.Start(ctx)
-	defer myMod.Close()
+	defer myMod.Close(ctx)
 	if err != nil {
 		return err
 	}

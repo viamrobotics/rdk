@@ -41,7 +41,8 @@ type Robot struct {
 		dst string,
 		additionalTransforms []*referenceframe.PoseInFrame,
 	) (*referenceframe.PoseInFrame, error)
-	StatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	StatusFunc        func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	ModuleAddressFunc func() (string, error)
 
 	ops     *operation.Manager
 	opsLock sync.Mutex
@@ -235,4 +236,14 @@ func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]ro
 		return r.LocalRobot.Status(ctx, resourceNames)
 	}
 	return r.StatusFunc(ctx, resourceNames)
+}
+
+// ModuleAddress call the injected ModuleAddress or the real one.
+func (r *Robot) ModuleAddress() (string, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleAddressFunc == nil {
+		return r.LocalRobot.ModuleAddress()
+	}
+	return r.ModuleAddressFunc()
 }

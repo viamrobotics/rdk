@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
-	modif "go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -28,7 +28,7 @@ import (
 )
 
 // NewManager returns a Manager.
-func NewManager(r robot.LocalRobot) (modif.ModuleManager, error) {
+func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
 	return &Manager{
 		logger:  r.Logger().Named("modmanager"),
 		modules: map[string]*module{},
@@ -39,6 +39,7 @@ func NewManager(r robot.LocalRobot) (modif.ModuleManager, error) {
 
 type module struct {
 	name    string
+	exe     string
 	process pexec.ManagedProcess
 	handles modlib.HandlerMap
 	conn    *grpc.ClientConn
@@ -75,98 +76,33 @@ func (mgr *Manager) Close(ctx context.Context) error {
 func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
+
 	_, exists := mgr.modules[cfg.Name]
 	if exists {
 		return nil
 	}
 
-	mod := &module{}
+	mod := &module{name: cfg.Name, exe: cfg.ExePath}
 	mgr.modules[cfg.Name] = mod
 
 	parentAddr, err := mgr.r.ModuleAddress()
 	if err != nil {
 		return err
 	}
-	mod.addr = filepath.Dir(parentAddr) + "/" + cfg.Name + ".sock"
 
-	pcfg := pexec.ProcessConfig{
-		ID:   cfg.Name,
-		Name: cfg.ExePath,
-		Args: []string{mgr.modules[cfg.Name].addr},
-		Log:  true,
-	}
-	mod.process = pexec.NewManagedProcess(pcfg, mgr.logger)
-
-	err = mod.process.Start(context.Background())
-	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
+	if err := mod.startProcess(ctx, parentAddr, mgr.logger); err != nil {
+		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
-	for {
-		select {
-		case <-ctxTimeout.Done():
-			return errors.Errorf("timed out waiting for module %s to start listening", mod.name)
-		default:
-		}
-		err = modlib.CheckSocketOwner(mod.addr)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
-		}
-		break
+	if err := mod.dial(); err != nil {
+		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
-	conn, err := grpc.Dial(
-		"unix://"+mod.addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
-		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
-		grpc.WithUnaryInterceptor(operation.UnaryClientInterceptor),
-		grpc.WithStreamInterceptor(operation.StreamClientInterceptor),
-	)
-	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
+	if err := mod.checkReady(ctx, parentAddr); err != nil {
+		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
 	}
 
-	mod.conn = conn
-	mod.client = pb.NewModuleServiceClient(conn)
-
-	err = mod.checkReady(ctx, parentAddr)
-	if err != nil {
-		return errors.WithMessage(err, "error while waiting for module to start"+mod.name)
-	}
-
-	for api, models := range mod.handles {
-		known := registry.ResourceSubtypeLookup(api.Subtype)
-		if known == nil {
-			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{ReflectRPCServiceDesc: api.Desc})
-		}
-
-		switch api.Subtype.ResourceType {
-		case resource.ResourceTypeComponent:
-			for _, model := range models {
-				registry.RegisterComponent(api.Subtype, model, registry.Component{
-					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-						return mgr.AddResource(ctx, cfg, DepsToNames(deps))
-					},
-				})
-			}
-		case resource.ResourceTypeService:
-			for _, model := range models {
-				registry.RegisterService(api.Subtype, model, registry.Service{
-					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
-						return mgr.AddResource(ctx, config.ServiceConfigToShared(cfg), DepsToNames(deps))
-					},
-				})
-			}
-		default:
-			mgr.logger.Errorf("invalid module type: %s", api.Subtype.Type)
-		}
-	}
+	mod.registerResources(mgr, mgr.logger)
 
 	return nil
 }
@@ -244,7 +180,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	if !ok {
 		return errors.Errorf("resource %+v not found in module", name)
 	}
-
+	delete(mgr.rMap, name)
 	_, err := module.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	return err
 }
@@ -272,11 +208,29 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 	return nil, false
 }
 
-func (m *module) checkReady(ctx context.Context, addr string) error {
+func (m *module) dial() error {
+	var err error
+	m.conn, err = grpc.Dial(
+		"unix://"+m.addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
+		grpc.WithUnaryInterceptor(operation.UnaryClientInterceptor),
+		grpc.WithStreamInterceptor(operation.StreamClientInterceptor),
+	)
+	if err != nil {
+		return errors.WithMessage(err, "module startup failed")
+	}
+	m.client = pb.NewModuleServiceClient(m.conn)
+	return nil
+}
+
+func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*10)
 	defer cancelFunc()
+
 	for {
-		req := &pb.ReadyRequest{ParentAddress: addr}
+		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
@@ -290,6 +244,72 @@ func (m *module) checkReady(ctx context.Context, addr string) error {
 	}
 }
 
+func (m *module) startProcess(ctx context.Context, parentAddr string, logger golog.Logger) error {
+	m.addr = filepath.Dir(parentAddr) + "/" + m.name + ".sock"
+
+	pcfg := pexec.ProcessConfig{
+		ID:   m.name,
+		Name: m.exe,
+		Args: []string{m.addr},
+		Log:  true,
+	}
+	m.process = pexec.NewManagedProcess(pcfg, logger)
+
+	err := m.process.Start(context.Background())
+	if err != nil {
+		return errors.WithMessage(err, "module startup failed")
+	}
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+	for {
+		select {
+		case <-ctxTimeout.Done():
+			return errors.Errorf("timed out waiting for module %s to start listening", m.name)
+		default:
+		}
+		err = modlib.CheckSocketOwner(m.addr)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
+		}
+		break
+	}
+	return nil
+}
+
+func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
+	for api, models := range m.handles {
+		known := registry.ResourceSubtypeLookup(api.Subtype)
+		if known == nil {
+			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{ReflectRPCServiceDesc: api.Desc})
+		}
+
+		switch api.Subtype.ResourceType {
+		case resource.ResourceTypeComponent:
+			for _, model := range models {
+				registry.RegisterComponent(api.Subtype, model, registry.Component{
+					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+						return mgr.AddResource(ctx, cfg, DepsToNames(deps))
+					},
+				})
+			}
+		case resource.ResourceTypeService:
+			for _, model := range models {
+				registry.RegisterService(api.Subtype, model, registry.Service{
+					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
+						return mgr.AddResource(ctx, config.ServiceConfigToShared(cfg), DepsToNames(deps))
+					},
+				})
+			}
+		default:
+			logger.Errorf("invalid module type: %s", api.Subtype.Type)
+		}
+	}
+}
+
 // DepsToNames converts a dependency list to a simple string slice.
 func DepsToNames(deps registry.Dependencies) []string {
 	var depStrings []string
@@ -298,4 +318,3 @@ func DepsToNames(deps registry.Dependencies) []string {
 	}
 	return depStrings
 }
-
