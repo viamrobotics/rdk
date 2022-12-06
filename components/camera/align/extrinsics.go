@@ -59,7 +59,7 @@ func init() {
 			return result, nil
 		}, &extrinsicsAttrs{})
 
-	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth_extrinsics", "system",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth_extrinsics", "camera_system",
 		func(val interface{}) (interface{}, error) {
 			b, err := json.Marshal(val)
 			if err != nil {
@@ -77,7 +77,7 @@ func init() {
 // extrinsicsAttrs is the attribute struct for aligning.
 type extrinsicsAttrs struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
-	IntrinsicExtrinsic   interface{}                        `json:"system"`
+	IntrinsicExtrinsic   interface{}                        `json:"camera_system"`
 	ImageType            string                             `json:"output_image_type"`
 	Color                string                             `json:"color_camera_name"`
 	Depth                string                             `json:"depth_camera_name"`
