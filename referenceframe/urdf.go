@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -75,24 +74,14 @@ type UrdfJoint struct {
 	} `xml:"limit"`
 }
 
-// ParseURDFFileAsConfig will read a given file and parse the contained URDF XML data as a ModelConfig struct.
-func ParseURDFFileAsConfig(filename, modelName string) (Model, error) {
-	//nolint:gosec
-	xmlData, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read URDF file")
-	}
-	return ConvertURDFToConfig(xmlData, modelName)
-}
-
-// ParseURDFFile will read a given file and parse the contained URDF XML data.
+// ParseURDFFile will read a given file and parse the contained URDF XML data into an equivalent ModelConfig struct.
 func ParseURDFFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to read URDF file")
 	}
-	return ConvertURDFToModel(xmlData, modelName)
+	return ConvertURDFToConfig(xmlData, modelName)
 }
 
 // ConvertURDFToConfig will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
@@ -149,11 +138,11 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			// Slightly different limits handling for continuous, revolute, and prismatic joints
 			if jointElem.Type == "continuous" {
 				thisJoint.Type = "revolute" // Currently, we treate a continuous joint as a special case of the revolute joint
-				thisJoint.Min, thisJoint.Max = -math.Pi, math.Pi
+				thisJoint.Min, thisJoint.Max = utils.RadToDeg(-math.Pi), utils.RadToDeg(math.Pi)
 			} else if jointElem.Type == "prismatic" {
-				thisJoint.Min, thisJoint.Max = jointElem.Limit.Lower*1000, jointElem.Limit.Upper*1000
+				thisJoint.Min, thisJoint.Max = jointElem.Limit.Lower*1000, jointElem.Limit.Upper*1000 // from meters to mm
 			} else {
-				thisJoint.Min, thisJoint.Max = jointElem.Limit.Lower, jointElem.Limit.Upper
+				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
 			}
 
 			mc.Joints = append(mc.Joints, thisJoint)
@@ -161,9 +150,10 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			// Generate child link translation and orientation data, which is held by this joint per the URDF design
 			childXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			childRPY := convStringAttrToFloats(jointElem.Origin.RPY)
-			childEA := spatial.EulerAngles{Roll: utils.RadToDeg(childRPY[0]), Pitch: utils.RadToDeg(childRPY[1]), Yaw: utils.RadToDeg(childRPY[2])}
-			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
+			childEA := spatial.EulerAngles{Roll: childRPY[0], Pitch: childRPY[1], Yaw: childRPY[2]}
+			childOrient, err := spatial.NewOrientationConfig(childEA.EulerAngles())
 
+			// Note the conversion from meters to mm
 			childLink.Translation = spatial.TranslationConfig{childXYZ[0] * 1000, childXYZ[1] * 1000, childXYZ[2] * 1000}
 			childLink.Orientation = *childOrient
 
@@ -176,9 +166,10 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 
 			linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
-			linkEA := spatial.EulerAngles{Roll: utils.RadToDeg(linkRPY[0]), Pitch: utils.RadToDeg(linkRPY[1]), Yaw: utils.RadToDeg(linkRPY[2])}
+			linkEA := spatial.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]}
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
 
+			// Note the conversion from meters to mm
 			thisLink.Translation = spatial.TranslationConfig{linkXYZ[0] * 1000, linkXYZ[1] * 1000, linkXYZ[2] * 1000}
 			thisLink.Orientation = *linkOrient
 
@@ -213,13 +204,14 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 
 		for idx, prefabLink := range mc.Links {
 			if prefabLink.ID == linkElem.Name && hasCollision {
-				geoCfg, _ := convURDFCollisionToConfig(linkElem)
+				geoCfg, _ := createConfigFromCollision(linkElem)
 				mc.Links[idx].Geometry = geoCfg
 				break
 			}
 		}
 
 		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
+		// Most likely, this is a link normally whose parent is the World
 		if _, ok := parentMap[linkElem.Name]; !ok {
 			thisLink := JsonLink{ID: linkElem.Name, Parent: World}
 
@@ -234,7 +226,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			}
 
 			if hasCollision {
-				geoCfg, _ := convURDFCollisionToConfig(linkElem)
+				geoCfg, _ := createConfigFromCollision(linkElem)
 				thisLink.Geometry = geoCfg
 			}
 
@@ -243,146 +235,6 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 	}
 
 	return mc.ParseConfig(modelName)
-}
-
-// ConvertURDFToModel will transfer the given URDF XML data into an equivalent Model. Direct conversion to a model in
-// the same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
-// between the two kinematics encoding schemes.
-func ConvertURDFToModel(xmlData []byte, modelName string) (Model, error) {
-	// empty data probably means that the read URDF has no actionable information
-	if len(xmlData) == 0 {
-		return nil, ErrNoModelInformation
-	}
-
-	urdf := &URDFConfig{}
-	err := xml.Unmarshal(xmlData, urdf)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
-	}
-
-	// Code below this point could be split off into another function, similarly to ParseConfig
-	if modelName == "" {
-		modelName = urdf.Name
-	}
-
-	model := NewSimpleModel(modelName)
-	transforms := map[string]Frame{}
-
-	// Handle joints
-	var firstLink string
-	childMap := map[string]string{}
-	parentMap := map[string]string{}
-
-	for _, jointElem := range urdf.Joints {
-		jointName := jointElem.Name
-
-		// Special case in the event that a "world" link is present in the URDF
-		if jointElem.Parent.Link == World {
-			firstLink = jointElem.Child.Link
-		}
-
-		// Parse important details about each joint, including axes and limits
-		jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
-		jointLimits := Limit{Min: jointElem.Limit.Lower, Max: jointElem.Limit.Upper}
-		childMap[jointElem.Parent.Link] = jointName // This will get used to find the terminal link(s) quickly
-		parentMap[jointElem.Child.Link] = jointName
-		parentMap[jointName] = jointElem.Parent.Link
-
-		// Generate transform data for the given joint type
-		switch jointElem.Type {
-		case "continuous", "revolute":
-			if jointElem.Type == "continuous" {
-				jointLimits.Min, jointLimits.Max = -math.Pi, math.Pi
-			}
-			transforms[jointName], err = NewRotationalFrame(jointName,
-				spatial.R4AA{RX: jointAxes[0], RY: jointAxes[1], RZ: jointAxes[2]}, jointLimits)
-		case "prismatic":
-			transforms[jointName], err = NewTranslationalFrame(jointName,
-				r3.Vector{X: jointAxes[0] * 1000, Y: jointAxes[1] * 1000, Z: jointAxes[2] * 1000}, jointLimits)
-		case "fixed":
-			transforms[jointName] = NewZeroStaticFrame(jointName)
-		default:
-			return nil, NewUnsupportedJointTypeError(jointElem.Type)
-		}
-
-		// Create static link frames from the joint transformation data, we can replace those later if we find that a link
-		// has geometry data
-		linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
-		linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
-		linkPose := spatial.NewPoseFromOrientation(r3.Vector{X: linkXYZ[0] * 1000, Y: linkXYZ[1] * 1000, Z: linkXYZ[2] * 1000},
-			&spatial.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]})
-		transforms[jointElem.Child.Link], err = NewStaticFrame(jointElem.Child.Link, linkPose)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Handle links
-	terminalLinks := []string{}
-
-	for _, linkElem := range urdf.Links {
-		linkName := linkElem.Name
-		var refLinkPose spatial.Pose
-
-		// World links are ignored (that is a reserved name) when parsing links.
-		if linkName == World {
-			continue
-		}
-
-		// In a majority of cases, the end effector link will not have any joint listed as a child.
-		if _, ok := childMap[linkName]; !ok {
-			terminalLinks = append(terminalLinks, linkName)
-		}
-
-		// If any collision elements are found, generate geometry for that object with the given frame
-		// TODO(wspies): Add functionality to handle multiple collision objects
-		if len(linkElem.Collision) > 0 {
-			refLinkPose, err = transforms[linkName].Transform([]Input{})
-			boxGeometry := linkElem.Collision[0].Geometry.Box
-			sphereGeometry := linkElem.Collision[0].Geometry.Sphere
-
-			// Offset for the geometry origin from the reference link origin
-			offsetXYZ := convStringAttrToFloats(linkElem.Collision[0].Origin.XYZ)
-			offsetRPY := convStringAttrToFloats(linkElem.Collision[0].Origin.RPY)
-			offsetPose := spatial.NewPoseFromOrientation(
-				r3.Vector{X: offsetXYZ[0] * 1000, Y: offsetXYZ[1] * 1000, Z: offsetXYZ[2] * 1000},
-				&spatial.EulerAngles{Roll: offsetRPY[0], Pitch: offsetRPY[1], Yaw: offsetRPY[2]})
-
-			// Select the geometry creator for the appropriate geometry element
-			// Note that dimensions are converted from meters to millimeters
-			var geometryCreator spatial.GeometryCreator
-			if len(boxGeometry.Size) > 0 {
-				boxDims := convStringAttrToFloats(linkElem.Collision[0].Geometry.Box.Size)
-				boxSize := r3.Vector{X: boxDims[0] * 1000, Y: boxDims[1] * 1000, Z: boxDims[2] * 1000}
-				geometryCreator, err = spatial.NewBoxCreator(boxSize, offsetPose, linkElem.Collision[0].Name)
-				transforms[linkName], err = NewStaticFrameWithGeometry(linkName, refLinkPose, geometryCreator)
-			} else if sphereGeometry.Radius > 0 {
-				sphereRadius := linkElem.Collision[0].Geometry.Sphere.Radius * 1000
-				geometryCreator, err = spatial.NewSphereCreator(sphereRadius, offsetPose, linkElem.Collision[0].Name)
-				transforms[linkName], err = NewStaticFrameWithGeometry(linkName, refLinkPose, geometryCreator)
-			} else {
-				err = errors.Errorf("Unsupported collision geometry type detected for [ %v ] link", linkElem.Collision[0].Name)
-			}
-		}
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(terminalLinks) != 1 {
-		return nil, errors.Errorf("Invalid terminal link count: %d", len(terminalLinks))
-	}
-
-	// Create joint and link ordering, starting with the end effector link and going backwards
-	orderedTransforms, err := sortTransforms(transforms, parentMap, terminalLinks[0], firstLink)
-	if err != nil {
-		return nil, err
-	}
-
-	model.OrdTransforms = orderedTransforms
-	return model, nil
 }
 
 // Convenience method to split up space-delimited fields in URDFs, such as xyz or rpy attributes.
@@ -398,7 +250,7 @@ func convStringAttrToFloats(attr string) []float64 {
 	return converted
 }
 
-func convURDFCollisionToConfig(link UrdfLink) (spatial.GeometryConfig, error) {
+func createConfigFromCollision(link UrdfLink) (spatial.GeometryConfig, error) {
 	var geoCfg spatial.GeometryConfig
 	boxGeometry := link.Collision[0].Geometry.Box
 	sphereGeometry := link.Collision[0].Geometry.Sphere
