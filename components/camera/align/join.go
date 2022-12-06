@@ -1,3 +1,5 @@
+// Package align defines the camera models that are used to align a color camera's output with a depth camera's output,
+// in order to make point clouds.
 package align
 
 import (
@@ -21,6 +23,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+//nolint:dupl
 func init() {
 	registry.RegisterComponent(camera.Subtype, "join_color_depth",
 		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,

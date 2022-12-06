@@ -5,14 +5,15 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 )
 
 func TestAlignExtrinsics(t *testing.T) {
@@ -70,5 +71,4 @@ func TestAlignExtrinsics(t *testing.T) {
 	_, err = newColorDepthExtrinsics(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *transform.DepthColorIntrinsicsExtrinsics")
-
 }
