@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestURDFParsing(t *testing.T) {
+func TestParseURDFFile(t *testing.T) {
 	u, err := ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simple, ok := u.(*SimpleModel)
@@ -30,6 +30,14 @@ func TestURDFParsing(t *testing.T) {
 	u, err = ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
+}
+
+func TestURDFConfigGen(t *testing.T) {
+	_, err := ParseURDFFileAsConfig(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = ParseURDFFileAsConfig(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestURDFTransforms(t *testing.T) {
