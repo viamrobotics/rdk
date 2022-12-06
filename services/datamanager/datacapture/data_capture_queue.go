@@ -9,30 +9,32 @@ import (
 // MaxFileSize is the maximum size in bytes of a data capture file.
 var MaxFileSize = int64(64 * 1024)
 
-// Queue is a persistent queue of SensorData backed by a series of datacapture.Files.
-type Queue struct {
+// Buffer is a persistent queue of SensorData backed by a series of datacapture.Files.
+type Buffer struct {
 	Directory string
 	MetaData  *v1.DataCaptureMetadata
 	nextFile  *File
 	lock      *sync.Mutex
 }
 
-// NewQueue returns a new Queue.
-func NewQueue(dir string, md *v1.DataCaptureMetadata) *Queue {
-	return &Queue{
+// NewBuffer returns a new Buffer.
+func NewBuffer(dir string, md *v1.DataCaptureMetadata) *Buffer {
+	return &Buffer{
 		Directory: dir,
 		lock:      &sync.Mutex{},
 		MetaData:  md,
 	}
 }
 
-// Push pushes item onto q.
-func (q *Queue) Push(item *v1.SensorData) error {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+// Write writes item onto b. Binary sensor data is written to its own file.
+// Tabular data is written to disk in MaxFileSize sized files. Files that are still being written to are indicated
+// with the extension InProgressFileExt. Files that have finished being written to are indicated by FileExt.
+func (b *Buffer) Write(item *v1.SensorData) error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
 	if item.GetBinary() != nil {
-		binFile, err := NewFile(q.Directory, q.MetaData)
+		binFile, err := NewFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
@@ -45,37 +47,36 @@ func (q *Queue) Push(item *v1.SensorData) error {
 		return nil
 	}
 
-	if q.nextFile == nil {
-		nextFile, err := NewFile(q.Directory, q.MetaData)
+	if b.nextFile == nil {
+		nextFile, err := NewFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
-		q.nextFile = nextFile
-	} else if q.nextFile.Size() > MaxFileSize {
-		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
-		if err := q.nextFile.Close(); err != nil {
+		b.nextFile = nextFile
+	} else if b.nextFile.Size() > MaxFileSize {
+		if err := b.nextFile.Close(); err != nil {
 			return err
 		}
-		nextFile, err := NewFile(q.Directory, q.MetaData)
+		nextFile, err := NewFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
-		q.nextFile = nextFile
+		b.nextFile = nextFile
 	}
 
-	return q.nextFile.WriteNext(item)
+	return b.nextFile.WriteNext(item)
 }
 
 // Flush flushes all buffered data to disk and marks any in progress file as complete.
-func (q *Queue) Flush() error {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-	if q.nextFile == nil {
+func (b *Buffer) Flush() error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	if b.nextFile == nil {
 		return nil
 	}
-	if err := q.nextFile.Close(); err != nil {
+	if err := b.nextFile.Close(); err != nil {
 		return err
 	}
-	q.nextFile = nil
+	b.nextFile = nil
 	return nil
 }

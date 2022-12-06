@@ -58,7 +58,7 @@ func TestNewCollector(t *testing.T) {
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
 		Logger:        golog.NewTestLogger(t),
-		Target:        datacapture.NewQueue("dir", nil),
+		Target:        datacapture.NewBuffer("dir", nil),
 	})
 
 	test.That(t, c2, test.ShouldNotBeNil)
@@ -154,7 +154,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}()
 			md := v1.DataCaptureMetadata{}
-			target := datacapture.NewQueue(tmpDir, &md)
+			target := datacapture.NewBuffer(tmpDir, &md)
 			test.That(t, target, test.ShouldNotBeNil)
 
 			tc.params.Target = target
@@ -185,7 +185,7 @@ func TestClose(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "")
 	test.That(t, err, test.ShouldBeNil)
 	md := v1.DataCaptureMetadata{}
-	target := datacapture.NewQueue(tmpDir, &md)
+	target := datacapture.NewBuffer(tmpDir, &md)
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
@@ -219,7 +219,7 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	// TODO: replace all usages of os.TempDir with proper os/io temp dir method
 	tmpDir := os.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target := datacapture.NewQueue(tmpDir, &md)
+	target := datacapture.NewBuffer(tmpDir, &md)
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
@@ -258,7 +258,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

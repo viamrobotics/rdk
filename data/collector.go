@@ -55,7 +55,7 @@ type collector struct {
 	capturer          Capturer
 	closed            bool
 
-	target *datacapture.Queue
+	target *datacapture.Buffer
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -245,7 +245,7 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 
 func (c *collector) write() error {
 	for msg := range c.queue {
-		if err := c.target.Push(msg); err != nil {
+		if err := c.target.Write(msg); err != nil {
 			return err
 		}
 	}

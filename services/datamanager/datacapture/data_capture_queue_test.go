@@ -76,7 +76,7 @@ func TestCaptureQueue(t *testing.T) {
 			defer os.RemoveAll(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
 			md := &v1.DataCaptureMetadata{Type: tc.dataType}
-			sut := NewQueue(tmpDir, md)
+			sut := NewBuffer(tmpDir, md)
 			var pushValue *v1.SensorData
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				pushValue = binarySensorData
@@ -85,7 +85,7 @@ func TestCaptureQueue(t *testing.T) {
 			}
 
 			for i := 0; i < tc.pushCount; i++ {
-				err := sut.Push(pushValue)
+				err := sut.Write(pushValue)
 				test.That(t, err, test.ShouldBeNil)
 			}
 
