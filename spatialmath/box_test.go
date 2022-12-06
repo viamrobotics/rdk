@@ -51,3 +51,10 @@ func TestBoxVertices(t *testing.T) {
 	test.That(t, R3VectorAlmostEqual(vertices[6], r3.Vector{-1, -1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
 	test.That(t, R3VectorAlmostEqual(vertices[7], r3.Vector{-1, -1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
 }
+
+func TestBoxPCD(t *testing.T) {
+	offset := r3.Vector{2, 2, 2}
+	box := makeTestBox(NewZeroOrientation(), offset, r3.Vector{2, 2, 2}, "")
+
+	toPC(box)
+}
