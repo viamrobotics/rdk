@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -22,7 +23,6 @@ const (
 	metadataDir   = "metadata"
 	maxRetryCount = 5
 	logEveryN     = 100
-	timeFormat    = "2006-01-02T150405.0000Z"
 )
 
 // BinaryData downloads binary data matching filter to dst.
@@ -68,7 +68,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		//nolint:gosec
-		timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(timeFormat)
+		timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339)
 		fileName := filepath.Join(dst, metadataDir, timeRequested+"_"+datum.GetMetadata().GetId()+".json")
 		jsonFile, err := os.Create(fileName)
 		if err != nil {
