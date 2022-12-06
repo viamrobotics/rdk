@@ -137,7 +137,7 @@ onMounted(() => {
             <v-switch
               id="camera"
               :label="camera ? 'Hide Camera' : 'View Camera'"
-              :aria-label="camera ? 'Hide Camera' : 'View Camera'"
+              :aria-label="camera ? `Hide Camera: ${$props.cameraName}` : `View Camera: ${$props.cameraName}`"
               :value="camera ? 'on' : 'off'"
               @input="toggleExpand"
             />
@@ -180,7 +180,7 @@ onMounted(() => {
             </div>
           </div>
           <div
-            :aria-label="`${cameraName} camera stream`"
+            :aria-label="`${cameraName} stream`"
             :data-stream="cameraName"
             :class="{ 'hidden': !camera }"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
