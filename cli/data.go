@@ -130,14 +130,21 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	resp, err := c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
-		DataRequest: &datapb.DataRequest{
-			Filter: filter,
-			// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
-			//       tabular is implemented.
-		},
-		CountOnly: false,
-	})
+	var err error
+	var resp *datapb.TabularDataByFilterResponse
+	for count := 0; count < maxRetryCount; count++ {
+		resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
+			DataRequest: &datapb.DataRequest{
+				Filter: filter,
+				// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
+				//       tabular is implemented.
+			},
+			CountOnly: false,
+		})
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return err
 	}
