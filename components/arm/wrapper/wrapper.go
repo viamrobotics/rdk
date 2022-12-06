@@ -3,6 +3,7 @@ package wrapper
 
 import (
 	"context"
+	"strings"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
@@ -67,7 +68,16 @@ type Arm struct {
 
 // NewWrapperArm returns a wrapper component for another arm.
 func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	if strings.HasSuffix(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, ".urdf") {
+		model, err = referenceframe.ParseURDFFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	} else {
+		model, err = referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -114,7 +114,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 	for _, jointElem := range urdf.Joints {
 		// Checking for reserved names in this or adjacent elements
 		if jointElem.Name == World {
-			return nil, errors.Errorf("Joints with the name 'world' are not supported by config parsers")
+			return nil, errors.New("Joints with the name 'world' are not supported by config parsers")
 		}
 
 		// Relationship tracking
