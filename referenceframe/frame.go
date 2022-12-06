@@ -244,16 +244,25 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
-	transform, err := spatial.PoseMap(sf.transform)
+	temp := JsonLink{
+		ID:      sf.name,
+		Translation: *spatial.NewTranslationConfig(sf.transform.Point()),
+	}
+
+	orientationConfig, err := spatial.NewOrientationConfig(sf.transform.Orientation())
 	if err != nil {
 		return nil, err
 	}
-	m := FrameMapConfig{
-		"type":      "static",
-		"name":      sf.name,
-		"transform": transform,
+	temp.Orientation = *orientationConfig
+
+	if sf.geometryCreator != nil {
+		geometryConfig, err := spatial.NewGeometryConfig(sf.geometryCreator)
+		if err != nil {
+			return nil, err
+		}
+		temp.Geometry = *geometryConfig
 	}
-	return json.Marshal(m)
+	return json.Marshal(temp)
 }
 
 func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
@@ -328,7 +337,25 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	return NewGeometriesInFrame(pf.name, m), err
 }
 
+
+type JsonJoint struct {
+	ID     string             `json:"id"`
+	Type   string             `json:"type"`
+	Parent string             `json:"parent"`
+	Axis   spatial.AxisConfig `json:"axis"`
+	Max    float64            `json:"max"` // in mm or degs
+	Min    float64            `json:"min"` // in mm or degs
+}
+
+
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
+	
+	temp := JsonJoint{
+		ID: pf.name,
+		Type: "prismatic",
+		Axis: spatial.AxisConfig
+	
+	
 	m := FrameMapConfig{
 		"type":      "translational",
 		"name":      pf.name,
