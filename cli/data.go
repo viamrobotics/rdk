@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -23,6 +22,7 @@ const (
 	metadataDir   = "metadata"
 	maxRetryCount = 5
 	logEveryN     = 100
+	timeFormat    = "2006-01-02T150405.0000Z"
 )
 
 func (c *AppClient) SendBinaryDataByFilterRequest(filter *datapb.Filter, last string) (*datapb.BinaryDataByFilterResponse, error) {
@@ -48,12 +48,11 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	}
 
 	var last string
-	i := 0
-	dataDir := filepath.Join(dst, "data")
+	numFilesDownloaded := 0
 	for {
 		var err error
 		var resp *datapb.BinaryDataByFilterResponse
-		for count := 0; count < maxRetryCount; i++ {
+		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.SendBinaryDataByFilterRequest(filter, last)
 			if err == nil {
 				break
@@ -81,8 +80,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		//nolint:gosec
-		timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
-		fileName := filepath.Join(dst, "metadata", timeRequested+"-"+datum.GetMetadata().GetId()+".json")
+		timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(timeFormat)
+		fileName := filepath.Join(dst, metadataDir, timeRequested+"_"+datum.GetMetadata().GetId()+".json")
 		jsonFile, err := os.Create(fileName)
 		if err != nil {
 			return err
@@ -98,8 +97,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		//nolint:gosec
-		fileName = timeRequested + "-" + datum.GetMetadata().GetId() + datum.GetMetadata().GetFileExt()
-		dataFile, err := os.Create(filepath.Join(dataDir, fileName))
+		fileName = timeRequested + "_" + datum.GetMetadata().GetId() + datum.GetMetadata().GetFileExt()
+		dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName))
 		if err != nil {
 			return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
 		}
@@ -110,14 +109,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		if err := r.Close(); err != nil {
 			return err
 		}
-		i += 1
-		if i%logEveryN == 0 {
-			fmt.Fprintf(c.c.App.Writer, "downloaded %d total files\n", i)
+		numFilesDownloaded += 1
+		if numFilesDownloaded%logEveryN == 0 {
+			fmt.Fprintf(c.c.App.Writer, "downloaded %d files\n", numFilesDownloaded)
 		}
 	}
-	if i%logEveryN != 0 {
-		fmt.Println(dataDir)
-		fmt.Fprintf(c.c.App.Writer, "downloaded %d total files to %s\n", i, dataDir)
+	if numFilesDownloaded%logEveryN != 0 {
+		fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded, filepath.Join(dst, dataDir))
 	}
 	return nil
 }
@@ -151,7 +149,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			return errors.Wrap(err, "error marshaling metadata")
 		}
 		//nolint:gosec
-		mdFile, err := os.Create(filepath.Join(dst, "metadata", strconv.Itoa(i)+".json"))
+		mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(i)+".json"))
 		if err != nil {
 			return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
 		}
@@ -166,7 +164,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	data := resp.GetData()
 	// TODO: [DATA-640] Support export in additional formats.
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
+	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, "error creating data file")
 	}
