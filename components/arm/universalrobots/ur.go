@@ -55,9 +55,6 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 //go:embed ur5e.json
 var ur5modeljson []byte
 
-//go:embed ur5e_DH.json
-var ur5DHmodeljson []byte
-
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
