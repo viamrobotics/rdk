@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"strconv"
 
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
@@ -19,6 +20,7 @@ type Transformable interface {
 type PoseInFrame struct {
 	frame string
 	pose  spatialmath.Pose
+	name  string
 }
 
 // FrameName returns the name of the frame in which the pose was observed.
@@ -29,6 +31,11 @@ func (pF *PoseInFrame) FrameName() string {
 // Pose returns the pose that was observed.
 func (pF *PoseInFrame) Pose() spatialmath.Pose {
 	return pF.pose
+}
+
+// Name returns the name of the PoseInFrame.
+func (pF *PoseInFrame) Name() string {
+	return pF.name
 }
 
 // Transform changes the PoseInFrame pF into the reference frame specified by the tf argument.
@@ -45,8 +52,16 @@ func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
 	}
 }
 
-// PoseInFrameToProtobuf converts a PoseInFrame struct to a
-// PoseInFrame message as specified in common.proto.
+// NewNamedPoseInFrame generates a new PoseInFrame and gives it the specified name.
+func NewNamedPoseInFrame(frame string, pose spatialmath.Pose, name string) *PoseInFrame {
+	return &PoseInFrame{
+		frame: frame,
+		pose:  pose,
+		name:  name,
+	}
+}
+
+// PoseInFrameToProtobuf converts a PoseInFrame struct to a PoseInFrame protobuf message.
 func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
 	poseProto := spatialmath.PoseToProtobuf(framedPose.pose)
 	return &commonpb.PoseInFrame{
@@ -55,13 +70,67 @@ func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
 	}
 }
 
-// ProtobufToPoseInFrame converts a PoseInFrame message as specified in
-// common.proto to a PoseInFrame struct.
+// ProtobufToPoseInFrame converts a PoseInFrame protobuf message to a PoseInFrame struct.
 func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 	result := &PoseInFrame{}
 	result.pose = spatialmath.NewPoseFromProtobuf(proto.GetPose())
 	result.frame = proto.GetReferenceFrame()
 	return result
+}
+
+// PoseInFrameToTransformProtobuf converts a PoseInFrame struct to a Transform protobuf message.
+func PoseInFrameToTransformProtobuf(framedPose *PoseInFrame) (*commonpb.Transform, error) {
+	if framedPose.name == "" {
+		return nil, ErrEmptyStringFrameName
+	}
+	return &commonpb.Transform{
+		ReferenceFrame:      framedPose.name,
+		PoseInObserverFrame: PoseInFrameToProtobuf(framedPose),
+	}, nil
+}
+
+// PoseInFrameFromTransformProtobuf converts a Transform protobuf message to a PoseInFrame struct.
+func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, error) {
+	frameName := proto.GetReferenceFrame()
+	if frameName == "" {
+		return nil, ErrEmptyStringFrameName
+	}
+	poseInObserverFrame := proto.GetPoseInObserverFrame()
+	parentFrame := poseInObserverFrame.GetReferenceFrame()
+	if parentFrame == "" {
+		return nil, ErrEmptyStringFrameName
+	}
+	poseMsg := poseInObserverFrame.GetPose()
+	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
+	return NewNamedPoseInFrame(parentFrame, pose, frameName), nil
+}
+
+// PoseInFramesToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
+// TODO(rb): use generics to operate on lists of arbirary types.
+func PoseInFramesToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
+	protoTransforms := make([]*commonpb.Transform, 0, len(poseSlice))
+	for i, transform := range poseSlice {
+		protoTf, err := PoseInFrameToTransformProtobuf(transform)
+		if err != nil {
+			return nil, errors.Wrapf(err, "conversion error at index %d", i)
+		}
+		protoTransforms = append(protoTransforms, protoTf)
+	}
+	return protoTransforms, nil
+}
+
+// PoseInFramesFromTransformProtobuf converts a slice of Transform protobuf messages to a slice of PoseInFrame structs.
+// TODO(rb): use generics to operate on lists of arbirary proto types.
+func PoseInFramesFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*PoseInFrame, error) {
+	transforms := make([]*PoseInFrame, 0, len(protoSlice))
+	for i, protoTransform := range protoSlice {
+		transform, err := PoseInFrameFromTransformProtobuf(protoTransform)
+		if err != nil {
+			return nil, errors.Wrapf(err, "conversion error at index %d", i)
+		}
+		transforms = append(transforms, transform)
+	}
+	return transforms, nil
 }
 
 // GeometriesInFrame is a data structure that packages geometries with the name of the frame in which it was observed.

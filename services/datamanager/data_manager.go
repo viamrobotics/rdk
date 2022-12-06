@@ -70,7 +70,12 @@ func Named(name string) resource.Name {
 
 type reconfigurableDataManager struct {
 	mu     sync.RWMutex
+	name   resource.Name
 	actual Service
+}
+
+func (svc *reconfigurableDataManager) Name() resource.Name {
+	return svc.name
 }
 
 func (svc *reconfigurableDataManager) Sync(ctx context.Context, extra map[string]interface{}) error {
@@ -111,7 +116,7 @@ func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc re
 }
 
 // WrapWithReconfigurable wraps a data_manager as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(s)
@@ -121,5 +126,5 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	return &reconfigurableDataManager{actual: svc}, nil
+	return &reconfigurableDataManager{name: name, actual: svc}, nil
 }
