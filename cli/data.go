@@ -25,18 +25,6 @@ const (
 	timeFormat    = "2006-01-02T150405.0000Z"
 )
 
-func (c *AppClient) SendBinaryDataByFilterRequest(filter *datapb.Filter, last string) (*datapb.BinaryDataByFilterResponse, error) {
-	return c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
-		DataRequest: &datapb.DataRequest{
-			Filter: filter,
-			Limit:  1,
-			Last:   last,
-		},
-		IncludeBinary: true,
-		CountOnly:     false,
-	})
-}
-
 // BinaryData downloads binary data matching filter to dst.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -53,7 +41,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		var err error
 		var resp *datapb.BinaryDataByFilterResponse
 		for count := 0; count < maxRetryCount; count++ {
-			resp, err = c.SendBinaryDataByFilterRequest(filter, last)
+			resp, err = c.sendBinaryDataByFilterRequest(filter, last)
 			if err == nil {
 				break
 			}
@@ -118,6 +106,18 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded, filepath.Join(dst, dataDir))
 	}
 	return nil
+}
+
+func (c *AppClient) sendBinaryDataByFilterRequest(filter *datapb.Filter, last string) (*datapb.BinaryDataByFilterResponse, error) {
+	return c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
+		DataRequest: &datapb.DataRequest{
+			Filter: filter,
+			Limit:  1,
+			Last:   last,
+		},
+		IncludeBinary: true,
+		CountOnly:     false,
+	})
 }
 
 // TabularData downloads binary data matching filter to dst.
