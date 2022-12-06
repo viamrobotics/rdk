@@ -73,6 +73,8 @@ github.com/Antonboom/errname v0.1.7 h1:mBBDKvEYwPl4WFFNwec1CZO096G6vzK9vvDQzAwka
 github.com/Antonboom/errname v0.1.7/go.mod h1:g0ONh16msHIPgJSGsecu1G/dcF2hlYR/0SddnIAGavU=
 github.com/Antonboom/nilnil v0.1.1 h1:PHhrh5ANKFWRBh7TdYmyyq2gyT2lotnvFvvFbylF81Q=
 github.com/Antonboom/nilnil v0.1.1/go.mod h1:L1jBqoWM7AOeTD+tSquifKSesRHs4ZdaxvZR+xdJEaI=
+github.com/Arafatk/glot v0.0.0-20180312013246-79d5219000f0 h1:buG0FAUZtOwl9c+RdnQo3cfZhTnY2OY24J3t+jpeb9Y=
+github.com/Arafatk/glot v0.0.0-20180312013246-79d5219000f0/go.mod h1:o0O8gFiTfVp4g5QcQJ1iMLw6ROiy9BITaiBbEiwz9h8=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v1.2.0 h1:Rt8g24XnyGTyglgET/PRUNlrUeu9F5L+7FilkXfZgs0=
@@ -318,6 +320,8 @@ github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd/go.mod h1:CibiLte
 github.com/edaniels/zeroconf v1.0.2 h1:LldCQMSt/5Ss2tElkdIVdak78S4xt/6827PkV79sXC0=
 github.com/edaniels/zeroconf v1.0.2/go.mod h1:22UUi3EGu1VSKYpObTSRkMvN9ENVT20KgHJbDISznEk=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
+github.com/emre/golist v0.0.0-20131110135854-758ca839bda6 h1:41ZFYvYw2Q9nR18Yu3g84Ci+o8Rvuya+o3dSXGPjrzo=
+github.com/emre/golist v0.0.0-20131110135854-758ca839bda6/go.mod h1:lk3goCOVgTbd5r1iWQyQRBt4G5vYlWAwhFCQCMq0afs=
 github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4safvEdbitLhGGK48rN6g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

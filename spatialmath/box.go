@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
@@ -351,4 +352,47 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
 	}
 	return sum
+}
+
+// toPC returns list of points that make up box pointcloud
+func toPC(b Geometry) (r3.Vector, error) {
+	// rotMat := b.Pose().Orientation().RotationMatrix().mat
+	// myMat := mat.NewDense(3, 3, rotMat[:])
+	// fmt.Println("rotMat: ", rotMat)
+	// fmt.Println("myMat: ", myMat)
+
+	vec := &r3.Vector{}
+	verts := b.Vertices()
+	max := verts[0]
+	min := verts[len(verts)-1]
+	offset := max.X - min.X
+	fmt.Println("offset: ", offset)
+
+	// var frontFace [][]float64
+	my_list := golist.New()
+	for j := min.Y; j <= max.Y; j += 0.1 { // this is Y
+		for i := min.X; i <= max.X; i += 0.1 { // this is X
+			// points := []float64{i, j, min.Z}
+			points_list := golist.New()
+			points_list.Append(i)
+			points_list.Append(j)
+			points_list.Append(min.Z)
+			// frontFace = append(frontFace, points)
+			my_list.Append(points_list)
+		}
+	}
+
+	// fmt.Println(frontFace)
+	fmt.Println(my_list)
+
+	// todo: correct rotations for faces
+	//       visualize to double check
+
+	// var leftFace [][]float64
+	// var rightFace [][]float64
+	// var topFace [][]float64
+	// var underFace [][]float64
+	// var backFace [][]float64
+
+	return *vec, nil
 }
