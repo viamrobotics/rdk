@@ -435,23 +435,23 @@ func TestBasicOctreeIterate(t *testing.T) {
 
 		// Batched process with match for first data point
 		total := 0
-		basicOct.Iterate(9, 1, func(p r3.Vector, d pc.Data) bool {
-			total += d.Value()
-			return true
-		})
-		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
-
-		// Batched process with match for second data point
-		total = 0
-		basicOct.Iterate(9, 0, func(p r3.Vector, d pc.Data) bool {
+		basicOct.Iterate(3, 1, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
 			return true
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[1].D.Value())
 
+		// Batched process with match for second data point
+		total = 0
+		basicOct.Iterate(3, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
+
 		// Batched process no matching data point
 		total = 0
-		basicOct.Iterate(9, 2, func(p r3.Vector, d pc.Data) bool {
+		basicOct.Iterate(3, 4, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
 			return true
 		})
@@ -511,4 +511,38 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	})
 
 	validateBasicOctree(t, basicOct, center, side)
+}
+
+func TestBasicOctreePointcloudIngestion2(t *testing.T) {
+	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	center := r3.Vector{
+		X: startPC.MetaData().MinX + (startPC.MetaData().MaxX-startPC.MetaData().MinX)/2,
+		Y: startPC.MetaData().MinY + (startPC.MetaData().MaxY-startPC.MetaData().MinY)/2,
+		Z: startPC.MetaData().MinZ + (startPC.MetaData().MaxZ-startPC.MetaData().MinZ)/2,
+	}
+
+	side := math.Max((startPC.MetaData().MaxX-startPC.MetaData().MinX),
+		math.Max((startPC.MetaData().MaxY-startPC.MetaData().MinY),
+			(startPC.MetaData().MaxZ-startPC.MetaData().MinZ))) * 1.01
+
+	basicOct, err := createNewOctree(ctx, center, side, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPC.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+		if err = basicOct.Set(p, d); err != nil {
+			return false
+		}
+		return true
+	})
+
+	basicOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+		return true
+	})
+
+	//validateBasicOctree(t, basicOct, center, side)
 }
