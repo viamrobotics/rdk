@@ -282,7 +282,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target: datacapture.NewQueue(filepath.Join(svc.captureDir, time.Now().Format(time.RFC3339Nano)),
+		Target: datacapture.NewBuffer(filepath.Join(svc.captureDir, time.Now().Format(time.RFC3339Nano)),
 			captureMetadata),
 		QueueSize:  captureQueueSize,
 		BufferSize: captureBufferSize,

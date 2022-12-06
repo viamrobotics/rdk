@@ -20,6 +20,10 @@ import (
 	"time"
 )
 
+const (
+	fiftyMillis = 0.0008
+)
+
 var (
 	testLastModifiedMillis = 10
 )
@@ -83,7 +87,7 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.CaptureDisabled = false
 			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
 			originalSvcConfig.CaptureDir = tmpDir
-			originalSvcConfig.SyncIntervalMins = 0.001
+			originalSvcConfig.SyncIntervalMins = fiftyMillis
 
 			err = dmsvc.Update(context.Background(), cfg)
 
@@ -104,7 +108,7 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDisabled = false
 			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
 			updatedSvcConfig.CaptureDir = tmpDir
-			updatedSvcConfig.SyncIntervalMins = 0.001
+			updatedSvcConfig.SyncIntervalMins = fiftyMillis
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -224,7 +228,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			test.That(t, ok1, test.ShouldBeTrue)
 			svcConfig.CaptureDisabled = false
 			svcConfig.ScheduledSyncDisabled = true
-			svcConfig.SyncIntervalMins = 0.001
+			svcConfig.SyncIntervalMins = fiftyMillis
 			svcConfig.CaptureDir = tmpDir
 
 			err = dmsvc.Update(context.Background(), cfg)
@@ -246,7 +250,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
-			svcConfig.SyncIntervalMins = 0.001
+			svcConfig.SyncIntervalMins = fiftyMillis
 			time.Sleep(time.Duration(testLastModifiedMillis) * time.Millisecond)
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -388,7 +392,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			test.That(t, ok, test.ShouldBeTrue)
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
-			svcConfig.SyncIntervalMins = 0.001
+			svcConfig.SyncIntervalMins = fiftyMillis
 			svcConfig.AdditionalSyncPaths = []string{tmpDir}
 
 			// Start dmsvc.
@@ -428,6 +432,12 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.GetPartId(), test.ShouldEqual, cfg.Cloud.ID)
 
 				// Validate ensuing data messages.
+				actDataRequests := mockService.getFileUploadRequests()[1:]
+				var actData []byte
+				for _, d := range actDataRequests {
+					actData = append(actData, d.GetFileContents().GetData()...)
+				}
+				test.That(t, actData, test.ShouldResemble, fileContents)
 
 				// Validate file no longer exists.
 				test.That(t, len(remainingFiles), test.ShouldEqual, 0)
