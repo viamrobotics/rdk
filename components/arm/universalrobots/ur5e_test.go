@@ -3,7 +3,6 @@ package universalrobots
 import (
 	"context"
 	"math"
-	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
