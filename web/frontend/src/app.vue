@@ -86,7 +86,7 @@ const connectedFirstTime = new Promise<void>((resolve) => {
 });
 
 const selectedMap = {
-  'Live': 'live',
+  Live: 'live',
   'Manual Refresh': 0,
   'Every 30 Seconds': 30,
   'Every 10 Seconds': 10,
