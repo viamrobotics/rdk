@@ -309,18 +309,6 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// StartPositions returns a zeroed input map ensuring all frames have inputs.
-func StartPositions(fs FrameSystem) map[string][]Input {
-	positions := make(map[string][]Input)
-	for _, fn := range fs.FrameNames() {
-		frame := fs.Frame(fn)
-		if frame != nil {
-			positions[fn] = make([]Input, len(frame.DoF()))
-		}
-	}
-	return positions
-}
-
 func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
@@ -369,6 +357,56 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 		frame = sfs.parents[frame]
 	}
 	return q, errAll
+}
+
+// MergeFrameSystems will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
+// will be merged to the world frame of toFS with a 0 offset.
+func MergeFrameSystems(toFS, fromFS FrameSystem, cfg *LinkCfg) error {
+	var offsetFrame Frame
+	var err error
+	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
+		offsetFrame = NewZeroStaticFrame(fromFS.Name() + "_" + World)
+		err = toFS.AddFrame(offsetFrame, toFS.World())
+		if err != nil {
+			return err
+		}
+	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
+		geomCreator, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		posePt := cfg.Translation.ParseConfig()
+		poseOrient, err := cfg.Orientation.ParseConfig()
+		if err != nil {
+			return err
+		}
+		cfgPose := spatial.NewPoseFromOrientation(posePt, poseOrient)
+		offsetFrame, err = NewStaticFrameWithGeometry(fromFS.Name() + "_" + World, cfgPose, geomCreator)
+		if err != nil {
+			return err
+		}
+		err = toFS.AddFrame(offsetFrame, toFS.Frame(cfg.Parent))
+		if err != nil {
+			return err
+		}
+	}
+	err = toFS.MergeFrameSystem(fromFS, offsetFrame)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// StartPositions returns a zeroed input map ensuring all frames have inputs.
+func StartPositions(fs FrameSystem) map[string][]Input {
+	positions := make(map[string][]Input)
+	for _, fn := range fs.FrameNames() {
+		frame := fs.Frame(fn)
+		if frame != nil {
+			positions[fn] = make([]Input, len(frame.DoF()))
+		}
+	}
+	return positions
 }
 
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {

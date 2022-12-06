@@ -71,7 +71,7 @@ func NewFrameSystemFromParts(
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	for _, part := range sortedParts {
 		// rename everything with prefixes
-		part.Name = prefix + part.Name
+		part.FrameConfig.ID = prefix + part.FrameConfig.ID
 		// prefixing for the world frame is only necessary in the case
 		// of merging multiple frame systems together, so we leave that
 		// reponsibility to the corresponding merge function

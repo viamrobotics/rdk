@@ -48,6 +48,19 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
+// ToProto converts the sphere to a Geometry proto message.
+func (sc *sphereCreator) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(sc.offset),
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: sc.radius,
+			},
+		},
+		Label: sc.label,
+	}
+}
+
 // NewSphere instantiates a new sphere Geometry.
 func NewSphere(pt r3.Vector, radius float64, label string) (Geometry, error) {
 	if radius < 0 {
@@ -98,6 +111,7 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 				RadiusMm: s.radius,
 			},
 		},
+		Label: s.label,
 	}
 }
 

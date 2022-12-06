@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"os"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -15,37 +16,9 @@ import (
 type ModelConfig struct {
 	Name         string           `json:"name"`
 	KinParamType string           `json:"kinematic_param_type"`
-	Links        []JsonLink       `json:"links"`
-	Joints       []JsonJoint      `json:"joints"`
-	DHParams     []JsonDHParam    `json:"dhParams"`
-}
-
-type JsonLink struct {
-	ID          string                    `json:"id"`
-	Parent      string                    `json:"parent"`
-	Translation spatial.TranslationConfig `json:"translation"`
-	Orientation spatial.OrientationConfig `json:"orientation"`
-	Geometry    spatial.GeometryConfig    `json:"geometry"`
-}
-
-type JsonJoint struct {
-	ID     string             `json:"id"`
-	Type   string             `json:"type"`
-	Parent string             `json:"parent"`
-	Axis   spatial.AxisConfig `json:"axis"`
-	Max    float64            `json:"max"` // in mm or degs
-	Min    float64            `json:"min"` // in mm or degs
-}
-
-type JsonDHParam struct {
-	ID       string                 `json:"id"`
-	Parent   string                 `json:"parent"`
-	A        float64                `json:"a"`
-	D        float64                `json:"d"`
-	Alpha    float64                `json:"alpha"`
-	Max      float64                `json:"max"` // in mm or degs
-	Min      float64                `json:"min"` // in mm or degs
-	Geometry spatial.GeometryConfig `json:"geometry"`
+	Links        []LinkCfg       `json:"links"`
+	Joints       []JointCfg      `json:"joints"`
+	DHParams     []DHParamCfg    `json:"dhParams"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
@@ -77,20 +50,24 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 		for _, link := range cfg.Links {
 			parentMap[link.ID] = link.Parent
-			orientation, err := link.Orientation.ParseConfig()
-			if err != nil {
-				return nil, err
+			orientation := spatial.NewZeroOrientation()
+			if link.Orientation != nil {
+				orientation, err = link.Orientation.ParseConfig()
+				if err != nil {
+					return nil, err
+				}
 			}
 			pose := spatial.NewPoseFromOrientation(link.Translation.ParseConfig(), orientation)
-			geometryCreator, err := link.Geometry.ParseConfig()
-			if err == nil {
+			if link.Geometry != nil {
+				geometryCreator, err := link.Geometry.ParseConfig()
+				if err != nil {
+					return nil, err
+				}
 				transforms[link.ID], err = NewStaticFrameWithGeometry(link.ID, pose, geometryCreator)
-			} else {
+			}else{
 				transforms[link.ID], err = NewStaticFrame(link.ID, pose)
 			}
-			if err != nil {
-				return nil, err
-			}
+			
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
@@ -156,6 +133,7 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.New("more than one end effector not supported")
 	}
 	if len(parents) < 1 {
+		fmt.Println("cfg", cfg)
 		return nil, errors.New("need at least one end effector")
 	}
 	var eename string

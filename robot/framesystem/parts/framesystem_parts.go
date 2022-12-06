@@ -26,11 +26,14 @@ func (fsp Parts) String() string {
 		tra := part.FrameConfig.Translation
 		ori := &spatialmath.EulerAngles{}
 		if part.FrameConfig.Orientation != nil {
-			ori = part.FrameConfig.Orientation.EulerAngles()
+			orient, err := part.FrameConfig.Orientation.ParseConfig()
+			if err == nil {
+				ori = orient.EulerAngles()
+			}
 		}
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),
-			part.Name,
+			part.FrameConfig.ID,
 			part.FrameConfig.Parent,
 			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
 			fmt.Sprintf(
@@ -58,14 +61,16 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[referenceframe.World] = true
 	for _, part := range parts {
-		existingParts[part.Name] = true
+		existingParts[part.FrameConfig.ID] = true
 	}
 	// make map of children
 	children := make(map[string]Parts)
+	//~ fmt.Println("parts", parts)
 	for _, part := range parts {
+		//~ fmt.Println("part", part)
 		parent := part.FrameConfig.Parent
 		if !existingParts[parent] {
-			return nil, NewMissingParentError(part.Name, parent)
+			return nil, NewMissingParentError(part.FrameConfig.ID, parent)
 		}
 		children[part.FrameConfig.Parent] = append(children[part.FrameConfig.Parent], part)
 	}
@@ -89,10 +94,10 @@ func TopologicallySort(parts Parts) (Parts, error) {
 		}
 		visited[parent] = true
 		sort.Slice(children[parent], func(i, j int) bool {
-			return children[parent][i].Name < children[parent][j].Name
+			return children[parent][i].FrameConfig.ID < children[parent][j].FrameConfig.ID
 		}) // sort alphabetically within the topological sort
 		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, part.Name)
+			stack = append(stack, part.FrameConfig.ID)
 			topoSortedParts = append(topoSortedParts, part)
 		}
 	}
@@ -110,7 +115,7 @@ func RenameRemoteParts(
 			p.FrameConfig.Parent = connectionName
 		}
 		// rename each non-world part with prefix
-		p.Name = remoteName + ":" + p.Name
+		p.FrameConfig.ID = remoteName + ":" + p.FrameConfig.ID
 		if p.FrameConfig.Parent != connectionName {
 			p.FrameConfig.Parent = remoteName + ":" + p.FrameConfig.Parent
 		}
@@ -131,7 +136,7 @@ func PartMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
 func Names(parts Parts) []string {
 	names := make([]string, len(parts))
 	for i, p := range parts {
-		names[i] = p.Name
+		names[i] = p.FrameConfig.ID
 	}
 	return names
 }

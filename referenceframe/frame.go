@@ -244,7 +244,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
-	temp := JsonLink{
+	temp := StaticFrameCfg{
 		ID:      sf.name,
 		Translation: *spatial.NewTranslationConfig(sf.transform.Point()),
 	}
@@ -253,14 +253,14 @@ func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	temp.Orientation = *orientationConfig
+	temp.Orientation = orientationConfig
 
 	if sf.geometryCreator != nil {
 		geometryConfig, err := spatial.NewGeometryConfig(sf.geometryCreator)
 		if err != nil {
 			return nil, err
 		}
-		temp.Geometry = *geometryConfig
+		temp.Geometry = geometryConfig
 	}
 	return json.Marshal(temp)
 }
@@ -337,32 +337,26 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	return NewGeometriesInFrame(pf.name, m), err
 }
 
-
-type JsonJoint struct {
-	ID     string             `json:"id"`
-	Type   string             `json:"type"`
-	Parent string             `json:"parent"`
-	Axis   spatial.AxisConfig `json:"axis"`
-	Max    float64            `json:"max"` // in mm or degs
-	Min    float64            `json:"min"` // in mm or degs
-}
-
-
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
-	
-	temp := JsonJoint{
+	if len(pf.limits) > 1 {
+		return nil, errors.New("cannot marshal translational frame with >1 DOF, use a mobile2DFrame or a Model")
+	}
+	temp := JointCfg{
 		ID: pf.name,
 		Type: "prismatic",
-		Axis: spatial.AxisConfig
-	
-	
-	m := FrameMapConfig{
-		"type":      "translational",
-		"name":      pf.name,
-		"transAxis": pf.transAxis,
-		"limit":     pf.limits,
+		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
+		Max:  pf.limits[0].Max,
+		Min:  pf.limits[0].Min,
 	}
-	return json.Marshal(m)
+	if pf.geometryCreator != nil {
+		geometryConfig, err := spatial.NewGeometryConfig(pf.geometryCreator)
+		if err != nil {
+			return nil, err
+		}
+		temp.Geometry = geometryConfig
+	}
+
+	return json.Marshal(temp)
 }
 
 func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
@@ -427,13 +421,18 @@ func (rf *rotationalFrame) Name() string {
 }
 
 func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
-	m := FrameMapConfig{
-		"type":    "rotational",
-		"name":    rf.name,
-		"rotAxis": rf.rotAxis,
-		"limit":   rf.limits,
+	if len(rf.limits) > 1 {
+		return nil, errors.New("cannot marshal revolute frame with >1 DOF, use a Model")
 	}
-	return json.Marshal(m)
+	temp := JointCfg{
+		ID: rf.name,
+		Type: "revolute",
+		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
+		Max:  rf.limits[0].Max,
+		Min:  rf.limits[0].Min,
+	}
+
+	return json.Marshal(temp)
 }
 
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
@@ -497,11 +496,7 @@ func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
-	return json.Marshal(FrameMapConfig{
-		"type":  "rotational",
-		"name":  mf.name,
-		"limit": mf.limits,
-	})
+	return nil, fmt.Errorf("MarshalJSON not implemented for type %T", mf)
 }
 
 func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {

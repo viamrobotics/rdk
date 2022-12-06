@@ -43,6 +43,19 @@ func (pc *pointCreator) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
+// ToProto converts the point to a Geometry proto message.
+func (pc *pointCreator) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(pc.offset),
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: 0,
+			},
+		},
+		Label: pc.label,
+	}
+}
+
 // NewPoint instantiates a new point Geometry.
 func NewPoint(pt r3.Vector, label string) Geometry {
 	return &point{NewPoseFromPoint(pt), label}
@@ -89,6 +102,7 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 				RadiusMm: 0,
 			},
 		},
+		Label: pt.label,
 	}
 }
 

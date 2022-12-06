@@ -57,6 +57,21 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
+// ToProtobuf converts the box to a Geometry proto message.
+func (bc *boxCreator) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(bc.offset),
+		GeometryType: &commonpb.Geometry_Box{
+			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+				X: 2 * bc.halfSize.X,
+				Y: 2 * bc.halfSize.Y,
+				Z: 2 * bc.halfSize.Z,
+			}},
+		},
+		Label: bc.label,
+	}
+}
+
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {

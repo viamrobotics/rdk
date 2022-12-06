@@ -133,13 +133,13 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		parentMap[jointElem.Child.Link] = jointElem.Name
 
 		// Set up the child link mentioned in this joint; fill out the details in the link parsing section later
-		childLink := JsonLink{ID: jointElem.Child.Link, Parent: jointElem.Name}
+		childLink := LinkCfg{&StaticFrameCfg{ID: jointElem.Child.Link}, jointElem.Name}
 
 		switch jointElem.Type {
 		case "continuous", "revolute", "prismatic":
 			// Parse important details about each joint, including axes and limits
 			jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
-			thisJoint := JsonJoint{
+			thisJoint := JointCfg{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,
@@ -165,14 +165,14 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
 
 			childLink.Translation = spatial.TranslationConfig{childXYZ[0] * 1000, childXYZ[1] * 1000, childXYZ[2] * 1000}
-			childLink.Orientation = *childOrient
+			childLink.Orientation = childOrient
 
 			if err != nil {
 				return nil, err
 			}
 		case "fixed":
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
-			thisLink := JsonLink{ID: jointElem.Name, Parent: jointElem.Parent.Link}
+			thisLink := LinkCfg{&StaticFrameCfg{ID: jointElem.Name}, jointElem.Parent.Link}
 
 			linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
@@ -180,7 +180,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
 
 			thisLink.Translation = spatial.TranslationConfig{linkXYZ[0] * 1000, linkXYZ[1] * 1000, linkXYZ[2] * 1000}
-			thisLink.Orientation = *linkOrient
+			thisLink.Orientation = linkOrient
 
 			if err != nil {
 				return nil, err
@@ -221,13 +221,13 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 
 		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
 		if _, ok := parentMap[linkElem.Name]; !ok {
-			thisLink := JsonLink{ID: linkElem.Name, Parent: World}
+			thisLink := LinkCfg{&StaticFrameCfg{ID: linkElem.Name}, World}
 
 			linkEA := spatial.EulerAngles{Roll: 0.0, Pitch: 0.0, Yaw: 0.0}
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
 
 			thisLink.Translation = spatial.TranslationConfig{0.0, 0.0, 0.0}
-			thisLink.Orientation = *linkOrient
+			thisLink.Orientation = linkOrient
 
 			if err != nil {
 				return nil, err
@@ -398,7 +398,7 @@ func convStringAttrToFloats(attr string) []float64 {
 	return converted
 }
 
-func convURDFCollisionToConfig(link UrdfLink) (spatial.GeometryConfig, error) {
+func convURDFCollisionToConfig(link UrdfLink) (*spatial.GeometryConfig, error) {
 	var geoCfg spatial.GeometryConfig
 	boxGeometry := link.Collision[0].Geometry.Box
 	sphereGeometry := link.Collision[0].Geometry.Sphere
@@ -440,8 +440,8 @@ func convURDFCollisionToConfig(link UrdfLink) (spatial.GeometryConfig, error) {
 	}
 
 	if err != nil {
-		return spatial.GeometryConfig{}, err
+		return nil, err
 	}
 
-	return geoCfg, nil
+	return &geoCfg, nil
 }

@@ -12,6 +12,7 @@ import (
 type GeometryCreator interface {
 	NewGeometry(Pose) Geometry
 	Offset() Pose
+	ToProtobuf() *commonpb.Geometry
 	json.Marshaler
 }
 
@@ -133,4 +134,28 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 		return NewSphere(pose.Point(), sphere.RadiusMm, geometry.Label)
 	}
 	return nil, ErrGeometryTypeUnsupported
+}
+
+// NewGeometryCreatorFromProto instantiates a new GeometryCreator from a protobuf Geometry message.
+func NewGeometryCreatorFromProto(geometry *commonpb.Geometry) (GeometryCreator, error) {
+	pose := NewPoseFromProtobuf(geometry.Center)
+	if box := geometry.GetBox().GetDimsMm(); box != nil {
+		return NewBoxCreator(r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, pose, geometry.Label)
+	}
+	if sphere := geometry.GetSphere(); sphere != nil {
+		if sphere.RadiusMm == 0 {
+			return NewPointCreator(pose, geometry.Label), nil
+		}
+		return NewSphereCreator(sphere.RadiusMm, pose, geometry.Label)
+	}
+	return nil, ErrGeometryTypeUnsupported
+}
+
+// NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
+func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
+	creator, err := config.ParseConfig()
+	if err != nil {
+		return nil, err
+	}
+	return creator.ToProtobuf(), nil
 }

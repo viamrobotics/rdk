@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // A Config describes the configuration of a robot.
@@ -148,7 +149,7 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 type Remote struct {
 	Name                    string                       `json:"name"`
 	Address                 string                       `json:"address"`
-	Frame                   *Frame                       `json:"frame,omitempty"`
+	Frame                   *referenceframe.LinkCfg     `json:"frame,omitempty"`
 	Auth                    RemoteAuth                   `json:"auth"`
 	ManagedBy               string                       `json:"managed_by"`
 	Insecure                bool                         `json:"insecure"`

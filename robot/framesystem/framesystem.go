@@ -234,7 +234,7 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return err
 		}
-		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
+		parts[c.Frame.ID] = &config.FrameSystemPart{FrameConfig: c.Frame, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil
@@ -263,12 +263,13 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 			svc.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
 			continue
 		}
-		connectionName := rConf.Name + "_" + referenceframe.World
+		
 		// build the frame system part that connects remote world to base world
 		connection := &config.FrameSystemPart{
-			Name:        connectionName,
 			FrameConfig: rConf.Frame,
 		}
+		fmt.Println("rconf", rConf)
+		connection.FrameConfig.ID = rConf.Name + "_" + referenceframe.World
 		offsetParts[remoteName] = connection
 	}
 	svc.offsetParts = offsetParts
