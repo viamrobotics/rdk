@@ -2,23 +2,29 @@ package arm_test
 
 import (
 	"context"
+	"math"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	componentpb "go.viam.com/api/component/arm/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	gotestutils "go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -209,4 +215,66 @@ func TestClientDialerOption(t *testing.T) {
 
 	test.That(t, conn1.Close(), test.ShouldBeNil)
 	test.That(t, conn2.Close(), test.ShouldBeNil)
+}
+
+func TestClientModel(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	// create inject arm
+	var injectArmPosition *componentpb.JointPositions
+	injectArm := &inject.Arm{}
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+		return injectArmPosition, nil
+	}
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]interface{}) error {
+		injectArmPosition = jp
+		return nil
+	}
+
+	// create basic Model for arm
+	model := referenceframe.NewSimpleModel("foo")
+	rf, err := referenceframe.NewRotationalFrame("bar", spatialmath.R4AA{RX: 1}, referenceframe.Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	model.OrdTransforms = []referenceframe.Frame{rf}
+
+	// creat inject Robot
+	injectRobot := &inject.Robot{}
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{&config.FrameSystemPart{
+			Name: testArmName,
+			FrameConfig: &config.Frame{
+				Parent: referenceframe.World,
+			},
+			ModelFrame: model,
+		}}, nil
+	}
+
+	// register services, setup connection
+	var listener net.Listener = gotestutils.ReserveRandomListener(t)
+	gServer := grpc.NewServer()
+	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm})
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+
+	// test client
+	armClient := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
+	defer test.That(t, utils.TryClose(context.Background(), armClient), test.ShouldBeNil)
+
+	modelResponse := armClient.ModelFrame()
+	test.That(t, modelResponse, test.ShouldNotBeNil)
+	expected := []referenceframe.Input{{Value: 90}}
+	err = armClient.GoToInputs(context.Background(), expected)
+	test.That(t, err, test.ShouldBeNil)
+	actual, err := armClient.CurrentInputs(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expected[0].Value, test.ShouldAlmostEqual, actual[0].Value)
 }

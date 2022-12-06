@@ -29,7 +29,7 @@ type depthEdgesSource struct {
 }
 
 func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am config.AttributeMap,
-) (gostream.VideoSource, camera.StreamType, error) {
+) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesAttrs{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

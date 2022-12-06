@@ -46,6 +46,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -1178,7 +1179,16 @@ func TestStatusRemote(t *testing.T) {
 	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
 	statusCallCount := 0
 
+	// TODO: RSDK-882 will update this so that this is not necessary
+	frameSystemConfigFunc := func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+
 	injectRobot1 := &inject.Robot{
+		FrameSystemConfigFunc:   frameSystemConfigFunc,
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
@@ -1195,6 +1205,7 @@ func TestStatusRemote(t *testing.T) {
 		return statuses, nil
 	}
 	injectRobot2 := &inject.Robot{
+		FrameSystemConfigFunc:   frameSystemConfigFunc,
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
