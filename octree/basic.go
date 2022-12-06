@@ -132,11 +132,11 @@ func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
 }
 
 // Iterate takes in the number of batches, a batch id, and a function to apply to each point in a basic octree
-// until false is returned. These parameters are passed to iterateRecursive along with the starting index (0)
+// until false is returned. These parameters are passed to helperIterateRecursive along with the starting index (0)
 // to iterate through a basic octree if the number of batches is greater than or equal to 0.
-func (octree *basicOctree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d pc.Data) bool) {
+func (octree *basicOctree) Iterate(numBatches, currentBatch int, fn func(p r3.Vector, d pc.Data) bool) {
 	if numBatches >= 0 {
-		octree.iterateRecursive(numBatches, myBatch, 0, fn)
+		octree.helperIterateRecursive(numBatches, currentBatch, 0, fn)
 	}
 }
 

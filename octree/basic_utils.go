@@ -93,25 +93,28 @@ func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
 }
 
-// iterateRecursive is a helper function for iterating through a basic octree. If an internal node is found it will be
-// called recursively after updating the idx value to correspond to the id of the child node. If a leaf node with a point
-// is found and the myBatch number matches the idx%numBatches then the function will be performed on the point and
-// associated data. If the function returns false, the iteration will end.
-func (octree *basicOctree) iterateRecursive(numBatches, currentBatch int, idx uint, fn func(p r3.Vector, d pc.Data) bool) (uint, bool) {
-	currIdx := idx
+// helperIterateRecursive is a helper function for iterating through a basic octree. If an internal
+// node is found it will be called recursively on each child, updating the idx to correspond to the
+// number of data points in each child. By doing so, each leaf node containing data will have a unique
+// idx value. If the currentBatch number matches the idx%numBatches then the specified function will
+// be performed on the point. If the function returns false, the iteration will end.
+func (octree *basicOctree) helperIterateRecursive(numBatches, currentBatch int, idx uint,
+	fn func(p r3.Vector, d pc.Data) bool,
+) (uint, bool) {
+	currentIdx := idx
 	ok := true
 	switch octree.node.nodeType {
 	case InternalNode:
 		for _, child := range octree.node.children {
-			if idx, ok = child.iterateRecursive(numBatches, currentBatch, currIdx, fn); !ok {
+			if idx, ok = child.helperIterateRecursive(numBatches, currentBatch, currentIdx, fn); !ok {
 				ok = false
 				break
 			}
-			currIdx += uint(child.size)
+			currentIdx += uint(child.size)
 		}
 
 	case LeafNodeFilled:
-		if numBatches == 0 || idx%uint(numBatches) == uint(currentBatch) {
+		if numBatches == 0 || currentIdx%uint(numBatches) == uint(currentBatch) {
 			ok = fn(octree.node.point.P, octree.node.point.D)
 		}
 
