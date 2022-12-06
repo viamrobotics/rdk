@@ -40,36 +40,36 @@ type ModelConfig struct {
 		Min      float64                `json:"min"` // in mm or degs
 		Geometry spatial.GeometryConfig `json:"geometry"`
 	} `json:"dhParams"`
-	RawFrames []FrameMapConfig `json:"frames"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
-func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
+func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	var err error
 	if modelName == "" {
-		modelName = config.Name
+		modelName = cfg.Name
 	}
 
 	model := NewSimpleModel(modelName)
+	model.modelConfig = cfg
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
-	switch config.KinParamType {
+	switch cfg.KinParamType {
 	case "SVA", "":
-		for _, link := range config.Links {
+		for _, link := range cfg.Links {
 			if link.ID == World {
 				return nil, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
-		for _, joint := range config.Joints {
+		for _, joint := range cfg.Joints {
 			if joint.ID == World {
 				return nil, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
-		for _, link := range config.Links {
+		for _, link := range cfg.Links {
 			parentMap[link.ID] = link.Parent
 			orientation, err := link.Orientation.ParseConfig()
 			if err != nil {
@@ -88,7 +88,7 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
-		for _, joint := range config.Joints {
+		for _, joint := range cfg.Joints {
 			parentMap[joint.ID] = joint.Parent
 			switch joint.Type {
 			case "revolute":
@@ -106,7 +106,7 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		}
 
 	case "DH":
-		for _, dh := range config.DHParams {
+		for _, dh := range cfg.DHParams {
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
@@ -131,18 +131,8 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			}
 		}
 
-	case "frames":
-		for _, x := range config.RawFrames {
-			f, err := x.ParseConfig()
-			if err != nil {
-				return nil, err
-			}
-			model.OrdTransforms = append(model.OrdTransforms, f)
-		}
-		return model, nil
-
 	default:
-		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", config.KinParamType)
+		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
 	}
 
 	// Determine which transforms have no children
