@@ -69,7 +69,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 
 		timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339)
 		fileName := timeRequested + "_" + datum.GetMetadata().GetId() + ".json"
-		jsonFile, err := os.Create(filepath.Clean(filepath.Join(dst, metadataDir, fileName)))
+		//nolint:gosec
+		jsonFile, err := os.Create(filepath.Join(dst, metadataDir, fileName))
 		if err != nil {
 			return err
 		}
@@ -84,7 +85,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		fileName = timeRequested + "_" + datum.GetMetadata().GetId() + datum.GetMetadata().GetFileExt()
-		dataFile, err := os.Create(filepath.Clean(filepath.Join(dst, dataDir, fileName)))
+		//nolint:gosec
+		dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName))
 		if err != nil {
 			return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
 		}
