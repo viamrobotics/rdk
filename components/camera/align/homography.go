@@ -143,7 +143,7 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.Camera, at
 // Read aligns the next images from the color and the depth sources to the frame of the color camera.
 // imageType parameter will determine which channel gets streamed.
 func (acd *colorDepthHomography) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "videosource::colorDepthHomography::Read")
+	ctx, span := trace.StartSpan(ctx, "align::colorDepthHomography::Read")
 	defer span.End()
 	switch acd.imageType {
 	case camera.ColorStream, camera.UnspecifiedStream:
@@ -171,7 +171,7 @@ func (acd *colorDepthHomography) Read(ctx context.Context) (image.Image, func(),
 }
 
 func (acd *colorDepthHomography) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "videosource::colorDepthHomography::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "align::colorDepthHomography::NextPointCloud")
 	defer span.End()
 	if acd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("")

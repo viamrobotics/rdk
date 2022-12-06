@@ -154,7 +154,7 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.Camera, at
 // Read aligns the next images from the color and the depth sources to the frame of the color camera.
 // stream parameter will determine which channel gets streamed.
 func (cde *colorDepthExtrinsics) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "videosource::colorDepthExtrinsics::Read")
+	ctx, span := trace.StartSpan(ctx, "align::colorDepthExtrinsics::Read")
 	defer span.End()
 	switch cde.imageType {
 	case camera.ColorStream, camera.UnspecifiedStream:
@@ -182,7 +182,7 @@ func (cde *colorDepthExtrinsics) Read(ctx context.Context) (image.Image, func(),
 }
 
 func (cde *colorDepthExtrinsics) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "videosource::colorDepthExtrinsics::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "align::colorDepthExtrinsics::NextPointCloud")
 	defer span.End()
 	if cde.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("")
