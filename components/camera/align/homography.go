@@ -21,6 +21,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+//nolint:dupl
 func init() {
 	registry.RegisterComponent(camera.Subtype, "align_color_depth_homography",
 		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,

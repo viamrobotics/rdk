@@ -72,7 +72,6 @@ func init() {
 			err = matrices.CheckValid()
 			return matrices, err
 		})
-
 }
 
 // extrinsicsAttrs is the attribute struct for aligning.
