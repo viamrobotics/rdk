@@ -87,7 +87,7 @@ type dualServerSource struct {
 	ColorURL                string // this is for a generic image
 	DepthURL                string // this suuports monochrome Z16 depth images
 	Intrinsics              *transform.PinholeCameraIntrinsics
-	Stream                  camera.StreamType // returns color or depth frame with calls of Next
+	Stream                  camera.ImageType // returns color or depth frame with calls of Next
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -110,7 +110,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		ColorURL:   cfg.Color,
 		DepthURL:   cfg.Depth,
 		Intrinsics: cfg.CameraParameters,
-		Stream:     camera.StreamType(cfg.Stream),
+		Stream:     camera.ImageType(cfg.Stream),
 	}
 	return camera.NewFromReader(
 		ctx,
@@ -132,7 +132,7 @@ func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), erro
 		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false)
 		return depth, func() {}, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(ds.Stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(ds.Stream)
 	}
 }
 
@@ -182,7 +182,7 @@ func (ds *dualServerSource) Close(ctx context.Context) error {
 type serverSource struct {
 	client     http.Client
 	URL        string
-	stream     camera.StreamType // specifies color, depth
+	stream     camera.ImageType // specifies color, depth
 	Intrinsics *transform.PinholeCameraIntrinsics
 }
 
@@ -213,7 +213,7 @@ func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
 		depth, err := readDepthURL(ctx, s.client, s.URL, false)
 		return depth, func() {}, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(s.stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(s.stream)
 	}
 }
 
@@ -245,7 +245,7 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 	}
 	videoSrc := &serverSource{
 		URL:        cfg.URL,
-		stream:     camera.StreamType(cfg.Stream),
+		stream:     camera.ImageType(cfg.Stream),
 		Intrinsics: cfg.CameraParameters,
 	}
 	return camera.NewFromReader(

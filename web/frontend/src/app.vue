@@ -12,7 +12,6 @@ import { addResizeListeners } from './lib/resize';
 import {
   Client,
   RobotService,
-  ServiceError,
   cameraApi,
   commonApi,
   robotApi,
@@ -54,7 +53,6 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from './lib/fixers';
-import { addStream, removeStream } from './lib/stream';
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -73,7 +71,6 @@ const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: grpc.Request | null = null;
 let statusStreamOpID: string | undefined;
-let baseCameraState = new Map<string, boolean>();
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -87,6 +84,14 @@ let connectedFirstTimeResolve: (value: void) => void;
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
+
+const selectedMap = {
+  Live: 'live',
+  'Manual Refresh': 0,
+  'Every 30 Seconds': 30,
+  'Every 10 Seconds': 10,
+  'Every Second': 1,
+} as const;
 
 const rtcConfig = {
   iceServers: [
@@ -579,33 +584,10 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewCamera = async (name: string, isOn: boolean) => {
-  if (isOn) {
-    try {
-      // only add stream if base camera is not active
-      if (!baseCameraState.get(name)) {
-        await addStream(client, name);
-      }
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  } else {
-    try {
-      // only remove stream if base camera is not active
-      if (!baseCameraState.get(name)) {
-        await removeStream(client, name);
-      }
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  }
-};
-
-const viewManualFrame = (cameraName: string) => {
+const viewFrame = (cameraName: string) => {
   const req = new cameraApi.RenderFrameRequest();
   req.setName(cameraName);
-  const mimeType = 'image/jpeg';
-  req.setMimeType(mimeType);
+  req.setMimeType('image/jpeg');
   client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
@@ -618,48 +600,31 @@ const viewManualFrame = (cameraName: string) => {
       streamContainer.querySelector('video')?.remove();
       streamContainer.querySelector('img')?.remove();
       const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
+      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
       image.src = URL.createObjectURL(blob);
       streamContainer.append(image);
     }
   });
 };
 
-const viewIntervalFrame = (cameraName: string, time: string) => {
-  cameraFrameIntervalId = window.setInterval(() => {
-    const req = new cameraApi.RenderFrameRequest();
-    req.setName(cameraName);
-    req.setMimeType('image/jpeg');
-    client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
-
-      const streamContainers = document.querySelectorAll(
-        `[data-stream="${cameraName}"]`
-      );
-      for (const streamContainer of streamContainers) {
-        streamContainer.querySelector('video')?.remove();
-        streamContainer.querySelector('img')?.remove();
-        const image = new Image();
-        const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-        image.src = URL.createObjectURL(blob);
-        streamContainer.append(image);
-      }
-    });
-  }, Number(time) * 1000);
+const clearFrameInterval = () => {
+  window.clearInterval(cameraFrameIntervalId);
 };
 
 const viewCameraFrame = (cameraName: string, time: string) => {
-  window.clearInterval(cameraFrameIntervalId);
-  if (time === 'manual') {
-    viewCamera(cameraName, false);
-    viewManualFrame(cameraName);
-  } else if (time === 'live') {
-    viewCamera(cameraName, true);
+  clearFrameInterval();
+  const selectedInterval = selectedMap[time as keyof typeof selectedMap];
+
+  if (time === 'Live') {
+    return;
+  }
+
+  if (time === 'Manual Refresh') {
+    viewFrame(cameraName);
   } else {
-    viewCamera(cameraName, false);
-    viewIntervalFrame(cameraName, time);
+    cameraFrameIntervalId = window.setInterval(() => {
+      viewFrame(cameraName);
+    }, Number(selectedInterval) * 1000);
   }
 };
 
@@ -696,7 +661,7 @@ const doLogin = (authType: string) => {
   doConnect(window.host, creds, (error) => {
     document.querySelector('#connecting')!.classList.add('hidden');
     disableAuthElements = false;
-    console.log(error);
+    console.error(error);
     toast.error(`failed to connect: ${error}`);
   });
 };
@@ -708,10 +673,6 @@ const initConnect = () => {
       setTimeout(initConnect, 1000);
     });
   }
-};
-
-const updatedBaseCameraState = (event: Map<string, boolean>) => {
-  baseCameraState = event;
 };
 
 onMounted(async () => {
@@ -781,7 +742,6 @@ onMounted(async () => {
       :name="base.name"
       :client="client"
       :resources="resources"
-      @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->
@@ -871,9 +831,8 @@ onMounted(async () => {
       :camera-name="camera.name"
       :client="client"
       :resources="resources"
-      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
-      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
+      @clear-interval="clearFrameInterval"
     />
 
     <!-- ******* NAVIGATION ******* -->

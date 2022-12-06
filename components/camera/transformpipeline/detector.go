@@ -34,7 +34,7 @@ type detectorSource struct {
 func newDetectionsTransform(
 	ctx context.Context,
 	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
-) (gostream.VideoSource, camera.StreamType, error) {
+) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
