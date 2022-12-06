@@ -66,33 +66,18 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	return part, nil
 }
 
-// NewMissingReferenceFrameError returns an error indicating that a particular
-// protobuf message is missing necessary information for its ReferenceFrame key.
-func NewMissingReferenceFrameError(msg interface{}) error {
-	return errors.Errorf("missing reference frame in protobuf message of type %T", msg)
-}
-
-// ConvertTransformProtobufToFrameSystemPart creates a FrameSystem part out of a
-// transform protobuf message.
-func ConvertTransformProtobufToFrameSystemPart(transformMsg *commonpb.Transform) (*FrameSystemPart, error) {
-	frameName := transformMsg.GetReferenceFrame()
-	if frameName == "" {
-		return nil, NewMissingReferenceFrameError(transformMsg)
+// PoseInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
+func PoseInFrameToFrameSystemPart(transform *referenceframe.PoseInFrame) (*FrameSystemPart, error) {
+	if transform.Name() == "" || transform.FrameName() == "" {
+		return nil, referenceframe.ErrEmptyStringFrameName
 	}
-	poseInObserverFrame := transformMsg.GetPoseInObserverFrame()
-	parentFrame := poseInObserverFrame.GetReferenceFrame()
-	if parentFrame == "" {
-		return nil, NewMissingReferenceFrameError(poseInObserverFrame)
-	}
-	poseMsg := poseInObserverFrame.GetPose()
-	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
 	frameConfig := &Frame{
-		Parent:      parentFrame,
-		Translation: pose.Point(),
-		Orientation: pose.Orientation(),
+		Parent:      transform.FrameName(),
+		Translation: transform.Pose().Point(),
+		Orientation: transform.Pose().Orientation(),
 	}
 	part := &FrameSystemPart{
-		Name:        frameName,
+		Name:        transform.Name(),
 		FrameConfig: frameConfig,
 	}
 	return part, nil

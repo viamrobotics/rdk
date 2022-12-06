@@ -122,11 +122,22 @@ func TestStatusClient(t *testing.T) {
 			servo.Named("servo1"),
 		}
 	}
+
+	// TODO: RSDK-882 will update this so that this is not necessary
+	frameSystemConfigFunc := func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+
 	injectRobot1 := &inject.Robot{
+		FrameSystemConfigFunc:   frameSystemConfigFunc,
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
 	injectRobot2 := &inject.Robot{
+		FrameSystemConfigFunc:   frameSystemConfigFunc,
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
@@ -302,7 +313,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
+	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &referenceframe.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -371,7 +382,11 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), &commonpb.WorldState{}, nil)
+	err = resource1.(arm.Arm).MoveToPosition(
+		context.Background(),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1}),
+		&referenceframe.WorldState{}, nil,
+	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -693,6 +708,14 @@ func TestClientDisconnect(t *testing.T) {
 		return []resource.Name{arm.Named("arm1")}
 	}
 
+	// TODO: RSDK-882 will update this so that this is not necessary
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+
 	go gServer.Serve(listener)
 
 	start := time.Now()
@@ -923,6 +946,14 @@ func TestClientReconnect(t *testing.T) {
 	thing1Name := resource.NameFromSubtype(someSubtype, "thing1")
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1"), thing1Name}
+	}
+
+	// TODO: RSDK-882 will update this so that this is not necessary
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
 	}
 
 	injectArm := &inject.Arm{}
@@ -1259,14 +1290,14 @@ func TestClientConfig(t *testing.T) {
 
 	workingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*commonpb.Transform,
+		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
 		return nil, configErr
 	}
@@ -1468,6 +1499,13 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
+	// TODO: RSDK-882 will update this so that this is not necessary
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
 
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -1591,6 +1629,15 @@ func TestRemoteClientMatch(t *testing.T) {
 		ResourceNamesFunc:       func() []resource.Name { return validResources },
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
+
+	// TODO: RSDK-882 will update this so that this is not necessary
+	injectRobot1.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
@@ -1719,6 +1766,14 @@ func TestGetUnknownResource(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+
+	// TODO: RSDK-882 will update this so that this is not necessary
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.PoseInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
 	}
 
 	gServer := grpc.NewServer()

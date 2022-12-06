@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -72,7 +71,7 @@ type Gantry interface {
 	// MoveToPosition is in meters
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *referenceframe.WorldState, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
@@ -231,7 +230,7 @@ func (g *reconfigurableGantry) Lengths(ctx context.Context, extra map[string]int
 func (g *reconfigurableGantry) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	g.mu.Lock()

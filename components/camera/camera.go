@@ -77,6 +77,7 @@ type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
 	// implementation of NextPointCloud
 	SupportsPCD      bool
+	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
 }
@@ -120,7 +121,7 @@ type PointCloudSource interface {
 func NewFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
-	syst *transform.PinholeCameraModel, streamType StreamType,
+	syst *transform.PinholeCameraModel, imageType ImageType,
 ) (Camera, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
@@ -142,7 +143,7 @@ func NewFromReader(
 		videoSource:  vs,
 		videoStream:  gostream.NewEmbeddedVideoStream(vs),
 		actualSource: reader,
-		streamType:   streamType,
+		imageType:    imageType,
 	}, nil
 }
 
@@ -158,7 +159,7 @@ func NewPropertiesError(cameraIdentifier string) error {
 func NewFromSource(
 	ctx context.Context,
 	source gostream.VideoSource,
-	syst *transform.PinholeCameraModel, streamType StreamType,
+	syst *transform.PinholeCameraModel, imageType ImageType,
 ) (Camera, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
@@ -179,7 +180,7 @@ func NewFromSource(
 		videoSource:  source,
 		videoStream:  gostream.NewEmbeddedVideoStream(source),
 		actualSource: source,
-		streamType:   streamType,
+		imageType:    imageType,
 	}, nil
 }
 
@@ -189,7 +190,7 @@ type videoSource struct {
 	videoStream  gostream.VideoStream
 	actualSource interface{}
 	system       *transform.PinholeCameraModel
-	streamType   StreamType
+	imageType    ImageType
 }
 
 // SourceFromCamera returns a gostream.VideoSource from a camera.Camera if possible, else nil.
@@ -248,9 +249,10 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	if vs.system == nil {
 		return result, nil
 	}
-	if (vs.system.PinholeCameraIntrinsics != nil) && (vs.streamType == DepthStream) {
+	if (vs.system.PinholeCameraIntrinsics != nil) && (vs.imageType == DepthStream) {
 		result.SupportsPCD = true
 	}
+	result.ImageType = vs.imageType
 	result.IntrinsicParams = vs.system.PinholeCameraIntrinsics
 	result.DistortionParams = vs.system.Distortion
 	return result, nil
