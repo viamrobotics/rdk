@@ -151,10 +151,15 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
-func (m *Module) Close() {
+func (m *Module) Close(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logger.Info("Sutting down gracefully.")
+	if m.parent != nil {
+		if err := m.parent.Close(ctx); err != nil {
+			m.logger.Error(err)
+		}
+	}
 	if err := m.server.Stop(); err != nil {
 		m.logger.Error(err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
@@ -57,6 +58,8 @@ func getCallerName() string {
 
 // RegisterService registers a service type to a registration.
 func RegisterService(subtype resource.Subtype, model resource.Model, creator Service) {
+	mu.Lock()
+	defer mu.Unlock()
 	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	_, old := serviceRegistry[qName]
@@ -67,6 +70,14 @@ func RegisterService(subtype resource.Subtype, model resource.Model, creator Ser
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	serviceRegistry[qName] = creator
+}
+
+// DeregisterService removes a previously registered service.
+func DeregisterService(subtype resource.Subtype, model resource.Model) {
+	mu.Lock()
+	defer mu.Unlock()
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	delete(serviceRegistry, qName)
 }
 
 // ServiceLookup looks up a service registration by the given type. nil is returned if
@@ -145,10 +156,13 @@ var (
 	componentRegistry = map[string]Component{}
 	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
 	serviceRegistry   = map[string]Service{}
+	mu                = sync.RWMutex{}
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
 func RegisterComponent(subtype resource.Subtype, model resource.Model, creator Component) {
+	mu.Lock()
+	defer mu.Unlock()
 	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype.String(), model.String())
 
@@ -160,6 +174,14 @@ func RegisterComponent(subtype resource.Subtype, model resource.Model, creator C
 		panic(errors.Errorf("cannot register a nil constructor for subtype:%s, model:%s", subtype, model))
 	}
 	componentRegistry[qName] = creator
+}
+
+// DeregisterComponent removes a previously registered component.
+func DeregisterComponent(subtype resource.Subtype, model resource.Model) {
+	mu.Lock()
+	defer mu.Unlock()
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	delete(componentRegistry, qName)
 }
 
 // ComponentLookup looks up a creator by the given subtype and model. nil is returned if
@@ -175,6 +197,8 @@ func ComponentLookup(subtype resource.Subtype, model resource.Model) *Component 
 
 // RegisterResourceSubtype register a ResourceSubtype to its corresponding component subtype.
 func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) {
+	mu.Lock()
+	defer mu.Unlock()
 	_, old := subtypeRegistry[subtype]
 	if old {
 		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
@@ -198,6 +222,13 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	subtypeRegistry[subtype] = creator
 }
 
+// DeregisterResourceSubtype removes a previously registered subtype.
+func DeregisterResourceSubtype(subtype resource.Subtype) {
+	mu.Lock()
+	defer mu.Unlock()
+	delete(subtypeRegistry, subtype)
+}
+
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
 // there is None.
 func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
@@ -209,6 +240,8 @@ func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
 
 // RegisteredServices returns a copy of the registered services.
 func RegisteredServices() map[string]Service {
+	mu.RLock()
+	defer mu.RUnlock()
 	copied, err := copystructure.Copy(serviceRegistry)
 	if err != nil {
 		panic(err)
@@ -218,6 +251,8 @@ func RegisteredServices() map[string]Service {
 
 // RegisteredComponents returns a copy of the registered components.
 func RegisteredComponents() map[string]Component {
+	mu.RLock()
+	defer mu.RUnlock()
 	copied, err := copystructure.Copy(componentRegistry)
 	if err != nil {
 		panic(err)
@@ -227,6 +262,8 @@ func RegisteredComponents() map[string]Component {
 
 // RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
 func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
+	mu.RLock()
+	defer mu.RUnlock()
 	toCopy := make(map[resource.Subtype]ResourceSubtype, len(subtypeRegistry))
 	for k, v := range subtypeRegistry {
 		toCopy[k] = v

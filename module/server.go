@@ -46,7 +46,7 @@ func (s *Server) InstanceNames() []string {
 
 // Start is unsupported.
 func (s *Server) Start() error {
-	return errors.New("start unsupported on grpc lite service")
+	return errors.New("start unsupported on module grpc server")
 }
 
 // Serve begins listening/serving grpc.
@@ -59,10 +59,10 @@ func (s *Server) Serve(listener net.Listener) error {
 
 // ServeTLS is unsupported.
 func (s *Server) ServeTLS(listener net.Listener, certFile, keyFile string, tlsConfig *tls.Config) error {
-	return errors.New("tls unsupoorted on grpc lite service")
+	return errors.New("tls unsupoorted on module grpc server")
 }
 
-// Stop performs a GracefulStop() on the underlying grpc service.
+// Stop performs a GracefulStop() on the underlying grpc server.
 func (s *Server) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

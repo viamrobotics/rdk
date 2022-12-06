@@ -46,7 +46,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	// The module is started.
 	err = myMod.Start(ctx)
 	// Close is deferred and will run automatically when this function returns.
-	defer myMod.Close()
+	defer myMod.Close(ctx)
 	if err != nil {
 		return err
 	}

@@ -35,6 +35,9 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, ComponentLookup(acme.Subtype, resource.Model{Name: "z"}), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, rf)
+
+	DeregisterComponent(acme.Subtype, modelName)
+	test.That(t, ComponentLookup(acme.Subtype, modelName), test.ShouldBeNil)
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {
@@ -94,6 +97,9 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 			RegisterRPCService: sf, RPCClient: rcf,
 		})
 	}, test.ShouldPanic)
+
+	DeregisterResourceSubtype(subtype3)
+	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
 }
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
@@ -123,6 +129,9 @@ func TestServiceRegistry(t *testing.T) {
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, ServiceLookup(testService.Subtype, resource.NewDefaultModel("z")), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, rf)
+
+	DeregisterService(testService.Subtype, modelName)
+	test.That(t, ServiceLookup(testService.Subtype, modelName), test.ShouldBeNil)
 }
 
 func TestFindValidServiceModels(t *testing.T) {

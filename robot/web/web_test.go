@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
@@ -110,12 +111,13 @@ func TestModule(t *testing.T) {
 	test.That(t, arm2Position, test.ShouldResemble, pos)
 
 	svc.Stop()
-
-	_, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(time.Second)
 
 	_, err = arm2.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
