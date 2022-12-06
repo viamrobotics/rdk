@@ -15,6 +15,7 @@ var (
 	disabledTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
 	enabledBinaryCollectorConfigPath   = "services/datamanager/data/robot_with_cam_capture.json"
 	remoteCollectorConfigPath          = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
+	emptyFileBytesSize                 = 30 // size of leading metadata message
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -148,6 +149,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				// TODO: check contents
 				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
+				test.That(t, initialCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 			} else {
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
@@ -157,6 +159,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				//TODO: check contents
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, 0)
+				test.That(t, updatedCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 			} else {
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
 			}
