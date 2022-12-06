@@ -103,7 +103,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 	}
 	if numFilesDownloaded%logEveryN != 0 {
-		fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded, filepath.Join(dst, dataDir))
+		fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded, dst)
 	}
 	return nil
 }
@@ -199,6 +199,8 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "error flushing writer for %s", dataFile.Name())
 	}
+
+	fmt.Fprintf(c.c.App.Writer, "downloaded %d datapoints to %s\n", len(data), dst)
 
 	return nil
 }
