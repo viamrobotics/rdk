@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -60,14 +61,14 @@ func TestAlignExtrinsics(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, transform.ErrNoIntrinsics)
 
-	attrs.CameraParameters = &transform.PinholeCameraParameters{Width: -1, Height: -1}
+	attrs.CameraParameters = &transform.PinholeCameraIntrinsics{Width: -1, Height: -1}
 	_, err = newColorDepthExtrinsics(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
 
-	attrs.attrs.IntrinsicExtrinsic = nil
+	attrs.IntrinsicExtrinsic = nil
 	_, err = newColorDepthExtrinsics(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "sdf")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *transform.DepthColorIntrinsicsExtrinsics")
 
 }

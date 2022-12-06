@@ -1,0 +1,30 @@
+{
+    "components": [
+        {
+            "name": "join_cam",
+            "type": "camera",
+            "model": "join_color_depth",
+            "attributes": {
+                "debug": false,
+                "color_camera_name": "color",
+                "depth_camera_name": "depth",
+                "output_image_type": "depth",
+                "intrinsic_parameters": {
+                    "height_px": 768,
+                    "width_px": 1024,
+                    "fx": 821.32642889,
+                    "fy": 821.68607359,
+                    "ppx": 494.95941428,
+                    "ppy": 370.70529534
+                },
+                "distortion_parameters": {
+                        "rk1": 0.11297234,
+                        "rk2": -0.21375332,
+                        "rk3": -0.01584774,
+                        "tp1": -0.00302002,
+                        "tp2": 0.19969297
+                }
+            }
+        }
+    ]
+}

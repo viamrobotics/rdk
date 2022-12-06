@@ -2,6 +2,7 @@ package align
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -9,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -53,4 +55,20 @@ func TestAlignHomography(t *testing.T) {
 	test.That(t, colorCam.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, depthCam.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, is.Close(context.Background()), test.ShouldBeNil)
+	// set necessary fields to nil, expect errors
+	attrs.CameraParameters = nil
+	_, err = newColorDepthHomography(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
+
+	attrs.CameraParameters = &transform.PinholeCameraIntrinsics{Width: -1, Height: -1}
+	_, err = newColorDepthHomography(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
+
+	attrs.Homography = nil
+	_, err = newColorDepthHomography(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "homography field in attributes cannot be empty")
+
 }
