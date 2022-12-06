@@ -178,7 +178,7 @@ func (cde *colorDepthExtrinsics) Read(ctx context.Context) (image.Image, func(),
 		_, alignedDepth, err := cde.aligner.AlignColorAndDepthImage(colDimImage, dm)
 		return alignedDepth, depthCloser, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(cde.imageType)
+		return nil, nil, camera.NewUnsupportedImageTypeError(cde.imageType)
 	}
 }
 

@@ -103,7 +103,7 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.Camera, at
 		return nil, errors.New("homography field in attributes cannot be empty")
 	}
 	if attrs.CameraParameters == nil {
-		return nil, errors.New("intrinsic_parameters field in attributes cannot be empty")
+		return nil, errors.Wrap(transform.ErrNoIntrinsics, "intrinsic_parameters field in attributes cannot be empty")
 	}
 	if attrs.CameraParameters.Height <= 0 || attrs.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
@@ -165,7 +165,7 @@ func (acd *colorDepthHomography) Read(ctx context.Context) (image.Image, func(),
 		_, alignedDepth, err := acd.aligner.AlignColorAndDepthImage(colDimImage, dm)
 		return alignedDepth, depthCloser, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(acd.imageType)
+		return nil, nil, camera.NewUnsupportedImageTypeError(acd.imageType)
 	}
 }
 
@@ -177,10 +177,10 @@ func (acd *colorDepthHomography) NextPointCloud(ctx context.Context) (pointcloud
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, acd.color, acd.depth)
 	if col == nil {
-		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", jcd.colorName)
+		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", acd.colorName)
 	}
 	if dm == nil {
-		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", jcd.depthName)
+		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", acd.depthName)
 	}
 	if acd.aligner == nil {
 		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)

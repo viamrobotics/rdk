@@ -1,4 +1,4 @@
-package videosource
+package align
 
 import (
 	"context"
@@ -95,7 +95,9 @@ type joinColorDepth struct {
 // newJoinColorDepth creates a gostream.VideoSource that aligned color and depth channels.
 func newJoinColorDepth(ctx context.Context, color, depth camera.Camera, attrs *joinAttrs, logger golog.Logger,
 ) (camera.Camera, error) {
-
+	if attrs.CameraParameters == nil {
+		return nil, errors.Wrap(transform.ErrNoIntrinsics, "intrinsic_parameters field in attributes cannot be empty")
+	}
 	imgType := camera.ImageType(attrs.ImageType)
 	videoSrc := &joinColorDepth{
 		color:     gostream.NewEmbeddedVideoStream(color),
@@ -126,7 +128,7 @@ func (jcd *joinColorDepth) Read(ctx context.Context) (image.Image, func(), error
 	case camera.DepthStream:
 		return jcd.depth.Next(ctx)
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(jcd.stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(jcd.imageType)
 	}
 }
 
@@ -134,7 +136,7 @@ func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Point
 	ctx, span := trace.StartSpan(ctx, "videosource::joinColorDepth::NextPointCloud")
 	defer span.End()
 	if jcd.projector == nil {
-		return nil, transform.NewNoIntrinsicsError("")
+		return nil, transform.NewNoIntrinsicsError("no intrinsic_parameters in camera attributes")
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, jcd.color, jcd.depth)
 	if col == nil {
