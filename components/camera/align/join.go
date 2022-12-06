@@ -123,7 +123,7 @@ func newJoinColorDepth(ctx context.Context, color, depth camera.Camera, attrs *j
 // Read returns the next image from either the color or depth camera..
 // imageType parameter will determine which channel gets streamed.
 func (jcd *joinColorDepth) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "videosource::joinColorDepth::Read")
+	ctx, span := trace.StartSpan(ctx, "align::joinColorDepth::Read")
 	defer span.End()
 	switch jcd.imageType {
 	case camera.ColorStream, camera.UnspecifiedStream:
@@ -136,7 +136,7 @@ func (jcd *joinColorDepth) Read(ctx context.Context) (image.Image, func(), error
 }
 
 func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "videosource::joinColorDepth::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "align::joinColorDepth::NextPointCloud")
 	defer span.End()
 	if jcd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("no intrinsic_parameters in camera attributes")
