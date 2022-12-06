@@ -15,9 +15,6 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-//go:embed gripper_model.json
-var gripperjson []byte
-
 const modelname = "fake"
 
 // AttrConfig is the config for a trossen gripper.
@@ -31,12 +28,8 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
-			if err != nil {
-				return nil, err
-			}
 
-			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: model}
+			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: nil}
 
 			return g, nil
 		},
