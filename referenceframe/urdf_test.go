@@ -32,14 +32,6 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
 
-func TestURDFConfigGen(t *testing.T) {
-	_, err := ParseURDFFileAsConfig(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = ParseURDFFileAsConfig(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestURDFTransforms(t *testing.T) {
 	u, err := ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -87,5 +79,5 @@ func TestURDFGeometries(t *testing.T) {
 
 	inputs = make([]Input, len(ur5ViamModel.DoF()))
 	modelGeo, _ = ur5ViamModel.Geometries(inputs)
-	test.That(t, len(modelGeo.geometries), test.ShouldEqual, 4)
+	test.That(t, len(modelGeo.geometries), test.ShouldEqual, 5)
 }
