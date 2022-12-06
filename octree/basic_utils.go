@@ -1,7 +1,6 @@
 package octree
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -94,18 +93,6 @@ func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
 }
 
-func stringBasicOctreeNodeType2(n NodeType) string {
-	switch n {
-	case InternalNode:
-		return "InternalNode"
-	case LeafNodeEmpty:
-		return "LeafNodeEmpty"
-	case LeafNodeFilled:
-		return "LeafNodeFilled"
-	}
-	return ""
-}
-
 // iterateRecursive is a helper function for iterating through a basic octree. If an internal node is found it will be
 // called recursively after updating the idx value to correspond to the id of the child node. If a leaf node with a point
 // is found and the myBatch number matches the idx%numBatches then the function will be performed on the point and
@@ -124,7 +111,6 @@ func (octree *basicOctree) iterateRecursive(numBatches, currentBatch int, idx ui
 		}
 
 	case LeafNodeFilled:
-		fmt.Printf("%v\n", currIdx)
 		if numBatches == 0 || idx%uint(numBatches) == uint(currentBatch) {
 			ok = fn(octree.node.point.P, octree.node.point.D)
 		}
