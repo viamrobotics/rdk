@@ -25,9 +25,9 @@ type DepthColorIntrinsicsExtrinsics struct {
 
 // DepthColorIntrinsicsExtrinsicsConfig is the config file that will be parsed into the proper interface.
 type DepthColorIntrinsicsExtrinsicsConfig struct {
-	ColorCamera  PinholeCameraIntrinsics `json:"color_intrinsics"`
-	DepthCamera  PinholeCameraIntrinsics `json:"depth_intrinsics"`
-	ExtrinsicD2C json.RawMessage         `json:"extrinsics_depth_to_color"`
+	ColorCamera  PinholeCameraIntrinsics `json:"color_intrinsic_parameters"`
+	DepthCamera  PinholeCameraIntrinsics `json:"depth_intrinsic_parameters"`
+	ExtrinsicD2C json.RawMessage         `json:"depth_to_color_extrinsic_parameters"`
 }
 
 // NewEmptyDepthColorIntrinsicsExtrinsics creates an zero initialized DepthColorIntrinsicsExtrinsics.

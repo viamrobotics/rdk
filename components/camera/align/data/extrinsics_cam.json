@@ -24,8 +24,8 @@
                         "tp1": -0.00143327,
                         "tp2": -0.000705919
                 },
-                "system": {
-                    "color_intrinsics": {
+                "camera_system": {
+                    "color_intrinsic_parameters": {
                         "height_px": 720,
                         "width_px": 1280,
                         "fx": 900.538000,
@@ -33,7 +33,7 @@
                         "ppx": 648.934000,
                         "ppy": 367.736000
                     },
-                    "depth_intrinsics": {
+                    "depth_intrinsic_parameters": {
                         "height_px": 768,
                         "width_px": 1024,
                         "fx": 734.938,
@@ -41,7 +41,7 @@
                         "ppx": 542.078,
                         "ppy": 398.016
                     },
-                    "extrinsics_depth_to_color": {
+                    "depth_to_color_extrinsic_parameters": {
                         "rotation_rads": [
                             0.999958,
                             -0.00838489,

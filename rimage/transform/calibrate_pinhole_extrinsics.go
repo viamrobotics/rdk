@@ -20,8 +20,8 @@ import (
 type ExtrinsicCalibrationConfig struct {
 	ColorPoints     []r2.Point              `json:"color_points"`
 	DepthPoints     []r3.Vector             `json:"depth_points"`
-	ColorIntrinsics PinholeCameraIntrinsics `json:"color_intrinsics"`
-	DepthIntrinsics PinholeCameraIntrinsics `json:"depth_intrinsics"`
+	ColorIntrinsics PinholeCameraIntrinsics `json:"color_intrinsic_parameters"`
+	DepthIntrinsics PinholeCameraIntrinsics `json:"depth_intrinsic_parameters"`
 }
 
 // RunPinholeExtrinsicCalibration will solve the optimization problem to find the rigid pose
