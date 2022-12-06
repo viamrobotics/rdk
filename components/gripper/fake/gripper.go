@@ -28,7 +28,6 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-
 			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: nil}
 
 			return g, nil
