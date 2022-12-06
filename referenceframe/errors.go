@@ -2,6 +2,9 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
+// ErrEmptyStringFrameName denotes an error when a frame with a name "" is specified.
+var ErrEmptyStringFrameName = errors.New("frame with name \"\" cannot be used")
+
 // NewParentFrameMissingError returns an error indicating that the parent frame is nil.
 func NewParentFrameMissingError() error {
 	return errors.New("parent frame is nil")

@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	componentpb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -44,7 +44,7 @@ func TestClient(t *testing.T) {
 	injectGantry.MoveToPositionFunc = func(
 		ctx context.Context,
 		pos []float64,
-		worldState *commonpb.WorldState,
+		ws *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		gantryPos = pos
@@ -71,7 +71,7 @@ func TestClient(t *testing.T) {
 	injectGantry2.MoveToPositionFunc = func(
 		ctx context.Context,
 		pos []float64,
-		worldState *commonpb.WorldState,
+		ws *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		gantryPos = pos
@@ -126,7 +126,12 @@ func TestClient(t *testing.T) {
 		test.That(t, pos, test.ShouldResemble, pos1)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 123., "bar": "234"})
 
-		err = gantry1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{}, map[string]interface{}{"foo": 234, "bar": "345"})
+		err = gantry1Client.MoveToPosition(
+			context.Background(),
+			pos2,
+			&referenceframe.WorldState{},
+			map[string]interface{}{"foo": 234, "bar": "345"},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 234., "bar": "345"})

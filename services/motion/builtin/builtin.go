@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -49,7 +48,7 @@ func (ms *builtIn) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
@@ -59,7 +58,7 @@ func (ms *builtIn) Move(
 	goalFrameName := destination.FrameName()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
+	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 	if err != nil {
 		return false, err
 	}
@@ -69,9 +68,9 @@ func (ms *builtIn) Move(
 	if err != nil {
 		return false, err
 	}
-	
+
 	movingFrame := frameSys.Frame(componentName.ShortName())
-	
+
 	logger.Debugf("frame system inputs: %v", fsInputs)
 	if movingFrame == nil {
 		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
@@ -123,7 +122,7 @@ func (ms *builtIn) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
@@ -143,7 +142,7 @@ func (ms *builtIn) MoveSingleComponent(
 	if destination.FrameName() != componentName.ShortName() {
 		logger.Debugf("goal given in frame of %q", destination.FrameName())
 
-		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
+		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 		if err != nil {
 			return false, err
 		}
@@ -175,7 +174,7 @@ func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {

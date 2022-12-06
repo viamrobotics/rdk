@@ -721,10 +721,15 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (rc *RobotClient) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
-	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{
-		SupplementalTransforms: additionalTransforms,
-	})
+func (rc *RobotClient) FrameSystemConfig(
+	ctx context.Context,
+	additionalTransforms []*referenceframe.PoseInFrame,
+) (framesystemparts.Parts, error) {
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{SupplementalTransforms: transforms})
 	if err != nil {
 		return nil, err
 	}
@@ -745,12 +750,16 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (*referenceframe.PoseInFrame, error) {
+	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
 		Destination:            destination,
 		Source:                 referenceframe.PoseInFrameToProtobuf(query),
-		SupplementalTransforms: additionalTransforms,
+		SupplementalTransforms: transforms,
 	})
 	if err != nil {
 		return nil, err
