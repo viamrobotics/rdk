@@ -22,14 +22,16 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        control: './src/main.ts',
-        api: './src/api.ts',
+        control: './src/main.ts'
       },
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: (chunk) => {
           // eslint-disable-next-line unicorn/no-array-reduce
-          const code = Object.keys(chunk.modules).reduce((prev, key) => `${prev}${chunk.modules[key].code}`, '');
+          const code = Object.keys(chunk.modules).reduce(
+            (prev, key) => `${prev}${chunk.modules[key].code}`,
+            ''
+          );
           const hash = MD5.hex(code);
 
           return `assets/chunks.${hash}.js`;
@@ -47,7 +49,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   optimizeDeps: {
-    exclude: ['@viamrobotics/rpc']
+    exclude: ['@viamrobotics/rpc'],
   },
   server: {
     port: 5174,

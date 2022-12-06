@@ -220,24 +220,24 @@ func TestInputControllerName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualInput1 input.Controller = &mock{Name: testInputControllerName}
-	reconfInput1, err := input.WrapWithReconfigurable(actualInput1)
+	reconfInput1, err := input.WrapWithReconfigurable(actualInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = input.WrapWithReconfigurable(nil)
+	_, err = input.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError(nil))
 
-	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
+	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfInput2, test.ShouldEqual, reconfInput1)
 }
 
 func TestReconfigurableInputController(t *testing.T) {
 	actualInput1 := &mock{Name: testInputControllerName}
-	reconfInput1, err := input.WrapWithReconfigurable(actualInput1)
+	reconfInput1, err := input.WrapWithReconfigurable(actualInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualInput2 := &mock{Name: testInputControllerName2}
-	reconfInput2, err := input.WrapWithReconfigurable(actualInput2)
+	reconfInput2, err := input.WrapWithReconfigurable(actualInput2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
 
@@ -261,7 +261,7 @@ func TestReconfigurableInputController(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualInput1 := &mock{Name: testInputControllerName}
-	reconfInput1, err := input.WrapWithReconfigurable(actualInput1)
+	reconfInput1, err := input.WrapWithReconfigurable(actualInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
@@ -271,7 +271,7 @@ func TestClose(t *testing.T) {
 
 func TestExtra(t *testing.T) {
 	actualInput1 := &mock{Name: testInputControllerName}
-	reconfInput1, err := input.WrapWithReconfigurable((actualInput1))
+	reconfInput1, err := input.WrapWithReconfigurable((actualInput1), resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualInput1.extra, test.ShouldBeNil)
 

@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/armremotecontrol"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -20,25 +21,25 @@ func TestRegisteredReconfigurable(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	actualSvc := returnMock("svc1")
-	reconfSvc, err := armremotecontrol.WrapWithReconfigurable(actualSvc)
+	reconfSvc, err := armremotecontrol.WrapWithReconfigurable(actualSvc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = armremotecontrol.WrapWithReconfigurable(nil)
+	_, err = armremotecontrol.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, rdkutils.NewUnimplementedInterfaceError("armremotecontrol.Service", nil))
 
-	reconfSvc2, err := armremotecontrol.WrapWithReconfigurable(reconfSvc)
+	reconfSvc2, err := armremotecontrol.WrapWithReconfigurable(reconfSvc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc)
 }
 
 func TestReconfigure(t *testing.T) {
 	actualSvc := returnMock("svc1")
-	reconfSvc, err := armremotecontrol.WrapWithReconfigurable(actualSvc)
+	reconfSvc, err := armremotecontrol.WrapWithReconfigurable(actualSvc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc, test.ShouldNotBeNil)
 
 	actualSvc2 := returnMock("svc1")
-	reconfSvc2, err := armremotecontrol.WrapWithReconfigurable(actualSvc2)
+	reconfSvc2, err := armremotecontrol.WrapWithReconfigurable(actualSvc2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldNotBeNil)
 	test.That(t, actualSvc.reconfCount, test.ShouldEqual, 0)

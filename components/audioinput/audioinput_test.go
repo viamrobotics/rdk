@@ -156,24 +156,24 @@ func TestAudioInputName(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualaudioInput1 audioinput.AudioInput = &mock{Name: testAudioInputName}
-	reconfaudioInput1, err := audioinput.WrapWithReconfigurable(actualaudioInput1)
+	reconfaudioInput1, err := audioinput.WrapWithReconfigurable(actualaudioInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = audioinput.WrapWithReconfigurable(nil)
+	_, err = audioinput.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, audioinput.NewUnimplementedInterfaceError(nil))
 
-	reconfAudioInput2, err := audioinput.WrapWithReconfigurable(reconfaudioInput1)
+	reconfAudioInput2, err := audioinput.WrapWithReconfigurable(reconfaudioInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfAudioInput2, test.ShouldEqual, reconfaudioInput1)
 }
 
 func TestReconfigurableAudioInput(t *testing.T) {
 	actualaudioInput1 := &mock{Name: testAudioInputName}
-	reconfaudioInput1, err := audioinput.WrapWithReconfigurable(actualaudioInput1)
+	reconfaudioInput1, err := audioinput.WrapWithReconfigurable(actualaudioInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	actualAudioInput2 := &mock{Name: testAudioInputName2}
-	reconfAudioInput2, err := audioinput.WrapWithReconfigurable(actualAudioInput2)
+	reconfAudioInput2, err := audioinput.WrapWithReconfigurable(actualAudioInput2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualaudioInput1.reconfCount, test.ShouldEqual, 0)
 
@@ -210,7 +210,7 @@ func TestReconfigurableAudioInput(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	actualaudioInput1 := &mock{Name: testAudioInputName}
-	reconfaudioInput1, err := audioinput.WrapWithReconfigurable(actualaudioInput1)
+	reconfaudioInput1, err := audioinput.WrapWithReconfigurable(actualaudioInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualaudioInput1.reconfCount, test.ShouldEqual, 0)
@@ -295,7 +295,7 @@ func TestNewAudioInput(t *testing.T) {
 	test.That(t, audioData, test.ShouldResemble, audioData1)
 
 	// audioInput1 wrapped with reconfigurable
-	_, err = audioinput.WrapWithReconfigurable(audioInput1)
+	_, err = audioinput.WrapWithReconfigurable(audioInput1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, audioInput1.Close(context.Background()), test.ShouldBeNil)
 }

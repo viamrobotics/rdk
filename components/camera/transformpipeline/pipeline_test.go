@@ -19,7 +19,6 @@ import (
 
 func TestTransformPipelineColor(t *testing.T) {
 	transformConf := &transformConfig{
-		Stream: "color",
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "rotate", Attributes: config.AttributeMap{}},
@@ -64,7 +63,6 @@ func TestTransformPipelineDepth(t *testing.T) {
 	}
 
 	transformConf := &transformConfig{
-		Stream:           "depth",
 		CameraParameters: intrinsics,
 		Source:           "source",
 		Pipeline: []Transformation{
@@ -104,7 +102,6 @@ func TestTransformPipelineDepth(t *testing.T) {
 
 func TestTransformPipelineDepth2(t *testing.T) {
 	transform1 := &transformConfig{
-		Stream: "depth",
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
@@ -114,7 +111,6 @@ func TestTransformPipelineDepth2(t *testing.T) {
 		},
 	}
 	transform2 := &transformConfig{
-		Stream: "depth",
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
@@ -150,7 +146,6 @@ func TestTransformPipelineDepth2(t *testing.T) {
 
 func TestNullPipeline(t *testing.T) {
 	transform1 := &transformConfig{
-		Stream:   "color",
 		Source:   "source",
 		Pipeline: []Transformation{},
 	}
@@ -163,7 +158,6 @@ func TestNullPipeline(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
 
 	transform2 := &transformConfig{
-		Stream:   "color",
 		Source:   "source",
 		Pipeline: []Transformation{{Type: "identity", Attributes: nil}},
 	}
@@ -185,23 +179,14 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	transform1 := &transformConfig{
-		Stream:           "color",
 		CameraParameters: intrinsics1,
 		Source:           "source",
 		Pipeline:         []Transformation{{Type: "rotate", Attributes: config.AttributeMap{}}},
 	}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 10, Height: 20}
 	transform2 := &transformConfig{
-		Stream:           "color",
 		CameraParameters: intrinsics2,
 		Source:           "transform2",
-		Pipeline: []Transformation{
-			{Type: "resize", Attributes: config.AttributeMap{"height_px": 20, "width_px": 10}},
-		},
-	}
-	transformWrong := &transformConfig{
-		Stream: "depth",
-		Source: "transform2",
 		Pipeline: []Transformation{
 			{Type: "resize", Attributes: config.AttributeMap{"height_px": 20, "width_px": 10}},
 		},
@@ -229,14 +214,8 @@ func TestPipeIntoPipe(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Width, test.ShouldEqual, 10)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Height, test.ShouldEqual, 20)
+	// Close everything
 	test.That(t, pipe2.Close(context.Background()), test.ShouldBeNil)
-	// should error - color image cannot be depth resized
-	pipeWrong, err := newTransformPipeline(context.Background(), pipe1, transformWrong, r)
-	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera.ReadImage(context.Background(), pipeWrong)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "don't know how to make image.Gray16")
-	test.That(t, pipeWrong.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, pipe1.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }

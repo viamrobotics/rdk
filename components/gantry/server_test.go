@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -47,7 +47,7 @@ func TestServer(t *testing.T) {
 	injectGantry.MoveToPositionFunc = func(
 		ctx context.Context,
 		pos []float64,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		gantryPos = pos
@@ -70,7 +70,7 @@ func TestServer(t *testing.T) {
 	injectGantry2.MoveToPositionFunc = func(
 		ctx context.Context,
 		pos []float64,
-		worldState *commonpb.WorldState,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) error {
 		gantryPos = pos

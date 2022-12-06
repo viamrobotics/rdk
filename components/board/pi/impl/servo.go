@@ -49,10 +49,10 @@ func init() {
 
 				theServo := &piPigpioServo{pin: C.uint(bcom)}
 				if attr.Min > 0 {
-					theServo.min = uint8(attr.Min)
+					theServo.min = uint32(attr.Min)
 				}
 				if attr.Max > 0 {
-					theServo.max = uint8(attr.Max)
+					theServo.max = uint32(attr.Max)
 				}
 
 				theServo.pinname = attr.Pin
@@ -90,7 +90,7 @@ type piPigpioServo struct {
 	pin        C.uint
 	pinname    string
 	res        C.int
-	min, max   uint8
+	min, max   uint32
 	opMgr      operation.SingleOperationManager
 	pulseWidth int // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
 	holdPos    bool
@@ -98,7 +98,7 @@ type piPigpioServo struct {
 
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one
-func (s *piPigpioServo) Move(ctx context.Context, angle uint8, extra map[string]interface{}) error {
+func (s *piPigpioServo) Move(ctx context.Context, angle uint32, extra map[string]interface{}) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 
@@ -148,7 +148,7 @@ func (s *piPigpioServo) pigpioErrors(res int) error {
 }
 
 // Position returns the current set angle (degrees) of the servo.
-func (s *piPigpioServo) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (s *piPigpioServo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	err := s.pigpioErrors(int(res))
 	if int(res) != 0 {
@@ -157,7 +157,7 @@ func (s *piPigpioServo) Position(ctx context.Context, extra map[string]interface
 	if err != nil {
 		return 0, err
 	}
-	return uint8(pulseWidthToAngle(int(s.res))), nil
+	return uint32(pulseWidthToAngle(int(s.res))), nil
 }
 
 // angleToPulseWidth changes the input angle in degrees
