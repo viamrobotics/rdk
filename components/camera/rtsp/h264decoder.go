@@ -4,12 +4,24 @@ package rtsp
 // author:Alessandro Ros
 
 import (
-	"fmt"
 	"image"
 	"unsafe"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
+	"github.com/pkg/errors"
+package rtsp
+
+// site:https://github.com/aler9/gortsplib/examples
+// author:Alessandro Ros
+
+import (
+	"image"
+	"unsafe"
+
+	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
+	"github.com/pkg/errors"
 )
 
 // #cgo pkg-config: libavcodec libavutil libswscale
@@ -39,24 +51,24 @@ type h264Decoder struct {
 func newH264Decoder() (*h264Decoder, error) {
 	codec := C.avcodec_find_decoder(C.AV_CODEC_ID_H264)
 	if codec == nil {
-		return nil, fmt.Errorf("avcodec_find_decoder() failed")
+		return nil, errors.New("avcodec_find_decoder() failed")
 	}
 
 	codecCtx := C.avcodec_alloc_context3(codec)
 	if codecCtx == nil {
-		return nil, fmt.Errorf("avcodec_alloc_context3() failed")
+		return nil, errors.New("avcodec_alloc_context3() failed")
 	}
 
 	res := C.avcodec_open2(codecCtx, codec, nil)
 	if res < 0 {
 		C.avcodec_close(codecCtx)
-		return nil, fmt.Errorf("avcodec_open2() failed")
+		return nil, errors.New("avcodec_open2() failed")
 	}
 
 	srcFrame := C.av_frame_alloc()
 	if srcFrame == nil {
 		C.avcodec_close(codecCtx)
-		return nil, fmt.Errorf("av_frame_alloc() failed")
+		return nil, errors.New("av_frame_alloc() failed")
 	}
 
 	return &h264Decoder{
@@ -81,7 +93,7 @@ func (d *h264Decoder) Close() error {
 }
 
 func (d *h264Decoder) Decode(nalu []byte) (image.Image, error) {
-	nalu = append([]uint8{0x00, 0x00, 0x00, 0x01}, []uint8(nalu)...)
+	nalu = append([]uint8{0x00, 0x00, 0x00, 0x01}, nalu...)
 
 	// send frame to decoder
 	var avPacket C.AVPacket
@@ -116,13 +128,13 @@ func (d *h264Decoder) Decode(nalu []byte) (image.Image, error) {
 		d.dstFrame.color_range = C.AVCOL_RANGE_JPEG
 		res = C.av_frame_get_buffer(d.dstFrame, 1)
 		if res < 0 {
-			return nil, fmt.Errorf("av_frame_get_buffer() err")
+			return nil, errors.New("av_frame_get_buffer() err")
 		}
 
 		d.swsCtx = C.sws_getContext(d.srcFrame.width, d.srcFrame.height, C.AV_PIX_FMT_YUV420P,
 			d.dstFrame.width, d.dstFrame.height, (int32)(d.dstFrame.format), C.SWS_BILINEAR, nil, nil, nil)
 		if d.swsCtx == nil {
-			return nil, fmt.Errorf("sws_getContext() err")
+			return nil, errors.New("sws_getContext() err")
 		}
 
 		dstFrameSize := C.av_image_get_buffer_size((int32)(d.dstFrame.format), d.dstFrame.width, d.dstFrame.height, 1)
@@ -133,7 +145,7 @@ func (d *h264Decoder) Decode(nalu []byte) (image.Image, error) {
 	res = C.sws_scale(d.swsCtx, frameData(d.srcFrame), frameLineSize(d.srcFrame),
 		0, d.srcFrame.height, frameData(d.dstFrame), frameLineSize(d.dstFrame))
 	if res < 0 {
-		return nil, fmt.Errorf("sws_scale() err")
+		return nil, errors.New("sws_scale() err")
 	}
 
 	// embed frame into an image.Image
@@ -157,11 +169,17 @@ func rtpH264Decoder(track *gortsplib.TrackH264) (*rtph264.Decoder, *h264Decoder,
 	// if SPS and PPS are present into the SDP, send them to the decoder
 	sps := track.SafeSPS()
 	if sps != nil {
-		h264RawDec.decode(sps)
+		_, err := h264RawDec.Decode(sps)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	pps := track.SafePPS()
 	if pps != nil {
-		h264RawDec.decode(pps)
+		_, err := h264RawDec.Decode(pps)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	return rtpDec, h264RawDec, nil
 }
