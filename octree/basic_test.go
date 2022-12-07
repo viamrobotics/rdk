@@ -486,7 +486,7 @@ func TestBasicOctreeIterate2(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[2].D.Value())
 
-		// // Batched process (numBatches > octree size, currentBatch = 0)
+		// Batched process (numBatches > octree size, currentBatch = 0)
 		total = 0
 		basicOct.Iterate(4, 0, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
@@ -494,7 +494,7 @@ func TestBasicOctreeIterate2(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
 
-		// // Batched process (numBatches != octree size, currentBatch = 1)
+		// Batched process (numBatches > octree size, currentBatch = 1)
 		total = 0
 		basicOct.Iterate(4, 1, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
@@ -502,7 +502,7 @@ func TestBasicOctreeIterate2(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[1].D.Value())
 
-		// // Batched process (numBatches != octree size, currentBatch = 2)
+		// Batched process (numBatches > octree size, currentBatch = 2)
 		total = 0
 		basicOct.Iterate(4, 2, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
@@ -510,7 +510,7 @@ func TestBasicOctreeIterate2(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[2].D.Value())
 
-		// // Batched process (numBatches != octree size, currentBatch = 3)
+		// Batched process (numBatches > octree size, currentBatch = 3)
 		total = 0
 		basicOct.Iterate(4, 3, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
@@ -518,15 +518,24 @@ func TestBasicOctreeIterate2(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, 0)
 
-		// // Batched process (numBatches = octree size, apply function to no data)
+		// Batched process (numBatches < octree size, currentBatch = 0)
 		total = 0
-		basicOct.Iterate(3, 4, func(p r3.Vector, d pc.Data) bool {
+		basicOct.Iterate(2, 0, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
 			return true
 		})
-		test.That(t, total, test.ShouldEqual, 0)
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value()+
+			pointsAndData[1].D.Value())
 
-		// // Batched process (apply function to all data)
+		// Batched process (numBatches < octree size, currentBatch = 1)
+		total = 0
+		basicOct.Iterate(2, 1, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[2].D.Value())
+
+		// Batched process (apply function to all data)
 		total = 0
 		basicOct.Iterate(1, 0, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
