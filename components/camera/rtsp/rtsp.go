@@ -85,6 +85,11 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	if err != nil {
 		return nil, err
 	}
+	// connect to the server
+	err = c.Start(u.Scheme, u.Host)
+	if err != nil {
+		return nil, err
+	}
 	// find published tracks
 	tracks, baseURL, _, err := c.Describe(u)
 	if err != nil {
@@ -136,11 +141,6 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 				gotFirstFrameOnce = true
 			}
 		}
-	}
-	// connect to the server
-	err = c.Start(u.Scheme, u.Host)
-	if err != nil {
-		return nil, err
 	}
 	// setup and read the H264 track only
 	err = c.SetupAndPlay(gortsplib.Tracks{track}, baseURL)
