@@ -368,16 +368,16 @@ func toPC(b Geometry) (r3.Vector, error) {
 	offset := max.X - min.X
 	fmt.Println("offset: ", offset)
 
-	// var frontFace [][]float64
+	var frontFace [][]float64
 	my_list := golist.New()
-	for j := min.Y; j <= max.Y; j += 0.1 { // this is Y
-		for i := min.X; i <= max.X; i += 0.1 { // this is X
-			// points := []float64{i, j, min.Z}
+	for j := min.Y; j <= max.Y; j += 0.05 { // this is Y
+		for i := min.X; i <= max.X; i += 0.05 { // this is X
+			points := []float64{i, j, min.Z}
 			points_list := golist.New()
 			points_list.Append(i)
 			points_list.Append(j)
 			points_list.Append(min.Z)
-			// frontFace = append(frontFace, points)
+			frontFace = append(frontFace, points)
 			my_list.Append(points_list)
 		}
 	}
@@ -386,7 +386,7 @@ func toPC(b Geometry) (r3.Vector, error) {
 	fmt.Println(my_list)
 
 	// todo: correct rotations for faces
-	//       visualize to double check
+	// write to a better format for viz stuff
 
 	// var leftFace [][]float64
 	// var rightFace [][]float64
