@@ -28,7 +28,7 @@ const modelName = "gyro-mpu6050"
 // AttrConfig is used to configure the attributes of the chip.
 type AttrConfig struct {
 	BoardName              string `json:"board"`
-	BusID                  string `json:"bus_id"`
+	I2cBus                 string `json:"i2c_bus"`
 	UseAlternateI2CAddress bool   `json:"use_alt_i2c_address,omitempty"`
 }
 
@@ -38,8 +38,8 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	if cfg.BusID == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_id")
+	if cfg.I2cBus == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
 	var deps []string
@@ -111,9 +111,9 @@ func NewMpu6050(
 	if !ok {
 		return nil, errors.Errorf("board %s is not local", cfg.BoardName)
 	}
-	bus, ok := localB.I2CByName(cfg.BusID)
+	bus, ok := localB.I2CByName(cfg.I2cBus)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%s' for MPU6050 sensor", cfg.BusID)
+		return nil, errors.Errorf("can't find I2C bus '%s' for MPU6050 sensor", cfg.I2cBus)
 	}
 
 	var address byte
@@ -138,7 +138,7 @@ func NewMpu6050(
 	defaultAddress, err := sensor.readByte(ctx, 117)
 	if err != nil {
 		return nil, errors.Errorf("can't read from I2C address %d on bus %s of board %s: '%s'",
-			address, cfg.BusID, cfg.BoardName, err.Error())
+			address, cfg.I2cBus, cfg.BoardName, err.Error())
 	}
 	if defaultAddress != 0x68 {
 		return nil, errors.Errorf("unexpected non-MPU6050 device at address %d: response '%d'",
