@@ -1,6 +1,10 @@
-// site:https://github.com/aler9/gortsplib/examples
-// author:Alessandro Ros
 package rtsp
+
+// #cgo pkg-config: libavcodec libavutil libswscale
+// #include <libavcodec/avcodec.h>
+// #include <libavutil/imgutils.h>
+// #include <libswscale/swscale.h>
+import "C"
 
 import (
 	"image"
@@ -11,11 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// #cgo pkg-config: libavcodec libavutil libswscale
-// #include <libavcodec/avcodec.h>
-// #include <libavutil/imgutils.h>
-// #include <libswscale/swscale.h>
-import "C"
+// site:https://github.com/aler9/gortsplib/examples
+// author:Alessandro Ros
 
 func frameData(frame *C.AVFrame) **C.uint8_t {
 	return (**C.uint8_t)(unsafe.Pointer(&frame.data[0]))
@@ -67,14 +68,14 @@ func newH264Decoder() (*h264Decoder, error) {
 // Close closes the decoder.
 func (d *h264Decoder) Close() error {
 	if d.dstFrame != nil {
-		C.av_frame_free(&d.dstFrame)
+		C.av_frame_free(&d.dstFrame) //nolint:gocritic
 	}
 
 	if d.swsCtx != nil {
 		C.sws_freeContext(d.swsCtx)
 	}
 
-	C.av_frame_free(&d.srcFrame)
+	C.av_frame_free(&d.srcFrame) //nolint:gocritic
 	C.avcodec_close(d.codecCtx)
 	return nil
 }
@@ -87,7 +88,7 @@ func (d *h264Decoder) Decode(nalu []byte) (image.Image, error) {
 	avPacket.data = (*C.uint8_t)(C.CBytes(nalu))
 	defer C.free(unsafe.Pointer(avPacket.data))
 	avPacket.size = C.int(len(nalu))
-	res := C.avcodec_send_packet(d.codecCtx, &avPacket)
+	res := C.avcodec_send_packet(d.codecCtx, &avPacket) //nolint:gocritic
 	if res < 0 {
 		return nil, nil
 	}
@@ -101,7 +102,7 @@ func (d *h264Decoder) Decode(nalu []byte) (image.Image, error) {
 	// if frame size has changed, allocate needed objects
 	if d.dstFrame == nil || d.dstFrame.width != d.srcFrame.width || d.dstFrame.height != d.srcFrame.height {
 		if d.dstFrame != nil {
-			C.av_frame_free(&d.dstFrame)
+			C.av_frame_free(&d.dstFrame) //nolint:gocritic
 		}
 
 		if d.swsCtx != nil {
