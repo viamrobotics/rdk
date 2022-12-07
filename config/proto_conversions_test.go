@@ -1,13 +1,20 @@
 package config
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/lestrrat-go/jwx/jwk"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -371,12 +378,63 @@ func validateAuthConfig(t *testing.T, actual, expected AuthConfig) {
 }
 
 func TestAuthConfigToProto(t *testing.T) {
-	proto, err := AuthConfigToProto(&testAuthConfig)
-	test.That(t, err, test.ShouldBeNil)
-	out, err := AuthConfigFromProto(proto)
+	t.Run("api-key auth handler", func(t *testing.T) {
+		proto, err := AuthConfigToProto(&testAuthConfig)
+		test.That(t, err, test.ShouldBeNil)
+		out, err := AuthConfigFromProto(proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		validateAuthConfig(t, *out, testAuthConfig)
+	})
+
+	t.Run("web oauth auth handler", func(t *testing.T) {
+		keyset := jwk.NewSet()
+		privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
+		test.That(t, err, test.ShouldBeNil)
+		publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
+		test.That(t, err, test.ShouldBeNil)
+		publicKeyForWebAuth.Set(jwk.KeyIDKey, "key-id-1")
+		test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
+
+		authConfig := AuthConfig{
+			Handlers: []AuthHandlerConfig{
+				{
+					Type:   oauth.CredentialsTypeOAuthWeb,
+					Config: AttributeMap{},
+					WebOAuthConfig: &WebOAuthConfig{
+						AllowedAudiences: []string{"aud1", "aud2"},
+						JSONKeySet:       keysetToInterface(t, keyset).AsMap(),
+					},
+				},
+			},
+			TLSAuthEntities: []string{"tls1", "tls2"},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		out, err := AuthConfigFromProto(proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, out.Handlers[0], test.ShouldResemble, authConfig.Handlers[0])
+	})
+}
+
+func keysetToInterface(t *testing.T, keyset jwks.KeySet) *structpb.Struct {
+	t.Helper()
+
+	// hack around marshaling the KeySet into pb.Struct. Passing interface directly
+	// does not work.
+	jwksAsJSON, err := json.Marshal(keyset)
 	test.That(t, err, test.ShouldBeNil)
 
-	validateAuthConfig(t, *out, testAuthConfig)
+	jwksAsInterface := map[string]interface{}{}
+	err = json.Unmarshal(jwksAsJSON, &jwksAsInterface)
+	test.That(t, err, test.ShouldBeNil)
+
+	jwksAsStruct, err := structpb.NewStruct(jwksAsInterface)
+	test.That(t, err, test.ShouldBeNil)
+
+	return jwksAsStruct
 }
 
 func TestCloudConfigToProto(t *testing.T) {
