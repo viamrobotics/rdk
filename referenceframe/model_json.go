@@ -15,13 +15,14 @@ import (
 type ModelConfig struct {
 	Name         string           `json:"name"`
 	KinParamType string           `json:"kinematic_param_type"`
-	Links        []JsonLink       `json:"links"`
-	Joints       []JsonJoint      `json:"joints"`
-	DHParams     []JsonDHParam    `json:"dhParams"`
+	Links        []JSONLink       `json:"links"`
+	Joints       []JSONJoint      `json:"joints"`
+	DHParams     []JSONDHParam    `json:"dhParams"`
 	RawFrames    []FrameMapConfig `json:"frames"`
 }
 
-type JsonLink struct {
+// JSONLink is a struct which details the JSON used in a ModelJSON link element.
+type JSONLink struct {
 	ID          string                    `json:"id"`
 	Parent      string                    `json:"parent"`
 	Translation spatial.TranslationConfig `json:"translation"`
@@ -29,7 +30,8 @@ type JsonLink struct {
 	Geometry    spatial.GeometryConfig    `json:"geometry"`
 }
 
-type JsonJoint struct {
+// JSONJoint is a struct which details the JSON used in a ModelJSON joint element.
+type JSONJoint struct {
 	ID     string             `json:"id"`
 	Type   string             `json:"type"`
 	Parent string             `json:"parent"`
@@ -38,7 +40,8 @@ type JsonJoint struct {
 	Min    float64            `json:"min"` // in mm or degs
 }
 
-type JsonDHParam struct {
+// JSONDHParam is a struct which details the JSON used to describe DH parameters.
+type JSONDHParam struct {
 	ID       string                 `json:"id"`
 	Parent   string                 `json:"parent"`
 	A        float64                `json:"a"`
@@ -97,10 +100,10 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		for _, joint := range config.Joints {
 			parentMap[joint.ID] = joint.Parent
 			switch joint.Type {
-			case "revolute":
+			case RevoluteJoint:
 				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
 					Limit{Min: utils.DegToRad(joint.Min), Max: utils.DegToRad(joint.Max)})
-			case "prismatic":
+			case PrismaticJoint:
 				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
 					Limit{Min: joint.Min, Max: joint.Max})
 			default:

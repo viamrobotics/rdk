@@ -251,7 +251,7 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 	for {
 		parent := parentMap[nextTransform.Name()]
 		if seen[parent] {
-			return nil, NewCircularReferenceError()
+			return nil, ErrCircularReference
 		}
 		// Reserved word, we reached the end of the chain
 		if parent == finish {
