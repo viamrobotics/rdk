@@ -78,7 +78,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, fs.Frame("pieceGripper"), test.ShouldNotBeNil)
 	pose, err = fs.Frame("pieceGripper").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
 	t.Log("pieceGripper_origin")
 	test.That(t, fs.Frame("pieceGripper_origin"), test.ShouldNotBeNil)
