@@ -1,14 +1,10 @@
 package motionplan
 
 import (
-	"encoding/json"
-	"errors"
 	"math"
+	"runtime"
 
-	commonpb "go.viam.com/api/common/v1"
-
-	frame "go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
+	"gonum.org/v1/gonum/floats"
 )
 
 // default values for planning options.
@@ -35,6 +31,12 @@ const (
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
 
+	// default number of seconds to try to solve in total before returning.
+	defaultTimeout = 300.
+
+	// default number of times to try to smooth the path.
+	defaultSmoothIter = 20
+
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
 	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
@@ -44,7 +46,12 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
+
+	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
+	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
+
+var defaultNumThreads = runtime.NumCPU() / 2
 
 // the set of supported motion profiles.
 const (
@@ -52,100 +59,22 @@ const (
 	LinearMotionProfile       = "linear"
 	PseudolinearMotionProfile = "pseudolinear"
 	OrientationMotionProfile  = "orientation"
+	PositionOnlyMotionProfile = "position_only"
 )
 
 // defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
 func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
-	dist := 0.
+	diff := make([]float64, 0, len(ci.StartInput))
 	for i, f := range ci.StartInput {
-		dist += math.Pow(ci.EndInput[i].Value-f.Value, 2)
+		diff = append(diff, f.Value-ci.EndInput[i].Value)
 	}
-	return true, dist
-}
-
-func plannerSetupFromMoveRequest(
-	from, to spatial.Pose,
-	f frame.Frame,
-	fs frame.FrameSystem,
-	seedMap map[string][]frame.Input,
-	worldState *commonpb.WorldState,
-	planningOpts map[string]interface{},
-) (*PlannerOptions, error) {
-	opt := NewBasicPlannerOptions()
-	opt.extra = planningOpts
-
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(f, fs, worldState, seedMap)
-	if err != nil {
-		return nil, err
-	}
-	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
-
-	// error handling around extracting motion_profile information from map[string]interface{}
-	var motionProfile string
-	profile, ok := planningOpts["motion_profile"]
-	if ok {
-		motionProfile, ok = profile.(string)
-		if !ok {
-			return nil, errors.New("could not interpret motion_profile field as string")
-		}
-	}
-
-	switch motionProfile {
-	case LinearMotionProfile:
-		// Linear constraints
-		linTol, ok := planningOpts["line_tolerance"].(float64)
-		if !ok {
-			// Default
-			linTol = defaultLinearDeviation
-		}
-		orientTol, ok := planningOpts["orient_tolerance"].(float64)
-		if !ok {
-			// Default
-			orientTol = defaultLinearDeviation
-		}
-		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
-		opt.AddConstraint(defaultLinearConstraintName, constraint)
-		opt.pathDist = pathDist
-	case PseudolinearMotionProfile:
-		tolerance, ok := planningOpts["tolerance"].(float64)
-		if !ok {
-			// Default
-			tolerance = defaultPseudolinearTolerance
-		}
-		constraint, pathDist := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
-		opt.AddConstraint(defaultPseudolinearConstraintName, constraint)
-		opt.pathDist = pathDist
-	case OrientationMotionProfile:
-		tolerance, ok := planningOpts["tolerance"].(float64)
-		if !ok {
-			// Default
-			tolerance = defaultOrientationDeviation
-		}
-		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
-		opt.AddConstraint(defaultOrientationConstraintName, constraint)
-		opt.pathDist = pathDist
-	case FreeMotionProfile:
-		// No restrictions on motion
-	default:
-		// TODO(pl): once RRT* is workable, use here. Also, update to try pseudolinear first, and fall back to orientation, then to free
-		// if unsuccessful
-	}
-
-	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, opt)
-	if err != nil {
-		return nil, err
-	}
-	return opt, nil
+	// 2 is the L value returning a standard L2 Normalization
+	return true, floats.Norm(diff, 2)
 }
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func NewBasicPlannerOptions() *PlannerOptions {
-	opt := &PlannerOptions{}
+func newBasicPlannerOptions() *plannerOptions {
+	opt := &plannerOptions{}
 	opt.AddConstraint(defaultJointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = NewSquaredNormMetric()
 	opt.pathDist = NewSquaredNormMetric()
@@ -154,13 +83,23 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
+	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
+
+	// Note the direct reference to a default here.
+	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
+	// is placed in a global default var.
+	opt.PlannerConstructor = newCBiRRTMotionPlanner
+
+	opt.SmoothIter = defaultSmoothIter
+
+	opt.NumThreads = defaultNumThreads
+
 	return opt
 }
 
-// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-// TODO(rb): make this a private struct so that somebody can't just make their own and initialize wrong.
-type PlannerOptions struct {
+// plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+type plannerOptions struct {
 	constraintHandler
 	metric   Metric // Distance function to the goal
 	pathDist Metric // Distance function to the nearest valid point
@@ -179,27 +118,40 @@ type PlannerOptions struct {
 	// Percentage interval of max iterations after which to print debug logs
 	LoggingInterval float64 `json:"logging_interval"`
 
+	// Number of seconds before terminating planner
+	Timeout float64 `json:"timeout"`
+
+	// Number of times to try to smooth the path
+	SmoothIter int `json:"smooth_iter"`
+
+	// Number of cpu cores to use
+	NumThreads int `json:"num_threads"`
+
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
 	DistanceFunc Constraint
+
+	PlannerConstructor plannerConstructor
+
+	Fallback *plannerOptions
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *PlannerOptions) SetMetric(m Metric) {
+func (p *plannerOptions) SetMetric(m Metric) {
 	p.metric = m
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *PlannerOptions) SetPathDist(m Metric) {
+func (p *plannerOptions) SetPathDist(m Metric) {
 	p.pathDist = m
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
+func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
 }
 
 // SetMinScore specifies the IK stopping score for the planner.
-func (p *PlannerOptions) SetMinScore(minScore float64) {
+func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }

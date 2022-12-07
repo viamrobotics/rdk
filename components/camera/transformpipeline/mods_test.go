@@ -43,8 +43,9 @@ func TestResizeColor(t *testing.T) {
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
 
-	rs, err := newResizeTransform(context.Background(), source, camera.ColorStream, am)
+	rs, stream, err := newResizeTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 	out, _, err = camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 30)
@@ -68,8 +69,9 @@ func TestResizeDepth(t *testing.T) {
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
 
-	rs, err := newResizeTransform(context.Background(), source, camera.DepthStream, am)
+	rs, stream, err := newResizeTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 	out, _, err = camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 60)
@@ -83,8 +85,9 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	rs, err := newRotateTransform(context.Background(), source, camera.ColorStream)
+	rs, stream, err := newRotateTransform(context.Background(), source, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
 	rawImage, _, err := camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
@@ -116,8 +119,9 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: pc}, prop.Video{})
-	rs, err := newRotateTransform(context.Background(), source, camera.DepthStream)
+	rs, stream, err := newRotateTransform(context.Background(), source, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
 	rawImage, _, err := camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
@@ -150,8 +154,9 @@ func BenchmarkColorRotate(b *testing.B) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	rs, stream, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
+	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
 	b.ResetTimer()
 
@@ -170,8 +175,9 @@ func BenchmarkDepthRotate(b *testing.B) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	rs, stream, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
+	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 
 	b.ResetTimer()
 

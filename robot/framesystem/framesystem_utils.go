@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -22,7 +21,7 @@ import (
 func RobotFrameSystem(
 	ctx context.Context,
 	r robot.Robot,
-	additionalTransforms []*commonpb.Transform,
+	additionalTransforms []*referenceframe.PoseInFrame,
 ) (referenceframe.FrameSystem, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
 	defer span.End()

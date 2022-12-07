@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/component/gantry/v1"
 
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -77,7 +78,11 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.GetWorldState(), req.Extra.AsMap())
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, worldState, req.Extra.AsMap())
 }
 
 // Stop stops the gantry specified.

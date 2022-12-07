@@ -10,7 +10,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -384,7 +383,7 @@ func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]
 func (g *oneAxis) MoveToPosition(
 	ctx context.Context,
 	positions []float64,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	ctx, done := g.opMgr.New(ctx)
@@ -482,5 +481,5 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &referenceframe.WorldState{}, nil)
 }

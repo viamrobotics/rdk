@@ -443,10 +443,16 @@ func createSLAMService(
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam", DependsOn: attrCfg.Sensors}
+	cfgService := config.Service{Name: "test", Type: "slam"}
 	cfgService.ConvertedAttributes = attrCfg
 
 	deps := setupDeps(attrCfg)
+
+	sensorDeps, err := attrCfg.Validate("path")
+	if err != nil {
+		return nil, err
+	}
+	test.That(t, sensorDeps, test.ShouldResemble, attrCfg.Sensors)
 
 	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
 	builtin.SetDialMaxTimeoutSecForTesting(1)
@@ -475,9 +481,21 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		attrCfg := &builtin.AttrConfig{}
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
-		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("runtime slam config error: "+
-				"%v algorithm specified not in implemented list", attrCfg.Algorithm))
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "algorithm"))
+	})
+
+	t.Run("New slam service with no data dir", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		attrCfg := &builtin.AttrConfig{Algorithm: "test", ConfigParams: map[string]string{"mode": "2d"}}
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "data_dir"))
+	})
+
+	t.Run("New slam service with no mode", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		attrCfg := &builtin.AttrConfig{Algorithm: "test", DataDirectory: "test"}
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "config_params[mode]"))
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {
@@ -940,7 +958,8 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
-	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPoseFromOrientation(r3.Vector{X: 1, Y: 2, Z: 3},
+		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
 	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})

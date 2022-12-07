@@ -174,7 +174,11 @@ func (s *Server) FrameSystemConfig(
 	ctx context.Context,
 	req *pb.FrameSystemConfigRequest,
 ) (*pb.FrameSystemConfigResponse, error) {
-	sortedParts, err := s.r.FrameSystemConfig(ctx, req.GetSupplementalTransforms())
+	transforms, err := referenceframe.PoseInFramesFromTransformProtobuf(req.GetSupplementalTransforms())
+	if err != nil {
+		return nil, err
+	}
+	sortedParts, err := s.r.FrameSystemConfig(ctx, transforms)
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +199,11 @@ func (s *Server) FrameSystemConfig(
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest) (*pb.TransformPoseResponse, error) {
-	dst := req.Destination
-	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
-	transformedPose, err := s.r.TransformPose(ctx, pF, dst, req.GetSupplementalTransforms())
-
+	transforms, err := referenceframe.PoseInFramesFromTransformProtobuf(req.GetSupplementalTransforms())
+	if err != nil {
+		return nil, err
+	}
+	transformedPose, err := s.r.TransformPose(ctx, referenceframe.ProtobufToPoseInFrame(req.Source), req.Destination, transforms)
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }
 

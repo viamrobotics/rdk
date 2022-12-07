@@ -36,11 +36,11 @@ func TestServoMove(t *testing.T) {
 
 	var actualExtra map[string]interface{}
 
-	workingServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
+	workingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
 		actualExtra = extra
 		return nil
 	}
-	failingServo.MoveFunc = func(ctx context.Context, angle uint8, extra map[string]interface{}) error {
+	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
 		return errors.New("move failed")
 	}
 
@@ -70,11 +70,11 @@ func TestServoGetPosition(t *testing.T) {
 
 	var actualExtra map[string]interface{}
 
-	workingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+	workingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		actualExtra = extra
 		return 20, nil
 	}
-	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 0, errors.New("current angle not readable")
 	}
 

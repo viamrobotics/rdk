@@ -1,4 +1,4 @@
-import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import type { ServiceError } from '@viamrobotics/sdk';
 import { toast } from './toast';
 
 export const displayError = (error: ServiceError | null) => {

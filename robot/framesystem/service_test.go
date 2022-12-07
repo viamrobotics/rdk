@@ -8,8 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	// register.
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
@@ -48,44 +46,15 @@ func TestFrameSystemFromConfig(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	transformMsgs := []*commonpb.Transform{
-		{
-			ReferenceFrame: "frame1",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceArm",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceGripper",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2a",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "frame2",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2c",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "frame2",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame3",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
+	transforms := []*referenceframe.PoseInFrame{
+		referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "frame1"),
+		referenceframe.NewNamedPoseInFrame("pieceGripper", testPose, "frame2"),
+		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2a"),
+		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2c"),
+		referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "frame3"),
 	}
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
+
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transforms)
 	test.That(t, err, test.ShouldBeNil)
 	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
@@ -236,22 +205,6 @@ func TestWrongFrameSystems(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	transformMsgs := []*commonpb.Transform{
-		{
-			ReferenceFrame: "frame1",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceArm",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "noParent",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-	}
 	cfg, err = config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -259,20 +212,17 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
 
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
+	transforms := []*referenceframe.PoseInFrame{
+		referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "frame1"),
+		referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2"),
+	}
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transforms)
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	test.That(t, fs, test.ShouldBeNil)
 
-	transformMsgs = []*commonpb.Transform{
-		{
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceArm",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-	}
-	fs, err = framesystem.RobotFrameSystem(context.Background(), r, transformMsgs)
-	test.That(t, err, test.ShouldBeError, config.NewMissingReferenceFrameError(&commonpb.Transform{}))
+	transforms = []*referenceframe.PoseInFrame{referenceframe.NewPoseInFrame("pieceArm", testPose)}
+	fs, err = framesystem.RobotFrameSystem(context.Background(), r, transforms)
+	test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 	test.That(t, fs, test.ShouldBeNil)
 }
 
@@ -346,51 +296,21 @@ func TestServiceWithRemote(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	transformMsgs := []*commonpb.Transform{
-		{
-			ReferenceFrame: "frame1",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "bar:pieceArm",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "bar:pieceGripper",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2a",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "frame2",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame2c",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "frame2",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
-		{
-			ReferenceFrame: "frame3",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           spatialmath.PoseToProtobuf(testPose),
-			},
-		},
+	transforms := []*referenceframe.PoseInFrame{
+		referenceframe.NewNamedPoseInFrame("bar:pieceArm", testPose, "frame1"),
+		referenceframe.NewNamedPoseInFrame("bar:pieceGripper", testPose, "frame2"),
+		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2a"),
+		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2c"),
+		referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "frame3"),
 	}
 
 	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r2, transformMsgs)
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r2, transforms)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
-	allParts, err := r2.FrameSystemConfig(context.Background(), transformMsgs)
+	allParts, err := r2.FrameSystemConfig(context.Background(), transforms)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 }

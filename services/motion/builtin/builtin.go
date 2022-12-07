@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -49,7 +48,7 @@ func (ms *builtIn) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
@@ -59,35 +58,41 @@ func (ms *builtIn) Move(
 	goalFrameName := destination.FrameName()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
+	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 	if err != nil {
 		return false, err
 	}
-	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, solver)
+	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
 	if err != nil {
 		return false, err
 	}
 
-	logger.Debugf("frame system inputs: %v", fsInputs)
+	movingFrame := frameSys.Frame(componentName.ShortName())
 
-	// re-evaluate goalPose to be in the frame we're going to move in
+	logger.Debugf("frame system inputs: %v", fsInputs)
+	if movingFrame == nil {
+		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
+	}
+
+	// re-evaluate goalPose to be in the frame of World
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := solver.Transform(fsInputs, destination, solvingFrame)
+	tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
 	if err != nil {
 		return false, err
 	}
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := solver.SolveWaypointsWithOptions(ctx,
+	output, err := motionplan.PlanMotion(ctx,
+		logger,
+		goalPose,
+		movingFrame,
 		fsInputs,
-		[]*referenceframe.PoseInFrame{goalPose},
-		componentName.ShortName(),
+		frameSys,
 		worldState,
-		[]map[string]interface{}{extra},
+		extra,
 	)
 	if err != nil {
 		return false, err
@@ -117,7 +122,7 @@ func (ms *builtIn) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
@@ -137,7 +142,7 @@ func (ms *builtIn) MoveSingleComponent(
 	if destination.FrameName() != componentName.ShortName() {
 		logger.Debugf("goal given in frame of %q", destination.FrameName())
 
-		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
+		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 		if err != nil {
 			return false, err
 		}
@@ -169,7 +174,7 @@ func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {
