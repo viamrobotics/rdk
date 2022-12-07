@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -85,7 +86,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	if err != nil {
 		return nil, err
 	}
-	// connect to the server
+	// connect to the server - be sure to close it if setup fails.
 	err = c.Start(u.Scheme, u.Host)
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	// find published tracks
 	tracks, baseURL, _, err := c.Describe(u)
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, c.Close())
 	}
 
 	// find the H264 track
@@ -106,12 +107,13 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 		return nil
 	}()
 	if track == nil {
-		return nil, errors.Errorf("H264 track not found in rtsp camera %s", u)
+		err := errors.Errorf("H264 track not found in rtsp camera %s", u)
+		return nil, multierr.Combine(err, c.Close())
 	}
 	// get the RTP->h264 decoder and the h264->image.Image decoder
 	rtpDec, h264RawDec, err := rtpH264Decoder(track)
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, c.Close())
 	}
 	// On packet retreival, turn it into an image, and store it in shared memory
 	var latestFrame atomic.Value
@@ -145,7 +147,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	// setup and read the H264 track only
 	err = c.SetupAndPlay(gortsplib.Tracks{track}, baseURL)
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, c.Close())
 	}
 	// read the image from shared memory when it is requested
 	cancelCtx, cancel := context.WithCancel(context.Background())
