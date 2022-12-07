@@ -1,19 +1,6 @@
-package rtsp
-
 // site:https://github.com/aler9/gortsplib/examples
 // author:Alessandro Ros
-
-import (
-	"image"
-	"unsafe"
-
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
-	"github.com/pkg/errors"
 package rtsp
-
-// site:https://github.com/aler9/gortsplib/examples
-// author:Alessandro Ros
 
 import (
 	"image"
