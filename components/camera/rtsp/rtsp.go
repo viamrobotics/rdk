@@ -147,7 +147,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	// setup and read the H264 track only
 	err = c.SetupAndPlay(gortsplib.Tracks{track}, baseURL)
 	if err != nil {
-		return nil, multierr.Combine(err, c.Close())
+		return nil, multierr.Combine(err, h264RawDec.Close(), c.Close())
 	}
 	// read the image from shared memory when it is requested
 	cancelCtx, cancel := context.WithCancel(context.Background())
