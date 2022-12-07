@@ -134,6 +134,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
+github.com/aler9/gortsplib v0.0.0-20221115220126-9795e9175aca h1:Y451Rnf4kQk9iGG1+1RA1VscqKoE0nV0oS/YVVr4mrM=
+github.com/aler9/gortsplib v0.0.0-20221115220126-9795e9175aca/go.mod h1:BOWNZ/QBkY/eVcRqUzJbPFEsRJshwxaxBT01K260Jeo=
 github.com/aler9/gortsplib v0.0.0-20221129144815-8515d627356a h1:7ACx2SfiCdGTQzJ+nTXkzSIixfVz2C5L+ea1gO9IwXI=
 github.com/aler9/gortsplib v0.0.0-20221129144815-8515d627356a/go.mod h1:BOWNZ/QBkY/eVcRqUzJbPFEsRJshwxaxBT01K260Jeo=
 github.com/alexkohler/prealloc v1.0.0 h1:Hbq0/3fJPQhNkN0dR95AVrr6R7tou91y0uHG5pOcUuw=

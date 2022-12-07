@@ -11,7 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
+	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/pkg/errors"
 )
 
