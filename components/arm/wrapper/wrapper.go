@@ -3,6 +3,7 @@ package wrapper
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -72,10 +73,13 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 		model referenceframe.Model
 		err   error
 	)
-	if strings.HasSuffix(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, ".urdf") {
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
+	if strings.HasSuffix(modelPath, ".urdf") {
 		model, err = referenceframe.ParseURDFFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
-	} else {
+	} else if strings.HasSuffix(modelPath, ".json") {
 		model, err = referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	} else {
+		return nil, errors.New("Unsupported kinematic model encoding file passed")
 	}
 
 	if err != nil {
