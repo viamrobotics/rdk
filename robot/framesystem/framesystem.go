@@ -229,6 +229,9 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if c.Frame.Parent == "" {
 			return errors.Errorf("parent field in frame config for part %q is empty", c.Name)
 		}
+		if c.Frame.ID == "" {
+			c.Frame.ID = c.Name
+		}
 		seen[c.Name] = true
 		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {

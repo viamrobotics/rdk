@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/golang/geo/r3"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 
@@ -20,8 +21,8 @@ type Parts []*config.FrameSystemPart
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
 func (fsp Parts) String() string {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation"})
-	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", ""})
+	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
+	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
 	for i, part := range fsp {
 		tra := part.FrameConfig.Translation
 		ori := &spatialmath.EulerAngles{}
@@ -29,6 +30,39 @@ func (fsp Parts) String() string {
 			orient, err := part.FrameConfig.Orientation.ParseConfig()
 			if err == nil {
 				ori = orient.EulerAngles()
+			}
+		}
+		geomString := ""
+		if part.FrameConfig.Geometry != nil {
+			gCfg := part.FrameConfig.Geometry
+			creator, err := gCfg.ParseConfig()
+			if err == nil {
+				switch gCfg.Type {
+				case spatialmath.BoxType:
+					geomString = fmt.Sprintf("Type: Box Dim: X:%.0f, Y:%.0f, Z:%.0f", gCfg.X, gCfg.Y, gCfg.Z)
+				case spatialmath.SphereType:
+					geomString = fmt.Sprintf("Type: Sphere Radius: %.0f", gCfg.R)
+				case spatialmath.PointType:
+					geomString = fmt.Sprintf(
+						"Type: Point Loc X:%.0f, Y:%.0f, Z:%.0f",
+						gCfg.TranslationOffset.X,
+						gCfg.TranslationOffset.Y,
+						gCfg.TranslationOffset.Z,
+					)
+				case spatialmath.UnknownType:
+					// no type specified, iterate through supported types and try to infer intent
+					if _, err := spatialmath.NewBoxCreator(
+						r3.Vector{X: gCfg.X, Y: gCfg.Y, Z: gCfg.Z},
+						creator.Offset(),
+						gCfg.Label,
+					); err == nil {
+						geomString = fmt.Sprintf("Type: Box Dim: X:%.0f, Y:%.0f, Z:%.0f", gCfg.X, gCfg.Y, gCfg.Z)
+					}
+					if _, err := spatialmath.NewSphereCreator(gCfg.R, creator.Offset(), gCfg.Label); err == nil {
+						geomString = fmt.Sprintf("Type: Sphere Radius: %.0f", gCfg.R)
+					}
+					// never try to infer point geometry if nothing is specified
+				}
 			}
 		}
 		t.AppendRow([]interface{}{
@@ -42,6 +76,7 @@ func (fsp Parts) String() string {
 				utils.RadToDeg(ori.Pitch),
 				utils.RadToDeg(ori.Yaw),
 			),
+			geomString,
 		})
 	}
 	return t.Render()

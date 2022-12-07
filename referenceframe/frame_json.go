@@ -1,22 +1,33 @@
 package referenceframe
 
 import (
-	//~ "encoding/json"
+	"encoding/json"
 	"reflect"
+	"fmt"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-type StaticFrameCfg struct {
+// tempLinkCfg is needed for json marshaling and unmarshaling only
+type tempLinkCfg struct {
 	ID          string                    `json:"id"`
 	Translation spatial.TranslationConfig `json:"translation"`
 	Orientation *spatial.OrientationConfig `json:"orientation"`
 	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"`
+	Parent      string                    `json:"parent"`
+}
+
+// StaticFrameCfg contains all json fields needed to specify a static frame
+type StaticFrameCfg struct {
+	ID          string
+	Translation spatial.TranslationConfig
+	Orientation *spatial.OrientationConfig
+	Geometry    *spatial.GeometryConfig
 }
 
 // LinkCfg is a StaticFrameCfg that also has a specified parent
 type LinkCfg struct {
 	*StaticFrameCfg
-	Parent      string                    `json:"parent"`
+	Parent      string
 }
 
 type JointCfg struct {
@@ -89,3 +100,34 @@ func (cfg *StaticFrameCfg) Pose() (spatial.Pose, error) {
 	}
 	return spatial.NewPoseFromOrientation(pt, orient), nil
 }
+
+// UnmarshalJSON will parse unmarshall json corresponding to a frame config.
+func (l *LinkCfg) UnmarshalJSON(b []byte) error {
+	temp := &tempLinkCfg{}
+	err := json.Unmarshal(b, temp)
+	if err != nil {
+		return err
+	}
+	fmt.Println("temp", temp)
+	l.StaticFrameCfg = &StaticFrameCfg{}
+	l.ID          = temp.ID
+	l.Translation = temp.Translation
+	l.Orientation = temp.Orientation
+	l.Geometry    = temp.Geometry
+	l.Parent      = temp.Parent
+
+	return nil
+}
+
+// MarshalJSON will encode the Orientation field into a spatial.OrientationConfig object instead of spatial.Orientation.
+func (l *LinkCfg) MarshalJSON() ([]byte, error) {
+	temp := &tempLinkCfg{}
+	temp.ID          = l.ID         
+	temp.Translation = l.Translation
+	temp.Orientation = l.Orientation
+	temp.Geometry    = l.Geometry   
+	temp.Parent      = l.Parent     
+	
+	return json.Marshal(temp)
+}
+

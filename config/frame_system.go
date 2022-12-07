@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -68,18 +69,33 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	if err != nil {
 		return nil, err
 	}
+	var geom *spatialmath.GeometryConfig
+	if len(fsc.Frame.Geometries) > 0 {
+		geomTemp, err := spatialmath.NewGeometryCreatorFromProto(fsc.Frame.Geometries[0])
+		if err != nil {
+			return nil, err
+		}
+		geom, err = spatialmath.NewGeometryConfig(geomTemp)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	frameConfig := &referenceframe.LinkCfg{
 		&referenceframe.StaticFrameCfg{
 			ID: fsc.Frame.Name,
 			Translation: *spatialmath.NewTranslationConfig(pose.Point()),
 			Orientation: orient,
+			Geometry: geom,
 		},
 		fsc.Frame.PoseInParentFrame.ReferenceFrame,
 	}
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
 	}
-	
+	fmt.Println("id", frameConfig.ID)
+	fmt.Println("fsc", fsc.Frame)
+	fmt.Println("part", part.FrameConfig)
 	if len(fsc.Kinematics.AsMap()) > 0 {
 		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 		if err != nil {
