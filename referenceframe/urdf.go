@@ -17,11 +17,12 @@ import (
 type URDFConfig struct {
 	XMLName xml.Name    `xml:"robot"`
 	Name    string      `xml:"name,attr"`
-	Links   []UrdfLink  `xml:"link"`
-	Joints  []UrdfJoint `xml:"joint"`
+	Links   []URDFLink  `xml:"link"`
+	Joints  []URDFJoint `xml:"joint"`
 }
 
-type UrdfLink struct {
+// URDFLink is a struct which details the XML used in a URDF link element.
+type URDFLink struct {
 	XMLName   xml.Name `xml:"link"`
 	Name      string   `xml:"name,attr"`
 	Collision []struct {
@@ -46,7 +47,8 @@ type UrdfLink struct {
 	} `xml:"collision"`
 }
 
-type UrdfJoint struct {
+// URDFJoint is a struct which details the XML used in a URDF joint element.
+type URDFJoint struct {
 	XMLName xml.Name `xml:"joint"`
 	Name    string   `xml:"name,attr"`
 	Type    string   `xml:"type,attr"`
@@ -128,13 +130,13 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		parentMap[jointElem.Child.Link] = jointElem.Name
 
 		// Set up the child link mentioned in this joint; fill out the details in the link parsing section later
-		childLink := JsonLink{ID: jointElem.Child.Link, Parent: jointElem.Name}
+		childLink := JSONLink{ID: jointElem.Child.Link, Parent: jointElem.Name}
 
 		switch jointElem.Type {
-		case "continuous", "revolute", "prismatic":
+		case ContinuousJoint, RevoluteJoint, PrismaticJoint:
 			// Parse important details about each joint, including axes and limits
 			jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
-			thisJoint := JsonJoint{
+			thisJoint := JSONJoint{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,
@@ -142,14 +144,15 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			}
 
 			// Slightly different limits handling for continuous, revolute, and prismatic joints
-			if jointElem.Type == "continuous" {
-				thisJoint.Type = "revolute" // Currently, we treate a continuous joint as a special case of the revolute joint
+			switch jointElem.Type {
+			case ContinuousJoint:
+				thisJoint.Type = RevoluteJoint // Currently, we treate a continuous joint as a special case of a revolute joint
 				thisJoint.Min, thisJoint.Max = math.Inf(-1), math.Inf(1)
-			} else if jointElem.Type == "prismatic" {
+			case PrismaticJoint:
 				thisJoint.Min, thisJoint.Max = metersToMM(jointElem.Limit.Lower), metersToMM(jointElem.Limit.Upper)
-			} else if jointElem.Type == "revolute" {
+			case RevoluteJoint:
 				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
-			} else {
+			default:
 				return nil, err
 			}
 
@@ -159,7 +162,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			childXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			childRPY := convStringAttrToFloats(jointElem.Origin.RPY)
 			childEA := spatial.EulerAngles{Roll: childRPY[0], Pitch: childRPY[1], Yaw: childRPY[2]}
-			childOrient, err := spatial.NewOrientationConfig(childEA.EulerAngles())
+			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
 
 			// Note the conversion from meters to mm
 			childLink.Translation = spatial.TranslationConfig{
@@ -172,9 +175,9 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			if err != nil {
 				return nil, err
 			}
-		case "fixed":
+		case FixedJoint:
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
-			thisLink := JsonLink{ID: jointElem.Name, Parent: jointElem.Parent.Link}
+			thisLink := JSONLink{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
 			linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
@@ -198,17 +201,13 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			return nil, NewUnsupportedJointTypeError(jointElem.Type)
 		}
 
-		if err != nil {
-			return nil, err
-		}
-
 		mc.Links = append(mc.Links, childLink)
 	}
 
 	// Handle links
 	for _, linkElem := range urdf.Links {
 		// Skip any world links
-		if linkElem.Name == "world" {
+		if linkElem.Name == World {
 			continue
 		}
 
@@ -216,7 +215,10 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		hasCollision := len(linkElem.Collision) > 0
 		for idx, prefabLink := range mc.Links {
 			if prefabLink.ID == linkElem.Name && hasCollision {
-				geoCfg, _ := createConfigFromCollision(linkElem)
+				geoCfg, err := createConfigFromCollision(linkElem)
+				if err != nil {
+					return nil, err
+				}
 				mc.Links[idx].Geometry = geoCfg
 				break
 			}
@@ -225,16 +227,15 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
 		// Most likely, this is a link normally whose parent is the World
 		if _, ok := parentMap[linkElem.Name]; !ok {
-			thisLink := JsonLink{ID: linkElem.Name, Parent: World}
+			thisLink := JSONLink{ID: linkElem.Name, Parent: World}
 			thisLink.Translation = spatial.TranslationConfig{0.0, 0.0, 0.0}
 			thisLink.Orientation = spatial.OrientationConfig{} // Orientation is guaranteed to be zero for this
 
-			if err != nil {
-				return nil, err
-			}
-
 			if hasCollision {
-				geoCfg, _ := createConfigFromCollision(linkElem)
+				geoCfg, err := createConfigFromCollision(linkElem)
+				if err != nil {
+					return nil, err
+				}
 				thisLink.Geometry = geoCfg
 			}
 
@@ -248,18 +249,22 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 // Convenience method to split up space-delimited fields in URDFs, such as xyz or rpy attributes.
 func convStringAttrToFloats(attr string) []float64 {
 	var converted []float64
-	attr_slice := strings.Fields(attr)
+	attrSlice := strings.Fields(attr)
 
-	for _, value := range attr_slice {
-		value, _ := strconv.ParseFloat(value, 64)
+	for _, value := range attrSlice {
+		value, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			value = math.NaN()
+		}
+
 		converted = append(converted, value)
 	}
 
 	return converted
 }
 
-// Convenience method to simplify creating geometry configs from URDF XML that has a collision element specified
-func createConfigFromCollision(link UrdfLink) (spatial.GeometryConfig, error) {
+// Convenience method to simplify creating geometry configs from URDF XML that has a collision element specified.
+func createConfigFromCollision(link URDFLink) (spatial.GeometryConfig, error) {
 	var geoCfg spatial.GeometryConfig
 	boxGeometry := link.Collision[0].Geometry.Box
 	sphereGeometry := link.Collision[0].Geometry.Sphere
@@ -274,13 +279,13 @@ func createConfigFromCollision(link UrdfLink) (spatial.GeometryConfig, error) {
 		Yaw:   utils.RadToDeg(geomRPY[2]),
 	}
 	geomOx, err := spatial.NewOrientationConfig(geomEA.AxisAngles())
-
 	if err != nil {
 		return spatial.GeometryConfig{}, err
 	}
 
 	// Logic specific to the geometry type
-	if len(boxGeometry.Size) > 0 {
+	switch {
+	case len(boxGeometry.Size) > 0:
 		boxDims := convStringAttrToFloats(boxGeometry.Size)
 		geoCfg = spatial.GeometryConfig{
 			Type:              "box",
@@ -291,7 +296,7 @@ func createConfigFromCollision(link UrdfLink) (spatial.GeometryConfig, error) {
 			OrientationOffset: *geomOx,
 			Label:             "box",
 		}
-	} else if sphereGeometry.Radius > 0 {
+	case sphereGeometry.Radius > 0:
 		sphereRadius := metersToMM(sphereGeometry.Radius)
 		geoCfg = spatial.GeometryConfig{
 			Type:              "sphere",
@@ -300,14 +305,14 @@ func createConfigFromCollision(link UrdfLink) (spatial.GeometryConfig, error) {
 			OrientationOffset: *geomOx,
 			Label:             "sphere",
 		}
-	} else {
+	default:
 		return spatial.GeometryConfig{}, errors.Errorf("Unsupported collision geometry type detected for [ %v ] link", link.Collision[0].Name)
 	}
 
 	return geoCfg, nil
 }
 
-// Convenience function to change engineering unit scale for the given input
+// Convenience function to change engineering unit scale for the given input.
 func metersToMM(valMeters float64) float64 {
 	return valMeters * 1000
 }

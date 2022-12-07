@@ -36,6 +36,7 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
 
+//nolint:dupl
 func TestURDFTransforms(t *testing.T) {
 	u, err := ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)

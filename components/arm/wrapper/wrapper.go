@@ -74,12 +74,13 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 		err   error
 	)
 	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
-	if strings.HasSuffix(modelPath, ".urdf") {
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
 		model, err = referenceframe.ParseURDFFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
-	} else if strings.HasSuffix(modelPath, ".json") {
+	case strings.HasSuffix(modelPath, ".json"):
 		model, err = referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
-	} else {
-		return nil, errors.New("Unsupported kinematic model encoding file passed")
+	default:
+		return nil, errors.New("unsupported kinematic model encoding file passed")
 	}
 
 	if err != nil {
