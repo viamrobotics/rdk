@@ -9,14 +9,13 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 // Parts is a slice of *config.FrameSystemPart.
-type Parts []*config.FrameSystemPart
+type Parts []*referenceframe.FrameSystemPart
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
 func (fsp Parts) String() string {
@@ -159,8 +158,8 @@ func RenameRemoteParts(
 }
 
 // PartMapToPartSlice returns a Parts constructed of the FrameSystemParts values of a string map.
-func PartMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
-	parts := make([]*config.FrameSystemPart, 0, len(partsMap))
+func PartMapToPartSlice(partsMap map[string]*referenceframe.FrameSystemPart) Parts {
+	parts := make([]*referenceframe.FrameSystemPart, 0, len(partsMap))
 	for _, part := range partsMap {
 		parts = append(parts, part)
 	}

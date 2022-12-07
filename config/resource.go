@@ -64,7 +64,7 @@ type Component struct {
 	Namespace     resource.Namespace           `json:"namespace"`
 	Type          resource.SubtypeName         `json:"type"`
 	Model         string                       `json:"model"`
-	Frame         *referenceframe.LinkCfg     `json:"frame,omitempty"`
+	Frame         *referenceframe.LinkConfig     `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
 	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
 

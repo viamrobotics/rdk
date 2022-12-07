@@ -209,7 +209,7 @@ func ResourceLevelServiceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (
 }
 
 // FrameConfigToProto converts Frame to proto equivalent.
-func FrameConfigToProto(frame referenceframe.LinkCfg) (*pb.Frame, error) {
+func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
 	pose, err := frame.Pose()
 	if err != nil {
 		return nil, err
@@ -297,15 +297,13 @@ func FrameConfigToProto(frame referenceframe.LinkCfg) (*pb.Frame, error) {
 }
 
 // FrameConfigFromProto creates Frame from proto equivalent.
-func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkCfg, error) {
-	frame := &referenceframe.LinkCfg{
+func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
+	frame := &referenceframe.LinkConfig{
 		Parent: proto.GetParent(),
-		StaticFrameCfg: &referenceframe.StaticFrameCfg{
-			Translation: spatial.TranslationConfig{
-				X: proto.GetTranslation().GetX(),
-				Y: proto.GetTranslation().GetY(),
-				Z: proto.GetTranslation().GetZ(),
-			},
+		Translation: spatial.TranslationConfig{
+			X: proto.GetTranslation().GetX(),
+			Y: proto.GetTranslation().GetY(),
+			Z: proto.GetTranslation().GetZ(),
 		},
 	}
 

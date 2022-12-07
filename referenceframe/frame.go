@@ -166,6 +166,24 @@ type staticFrame struct {
 	geometryCreator spatial.GeometryCreator
 }
 
+// a tailGeometryStaticFrame is a static frame whose geometry is placed at the end of the frame's transform, rather than at the beginning
+type tailGeometryStaticFrame struct {
+	*staticFrame
+}
+
+func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
+	if sf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
+	}
+	if len(input) != 0 {
+		return nil, NewIncorrectInputLengthError(len(input), 0)
+	}
+	m := make(map[string]spatial.Geometry)
+	// Create the new geometry at a pose of `transform` from the frame
+	m[sf.Name()] = sf.geometryCreator.NewGeometry(sf.transform)
+	return NewGeometriesInFrame(sf.name, m), nil
+}
+
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
@@ -244,7 +262,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
-	temp := StaticFrameCfg{
+	temp := LinkConfig{
 		ID:      sf.name,
 		Translation: *spatial.NewTranslationConfig(sf.transform.Point()),
 	}

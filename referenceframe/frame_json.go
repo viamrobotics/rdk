@@ -1,33 +1,17 @@
 package referenceframe
 
 import (
-	"encoding/json"
 	"reflect"
-	"fmt"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// tempLinkCfg is needed for json marshaling and unmarshaling only
-type tempLinkCfg struct {
+// LinkConfig is a StaticFrame that also has a specified parent
+type LinkConfig struct {
 	ID          string                    `json:"id"`
 	Translation spatial.TranslationConfig `json:"translation"`
 	Orientation *spatial.OrientationConfig `json:"orientation"`
 	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"`
-	Parent      string                    `json:"parent"`
-}
-
-// StaticFrameCfg contains all json fields needed to specify a static frame
-type StaticFrameCfg struct {
-	ID          string
-	Translation spatial.TranslationConfig
-	Orientation *spatial.OrientationConfig
-	Geometry    *spatial.GeometryConfig
-}
-
-// LinkCfg is a StaticFrameCfg that also has a specified parent
-type LinkCfg struct {
-	*StaticFrameCfg
-	Parent      string
+	Parent      string                    `json:"parent,omitempty"`
 }
 
 type JointCfg struct {
@@ -51,8 +35,8 @@ type DHParamCfg struct {
 	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"`
 }
 
-// NewStaticFrameCfg constructs a config from a Frame.
-func NewStaticFrameCfg(frame staticFrame) (*StaticFrameCfg, error) {
+// NewLinkConfig constructs a config from a Frame.
+func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
 	var geom *spatial.GeometryConfig
 	orient, err := spatial.NewOrientationConfig(frame.transform.Orientation())
 	if err != nil {
@@ -64,7 +48,7 @@ func NewStaticFrameCfg(frame staticFrame) (*StaticFrameCfg, error) {
 			return nil, err
 		}
 	}
-	return &StaticFrameCfg{
+	return &LinkConfig{
 		ID: frame.name,
 		Translation: *spatial.NewTranslationConfig(frame.transform.Point()),
 		Orientation: orient,
@@ -72,13 +56,13 @@ func NewStaticFrameCfg(frame staticFrame) (*StaticFrameCfg, error) {
 	}, nil
 }
 
-// ParseConfig converts a StaticFrameCfg into a staticFrame
-func (cfg *StaticFrameCfg) ParseConfig() (Frame, error) {
+// ParseConfig converts a LinkConfig into a staticFrame
+func (cfg *LinkConfig) ParseConfig() (Frame, error) {
 	return cfg.ToStaticFrame(cfg.ID)
 }
 
-// ToStaticFrame converts a StaticFrameCfg into a staticFrame with a new name
-func (cfg *StaticFrameCfg) ToStaticFrame(name string) (Frame, error) {
+// ToStaticFrame converts a LinkConfig into a staticFrame with a new name
+func (cfg *LinkConfig) ToStaticFrame(name string) (Frame, error) {
 	pose, err := cfg.Pose()
 	
 	var geom spatial.GeometryCreator
@@ -92,7 +76,7 @@ func (cfg *StaticFrameCfg) ToStaticFrame(name string) (Frame, error) {
 	return NewStaticFrameWithGeometry(name, pose, geom)
 }
 
-func (cfg *StaticFrameCfg) Pose() (spatial.Pose, error) {
+func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 	pt := cfg.Translation.ParseConfig()
 	orient, err := cfg.Orientation.ParseConfig()
 	if err != nil {
@@ -100,34 +84,3 @@ func (cfg *StaticFrameCfg) Pose() (spatial.Pose, error) {
 	}
 	return spatial.NewPoseFromOrientation(pt, orient), nil
 }
-
-// UnmarshalJSON will parse unmarshall json corresponding to a frame config.
-func (l *LinkCfg) UnmarshalJSON(b []byte) error {
-	temp := &tempLinkCfg{}
-	err := json.Unmarshal(b, temp)
-	if err != nil {
-		return err
-	}
-	fmt.Println("temp", temp)
-	l.StaticFrameCfg = &StaticFrameCfg{}
-	l.ID          = temp.ID
-	l.Translation = temp.Translation
-	l.Orientation = temp.Orientation
-	l.Geometry    = temp.Geometry
-	l.Parent      = temp.Parent
-
-	return nil
-}
-
-// MarshalJSON will encode the Orientation field into a spatial.OrientationConfig object instead of spatial.Orientation.
-func (l *LinkCfg) MarshalJSON() ([]byte, error) {
-	temp := &tempLinkCfg{}
-	temp.ID          = l.ID         
-	temp.Translation = l.Translation
-	temp.Orientation = l.Orientation
-	temp.Geometry    = l.Geometry   
-	temp.Parent      = l.Parent     
-	
-	return json.Marshal(temp)
-}
-

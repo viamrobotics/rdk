@@ -133,7 +133,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		parentMap[jointElem.Child.Link] = jointElem.Name
 
 		// Set up the child link mentioned in this joint; fill out the details in the link parsing section later
-		childLink := LinkCfg{&StaticFrameCfg{ID: jointElem.Child.Link}, jointElem.Name}
+		childLink := LinkConfig{ID: jointElem.Child.Link, Parent: jointElem.Name}
 
 		switch jointElem.Type {
 		case "continuous", "revolute", "prismatic":
@@ -172,7 +172,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 			}
 		case "fixed":
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
-			thisLink := LinkCfg{&StaticFrameCfg{ID: jointElem.Name}, jointElem.Parent.Link}
+			thisLink := LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
 			linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
@@ -221,7 +221,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 
 		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
 		if _, ok := parentMap[linkElem.Name]; !ok {
-			thisLink := LinkCfg{&StaticFrameCfg{ID: linkElem.Name}, World}
+			thisLink := LinkConfig{ID: linkElem.Name, Parent: World}
 
 			linkEA := spatial.EulerAngles{Roll: 0.0, Pitch: 0.0, Yaw: 0.0}
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())

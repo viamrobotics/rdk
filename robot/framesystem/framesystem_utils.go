@@ -79,7 +79,7 @@ func NewFrameSystemFromParts(
 			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
+		modelFrame, staticOffsetFrame, err := referenceframe.CreateFramesFromPart(part, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func NewFrameSystemFromParts(
 // Renaming of the remote parts does not happen in this function.
 func combineParts(
 	localParts framesystemparts.Parts,
-	offsetParts map[string]*config.FrameSystemPart,
+	offsetParts map[string]*referenceframe.FrameSystemPart,
 	remoteParts map[string]framesystemparts.Parts,
 ) framesystemparts.Parts {
 	allParts := framesystemparts.Parts{}

@@ -1,4 +1,4 @@
-package config
+package referenceframe
 
 import (
 	"math"
@@ -12,7 +12,6 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -20,7 +19,7 @@ import (
 func TestFrameModelPart(t *testing.T) {
 	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
-	model, err := referenceframe.UnmarshalModelJSON(jsonData, "")
+	model, err := UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// minimally specified part
@@ -30,7 +29,7 @@ func TestFrameModelPart(t *testing.T) {
 		ModelFrame:  nil,
 	}
 	_, err = part.ToProtobuf()
-	test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
+	test.That(t, err, test.ShouldBeError, ErrNoModelInformation)
 
 	// slightly specified part
 	part = &FrameSystemPart{
@@ -90,9 +89,9 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, partAgain.FrameConfig.Orientation, test.ShouldResemble, part.FrameConfig.Orientation)
 	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
 	test.That(t,
-		len(partAgain.ModelFrame.(*referenceframe.SimpleModel).OrdTransforms),
+		len(partAgain.ModelFrame.(*SimpleModel).OrdTransforms),
 		test.ShouldEqual,
-		len(part.ModelFrame.(*referenceframe.SimpleModel).OrdTransforms),
+		len(part.ModelFrame.(*SimpleModel).OrdTransforms),
 	)
 }
 
@@ -100,7 +99,7 @@ func TestFramesFromPart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
-	model, err := referenceframe.UnmarshalModelJSON(jsonData, "")
+	model, err := UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
 	// minimally specified part
 	part := &FrameSystemPart{
@@ -119,8 +118,8 @@ func TestFramesFromPart(t *testing.T) {
 	}
 	modelFrame, originFrame, err := CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, modelFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name))
-	test.That(t, originFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name+"_origin"))
+	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.Name))
+	test.That(t, originFrame, test.ShouldResemble, NewZeroStaticFrame(part.Name+"_origin"))
 
 	// fully specified part
 	part = &FrameSystemPart{
@@ -138,14 +137,14 @@ func TestFramesFromPart(t *testing.T) {
 
 func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 	t.Run("fails on missing reference frame name", func(t *testing.T) {
-		transform := referenceframe.NewPoseInFrame("parent", spatial.NewZeroPose())
+		transform := NewPoseInFrame("parent", spatial.NewZeroPose())
 		part, err := PoseInFrameToFrameSystemPart(transform)
-		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
+		test.That(t, err, test.ShouldBeError, ErrEmptyStringFrameName)
 		test.That(t, part, test.ShouldBeNil)
 	})
 	t.Run("converts to frame system part", func(t *testing.T) {
 		testPose := spatial.NewPoseFromOrientation(r3.Vector{X: 1., Y: 2., Z: 3.}, &spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0})
-		transform := referenceframe.NewNamedPoseInFrame("parent", testPose, "child")
+		transform := NewNamedPoseInFrame("parent", testPose, "child")
 		part, err := PoseInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.Name, test.ShouldEqual, transform.Name())

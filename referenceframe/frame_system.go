@@ -2,10 +2,16 @@ package referenceframe
 
 import (
 	"errors"
+	"encoding/json"
+	"fmt"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/robot/v1"
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils/protoutils"
 )
 
 // World is the string "world", but made into an exported constant.
@@ -53,6 +59,14 @@ type FrameSystem interface {
 
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+}
+
+// FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
+// Name is the robot part name, FrameConfig gives the general structure of the frame system,
+// and ModelFrameConfig is an optional ModelJSON that describes the internal kinematics of the robot part.
+type FrameSystemPart struct {
+	FrameConfig *LinkConfig
+	ModelFrame  Model
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -361,7 +375,7 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 
 // MergeFrameSystems will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
 // will be merged to the world frame of toFS with a 0 offset.
-func MergeFrameSystems(toFS, fromFS FrameSystem, cfg *LinkCfg) error {
+func MergeFrameSystems(toFS, fromFS FrameSystem, cfg *LinkConfig) error {
 	var offsetFrame Frame
 	var err error
 	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
@@ -407,6 +421,147 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 		}
 	}
 	return positions
+}
+
+// ToProtobuf turns all the interfaces into serializable types.
+func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
+	if part.FrameConfig == nil {
+		return nil, ErrNoModelInformation
+	}
+	pose, err := part.FrameConfig.Pose()
+	if err != nil {
+		return nil, err
+	}
+	
+	geom, err := part.FrameConfig.Geometry.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	linkFrame := &commonpb.StaticFrame{
+		Name: part.FrameConfig.ID,
+		PoseInParentFrame: &commonpb.PoseInFrame{
+			ReferenceFrame: part.FrameConfig.Parent,
+			Pose:           spatial.PoseToProtobuf(pose),
+		},
+		Geometries: []*commonpb.Geometry{geom},
+	}
+	var modelJson map[string]interface{}
+	if part.ModelFrame != nil {
+		bytes, err := part.ModelFrame.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		json.Unmarshal(bytes, &modelJson)
+	}
+	kinematics, err := protoutils.StructToStructPb(modelJson)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.FrameSystemConfig{
+		Frame: linkFrame,
+		Kinematics:         kinematics,
+	}, nil
+}
+
+// ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
+func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
+	pose := spatial.NewPoseFromProtobuf(fsc.Frame.PoseInParentFrame.Pose)
+	orient, err := spatial.NewOrientationConfig(pose.Orientation())
+	if err != nil {
+		return nil, err
+	}
+	var geom *spatial.GeometryConfig
+	if len(fsc.Frame.Geometries) > 0 {
+		geomTemp, err := spatial.NewGeometryCreatorFromProto(fsc.Frame.Geometries[0])
+		if err != nil {
+			return nil, err
+		}
+		geom, err = spatial.NewGeometryConfig(geomTemp)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	frameConfig := &LinkConfig{
+		ID: fsc.Frame.Name,
+		Translation: *spatial.NewTranslationConfig(pose.Point()),
+		Orientation: orient,
+		Geometry: geom,
+		Parent: fsc.Frame.PoseInParentFrame.ReferenceFrame,
+	}
+	part := &FrameSystemPart{
+		FrameConfig: frameConfig,
+	}
+	fmt.Println("id", frameConfig.ID)
+	fmt.Println("fsc", fsc.Frame)
+	fmt.Println("part", part.FrameConfig)
+	if len(fsc.Kinematics.AsMap()) > 0 {
+		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
+		if err != nil {
+			return nil, err
+		}
+		modelFrame, err := UnmarshalModelJSON(modelBytes, fsc.Frame.Name)
+		if err != nil {
+			if errors.Is(err, ErrNoModelInformation) {
+				return part, nil
+			}
+			return nil, err
+		}
+		part.ModelFrame = modelFrame
+	}
+	return part, nil
+}
+
+// PoseInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
+func PoseInFrameToFrameSystemPart(transform *PoseInFrame) (*FrameSystemPart, error) {
+	if transform.Name() == "" || transform.FrameName() == "" {
+		return nil, ErrEmptyStringFrameName
+	}
+	orient, err := spatial.NewOrientationConfig(transform.Pose().Orientation())
+	if err != nil {
+		return nil, err
+	}
+	frameConfig := &LinkConfig{
+		ID:      transform.Name(),
+		Translation: *spatial.NewTranslationConfig(transform.Pose().Point()),
+		Orientation: orient,
+		Parent: transform.FrameName(),
+	}
+	part := &FrameSystemPart{
+		FrameConfig: frameConfig,
+	}
+	return part, nil
+}
+
+// CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
+func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Frame, error) {
+	if part == nil || part.FrameConfig == nil {
+		return nil, nil, errors.New("config for FrameSystemPart is nil")
+	}
+	var modelFrame Frame
+	var err error
+	// use identity frame if no model frame defined
+	if part.ModelFrame == nil {
+		modelFrame = NewZeroStaticFrame(part.FrameConfig.ID)
+	} else {
+		part.ModelFrame.ChangeName(part.FrameConfig.ID)
+		modelFrame = part.ModelFrame
+	}
+	// staticOriginFrame defines a change in origin from the parent part.
+	// If it is empty, the new frame will have the same origin as the parent.
+	staticOriginName := part.FrameConfig.ID + "_origin"
+	// By default, this 
+	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
+	if err != nil {
+		return nil, nil, err
+	}
+	staticOriginFrame, ok := originFrame.(*staticFrame)
+	if !ok {
+		return nil, nil, errors.New("failed to cast originFrame to a static frame")
+	}
+	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
+	// in the "_origin" static frame
+	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil
 }
 
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {

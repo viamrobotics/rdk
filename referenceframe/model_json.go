@@ -16,7 +16,7 @@ import (
 type ModelConfig struct {
 	Name         string           `json:"name"`
 	KinParamType string           `json:"kinematic_param_type"`
-	Links        []LinkCfg       `json:"links"`
+	Links        []LinkConfig       `json:"links"`
 	Joints       []JointCfg      `json:"joints"`
 	DHParams     []DHParamCfg    `json:"dhParams"`
 }

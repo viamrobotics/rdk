@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -86,7 +85,7 @@ type frameSystemService struct {
 	mu          sync.RWMutex
 	r           robot.Robot
 	localParts  framesystemparts.Parts             // gotten from the local robot's config.Config
-	offsetParts map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
+	offsetParts map[string]*referenceframe.FrameSystemPart // gotten from local robot's config.Remote
 	logger      golog.Logger
 }
 
@@ -135,7 +134,7 @@ func (svc *frameSystemService) Config(
 	// build the config
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
 	for _, transformMsg := range additionalTransforms {
-		newPart, err := config.PoseInFrameToFrameSystemPart(transformMsg)
+		newPart, err := referenceframe.PoseInFrameToFrameSystemPart(transformMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -209,7 +208,7 @@ func (svc *frameSystemService) TransformPose(
 func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateLocalParts")
 	defer span.End()
-	parts := make(map[string]*config.FrameSystemPart)
+	parts := make(map[string]*referenceframe.FrameSystemPart)
 	seen := make(map[string]bool)
 	local, ok := svc.r.(robot.LocalRobot)
 	if !ok {
@@ -237,7 +236,7 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return err
 		}
-		parts[c.Frame.ID] = &config.FrameSystemPart{FrameConfig: c.Frame, ModelFrame: model}
+		parts[c.Frame.ID] = &referenceframe.FrameSystemPart{FrameConfig: c.Frame, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil
@@ -256,7 +255,7 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 		return err
 	}
 	remoteNames := local.RemoteNames()
-	offsetParts := make(map[string]*config.FrameSystemPart)
+	offsetParts := make(map[string]*referenceframe.FrameSystemPart)
 	for _, remoteName := range remoteNames {
 		rConf, err := getRemoteRobotConfig(remoteName, conf)
 		if err != nil {
@@ -268,7 +267,7 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 		}
 		
 		// build the frame system part that connects remote world to base world
-		connection := &config.FrameSystemPart{
+		connection := &referenceframe.FrameSystemPart{
 			FrameConfig: rConf.Frame,
 		}
 		fmt.Println("rconf", rConf)
