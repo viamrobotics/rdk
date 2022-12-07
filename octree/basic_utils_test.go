@@ -171,7 +171,7 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper function that recursively checks a basic octree's structure and metadata.
-func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, sideLength float64) int32 {
+func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, sideLength float64) int {
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
@@ -179,7 +179,7 @@ func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, side
 
 	validateMetadata(t, bOct)
 
-	var size int32
+	var size int
 	switch bOct.node.nodeType {
 	case InternalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -259,6 +259,42 @@ func validateMetadata(t *testing.T, bOct *basicOctree) {
 	test.That(t, bOct.meta.TotalX(), test.ShouldAlmostEqual, metadata.TotalX())
 	test.That(t, bOct.meta.TotalY(), test.ShouldAlmostEqual, metadata.TotalY())
 	test.That(t, bOct.meta.TotalZ(), test.ShouldAlmostEqual, metadata.TotalZ())
+}
+
+// Helper function to create lopsided octree for testing of recursion depth limit.
+func createLopsidedOctree(oct *basicOctree, i, max int) *basicOctree {
+	if i >= max {
+		return oct
+	}
+
+	children := []*basicOctree{}
+	newSideLength := oct.sideLength / 2
+	for _, i := range []float64{-1.0, 1.0} {
+		for _, j := range []float64{-1.0, 1.0} {
+			for _, k := range []float64{-1.0, 1.0} {
+				centerOffset := r3.Vector{
+					X: i * newSideLength / 2.,
+					Y: j * newSideLength / 2.,
+					Z: k * newSideLength / 2.,
+				}
+				newCenter := oct.center.Add(centerOffset)
+
+				// Create a new basic octree child
+				child := &basicOctree{
+					center:     newCenter,
+					sideLength: newSideLength,
+					size:       0,
+					logger:     oct.logger,
+					node:       newLeafNodeEmpty(),
+					meta:       pc.NewMetaData(),
+				}
+				children = append(children, child)
+			}
+		}
+	}
+	oct.node = newInternalNode(children)
+	oct.node.children[0] = createLopsidedOctree(oct, i+1, max)
+	return oct
 }
 
 // Helper functions for visualizing octree during testing

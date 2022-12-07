@@ -103,6 +103,7 @@ func TestBasicOctreeNew(t *testing.T) {
 		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
 		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
 		test.That(t, basicOct.meta, test.ShouldResemble, pc.NewMetaData())
+		test.That(t, basicOct.MetaData(), test.ShouldResemble, pc.NewMetaData())
 	})
 
 	validateBasicOctree(t, basicOct, center, sideValid)
@@ -222,6 +223,28 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct.node = newInternalNode([]*basicOctree{})
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
+	})
+
+	t.Run("Set point, hit max recursion depth", func(t *testing.T) {
+		side = 1.
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		basicOct = createLopsidedOctree(basicOct, 0, 100)
+
+		err = basicOct.Set(r3.Vector{X: math.Pow(.9, 10), Y: math.Pow(.9, 10), Z: math.Pow(.9, 10)}, pc.NewBasicData())
+		test.That(t, err, test.ShouldBeError, errors.New("error max allowable recursion depth reached"))
+	})
+
+	t.Run("Set empty data point", func(t *testing.T) {
+		side = 1.
+		basicOct, err := createNewOctree(ctx, center, side, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		pointAndData := pc.PointAndData{}
+
+		err = basicOct.Set(pointAndData.P, pointAndData.D)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
@@ -401,7 +424,6 @@ func TestBasicOctreeIterate(t *testing.T) {
 		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Matching batch id
 		total := 0
 		basicOct.Iterate(1, 0, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
@@ -409,9 +431,9 @@ func TestBasicOctreeIterate(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
 
-		// Non-matching batch id
+		// Invalid batching
 		total = 0
-		basicOct.Iterate(1, 1, func(p r3.Vector, d pc.Data) bool {
+		basicOct.Iterate(1, 2, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
 			return true
 		})
@@ -419,7 +441,14 @@ func TestBasicOctreeIterate(t *testing.T) {
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
+}
 
+func TestBasicOctreeIterate2(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 2.0
 	t.Run("Iterate non-zero batch check of an multi-level basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -433,23 +462,63 @@ func TestBasicOctreeIterate(t *testing.T) {
 		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Batched process with match for first data point
+		// Batched process (numBatches = octree size, currentBatch = 0)
 		total := 0
-		basicOct.Iterate(3, 1, func(p r3.Vector, d pc.Data) bool {
-			total += d.Value()
-			return true
-		})
-		test.That(t, total, test.ShouldEqual, pointsAndData[1].D.Value())
-
-		// Batched process with match for second data point
-		total = 0
 		basicOct.Iterate(3, 0, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
 			return true
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
 
-		// Batched process no matching data point
+		// Batched process (numBatches = octree size, currentBatch = 1)
+		total = 0
+		basicOct.Iterate(3, 1, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[1].D.Value())
+
+		// Batched process (numBatches = octree size, currentBatch = 2)
+		total = 0
+		basicOct.Iterate(3, 2, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[2].D.Value())
+
+		// // Batched process (numBatches > octree size, currentBatch = 0)
+		total = 0
+		basicOct.Iterate(4, 0, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[0].D.Value())
+
+		// // Batched process (numBatches != octree size, currentBatch = 1)
+		total = 0
+		basicOct.Iterate(4, 1, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[1].D.Value())
+
+		// // Batched process (numBatches != octree size, currentBatch = 2)
+		total = 0
+		basicOct.Iterate(4, 2, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, pointsAndData[2].D.Value())
+
+		// // Batched process (numBatches != octree size, currentBatch = 3)
+		total = 0
+		basicOct.Iterate(4, 3, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, 0)
+
+		// // Batched process (numBatches = octree size, apply function to no data)
 		total = 0
 		basicOct.Iterate(3, 4, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
@@ -457,7 +526,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 		})
 		test.That(t, total, test.ShouldEqual, 0)
 
-		// Batched process all matching data points
+		// // Batched process (apply function to all data)
 		total = 0
 		basicOct.Iterate(1, 0, func(p r3.Vector, d pc.Data) bool {
 			total += d.Value()
