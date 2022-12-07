@@ -28,7 +28,7 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: nil}
+			var g gripper.LocalGripper = &Gripper{Name: config.Name}
 
 			return g, nil
 		},
@@ -44,13 +44,12 @@ func init() {
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
 	generic.Echo
-	Name  string
-	model referenceframe.Model
+	Name string
 }
 
 // ModelFrame returns the dynamic frame of the model.
 func (g *Gripper) ModelFrame() referenceframe.Model {
-	return g.model
+	return nil
 }
 
 // Open does nothing.
