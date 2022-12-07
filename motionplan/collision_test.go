@@ -66,7 +66,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
 	test.That(t, err, test.ShouldBeNil)
-	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{obstacleEntities, spaceEntities})
+	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{obstacleEntities, spaceEntities}, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"robotCube222", "robotCube333", 1},
@@ -84,7 +84,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, gf, test.ShouldNotBeNil)
 	robotEntities, err = NewObjectCollisionEntities(gf.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	cs, err = NewCollisionSystem(robotEntities, []CollisionEntities{})
+	cs, err = NewCollisionSystem(robotEntities, []CollisionEntities{}, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cs.Collisions()), test.ShouldEqual, 4)
 }
@@ -93,13 +93,13 @@ func TestUniqueCollisions(t *testing.T) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// zero position of ur5e arm
+	// zero position of xarm6 arm
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	internalEntities, err := NewObjectCollisionEntities(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	zeroPositionCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{})
+	zeroPositionCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{}, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
@@ -108,7 +108,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	internalEntities, err = NewObjectCollisionEntities(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	cs, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
+	cs, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cs.Collisions()), test.ShouldEqual, 0)
 
@@ -118,8 +118,8 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	internalEntities, err = NewObjectCollisionEntities(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
+	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG, true)
 	test.That(t, err, test.ShouldBeNil)
-	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}}
+	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 41.6}, {"xArm6:wrist_link", "xArm6:upper_arm", 48.1}}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 }

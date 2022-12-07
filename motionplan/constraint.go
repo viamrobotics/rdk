@@ -3,10 +3,8 @@ package motionplan
 import (
 	"errors"
 	"math"
-	"strconv"
 
 	"github.com/golang/geo/r3"
-	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -43,7 +41,7 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	if err != nil {
 		return false, nil
 	}
-	steps := GetSteps(ci.StartPos, ci.EndPos, resolution)
+	steps := PathStepCount(ci.StartPos, ci.EndPos, resolution)
 
 	var lastGood []referenceframe.Input
 	// Seed with just the start position to walk the path
@@ -130,6 +128,7 @@ func NewCollisionConstraint(
 	frame referenceframe.Frame,
 	goodInput []referenceframe.Input,
 	obstacles, interactionSpaces map[string]spatial.Geometry,
+	reportDistances bool,
 ) Constraint {
 	zeroVols, err := frame.Geometries(goodInput)
 	if err != nil && len(zeroVols.Geometries()) == 0 {
@@ -147,7 +146,7 @@ func NewCollisionConstraint(
 	if err != nil {
 		return nil
 	}
-	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities})
+	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, true)
 	if err != nil {
 		return nil
 	}
@@ -161,13 +160,23 @@ func NewCollisionConstraint(
 		if err != nil {
 			return false, 0
 		}
-		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG)
+
+		cg, err := NewCollisionSystemFromReference(
+			internalEntities,
+			[]CollisionEntities{obstacleEntities, spaceEntities},
+			zeroCG,
+			reportDistances,
+		)
 		if err != nil {
 			return false, 0
 		}
+
 		collisions := cg.Collisions()
 		if len(collisions) > 0 {
 			return false, 0
+		}
+		if !reportDistances {
+			return true, 0
 		}
 		sum := 0.
 		for _, collision := range collisions {
@@ -182,37 +191,13 @@ func NewCollisionConstraint(
 func NewCollisionConstraintFromWorldState(
 	frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	observationInput map[string][]referenceframe.Input,
+	reportDistances bool,
 ) (Constraint, error) {
-	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*referenceframe.GeometriesInFrame, error) {
-		allGeometries := make(map[string]spatial.Geometry)
-		for name1, gf := range gfs {
-			obstacles, err := referenceframe.ProtobufToGeometriesInFrame(gf)
-			if err != nil {
-				return nil, err
-			}
-			// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-			// the state that observed the worldState should ultimately be included as part of the worldState message
-			tf, err := fs.Transform(observationInput, obstacles, referenceframe.World)
-			if err != nil {
-				return nil, err
-			}
-			for name2, g := range tf.(*referenceframe.GeometriesInFrame).Geometries() {
-				geomName := strconv.Itoa(name1) + "_" + name2
-				if _, present := allGeometries[geomName]; present {
-					return nil, errors.New("multiple geometries with the same name")
-				}
-				allGeometries[geomName] = g
-			}
-		}
-		return referenceframe.NewGeometriesInFrame(referenceframe.World, allGeometries), nil
-	}
-	obstacles, err := transformGeometriesToWorldFrame(worldState.GetObstacles())
-	if err != nil {
-		return nil, err
-	}
-	interactionSpaces, err := transformGeometriesToWorldFrame(worldState.GetInteractionSpaces())
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldState, err := worldState.ToWorldFrame(fs, observationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +213,14 @@ func NewCollisionConstraintFromWorldState(
 	if err != nil {
 		return nil, err
 	}
-	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries()), nil
+
+	return NewCollisionConstraint(
+		frame,
+		goodInputs,
+		worldState.Obstacles[0].Geometries(),
+		worldState.InteractionSpaces[0].Geometries(),
+		reportDistances,
+	), nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the

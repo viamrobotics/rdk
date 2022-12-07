@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 )
@@ -76,10 +77,14 @@ func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return nil, err
+	}
 	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(
 		ctx,
 		spatialmath.NewPoseFromProtobuf(req.GetTo()),
-		req.GetWorldState(),
+		worldState,
 		req.Extra.AsMap(),
 	)
 }

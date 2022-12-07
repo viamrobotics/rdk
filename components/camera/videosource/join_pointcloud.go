@@ -63,15 +63,14 @@ func init() {
 
 // JoinAttrs is the attribute struct for joinPointCloudSource.
 type JoinAttrs struct {
+	TargetFrame   string   `json:"target_frame"`
+	SourceCameras []string `json:"source_cameras"`
+	// Closeness defines how close 2 points should be together to be considered the same point when merged.
+	Closeness            float64                            `json:"proximity_threshold_mm,omitempty"`
+	MergeMethod          string                             `json:"merge_method,omitempty"`
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
-	TargetFrame          string                             `json:"target_frame"`
-	SourceCameras        []string                           `json:"source_cameras"`
-	MergeMethod          string                             `json:"merge_method"`
-	// Closeness defines how close 2 points should be together to be considered the same point when merged.
-	Closeness float64 `json:"closeness_mm"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -113,7 +112,6 @@ type joinPointCloudSource struct {
 	sourceNames   []string
 	targetName    string
 	robot         robot.Robot
-	stream        camera.StreamType
 	mergeMethod   MergeMethodType
 	logger        golog.Logger
 	debug         bool
@@ -138,7 +136,6 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 	// frame to merge to
 	joinSource.targetName = attrs.TargetFrame
 	joinSource.robot = r
-	joinSource.stream = camera.StreamType(attrs.Stream)
 	joinSource.closeness = attrs.Closeness
 
 	joinSource.logger = l
@@ -157,9 +154,9 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 			}
 			intrinsicParams = props.IntrinsicParams
 		}
-		return camera.NewFromReader(ctx, joinSource, &transform.PinholeCameraModel{intrinsicParams, nil}, joinSource.stream)
+		return camera.NewFromReader(ctx, joinSource, &transform.PinholeCameraModel{intrinsicParams, nil}, camera.ColorStream)
 	}
-	return camera.NewFromReader(ctx, joinSource, nil, joinSource.stream)
+	return camera.NewFromReader(ctx, joinSource, nil, camera.ColorStream)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,
@@ -353,18 +350,8 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	if jpcs.debug && pc != nil {
 		jpcs.logger.Debugf("joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
 	}
-	img, dm, err := proj.PointCloudToRGBD(pc)
-	if err != nil {
-		return nil, nil, err
-	}
-	switch jpcs.stream {
-	case camera.UnspecifiedStream, camera.ColorStream:
-		return img, func() {}, nil
-	case camera.DepthStream:
-		return dm, func() {}, nil
-	default:
-		return nil, nil, camera.NewUnsupportedStreamError(jpcs.stream)
-	}
+	img, _, err := proj.PointCloudToRGBD(pc)
+	return img, func() {}, err // return color image
 }
 
 func contains(s []string, str string) (int, bool) {

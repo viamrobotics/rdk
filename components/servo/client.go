@@ -31,19 +31,19 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Move(ctx context.Context, angleDeg uint8, extra map[string]interface{}) error {
+func (c *client) Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
-	req := &pb.MoveRequest{AngleDeg: uint32(angleDeg), Name: c.name, Extra: ext}
+	req := &pb.MoveRequest{AngleDeg: angleDeg, Name: c.name, Extra: ext}
 	if _, err := c.client.Move(ctx, req); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *client) Position(ctx context.Context, extra map[string]interface{}) (uint8, error) {
+func (c *client) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -53,7 +53,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (ui
 	if err != nil {
 		return 0, err
 	}
-	return uint8(resp.PositionDeg), nil
+	return resp.PositionDeg, nil
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {

@@ -34,7 +34,6 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 		if err != nil {
 			return nil, err
 		}
-		nlopt.SetSeed(int64(i * 1000))
 		ik.solvers = append(ik.solvers, nlopt)
 	}
 	ik.logger = logger
@@ -47,8 +46,9 @@ func runSolver(ctx context.Context,
 	pos spatialmath.Pose,
 	seed []referenceframe.Input,
 	m Metric,
+	rseed int,
 ) error {
-	return solver.Solve(ctx, c, pos, seed, m)
+	return solver.Solve(ctx, c, pos, seed, m, rseed)
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
@@ -58,6 +58,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	newGoal spatialmath.Pose,
 	seed []referenceframe.Input,
 	m Metric,
+	rseed int,
 ) error {
 	ik.logger.Debugf("starting inputs: %v", seed)
 	startPos, err := ik.model.Transform(seed)
@@ -77,11 +78,13 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	activeSolvers.Add(len(ik.solvers))
 
 	for _, solver := range ik.solvers {
+		rseed += 1500
+		parseed := rseed
 		thisSolver := solver
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m)
+			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m, parseed)
 		})
 	}
 

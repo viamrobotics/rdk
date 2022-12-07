@@ -104,13 +104,13 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
 func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
-		return sphereVsSphereDistance(s, other) <= 0, nil
+		return sphereVsSphereDistance(s, other) <= CollisionBuffer, nil
 	}
 	if other, ok := g.(*box); ok {
 		return sphereVsBoxCollision(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()) <= 0, nil
+		return sphereVsPointDistance(s, other.pose.Point()) <= CollisionBuffer, nil
 	}
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
@@ -161,7 +161,7 @@ func sphereVsSphereDistance(a, s *sphere) float64 {
 // true == collision / false == no collision.
 // Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L326
 func sphereVsBoxCollision(s *sphere, b *box) bool {
-	return s.pose.Point().Sub(b.closestPoint(s.pose.Point())).Norm() <= s.radius
+	return s.pose.Point().Sub(b.closestPoint(s.pose.Point())).Norm() <= s.radius+CollisionBuffer
 }
 
 // sphereVsBoxDistance takes a box and a sphere as arguments and returns a floating point number.  If this number is nonpositive it

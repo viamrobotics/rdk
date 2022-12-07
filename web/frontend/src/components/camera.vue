@@ -1,22 +1,24 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref } from 'vue';
-import type { Resource } from '../lib/resource';
+import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import cameraApi from '../gen/component/camera/v1/camera_pb.esm';
+import { Client, cameraApi, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
+import { addStream, removeStream } from '../lib/stream';
+import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
   cameraName: string
-  resources: Resource[]
+  resources: commonApi.ResourceName.AsObject[];
+  client: Client;
 }
 
 interface Emits {
   (event: 'download-raw-data'): void
-  (event: 'toggle-camera', camera: boolean): void
+  (event: 'clear-interval'): void
   (event: 'selected-camera-view', value: string): void
   (event: 'refresh-camera', value: string): void
 }
@@ -26,20 +28,48 @@ const emit = defineEmits<Emits>();
 
 let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();
+let camera = $ref(false);
 
-const camera = ref(false);
 const selectedValue = ref('live');
 
+const initStreamState = () => {
+  cameraStreamStates.set(props.cameraName, false);
+};
+
+const viewCamera = async (isOn: boolean) => {
+  if (isOn) {
+    try {
+      // only add stream if not already active
+      if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
+        await addStream(props.client, props.cameraName);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+    cameraStreamStates.set(props.cameraName, true);
+  } else {
+    try {
+      // only remove camera stream if active and base stream is not active
+      if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
+        await removeStream(props.client, props.cameraName);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+    cameraStreamStates.set(props.cameraName, false);
+  }
+};
+
 const toggleExpand = () => {
-  camera.value = !camera.value;
-  emit('toggle-camera', camera.value);
+  camera = !camera;
+  viewCamera(camera);
 };
 
 const renderPCD = () => {
   const request = new cameraApi.GetPointCloudRequest();
   request.setName(props.cameraName);
   request.setMimeType('pointcloud/pcd');
-  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+  props.client.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(`Error getting point cloud: ${error}`);
       return;
@@ -56,11 +86,19 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  emit('selected-camera-view', selectedValue.value);
+  if (selectedValue.value !== 'live') {
+    viewCamera(false);
+    emit('selected-camera-view', selectedValue.value);
+    return;
+  }
+
+  emit('clear-interval');
+  viewCamera(true);
 };
 
 const refreshCamera = () => {
-  emit('refresh-camera', selectedValue.value);
+  emit('selected-camera-view', selectedValue.value);
+  emit('clear-interval');
 };
 
 const exportScreenshot = (cameraName: string) => {
@@ -68,7 +106,7 @@ const exportScreenshot = (cameraName: string) => {
   req.setName(cameraName);
   req.setMimeType('image/jpeg');
 
-  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+  props.client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -78,6 +116,9 @@ const exportScreenshot = (cameraName: string) => {
   });
 };
 
+onMounted(() => {
+  initStreamState();
+});
 </script>
 
 <template>
@@ -96,7 +137,7 @@ const exportScreenshot = (cameraName: string) => {
             <v-switch
               id="camera"
               :label="camera ? 'Hide Camera' : 'View Camera'"
-              :aria-label="camera ? 'Hide Camera' : 'View Camera'"
+              :aria-label="camera ? `Hide Camera: ${$props.cameraName}` : `View Camera: ${$props.cameraName}`"
               :value="camera ? 'on' : 'off'"
               @input="toggleExpand"
             />
@@ -106,73 +147,40 @@ const exportScreenshot = (cameraName: string) => {
             <div class="flex flex-wrap">
               <div
                 v-if="camera"
-                class="w-64"
+                class="flex flex-wrap justify-items-end gap-2"
               >
-                <p class="font-label mb-1 text-gray-800">
-                  Refresh frequency
-                </p>
-                <div class="relative">
-                  <select
-                    v-model="selectedValue"
-                    class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding
-                      px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
-                    "
-                    aria-label="Default select example"
-                    @change="selectCameraView"
-                  >
-                    <option value="manual">
-                      Manual Refresh
-                    </option>
-                    <option value="30">
-                      Every 30 seconds
-                    </option>
-                    <option value="10">
-                      Every 10 seconds
-                    </option>
-                    <option value="1">
-                      Every second
-                    </option>
-                    <option value="live">
-                      Live
-                    </option>
-                  </select>
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                  >
-                    <svg
-                      class="h-4 w-4 stroke-2 text-gray-700"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                      fill="none"
-                    >
-                      <path d="M18 16L12 22L6 16" />
-                    </svg>
+                <div class="">
+                  <div class="relative">
+                    <v-select
+                      v-model="selectedValue"
+                      label="Refresh frequency"
+                      aria-label="Default select example"
+                      options="Manual Refresh, Every 30 Seconds, Every 10 Seconds, Every Second, Live"
+                      @input="selectCameraView"
+                    />
                   </div>
                 </div>
-              </div>
-              <div class="px-2 pt-7">
-                <v-button
-                  v-if="camera"
-                  icon="refresh"
-                  label="Refresh"
-                  @click="refreshCamera"
-                />
-              </div>
-              <div class="pr-2 pt-7">
-                <v-button
-                  v-if="camera"
-                  icon="camera"
-                  label="Export Screenshot"
-                  @click="exportScreenshot(cameraName)"
-                />
+                <div class="self-end">
+                  <v-button
+                    v-if="(camera && selectedValue === 'Manual Refresh')"
+                    icon="refresh"
+                    label="Refresh"
+                    @click="refreshCamera"
+                  />
+                </div>
+                <div class="self-end">
+                  <v-button
+                    v-if="camera"
+                    icon="camera"
+                    label="Export Screenshot"
+                    @click="exportScreenshot(cameraName)"
+                  />
+                </div>
               </div>
             </div>
           </div>
           <div
-            :aria-label="`${cameraName} camera stream`"
+            :aria-label="`${cameraName} stream`"
             :data-stream="cameraName"
             :class="{ 'hidden': !camera }"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
@@ -193,6 +201,7 @@ const exportScreenshot = (cameraName: string) => {
             :resources="resources"
             :pointcloud="pointcloud"
             :camera-name="cameraName"
+            :client="client"
           />
         </div>
       </div>

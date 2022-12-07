@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	// register.
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
@@ -44,7 +42,7 @@ func (m *mock) Move(
 	ctx context.Context,
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
@@ -55,7 +53,7 @@ func (m *mock) MoveSingleComponent(
 	ctx context.Context,
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	worldState *commonpb.WorldState,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
@@ -66,7 +64,7 @@ func (m *mock) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*commonpb.Transform,
+	supplementalTransforms []*referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	return &referenceframe.PoseInFrame{}, nil
@@ -85,7 +83,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
+	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, false)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
@@ -116,25 +114,25 @@ func TestRegisteredReconfigurable(t *testing.T) {
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	svc := &mock{name: "svc1"}
-	reconfSvc1, err := motion.WrapWithReconfigurable(svc)
+	reconfSvc1, err := motion.WrapWithReconfigurable(svc, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = motion.WrapWithReconfigurable(nil)
+	_, err = motion.WrapWithReconfigurable(nil, resource.Name{})
 	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError(nil))
 
-	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1)
+	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
 }
 
 func TestReconfigurable(t *testing.T) {
 	actualSvc1 := &mock{name: "svc1"}
-	reconfSvc1, err := motion.WrapWithReconfigurable(actualSvc1)
+	reconfSvc1, err := motion.WrapWithReconfigurable(actualSvc1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc1, test.ShouldNotBeNil)
 
 	actualArm2 := &mock{name: "svc2"}
-	reconfSvc2, err := motion.WrapWithReconfigurable(actualArm2)
+	reconfSvc2, err := motion.WrapWithReconfigurable(actualArm2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc2, test.ShouldNotBeNil)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)

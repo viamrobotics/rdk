@@ -46,7 +46,7 @@ var (
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
 
-	mockReconfigurable = func(resource interface{}) (resource.Reconfigurable, error) {
+	mockReconfigurable = func(resource interface{}, name resource.Name) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
 )
