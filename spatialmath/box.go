@@ -383,7 +383,8 @@ func toPC(b Geometry) (r3.Vector, error) {
 	}
 
 	// fmt.Println(frontFace)
-	fmt.Println(my_list)
+	// fmt.Println(my_list)
+	// myMat := mat.NewDense(3, 3, rotMat[:])
 
 	// todo: correct rotations for faces
 	// write to a better format for viz stuff
