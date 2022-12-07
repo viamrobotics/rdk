@@ -7,6 +7,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/resource"
@@ -529,10 +530,28 @@ func authHandlerConfigToProto(handler AuthHandlerConfig) (*pb.AuthHandlerConfig,
 		return nil, err
 	}
 
-	return &pb.AuthHandlerConfig{
+	out := &pb.AuthHandlerConfig{
 		Config: attributes,
 		Type:   credType,
-	}, nil
+	}
+
+	if credType == pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH {
+		if handler.WebOAuthConfig == nil {
+			return nil, errors.New("missing WebOAuthConfig field for CREDENTIALS_TYPE_WEB_OAUTH AuthHandler type")
+		}
+
+		jwksJSON, err := protoutils.StructToStructPb(handler.WebOAuthConfig.JSONKeySet)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert JSONKeySet")
+		}
+
+		out.WebOauthConfig = &pb.AuthHandlerWebOauthConfig{
+			AllowedAudiences: handler.WebOAuthConfig.AllowedAudiences,
+			Jwks:             &pb.JWKSFile{Json: jwksJSON},
+		}
+	}
+
+	return out, nil
 }
 
 func authHandlerConfigFromProto(proto *pb.AuthHandlerConfig) (AuthHandlerConfig, error) {
@@ -547,6 +566,17 @@ func authHandlerConfigFromProto(proto *pb.AuthHandlerConfig) (AuthHandlerConfig,
 		Type:   credType,
 	}
 
+	if credType == oauth.CredentialsTypeOAuthWeb {
+		if proto.WebOauthConfig == nil {
+			return handler, errors.New("missing WebOAuthConfig field for CredentialsTypeOAuthWeb AuthHandler type")
+		}
+
+		handler.WebOAuthConfig = &WebOAuthConfig{
+			AllowedAudiences: proto.WebOauthConfig.AllowedAudiences,
+			JSONKeySet:       proto.WebOauthConfig.Jwks.Json.AsMap(),
+		}
+	}
+
 	return handler, nil
 }
 
@@ -558,6 +588,8 @@ func credentialsTypeToProto(ct rpc.CredentialsType) (pb.CredentialsType, error) 
 		return pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_SECRET, nil
 	case rutils.CredentialsTypeRobotLocationSecret:
 		return pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET, nil
+	case oauth.CredentialsTypeOAuthWeb:
+		return pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH, nil
 	default:
 		return pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED, errors.New("unsupported credential type")
 	}
@@ -571,11 +603,11 @@ func credentialsTypeFromProto(ct pb.CredentialsType) (rpc.CredentialsType, error
 		return rutils.CredentialsTypeRobotSecret, nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET:
 		return rutils.CredentialsTypeRobotLocationSecret, nil
+	case pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH:
+		return oauth.CredentialsTypeOAuthWeb, nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED:
 		fallthrough
 	case pb.CredentialsType_CREDENTIALS_TYPE_INTERNAL:
-		fallthrough
-	case pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH:
 		fallthrough
 	default:
 		return "", errors.New("unsupported credential type")
