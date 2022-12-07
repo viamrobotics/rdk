@@ -139,7 +139,7 @@ onUnmounted(() => {
         }"
         @pointerdown="handlePointerDown(key)"
         @pointerup="handlePointerUp(key)"
-        @pointerleave.prevent="handlePointerUp(key)"
+        @pointerleave="handlePointerUp(key)"
       >
         {{ key.toUpperCase() }}
         <Icon :path="keyIcons[key]" />
