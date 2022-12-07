@@ -176,12 +176,11 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	}
 
 	// Create an ordered list of transforms
-	orderedTransforms, err := sortTransforms(transforms, parentMap, eename, World)
+	model.OrdTransforms, err = sortTransforms(transforms, parentMap, eename, World)
 	if err != nil {
 		return nil, err
 	}
 
-	model.OrdTransforms = orderedTransforms
 	return model, nil
 }
 
