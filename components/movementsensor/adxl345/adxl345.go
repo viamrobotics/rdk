@@ -92,18 +92,21 @@ func NewAdxl345(
 	rawConfig config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	cfg := rawConfig.ConvertedAttributes.(*AttrConfig)
+	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.Error("Cannot convert attributes to correct config type")
+	}
 	b, err := board.FromDependencies(deps, cfg.BoardName)
 	if err != nil {
 		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("board %s is not local", cfg.BoardName)
+		return nil, errors.Errorf("board %q is not local", cfg.BoardName)
 	}
 	bus, ok := localB.I2CByName(cfg.I2cBus)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%s' for ADXL345 sensor", cfg.I2cBus)
+		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", cfg.I2cBus)
 	}
 
 	var address byte
@@ -127,8 +130,8 @@ func NewAdxl345(
 	// back the device ID (0xE5).
 	deviceID, err := sensor.readByte(ctx, 0)
 	if err != nil {
-		return nil, errors.Errorf("can't read from I2C address %d on bus %s of board %s: '%s'",
-			address, cfg.I2cBus, cfg.BoardName, err.Error())
+		return nil, errors.Wrapf(err, "can't read from I2C address %d on bus %q of board %q",
+			address, cfg.I2cBus, cfg.BoardName)
 	}
 	if deviceID != 0xE5 {
 		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
@@ -137,9 +140,8 @@ func NewAdxl345(
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
-	err = sensor.writeByte(ctx, 0x2D, 0x08)
-	if err != nil {
-		return nil, errors.Errorf("unable to put ADXL345 into measurement mode: '%s'", err.Error())
+	if err = sensor.writeByte(ctx, 0x2D, 0x08); err != nil {
+		return nil, errors.Wrap(err, "unable to put ADXL345 into measurement mode")
 	}
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
