@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/liberrors"
 	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -69,9 +70,10 @@ type rtspCamera struct {
 
 // Close closes the camera.
 func (rc *rtspCamera) Close(ctx context.Context) error {
+	clientTerminated := liberrors.ErrClientTerminated{}
 	rc.cancelFunc()
 	err := rc.client.Close()
-	if err != nil {
+	if err != nil && !errors.Is(err, clientTerminated) {
 		return err
 	}
 	return rc.decoder.Close()

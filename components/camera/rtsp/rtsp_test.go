@@ -18,14 +18,12 @@ func TestRTSPCamera(t *testing.T) {
 	// set up the rtsp simple server running on rtsp://localhost:8598/mystream
 	outputURL := "rtsp://127.0.0.1:8598/mystream"
 	configLoc := []string{artifact.MustPath("components/camera/rtsp/rtsp-simple-server.yml")}
-	logger.Info("before server New")
 	s, ok := server.New(configLoc)
-	logger.Info("after server New")
 	test.That(t, ok, test.ShouldBeTrue)
 	defer s.Close()
 	// run the test mp4 in a loop through ffmpeg to hand it to the server
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	logger.Info("before ffmpeg run")
+	defer cancel()
 	viamutils.PanicCapturingGo(func() {
 		testMP4 := artifact.MustPath("components/camera/rtsp/earth_480_video.mp4")
 		ffmpegStream := ffmpeg.Input(testMP4, ffmpeg.KwArgs{"readrate": 1, "stream_loop": -1})
@@ -33,18 +31,10 @@ func TestRTSPCamera(t *testing.T) {
 		ffmpegStream.Context = cancelCtx
 		cmd := ffmpegStream.OverWriteOutput().Compile()
 		if err := cmd.Run(); err != nil {
-			if viamutils.FilterOutError(err, context.Canceled) == nil ||
-				viamutils.FilterOutError(err, context.DeadlineExceeded) == nil {
-				return
-			}
-			if cmd.ProcessState.ExitCode() != 0 {
-				panic(err)
-			}
+			return
 		}
 	})
-	logger.Info("after ffmpeg run")
-	time.Sleep(5 * time.Second)
-	logger.Info("after some 5 second")
+	time.Sleep(3 * time.Second) // wait so ffmpeg can publish to rtsp server
 	// create the rtsp camera model
 	rtspConf := &Attrs{Address: outputURL}
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
@@ -52,19 +42,14 @@ func TestRTSPCamera(t *testing.T) {
 	// get some frames from the image
 	stream, err := rtspCam.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("about to request 5 images")
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil) // request first picture
 	for i := 0; i < 5; i++ {
 		_, _, err := stream.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 	}
-	logger.Info("done requesting 5 images")
 	// close everything
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-	logger.Info("about to close camera ")
 	err = viamutils.TryClose(context.Background(), rtspCam)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("closed camera ")
-	logger.Info("about to cancel ffmpeg ")
-	cancel()
-	logger.Info("canceled ffmpeg")
 }
