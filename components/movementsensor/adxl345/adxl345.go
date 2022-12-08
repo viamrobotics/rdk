@@ -155,8 +155,6 @@ func NewAdxl345(
 
 		for {
 			select {
-			case <-sensor.backgroundContext.Done():
-				return
 			case <-timer.C:
 				// The registers with data are 0x32 through 0x37: two bytes each for X, Y, and Z.
 				rawData, err := sensor.readBlock(sensor.backgroundContext, 0x32, 6)
@@ -173,6 +171,8 @@ func NewAdxl345(
 				sensor.mu.Lock()
 				sensor.linearAcceleration = linearAcceleration
 				sensor.mu.Unlock()
+			case <-sensor.backgroundContext.Done():
+				return
 			}
 		}
 	})
