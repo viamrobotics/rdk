@@ -8,6 +8,7 @@ import (
 	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	rot "gonum.org/v1/gonum/spatial/r3"
 
 	"go.viam.com/rdk/utils"
 )
@@ -363,21 +364,24 @@ func toPC(b Geometry) (r3.Vector, error) {
 
 	vec := &r3.Vector{}
 	verts := b.Vertices()
-	max := verts[0]
+	max := verts[0] // https://pkg.go.dev/gonum.org/v1/gonum/spatial/r2#Box.Vertices
 	min := verts[len(verts)-1]
-	offset := max.X - min.X
+	offset := math.Abs(max.X - min.X) // not needed if done correctly
 	fmt.Println("offset: ", offset)
 
 	var frontFace [][]float64
+	var rotFrontVecs []rot.Vec
 	my_list := golist.New()
 	for j := min.Y; j <= max.Y; j += 0.05 { // this is Y
 		for i := min.X; i <= max.X; i += 0.05 { // this is X
 			points := []float64{i, j, min.Z}
+			pushinP := rot.Vec{i, j, min.Z}
 			points_list := golist.New()
 			points_list.Append(i)
 			points_list.Append(j)
 			points_list.Append(min.Z)
 			frontFace = append(frontFace, points)
+			rotFrontVecs = append(rotFrontVecs, pushinP)
 			my_list.Append(points_list)
 		}
 	}
@@ -387,8 +391,22 @@ func toPC(b Geometry) (r3.Vector, error) {
 	// myMat := mat.NewDense(3, 3, rotMat[:])
 
 	// todo: correct rotations for faces
-	// write to a better format for viz stuff
+	// leftRot := &r2.Rotation{sin: 0, cos: 1, p: 1}
 
+	whatIsThis := rot.NewRotation(90.0, rot.Vec{X: 1, Y: 0, Z: 0})
+	fmt.Println("whatIsThis", whatIsThis)
+	super_list := golist.New()
+	for i := 0; i < len(rotFrontVecs); i++ {
+		newVec := whatIsThis.Rotate(rotFrontVecs[i])
+		points_list := golist.New()
+		points_list.Append(newVec.X)
+		points_list.Append(newVec.Y)
+		points_list.Append(newVec.Z)
+		super_list.Append(points_list)
+	}
+	fmt.Println(" ")
+	fmt.Println(super_list)
+	// todo: write to a an exportable format
 	// var leftFace [][]float64
 	// var rightFace [][]float64
 	// var topFace [][]float64
