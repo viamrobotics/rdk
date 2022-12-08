@@ -73,8 +73,8 @@ func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
 }
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func newBasicPlannerOptions() *plannerOptions {
-	opt := &plannerOptions{}
+func NewBasicPlannerOptions() *PlannerOptions {
+	opt := &PlannerOptions{}
 	opt.AddConstraint(defaultJointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = NewSquaredNormMetric()
 	opt.pathDist = NewSquaredNormMetric()
@@ -98,8 +98,8 @@ func newBasicPlannerOptions() *plannerOptions {
 	return opt
 }
 
-// plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-type plannerOptions struct {
+// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+type PlannerOptions struct {
 	constraintHandler
 	metric   Metric // Distance function to the goal
 	pathDist Metric // Distance function to the nearest valid point
@@ -133,25 +133,25 @@ type plannerOptions struct {
 
 	PlannerConstructor plannerConstructor
 
-	Fallback *plannerOptions
+	Fallback *PlannerOptions
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *plannerOptions) SetMetric(m Metric) {
+func (p *PlannerOptions) SetMetric(m Metric) {
 	p.metric = m
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *plannerOptions) SetPathDist(m Metric) {
+func (p *PlannerOptions) SetPathDist(m Metric) {
 	p.pathDist = m
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
+func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
 }
 
 // SetMinScore specifies the IK stopping score for the planner.
-func (p *plannerOptions) SetMinScore(minScore float64) {
+func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }

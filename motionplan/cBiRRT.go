@@ -47,7 +47,7 @@ type cbirrtOptions struct {
 
 // newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
 // defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
+func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
 	algOpts := &cbirrtOptions{
 		FrameStep:       defaultFrameStep,
 		JointSolveDist:  defaultJointSolveDist,
@@ -74,8 +74,8 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
-	*planner
-	fastGradDescent *NloptIK
+	*rrtPlanner
+	fastGradDescent *NLOptIKSolver
 	algOpts         *cbirrtOptions
 	corners         map[node]bool
 }
@@ -85,17 +85,17 @@ func newCBiRRTMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
 	logger golog.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
-		opt = newBasicPlannerOptions()
+		opt = NewBasicPlannerOptions()
 	}
-	mp, err := newPlanner(frame, seed, logger, opt)
+	mp, err := newRRTPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
+	nlopt, err := NewNLOptIKSolver(frame, logger, opt, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	return &cBiRRTMotionPlanner{
-		planner:         mp,
+		rrtPlanner:      mp,
 		fastGradDescent: nlopt,
 		algOpts:         algOpts,
 		corners:         map[node]bool{},
@@ -117,7 +117,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, goal, seed, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -133,13 +133,13 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	rrt *rrtParallelPlannerShared,
+	solutionChan chan<- *rrtPlanReturn,
 ) {
-	defer close(rrt.solutionChan)
+	defer close(solutionChan)
 
 	// setup planner options
 	if mp.planOpts == nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
+		solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
 		return
 	}
 	// initialize maps
@@ -150,30 +150,29 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer cancel()
 	mp.start = time.Now()
 
-	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
-		planSeed := initRRTSolutions(ctx, mp, goal, seed)
+	if mp.maps == nil || len(mp.maps.goalMap) == 0 {
+		planSeed := mp.initRRTSolutions(ctx, goal, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
-			rrt.solutionChan <- planSeed
+			solutionChan <- planSeed
 			return
 		}
-		rrt.maps = planSeed.maps
 	}
-	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+	target := referenceframe.InterpolateInputs(seed, mp.maps.optNode.Q(), 0.5)
 
-	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
+	map1, map2 := mp.maps.startMap, mp.maps.goalMap
 
 	m1chan := make(chan node, 1)
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
 
-	mp.logger.Debugf("running CBiRRT with start map of size %d and goal map of size %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
+	mp.logger.Debugf("running CBiRRT with start map of size %d and goal map of size %d", len(mp.maps.startMap), len(mp.maps.goalMap))
 
 	for i := 0; i < mp.algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			mp.logger.Debugf("CBiRRT timed out after %d iterations", i)
-			rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
+			solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: mp.maps}
 			return
 		default:
 		}
@@ -214,8 +213,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		if reachedDelta <= mp.algOpts.JointSolveDist {
 			mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
 			cancel()
-			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached})
-			rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+			path := extractPath(mp.maps.startMap, mp.maps.goalMap, &nodePair{map1reached, map2reached})
+			solutionChan <- &rrtPlanReturn{steps: path, maps: mp.maps}
 			return
 		}
 
@@ -223,7 +222,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		target = mp.sample(map1reached, i)
 		map1, map2 = map2, map1
 	}
-	rrt.solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, maps: rrt.maps}
+	solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, maps: mp.maps}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) []referenceframe.Input {
@@ -344,7 +343,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 	solutionGen := make(chan []referenceframe.Input, 1)
 	// Spawn the IK solver to generate solutions until done
-	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, mp.planOpts.pathDist, randseed.Int())
+	err = mp.fastGradDescent.solve(ctx, solutionGen, goalPos, target, mp.planOpts.pathDist, randseed.Int())
 	// We should have zero or one solutions
 	var solved []referenceframe.Input
 	select {

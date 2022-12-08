@@ -30,7 +30,7 @@ func TestDubinsRRT(t *testing.T) {
 	goal := []float64{10, 0, 0}
 
 	testDubin := func(obstacleGeometries map[string]spatial.Geometry) bool {
-		opt := newBasicPlannerOptions()
+		opt := NewBasicPlannerOptions()
 		opt.AddConstraint("collision", NewCollisionConstraint(
 			dubins.Frame(),
 			frame.FloatsToInputs(start[0:2]),

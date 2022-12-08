@@ -250,7 +250,7 @@ func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon
 
 // NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
 // It will return false if that sum is over a specified threshold.
-func NewJointConstraint(threshold float64) Constraint {
+func 	NewJointConstraint(threshold float64) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		jScore := 0.
 		for i, f := range cInput.StartInput {

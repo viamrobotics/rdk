@@ -38,7 +38,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
@@ -155,7 +155,7 @@ func TestLineFollow(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, lastGood := opt.CheckConstraintPath(

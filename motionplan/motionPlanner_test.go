@@ -32,7 +32,7 @@ type planConfig struct {
 	Start      []frame.Input
 	Goal       spatialmath.Pose
 	RobotFrame frame.Frame
-	Options    *plannerOptions
+	Options    *PlannerOptions
 }
 
 type planConfigConstructor func() (*planConfig, error)
@@ -92,7 +92,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	// Test ability to arrive at another position
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
@@ -178,7 +178,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	toMap := func(geometries []spatialmath.Geometry) map[string]spatialmath.Geometry {
 		geometryMap := make(map[string]spatialmath.Geometry, 0)
 		for i, geometry := range geometries {
@@ -205,7 +205,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil, false))
 
 	return &planConfig{
@@ -224,7 +224,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil, false))
 
 	return &planConfig{

@@ -4,12 +4,10 @@ package motionplan
 import (
 	"context"
 	"math/rand"
-	"sort"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
@@ -28,11 +26,9 @@ type motionPlanner interface {
 	smoothPath(context.Context, []node) []node
 	checkPath([]frame.Input, []frame.Input) bool
 	checkInputs([]frame.Input) bool
-	getSolutions(context.Context, spatialmath.Pose, []frame.Input) ([]*costNode, error)
-	opt() *plannerOptions
 }
 
-type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
+type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *PlannerOptions) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
@@ -179,21 +175,21 @@ func PlanWaypoints(ctx context.Context,
 }
 
 type planner struct {
-	solver   InverseKinematics
+	ik       InverseKinematicsSolver
 	frame    frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand
 	start    time.Time
-	planOpts *plannerOptions
+	planOpts *PlannerOptions
 }
 
-func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads)
+func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *PlannerOptions) (*planner, error) {
+	ik, err := NewEnsembleIKSolver(frame, logger, opt)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
-		solver:   ik,
+		ik:       ik,
 		frame:    frame,
 		logger:   logger,
 		randseed: seed,
@@ -227,10 +223,6 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 		mp.planOpts.Resolution,
 	)
 	return ok
-}
-
-func (mp *planner) opt() *plannerOptions {
-	return mp.planOpts
 }
 
 // smoothPath will try to naively smooth the path by picking points partway between waypoints and seeing if it can interpolate
@@ -275,105 +267,4 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		}
 	}
 	return path
-}
-
-// getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
-// If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
-// If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed []frame.Input) ([]*costNode, error) {
-	// Linter doesn't properly handle loop labels
-	nSolutions := mp.planOpts.MaxSolutions
-	if nSolutions == 0 {
-		nSolutions = defaultSolutionsToSeed
-	}
-
-	seedPos, err := mp.frame.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	goalPos := fixOvIncrement(goal, seedPos)
-
-	solutionGen := make(chan []frame.Input)
-	ikErr := make(chan error, 1)
-	defer func() { <-ikErr }()
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Spawn the IK solver to generate solutions until done
-	utils.PanicCapturingGo(func() {
-		defer close(ikErr)
-		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, mp.planOpts.metric, mp.randseed.Int())
-	})
-
-	solutions := map[float64][]frame.Input{}
-
-	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
-IK:
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		select {
-		case step := <-solutionGen:
-			cPass, cScore := mp.planOpts.CheckConstraints(&ConstraintInput{
-				seedPos,
-				goalPos,
-				seed,
-				step,
-				mp.frame,
-			})
-			endPass, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
-				goalPos,
-				goalPos,
-				step,
-				step,
-				mp.frame,
-			})
-
-			if cPass && endPass {
-				if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-					solutions = map[float64][]frame.Input{}
-					solutions[cScore] = step
-					// good solution, stopping early
-					break IK
-				}
-
-				solutions[cScore] = step
-				if len(solutions) >= nSolutions {
-					// sufficient solutions found, stopping early
-					break IK
-				}
-			}
-			// Skip the return check below until we have nothing left to read from solutionGen
-			continue IK
-		default:
-		}
-
-		select {
-		case <-ikErr:
-			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
-			// until we've drained the channel
-			break IK
-		default:
-		}
-	}
-	if len(solutions) == 0 {
-		return nil, errIKSolve
-	}
-
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-
-	orderedSolutions := make([]*costNode, 0)
-	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
-	}
-	return orderedSolutions, nil
 }

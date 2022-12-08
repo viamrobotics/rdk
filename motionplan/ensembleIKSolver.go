@@ -12,48 +12,39 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// CombinedIK defines the fields necessary to run a combined solver.
-type CombinedIK struct {
-	solvers []InverseKinematics
-	model   referenceframe.Frame
-	logger  golog.Logger
+// EnsembleIKSolver defines the fields necessary to run a combined solver.
+type EnsembleIKSolver struct {
+	*ikSolver
+	solvers []InverseKinematicsSolver
 }
 
-// CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
+// NewEnsembleIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
-	ik := &CombinedIK{}
-	ik.model = model
-	if nCPU == 0 {
-		nCPU = 1
+func NewEnsembleIKSolver(model referenceframe.Frame, logger golog.Logger, planOpts *PlannerOptions) (*EnsembleIKSolver, error) {
+	ik := &EnsembleIKSolver{ikSolver: &ikSolver{
+		logger: logger,
+		model:  model,
+		opts:   planOpts,
+	}}
+
+	if planOpts.NumThreads == 0 {
+		planOpts.NumThreads = 1
 	}
-	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1)
+	for i := 1; i <= planOpts.NumThreads; i++ {
+		nlopt, err := NewNLOptIKSolver(model, logger, planOpts, -1)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
 		}
 		ik.solvers = append(ik.solvers, nlopt)
 	}
-	ik.logger = logger
 	return ik, nil
-}
-
-func runSolver(ctx context.Context,
-	solver InverseKinematics,
-	c chan<- []referenceframe.Input,
-	pos spatialmath.Pose,
-	seed []referenceframe.Input,
-	m Metric,
-	rseed int,
-) error {
-	return solver.Solve(ctx, c, pos, seed, m, rseed)
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
-func (ik *CombinedIK) Solve(ctx context.Context,
+func (ik *EnsembleIKSolver) solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
 	newGoal spatialmath.Pose,
 	seed []referenceframe.Input,
@@ -84,7 +75,8 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m, parseed)
+			runSolver := func() error { return thisSolver.solve(ctxWithCancel, c, newGoal, seed, m, parseed) }
+			errChan <- runSolver()
 		})
 	}
 
@@ -130,9 +122,4 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		}
 	}
 	return collectedErrs
-}
-
-// Frame returns the associated referenceframe.
-func (ik *CombinedIK) Frame() referenceframe.Frame {
-	return ik.model
 }

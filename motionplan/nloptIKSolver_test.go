@@ -14,11 +14,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestCreateNloptIKSolver(t *testing.T) {
+func TestNewNloptIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateNloptIKSolver(m, logger, -1)
+
+	ik, err := NewNLOptIKSolver(m, logger, makeIKTestOpts(t, m), -1)
 	test.That(t, err, test.ShouldBeNil)
 	ik.id = 1
 
@@ -33,7 +34,19 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	)
 
 	seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
-
+	BestIKSolution(context.Background(), ik, pos, seed, 1)
 	_, err = solveTest(context.Background(), ik, pos, seed)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func makeIKTestOpts(t *testing.T, f referenceframe.Frame) *PlannerOptions {
+	t.Helper()
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
+	fs.AddFrame(f, fs.Frame(referenceframe.World))
+	opt := NewBasicPlannerOptions()
+	inputMap := referenceframe.StartPositions(fs)
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(f, fs, &referenceframe.WorldState{}, inputMap, false)
+	test.That(t, err, test.ShouldBeNil)
+	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
+	return opt
 }

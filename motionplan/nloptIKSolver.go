@@ -26,26 +26,28 @@ const (
 	nloptStepsPerIter = 4001
 )
 
-// NloptIK TODO.
-type NloptIK struct {
+// NLOptIKSolver TODO.
+type NLOptIKSolver struct {
+	*ikSolver
 	id            int
-	model         referenceframe.Frame
 	lowerBound    []float64
 	upperBound    []float64
 	maxIterations int
 	epsilon       float64
 	solveEpsilon  float64
-	logger        golog.Logger
 	jump          float64
 }
 
-// CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
+// NewNLOptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int) (*NloptIK, error) {
-	ik := &NloptIK{logger: logger}
+func NewNLOptIKSolver(model referenceframe.Frame, logger golog.Logger, planOpts *PlannerOptions, iter int) (*NLOptIKSolver, error) {
+	ik := &NLOptIKSolver{ikSolver: &ikSolver{
+		logger: logger,
+		model:  model,
+		opts:   planOpts,
+	}}
 
-	ik.model = mdl
 	ik.id = 0
 	// How close we want to get to the goal
 	ik.epsilon = defaultEpsilon
@@ -56,15 +58,19 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 		iter = 5000
 	}
 	ik.maxIterations = iter
-	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
+
+	for _, limit := range model.DoF() {
+		ik.lowerBound = append(ik.lowerBound, limit.Min)
+		ik.upperBound = append(ik.upperBound, limit.Max)
+	}
 	// How much to adjust joints to determine slope
-	ik.jump = 0.00000001
+	ik.jump = 1e-8
 
 	return ik, nil
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *NloptIK) Solve(ctx context.Context,
+func (ik *NLOptIKSolver) solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
 	newGoal spatial.Pose,
 	seed []referenceframe.Input,
@@ -212,7 +218,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 }
 
 // GenerateRandomPositions generates a random set of positions within the limits of this solver.
-func (ik *NloptIK) GenerateRandomPositions(randSeed *rand.Rand) []referenceframe.Input {
+func (ik *NLOptIKSolver) GenerateRandomPositions(randSeed *rand.Rand) []referenceframe.Input {
 	pos := make([]referenceframe.Input, len(ik.model.DoF()))
 	for i, l := range ik.lowerBound {
 		u := ik.upperBound[i]
@@ -233,14 +239,9 @@ func (ik *NloptIK) GenerateRandomPositions(randSeed *rand.Rand) []referenceframe
 	return pos
 }
 
-// Frame returns the associated referenceframe.
-func (ik *NloptIK) Frame() referenceframe.Frame {
-	return ik.model
-}
-
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
 // have been tried.
-func (ik *NloptIK) updateBounds(seed []referenceframe.Input, tries int, opt *nlopt.NLopt) error {
+func (ik *NLOptIKSolver) updateBounds(seed []referenceframe.Input, tries int, opt *nlopt.NLopt) error {
 	rangeStep := 0.1
 	newLower := make([]float64, len(ik.lowerBound))
 	newUpper := make([]float64, len(ik.upperBound))

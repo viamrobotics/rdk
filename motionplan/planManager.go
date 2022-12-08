@@ -31,7 +31,7 @@ type planManager struct {
 
 func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
+	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, NewBasicPlannerOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	var goals []spatialmath.Pose
-	var opts []*plannerOptions
+	var opts []*PlannerOptions
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
@@ -120,7 +120,7 @@ func (pm *planManager) planMotion(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
-	opts []*plannerOptions,
+	opts []*PlannerOptions,
 	maps *rrtMaps,
 	iter int,
 ) ([][]referenceframe.Input, error) {
@@ -128,14 +128,14 @@ func (pm *planManager) planMotion(
 	goal := goals[iter]
 	opt := opts[iter]
 	if opt == nil {
-		opt = newBasicPlannerOptions()
+		opt = NewBasicPlannerOptions()
 	}
 
 	// Build planner
-	var pathPlanner motionPlanner
+	var genericPlanner motionPlanner
 	if seed, ok := opt.extra["rseed"].(int); ok {
 		//nolint: gosec
-		pathPlanner, err = opt.PlannerConstructor(
+		genericPlanner, err = opt.PlannerConstructor(
 			pm.frame,
 			rand.New(rand.NewSource(int64(seed))),
 			pm.logger,
@@ -143,7 +143,7 @@ func (pm *planManager) planMotion(
 		)
 	} else {
 		//nolint: gosec
-		pathPlanner, err = opt.PlannerConstructor(
+		genericPlanner, err = opt.PlannerConstructor(
 			pm.frame,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
@@ -153,11 +153,17 @@ func (pm *planManager) planMotion(
 	if err != nil {
 		return nil, err
 	}
+
+	probablisticPlanner, ok := genericPlanner.(rrtMotionPlanner)
+	if !ok {
+		return nil, errors.New("at this time we only support rrt based motion planning")
+	}
+
 	remainingSteps := [][]referenceframe.Input{}
 
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
-		planSeed := initRRTSolutions(ctx, pathPlanner, goal, seed)
+		planSeed := probablisticPlanner.initRRTSolutions(ctx, goal, seed)
 		if planSeed.planerr != nil {
 			return nil, planSeed.planerr
 		}
@@ -187,7 +193,7 @@ func (pm *planManager) planMotion(
 	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
 	defer cancel()
 
-	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
+	if parallelPlanner, ok := probablisticPlanner.(rrtParallelMotionPlanner); ok {
 		// publish endpoint of plan if it is known
 		var nextSeed node
 		if len(maps.goalMap) == 1 {
@@ -200,12 +206,11 @@ func (pm *planManager) planMotion(
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			if nextSeed == nil {
-				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{maps, endpointPreview, solutionChan})
-			} else {
+			if nextSeed != nil {
 				endpointPreview <- nextSeed
-				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{maps, nil, solutionChan})
 			}
+			parallelPlanner.rrtBackgroundRunner(planctx, goal, seed, solutionChan)
+
 		})
 
 		for {
@@ -271,7 +276,7 @@ func (pm *planManager) planMotion(
 				}
 				smoothChan := make(chan []node, 1)
 				utils.PanicCapturingGo(func() {
-					smoothChan <- parPlan.smoothPath(ctx, finalSteps.steps)
+					smoothChan <- parallelPlanner.smoothPath(ctx, finalSteps.steps)
 				})
 				smoothingDone := false
 				// Run fallback only if we don't have a very good path
@@ -282,7 +287,7 @@ func (pm *planManager) planMotion(
 							ctx,
 							[]spatialmath.Pose{goal},
 							seed,
-							[]*plannerOptions{opt.Fallback},
+							[]*PlannerOptions{opt.Fallback},
 							nextSeed,
 							iter,
 						)
@@ -333,7 +338,7 @@ func (pm *planManager) planMotion(
 			}
 		}
 	} else {
-		resultSlicesRaw, err := pathPlanner.plan(planctx, goal, seed)
+		resultSlicesRaw, err := probablisticPlanner.plan(planctx, goal, seed)
 		if err != nil {
 			return nil, err
 		}
@@ -354,9 +359,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
 	planningOpts map[string]interface{},
-) (*plannerOptions, error) {
+) (*PlannerOptions, error) {
 	// Start with normal options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 
 	opt.extra = planningOpts
 
@@ -472,7 +477,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+func goodPlan(pr *rrtPlanReturn, opt *PlannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.cost <= 0 {

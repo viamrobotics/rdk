@@ -2,7 +2,9 @@ package motionplan
 
 import (
 	"context"
+	"math/rand"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -12,15 +14,15 @@ const (
 	defaultPlanIter = 20000
 )
 
-type rrtParallelPlanner interface {
+type rrtMotionPlanner interface {
 	motionPlanner
-	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, *rrtParallelPlannerShared)
+	initRRTSolutions(context.Context, spatialmath.Pose, []referenceframe.Input) *rrtPlanReturn
 }
 
-type rrtParallelPlannerShared struct {
-	maps            *rrtMaps
-	endpointPreview chan node
-	solutionChan    chan *rrtPlanReturn
+type rrtParallelMotionPlanner interface {
+	rrtMotionPlanner
+
+	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, chan<- *rrtPlanReturn)
 }
 
 type rrtOptions struct {
@@ -33,8 +35,6 @@ func newRRTOptions() *rrtOptions {
 		PlanIter: defaultPlanIter,
 	}
 }
-
-type rrtMap map[node]node
 
 type rrtPlanReturn struct {
 	steps   []node
@@ -54,33 +54,40 @@ func (plan *rrtPlanReturn) err() error {
 	return plan.planerr
 }
 
-type rrtMaps struct {
-	startMap rrtMap
-	goalMap  rrtMap
-	optNode  *costNode // The highest quality IK solution
+type rrtPlanner struct {
+	*planner
+	maps *rrtMaps
+}
+
+func newRRTPlanner(frame referenceframe.Frame, seed *rand.Rand, logger golog.Logger, opt *PlannerOptions) (*rrtPlanner, error) {
+	mp, err := newPlanner(frame, seed, logger, opt)
+	if err != nil {
+		return nil, err
+	}
+	return &rrtPlanner{
+		planner: mp,
+		maps:    &rrtMaps{startMap: map[node]node{}, goalMap: map[node]node{}},
+	}, nil
 }
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
-	rrt := &rrtPlanReturn{
-		maps: &rrtMaps{
-			startMap: map[node]node{},
-			goalMap:  map[node]node{},
-		},
-	}
+func (rrt *rrtPlanner) initRRTSolutions(ctx context.Context, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
 	seedNode := newCostNode(seed, 0)
 	rrt.maps.startMap[seedNode] = nil
 
 	// get many potential end goals from IK solver
-	solutions, err := mp.getSolutions(ctx, goal, seed)
+	nSolutions := rrt.planOpts.MaxSolutions
+	if nSolutions == 0 {
+		nSolutions = defaultSolutionsToSeed
+	}
+	solutions, err := BestNIKSolutions(ctx, rrt.ik, goal, seed, rrt.randseed.Int(), nSolutions)
 	if err != nil {
-		rrt.planerr = err
-		return rrt
+		return &rrtPlanReturn{maps: rrt.maps, planerr: err}
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	_, optimalCost := mp.opt().DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
+	_, optimalCost := rrt.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
 	rrt.maps.optNode = newCostNode(solutions[0].Q(), optimalCost)
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -89,11 +96,10 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Po
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			_, cost := mp.opt().DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solution.Q()})
+			_, cost := rrt.planOpts.DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
-				if mp.checkPath(seed, solution.Q()) {
-					rrt.steps = []node{seedNode, solution}
-					return rrt
+				if rrt.planner.checkPath(seed, solution.Q()) {
+					return &rrtPlanReturn{steps: []node{seedNode, solution}, planerr: err}
 				}
 			} else {
 				canInterp = false
@@ -101,7 +107,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Po
 		}
 		rrt.maps.goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
-	return rrt
+	return &rrtPlanReturn{maps: rrt.maps}
 }
 
 func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
@@ -118,6 +124,14 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 	}
 	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx]), maps: maps}
 }
+
+type rrtMaps struct {
+	startMap rrtMap
+	goalMap  rrtMap
+	optNode  *costNode // The highest quality IK solution
+}
+
+type rrtMap map[node]node
 
 // node interface is used to wrap a configuration for planning purposes.
 type node interface {
@@ -143,7 +157,6 @@ func newCostNode(q []referenceframe.Input, cost float64) *costNode {
 }
 
 // nodePair groups together nodes in a tuple
-// TODO(rb): in the future we might think about making this into a list of nodes.
 type nodePair struct{ a, b node }
 
 func (np *nodePair) sumCosts() float64 {

@@ -33,7 +33,7 @@ type rrtStarConnectOptions struct {
 
 // newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
-func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
+func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
 		NeighborhoodSize: defaultNeighborhoodSize,
 		rrtOptions:       newRRTOptions(),
@@ -54,7 +54,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 // It uses the RRT*-Connect algorithm, Klemm et al 2015
 // https://ieeexplore.ieee.org/document/7419012
 type rrtStarConnectMotionPlanner struct {
-	*planner
+	*rrtPlanner
 	algOpts *rrtStarConnectOptions
 }
 
@@ -63,12 +63,12 @@ func newRRTStarConnectMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
 	logger golog.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
-		opt = newBasicPlannerOptions()
+		opt = NewBasicPlannerOptions()
 	}
-	mp, err := newPlanner(frame, seed, logger, opt)
+	rrt, err := newRRTPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func newRRTStarConnectMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
+	return &rrtStarConnectMotionPlanner{rrt, algOpts}, nil
 }
 
 func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
@@ -85,7 +85,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, goal, seed, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -97,30 +97,30 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
+func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(
+	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	rrt *rrtParallelPlannerShared,
+	solutionChan chan<- *rrtPlanReturn,
 ) {
 	mp.logger.Debug("Starting RRT*")
-	defer close(rrt.solutionChan)
+	defer close(solutionChan)
 
 	// setup planner options
 	if mp.planOpts == nil {
-		mp.planOpts = newBasicPlannerOptions()
+		mp.planOpts = NewBasicPlannerOptions()
 	}
 
 	mp.start = time.Now()
 
-	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
-		planSeed := initRRTSolutions(ctx, mp, goal, seed)
+	if mp.maps == nil || len(mp.maps.goalMap) == 0 {
+		planSeed := mp.initRRTSolutions(ctx, goal, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
-			rrt.solutionChan <- planSeed
+			solutionChan <- planSeed
 			return
 		}
-		rrt.maps = planSeed.maps
 	}
-	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+	target := referenceframe.InterpolateInputs(seed, mp.maps.optNode.Q(), 0.5)
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -138,10 +138,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			// stop and return best path
 			if nSolved > 0 {
 				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
-				rrt.solutionChan <- shortestPath(rrt.maps, shared)
+				solutionChan <- shortestPath(mp.maps, shared)
 			} else {
 				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
-				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
+				solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: mp.maps}
 			}
 			return
 		default:
@@ -149,10 +149,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// try to connect the target to map 1
 		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.maps.startMap, target, m1chan)
+			mp.extend(mp.maps.startMap, target, m1chan)
 		})
 		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.maps.goalMap, target, m2chan)
+			mp.extend(mp.maps.goalMap, target, m2chan)
 		})
 		map1reached := <-m1chan
 		map2reached := <-m2chan
@@ -163,11 +163,11 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
-				solution := shortestPath(rrt.maps, shared)
+				solution := shortestPath(mp.maps, shared)
 				solutionCost := EvaluatePlan(solution.toInputs(), mp.planOpts.DistanceFunc)
-				if solutionCost-rrt.maps.optNode.cost < defaultOptimalityThreshold*rrt.maps.optNode.cost {
+				if solutionCost-mp.maps.optNode.cost < defaultOptimalityThreshold*mp.maps.optNode.cost {
 					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
-					rrt.solutionChan <- solution
+					solutionChan <- solution
 					return
 				}
 			}
@@ -179,7 +179,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
-	rrt.solutionChan <- shortestPath(rrt.maps, shared)
+	solutionChan <- shortestPath(mp.maps, shared)
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(
