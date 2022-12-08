@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	logger := golog.NewDebugLogger("client")
+	logger := golog.NewDevelopmentLogger("client")
 	robot, err := client.New(
 		context.Background(),
 		"localhost:8080",
@@ -140,14 +140,14 @@ func main() {
 	mybase := res.(base.Base)
 
 	logger.Info("move forward")
-	err = mybase.SetPower(context.Background(), r3.Vector{X: 1}, r3.Vector{}, nil)
+	err = mybase.SetPower(context.Background(), r3.Vector{Y: 1}, r3.Vector{}, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	time.Sleep(time.Second)
 
 	logger.Info("move backward")
-	err = mybase.SetPower(context.Background(), r3.Vector{X: -1}, r3.Vector{}, nil)
+	err = mybase.SetPower(context.Background(), r3.Vector{Y: -1}, r3.Vector{}, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
