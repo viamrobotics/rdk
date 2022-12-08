@@ -155,7 +155,7 @@ func NewMpu6050(
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
 	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func () {
+	utils.PanicCapturingGo(func() {
 		defer sensor.activeBackgroundWorkers.Done()
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
