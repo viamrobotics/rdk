@@ -157,7 +157,7 @@ func (octree *basicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 		for _, child := range octree.node.children {
 			numPoints := child.size
 
-			if (idx+numPoints >= lowerBound) && (idx < upperBound) {
+			if (idx+numPoints > lowerBound) && (idx < upperBound) {
 				if ok = child.helperIterate(lowerBound, upperBound, idx, fn); !ok {
 					ok = false
 					break
@@ -167,9 +167,7 @@ func (octree *basicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 		}
 
 	case LeafNodeFilled:
-		if (idx >= lowerBound) && (idx < upperBound) {
-			ok = fn(octree.node.point.P, octree.node.point.D)
-		}
+		ok = fn(octree.node.point.P, octree.node.point.D)
 
 	case LeafNodeEmpty:
 	}
