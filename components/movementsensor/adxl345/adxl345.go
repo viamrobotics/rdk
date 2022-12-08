@@ -147,7 +147,35 @@ func NewAdxl345(
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
 	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(sensor.pollData)
+	utils.PanicCapturingGo(func() {
+		defer sensor.activeBackgroundWorkers.Done()
+		// Reading data a thousand times per second is probably fast enough.
+		timer := time.NewTicker(time.Millisecond)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-sensor.backgroundContext.Done():
+				return
+			case <-timer.C:
+				// The registers with data are 0x32 through 0x37: two bytes each for X, Y, and Z.
+				rawData, err := sensor.readBlock(sensor.backgroundContext, 0x32, 6)
+				if err != nil {
+					sensor.mu.Lock()
+					sensor.lastError = err
+					sensor.mu.Unlock()
+					continue
+				}
+
+				linearAcceleration := toLinearAcceleration(rawData)
+				// Only lock the mutex to write to the shared data, so other threads can read the
+				// data as often as they want.
+				sensor.mu.Lock()
+				sensor.linearAcceleration = linearAcceleration
+				sensor.mu.Unlock()
+			}
+		}
+	})
 
 	return sensor, nil
 }
@@ -202,36 +230,6 @@ func toSignedValue(data []byte) int {
 // negative ones.
 func setScale(value int, maxValue float64) float64 {
 	return float64(value) * maxValue / (1 << 9)
-}
-
-func (adxl *adxl345) pollData() {
-	defer adxl.activeBackgroundWorkers.Done()
-	// Reading data a thousand times per second is probably fast enough.
-	timer := time.NewTicker(time.Millisecond)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-adxl.backgroundContext.Done():
-			return
-		case <-timer.C:
-			// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-			rawData, err := adxl.readBlock(adxl.backgroundContext, 0x32, 6)
-			if err != nil {
-				adxl.mu.Lock()
-				adxl.lastError = err
-				adxl.mu.Unlock()
-				continue
-			}
-
-			linearAcceleration := toLinearAcceleration(rawData)
-			// Only lock the mutex to write to the shared data, so other threads can read the data
-			// as often as they want.
-			adxl.mu.Lock()
-			adxl.linearAcceleration = linearAcceleration
-			adxl.mu.Unlock()
-		}
-	}
 }
 
 func toLinearAcceleration(data []byte) r3.Vector {
