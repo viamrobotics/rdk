@@ -163,8 +163,6 @@ func NewMpu6050(
 
 		for {
 			select {
-			case <-sensor.backgroundContext.Done():
-				return
 			case <-timer.C:
 				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
 				if err != nil {
@@ -188,6 +186,8 @@ func NewMpu6050(
 				sensor.temperature = temperature
 				sensor.angularVelocity = angularVelocity
 				sensor.mu.Unlock()
+			case <-sensor.backgroundContext.Done():
+				return
 			}
 		}
 	})
