@@ -78,7 +78,7 @@ type adxl345 struct {
 	lastError          error
 
 	// Used to shut down the background goroutine which polls the sensor.
-	backgroundContext       context.Context
+	cancelContext           context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -116,14 +116,14 @@ func NewAdxl345(
 		address = 0x53
 	}
 
-	backgroundContext, cancelFunc := context.WithCancel(ctx)
+	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	sensor := &adxl345{
-		bus:               bus,
-		i2cAddress:        address,
-		logger:            logger,
-		backgroundContext: backgroundContext,
-		cancelFunc:        cancelFunc,
+		bus:           bus,
+		i2cAddress:    address,
+		logger:        logger,
+		cancelContext: cancelContext,
+		cancelFunc:    cancelFunc,
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -157,7 +157,7 @@ func NewAdxl345(
 			select {
 			case <-timer.C:
 				// The registers with data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-				rawData, err := sensor.readBlock(sensor.backgroundContext, 0x32, 6)
+				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
 				if err != nil {
 					sensor.mu.Lock()
 					sensor.lastError = err
@@ -171,7 +171,7 @@ func NewAdxl345(
 				sensor.mu.Lock()
 				sensor.linearAcceleration = linearAcceleration
 				sensor.mu.Unlock()
-			case <-sensor.backgroundContext.Done():
+			case <-sensor.cancelContext.Done():
 				return
 			}
 		}
