@@ -369,6 +369,7 @@ func TestBytesToVar(t *testing.T) {
 	var f32 float32
 	var f64 float64
 	var u32 uint32
+	var i16 int16
 	f32 = -6.2598534e18
 	v := Float32FromBytesLE([]byte{0xEF, 0xBE, 0xAD, 0xDE})
 	test.That(t, v, test.ShouldEqual, f32)
@@ -385,5 +386,11 @@ func TestBytesToVar(t *testing.T) {
 	vu32 := Uint32FromBytesLE([]byte{0x78, 0x56, 0x34, 0x12})
 	test.That(t, vu32, test.ShouldEqual, u32)
 	vu32 = Uint32FromBytesBE([]byte{0x12, 0x34, 0x56, 0x78})
+	test.That(t, vu32, test.ShouldEqual, u32)
+
+	i16 = 0x1234
+	vu32 := Int16FromBytesLE([]byte{0x34, 0x12})
+	test.That(t, vu32, test.ShouldEqual, u32)
+	vu32 = Int16FromBytesBE([]byte{0x12, 0x34})
 	test.That(t, vu32, test.ShouldEqual, u32)
 }
