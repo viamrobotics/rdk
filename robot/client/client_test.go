@@ -279,15 +279,19 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
+	o1 := &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
 	cfg := config.Config{
 		Components: []config.Component{
 			{
 				Name: "a",
 				Type: arm.SubtypeName,
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent:      "b",
 					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
+					Orientation: o1Cfg,
 				},
 			},
 			{
@@ -1223,9 +1227,9 @@ func TestClientDiscovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
-	if part.Name != otherPart.Name {
-		return errors.Errorf("part had name %s while other part had name %s", part.Name, otherPart.Name)
+func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
+	if part.FrameConfig.ID != otherPart.FrameConfig.ID {
+		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.ID, otherPart.FrameConfig.ID)
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
@@ -1235,8 +1239,16 @@ func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
 	if !spatialmath.R3VectorAlmostEqual(frameConfig.Translation, otherFrameConfig.Translation, 1e-8) {
 		return errors.New("translations of parts not equal")
 	}
-	orient := frameConfig.Orientation
-	otherOrient := otherFrameConfig.Orientation
+	pose, err := frameConfig.Pose()
+	if err != nil {
+		return errors.New("could not parse pose")
+	}
+	otherPose, err := otherFrameConfig.Pose()
+	if err != nil {
+		return errors.New("could not parse otherPose")
+	}
+	orient := pose.Orientation()
+	otherOrient := otherPose.Orientation()
 
 	switch {
 	case orient == nil && otherOrient != nil:
@@ -1270,18 +1282,22 @@ func TestClientConfig(t *testing.T) {
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
 
-	fsConfigs := []*config.FrameSystemPart{
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	fsConfigs := []*referenceframe.FrameSystemPart{
 		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:          "frame1",
 				Parent:      referenceframe.World,
 				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+				Orientation: o1Cfg,
 			},
 		},
 		{
-			Name: "frame2",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:          "frame2",
 				Parent:      "frame1",
 				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			},

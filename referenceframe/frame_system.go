@@ -1,16 +1,16 @@
 package referenceframe
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
-
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
-	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils/protoutils"
+
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // World is the string "world", but made into an exported constant.
@@ -409,27 +409,29 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 		},
 		Geometries: geoms,
 	}
-	var modelJson map[string]interface{}
+	var modelJSON map[string]interface{}
 	if part.ModelFrame != nil {
 		bytes, err := part.ModelFrame.MarshalJSON()
 		if err != nil {
 			return nil, err
 		}
-		json.Unmarshal(bytes, &modelJson)
+		err = json.Unmarshal(bytes, &modelJSON)
+		if err != nil {
+			return nil, err
+		}
 	}
-	kinematics, err := protoutils.StructToStructPb(modelJson)
+	kinematics, err := protoutils.StructToStructPb(modelJSON)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.FrameSystemConfig{
-		Frame: linkFrame,
-		Kinematics:         kinematics,
+		Frame:      linkFrame,
+		Kinematics: kinematics,
 	}, nil
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
-	
 	pose := spatial.NewPoseFromProtobuf(fsc.Frame.PoseInParentFrame.Pose)
 	orient, err := spatial.NewOrientationConfig(pose.Orientation())
 	if err != nil {
@@ -448,11 +450,11 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	}
 
 	frameConfig := &LinkConfig{
-		ID: fsc.Frame.Name,
-		Translation: *spatial.NewTranslationConfig(pose.Point()),
+		ID:          fsc.Frame.Name,
+		Translation: pose.Point(),
 		Orientation: orient,
-		Geometry: geom,
-		Parent: fsc.Frame.PoseInParentFrame.ReferenceFrame,
+		Geometry:    geom,
+		Parent:      fsc.Frame.PoseInParentFrame.ReferenceFrame,
 	}
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
@@ -485,10 +487,10 @@ func PoseInFrameToFrameSystemPart(transform *PoseInFrame) (*FrameSystemPart, err
 		return nil, err
 	}
 	frameConfig := &LinkConfig{
-		ID:      transform.Name(),
-		Translation: *spatial.NewTranslationConfig(transform.Pose().Point()),
+		ID:          transform.Name(),
+		Translation: transform.Pose().Point(),
 		Orientation: orient,
-		Parent: transform.FrameName(),
+		Parent:      transform.FrameName(),
 	}
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
@@ -513,7 +515,7 @@ func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Fr
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
 	staticOriginName := part.FrameConfig.ID + "_origin"
-	// By default, this 
+	// By default, this
 	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
 	if err != nil {
 		return nil, nil, err

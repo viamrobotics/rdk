@@ -3,7 +3,6 @@ package referenceframe
 import (
 	"encoding/json"
 	"os"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -13,11 +12,11 @@ import (
 
 // ModelConfig represents all supported fields in a kinematics JSON file.
 type ModelConfig struct {
-	Name         string           `json:"name"`
-	KinParamType string           `json:"kinematic_param_type,omitempty"`
-	Links        []LinkConfig       `json:"links,omitempty"`
-	Joints       []JointConfig      `json:"joints,omitempty"`
-	DHParams     []DHParamConfig    `json:"dhParams,omitempty"`
+	Name         string          `json:"name"`
+	KinParamType string          `json:"kinematic_param_type,omitempty"`
+	Links        []LinkConfig    `json:"links,omitempty"`
+	Joints       []JointConfig   `json:"joints,omitempty"`
+	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
@@ -85,11 +84,14 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 					return nil, err
 				}
 				transforms[dh.ID], err = NewStaticFrameWithGeometry(dh.ID, pose, geometryCreator)
+				if err != nil {
+					return nil, err
+				}
 			} else {
 				transforms[dh.ID], err = NewStaticFrame(dh.ID, pose)
-			}
-			if err != nil {
-				return nil, err
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
@@ -112,7 +114,6 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.New("more than one end effector not supported")
 	}
 	if len(parents) < 1 {
-		fmt.Println("cfg", cfg)
 		return nil, errors.New("need at least one end effector")
 	}
 	var eename string

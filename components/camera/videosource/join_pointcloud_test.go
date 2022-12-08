@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -75,20 +74,16 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	r := &inject.Robot{}
 	fsParts := framesystemparts.Parts{
 		{
-			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "base1", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
-			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{100, 0, 0}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "cam1", Parent: referenceframe.World, Translation: r3.Vector{100, 0, 0}},
 		},
 		{
-			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, 100}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "cam2", Parent: "cam1", Translation: r3.Vector{0, 0, 100}},
 		},
 		{
-			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: "cam2", Translation: r3.Vector{0, 100, 0}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "cam3", Parent: "cam2", Translation: r3.Vector{0, 100, 0}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
@@ -316,35 +311,38 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	base1 := &inject.Base{}
 
 	r := &inject.Robot{}
+	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
+	o2Cfg, err := spatialmath.NewOrientationConfig(o2)
+	test.That(t, err, test.ShouldBeNil)
+
 	fsParts := framesystemparts.Parts{
 		{
-			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "base1", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
-			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "cam1", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
-			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, -100}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "cam2", Parent: "cam1", Translation: r3.Vector{0, 0, -100}},
 		},
 		{
-			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: &referenceframe.LinkConfig{ID: "cam3", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
-			Name: "cam4",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:     "cam4",
 				Parent: "cam3", Translation: r3.Vector{-60, 0, -10},
-				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0},
+				Orientation: o1Cfg,
 			},
 		},
 		{
-			Name: "cam5",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:     "cam5",
 				Parent: "cam4", Translation: r3.Vector{-60, 0, 10},
-				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3},
+				Orientation: o2Cfg,
 			},
 		},
 	}

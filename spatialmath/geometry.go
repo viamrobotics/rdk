@@ -54,8 +54,8 @@ type GeometryConfig struct {
 	R float64 `json:"r"`
 
 	// define an offset to position the geometry
-	TranslationOffset TranslationConfig `json:"translation"`
-	OrientationOffset OrientationConfig `json:"orientation"`
+	TranslationOffset r3.Vector         `json:"translation"`
+	OrientationOffset OrientationConfig `json:"orientation,omitempty"`
 
 	Label string
 }
@@ -82,7 +82,7 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 	}
 	offset := gc.Offset()
 	o := offset.Orientation()
-	config.TranslationOffset = *NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
+	config.TranslationOffset = Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point()
 	orientationConfig, err := NewOrientationConfig(o)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	if err != nil {
 		return nil, err
 	}
-	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
+	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset))
 
 	// build GeometryCreator depending on specified type
 	switch config.Type {
@@ -151,7 +151,7 @@ func NewGeometryCreatorFromProto(geometry *commonpb.Geometry) (GeometryCreator, 
 	return nil, ErrGeometryTypeUnsupported
 }
 
-// NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
+// ToProtobuf converts a GeometryCreator to Protobuf.
 func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	creator, err := config.ParseConfig()
 	if err != nil {

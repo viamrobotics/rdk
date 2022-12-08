@@ -4,7 +4,6 @@ package arm
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
@@ -152,13 +151,10 @@ func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) re
 	if err != nil {
 		return nil
 	}
-	fmt.Println("resp", resp)
 	cfgs := resp.GetFrameSystemConfigs()
 	for _, cfg := range cfgs {
-		fmt.Println("cfg", cfg)
 		if cfg.GetFrame().GetName() == name {
 			if part, err := referenceframe.ProtobufToFrameSystemPart(cfg); err == nil {
-				fmt.Println("part", part)
 				return part.ModelFrame
 			}
 			return nil

@@ -2,10 +2,8 @@ package arm_test
 
 import (
 	"context"
-	//~ "math"
 	"net"
 	"testing"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -239,15 +237,13 @@ func TestClientModel(t *testing.T) {
 
 	// creat inject Robot
 	injectRobot := &inject.Robot{}
-	fmt.Println("model1", model)
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
-		fmt.Println("model2", model)
 		return framesystemparts.Parts{&referenceframe.FrameSystemPart{
 			FrameConfig: &referenceframe.LinkConfig{
-				ID: testArmName,
+				ID:     testArmName,
 				Parent: referenceframe.World,
 			},
 			ModelFrame: model,

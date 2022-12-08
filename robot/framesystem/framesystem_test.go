@@ -42,18 +42,23 @@ func TestEmptyConfigFrameService(t *testing.T) {
 
 func TestNewFrameSystemFromParts(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	fsConfigs := []*config.FrameSystemPart{
+
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	fsConfigs := []*referenceframe.FrameSystemPart{
 		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:          "frame1",
 				Parent:      referenceframe.World,
 				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+				Orientation: o1Cfg,
 			},
 		},
 		{
-			Name: "frame2",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:          "frame2",
 				Parent:      "frame1",
 				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			},
@@ -83,12 +88,17 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 
 func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	badFSConfigs := []*config.FrameSystemPart{
+
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	badFSConfigs := []*referenceframe.FrameSystemPart{
 		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID:          "frame1",
 				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+				Orientation: o1Cfg,
 			},
 		},
 	}

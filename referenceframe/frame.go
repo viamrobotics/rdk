@@ -166,7 +166,7 @@ type staticFrame struct {
 	geometryCreator spatial.GeometryCreator
 }
 
-// a tailGeometryStaticFrame is a static frame whose geometry is placed at the end of the frame's transform, rather than at the beginning
+// a tailGeometryStaticFrame is a static frame whose geometry is placed at the end of the frame's transform, rather than at the beginning.
 type tailGeometryStaticFrame struct {
 	*staticFrame
 }
@@ -263,8 +263,8 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	temp := LinkConfig{
-		ID:      sf.name,
-		Translation: *spatial.NewTranslationConfig(sf.transform.Point()),
+		ID:          sf.name,
+		Translation: sf.transform.Point(),
 	}
 
 	orientationConfig, err := spatial.NewOrientationConfig(sf.transform.Orientation())
@@ -360,7 +360,7 @@ func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
 		return nil, errors.New("cannot marshal translational frame with >1 DOF, use a mobile2DFrame or a Model")
 	}
 	temp := JointConfig{
-		ID: pf.name,
+		ID:   pf.name,
 		Type: "prismatic",
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
 		Max:  pf.limits[0].Max,
@@ -443,7 +443,7 @@ func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
 		return nil, errors.New("cannot marshal revolute frame with >1 DOF, use a Model")
 	}
 	temp := JointConfig{
-		ID: rf.name,
+		ID:   rf.name,
 		Type: "revolute",
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
 		Max:  utils.RadToDeg(rf.limits[0].Max),

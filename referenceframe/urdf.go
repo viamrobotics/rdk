@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -166,7 +167,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
 
 			// Note the conversion from meters to mm
-			childLink.Translation = spatial.TranslationConfig{
+			childLink.Translation = r3.Vector{
 				metersToMM(childXYZ[0]),
 				metersToMM(childXYZ[1]),
 				metersToMM(childXYZ[2]),
@@ -186,7 +187,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
 
 			// Note the conversion from meters to mm
-			thisLink.Translation = spatial.TranslationConfig{
+			thisLink.Translation = r3.Vector{
 				metersToMM(linkXYZ[0]),
 				metersToMM(linkXYZ[1]),
 				metersToMM(linkXYZ[2]),
@@ -229,7 +230,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		// Most likely, this is a link normally whose parent is the World
 		if _, ok := parentMap[linkElem.Name]; !ok {
 			thisLink := LinkConfig{ID: linkElem.Name, Parent: World}
-			thisLink.Translation = spatial.TranslationConfig{0.0, 0.0, 0.0}
+			thisLink.Translation = r3.Vector{0.0, 0.0, 0.0}
 			thisLink.Orientation = &spatial.OrientationConfig{} // Orientation is guaranteed to be zero for this
 
 			if hasCollision {
@@ -271,7 +272,7 @@ func createConfigFromCollision(link URDFLink) (spatial.GeometryConfig, error) {
 
 	// Offset for the geometry origin from the reference link origin
 	geomXYZ := convStringAttrToFloats(link.Collision[0].Origin.XYZ)
-	geomTx := spatial.TranslationConfig{geomXYZ[0], geomXYZ[1], geomXYZ[2]}
+	geomTx := r3.Vector{geomXYZ[0], geomXYZ[1], geomXYZ[2]}
 	geomRPY := convStringAttrToFloats(link.Collision[0].Origin.RPY)
 	geomEA := spatial.EulerAngles{
 		Roll:  utils.RadToDeg(geomRPY[0]),

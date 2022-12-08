@@ -25,11 +25,9 @@ func (fsp Parts) String() string {
 	for i, part := range fsp {
 		tra := part.FrameConfig.Translation
 		ori := &spatialmath.EulerAngles{}
-		if part.FrameConfig.Orientation != nil {
-			orient, err := part.FrameConfig.Orientation.ParseConfig()
-			if err == nil {
-				ori = orient.EulerAngles()
-			}
+		pose, err := part.FrameConfig.Pose()
+		if err == nil {
+			ori = pose.Orientation().EulerAngles()
 		}
 		geomString := ""
 		if part.FrameConfig.Geometry != nil {
@@ -99,9 +97,9 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	}
 	// make map of children
 	children := make(map[string]Parts)
-	//~ fmt.Println("parts", parts)
+	// ~ fmt.Println("parts", parts)
 	for _, part := range parts {
-		//~ fmt.Println("part", part)
+		// ~ fmt.Println("part", part)
 		parent := part.FrameConfig.Parent
 		if !existingParts[parent] {
 			return nil, NewMissingParentError(part.FrameConfig.ID, parent)

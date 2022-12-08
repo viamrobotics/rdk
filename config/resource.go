@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 // UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
@@ -64,7 +64,7 @@ type Component struct {
 	Namespace     resource.Namespace           `json:"namespace"`
 	Type          resource.SubtypeName         `json:"type"`
 	Model         string                       `json:"model"`
-	Frame         *referenceframe.LinkConfig     `json:"frame,omitempty"`
+	Frame         *referenceframe.LinkConfig   `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
 	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
 

@@ -64,7 +64,7 @@ func (m *SimpleModel) ChangeName(name string) {
 	m.name = name
 }
 
-// ChangeName changes the name of this model - necessary for building frame systems.
+// ModelConfig returns the ModelConfig object used to create this model.
 func (m *SimpleModel) ModelConfig() *ModelConfig {
 	return m.modelConfig
 }

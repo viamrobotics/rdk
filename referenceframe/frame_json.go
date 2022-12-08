@@ -2,8 +2,9 @@ package referenceframe
 
 import (
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/utils"
+
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // The following are joint types we treat as constants.
@@ -14,33 +15,35 @@ const (
 	RevoluteJoint   = "revolute"
 )
 
-// LinkConfig is a StaticFrame that also has a specified parent
+// LinkConfig is a StaticFrame that also has a specified parent.
 type LinkConfig struct {
-	ID          string                    `json:"id"`
-	Translation spatial.TranslationConfig `json:"translation"`
+	ID          string                     `json:"id"`
+	Translation r3.Vector                  `json:"translation"`
 	Orientation *spatial.OrientationConfig `json:"orientation"`
 	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"`
-	Parent      string                    `json:"parent,omitempty"`
+	Parent      string                     `json:"parent,omitempty"`
 }
 
+// JointConfig is a frame with nonzero DOF. Supports rotational or translational.
 type JointConfig struct {
-	ID     string             `json:"id"`
-	Type   string             `json:"type"`
-	Parent string             `json:"parent"`
-	Axis   spatial.AxisConfig `json:"axis"`
-	Max    float64            `json:"max"` // in mm or degs
-	Min    float64            `json:"min"` // in mm or degs
-	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"` // only valid for prismatic/translational joints
+	ID       string                  `json:"id"`
+	Type     string                  `json:"type"`
+	Parent   string                  `json:"parent"`
+	Axis     spatial.AxisConfig      `json:"axis"`
+	Max      float64                 `json:"max"`                // in mm or degs
+	Min      float64                 `json:"min"`                // in mm or degs
+	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"` // only valid for prismatic/translational joints
 }
 
+// DHParamConfig is a revolute and static frame combined in a set of Denavit Hartenberg parameters.
 type DHParamConfig struct {
-	ID       string                 `json:"id"`
-	Parent   string                 `json:"parent"`
-	A        float64                `json:"a"`
-	D        float64                `json:"d"`
-	Alpha    float64                `json:"alpha"`
-	Max      float64                `json:"max"` // in mm or degs
-	Min      float64                `json:"min"` // in mm or degs
+	ID       string                  `json:"id"`
+	Parent   string                  `json:"parent"`
+	A        float64                 `json:"a"`
+	D        float64                 `json:"d"`
+	Alpha    float64                 `json:"alpha"`
+	Max      float64                 `json:"max"` // in mm or degs
+	Min      float64                 `json:"min"` // in mm or degs
 	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"`
 }
 
@@ -58,19 +61,19 @@ func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
 		}
 	}
 	return &LinkConfig{
-		ID: frame.name,
-		Translation: *spatial.NewTranslationConfig(frame.transform.Point()),
+		ID:          frame.name,
+		Translation: frame.transform.Point(),
 		Orientation: orient,
-		Geometry: geom,
+		Geometry:    geom,
 	}, nil
 }
 
-// ParseConfig converts a LinkConfig into a staticFrame
+// ParseConfig converts a LinkConfig into a staticFrame.
 func (cfg *LinkConfig) ParseConfig() (Frame, error) {
 	return cfg.ToStaticFrame(cfg.ID)
 }
 
-// ToStaticFrame converts a LinkConfig into a staticFrame with a new name
+// ToStaticFrame converts a LinkConfig into a staticFrame with a new name.
 func (cfg *LinkConfig) ToStaticFrame(name string) (Frame, error) {
 	if name == "" {
 		name = cfg.ID
@@ -79,20 +82,20 @@ func (cfg *LinkConfig) ToStaticFrame(name string) (Frame, error) {
 	if err != nil {
 		return nil, err
 	}
-	
 	if cfg.Geometry != nil {
 		geom, err := cfg.Geometry.ParseConfig()
 		if err != nil {
 			return nil, err
 		}
-		NewStaticFrameWithGeometry(name, pose, geom)
+		return NewStaticFrameWithGeometry(name, pose, geom)
 	}
-	
+
 	return NewStaticFrame(name, pose)
 }
 
+// Pose will parse out the Pose of a LinkConfig and return it if it is valid.
 func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
-	pt := cfg.Translation.ParseConfig()
+	pt := cfg.Translation
 	if cfg.Orientation != nil {
 		orient, err := cfg.Orientation.ParseConfig()
 		if err != nil {
@@ -103,7 +106,7 @@ func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(pt), nil
 }
 
-// ToFrame converts a JointConfig into a joint frame
+// ToFrame converts a JointConfig into a joint frame.
 func (cfg *JointConfig) ToFrame() (Frame, error) {
 	switch cfg.Type {
 	case RevoluteJoint:

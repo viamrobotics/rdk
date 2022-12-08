@@ -2,21 +2,20 @@ package referenceframe
 
 import (
 	"encoding/json"
-	"os"
 	"io"
-	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 func TestStaticFrame(t *testing.T) {
@@ -187,10 +186,10 @@ func TestSerializationStatic(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-
 	f2Cfg := &LinkConfig{}
 	err = json.Unmarshal(data, f2Cfg)
-	
+	test.That(t, err, test.ShouldBeNil)
+
 	f2, err := f2Cfg.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -206,7 +205,8 @@ func TestSerializationTranslation(t *testing.T) {
 
 	f2Cfg := &JointConfig{}
 	err = json.Unmarshal(data, f2Cfg)
-	
+	test.That(t, err, test.ShouldBeNil)
+
 	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -223,11 +223,12 @@ func TestSerializationRotations(t *testing.T) {
 
 	f2Cfg := &JointConfig{}
 	err = json.Unmarshal(data, f2Cfg)
-	
+	test.That(t, err, test.ShouldBeNil)
+
 	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
-	//~ test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	// ~ test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -263,21 +264,13 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
 	test.That(t, err, test.ShouldBeNil)
-	bcConf, err := spatial.NewGeometryConfig(bc)
+	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
+	expFrame, err := NewStaticFrameWithGeometry("", pose, bc)
 	test.That(t, err, test.ShouldBeNil)
-	orientConf, err := spatial.NewOrientationConfig(&spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
+	sFrame, err := frame.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
-	
-	exp := LinkConfig{
-		Parent:      "world",
-		Translation: *spatial.NewTranslationConfig(r3.Vector{1, 2, 3}),
-		Orientation: orientConf,
-		Geometry:    bcConf,
-	}
-	sFrame, _ := frame.ToStaticFrame("")
-	fmt.Println(sFrame.Geometries([]Input{}))
-	fmt.Println(exp.Orientation.ParseConfig())
-	test.That(t, frame, test.ShouldResemble, exp)
+
+	test.That(t, sFrame, test.ShouldResemble, expFrame)
 
 	// test going back to json and validating.
 	rd, err := json.Marshal(&frame)
@@ -285,13 +278,15 @@ func TestFrame(t *testing.T) {
 	frame2 := LinkConfig{}
 	err = json.Unmarshal(rd, &frame2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, frame2, test.ShouldResemble, exp)
 
-	pose, err := frame.Pose()
+	sFrame2, err := frame2.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
-	orient, err := exp.Orientation.ParseConfig()
+	test.That(t, sFrame2, test.ShouldResemble, expFrame)
+
+	pose, err = frame.Pose()
 	test.That(t, err, test.ShouldBeNil)
-	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, orient)
+	expPose, err := expFrame.Transform([]Input{})
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 
 	staticFrame, err := frame.ToStaticFrame("test")

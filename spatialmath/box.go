@@ -28,9 +28,6 @@ type box struct {
 // NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
 func NewBoxCreator(dims r3.Vector, offset Pose, label string) (GeometryCreator, error) {
-	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, newBadGeometryDimensionsError(&box{})
-	}
 	halfSize := dims.Mul(0.5)
 	return &boxCreator{
 		halfSize:        halfSize,
@@ -74,9 +71,6 @@ func (bc *boxCreator) ToProtobuf() *commonpb.Geometry {
 
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
-	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
-		return nil, newBadGeometryDimensionsError(&box{})
-	}
 	halfSize := dims.Mul(0.5)
 	return &box{
 		pose:            pose,

@@ -242,6 +242,14 @@ func TestServiceWithRemote(t *testing.T) {
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	o2 := &spatialmath.R4AA{math.Pi / 2., 1, 0, 0}
+	o2Cfg, err := spatialmath.NewOrientationConfig(o2)
+	test.That(t, err, test.ShouldBeNil)
+
 	// make the local robot
 	localConfig := &config.Config{
 		Components: []config.Component{
@@ -250,7 +258,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Name:      "foo",
 				Type:      base.SubtypeName,
 				Model:     "fake",
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
 			},
@@ -259,7 +267,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Name:      "myParentIsRemote",
 				Type:      gripper.SubtypeName,
 				Model:     "fake",
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent: "bar:pieceArm",
 				},
 			},
@@ -268,19 +276,19 @@ func TestServiceWithRemote(t *testing.T) {
 			{
 				Name:    "bar",
 				Address: addr,
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent:      "foo",
 					Translation: r3.Vector{100, 200, 300},
-					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
+					Orientation: o1Cfg,
 				},
 			},
 			{
 				Name:    "squee",
 				Address: addr,
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent:      referenceframe.World,
 					Translation: r3.Vector{500, 600, 700},
-					Orientation: &spatialmath.R4AA{math.Pi / 2., 1, 0, 0},
+					Orientation: o2Cfg,
 				},
 			},
 			{

@@ -84,7 +84,7 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 type frameSystemService struct {
 	mu          sync.RWMutex
 	r           robot.Robot
-	localParts  framesystemparts.Parts             // gotten from the local robot's config.Config
+	localParts  framesystemparts.Parts                     // gotten from the local robot's config.Config
 	offsetParts map[string]*referenceframe.FrameSystemPart // gotten from local robot's config.Remote
 	logger      golog.Logger
 }
@@ -265,12 +265,11 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 			svc.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
 			continue
 		}
-		
+
 		// build the frame system part that connects remote world to base world
 		connection := &referenceframe.FrameSystemPart{
 			FrameConfig: rConf.Frame,
 		}
-		fmt.Println("rconf", rConf)
 		connection.FrameConfig.ID = rConf.Name + "_" + referenceframe.World
 		offsetParts[remoteName] = connection
 	}
