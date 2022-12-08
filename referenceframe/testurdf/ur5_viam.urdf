@@ -1,0 +1,111 @@
+<!-- This URDF is an (almost) exact conversion of our ModelJSON representation of a UR5 -->
+<!-- See components/arm/universalrobots/ur5e.json for the original content -->
+<?xml version="1.0" ?>
+<robot name="ur5">
+  <!-- This does not actually feature in the original ModelJSON, but is important to anchor the world_joint -->
+  <link name="world"/>
+
+  <!-- This does not actually feature in the original ModelJSON, but is important to anchor the world_joint -->
+  <joint name="base_joint" type="fixed"> 
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+  </joint>
+
+  <link name="base_link">
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.130"/>
+      <geometry>
+        <box size="0.120 0.120 0.260" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="shoulder_pan_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="shoulder_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.1625"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185" upper="6.283185" />
+  </joint>
+
+  <link name="shoulder_link" />
+
+  <joint name="shoulder_lift_joint" type="revolute">
+    <parent link="shoulder_link"/>
+    <child link="upper_arm_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="-0.425 0.0 0.0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.283185" upper="6.283185" />
+  </joint>
+
+  <link name="upper_arm_link">
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="-0.215 -0.130 0.0"/>
+      <geometry>
+        <box size="0.550 0.150 0.120" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forearm_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="-0.3922 0.0 0.0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-3.141592" upper="3.141592" />
+  </joint>
+
+  <link name="forearm_link">
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="-0.190 0.0 0.0"/>
+      <geometry>
+        <box size="0.480 0.120 0.100" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="wrist_1_joint" type="revolute">
+    <parent link="forearm_link"/>
+    <child link="wrist_1_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.1333 0.0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.283185" upper="6.283185" />
+  </joint>
+
+  <link name="wrist_1_link">
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.110 0.0"/>
+      <geometry>
+        <box size="0.090 0.130 0.130" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="wrist_2_joint" type="revolute">
+    <parent link="wrist_1_link"/>
+    <child link="wrist_2_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.0997"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="-6.283185" upper="6.283185" />
+  </joint>
+
+  <link name="wrist_2_link">
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.100"/>
+      <geometry>
+        <box size="0.080 0.150 0.100" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="wrist_3_joint" type="revolute">
+    <parent link="wrist_2_link"/>
+    <child link="ee_link"/>
+    <origin rpy="1.5707963 0.0 0.0" xyz="0.0 -0.0996 0.0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.283185" upper="6.283185" />
+  </joint>
+
+  <link name="ee_link" />
+</robot>
