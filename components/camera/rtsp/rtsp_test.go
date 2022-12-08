@@ -21,7 +21,7 @@ func TestRTSPCamera(t *testing.T) {
 	s, ok := server.New(configLoc)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer s.Close()
-	// run the test mp4 in a loop through ffmpeg to hand it to the server
+	// run the test mp4 in a loop through ffmpeg and hand it to the server
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	viamutils.PanicCapturingGo(func() {
@@ -39,11 +39,10 @@ func TestRTSPCamera(t *testing.T) {
 	rtspConf := &Attrs{Address: outputURL}
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	// get some frames from the image
 	stream, err := rtspCam.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldBeNil) // request first picture
+	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
 		_, _, err := stream.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
