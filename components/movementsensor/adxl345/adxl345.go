@@ -219,11 +219,6 @@ func (adxl *adxl345) writeByte(ctx context.Context, register, value byte) error 
 	return handle.WriteByteData(ctx, register, value)
 }
 
-// A helper function: takes 2 bytes and reinterprets them as a little-endian signed integer.
-func toSignedValue(data []byte) int {
-	return int(int16(binary.LittleEndian.Uint16(data)))
-}
-
 // Given a value, scales it so that the range of values read in becomes the range of +/- maxValue.
 // The trick here is that although the values are stored in 16 bits, the sensor only has 10 bits of
 // resolution. So, there are only (1 << 9) possible positive values, and a similar number of
@@ -233,9 +228,10 @@ func setScale(value int, maxValue float64) float64 {
 }
 
 func toLinearAcceleration(data []byte) r3.Vector {
-	x := toSignedValue(data[0:2])
-	y := toSignedValue(data[2:4])
-	z := toSignedValue(data[4:6])
+	// Vectors take ints, but we've got int16's, so we need to convert.
+	x := int(math.Int16FromBytesLE(data[0:2]))
+	y := int(math.Int16FromBytesLE(data[2:4]))
+	z := int(math.Int16FromBytesLE(data[4:6]))
 
 	// The default scale is +/- 2G's, but our units should be mm/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
