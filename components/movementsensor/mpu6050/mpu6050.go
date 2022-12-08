@@ -155,7 +155,42 @@ func NewMpu6050(
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
 	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(sensor.pollData)
+	utils.PanicCapturingGo(func () {
+		defer sensor.activeBackgroundWorkers.Done()
+		// Reading data a thousand times per second is probably fast enough.
+		timer := time.NewTicker(time.Millisecond)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-sensor.backgroundContext.Done():
+				return
+			case <-timer.C:
+				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
+				if err != nil {
+					sensor.logger.Infof("error reading MPU6050 sensor: '%s'", err)
+					sensor.mu.Lock()
+					sensor.lastError = err
+					sensor.mu.Unlock()
+					continue
+				}
+
+				linearAcceleration := toLinearAcceleration(rawData[0:6])
+				// Taken straight from the MPU6050 register map. Yes, these are weird constants.
+				temperature := float64(rutils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
+				angularVelocity := toAngularVelocity(rawData[8:14])
+
+				// Lock the mutex before modifying the state within the object. By keeping the mutex
+				// unlocked for everything else, we maximize the time when another thread can read the
+				// values.
+				sensor.mu.Lock()
+				sensor.linearAcceleration = linearAcceleration
+				sensor.temperature = temperature
+				sensor.angularVelocity = angularVelocity
+				sensor.mu.Unlock()
+			}
+		}
+	})
 
 	return sensor, nil
 }
@@ -232,43 +267,6 @@ func toLinearAcceleration(data []byte) r3.Vector {
 		X: setScale(x, maxAcceleration),
 		Y: setScale(y, maxAcceleration),
 		Z: setScale(z, maxAcceleration),
-	}
-}
-
-func (mpu *mpu6050) pollData() {
-	defer mpu.activeBackgroundWorkers.Done()
-	// Reading data a thousand times per second is probably fast enough.
-	timer := time.NewTicker(time.Millisecond)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-mpu.backgroundContext.Done():
-			return
-		case <-timer.C:
-			rawData, err := mpu.readBlock(mpu.backgroundContext, 59, 14)
-			if err != nil {
-				mpu.logger.Infof("error reading MPU6050 sensor: '%s'", err)
-				mpu.mu.Lock()
-				mpu.lastError = err
-				mpu.mu.Unlock()
-				continue
-			}
-
-			linearAcceleration := toLinearAcceleration(rawData[0:6])
-			// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-			temperature := float64(rutils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
-			angularVelocity := toAngularVelocity(rawData[8:14])
-
-			// Lock the mutex before modifying the state within the object. By keeping the mutex
-			// unlocked for everything else, we maximize the time when another thread can read the
-			// values.
-			mpu.mu.Lock()
-			mpu.linearAcceleration = linearAcceleration
-			mpu.temperature = temperature
-			mpu.angularVelocity = angularVelocity
-			mpu.mu.Unlock()
-		}
 	}
 }
 
