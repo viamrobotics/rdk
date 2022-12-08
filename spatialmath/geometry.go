@@ -83,7 +83,7 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 	offset := gc.Offset()
 	o := offset.Orientation()
 	config.TranslationOffset = *NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
-	orientationConfig, err := NewOrientationConfig(o.AxisAngles())
+	orientationConfig, err := NewOrientationConfig(o)
 	if err != nil {
 		return nil, err
 	}

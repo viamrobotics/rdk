@@ -1,6 +1,10 @@
 package referenceframe
 
 import (
+	"encoding/json"
+	"os"
+	"io"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -11,7 +15,8 @@ import (
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 func TestStaticFrame(t *testing.T) {
@@ -101,7 +106,7 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{overLimit}})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", utils.DegToRad(overLimit), OOBErrString, frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", rutils.DegToRad(overLimit), OOBErrString, frame.DoF()[0]))
 	// gets the correct limits back
 	limit := frame.DoF()
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
@@ -182,7 +187,11 @@ func TestSerializationStatic(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := UnmarshalFrameJSON(data)
+
+	f2Cfg := &LinkConfig{}
+	err = json.Unmarshal(data, f2Cfg)
+	
+	f2, err := f2Cfg.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
@@ -195,7 +204,10 @@ func TestSerializationTranslation(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := UnmarshalFrameJSON(data)
+	f2Cfg := &JointConfig{}
+	err = json.Unmarshal(data, f2Cfg)
+	
+	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
@@ -209,10 +221,13 @@ func TestSerializationRotations(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := UnmarshalFrameJSON(data)
+	f2Cfg := &JointConfig{}
+	err = json.Unmarshal(data, f2Cfg)
+	
+	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	//~ test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -231,9 +246,8 @@ func TestRandomFrameInputs(t *testing.T) {
 	}
 }
 
-
 func TestFrame(t *testing.T) {
-	file, err := os.Open("data/frame.json")
+	file, err := os.Open("../config/data/frame.json")
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(file.Close)
 
@@ -244,101 +258,45 @@ func TestFrame(t *testing.T) {
 	err = json.Unmarshal(data, &testMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	frame := Frame{}
+	frame := LinkConfig{}
 	err = json.Unmarshal(testMap["test"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
 	test.That(t, err, test.ShouldBeNil)
-	exp := Frame{
+	bcConf, err := spatial.NewGeometryConfig(bc)
+	test.That(t, err, test.ShouldBeNil)
+	orientConf, err := spatial.NewOrientationConfig(&spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
+	test.That(t, err, test.ShouldBeNil)
+	
+	exp := LinkConfig{
 		Parent:      "world",
-		Translation: r3.Vector{1, 2, 3},
-		Orientation: &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1},
-		Geometry:    bc,
+		Translation: *spatial.NewTranslationConfig(r3.Vector{1, 2, 3}),
+		Orientation: orientConf,
+		Geometry:    bcConf,
 	}
+	sFrame, _ := frame.ToStaticFrame("")
+	fmt.Println(sFrame.Geometries([]Input{}))
+	fmt.Println(exp.Orientation.ParseConfig())
 	test.That(t, frame, test.ShouldResemble, exp)
 
 	// test going back to json and validating.
 	rd, err := json.Marshal(&frame)
 	test.That(t, err, test.ShouldBeNil)
-	frame2 := Frame{}
+	frame2 := LinkConfig{}
 	err = json.Unmarshal(rd, &frame2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame2, test.ShouldResemble, exp)
 
-	pose := frame.Pose()
-	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, exp.Orientation)
+	pose, err := frame.Pose()
+	test.That(t, err, test.ShouldBeNil)
+	orient, err := exp.Orientation.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, orient)
 	test.That(t, pose, test.ShouldResemble, expPose)
 
-	staticFrame, err := frame.StaticFrame("test")
+	staticFrame, err := frame.ToStaticFrame("test")
 	test.That(t, err, test.ShouldBeNil)
 	expStaticFrame, err := NewStaticFrameWithGeometry("test", expPose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, staticFrame, test.ShouldResemble, expStaticFrame)
-}
-
-func TestMergeFrameSystems(t *testing.T) {
-	blankPos := map[string][]Input{}
-	// build 2 frame systems
-	fs1 := NewEmptySimpleFrameSystem("test1")
-	fs2 := NewEmptySimpleFrameSystem("test2")
-
-	frame1, err := NewStaticFrame("frame1", spatial.NewPoseFromPoint(r3.Vector{-5, 5, 0}))
-	test.That(t, err, test.ShouldBeNil)
-	err = fs1.AddFrame(frame1, fs1.World())
-	test.That(t, err, test.ShouldBeNil)
-	frame2, err := NewStaticFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{0, 0, 10}))
-	test.That(t, err, test.ShouldBeNil)
-	err = fs1.AddFrame(frame2, fs1.Frame("frame1"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// frame3 - pure translation
-	frame3, err := NewStaticFrame("frame3", spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
-	test.That(t, err, test.ShouldBeNil)
-	err = fs2.AddFrame(frame3, fs2.World())
-	test.That(t, err, test.ShouldBeNil)
-	// frame4 - pure rotiation around y 90 degrees
-	frame4, err := NewStaticFrame(
-		"frame4",
-		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
-	test.That(t, err, test.ShouldBeNil)
-	err = fs2.AddFrame(frame4, fs2.Frame("frame3"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// merge to fs1 with zero offset
-	err = MergeFrameSystems(fs1, fs2, nil)
-	test.That(t, err, test.ShouldBeNil)
-	poseStart := spatial.NewZeroPose()                         // PoV from frame 2
-	poseEnd := spatial.NewPoseFromPoint(r3.Vector{-9, -2, -3}) // PoV from frame 4
-	transformPoint, err := fs1.Transform(blankPos, NewPoseInFrame("frame2", poseStart), "frame4")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*PoseInFrame).Pose(), poseEnd), test.ShouldBeTrue)
-
-	// reset fs1 framesystem to original
-	fs1 = NewEmptySimpleFrameSystem("test1")
-	err = fs1.AddFrame(frame1, fs1.World())
-	test.That(t, err, test.ShouldBeNil)
-	err = fs1.AddFrame(frame2, fs1.Frame("frame1"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// merge to fs1 with an offset and rotation
-	offsetConfig := &Frame{
-		Parent: "frame1", Translation: r3.Vector{1, 2, 3},
-		Orientation: &spatial.R4AA{Theta: math.Pi / 2, RZ: 1.},
-	}
-	err = MergeFrameSystems(fs1, fs2, offsetConfig)
-	test.That(t, err, test.ShouldBeNil)
-	// the frame of test2_world is rotated around z by 90 degrees, then displaced by (1,2,3) in the frame of frame1,
-	// so the origin of frame1 from the perspective of test2_frame should be (-2, 1, -3)
-	poseStart = spatial.NewZeroPose()                        // PoV from frame 1
-	poseEnd = spatial.NewPoseFromPoint(r3.Vector{-2, 1, -3}) // PoV from the world of test2
-	transformPoint, err = fs1.Transform(blankPos, NewPoseInFrame("frame1", poseStart), "test2_world")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*PoseInFrame).Pose(), poseEnd), test.ShouldBeTrue)
-
-	// frame frame 2 to frame 4
-	poseStart = spatial.NewZeroPose()                        // PoV from frame 2
-	poseEnd = spatial.NewPoseFromPoint(r3.Vector{-6, -6, 0}) // PoV from frame 4
-	transformPoint, err = fs1.Transform(blankPos, NewPoseInFrame("frame2", poseStart), "frame4")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*PoseInFrame).Pose(), poseEnd), test.ShouldBeTrue)
 }

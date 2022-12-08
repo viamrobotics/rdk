@@ -3,7 +3,6 @@ package referenceframe
 import (
 	"errors"
 	"encoding/json"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -373,44 +372,6 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 	return q, errAll
 }
 
-// MergeFrameSystems will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
-// will be merged to the world frame of toFS with a 0 offset.
-func MergeFrameSystems(toFS, fromFS FrameSystem, cfg *LinkConfig) error {
-	var offsetFrame Frame
-	var err error
-	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
-		offsetFrame = NewZeroStaticFrame(fromFS.Name() + "_" + World)
-		err = toFS.AddFrame(offsetFrame, toFS.World())
-		if err != nil {
-			return err
-		}
-	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
-		geomCreator, err := cfg.Geometry.ParseConfig()
-		if err != nil {
-			return err
-		}
-		posePt := cfg.Translation.ParseConfig()
-		poseOrient, err := cfg.Orientation.ParseConfig()
-		if err != nil {
-			return err
-		}
-		cfgPose := spatial.NewPoseFromOrientation(posePt, poseOrient)
-		offsetFrame, err = NewStaticFrameWithGeometry(fromFS.Name() + "_" + World, cfgPose, geomCreator)
-		if err != nil {
-			return err
-		}
-		err = toFS.AddFrame(offsetFrame, toFS.Frame(cfg.Parent))
-		if err != nil {
-			return err
-		}
-	}
-	err = toFS.MergeFrameSystem(fromFS, offsetFrame)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // StartPositions returns a zeroed input map ensuring all frames have inputs.
 func StartPositions(fs FrameSystem) map[string][]Input {
 	positions := make(map[string][]Input)
@@ -432,10 +393,13 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	
-	geom, err := part.FrameConfig.Geometry.ToProtobuf()
-	if err != nil {
-		return nil, err
+	geoms := []*commonpb.Geometry{}
+	if part.FrameConfig.Geometry != nil {
+		geom, err := part.FrameConfig.Geometry.ToProtobuf()
+		if err != nil {
+			return nil, err
+		}
+		geoms = append(geoms, geom)
 	}
 	linkFrame := &commonpb.StaticFrame{
 		Name: part.FrameConfig.ID,
@@ -443,7 +407,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 			ReferenceFrame: part.FrameConfig.Parent,
 			Pose:           spatial.PoseToProtobuf(pose),
 		},
-		Geometries: []*commonpb.Geometry{geom},
+		Geometries: geoms,
 	}
 	var modelJson map[string]interface{}
 	if part.ModelFrame != nil {
@@ -465,6 +429,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
+	
 	pose := spatial.NewPoseFromProtobuf(fsc.Frame.PoseInParentFrame.Pose)
 	orient, err := spatial.NewOrientationConfig(pose.Orientation())
 	if err != nil {
@@ -492,9 +457,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
 	}
-	fmt.Println("id", frameConfig.ID)
-	fmt.Println("fsc", fsc.Frame)
-	fmt.Println("part", part.FrameConfig)
+
 	if len(fsc.Kinematics.AsMap()) > 0 {
 		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 		if err != nil {

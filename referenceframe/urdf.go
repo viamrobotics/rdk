@@ -139,7 +139,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (Model, error) {
 		case "continuous", "revolute", "prismatic":
 			// Parse important details about each joint, including axes and limits
 			jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
-			thisJoint := JointCfg{
+			thisJoint := JointConfig{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,

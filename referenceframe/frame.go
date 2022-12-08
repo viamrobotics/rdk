@@ -359,7 +359,7 @@ func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
 	if len(pf.limits) > 1 {
 		return nil, errors.New("cannot marshal translational frame with >1 DOF, use a mobile2DFrame or a Model")
 	}
-	temp := JointCfg{
+	temp := JointConfig{
 		ID: pf.name,
 		Type: "prismatic",
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
@@ -442,12 +442,12 @@ func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
 	if len(rf.limits) > 1 {
 		return nil, errors.New("cannot marshal revolute frame with >1 DOF, use a Model")
 	}
-	temp := JointCfg{
+	temp := JointConfig{
 		ID: rf.name,
 		Type: "revolute",
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
-		Max:  rf.limits[0].Max,
-		Min:  rf.limits[0].Min,
+		Max:  utils.RadToDeg(rf.limits[0].Max),
+		Min:  utils.RadToDeg(rf.limits[0].Min),
 	}
 
 	return json.Marshal(temp)

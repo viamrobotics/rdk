@@ -1,7 +1,8 @@
 package referenceframe
 
 import (
-	"reflect"
+	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/utils"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -14,7 +15,7 @@ type LinkConfig struct {
 	Parent      string                    `json:"parent,omitempty"`
 }
 
-type JointCfg struct {
+type JointConfig struct {
 	ID     string             `json:"id"`
 	Type   string             `json:"type"`
 	Parent string             `json:"parent"`
@@ -24,7 +25,7 @@ type JointCfg struct {
 	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"` // only valid for prismatic/translational joints
 }
 
-type DHParamCfg struct {
+type DHParamConfig struct {
 	ID       string                 `json:"id"`
 	Parent   string                 `json:"parent"`
 	A        float64                `json:"a"`
@@ -63,24 +64,47 @@ func (cfg *LinkConfig) ParseConfig() (Frame, error) {
 
 // ToStaticFrame converts a LinkConfig into a staticFrame with a new name
 func (cfg *LinkConfig) ToStaticFrame(name string) (Frame, error) {
+	if name == "" {
+		name = cfg.ID
+	}
 	pose, err := cfg.Pose()
+	if err != nil {
+		return nil, err
+	}
 	
-	var geom spatial.GeometryCreator
-	if !reflect.DeepEqual(cfg.Geometry, spatial.GeometryConfig{}) {
-		geom, err = cfg.Geometry.ParseConfig()
+	if cfg.Geometry != nil {
+		geom, err := cfg.Geometry.ParseConfig()
 		if err != nil {
 			return nil, err
 		}
+		NewStaticFrameWithGeometry(name, pose, geom)
 	}
 	
-	return NewStaticFrameWithGeometry(name, pose, geom)
+	return NewStaticFrame(name, pose)
 }
 
 func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 	pt := cfg.Translation.ParseConfig()
-	orient, err := cfg.Orientation.ParseConfig()
-	if err != nil {
-		return nil, err
+	if cfg.Orientation != nil {
+		orient, err := cfg.Orientation.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		return spatial.NewPoseFromOrientation(pt, orient), nil
 	}
-	return spatial.NewPoseFromOrientation(pt, orient), nil
+	return spatial.NewPoseFromPoint(pt), nil
+}
+
+// ToFrame converts a JointConfig into a joint frame
+func (cfg *JointConfig) ToFrame() (Frame, error) {
+	switch cfg.Type {
+	case "revolute":
+		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(),
+			Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
+	case "prismatic":
+		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis),
+			Limit{Min: cfg.Min, Max: cfg.Max})
+	default:
+		return nil, NewUnsupportedJointTypeError(cfg.Type)
+	}
 }

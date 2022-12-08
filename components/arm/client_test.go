@@ -2,9 +2,10 @@ package arm_test
 
 import (
 	"context"
-	"math"
+	//~ "math"
 	"net"
 	"testing"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -18,7 +19,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -232,20 +232,22 @@ func TestClientModel(t *testing.T) {
 	}
 
 	// create basic Model for arm
-	model := referenceframe.NewSimpleModel("foo")
-	rf, err := referenceframe.NewRotationalFrame("bar", spatialmath.R4AA{RX: 1}, referenceframe.Limit{Min: -math.Pi, Max: math.Pi})
+	json := `{"name": "foo","joints": [{"id": "bar","type": "revolute","parent": "world","axis": {"x": 1},"max": 360,"min": -360}]}`
+
+	model, err := referenceframe.UnmarshalModelJSON([]byte(json), "")
 	test.That(t, err, test.ShouldBeNil)
-	model.OrdTransforms = []referenceframe.Frame{rf}
 
 	// creat inject Robot
 	injectRobot := &inject.Robot{}
+	fmt.Println("model1", model)
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.PoseInFrame,
 	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{&config.FrameSystemPart{
-			Name: testArmName,
-			FrameConfig: &config.Frame{
+		fmt.Println("model2", model)
+		return framesystemparts.Parts{&referenceframe.FrameSystemPart{
+			FrameConfig: &referenceframe.LinkConfig{
+				ID: testArmName,
 				Parent: referenceframe.World,
 			},
 			ModelFrame: model,

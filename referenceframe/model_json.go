@@ -5,7 +5,6 @@ import (
 	"os"
 	"fmt"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -15,10 +14,10 @@ import (
 // ModelConfig represents all supported fields in a kinematics JSON file.
 type ModelConfig struct {
 	Name         string           `json:"name"`
-	KinParamType string           `json:"kinematic_param_type"`
-	Links        []LinkConfig       `json:"links"`
-	Joints       []JointCfg      `json:"joints"`
-	DHParams     []DHParamCfg    `json:"dhParams"`
+	KinParamType string           `json:"kinematic_param_type,omitempty"`
+	Links        []LinkConfig       `json:"links,omitempty"`
+	Joints       []JointConfig      `json:"joints,omitempty"`
+	DHParams     []DHParamConfig    `json:"dhParams,omitempty"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
@@ -50,39 +49,17 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 		for _, link := range cfg.Links {
 			parentMap[link.ID] = link.Parent
-			orientation := spatial.NewZeroOrientation()
-			if link.Orientation != nil {
-				orientation, err = link.Orientation.ParseConfig()
-				if err != nil {
-					return nil, err
-				}
+			transforms[link.ID], err = link.ToStaticFrame(link.ID)
+			if err != nil {
+				return nil, err
 			}
-			pose := spatial.NewPoseFromOrientation(link.Translation.ParseConfig(), orientation)
-			if link.Geometry != nil {
-				geometryCreator, err := link.Geometry.ParseConfig()
-				if err != nil {
-					return nil, err
-				}
-				transforms[link.ID], err = NewStaticFrameWithGeometry(link.ID, pose, geometryCreator)
-			}else{
-				transforms[link.ID], err = NewStaticFrame(link.ID, pose)
-			}
-			
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 		for _, joint := range cfg.Joints {
 			parentMap[joint.ID] = joint.Parent
-			switch joint.Type {
-			case "revolute":
-				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
-					Limit{Min: utils.DegToRad(joint.Min), Max: utils.DegToRad(joint.Max)})
-			case "prismatic":
-				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
-					Limit{Min: joint.Min, Max: joint.Max})
-			default:
-				return nil, NewUnsupportedJointTypeError(joint.Type)
-			}
+			
+			transforms[joint.ID], err = joint.ToFrame()
 			if err != nil {
 				return nil, err
 			}
