@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/module"
@@ -22,20 +21,8 @@ import (
 	"go.viam.com/utils"
 )
 
-var logger = NewLogger()
-
-func NewLogger() (*zap.SugaredLogger) {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.OutputPaths = []string{"/tmp/mod.log"}
-	l, err := cfg.Build()
-	if err != nil {
-		return nil
-	}
-	return l.Sugar()
-}
-
 func main() {
-	utils.ContextualMain(mainWithArgs, logger.Named("acme demo module"))
+	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("ComplexModule"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
