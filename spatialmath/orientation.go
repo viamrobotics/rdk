@@ -46,3 +46,5 @@ func OrientationInverse(o Orientation) Orientation {
 	q := Quaternion(quat.Inv(o.Quaternion()))
 	return &q
 }
+
+// add rotate function aka compose the way we call it compose in pose.go
