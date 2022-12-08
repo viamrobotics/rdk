@@ -6,6 +6,14 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+// The following are joint types we treat as constants.
+const (
+	FixedJoint      = "fixed"
+	ContinuousJoint = "continuous"
+	PrismaticJoint  = "prismatic"
+	RevoluteJoint   = "revolute"
+)
+
 // LinkConfig is a StaticFrame that also has a specified parent
 type LinkConfig struct {
 	ID          string                    `json:"id"`
@@ -98,10 +106,10 @@ func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 // ToFrame converts a JointConfig into a joint frame
 func (cfg *JointConfig) ToFrame() (Frame, error) {
 	switch cfg.Type {
-	case "revolute":
+	case RevoluteJoint:
 		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(),
 			Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
-	case "prismatic":
+	case PrismaticJoint:
 		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis),
 			Limit{Min: cfg.Min, Max: cfg.Max})
 	default:

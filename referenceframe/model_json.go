@@ -58,7 +58,6 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 		for _, joint := range cfg.Joints {
 			parentMap[joint.ID] = joint.Parent
-			
 			transforms[joint.ID], err = joint.ToFrame()
 			if err != nil {
 				return nil, err
@@ -80,8 +79,11 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			linkID := dh.ID
 			pose := spatial.NewPoseFromDH(dh.A, dh.D, utils.DegToRad(dh.Alpha))
 			parentMap[linkID] = jointID
-			geometryCreator, err := dh.Geometry.ParseConfig()
-			if err == nil {
+			if dh.Geometry != nil {
+				geometryCreator, err := dh.Geometry.ParseConfig()
+				if err != nil {
+					return nil, err
+				}
 				transforms[dh.ID], err = NewStaticFrameWithGeometry(dh.ID, pose, geometryCreator)
 			} else {
 				transforms[dh.ID], err = NewStaticFrame(dh.ID, pose)
@@ -121,12 +123,11 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	}
 
 	// Create an ordered list of transforms
-	orderedTransforms, err := sortTransforms(transforms, parentMap, eename, World)
+	model.OrdTransforms, err = sortTransforms(transforms, parentMap, eename, World)
 	if err != nil {
 		return nil, err
 	}
 
-	model.OrdTransforms = orderedTransforms
 	return model, nil
 }
 

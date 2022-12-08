@@ -21,25 +21,22 @@ func TestParseURDFFile(t *testing.T) {
 
 	err = simple.validInputs(FloatsToInputs([]float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}))
 	test.That(t, err, test.ShouldBeNil)
-	err = simple.validInputs(FloatsToInputs([]float64{100.0, 100.0, 100.0, 100.0, 100.0, 100.0}))
-	test.That(t, err, test.ShouldNotBeNil)
 
 	randpos := GenerateRandomConfiguration(u, rand.New(rand.NewSource(1)))
 	test.That(t, simple.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
 
+	// Test a URDF which has prismatic joints
+	u, err = ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/example_gantry.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(u.DoF()), test.ShouldEqual, 2)
+
+	// Test naming of a URDF to something other than the robot's name element
 	u, err = ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
 
-func TestURDFConfigGen(t *testing.T) {
-	_, err := ParseURDFFileAsConfig(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = ParseURDFFileAsConfig(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
-	test.That(t, err, test.ShouldBeNil)
-}
-
+//nolint:dupl
 func TestURDFTransforms(t *testing.T) {
 	u, err := ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_minimal.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -87,5 +84,5 @@ func TestURDFGeometries(t *testing.T) {
 
 	inputs = make([]Input, len(ur5ViamModel.DoF()))
 	modelGeo, _ = ur5ViamModel.Geometries(inputs)
-	test.That(t, len(modelGeo.geometries), test.ShouldEqual, 4)
+	test.That(t, len(modelGeo.geometries), test.ShouldEqual, 5)
 }

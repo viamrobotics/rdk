@@ -2,6 +2,9 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
+// ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
+var ErrCircularReference = errors.New("infinite loop finding path from end effector to world")
+
 // ErrEmptyStringFrameName denotes an error when a frame with a name "" is specified.
 var ErrEmptyStringFrameName = errors.New("frame with name \"\" cannot be used")
 
@@ -28,9 +31,4 @@ func NewIncorrectInputLengthError(actual, expected int) error {
 // NewUnsupportedJointTypeError returns an error indicating that a given joint type is not supported by current model parsing.
 func NewUnsupportedJointTypeError(jointType string) error {
 	return errors.Errorf("unsupported joint type detected: %q", jointType)
-}
-
-// NewCircularReferenceError returns an error indicating that a circular path exists somewhere between the end effector and the world.
-func NewCircularReferenceError() error {
-	return errors.Errorf("infinite loop finding path from end effector to world")
 }
