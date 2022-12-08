@@ -3,7 +3,6 @@ package mpu6050
 
 import (
 	"context"
-	"encoding/binary"
 	"math"
 	"sync"
 	"time"
@@ -208,9 +207,9 @@ func setScale(value int, maxValue float64) float64 {
 // A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity, in
 // radians per second.
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
-	gx := int(math.Int16FromBytesBE(data[0:2]))
-	gy := int(math.Int16FromBytesBE(data[2:4]))
-	gz := int(math.Int16FromBytesBE(data[4:6]))
+	gx := int(rutils.Int16FromBytesBE(data[0:2]))
+	gy := int(rutils.Int16FromBytesBE(data[2:4]))
+	gz := int(rutils.Int16FromBytesBE(data[4:6]))
 
 	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
 	radiansPerDegree := math.Pi / 180.0
@@ -223,9 +222,9 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 
 // A helper function that takes 6 bytes and gives back linear acceleration.
 func toLinearAcceleration(data []byte) r3.Vector {
-	x := int(math.Int16FromBytesBE(data[0:2]))
-	y := int(math.Int16FromBytesBE(data[2:4]))
-	z := int(math.Int16FromBytesBE(data[4:6]))
+	x := int(rutils.Int16FromBytesBE(data[0:2]))
+	y := int(rutils.Int16FromBytesBE(data[2:4]))
+	z := int(rutils.Int16FromBytesBE(data[4:6]))
 
 	// The scale is +/- 2G's, but our units should be mm/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
@@ -258,7 +257,7 @@ func (mpu *mpu6050) pollData() {
 
 			linearAcceleration := toLinearAcceleration(rawData[0:6])
 			// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-			temperature := float64(math.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
+			temperature := float64(rutils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
 			angularVelocity := toAngularVelocity(rawData[8:14])
 
 			// Lock the mutex before modifying the state within the object. By keeping the mutex
