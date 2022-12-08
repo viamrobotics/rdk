@@ -6,7 +6,6 @@ package adxl345
 
 import (
 	"context"
-	"encoding/binary"
 	"sync"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const modelName = "accel-adxl345"
@@ -94,7 +94,7 @@ func NewAdxl345(
 ) (movementsensor.MovementSensor, error) {
 	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, errors.Error("Cannot convert attributes to correct config type")
+		return nil, errors.New("Cannot convert attributes to correct config type")
 	}
 	b, err := board.FromDependencies(deps, cfg.BoardName)
 	if err != nil {
@@ -229,9 +229,9 @@ func setScale(value int, maxValue float64) float64 {
 
 func toLinearAcceleration(data []byte) r3.Vector {
 	// Vectors take ints, but we've got int16's, so we need to convert.
-	x := int(math.Int16FromBytesLE(data[0:2]))
-	y := int(math.Int16FromBytesLE(data[2:4]))
-	z := int(math.Int16FromBytesLE(data[4:6]))
+	x := int(rutils.Int16FromBytesLE(data[0:2]))
+	y := int(rutils.Int16FromBytesLE(data[2:4]))
+	z := int(rutils.Int16FromBytesLE(data[4:6]))
 
 	// The default scale is +/- 2G's, but our units should be mm/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */

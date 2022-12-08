@@ -296,11 +296,11 @@ func Uint32FromBytesBE(bytes []byte) uint32 {
 }
 
 // Int16FromBytesLE converts an array of bytes ordered in little-endian to a (signed) int16.
-func Int16FromBytesBE(bytes []byte) int16 {
-	return int16(binary.LittleEndian.Uint16(data))
+func Int16FromBytesLE(bytes []byte) int16 {
+	return int16(binary.LittleEndian.Uint16(bytes))
 }
 
 // Int16FromBytesBE converts an array of bytes ordered in big-endian to a (signed) int16.
 func Int16FromBytesBE(bytes []byte) int16 {
-	return int16(binary.BigEndian.Uint16(data))
+	return int16(binary.BigEndian.Uint16(bytes))
 }
