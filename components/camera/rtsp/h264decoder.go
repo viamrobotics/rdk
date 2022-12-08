@@ -1,5 +1,8 @@
 package rtsp
 
+// site:https://github.com/aler9/gortsplib/examples
+// author:Alessandro Ros
+
 // #cgo pkg-config: libavcodec libavutil libswscale
 // #include <libavcodec/avcodec.h>
 // #include <libavutil/imgutils.h>
@@ -14,9 +17,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
 	"github.com/pkg/errors"
 )
-
-// site:https://github.com/aler9/gortsplib/examples
-// author:Alessandro Ros
 
 func frameData(frame *C.AVFrame) **C.uint8_t {
 	return (**C.uint8_t)(unsafe.Pointer(&frame.data[0]))
