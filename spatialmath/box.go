@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
@@ -386,14 +387,11 @@ func toPC(b Geometry) (r3.Vector, error) {
 		}
 	}
 
-	// fmt.Println(frontFace)
-	// fmt.Println(my_list)
-	// myMat := mat.NewDense(3, 3, rotMat[:])
+	f, _ := os.Create("/Users/nick/Desktop/play/data1.txt")
+	f.WriteString(my_list.String())
+	f.Close()
 
-	// todo: correct rotations for faces
-	// leftRot := &r2.Rotation{sin: 0, cos: 1, p: 1}
-
-	whatIsThis := rot.NewRotation(90.0, rot.Vec{X: 1, Y: 0, Z: 0})
+	whatIsThis := rot.NewRotation(90.0, rot.Vec{X: 1, Y: -1, Z: 1})
 	fmt.Println("whatIsThis", whatIsThis)
 	super_list := golist.New()
 	for i := 0; i < len(rotFrontVecs); i++ {
@@ -404,9 +402,11 @@ func toPC(b Geometry) (r3.Vector, error) {
 		points_list.Append(newVec.Z)
 		super_list.Append(points_list)
 	}
-	fmt.Println(" ")
-	fmt.Println(super_list)
-	// todo: write to a an exportable format
+
+	f, _ = os.Create("/Users/nick/Desktop/play/data.txt")
+	f.WriteString(super_list.String())
+	f.Close()
+	fmt.Println("hey")
 	// var leftFace [][]float64
 	// var rightFace [][]float64
 	// var topFace [][]float64
