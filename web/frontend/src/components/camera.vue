@@ -3,7 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import { Client, cameraApi, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { CameraClient, Camera, Client, cameraApi, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
@@ -66,16 +66,14 @@ const toggleExpand = () => {
 };
 
 const renderPCD = () => {
-  const request = new cameraApi.GetPointCloudRequest();
-  request.setName(props.cameraName);
-  request.setMimeType('pointcloud/pcd');
-  props.client.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
-    if (error) {
+  new CameraClient(props.client, props.cameraName)
+    .getPointCloud()
+    .then((bytes) => {
+      pointcloud = bytes;
+    })
+    .catch((error) => {
       toast.error(`Error getting point cloud: ${error}`);
-      return;
-    }
-    pointcloud = response!.getPointCloud_asU8();
-  });
+    });
 };
 
 const togglePCDExpand = () => {
@@ -102,18 +100,12 @@ const refreshCamera = () => {
 };
 
 const exportScreenshot = (cameraName: string) => {
-  const req = new cameraApi.RenderFrameRequest();
-  req.setName(cameraName);
-  req.setMimeType('image/jpeg');
-
-  props.client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-
-    const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-    window.open(URL.createObjectURL(blob), '_blank');
-  });
+  new CameraClient(props.client, cameraName)
+    .renderFrame(Camera.MimeType.JPEG)
+    .then((blob) => {
+      window.open(URL.createObjectURL(blob), '_blank');
+    })
+    .catch(displayError);
 };
 
 onMounted(() => {
