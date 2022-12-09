@@ -56,10 +56,8 @@ func (octree *basicOctree) Size() int {
 	return octree.size
 }
 
-// Set recursively iterates through a basic octree, attempting to add a given point and data to the tree. It first
-// checks if the point falls within the bounds of the tree (based on its center and side length) as well as current
-// recursion depth before either, being recursively called on the children trees, splitting the tree into octants if
-// a point already exists or setting the point if no point is present.
+// Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
+// ensuring it falls within the bounds of the given basic octree.
 func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
 	return octree.helperSet(p, d, 0)
 }
