@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { grpc } from "@improbable-eng/grpc-web";
-import { Client, motorApi } from "@viamrobotics/sdk";
-import { displayError } from "../lib/error";
-import { rcLogConditionally } from "../lib/log";
-import InfoButton from "./info-button.vue";
+import { grpc } from '@improbable-eng/grpc-web';
+import { Client, motorApi } from '@viamrobotics/sdk';
+import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
+import InfoButton from './info-button.vue';
 
 interface Props {
   name: string;
@@ -13,30 +13,30 @@ interface Props {
 
 const props = defineProps<Props>();
 
-type MovementTypes = "go" | "goFor" | "goTo";
+type MovementTypes = 'go' | 'goFor' | 'goTo';
 
 const position = $ref(0);
 const rpm = $ref(0);
 const power = $ref(50);
 const revolutions = $ref(0);
 
-let movementType = $ref("Go");
+let movementType = $ref('Go');
 let direction = $ref<-1 | 1>(1);
-let type = $ref<MovementTypes>("go");
+let type = $ref<MovementTypes>('go');
 
 const setMovementType = (value: string) => {
   movementType = value;
   switch (value) {
-    case "Go": {
-      type = "go";
+    case 'Go': {
+      type = 'go';
       break;
     }
-    case "Go For": {
-      type = "goFor";
+    case 'Go For': {
+      type = 'goFor';
       break;
     }
-    case "Go To": {
-      type = "goTo";
+    case 'Go To': {
+      type = 'goTo';
       break;
     }
   }
@@ -44,11 +44,11 @@ const setMovementType = (value: string) => {
 
 const setDirection = (value: string) => {
   switch (value) {
-    case "Forwards": {
+    case 'Forwards': {
       direction = 1;
       break;
     }
-    case "Backwards": {
+    case 'Backwards': {
       direction = -1;
       break;
     }
@@ -90,13 +90,13 @@ const goTo = () => {
 
 const motorRun = () => {
   switch (type) {
-    case "go": {
+    case 'go': {
       return setPower();
     }
-    case "goFor": {
+    case 'goFor': {
       return goFor();
     }
-    case "goTo": {
+    case 'goTo': {
       return goTo();
     }
   }
@@ -112,12 +112,32 @@ const motorStop = () => {
 </script>
 
 <template>
-  <v-collapse :title="name" class="motor">
-    <v-breadcrumbs slot="title" crumbs="motor" />
-    <div slot="header" class="flex items-center justify-between gap-2">
-      <v-badge v-if="status.positionReporting" :label="`Position ${status.position}`" />
-      <v-badge v-if="status.isPowered" variant="green" label="Running" />
-      <v-badge v-else-if="!status.isPowered" variant="gray" label="Idle" />
+  <v-collapse
+    :title="name"
+    class="motor"
+  >
+    <v-breadcrumbs
+      slot="title"
+      crumbs="motor"
+    />
+    <div
+      slot="header"
+      class="flex items-center justify-between gap-2"
+    >
+      <v-badge
+        v-if="status.positionReporting"
+        :label="`Position ${status.position}`"
+      />
+      <v-badge
+        v-if="status.isPowered"
+        variant="green"
+        label="Running"
+      />
+      <v-badge
+        v-else-if="!status.isPowered"
+        variant="gray"
+        label="Idle"
+      />
       <v-button
         variant="danger"
         icon="stop-circle"
@@ -136,7 +156,10 @@ const motorStop = () => {
           @input="setMovementType($event.detail.value)"
         />
         <div class="flex flex-wrap gap-4 mb-4">
-          <div v-if="movementType === 'Go To'" class="flex flex-wrap gap-2 pt-4">
+          <div
+            v-if="movementType === 'Go To'"
+            class="flex flex-wrap gap-2 pt-4"
+          >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
               <InfoButton :info-rows="['Relative to Home']" />
@@ -156,7 +179,10 @@ const motorStop = () => {
               @input="rpm = $event.detail.value"
             />
           </div>
-          <div v-if="movementType === 'Go For'" class="flex flex-wrap gap-4">
+          <div
+            v-if="movementType === 'Go For'"
+            class="flex flex-wrap gap-4"
+          >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
               <InfoButton :info-rows="['Relative to where the robot is currently']" />
@@ -182,7 +208,10 @@ const motorStop = () => {
               @input="rpm = $event.detail.value"
             />
           </div>
-          <div v-if="movementType === 'Go'" class="flex flex-wrap gap-4">
+          <div
+            v-if="movementType === 'Go'"
+            class="flex flex-wrap gap-4"
+          >
             <div class="flex flex-wrap gap-2">
               <span class="text-lg">{{ movementType }}</span>
               <InfoButton :info-rows="['Continuously moves']" />
