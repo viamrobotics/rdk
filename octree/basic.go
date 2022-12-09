@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxRecursionDepth = 100
+	maxRecursionDepth = 1000
 )
 
 // basicOctree is a data structure that represents a basic octree structure with information regarding center
