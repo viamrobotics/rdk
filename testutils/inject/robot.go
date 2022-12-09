@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -43,6 +44,7 @@ type Robot struct {
 	) (*referenceframe.PoseInFrame, error)
 	StatusFunc        func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc func() (string, error)
+	ModuleManagerFunc func() modmaninterface.ModuleManager
 
 	ops     *operation.Manager
 	opsLock sync.Mutex
@@ -246,4 +248,14 @@ func (r *Robot) ModuleAddress() (string, error) {
 		return r.LocalRobot.ModuleAddress()
 	}
 	return r.ModuleAddressFunc()
+}
+
+// ModuleManager call the injected ModuleManager or the real one.
+func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleManagerFunc == nil {
+		return r.LocalRobot.ModuleManager()
+	}
+	return r.ModuleManagerFunc()
 }

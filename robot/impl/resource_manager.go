@@ -355,8 +355,8 @@ func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error 
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 
-		if r.modules != nil && r.modules.IsModularResource(x) {
-			if err := r.modules.RemoveResource(ctx, x); err != nil {
+		if r.modules != nil && r.ModuleManager().IsModularResource(x) {
+			if err := r.ModuleManager().RemoveResource(ctx, x); err != nil {
 				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource"))
 			}
 		}
@@ -390,7 +390,7 @@ func (manager *resourceManager) completeConfig(
 				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
 				continue
 			}
-			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
+			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot) // SMURF remove "r" here?
 			if err != nil {
 				manager.logger.Errorw("error building component", "resource", c.ResourceName(), "model", c.Model, "error", err)
 				wrap.err = errors.Wrap(err, "component build error")
