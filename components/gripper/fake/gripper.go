@@ -3,6 +3,8 @@ package fake
 
 import (
 	"context"
+	"fmt"
+
 	// for embedding model file.
 	_ "embed"
 
@@ -28,6 +30,8 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			fmt.Println("components/gripper/fake/gripper.go/init()")
+			fmt.Println("config.Name: ", config.Name)
 			var g gripper.LocalGripper = &Gripper{Name: config.Name}
 
 			return g, nil

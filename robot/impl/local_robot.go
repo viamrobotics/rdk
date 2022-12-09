@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -705,6 +706,7 @@ func dialRobotClient(
 	logger golog.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
+	fmt.Println("robot/impl/local_robot.go/dialRobotClient()")
 	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...), client.WithRemoteName(config.Name)}
 
 	if config.ConnectionCheckInterval != 0 {
