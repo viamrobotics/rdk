@@ -441,14 +441,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
-}
 
-func TestBasicOctreeIterate2(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
-	side := 2.0
 	t.Run("Iterate non-zero batch check of an multi-level basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -485,6 +478,14 @@ func TestBasicOctreeIterate2(t *testing.T) {
 			return true
 		})
 		test.That(t, total, test.ShouldEqual, pointsAndData[2].D.Value())
+
+		// Batched process (numBatches = octree size, currentBatch = 3)
+		total = 0
+		basicOct.Iterate(3, 3, func(p r3.Vector, d pc.Data) bool {
+			total += d.Value()
+			return true
+		})
+		test.That(t, total, test.ShouldEqual, 0)
 
 		// Batched process (numBatches > octree size, currentBatch = 0)
 		total = 0
