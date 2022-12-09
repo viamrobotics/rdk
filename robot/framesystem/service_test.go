@@ -46,12 +46,12 @@ func TestFrameSystemFromConfig(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	transforms := []*referenceframe.PoseInFrame{
-		referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "frame1"),
-		referenceframe.NewNamedPoseInFrame("pieceGripper", testPose, "frame2"),
-		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2a"),
-		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2c"),
-		referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "frame3"),
+	transforms := []*referenceframe.LinkInFrame{
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "frame1")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("pieceGripper", testPose, "frame2")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2a")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2c")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "frame3")},
 	}
 
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transforms)
@@ -212,15 +212,17 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
 
-	transforms := []*referenceframe.PoseInFrame{
-		referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "frame1"),
-		referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2"),
+	transforms := []*referenceframe.LinkInFrame{
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "frame1")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2")},
 	}
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transforms)
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	test.That(t, fs, test.ShouldBeNil)
 
-	transforms = []*referenceframe.PoseInFrame{referenceframe.NewPoseInFrame("pieceArm", testPose)}
+	transforms = []*referenceframe.LinkInFrame{
+		{PoseInFrame: referenceframe.NewPoseInFrame("pieceArm", testPose)},
+	}
 	fs, err = framesystem.RobotFrameSystem(context.Background(), r, transforms)
 	test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 	test.That(t, fs, test.ShouldBeNil)
@@ -304,12 +306,12 @@ func TestServiceWithRemote(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	transforms := []*referenceframe.PoseInFrame{
-		referenceframe.NewNamedPoseInFrame("bar:pieceArm", testPose, "frame1"),
-		referenceframe.NewNamedPoseInFrame("bar:pieceGripper", testPose, "frame2"),
-		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2a"),
-		referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2c"),
-		referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "frame3"),
+	transforms := []*referenceframe.LinkInFrame{
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("bar:pieceArm", testPose, "frame1")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("bar:pieceGripper", testPose, "frame2")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2a")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame("frame2", testPose, "frame2c")},
+		{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "frame3")},
 	}
 
 	r2, err := robotimpl.New(context.Background(), localConfig, logger)
@@ -318,7 +320,11 @@ func TestServiceWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
-	allParts, err := r2.FrameSystemConfig(context.Background(), transforms)
+	pifTransforms := make([]*referenceframe.PoseInFrame, 0, len(transforms))
+	for _, tf := range transforms {
+		pifTransforms = append(pifTransforms, tf.PoseInFrame)
+	}
+	allParts, err := r2.FrameSystemConfig(context.Background(), pifTransforms)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 }

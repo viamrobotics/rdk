@@ -1228,27 +1228,20 @@ func TestClientDiscovery(t *testing.T) {
 }
 
 func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
-	if part.FrameConfig.ID != otherPart.FrameConfig.ID {
-		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.ID, otherPart.FrameConfig.ID)
+	if part.FrameConfig.Name() != otherPart.FrameConfig.Name() {
+		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
-	if frameConfig.Parent != otherFrameConfig.Parent {
-		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
+	if frameConfig.Parent() != otherFrameConfig.Parent() {
+		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
 	}
-	if !spatialmath.R3VectorAlmostEqual(frameConfig.Translation, otherFrameConfig.Translation, 1e-8) {
+	if !spatialmath.R3VectorAlmostEqual(frameConfig.Pose().Point(), otherFrameConfig.Pose().Point(), 1e-8) {
 		return errors.New("translations of parts not equal")
 	}
-	pose, err := frameConfig.Pose()
-	if err != nil {
-		return errors.New("could not parse pose")
-	}
-	otherPose, err := otherFrameConfig.Pose()
-	if err != nil {
-		return errors.New("could not parse otherPose")
-	}
-	orient := pose.Orientation()
-	otherOrient := otherPose.Orientation()
+
+	orient := frameConfig.Pose().Orientation()
+	otherOrient := otherFrameConfig.Pose().Orientation()
 
 	switch {
 	case orient == nil && otherOrient != nil:
@@ -1286,21 +1279,30 @@ func TestClientConfig(t *testing.T) {
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
 
+	l1 := &referenceframe.LinkConfig{
+		ID:          "frame1",
+		Parent:      referenceframe.World,
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: o1Cfg,
+		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	}
+	lif1, err := l1.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	l2 := &referenceframe.LinkConfig{
+		ID:          "frame2",
+		Parent:      "frame1",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	}
+	lif2, err := l2.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
 	fsConfigs := []*referenceframe.FrameSystemPart{
 		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:          "frame1",
-				Parent:      referenceframe.World,
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: o1Cfg,
-			},
+			FrameConfig: lif1,
 		},
 		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:          "frame2",
-				Parent:      "frame1",
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			},
+			FrameConfig: lif2,
 		},
 	}
 

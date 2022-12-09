@@ -23,16 +23,13 @@ func (fsp Parts) String() string {
 	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
 	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
 	for i, part := range fsp {
-		tra := part.FrameConfig.Translation
-		ori := &spatialmath.EulerAngles{}
-		pose, err := part.FrameConfig.Pose()
-		if err == nil {
-			ori = pose.Orientation().EulerAngles()
-		}
+		pose := part.FrameConfig.Pose()
+		tra := pose.Point()
+		ori := pose.Orientation().EulerAngles()
 		geomString := ""
-		if part.FrameConfig.Geometry != nil {
-			gCfg := part.FrameConfig.Geometry
-			creator, err := gCfg.ParseConfig()
+		if part.FrameConfig.Geometry() != nil {
+			creator := part.FrameConfig.Geometry()
+			gCfg, err := spatialmath.NewGeometryConfig(creator)
 			if err == nil {
 				switch gCfg.Type {
 				case spatialmath.BoxType:
@@ -64,8 +61,8 @@ func (fsp Parts) String() string {
 		}
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),
-			part.FrameConfig.ID,
-			part.FrameConfig.Parent,
+			part.FrameConfig.Name(),
+			part.FrameConfig.Parent(),
 			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
 			fmt.Sprintf(
 				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
@@ -93,18 +90,18 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[referenceframe.World] = true
 	for _, part := range parts {
-		existingParts[part.FrameConfig.ID] = true
+		existingParts[part.FrameConfig.Name()] = true
 	}
 	// make map of children
 	children := make(map[string]Parts)
 	// ~ fmt.Println("parts", parts)
 	for _, part := range parts {
 		// ~ fmt.Println("part", part)
-		parent := part.FrameConfig.Parent
+		parent := part.FrameConfig.Parent()
 		if !existingParts[parent] {
-			return nil, NewMissingParentError(part.FrameConfig.ID, parent)
+			return nil, NewMissingParentError(part.FrameConfig.Name(), parent)
 		}
-		children[part.FrameConfig.Parent] = append(children[part.FrameConfig.Parent], part)
+		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
 	}
 	topoSortedParts := Parts{} // keep track of tree structure
 	// If there are no frames, return the empty list
@@ -126,10 +123,10 @@ func TopologicallySort(parts Parts) (Parts, error) {
 		}
 		visited[parent] = true
 		sort.Slice(children[parent], func(i, j int) bool {
-			return children[parent][i].FrameConfig.ID < children[parent][j].FrameConfig.ID
+			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
 		}) // sort alphabetically within the topological sort
 		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, part.FrameConfig.ID)
+			stack = append(stack, part.FrameConfig.Name())
 			topoSortedParts = append(topoSortedParts, part)
 		}
 	}
@@ -143,13 +140,13 @@ func RenameRemoteParts(
 	connectionName string,
 ) Parts {
 	for _, p := range remoteParts {
-		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
-			p.FrameConfig.Parent = connectionName
+		if p.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
+			p.FrameConfig.SetParent(connectionName)
 		}
 		// rename each non-world part with prefix
-		p.FrameConfig.ID = remoteName + ":" + p.FrameConfig.ID
-		if p.FrameConfig.Parent != connectionName {
-			p.FrameConfig.Parent = remoteName + ":" + p.FrameConfig.Parent
+		p.FrameConfig.SetName(remoteName + ":" + p.FrameConfig.Name())
+		if p.FrameConfig.Parent() != connectionName {
+			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.Parent())
 		}
 	}
 	return remoteParts
@@ -168,7 +165,7 @@ func PartMapToPartSlice(partsMap map[string]*referenceframe.FrameSystemPart) Par
 func Names(parts Parts) []string {
 	names := make([]string, len(parts))
 	for i, p := range parts {
-		names[i] = p.FrameConfig.ID
+		names[i] = p.FrameConfig.Name()
 	}
 	return names
 }

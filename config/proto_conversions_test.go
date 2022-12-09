@@ -45,6 +45,7 @@ var testComponent = Component{
 			Type:  spatial.OrientationVectorDegreesType,
 			Value: json.RawMessage([]byte(`{"th":0,"x":0,"y":0,"z":1}`)),
 		},
+		Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
 	},
 }
 
@@ -59,6 +60,7 @@ var testFrame = referenceframe.LinkConfig{
 		Type:  spatial.EulerAnglesType,
 		Value: json.RawMessage([]byte(`{"roll":0,"pitch":0,"yaw":0}`)),
 	},
+	Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
 }
 
 var testRemote = Remote{
@@ -71,6 +73,7 @@ var testRemote = Remote{
 			Type:  spatial.OrientationVectorDegreesType,
 			Value: json.RawMessage([]byte(`{"th":0,"x":0,"y":0,"z":1}`)),
 		},
+		Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
 	},
 	Auth: RemoteAuth{
 		Entity: "some-entity",
@@ -175,9 +178,9 @@ func validateComponent(t *testing.T, actual, expected Component) {
 	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
 	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
 
-	f1, err := actual.Frame.ToStaticFrame("")
+	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	f2, err := testComponent.Frame.ToStaticFrame("")
+	f2, err := testComponent.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, f1, test.ShouldResemble, f2)
 }
@@ -289,9 +292,9 @@ func TestFrameConfigFromProto(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			frameOut, err := FrameConfigFromProto(testCase.inputFrame)
 			test.That(t, err, test.ShouldBeNil)
-			f1, err := frameOut.ToStaticFrame("")
+			f1, err := frameOut.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			f2, err := testCase.expectedFrame.ToStaticFrame("")
+			f2, err := testCase.expectedFrame.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, f1, test.ShouldResemble, f2)
 		})
@@ -307,9 +310,9 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
 	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
 	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
-	f1, err := actual.Frame.ToStaticFrame("")
+	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	f2, err := testComponent.Frame.ToStaticFrame("")
+	f2, err := testComponent.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, f1, test.ShouldResemble, f2)
 

@@ -161,21 +161,29 @@ func TestServerFrameSystemConfig(t *testing.T) {
 
 	// test working config function
 	t.Run("test working config function", func(t *testing.T) {
+		l1 := &referenceframe.LinkConfig{
+			ID:          "frame1",
+			Parent:      referenceframe.World,
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Orientation: o1Cfg,
+			Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+		}
+		lif1, err := l1.ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
+		l2 := &referenceframe.LinkConfig{
+			ID:          "frame2",
+			Parent:      "frame1",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+		}
+		lif2, err := l2.ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
 		fsConfigs := []*referenceframe.FrameSystemPart{
 			{
-				FrameConfig: &referenceframe.LinkConfig{
-					ID:          "frame1",
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-					Orientation: o1Cfg,
-				},
+				FrameConfig: lif1,
 			},
 			{
-				FrameConfig: &referenceframe.LinkConfig{
-					ID:          "frame2",
-					Parent:      "frame1",
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				},
+				FrameConfig: lif2,
 			},
 		}
 
@@ -189,47 +197,46 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		resp, err := server.FrameSystemConfig(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, resp.FrameSystemConfigs[0].Frame.Name, test.ShouldEqual, fsConfigs[0].FrameConfig.ID)
+		test.That(t, resp.FrameSystemConfigs[0].Frame.Transform.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
 		test.That(
 			t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.ReferenceFrame,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.ReferenceFrame,
 			test.ShouldEqual,
-			fsConfigs[0].FrameConfig.Parent,
+			fsConfigs[0].FrameConfig.Parent(),
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.X,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.X,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.X,
+			fsConfigs[0].FrameConfig.Pose().Point().X,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.Y,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.Y,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Y,
+			fsConfigs[0].FrameConfig.Pose().Point().Y,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.Z,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.Z,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Z,
+			fsConfigs[0].FrameConfig.Pose().Point().Z,
 		)
-		pose, err := fsConfigs[0].FrameConfig.Pose()
-		test.That(t, err, test.ShouldBeNil)
+		pose := fsConfigs[0].FrameConfig.Pose()
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.OX,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.OX,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OX,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.OY,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.OY,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OY,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.OZ,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.OZ,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OZ,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.PoseInParentFrame.Pose.Theta,
+			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.Theta,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().Theta,
 		)

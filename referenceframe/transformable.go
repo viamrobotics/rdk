@@ -18,14 +18,51 @@ type Transformable interface {
 // PoseInFrame is a data structure that packages a pose with the name of the
 // frame in which it was observed.
 type PoseInFrame struct {
-	frame string
-	pose  spatialmath.Pose
-	name  string
+	parent string
+	pose   spatialmath.Pose
+	name   string
 }
 
-// FrameName returns the name of the frame in which the pose was observed.
+// LinkInFrame is a PoseInFrame plus a Geometry.
+type LinkInFrame struct {
+	*PoseInFrame
+	geometry spatialmath.GeometryCreator
+}
+
+// Geometry returns the GeometryCreator of the LinkInFrame.
+func (lF *LinkInFrame) Geometry() spatialmath.GeometryCreator {
+	return lF.geometry
+}
+
+// ToStaticFrame converts a LinkInFrame into a staticFrame with a new name.
+func (lF *LinkInFrame) ToStaticFrame(name string) (Frame, error) {
+	if name == "" {
+		name = lF.name
+	}
+	pose := lF.pose
+	if pose == nil {
+		pose = spatialmath.NewZeroPose()
+	}
+	if lF.geometry != nil {
+		return NewStaticFrameWithGeometry(name, pose, lF.geometry)
+	}
+
+	return NewStaticFrame(name, pose)
+}
+
+// FrameName returns the name of the frame in which the pose was observed. Needed for Transformable interface.
 func (pF *PoseInFrame) FrameName() string {
-	return pF.frame
+	return pF.parent
+}
+
+// Parent returns the name of the frame in which the pose was observed.
+func (pF *PoseInFrame) Parent() string {
+	return pF.parent
+}
+
+// SetParent sets the name of the frame in which the pose was observed.
+func (pF *PoseInFrame) SetParent(parent string) {
+	pF.parent = parent
 }
 
 // Pose returns the pose that was observed.
@@ -38,34 +75,42 @@ func (pF *PoseInFrame) Name() string {
 	return pF.name
 }
 
+// SetName sets the name of the PoseInFrame.
+func (pF *PoseInFrame) SetName(name string) {
+	pF.name = name
+}
+
 // Transform changes the PoseInFrame pF into the reference frame specified by the tf argument.
 // The tf PoseInFrame represents the pose of the pF reference frame with respect to the destination reference frame.
 func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
-	return NewPoseInFrame(tf.frame, spatialmath.Compose(tf.pose, pF.pose))
+	return NewPoseInFrame(tf.parent, spatialmath.Compose(tf.pose, pF.pose))
 }
 
 // NewPoseInFrame generates a new PoseInFrame.
 func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
 	return &PoseInFrame{
-		frame: frame,
-		pose:  pose,
+		parent: frame,
+		pose:   pose,
 	}
 }
 
 // NewNamedPoseInFrame generates a new PoseInFrame and gives it the specified name.
 func NewNamedPoseInFrame(frame string, pose spatialmath.Pose, name string) *PoseInFrame {
 	return &PoseInFrame{
-		frame: frame,
-		pose:  pose,
-		name:  name,
+		parent: frame,
+		pose:   pose,
+		name:   name,
 	}
 }
 
 // PoseInFrameToProtobuf converts a PoseInFrame struct to a PoseInFrame protobuf message.
 func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
-	poseProto := spatialmath.PoseToProtobuf(framedPose.pose)
+	poseProto := &commonpb.Pose{}
+	if framedPose.pose != nil {
+		poseProto = spatialmath.PoseToProtobuf(framedPose.pose)
+	}
 	return &commonpb.PoseInFrame{
-		ReferenceFrame: framedPose.frame,
+		ReferenceFrame: framedPose.parent,
 		Pose:           poseProto,
 	}
 }
@@ -74,7 +119,7 @@ func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
 func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 	result := &PoseInFrame{}
 	result.pose = spatialmath.NewPoseFromProtobuf(proto.GetPose())
-	result.frame = proto.GetReferenceFrame()
+	result.parent = proto.GetReferenceFrame()
 	return result
 }
 
@@ -105,6 +150,42 @@ func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, 
 	return NewNamedPoseInFrame(parentFrame, pose, frameName), nil
 }
 
+// LinkInFrameToStaticFrameProtobuf converts a LinkInFrame struct to a StaticFrame protobuf message.
+func LinkInFrameToStaticFrameProtobuf(framedLink *LinkInFrame) (*commonpb.StaticFrame, error) {
+	if framedLink.PoseInFrame == nil {
+		return nil, ErrNilPoseInFrame
+	}
+	tform, err := PoseInFrameToTransformProtobuf(framedLink.PoseInFrame)
+	if err != nil {
+		return nil, err
+	}
+	var geomProto *commonpb.Geometry
+	if framedLink.geometry != nil {
+		geomProto = framedLink.geometry.ToProtobuf()
+	}
+	return &commonpb.StaticFrame{
+		Transform: tform,
+		Geometry:  geomProto,
+	}, nil
+}
+
+// LinkInFrameFromStaticFrameProtobuf converts a StaticFrame protobuf message to a LinkInFrame struct.
+func LinkInFrameFromStaticFrameProtobuf(proto *commonpb.StaticFrame) (*LinkInFrame, error) {
+	pif, err := PoseInFrameFromTransformProtobuf(proto.Transform)
+	if err != nil {
+		return nil, err
+	}
+	var geom spatialmath.GeometryCreator
+	if proto.Geometry != nil {
+		geom, err = spatialmath.NewGeometryCreatorFromProto(proto.Geometry)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &LinkInFrame{PoseInFrame: pif, geometry: geom}, nil
+}
+
 // PoseInFramesToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
 // TODO(rb): use generics to operate on lists of arbirary types.
 func PoseInFramesToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
@@ -133,6 +214,34 @@ func PoseInFramesFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*Pos
 	return transforms, nil
 }
 
+// LinkInFramesToStaticFramesProtobuf converts a slice of LinkInFrame structs to a slice of StaticFrame protobuf messages.
+// TODO(rb): use generics to operate on lists of arbirary types.
+func LinkInFramesToStaticFramesProtobuf(linkSlice []*LinkInFrame) ([]*commonpb.StaticFrame, error) {
+	protoTransforms := make([]*commonpb.StaticFrame, 0, len(linkSlice))
+	for i, link := range linkSlice {
+		protoTf, err := LinkInFrameToStaticFrameProtobuf(link)
+		if err != nil {
+			return nil, errors.Wrapf(err, "conversion error at index %d", i)
+		}
+		protoTransforms = append(protoTransforms, protoTf)
+	}
+	return protoTransforms, nil
+}
+
+// LinkInFramesFromStaticFramesProtobuf converts a slice of StaticFrame protobuf messages to a slice of LinkInFrame structs.
+// TODO(rb): use generics to operate on lists of arbirary proto types.
+func LinkInFramesFromStaticFramesProtobuf(protoSlice []*commonpb.StaticFrame) ([]*LinkInFrame, error) {
+	links := make([]*LinkInFrame, 0, len(protoSlice))
+	for i, protoTransform := range protoSlice {
+		link, err := LinkInFrameFromStaticFrameProtobuf(protoTransform)
+		if err != nil {
+			return nil, errors.Wrapf(err, "conversion error at index %d", i)
+		}
+		links = append(links, link)
+	}
+	return links, nil
+}
+
 // GeometriesInFrame is a data structure that packages geometries with the name of the frame in which it was observed.
 type GeometriesInFrame struct {
 	frame      string
@@ -156,7 +265,7 @@ func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 	for name, geometry := range gF.geometries {
 		geometries[name] = geometry.Transform(tf.pose)
 	}
-	return NewGeometriesInFrame(tf.frame, geometries)
+	return NewGeometriesInFrame(tf.parent, geometries)
 }
 
 // NewGeometriesInFrame generates a new GeometriesInFrame.

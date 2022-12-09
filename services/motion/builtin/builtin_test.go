@@ -53,7 +53,9 @@ func TestMoveFailures(t *testing.T) {
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
-		transforms := []*referenceframe.PoseInFrame{referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2")}
+		transforms := []*referenceframe.LinkInFrame{
+			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2")},
+		}
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(context.Background(), arm.Named("arm1"), poseInFrame, worldState, map[string]interface{}{})
@@ -89,9 +91,9 @@ func TestMove1(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
-		transforms := []*referenceframe.PoseInFrame{
-			referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2"),
-			referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "testFrame"),
+		transforms := []*referenceframe.LinkInFrame{
+			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2")},
+			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "testFrame")},
 		}
 
 		worldState := &referenceframe.WorldState{Transforms: transforms}
@@ -185,7 +187,9 @@ func TestMoveSingleComponent(t *testing.T) {
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
-		transforms := []*referenceframe.PoseInFrame{referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2")}
+		transforms := []*referenceframe.LinkInFrame{
+			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2")},
+		}
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 
 		poseToGrab := spatialmath.NewPoseFromOrientation(

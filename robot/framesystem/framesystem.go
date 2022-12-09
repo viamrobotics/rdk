@@ -236,7 +236,11 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return err
 		}
-		parts[c.Frame.ID] = &referenceframe.FrameSystemPart{FrameConfig: c.Frame, ModelFrame: model}
+		lif, err := c.Frame.ParseConfig()
+		if err != nil {
+			return err
+		}
+		parts[c.Frame.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil
@@ -266,11 +270,15 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 			continue
 		}
 
+		lif, err := rConf.Frame.ParseConfig()
+		if err != nil {
+			return err
+		}
 		// build the frame system part that connects remote world to base world
 		connection := &referenceframe.FrameSystemPart{
-			FrameConfig: rConf.Frame,
+			FrameConfig: lif,
 		}
-		connection.FrameConfig.ID = rConf.Name + "_" + referenceframe.World
+		connection.FrameConfig.SetName(rConf.Name + "_" + referenceframe.World)
 		offsetParts[remoteName] = connection
 	}
 	svc.offsetParts = offsetParts

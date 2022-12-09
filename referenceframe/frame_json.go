@@ -69,28 +69,21 @@ func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
 }
 
 // ParseConfig converts a LinkConfig into a staticFrame.
-func (cfg *LinkConfig) ParseConfig() (Frame, error) {
-	return cfg.ToStaticFrame(cfg.ID)
-}
-
-// ToStaticFrame converts a LinkConfig into a staticFrame with a new name.
-func (cfg *LinkConfig) ToStaticFrame(name string) (Frame, error) {
-	if name == "" {
-		name = cfg.ID
-	}
+func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	pose, err := cfg.Pose()
 	if err != nil {
 		return nil, err
 	}
+	pif := NewNamedPoseInFrame(cfg.Parent, pose, cfg.ID)
+	var geom spatial.GeometryCreator
 	if cfg.Geometry != nil {
-		geom, err := cfg.Geometry.ParseConfig()
+		geom, err = cfg.Geometry.ParseConfig()
 		if err != nil {
 			return nil, err
 		}
-		return NewStaticFrameWithGeometry(name, pose, geom)
 	}
 
-	return NewStaticFrame(name, pose)
+	return &LinkInFrame{PoseInFrame: pif, geometry: geom}, nil
 }
 
 // Pose will parse out the Pose of a LinkConfig and return it if it is valid.

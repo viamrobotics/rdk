@@ -29,7 +29,7 @@ func TestFrameModelPart(t *testing.T) {
 
 	// minimally specified part
 	part := &FrameSystemPart{
-		FrameConfig: &LinkConfig{ID: "test"},
+		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
 		ModelFrame:  nil,
 	}
 	_, err = part.ToProtobuf()
@@ -37,23 +37,25 @@ func TestFrameModelPart(t *testing.T) {
 
 	// slightly specified part
 	part = &FrameSystemPart{
-		FrameConfig: &LinkConfig{Parent: "world", ID: "test"},
+		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
 		ModelFrame:  nil,
 	}
 	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
-	pose := &commonpb.Pose{OZ: 1, Theta: 0} // zero pose
+	pose := &commonpb.Pose{} // zero pose
 	exp := &robotpb.FrameSystemConfig{
 		Frame: &commonpb.StaticFrame{
-			Name: "test",
-			PoseInParentFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           pose,
+			Transform: &commonpb.Transform{
+				ReferenceFrame: "test",
+				PoseInObserverFrame: &commonpb.PoseInFrame{
+					ReferenceFrame: "world",
+					Pose:           pose,
+				},
 			},
 		},
 	}
-	test.That(t, result.Frame.Name, test.ShouldEqual, exp.Frame.Name)
-	test.That(t, result.Frame.PoseInParentFrame, test.ShouldResemble, exp.Frame.PoseInParentFrame)
+	test.That(t, result.Frame.Transform.ReferenceFrame, test.ShouldEqual, exp.Frame.Transform.ReferenceFrame)
+	test.That(t, result.Frame.Transform.PoseInObserverFrame, test.ShouldResemble, exp.Frame.Transform.PoseInObserverFrame)
 	// exp.Kinematics is nil, but the struct in the struct PB
 	expKin, err := protoutils.StructToStructPb(exp.Kinematics)
 	test.That(t, err, test.ShouldBeNil)
@@ -61,50 +63,53 @@ func TestFrameModelPart(t *testing.T) {
 	// return to FrameSystemPart
 	partAgain, err := ProtobufToFrameSystemPart(result)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, partAgain.FrameConfig.ID, test.ShouldEqual, part.FrameConfig.ID)
-	test.That(t, partAgain.FrameConfig.Parent, test.ShouldEqual, part.FrameConfig.Parent)
-	test.That(t, partAgain.FrameConfig.Translation, test.ShouldResemble, part.FrameConfig.Translation)
+	test.That(t, partAgain.FrameConfig.name, test.ShouldEqual, part.FrameConfig.name)
+	test.That(t, partAgain.FrameConfig.parent, test.ShouldEqual, part.FrameConfig.parent)
+	test.That(t, partAgain.FrameConfig.pose, test.ShouldResemble, spatial.NewZeroPose())
 	// nil orientations become specified as zero orientations
-	orient, err := partAgain.FrameConfig.Orientation.ParseConfig()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orient, test.ShouldResemble, spatial.NewZeroOrientation())
+	test.That(t, partAgain.FrameConfig.pose.Orientation(), test.ShouldResemble, spatial.NewZeroOrientation())
 	test.That(t, partAgain.ModelFrame, test.ShouldResemble, part.ModelFrame)
 
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 	test.That(t, err, test.ShouldBeNil)
+
+	lc := &LinkConfig{
+		ID:          "test",
+		Parent:      "world",
+		Translation: r3.Vector{1, 2, 3},
+		Orientation: orientConf,
+	}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
 	// fully specified part
 	part = &FrameSystemPart{
-		FrameConfig: &LinkConfig{
-			ID:          "test",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
-		},
-		ModelFrame: model,
+		FrameConfig: lif,
+		ModelFrame:  model,
 	}
 	result, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
 	exp = &robotpb.FrameSystemConfig{
 		Frame: &commonpb.StaticFrame{
-			Name: "test",
-			PoseInParentFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           pose,
+			Transform: &commonpb.Transform{
+				ReferenceFrame: "test",
+				PoseInObserverFrame: &commonpb.PoseInFrame{
+					ReferenceFrame: "world",
+					Pose:           pose,
+				},
 			},
 		},
 		Kinematics: kinematics,
 	}
-	test.That(t, result.Frame.Name, test.ShouldEqual, exp.Frame.Name)
-	test.That(t, result.Frame.PoseInParentFrame, test.ShouldResemble, exp.Frame.PoseInParentFrame)
+	test.That(t, result.Frame.Transform.ReferenceFrame, test.ShouldEqual, exp.Frame.Transform.ReferenceFrame)
+	test.That(t, result.Frame.Transform.PoseInObserverFrame, test.ShouldResemble, exp.Frame.Transform.PoseInObserverFrame)
 	test.That(t, result.Kinematics, test.ShouldNotBeNil)
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, partAgain.FrameConfig.ID, test.ShouldEqual, part.FrameConfig.ID)
-	test.That(t, partAgain.FrameConfig.Parent, test.ShouldEqual, part.FrameConfig.Parent)
-	test.That(t, partAgain.FrameConfig.Translation, test.ShouldResemble, part.FrameConfig.Translation)
-	test.That(t, partAgain.FrameConfig.Orientation, test.ShouldResemble, part.FrameConfig.Orientation)
+	test.That(t, partAgain.FrameConfig.name, test.ShouldEqual, part.FrameConfig.name)
+	test.That(t, partAgain.FrameConfig.parent, test.ShouldEqual, part.FrameConfig.parent)
+	test.That(t, partAgain.FrameConfig.pose, test.ShouldResemble, part.FrameConfig.pose)
 	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
 	test.That(t,
 		len(partAgain.ModelFrame.(*SimpleModel).OrdTransforms),
@@ -121,7 +126,7 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// minimally specified part
 	part := &FrameSystemPart{
-		FrameConfig: &LinkConfig{ID: "test"},
+		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
 		ModelFrame:  nil,
 	}
 	_, _, err = CreateFramesFromPart(part, logger)
@@ -129,32 +134,37 @@ func TestFramesFromPart(t *testing.T) {
 
 	// slightly specified part
 	part = &FrameSystemPart{
-		FrameConfig: &LinkConfig{Parent: "world", ID: "test"},
+		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
 		ModelFrame:  nil,
 	}
 	modelFrame, originFrame, err := CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.FrameConfig.ID))
-	originTailFrame, ok := NewZeroStaticFrame(part.FrameConfig.ID + "_origin").(*staticFrame)
+	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.FrameConfig.name))
+	originTailFrame, ok := NewZeroStaticFrame(part.FrameConfig.name + "_origin").(*staticFrame)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, originFrame, test.ShouldResemble, &tailGeometryStaticFrame{originTailFrame})
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 	test.That(t, err, test.ShouldBeNil)
+
+	lc := &LinkConfig{
+		ID:          "test",
+		Parent:      "world",
+		Translation: r3.Vector{1, 2, 3},
+		Orientation: orientConf,
+	}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
 	// fully specified part
 	part = &FrameSystemPart{
-		FrameConfig: &LinkConfig{
-			ID:          "test",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
-		},
-		ModelFrame: model,
+		FrameConfig: lif,
+		ModelFrame:  model,
 	}
 	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, modelFrame.Name(), test.ShouldEqual, part.FrameConfig.ID)
+	test.That(t, modelFrame.Name(), test.ShouldEqual, part.FrameConfig.name)
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
-	test.That(t, originFrame.Name(), test.ShouldEqual, part.FrameConfig.ID+"_origin")
+	test.That(t, originFrame.Name(), test.ShouldEqual, part.FrameConfig.name+"_origin")
 	test.That(t, originFrame.DoF(), test.ShouldHaveLength, 0)
 }
 
@@ -170,11 +180,9 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		transform := NewNamedPoseInFrame("parent", testPose, "child")
 		part, err := PoseInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, part.FrameConfig.ID, test.ShouldEqual, transform.Name())
-		test.That(t, part.FrameConfig.Parent, test.ShouldEqual, transform.FrameName())
-		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.Translation, testPose.Point(), 1e-8), test.ShouldBeTrue)
-		pose, err := part.FrameConfig.Pose()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatial.OrientationAlmostEqual(pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
+		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
+		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.FrameName())
+		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})
 }

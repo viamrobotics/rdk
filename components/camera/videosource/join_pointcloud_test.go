@@ -74,16 +74,27 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	r := &inject.Robot{}
 	fsParts := framesystemparts.Parts{
 		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "base1", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1"),
+			},
 		},
 		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "cam1", Parent: referenceframe.World, Translation: r3.Vector{100, 0, 0}},
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(
+					referenceframe.World,
+					spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0}),
+					"cam1"),
+			},
 		},
 		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "cam2", Parent: "cam1", Translation: r3.Vector{0, 0, 100}},
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}), "cam2"),
+			},
 		},
 		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "cam3", Parent: "cam2", Translation: r3.Vector{0, 100, 0}},
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0}), "cam3"),
+			},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
@@ -312,37 +323,45 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 
 	r := &inject.Robot{}
 	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
-	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
-	test.That(t, err, test.ShouldBeNil)
 	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
-	o2Cfg, err := spatialmath.NewOrientationConfig(o2)
-	test.That(t, err, test.ShouldBeNil)
 
 	fsParts := framesystemparts.Parts{
 		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "base1", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
-		},
-		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "cam1", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
-		},
-		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "cam2", Parent: "cam1", Translation: r3.Vector{0, 0, -100}},
-		},
-		{
-			FrameConfig: &referenceframe.LinkConfig{ID: "cam3", Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
-		},
-		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:     "cam4",
-				Parent: "cam3", Translation: r3.Vector{-60, 0, -10},
-				Orientation: o1Cfg,
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1"),
 			},
 		},
 		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:     "cam5",
-				Parent: "cam4", Translation: r3.Vector{-60, 0, 10},
-				Orientation: o2Cfg,
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1"),
+			},
+		},
+		{
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2"),
+			},
+		},
+		{
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3"),
+			},
+		},
+		{
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(
+					"cam3",
+					spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o1),
+					"cam4",
+				),
+			},
+		},
+		{
+			FrameConfig: &referenceframe.LinkInFrame{
+				PoseInFrame: referenceframe.NewNamedPoseInFrame(
+					"cam4",
+					spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o2),
+					"cam5",
+				),
 			},
 		},
 	}

@@ -47,21 +47,30 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
 
+	l1 := &referenceframe.LinkConfig{
+		ID:          "frame1",
+		Parent:      referenceframe.World,
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: o1Cfg,
+		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	}
+	lif1, err := l1.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	l2 := &referenceframe.LinkConfig{
+		ID:          "frame2",
+		Parent:      "frame1",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+	}
+	lif2, err := l2.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
 	fsConfigs := []*referenceframe.FrameSystemPart{
 		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:          "frame1",
-				Parent:      referenceframe.World,
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: o1Cfg,
-			},
+			FrameConfig: lif1,
 		},
 		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:          "frame2",
-				Parent:      "frame1",
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			},
+			FrameConfig: lif2,
 		},
 	}
 	frameSys, err := framesystem.NewFrameSystemFromParts("", "", fsConfigs, logger)
@@ -93,13 +102,17 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
 
+	l1 := &referenceframe.LinkConfig{
+		ID:          "frame1",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: o1Cfg,
+	}
+	lif1, err := l1.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
 	badFSConfigs := []*referenceframe.FrameSystemPart{
 		{
-			FrameConfig: &referenceframe.LinkConfig{
-				ID:          "frame1",
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: o1Cfg,
-			},
+			FrameConfig: lif1,
 		},
 	}
 	fs, err := framesystem.NewFrameSystemFromParts("", "", badFSConfigs, logger)

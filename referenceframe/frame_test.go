@@ -190,7 +190,10 @@ func TestSerializationStatic(t *testing.T) {
 	err = json.Unmarshal(data, f2Cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := f2Cfg.ToStaticFrame("")
+	f2if, err := f2Cfg.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := f2if.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
@@ -267,7 +270,9 @@ func TestFrame(t *testing.T) {
 	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
 	expFrame, err := NewStaticFrameWithGeometry("", pose, bc)
 	test.That(t, err, test.ShouldBeNil)
-	sFrame, err := frame.ToStaticFrame("")
+	sFrameif, err := frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	sFrame, err := sFrameif.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sFrame, test.ShouldResemble, expFrame)
@@ -279,7 +284,10 @@ func TestFrame(t *testing.T) {
 	err = json.Unmarshal(rd, &frame2)
 	test.That(t, err, test.ShouldBeNil)
 
-	sFrame2, err := frame2.ToStaticFrame("")
+	sFrame2if, err := frame2.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	sFrame2, err := sFrame2if.ToStaticFrame("")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sFrame2, test.ShouldResemble, expFrame)
 
@@ -289,9 +297,12 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 
-	staticFrame, err := frame.ToStaticFrame("test")
+	sFrameif, err = frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	sFrame, err = sFrameif.ToStaticFrame("test")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	expStaticFrame, err := NewStaticFrameWithGeometry("test", expPose, bc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, staticFrame, test.ShouldResemble, expStaticFrame)
+	test.That(t, sFrame, test.ShouldResemble, expStaticFrame)
 }

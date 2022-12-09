@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
@@ -64,7 +63,7 @@ type FrameSystem interface {
 // Name is the robot part name, FrameConfig gives the general structure of the frame system,
 // and ModelFrameConfig is an optional ModelJSON that describes the internal kinematics of the robot part.
 type FrameSystemPart struct {
-	FrameConfig *LinkConfig
+	FrameConfig *LinkInFrame
 	ModelFrame  Model
 }
 
@@ -389,25 +388,9 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, ErrNoModelInformation
 	}
-	pose, err := part.FrameConfig.Pose()
+	linkFrame, err := LinkInFrameToStaticFrameProtobuf(part.FrameConfig)
 	if err != nil {
 		return nil, err
-	}
-	geoms := []*commonpb.Geometry{}
-	if part.FrameConfig.Geometry != nil {
-		geom, err := part.FrameConfig.Geometry.ToProtobuf()
-		if err != nil {
-			return nil, err
-		}
-		geoms = append(geoms, geom)
-	}
-	linkFrame := &commonpb.StaticFrame{
-		Name: part.FrameConfig.ID,
-		PoseInParentFrame: &commonpb.PoseInFrame{
-			ReferenceFrame: part.FrameConfig.Parent,
-			Pose:           spatial.PoseToProtobuf(pose),
-		},
-		Geometries: geoms,
 	}
 	var modelJSON map[string]interface{}
 	if part.ModelFrame != nil {
@@ -432,29 +415,9 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
-	pose := spatial.NewPoseFromProtobuf(fsc.Frame.PoseInParentFrame.Pose)
-	orient, err := spatial.NewOrientationConfig(pose.Orientation())
+	frameConfig, err := LinkInFrameFromStaticFrameProtobuf(fsc.Frame)
 	if err != nil {
 		return nil, err
-	}
-	var geom *spatial.GeometryConfig
-	if len(fsc.Frame.Geometries) > 0 {
-		geomTemp, err := spatial.NewGeometryCreatorFromProto(fsc.Frame.Geometries[0])
-		if err != nil {
-			return nil, err
-		}
-		geom, err = spatial.NewGeometryConfig(geomTemp)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	frameConfig := &LinkConfig{
-		ID:          fsc.Frame.Name,
-		Translation: pose.Point(),
-		Orientation: orient,
-		Geometry:    geom,
-		Parent:      fsc.Frame.PoseInParentFrame.ReferenceFrame,
 	}
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
@@ -465,7 +428,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		if err != nil {
 			return nil, err
 		}
-		modelFrame, err := UnmarshalModelJSON(modelBytes, fsc.Frame.Name)
+		modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
 		if err != nil {
 			if errors.Is(err, ErrNoModelInformation) {
 				return part, nil
@@ -479,21 +442,11 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 
 // PoseInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
 func PoseInFrameToFrameSystemPart(transform *PoseInFrame) (*FrameSystemPart, error) {
-	if transform.Name() == "" || transform.FrameName() == "" {
+	if transform.Name() == "" || transform.Parent() == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	orient, err := spatial.NewOrientationConfig(transform.Pose().Orientation())
-	if err != nil {
-		return nil, err
-	}
-	frameConfig := &LinkConfig{
-		ID:          transform.Name(),
-		Translation: transform.Pose().Point(),
-		Orientation: orient,
-		Parent:      transform.FrameName(),
-	}
 	part := &FrameSystemPart{
-		FrameConfig: frameConfig,
+		FrameConfig: &LinkInFrame{PoseInFrame: transform},
 	}
 	return part, nil
 }
@@ -507,14 +460,14 @@ func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Fr
 	var err error
 	// use identity frame if no model frame defined
 	if part.ModelFrame == nil {
-		modelFrame = NewZeroStaticFrame(part.FrameConfig.ID)
+		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
 	} else {
-		part.ModelFrame.ChangeName(part.FrameConfig.ID)
+		part.ModelFrame.ChangeName(part.FrameConfig.Name())
 		modelFrame = part.ModelFrame
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
-	staticOriginName := part.FrameConfig.ID + "_origin"
+	staticOriginName := part.FrameConfig.Name() + "_origin"
 	// By default, this
 	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
 	if err != nil {
