@@ -10,6 +10,8 @@ import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import {
+  Camera,
+  CameraClient,
   Client,
   ResponseStream,
   ServiceError,
@@ -32,8 +34,7 @@ import Arm from './components/arm.vue';
 import AudioInput from './components/audio-input.vue';
 import Base from './components/base.vue';
 import Board from './components/board.vue';
-import Camera from './components/camera.vue';
-import OperationsSessions from './components/operations-sessions.vue';
+import CameraView from './components/camera.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
 import Gripper from './components/gripper.vue';
@@ -42,6 +43,7 @@ import InputController from './components/input-controller.vue';
 import Motor from './components/motor-detail.vue';
 import MovementSensor from './components/movement-sensor.vue';
 import Navigation from './components/navigation.vue';
+import OperationsSessions from './components/operations-sessions.vue';
 import ServoComponent from './components/servo.vue';
 import Sensors from './components/sensors.vue';
 import Slam from './components/slam.vue';
@@ -611,26 +613,21 @@ const filteredInputControllerList = () => {
 };
 
 const viewFrame = (cameraName: string) => {
-  const req = new cameraApi.RenderFrameRequest();
-  req.setName(cameraName);
-  req.setMimeType('image/jpeg');
-  client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-
-    const streamContainers = document.querySelectorAll(
-      `[data-stream="${cameraName}"]`
-    );
-    for (const streamContainer of streamContainers) {
-      streamContainer.querySelector('video')?.remove();
-      streamContainer.querySelector('img')?.remove();
-      const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-      image.src = URL.createObjectURL(blob);
-      streamContainer.append(image);
-    }
-  });
+  new CameraClient(client, cameraName)
+    .renderFrame(Camera.MimeType.JPEG)
+    .then((blob) => {
+      const streamContainers = document.querySelectorAll(
+        `[data-stream="${cameraName}"]`
+      );
+      for (const streamContainer of streamContainers) {
+        streamContainer.querySelector('video')?.remove();
+        streamContainer.querySelector('img')?.remove();
+        const image = new Image();
+        image.src = URL.createObjectURL(blob);
+        streamContainer.append(image);
+      }
+    })
+    .catch(displayError);
 };
 
 const clearFrameInterval = () => {
@@ -851,7 +848,7 @@ onMounted(async () => {
     />
 
     <!-- ******* CAMERAS *******  -->
-    <Camera
+    <CameraView
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :key="camera.name"
       :camera-name="camera.name"
