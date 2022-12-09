@@ -45,6 +45,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -1747,9 +1748,10 @@ func (m *mock) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) 
 
 // A dummyRobot implements wraps an robot.Robot. It's only use for testing purposes.
 type dummyRobot struct {
-	mu      sync.Mutex
-	robot   robot.Robot
-	manager *resourceManager
+	mu         sync.Mutex
+	robot      robot.Robot
+	manager    *resourceManager
+	modmanager modmaninterface.ModuleManager
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot
@@ -1823,6 +1825,10 @@ func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 
 func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
+}
+
+func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
+	return rr.modmanager
 }
 
 func (rr *dummyRobot) Logger() golog.Logger {
