@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -30,10 +31,16 @@ import (
 // Ben Zotto for inventing this formulation
 // https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
 var RGBABitmapMagicNumber = []byte("RGBA")
+var DepthMapMagicNumber = []byte("DEPTHMAP")
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
 const RawRGBAHeaderLength = 12
+
+// RawDepthHeaderLength is the length of our custom header for raw depth map
+// data in bytes. Header contains 8 bytes worth of magic number, followed by 4 bytes
+// for width (uint32) and another 4 bytes for height (uint32)
+const RawDepthHeaderLength = 16
 
 func init() {
 	// Here we register the custom format above so that we can simply use image.Decode
@@ -71,7 +78,35 @@ func init() {
 			}, nil
 		},
 	)
-}
+
+	// Here we register our format for depth images so that we can use
+	// image.Decode as long as we have the appropriate header
+	image.RegisterFormat("vnd.viam.dep", string(DepthMapMagicNumber),
+		func(r io.Reader) (image.Image, error) {
+			f := r.(*bufio.Reader)
+			dm, err := ReadDepthMap(f)
+			if err != nil {
+				return nil, err
+			}
+			return dm, nil
+		},
+		func(r io.Reader) (image.Config, error) {
+			// We cannot read the height and width from bytes b/c we don't know (yet)
+			// how the depth map is encoded, so send it to decode and then grab it.
+			// Using Gray 16 as underlying color model for depth
+			f := r.(*bufio.Reader)
+			dm, err := ReadDepthMap(f)
+			if err != nil {
+				return image.Config{}, err
+			}
+			return image.Config{
+				ColorModel: color.Gray16Model,
+				Width:      dm.width,
+				Height:     dm.height,
+			}, nil
+		},
+	)
+} // end of init
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {

@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
 )
 
 func TestRawDepthMap(t *testing.T) {
@@ -330,4 +331,47 @@ func TestDepthColorModel(t *testing.T) {
 	convGray = dm.ColorModel().Convert(rgba8)
 	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
+}
+
+func TestDepthMapEncoding(t *testing.T) {
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2gray.vnd.viam.dep"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test values at points of DepthMap
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
+	testPt1 := m.GetDepth(300, 300)
+	test.That(t, testPt1, test.ShouldEqual, 749)
+	testPt2 := m.GetDepth(600, 600)
+	test.That(t, testPt2, test.ShouldEqual, 685)
+
+	// Save DepthMap BYTES to a file
+	buf := bytes.Buffer{}
+	err = m.WriteToBuf(&buf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, buf.Bytes(), test.ShouldNotBeNil)
+	outDir := testutils.TempDirT(t, "", "rimage")
+	saveTo := outDir + "/grayboard_bytes.txt"
+	err = os.WriteFile(saveTo, buf.Bytes(), 0777)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Read bytes from file
+	newbuf := bytes.Buffer{}
+	boardBytes, err := os.ReadFile(saveTo)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newbuf.Write(boardBytes)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Decode image and test the same points
+	img, _, err := image.Decode(bufio.NewReader(&newbuf))
+	test.That(t, err, test.ShouldBeNil)
+	newM, err := ConvertImageToDepthMap(context.Background(), img)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newM.Width(), test.ShouldEqual, 1280)
+	test.That(t, newM.Height(), test.ShouldEqual, 720)
+	testPt1 = newM.GetDepth(300, 300)
+	test.That(t, testPt1, test.ShouldEqual, 749)
+	testPt2 = newM.GetDepth(600, 600)
+	test.That(t, testPt2, test.ShouldEqual, 685)
+
 }

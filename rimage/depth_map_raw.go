@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -45,6 +46,53 @@ func ParseRawDepthMap(fn string) (*DepthMap, error) {
 	return ReadRawDepthMap(bufio.NewReader(f))
 }
 
+// ReadRawDepthMap --> ReadDepthMap (namewise)
+
+// ReadDepthMap returns a depth map from the given reader
+func ReadDepthMap(r io.Reader) (*DepthMap, error) {
+	// We expect the first 8 bytes to be a magic number assigned to a depthmap type
+	firstBytes, err := _readNext(r)
+	fmt.Print("ANYTHING READING/DECODING A VND.VIAM.DEP SHOULD GO THRU HERE")
+	if err != nil {
+		return nil, err
+	}
+	if firstBytes == 6363110499870197078 { // magic number for VERSIONX
+		return readDepthMapVersionX(r.(*bufio.Reader))
+	}
+
+	return readDepthMapRaw(r.(*bufio.Reader), firstBytes)
+}
+
+func readDepthMapRaw(f *bufio.Reader, firstBytes int64) (*DepthMap, error) {
+	dm := DepthMap{}
+	dm.width = int(firstBytes)
+
+	rawHeight, err := _readNext(f)
+	if err != nil {
+		return nil, err
+	}
+	dm.height = int(rawHeight)
+
+	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
+		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+	}
+
+	dm.data = make([]Depth, dm.width*dm.height)
+
+	for x := 0; x < dm.width; x++ {
+		for y := 0; y < dm.height; y++ {
+			temp, err := _readNext(f)
+			if err != nil {
+				return nil, err
+			}
+			dm.Set(x, y, Depth(temp))
+		}
+	}
+
+	return &dm, nil
+
+}
+
 // ReadRawDepthMap returns a depth map from the given reader.
 func ReadRawDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	var err error
@@ -57,7 +105,7 @@ func ReadRawDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	dm.width = int(rawWidth)
 
 	if rawWidth == 6363110499870197078 { // magic number for VERSIONX
-		return readDepthMapFormat2(f)
+		return readDepthMapVersionX(f)
 	}
 
 	rawHeight, err := _readNext(f)
@@ -85,7 +133,7 @@ func ReadRawDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
-func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
+func readDepthMapVersionX(r *bufio.Reader) (*DepthMap, error) {
 	dm := DepthMap{}
 
 	// get past garbade
