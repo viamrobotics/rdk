@@ -60,6 +60,8 @@ func init() {
 // SubtypeName is a constant that identifies the camera resource subtype string.
 const SubtypeName = resource.SubtypeName("camera")
 
+// Adding a comment here and it's dummmmmmb
+
 // Subtype is a constant that identifies the camera resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
