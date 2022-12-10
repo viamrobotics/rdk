@@ -123,19 +123,27 @@ func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 	return result
 }
 
-// PoseInFrameToTransformProtobuf converts a PoseInFrame struct to a Transform protobuf message.
-func PoseInFrameToTransformProtobuf(framedPose *PoseInFrame) (*commonpb.Transform, error) {
-	if framedPose.name == "" {
+// LinkInFrameToTransformProtobuf converts a LinkInFrame struct to a Transform protobuf message.
+func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transform, error) {
+	if framedLink.PoseInFrame == nil {
+		return nil, ErrNilPoseInFrame
+	}
+	if framedLink.name == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	return &commonpb.Transform{
-		ReferenceFrame:      framedPose.name,
-		PoseInObserverFrame: PoseInFrameToProtobuf(framedPose),
-	}, nil
+	tform := &commonpb.Transform{
+		ReferenceFrame:      framedLink.name,
+		PoseInObserverFrame: PoseInFrameToProtobuf(framedLink.PoseInFrame),
+	}
+	if framedLink.geometry != nil {
+		tform.Geometry = framedLink.geometry.ToProtobuf()
+	}
+	return tform, nil
 }
 
-// PoseInFrameFromTransformProtobuf converts a Transform protobuf message to a PoseInFrame struct.
-func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, error) {
+// LinkInFrameFromTransformProtobuf converts a Transform protobuf message to a LinkInFrame struct.
+func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, error) {
+	var err error
 	frameName := proto.GetReferenceFrame()
 	if frameName == "" {
 		return nil, ErrEmptyStringFrameName
@@ -147,79 +155,23 @@ func PoseInFrameFromTransformProtobuf(proto *commonpb.Transform) (*PoseInFrame, 
 	}
 	poseMsg := poseInObserverFrame.GetPose()
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
-	return NewNamedPoseInFrame(parentFrame, pose, frameName), nil
-}
-
-// LinkInFrameToStaticFrameProtobuf converts a LinkInFrame struct to a StaticFrame protobuf message.
-func LinkInFrameToStaticFrameProtobuf(framedLink *LinkInFrame) (*commonpb.StaticFrame, error) {
-	if framedLink.PoseInFrame == nil {
-		return nil, ErrNilPoseInFrame
-	}
-	tform, err := PoseInFrameToTransformProtobuf(framedLink.PoseInFrame)
-	if err != nil {
-		return nil, err
-	}
-	var geomProto *commonpb.Geometry
-	if framedLink.geometry != nil {
-		geomProto = framedLink.geometry.ToProtobuf()
-	}
-	return &commonpb.StaticFrame{
-		Transform: tform,
-		Geometry:  geomProto,
-	}, nil
-}
-
-// LinkInFrameFromStaticFrameProtobuf converts a StaticFrame protobuf message to a LinkInFrame struct.
-func LinkInFrameFromStaticFrameProtobuf(proto *commonpb.StaticFrame) (*LinkInFrame, error) {
-	pif, err := PoseInFrameFromTransformProtobuf(proto.Transform)
-	if err != nil {
-		return nil, err
-	}
-	var geom spatialmath.GeometryCreator
+	lif := &LinkInFrame{PoseInFrame: NewNamedPoseInFrame(parentFrame, pose, frameName)}
 	if proto.Geometry != nil {
-		geom, err = spatialmath.NewGeometryCreatorFromProto(proto.Geometry)
+		lif.geometry, err = spatialmath.NewGeometryCreatorFromProto(proto.Geometry)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &LinkInFrame{PoseInFrame: pif, geometry: geom}, nil
+	return lif, nil
 }
 
-// PoseInFramesToTransformProtobuf converts a slice of PoseInFrame structs to a slice of Transform protobuf messages.
+// LinkInFramesToTransformsProtobuf converts a slice of LinkInFrame structs to a slice of Transform protobuf messages.
 // TODO(rb): use generics to operate on lists of arbirary types.
-func PoseInFramesToTransformProtobuf(poseSlice []*PoseInFrame) ([]*commonpb.Transform, error) {
-	protoTransforms := make([]*commonpb.Transform, 0, len(poseSlice))
-	for i, transform := range poseSlice {
-		protoTf, err := PoseInFrameToTransformProtobuf(transform)
-		if err != nil {
-			return nil, errors.Wrapf(err, "conversion error at index %d", i)
-		}
-		protoTransforms = append(protoTransforms, protoTf)
-	}
-	return protoTransforms, nil
-}
-
-// PoseInFramesFromTransformProtobuf converts a slice of Transform protobuf messages to a slice of PoseInFrame structs.
-// TODO(rb): use generics to operate on lists of arbirary proto types.
-func PoseInFramesFromTransformProtobuf(protoSlice []*commonpb.Transform) ([]*PoseInFrame, error) {
-	transforms := make([]*PoseInFrame, 0, len(protoSlice))
-	for i, protoTransform := range protoSlice {
-		transform, err := PoseInFrameFromTransformProtobuf(protoTransform)
-		if err != nil {
-			return nil, errors.Wrapf(err, "conversion error at index %d", i)
-		}
-		transforms = append(transforms, transform)
-	}
-	return transforms, nil
-}
-
-// LinkInFramesToStaticFramesProtobuf converts a slice of LinkInFrame structs to a slice of StaticFrame protobuf messages.
-// TODO(rb): use generics to operate on lists of arbirary types.
-func LinkInFramesToStaticFramesProtobuf(linkSlice []*LinkInFrame) ([]*commonpb.StaticFrame, error) {
-	protoTransforms := make([]*commonpb.StaticFrame, 0, len(linkSlice))
+func LinkInFramesToTransformsProtobuf(linkSlice []*LinkInFrame) ([]*commonpb.Transform, error) {
+	protoTransforms := make([]*commonpb.Transform, 0, len(linkSlice))
 	for i, link := range linkSlice {
-		protoTf, err := LinkInFrameToStaticFrameProtobuf(link)
+		protoTf, err := LinkInFrameToTransformProtobuf(link)
 		if err != nil {
 			return nil, errors.Wrapf(err, "conversion error at index %d", i)
 		}
@@ -228,12 +180,12 @@ func LinkInFramesToStaticFramesProtobuf(linkSlice []*LinkInFrame) ([]*commonpb.S
 	return protoTransforms, nil
 }
 
-// LinkInFramesFromStaticFramesProtobuf converts a slice of StaticFrame protobuf messages to a slice of LinkInFrame structs.
+// LinkInFramesFromTransformsProtobuf converts a slice of Transform protobuf messages to a slice of LinkInFrame structs.
 // TODO(rb): use generics to operate on lists of arbirary proto types.
-func LinkInFramesFromStaticFramesProtobuf(protoSlice []*commonpb.StaticFrame) ([]*LinkInFrame, error) {
+func LinkInFramesFromTransformsProtobuf(protoSlice []*commonpb.Transform) ([]*LinkInFrame, error) {
 	links := make([]*LinkInFrame, 0, len(protoSlice))
 	for i, protoTransform := range protoSlice {
-		link, err := LinkInFrameFromStaticFrameProtobuf(protoTransform)
+		link, err := LinkInFrameFromTransformProtobuf(protoTransform)
 		if err != nil {
 			return nil, errors.Wrapf(err, "conversion error at index %d", i)
 		}

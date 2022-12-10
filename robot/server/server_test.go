@@ -188,7 +188,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		}
 
 		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame,
+			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
 		) (framesystemparts.Parts, error) {
 			return framesystemparts.Parts(fsConfigs), nil
 		}
@@ -197,46 +197,46 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		resp, err := server.FrameSystemConfig(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, resp.FrameSystemConfigs[0].Frame.Transform.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
+		test.That(t, resp.FrameSystemConfigs[0].Frame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
 		test.That(
 			t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.ReferenceFrame,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.ReferenceFrame,
 			test.ShouldEqual,
 			fsConfigs[0].FrameConfig.Parent(),
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.X,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.X,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Pose().Point().X,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.Y,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Y,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Pose().Point().Y,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.Z,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Z,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Pose().Point().Z,
 		)
 		pose := fsConfigs[0].FrameConfig.Pose()
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.OX,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OX,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OX,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.OY,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OY,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OY,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.OZ,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OZ,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OZ,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Transform.PoseInObserverFrame.Pose.Theta,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Theta,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().Theta,
 		)
@@ -245,7 +245,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
 		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame,
+			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
 		) (framesystemparts.Parts, error) {
 			return nil, expectedErr
 		}

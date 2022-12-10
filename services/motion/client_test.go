@@ -67,7 +67,7 @@ func TestClient(t *testing.T) {
 
 		client := motion.NewClientFromConn(context.Background(), conn, testMotionServiceName, logger)
 
-		receivedTransforms := make(map[string]*referenceframe.PoseInFrame)
+		receivedTransforms := make(map[string]*referenceframe.LinkInFrame)
 		success := true
 		injectMS.MoveFunc = func(
 			ctx context.Context,
@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
-			supplementalTransforms []*referenceframe.PoseInFrame,
+			supplementalTransforms []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			for _, tf := range supplementalTransforms {
@@ -101,12 +101,12 @@ func TestClient(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
-		transforms := []*referenceframe.PoseInFrame{
-			referenceframe.NewNamedPoseInFrame("arm1", testPose, "frame1"),
-			referenceframe.NewNamedPoseInFrame("frame1", testPose, "frame2"),
+		transforms := []*referenceframe.LinkInFrame{
+			{PoseInFrame: referenceframe.NewNamedPoseInFrame("arm1", testPose, "frame1")},
+			{PoseInFrame: referenceframe.NewNamedPoseInFrame("frame1", testPose, "frame2")},
 		}
 
-		tfMap := make(map[string]*referenceframe.PoseInFrame)
+		tfMap := make(map[string]*referenceframe.LinkInFrame)
 		for _, tf := range transforms {
 			tfMap[tf.Name()] = tf
 		}
@@ -150,7 +150,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
-			supplementalTransform []*referenceframe.PoseInFrame,
+			supplementalTransform []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			return nil, passedErr

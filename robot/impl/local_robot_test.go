@@ -1186,7 +1186,7 @@ func TestStatusRemote(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	frameSystemConfigFunc := func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}

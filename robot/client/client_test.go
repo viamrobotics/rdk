@@ -126,7 +126,7 @@ func TestStatusClient(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	frameSystemConfigFunc := func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -715,7 +715,7 @@ func TestClientDisconnect(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -955,7 +955,7 @@ func TestClientReconnect(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -1308,14 +1308,14 @@ func TestClientConfig(t *testing.T) {
 
 	workingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return nil, configErr
 	}
@@ -1520,7 +1520,7 @@ func TestForeignResource(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -1651,7 +1651,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot1.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -1789,7 +1789,7 @@ func TestGetUnknownResource(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}

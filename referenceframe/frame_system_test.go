@@ -44,18 +44,16 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pose := &commonpb.Pose{} // zero pose
 	exp := &robotpb.FrameSystemConfig{
-		Frame: &commonpb.StaticFrame{
-			Transform: &commonpb.Transform{
-				ReferenceFrame: "test",
-				PoseInObserverFrame: &commonpb.PoseInFrame{
-					ReferenceFrame: "world",
-					Pose:           pose,
-				},
+		Frame: &commonpb.Transform{
+			ReferenceFrame: "test",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "world",
+				Pose:           pose,
 			},
 		},
 	}
-	test.That(t, result.Frame.Transform.ReferenceFrame, test.ShouldEqual, exp.Frame.Transform.ReferenceFrame)
-	test.That(t, result.Frame.Transform.PoseInObserverFrame, test.ShouldResemble, exp.Frame.Transform.PoseInObserverFrame)
+	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
+	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
 	// exp.Kinematics is nil, but the struct in the struct PB
 	expKin, err := protoutils.StructToStructPb(exp.Kinematics)
 	test.That(t, err, test.ShouldBeNil)
@@ -90,19 +88,17 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
 	exp = &robotpb.FrameSystemConfig{
-		Frame: &commonpb.StaticFrame{
-			Transform: &commonpb.Transform{
-				ReferenceFrame: "test",
-				PoseInObserverFrame: &commonpb.PoseInFrame{
-					ReferenceFrame: "world",
-					Pose:           pose,
-				},
+		Frame: &commonpb.Transform{
+			ReferenceFrame: "test",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "world",
+				Pose:           pose,
 			},
 		},
 		Kinematics: kinematics,
 	}
-	test.That(t, result.Frame.Transform.ReferenceFrame, test.ShouldEqual, exp.Frame.Transform.ReferenceFrame)
-	test.That(t, result.Frame.Transform.PoseInObserverFrame, test.ShouldResemble, exp.Frame.Transform.PoseInObserverFrame)
+	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
+	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
 	test.That(t, result.Kinematics, test.ShouldNotBeNil)
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)
@@ -170,15 +166,15 @@ func TestFramesFromPart(t *testing.T) {
 
 func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 	t.Run("fails on missing reference frame name", func(t *testing.T) {
-		transform := NewPoseInFrame("parent", spatial.NewZeroPose())
-		part, err := PoseInFrameToFrameSystemPart(transform)
+		transform := &LinkInFrame{PoseInFrame: NewPoseInFrame("parent", spatial.NewZeroPose())}
+		part, err := LinkInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeError, ErrEmptyStringFrameName)
 		test.That(t, part, test.ShouldBeNil)
 	})
 	t.Run("converts to frame system part", func(t *testing.T) {
 		testPose := spatial.NewPoseFromOrientation(r3.Vector{X: 1., Y: 2., Z: 3.}, &spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0})
-		transform := NewNamedPoseInFrame("parent", testPose, "child")
-		part, err := PoseInFrameToFrameSystemPart(transform)
+		transform := &LinkInFrame{PoseInFrame: NewNamedPoseInFrame("parent", testPose, "child")}
+		part, err := LinkInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
 		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.FrameName())

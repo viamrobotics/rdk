@@ -56,7 +56,7 @@ type Service interface {
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
-		supplementalTransforms []*referenceframe.PoseInFrame,
+		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
@@ -138,7 +138,7 @@ func (svc *reconfigurableMotionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*referenceframe.PoseInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()

@@ -239,7 +239,7 @@ func TestClientModel(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{&referenceframe.FrameSystemPart{
 			FrameConfig: &referenceframe.LinkInFrame{

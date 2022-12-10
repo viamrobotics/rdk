@@ -174,7 +174,7 @@ func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*referenceframe.PoseInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {

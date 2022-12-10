@@ -320,11 +320,7 @@ func TestServiceWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
-	pifTransforms := make([]*referenceframe.PoseInFrame, 0, len(transforms))
-	for _, tf := range transforms {
-		pifTransforms = append(pifTransforms, tf.PoseInFrame)
-	}
-	allParts, err := r2.FrameSystemConfig(context.Background(), pifTransforms)
+	allParts, err := r2.FrameSystemConfig(context.Background(), transforms)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 }

@@ -23,10 +23,10 @@ const LocalFrameSystemName = "robot"
 
 // A Service that returns the frame system for a robot.
 type Service interface {
-	Config(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error)
+	Config(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPose(
 		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -122,7 +122,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
 func (svc *frameSystemService) Config(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
@@ -134,7 +134,7 @@ func (svc *frameSystemService) Config(
 	// build the config
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
 	for _, transformMsg := range additionalTransforms {
-		newPart, err := referenceframe.PoseInFrameToFrameSystemPart(transformMsg)
+		newPart, err := referenceframe.LinkInFrameToFrameSystemPart(transformMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +152,7 @@ func (svc *frameSystemService) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()

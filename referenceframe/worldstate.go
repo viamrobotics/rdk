@@ -39,7 +39,7 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	if err != nil {
 		return nil, err
 	}
-	transforms, err := LinkInFramesFromStaticFramesProtobuf(proto.GetTransforms())
+	transforms, err := LinkInFramesFromTransformsProtobuf(proto.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 		return list
 	}
 
-	transforms, err := LinkInFramesToStaticFramesProtobuf(worldState.Transforms)
+	transforms, err := LinkInFramesToTransformsProtobuf(worldState.Transforms)
 	if err != nil {
 		return nil, err
 	}

@@ -722,9 +722,9 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (rc *RobotClient) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -749,9 +749,9 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}

@@ -26,12 +26,7 @@ func RobotFrameSystem(
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
 	defer span.End()
 	// create the frame system
-	// Geometries in links are not necessary to request the locations of remote frame system items
-	posesInFrame := make([]*referenceframe.PoseInFrame, 0, len(additionalTransforms))
-	for _, link := range additionalTransforms {
-		posesInFrame = append(posesInFrame, link.PoseInFrame)
-	}
-	allParts, err := r.FrameSystemConfig(ctx, posesInFrame)
+	allParts, err := r.FrameSystemConfig(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}

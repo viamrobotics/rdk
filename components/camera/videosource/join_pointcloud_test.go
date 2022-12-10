@@ -99,7 +99,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	}
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}
@@ -367,7 +367,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	}
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}

@@ -388,7 +388,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, ErrNoModelInformation
 	}
-	linkFrame, err := LinkInFrameToStaticFrameProtobuf(part.FrameConfig)
+	linkFrame, err := LinkInFrameToTransformProtobuf(part.FrameConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
-	frameConfig, err := LinkInFrameFromStaticFrameProtobuf(fsc.Frame)
+	frameConfig, err := LinkInFrameFromTransformProtobuf(fsc.Frame)
 	if err != nil {
 		return nil, err
 	}
@@ -440,13 +440,13 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	return part, nil
 }
 
-// PoseInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
-func PoseInFrameToFrameSystemPart(transform *PoseInFrame) (*FrameSystemPart, error) {
+// LinkInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
+func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, error) {
 	if transform.Name() == "" || transform.Parent() == "" {
 		return nil, ErrEmptyStringFrameName
 	}
 	part := &FrameSystemPart{
-		FrameConfig: &LinkInFrame{PoseInFrame: transform},
+		FrameConfig: transform,
 	}
 	return part, nil
 }
