@@ -54,7 +54,7 @@ type GeometryConfig struct {
 	R float64 `json:"r"`
 
 	// define an offset to position the geometry
-	TranslationOffset r3.Vector         `json:"translation"`
+	TranslationOffset r3.Vector         `json:"translation,omitempty"`
 	OrientationOffset OrientationConfig `json:"orientation,omitempty"`
 
 	Label string
@@ -151,7 +151,7 @@ func NewGeometryCreatorFromProto(geometry *commonpb.Geometry) (GeometryCreator, 
 	return nil, ErrGeometryTypeUnsupported
 }
 
-// ToProtobuf converts a GeometryCreator to Protobuf.
+// ToProtobuf converts a GeometryConfig to Protobuf.
 func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	creator, err := config.ParseConfig()
 	if err != nil {

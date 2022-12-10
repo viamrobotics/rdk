@@ -60,8 +60,8 @@ type FrameSystem interface {
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
-// Name is the robot part name, FrameConfig gives the general structure of the frame system,
-// and ModelFrameConfig is an optional ModelJSON that describes the internal kinematics of the robot part.
+// FrameConfig gives the frame's location relative to parent,
+// and ModelFrame is an optional ModelJSON that describes the internal kinematics of the robot part.
 type FrameSystemPart struct {
 	FrameConfig *LinkInFrame
 	ModelFrame  Model

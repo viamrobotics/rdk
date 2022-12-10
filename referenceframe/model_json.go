@@ -5,9 +5,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-
-	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // ModelConfig represents all supported fields in a kinematics JSON file.
@@ -69,34 +66,21 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 	case "DH":
 		for _, dh := range cfg.DHParams {
-			// Joint part of DH param
-			jointID := dh.ID + "_j"
-			parentMap[jointID] = dh.Parent
-			transforms[jointID], err = NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
-				Limit{Min: utils.DegToRad(dh.Min), Max: utils.DegToRad(dh.Max)})
+			
+			rFrame, lFrame, err := dh.ToDHFrames()
 			if err != nil {
 				return nil, err
 			}
+			// Joint part of DH param
+			jointID := dh.ID + "_j"
+			parentMap[jointID] = dh.Parent
+			transforms[jointID] = rFrame
 
 			// Link part of DH param
 			linkID := dh.ID
-			pose := spatial.NewPoseFromDH(dh.A, dh.D, utils.DegToRad(dh.Alpha))
 			parentMap[linkID] = jointID
-			if dh.Geometry != nil {
-				geometryCreator, err := dh.Geometry.ParseConfig()
-				if err != nil {
-					return nil, err
-				}
-				transforms[dh.ID], err = NewStaticFrameWithGeometry(dh.ID, pose, geometryCreator)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				transforms[dh.ID], err = NewStaticFrame(dh.ID, pose)
-				if err != nil {
-					return nil, err
-				}
-			}
+			transforms[dh.ID] = lFrame
+
 		}
 
 	default:

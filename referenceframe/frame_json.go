@@ -112,3 +112,34 @@ func (cfg *JointConfig) ToFrame() (Frame, error) {
 		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}
 }
+
+// ToDHFrames converts a DHParamConfig into a joint frame and a link frame.
+func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
+	jointID := cfg.ID + "_j"
+	rFrame, err := NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
+		Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Link part of DH param
+	linkID := cfg.ID
+	pose := spatial.NewPoseFromDH(cfg.A, cfg.D, utils.DegToRad(cfg.Alpha))
+	var lFrame Frame
+	if cfg.Geometry != nil {
+		geometryCreator, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+		lFrame, err = NewStaticFrameWithGeometry(linkID, pose, geometryCreator)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		lFrame, err = NewStaticFrame(cfg.ID, pose)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return rFrame, lFrame, nil
+}

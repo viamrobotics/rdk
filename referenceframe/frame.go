@@ -274,11 +274,10 @@ func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	temp.Orientation = orientationConfig
 
 	if sf.geometryCreator != nil {
-		geometryConfig, err := spatial.NewGeometryConfig(sf.geometryCreator)
+		temp.Geometry, err = spatial.NewGeometryConfig(sf.geometryCreator)
 		if err != nil {
 			return nil, err
 		}
-		temp.Geometry = geometryConfig
 	}
 	return json.Marshal(temp)
 }
