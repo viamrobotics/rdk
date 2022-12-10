@@ -102,6 +102,7 @@ By default, this feature is opt-in, but you must provide a client option to disa
 
 # Client Session Implementations
 
+Starting points:
   - [Typescript Client]
   - [golang Client]
 
@@ -153,6 +154,7 @@ response.
 
 # Server Session Implementations
 
+Starting points:
   - [golang Server]
 
 # Remote Robot Considerations
@@ -176,8 +178,8 @@ robot had accessed last in the same vein.
 [robot.proto]: https://github.com/viamrobotics/api/blob/d06de64f8202ca3151beea3285dcff8fe2c2df81/proto/viam/robot/v1/robot.proto#L97
 [common.proto]: https://github.com/viamrobotics/api/blob/d06de64f8202ca3151beea3285dcff8fe2c2df81/proto/viam/common/v1/common.proto#L154
 [base.proto]: https://github.com/viamrobotics/api/blob/d06de64f8202ca3151beea3285dcff8fe2c2df81/proto/viam/component/base/v1/base.proto#L36
-[Typescript Client]: https://github.com/viamrobotics/viam-typescript-sdk/blob/main/src/SessionTransport.ts#L42
-[golang Client]: https://TODO(erd): FILL ME IN
-[golang Server]: https://TODO(erd): FILL ME IN
+[Typescript Client]: https://github.com/viamrobotics/viam-typescript-sdk/blob/04bcf3248c5a6a35653d4ddc777e2caf2965893d/src/SessionTransport.ts
+[golang Client]: https://github.com/viamrobotics/rdk/blob/f209d34564d51e5b70e8e87f942ff43890ece200/robot/client/client.go#L218
+[golang Server]: https://github.com/viamrobotics/rdk/blob/f209d34564d51e5b70e8e87f942ff43890ece200/robot/web/web.go#L727
 */
 package session
