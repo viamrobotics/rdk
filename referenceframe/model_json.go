@@ -66,7 +66,6 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 	case "DH":
 		for _, dh := range cfg.DHParams {
-			
 			rFrame, lFrame, err := dh.ToDHFrames()
 			if err != nil {
 				return nil, err
@@ -80,7 +79,6 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			linkID := dh.ID
 			parentMap[linkID] = jointID
 			transforms[dh.ID] = lFrame
-
 		}
 
 	default:
