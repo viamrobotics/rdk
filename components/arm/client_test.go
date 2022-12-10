@@ -242,9 +242,7 @@ func TestClientModel(t *testing.T) {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{&referenceframe.FrameSystemPart{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, nil, testArmName),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, testArmName, nil),
 			ModelFrame: model,
 		}}, nil
 	}
