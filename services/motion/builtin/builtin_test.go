@@ -54,7 +54,7 @@ func TestMoveFailures(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 		transforms := []*referenceframe.LinkInFrame{
-			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame("noParent", testPose, "frame2")},
+			referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
 		}
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
@@ -92,8 +92,8 @@ func TestMove1(t *testing.T) {
 		)
 
 		transforms := []*referenceframe.LinkInFrame{
-			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2")},
-			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame("pieceArm", testPose, "testFrame")},
+			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
+			referenceframe.NewLinkInFrame("pieceArm", testPose, "testFrame", nil),
 		}
 
 		worldState := &referenceframe.WorldState{Transforms: transforms}
@@ -188,7 +188,7 @@ func TestMoveSingleComponent(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 		transforms := []*referenceframe.LinkInFrame{
-			&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame2")},
+			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
 		}
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 
@@ -255,8 +255,8 @@ func TestGetPose(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 	transforms := []*referenceframe.LinkInFrame{
-		&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, testPose, "testFrame")},
-		&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame("testFrame", testPose, "testFrame2")},
+		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame", nil),
+		referenceframe.NewLinkInFrame("testFrame", testPose, "testFrame2", nil),
 	}
 
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transforms, map[string]interface{}{})
@@ -270,7 +270,7 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Orientation().AxisAngles().Theta, test.ShouldAlmostEqual, math.Pi)
 
 	transforms = []*referenceframe.LinkInFrame{
-		&referenceframe.LinkInFrame{PoseInFrame: referenceframe.NewNamedPoseInFrame("noParent", testPose, "testFrame")},
+		referenceframe.NewLinkInFrame("noParent", testPose, "testFrame", nil),
 	}
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("testFrame", "noParent"))

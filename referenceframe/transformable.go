@@ -103,6 +103,14 @@ func NewNamedPoseInFrame(frame string, pose spatialmath.Pose, name string) *Pose
 	}
 }
 
+// NewLinkInFrame generates a new LinkInFrame.
+func NewLinkInFrame(frame string, pose spatialmath.Pose, name string, geometry spatialmath.GeometryCreator) *LinkInFrame {
+	return &LinkInFrame{
+		PoseInFrame: NewNamedPoseInFrame(frame, pose, name),
+		geometry:    geometry,
+	}
+}
+
 // PoseInFrameToProtobuf converts a PoseInFrame struct to a PoseInFrame protobuf message.
 func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
 	poseProto := &commonpb.Pose{}

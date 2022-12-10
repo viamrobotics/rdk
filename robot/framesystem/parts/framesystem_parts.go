@@ -94,9 +94,7 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	}
 	// make map of children
 	children := make(map[string]Parts)
-	// ~ fmt.Println("parts", parts)
 	for _, part := range parts {
-		// ~ fmt.Println("part", part)
 		parent := part.FrameConfig.Parent()
 		if !existingParts[parent] {
 			return nil, NewMissingParentError(part.FrameConfig.Name(), parent)

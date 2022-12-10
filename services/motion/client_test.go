@@ -102,8 +102,8 @@ func TestClient(t *testing.T) {
 		)
 
 		transforms := []*referenceframe.LinkInFrame{
-			{PoseInFrame: referenceframe.NewNamedPoseInFrame("arm1", testPose, "frame1")},
-			{PoseInFrame: referenceframe.NewNamedPoseInFrame("frame1", testPose, "frame2")},
+			referenceframe.NewLinkInFrame("arm1", testPose, "frame1", nil),
+			referenceframe.NewLinkInFrame("frame1", testPose, "frame2", nil),
 		}
 
 		tfMap := make(map[string]*referenceframe.LinkInFrame)

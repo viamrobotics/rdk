@@ -74,27 +74,20 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	r := &inject.Robot{}
 	fsParts := framesystemparts.Parts{
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(
-					referenceframe.World,
-					spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0}),
-					"cam1"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(
+				referenceframe.World,
+				spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0}),
+				"cam1",
+				nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}), "cam2"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}), "cam2", nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0}), "cam3"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0}), "cam3", nil),
 		},
 	}
 	r.FrameSystemConfigFunc = func(
@@ -327,42 +320,32 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 
 	fsParts := framesystemparts.Parts{
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1", nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2", nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3"),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3", nil),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(
-					"cam3",
-					spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o1),
-					"cam4",
-				),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(
+				"cam3",
+				spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o1),
+				"cam4",
+				nil,
+			),
 		},
 		{
-			FrameConfig: &referenceframe.LinkInFrame{
-				PoseInFrame: referenceframe.NewNamedPoseInFrame(
-					"cam4",
-					spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o2),
-					"cam5",
-				),
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(
+				"cam4",
+				spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o2),
+				"cam5",
+				nil,
+			),
 		},
 	}
 	r.FrameSystemConfigFunc = func(
