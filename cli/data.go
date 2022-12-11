@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -20,6 +21,8 @@ import (
 const (
 	dataDir     = "data"
 	metadataDir = "metadata"
+	// TODO: possibly make this param with default value.
+	numConcurrentRequests = 10
 )
 
 // BinaryData downloads binary data matching filter to dst.
@@ -33,66 +36,117 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	}
 
 	var last string
+	idsChannel := make(chan string, 10)
+
+	// In one loop: Send series of IncludeBinary=false requests with Limit 50. Through IDs into channel
 	for {
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
-				Limit:  1,
+				Limit:  50,
 				Last:   last,
 			},
-			IncludeBinary: true,
-			CountOnly:     false,
+			CountOnly: false,
 		})
 		if err != nil {
 			return errors.Wrapf(err, "received error from server")
 		}
-		data := resp.GetData()
-		last = resp.GetLast()
-
 		// If no data is returned, there is no more data.
-		if len(data) == 0 {
+		if len(resp.GetData()) == 0 {
+			close(idsChannel)
 			break
 		}
 
-		if len(data) != 1 {
-			return errors.Errorf("expected a single response, received %d", len(data))
-		}
-
-		datum := data[0]
-		mdJSONBytes, err := protojson.Marshal(datum.GetMetadata())
-		if err != nil {
-			return err
-		}
-
-		//nolint:gosec
-		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetMetadata().GetId()+".json"))
-		if err != nil {
-			return err
-		}
-		if _, err := jsonFile.Write(mdJSONBytes); err != nil {
-			return err
-		}
-
-		gzippedBytes := datum.GetBinary()
-		r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
-		if err != nil {
-			return err
-		}
-
-		//nolint:gosec
-		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
-		if err != nil {
-			return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
-		}
-		//nolint:gosec
-		if _, err := io.Copy(dataFile, r); err != nil {
-			return err
-		}
-		if err := r.Close(); err != nil {
-			return err
+		for _, bd := range resp.GetData() {
+			idsChannel <- bd.GetMetadata().GetId()
 		}
 	}
 
+	// In other loop: read from channel, and 10 IDs concurrently at a time, do IncludeBinary
+	var nextID string
+	var done bool
+	wg := sync.WaitGroup{}
+	for {
+		for i := 0; i < numConcurrentRequests; i++ {
+			nextID = <-idsChannel
+
+			// If nextID is zero value, the channel has been closed and there are no more IDs.
+			if nextID == "" {
+				done = true
+				break
+			}
+			wg.Add(1)
+			go func(id string) {
+				defer wg.Done()
+				err := downloadBinary(c.dataClient, dst, nextID)
+				// TODO: Cancel other requests and return from parent function if we receive an error. Use an error
+				//       channel and cancelCTx for this.
+				if err != nil {
+					fmt.Println(err)
+				}
+			}(nextID)
+		}
+		wg.Wait()
+		if done {
+			break
+		}
+	}
+
+	return nil
+}
+
+func downloadBinary(client datapb.DataServiceClient, dst string, id string) error {
+	resp, err := client.BinaryDataByIDs(context.Background(), &datapb.BinaryDataByIDsRequest{
+		FileIds:       []string{id},
+		IncludeBinary: true,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	data := resp.GetData()
+
+	// We should always receive data.
+	if len(data) == 0 {
+		return errors.Errorf("received no binary data for id %s", id)
+	}
+
+	if len(data) != 1 {
+		return errors.Errorf("expected a single response, received %d", len(data))
+	}
+
+	datum := data[0]
+	mdJSONBytes, err := protojson.Marshal(datum.GetMetadata())
+	if err != nil {
+		return err
+	}
+
+	//nolint:gosec
+	jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetMetadata().GetId()+".json"))
+	if err != nil {
+		return err
+	}
+	if _, err := jsonFile.Write(mdJSONBytes); err != nil {
+		return err
+	}
+
+	gzippedBytes := datum.GetBinary()
+	r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
+	if err != nil {
+		return err
+	}
+
+	//nolint:gosec
+	dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
+	if err != nil {
+		return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
+	}
+	//nolint:gosec
+	if _, err := io.Copy(dataFile, r); err != nil {
+		return err
+	}
+	if err := r.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
