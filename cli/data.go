@@ -53,7 +53,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, concurrentDownloads); err != nil {
+		var limit int
+		if concurrentDownloads > 100 {
+			limit = 100
+		} else {
+			limit = concurrentDownloads
+		}
+		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
 			errs <- err
 			cancel()
 		}
@@ -120,7 +126,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 
 // getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
-	ids chan string, concurrent int,
+	ids chan string, limit int,
 ) error {
 	var last string
 	defer close(ids)
@@ -132,7 +138,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 		resp, err := client.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
-				Limit:  uint64(concurrent),
+				Limit:  uint64(limit),
 				Last:   last,
 			},
 			CountOnly: false,
