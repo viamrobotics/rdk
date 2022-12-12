@@ -149,7 +149,7 @@ func PlanWaypoints(ctx context.Context,
 	// each goal is solved independently.
 	for i, goal := range goals {
 		// Create a frame to solve for, and an IK solver with that frame.
-		sf, err := newSolverFrame(fs, solveFrameList, goal.FrameName(), seedMap)
+		sf, err := newSolverFrame(fs, solveFrameList, goal.Parent(), seedMap)
 		if err != nil {
 			return nil, err
 		}

@@ -177,7 +177,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		part, err := LinkInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
-		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.FrameName())
+		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.Parent())
 		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
 		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})

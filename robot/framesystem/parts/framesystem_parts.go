@@ -31,7 +31,7 @@ func (fsp Parts) String() string {
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),
 			part.FrameConfig.Name(),
-			part.FrameConfig.FrameName(),
+			part.FrameConfig.Parent(),
 			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
 			fmt.Sprintf(
 				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
@@ -64,11 +64,11 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	// make map of children
 	children := make(map[string]Parts)
 	for _, part := range parts {
-		parent := part.FrameConfig.FrameName()
+		parent := part.FrameConfig.Parent()
 		if !existingParts[parent] {
 			return nil, NewMissingParentError(part.FrameConfig.Name(), parent)
 		}
-		children[part.FrameConfig.FrameName()] = append(children[part.FrameConfig.FrameName()], part)
+		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
 	}
 	topoSortedParts := Parts{} // keep track of tree structure
 	// If there are no frames, return the empty list
@@ -107,13 +107,13 @@ func RenameRemoteParts(
 	connectionName string,
 ) Parts {
 	for _, p := range remoteParts {
-		if p.FrameConfig.FrameName() == referenceframe.World { // rename World of remote parts
+		if p.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
 			p.FrameConfig.SetParent(connectionName)
 		}
 		// rename each non-world part with prefix
 		p.FrameConfig.SetName(remoteName + ":" + p.FrameConfig.Name())
-		if p.FrameConfig.FrameName() != connectionName {
-			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.FrameName())
+		if p.FrameConfig.Parent() != connectionName {
+			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.Parent())
 		}
 	}
 	return remoteParts

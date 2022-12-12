@@ -112,14 +112,14 @@ func TestClient(t *testing.T) {
 		}
 		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
+		test.That(t, poseResult.Parent(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
 		test.That(t, poseResult.Pose().Point().Y, test.ShouldEqual, 2)
 		test.That(t, poseResult.Pose().Point().Z, test.ShouldEqual, 3)
 		for name, tf := range tfMap {
 			receivedTf := receivedTransforms[name]
 			test.That(t, tf.Name(), test.ShouldEqual, receivedTf.Name())
-			test.That(t, tf.FrameName(), test.ShouldEqual, receivedTf.FrameName())
+			test.That(t, tf.Parent(), test.ShouldEqual, receivedTf.Parent())
 			test.That(t, spatialmath.PoseAlmostEqual(tf.Pose(), receivedTf.Pose()), test.ShouldBeTrue)
 		}
 		test.That(t, receivedTransforms, test.ShouldNotBeNil)

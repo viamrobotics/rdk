@@ -1233,8 +1233,8 @@ func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error 
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
-	if frameConfig.FrameName() != otherFrameConfig.FrameName() {
-		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.FrameName(), otherFrameConfig.FrameName())
+	if frameConfig.Parent() != otherFrameConfig.Parent() {
+		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
 	}
 	if !spatialmath.R3VectorAlmostEqual(frameConfig.Pose().Point(), otherFrameConfig.Pose().Point(), 1e-8) {
 		return errors.New("translations of parts not equal")

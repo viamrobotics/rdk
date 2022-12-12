@@ -182,7 +182,7 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
-	src := object.FrameName()
+	src := object.Parent()
 	if src == dst {
 		return object, nil
 	}
@@ -442,7 +442,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 
 // LinkInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
 func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, error) {
-	if transform.Name() == "" || transform.FrameName() == "" {
+	if transform.Name() == "" || transform.Parent() == "" {
 		return nil, ErrEmptyStringFrameName
 	}
 	part := &FrameSystemPart{

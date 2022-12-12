@@ -47,7 +47,7 @@ func NewFrameSystemFromParts(
 	if len(parts) != 0 {
 		hasWorld := false
 		for _, part := range parts {
-			if part.FrameConfig.FrameName() == referenceframe.World {
+			if part.FrameConfig.Parent() == referenceframe.World {
 				hasWorld = true
 				break
 			}
@@ -75,8 +75,8 @@ func NewFrameSystemFromParts(
 		// prefixing for the world frame is only necessary in the case
 		// of merging multiple frame systems together, so we leave that
 		// reponsibility to the corresponding merge function
-		if part.FrameConfig.FrameName() != referenceframe.World {
-			part.FrameConfig.SetParent(prefix + part.FrameConfig.FrameName())
+		if part.FrameConfig.Parent() != referenceframe.World {
+			part.FrameConfig.SetParent(prefix + part.FrameConfig.Parent())
 		}
 		// make the frames from the configs
 		modelFrame, staticOffsetFrame, err := referenceframe.CreateFramesFromPart(part, logger)
@@ -84,7 +84,7 @@ func NewFrameSystemFromParts(
 			return nil, err
 		}
 		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.FrameName()))
+		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent()))
 		if err != nil {
 			return nil, err
 		}

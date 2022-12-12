@@ -12,7 +12,7 @@ import (
 // Transformable is an interface to describe elements that can be transformed by the frame system.
 type Transformable interface {
 	Transform(*PoseInFrame) Transformable
-	FrameName() string
+	Parent() string
 }
 
 // PoseInFrame is a data structure that packages a pose with the name of the
@@ -50,8 +50,8 @@ func (lF *LinkInFrame) ToStaticFrame(name string) (Frame, error) {
 	return NewStaticFrame(name, pose)
 }
 
-// FrameName returns the name of the frame in which the pose was observed. Needed for Transformable interface.
-func (pF *PoseInFrame) FrameName() string {
+// Parent returns the name of the frame in which the pose was observed. Needed for Transformable interface.
+func (pF *PoseInFrame) Parent() string {
 	return pF.parent
 }
 
@@ -197,8 +197,8 @@ type GeometriesInFrame struct {
 	geometries map[string]spatialmath.Geometry
 }
 
-// FrameName returns the name of the frame in which the geometries were observed.
-func (gF *GeometriesInFrame) FrameName() string {
+// Parent returns the name of the frame in which the geometries were observed.
+func (gF *GeometriesInFrame) Parent() string {
 	return gF.frame
 }
 

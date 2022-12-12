@@ -202,7 +202,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 			t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.ReferenceFrame,
 			test.ShouldEqual,
-			fsConfigs[0].FrameConfig.FrameName(),
+			fsConfigs[0].FrameConfig.Parent(),
 		)
 		test.That(t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.X,
