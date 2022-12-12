@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -101,11 +100,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, rutils.NewResourceNotFoundError(name)
+		return nil, utils.NewResourceNotFoundError(name)
 	}
 
 	svc, err = motion.FromRobot(r, testMotionServiceName)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Named(testMotionServiceName)))
+	test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(motion.Named(testMotionServiceName)))
 	test.That(t, svc, test.ShouldBeNil)
 }
 
@@ -148,7 +147,7 @@ func TestReconfigurable(t *testing.T) {
 
 	err = reconfSvc1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
+	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(reconfSvc1, nil))
 }
 
 // TODO(rb): remove these tests before merging.  they are just to prove that you can use kinematics outside motionplan now.

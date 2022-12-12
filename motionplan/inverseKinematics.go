@@ -10,13 +10,11 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// InverseKinematics defines an interface which, provided with a goal position and seed inputs, will output all found
-// solutions to the provided channel until cancelled or otherwise completes.
+// InverseKinematicsSolver defines an interface which is used to solve inverse kinematics queries.
 type InverseKinematicsSolver interface {
-	solve(context.Context, chan<- []referenceframe.Input, spatial.Pose, []referenceframe.Input, Metric, int) error
+	solve(context.Context, chan<- []referenceframe.Input, spatialmath.Pose, []referenceframe.Input, Metric, int) error
 	frame() referenceframe.Frame
 	options() *ikOptions
 }
@@ -35,6 +33,7 @@ func (ik *ikSolver) options() *ikOptions {
 	return ik.opts
 }
 
+// NewIKSolver instantiates an InverseKinematicsSolver according to the configuration parameters defined in ikConfig.
 func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[string]interface{}) (InverseKinematicsSolver, error) {
 	// Start with normal options
 	opt := newBasicIKOptions()
@@ -57,6 +56,9 @@ func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[s
 	return newEnsembleIKSolver(frame, logger, opt)
 }
 
+// BestIKSolutions takes an InverseKinematicsSolver and a goal location and calculates a number of solutions to achieve this goal, scored
+// by proximity to some reference input that is also specified by the user.  Finally, a WorldState argument allows users to
+// disallow or allow regions of state space through defining obstacles or interaction spaces respectively.
 func BestIKSolutions(
 	ctx context.Context,
 	ik InverseKinematicsSolver,
@@ -65,11 +67,13 @@ func BestIKSolutions(
 	worldState *referenceframe.WorldState,
 	randseed int,
 	nSolutions int,
-) ([]*costNode, error) {
-	// build an ephemeral framesystem and make a map of the inputs to it
+) ([][]referenceframe.Input, error) {
+	// Build an ephemeral framesystem and make a map of the inputs to it
 	model := ik.frame()
 	fs := referenceframe.NewEmptySimpleFrameSystem("temp")
-	fs.AddFrame(model, fs.Frame(referenceframe.World))
+	if err := fs.AddFrame(model, fs.Frame(referenceframe.World)); err != nil {
+		return nil, err
+	}
 	inputMap := make(map[string][]referenceframe.Input, 0)
 	inputMap[model.Name()] = input
 
@@ -80,7 +84,17 @@ func BestIKSolutions(
 	}
 	ik.options().AddConstraint(defaultCollisionConstraintName, collisionConstraint)
 	defer ik.options().RemoveConstraint(defaultCollisionConstraintName)
-	return getSolutions(ctx, ik, goal, input, randseed, nSolutions)
+
+	// Convert list of nodes to Input
+	nodes, err := getSolutions(ctx, ik, goal, input, randseed, nSolutions)
+	if err != nil {
+		return nil, err
+	}
+	solutions := make([][]referenceframe.Input, 0)
+	for _, node := range nodes {
+		solutions = append(solutions, node.Q())
+	}
+	return solutions, nil
 }
 
 func getSolutions(
