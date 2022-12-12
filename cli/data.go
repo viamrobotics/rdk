@@ -19,13 +19,13 @@ import (
 )
 
 const (
-	dataDir                   = "data"
-	metadataDir               = "metadata"
-	defaultConcurrentRequests = 10
+	dataDir                    = "data"
+	metadataDir                = "metadata"
+	defaultConcurrentDownloads = 10
 )
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequests int) error {
+func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDownloads int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -34,14 +34,14 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	if concurrentRequests == 0 {
-		concurrentRequests = defaultConcurrentRequests
+	if concurrentDownloads == 0 {
+		concurrentDownloads = defaultConcurrentDownloads
 	}
 
-	ids := make(chan string, concurrentRequests)
-	// Give channel buffer of 1+concurrentRequests because that is the number of goroutines that may be passing an
+	ids := make(chan string, concurrentDownloads)
+	// Give channel buffer of 1+concurrentDownloads because that is the number of goroutines that may be passing an
 	// error into this channel (1 get ids routine + concurrentRequest download routines).
-	errs := make(chan error, 1+concurrentRequests)
+	errs := make(chan error, 1+concurrentDownloads)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := sync.WaitGroup{}
@@ -50,13 +50,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, concurrentRequests); err != nil {
+		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, concurrentDownloads); err != nil {
 			errs <- err
 			cancel()
 		}
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of defaultConcurrentRequests.
+	// In parallel, read from ids and download the binary for each id in batches of defaultConcurrentDownloads.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -64,7 +64,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 		var done bool
 		downloadWG := sync.WaitGroup{}
 		for {
-			for i := 0; i < concurrentRequests; i++ {
+			for i := 0; i < concurrentDownloads; i++ {
 				if err := ctx.Err(); err != nil {
 					errs <- err
 					cancel()
