@@ -166,7 +166,7 @@ func TestNewNloptIKSolver(t *testing.T) {
 	solutions, err := motionplan.BestIKSolutions(context.Background(), ik, pos, seed, &referenceframe.WorldState{}, 1, 10)
 	test.That(t, err, test.ShouldBeNil)
 	for _, solution := range solutions {
-		found, err := m.Transform(solution.Q())
+		found, err := m.Transform(solution)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(found, pos, 1e-3), test.ShouldBeTrue)
 	}

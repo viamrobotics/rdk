@@ -15,7 +15,7 @@ import (
 // ensembleIKSolver defines the fields necessary to run a combined solver.
 type ensembleIKSolver struct {
 	*ikSolver
-	solvers []InverseKinematicsSolver
+	solvers []inverseKinematicsSolver
 }
 
 // newEnsembleIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU

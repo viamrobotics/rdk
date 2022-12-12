@@ -175,7 +175,7 @@ func PlanWaypoints(ctx context.Context,
 }
 
 type planner struct {
-	ik       InverseKinematicsSolver
+	ik       inverseKinematicsSolver
 	frame    frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand

@@ -3,6 +3,8 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
+	"math"
+	"runtime"
 	"sort"
 
 	"github.com/edaniels/golog"
@@ -12,8 +14,49 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// InverseKinematicsSolver defines an interface which is used to solve inverse kinematics queries.
-type InverseKinematicsSolver interface {
+// default values for inverse kinematics.
+const (
+	// If an IK solution scores below this much, return it immediately.
+	defaultMinIkScore = 0.
+
+	// Number of IK solutions that should be generated before stopping.
+	defaultSolutionsToSeed = 50
+)
+
+var defaultNumThreads = runtime.NumCPU() / 2
+
+type ikOptions struct {
+	constraintHandler
+	extra map[string]interface{}
+
+	// Metric by which to measure nearness to the goal
+	metric Metric
+
+	// Solutions that score below this amount are considered "good enough" and returned immediately
+	MinScore float64 `json:"min_ik_score"`
+
+	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
+	// Max number of ik solutions to consider
+	MaxSolutions int `json:"max_ik_solutions"`
+
+	// Number of cpu cores to use
+	NumThreads int `json:"num_threads"`
+}
+
+func newBasicIKOptions() *ikOptions {
+	opts := &ikOptions{
+		metric:       NewSquaredNormMetric(),
+		MinScore:     defaultMinIkScore,
+		MaxSolutions: defaultSolutionsToSeed,
+		NumThreads:   defaultNumThreads,
+	}
+
+	opts.AddConstraint(defaultJointConstraint, NewJointConstraint(math.Inf(1)))
+	return opts
+}
+
+// inverseKinematicsSolver defines an interface which is used to solve inverse kinematics queries.
+type inverseKinematicsSolver interface {
 	solve(context.Context, chan<- []referenceframe.Input, spatialmath.Pose, []referenceframe.Input, Metric, int) error
 	frame() referenceframe.Frame
 	options() *ikOptions
@@ -34,7 +77,7 @@ func (ik *ikSolver) options() *ikOptions {
 }
 
 // NewIKSolver instantiates an InverseKinematicsSolver according to the configuration parameters defined in ikConfig.
-func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[string]interface{}) (InverseKinematicsSolver, error) {
+func newIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[string]interface{}) (inverseKinematicsSolver, error) {
 	// Start with normal options
 	opt := newBasicIKOptions()
 	opt.extra = ikConfig
@@ -50,7 +93,10 @@ func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[s
 	}
 
 	// infer IK solver to build based on number of threads allowed
-	if opt.NumThreads <= 1 {
+	if opt.NumThreads <= 0 {
+		opt.NumThreads = defaultNumThreads
+	}
+	if opt.NumThreads == 1 {
 		return newNLOptIKSolver(frame, logger, opt)
 	}
 	return newEnsembleIKSolver(frame, logger, opt)
@@ -61,24 +107,31 @@ func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[s
 // disallow or allow regions of state space through defining obstacles or interaction spaces respectively.
 func BestIKSolutions(
 	ctx context.Context,
-	ik InverseKinematicsSolver,
+	frame referenceframe.Frame,
+	logger golog.Logger,
 	goal spatialmath.Pose,
 	input []referenceframe.Input,
 	worldState *referenceframe.WorldState,
+	ikConfig map[string]interface{},
 	randseed int,
 	nSolutions int,
 ) ([][]referenceframe.Input, error) {
+	// Build an inverseKinematicsSolver object to operate on
+	ik, err := newIKSolver(frame, logger, ikConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	// Build an ephemeral framesystem and make a map of the inputs to it
-	model := ik.frame()
 	fs := referenceframe.NewEmptySimpleFrameSystem("temp")
-	if err := fs.AddFrame(model, fs.Frame(referenceframe.World)); err != nil {
+	if err := fs.AddFrame(frame, fs.Frame(referenceframe.World)); err != nil {
 		return nil, err
 	}
 	inputMap := make(map[string][]referenceframe.Input, 0)
-	inputMap[model.Name()] = input
+	inputMap[frame.Name()] = input
 
 	// Add a constraint for the worldState
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(model, fs, worldState, inputMap, false)
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(frame, fs, worldState, inputMap, false)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +152,7 @@ func BestIKSolutions(
 
 func getSolutions(
 	ctx context.Context,
-	ik InverseKinematicsSolver,
+	ik inverseKinematicsSolver,
 	goal spatialmath.Pose,
 	input []referenceframe.Input,
 	randseed int,
