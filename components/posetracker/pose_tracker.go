@@ -76,7 +76,7 @@ type PoseTracker interface {
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((PoseTracker)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*PoseTracker)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.

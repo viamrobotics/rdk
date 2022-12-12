@@ -1,4 +1,4 @@
-package gpio_test
+package gpio
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/components/input/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -57,13 +56,13 @@ func setup(t *testing.T) *setupResult {
 	deps := make(registry.Dependencies)
 	deps[board.Named("main")] = s.b
 
-	ic := gpio.Config{
+	ic := Config{
 		Board: "main",
-		Buttons: map[string]gpio.ButtonConfig{
+		Buttons: map[string]*ButtonConfig{
 			"interrupt1": {
 				Control:    input.ButtonNorth,
 				Invert:     false,
-				DebounceMs: 0,
+				DebounceMs: 20,
 			},
 			"interrupt2": {
 				Control:    input.ButtonSouth,
@@ -71,7 +70,7 @@ func setup(t *testing.T) *setupResult {
 				DebounceMs: -1,
 			},
 		},
-		Axes: map[string]gpio.AxisConfig{
+		Axes: map[string]*AxisConfig{
 			"analog1": {
 				Control:       input.AbsoluteX,
 				Min:           0,
@@ -171,7 +170,81 @@ func teardown(t *testing.T, s *setupResult) {
 }
 
 func TestGPIOInput(t *testing.T) {
-	// Test initial button state
+	t.Run("config defaults", func(t *testing.T) {
+		c := &Config{
+			Board: "main",
+			Buttons: map[string]*ButtonConfig{
+				"interrupt1": {
+					Control:    input.ButtonNorth,
+					Invert:     false,
+					DebounceMs: 20,
+				},
+				"interrupt2": {
+					Control:    input.ButtonSouth,
+					Invert:     true,
+					DebounceMs: -1,
+				},
+				"interrupt3": {
+					Control:    input.ButtonWest,
+					Invert:     false,
+					DebounceMs: 0, // default
+				},
+			},
+			Axes: map[string]*AxisConfig{
+				"analog1": {
+					Control:       input.AbsoluteX,
+					Min:           0,
+					Max:           1023,
+					Bidirectional: false,
+					Deadzone:      0,
+					MinChange:     0,
+					PollHz:        0,
+					Invert:        false,
+				},
+				"analog2": {
+					Control:       input.AbsoluteY,
+					Min:           0,
+					Max:           1023,
+					Bidirectional: true,
+					Deadzone:      20,
+					MinChange:     15,
+					PollHz:        50,
+					Invert:        false,
+				},
+			},
+		}
+		err := c.validateValues()
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, c.Buttons["interrupt1"].DebounceMs, test.ShouldEqual, 20) // unchanged
+		test.That(t, c.Buttons["interrupt2"].DebounceMs, test.ShouldEqual, -1) // unchanged
+		test.That(t, c.Buttons["interrupt3"].DebounceMs, test.ShouldEqual, 5)  // default
+
+		test.That(t, c.Axes["analog1"].PollHz, test.ShouldEqual, 10) // default
+		test.That(t, c.Axes["analog2"].PollHz, test.ShouldEqual, 50) // default
+	})
+
+	t.Run("config axis min > max", func(t *testing.T) {
+		c := &Config{
+			Board: "main",
+			Axes: map[string]*AxisConfig{
+				"analog1": {
+					Control:       input.AbsoluteX,
+					Min:           1023,
+					Max:           0,
+					Bidirectional: false,
+					Deadzone:      0,
+					MinChange:     0,
+					PollHz:        0,
+					Invert:        false,
+				},
+			},
+		}
+		err := c.validateValues()
+
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
 	t.Run("initial button state", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -187,7 +260,6 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test normal button press
 	//nolint:dupl
 	t.Run("button press and release", func(t *testing.T) {
 		s := setup(t)
@@ -218,12 +290,13 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test debounce at 5ms (default)
-	t.Run("button press debounce at 5ms (default)", func(t *testing.T) {
+	// Testing methodology: Issue many events within the debounce time and confirm that only one is registered
+	// Note: This is a time-sensitive test and is prone to flakiness.
+	t.Run("button press debounce", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		// time race: loop must complete within the debounce time
+		// this loop must complete within the debounce time
 		for i := 0; i < 20; i++ {
 			err := s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
@@ -244,7 +317,6 @@ func TestGPIOInput(t *testing.T) {
 		test.That(t, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 1)
 	})
 
-	// Test inverted button press
 	//nolint:dupl
 	t.Run("inverted button press and release", func(t *testing.T) {
 		s := setup(t)
@@ -275,18 +347,17 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test with debounce disabled
 	t.Run("inverted button press with debounce disabled", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		for i := 0; i < 20; i++ {
+		iterations := 50
+
+		for i := 0; i < iterations; i++ {
 			err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond)
 			err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond)
 		}
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -295,14 +366,13 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, state["ButtonSouth"].Value, test.ShouldEqual, 1)
 			test.That(tb, state["ButtonSouth"].Event, test.ShouldEqual, input.ButtonPress)
-			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, 40)
+			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, iterations*2)
 		})
 
 		time.Sleep(time.Millisecond * 10)
-		test.That(t, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, 40)
+		test.That(t, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, iterations*2)
 	})
 
-	// Test axis1 (default)
 	t.Run("axis1 (default)", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -337,7 +407,6 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test deadzone
 	t.Run("axis deadzone", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -393,7 +462,6 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test min change (default)
 	t.Run("axis min change (default)", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -440,7 +508,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 2)
 		})
 	})
-	// Test negative input and inversion
+
 	t.Run("axis negative input and inversion", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -466,7 +534,6 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test range capping
 	t.Run("axis range capping", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -502,21 +569,15 @@ func TestGPIOInput(t *testing.T) {
 		})
 	})
 
-	// Test poll frequency
+	// Test methodology: Issue n updates and ensure that each update is processed
+	// in the time based on the 'PollHz' config. e.g. a little over 100ms for 10hz.
+	// Note: This is a time-sensitive test and is prone to flakiness.
 	t.Run("axis poll frequency", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog1"].Set(1023)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, 1, 0.005)
-			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 1)
-		})
-
-		target := 1
+		// Note: the first Set() command must be != 0 to trigger a change event
+		target := 0
 		for i := 1; i < 10; i++ {
 			startTime := time.Now()
 			if target == 0 {
@@ -526,46 +587,16 @@ func TestGPIOInput(t *testing.T) {
 				target = 0
 				s.b.Analogs["analog1"].Set(0)
 			}
-			testutils.WaitForAssertion(t, func(tb testing.TB) {
+			testutils.WaitForAssertionWithSleep(t, 5*time.Millisecond, 25, func(tb testing.TB) {
 				tb.Helper()
 				state, err := s.dev.Events(s.ctx, map[string]interface{}{})
 				test.That(tb, err, test.ShouldBeNil)
 				test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, target, 0.005)
-				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i+1)
+				test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
+				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i)
 			})
 			s.axisMu.RLock()
-			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 110*time.Millisecond)
-			s.axisMu.RUnlock()
-		}
-
-		s.b.Analogs["analog2"].Set(1023)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, 1, 0.005)
-			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
-		})
-
-		target = 1
-		for i := 1; i < 20; i++ {
-			startTime := time.Now()
-			if target == -1 {
-				target = 1
-				s.b.Analogs["analog2"].Set(1023)
-			} else {
-				target = -1
-				s.b.Analogs["analog2"].Set(0)
-			}
-			testutils.WaitForAssertion(t, func(tb testing.TB) {
-				tb.Helper()
-				state, err := s.dev.Events(s.ctx, map[string]interface{}{})
-				test.That(tb, err, test.ShouldBeNil)
-				test.That(tb, state["AbsoluteY"].Value, test.ShouldAlmostEqual, target, 0.005)
-				test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, i+1)
-			})
-			s.axisMu.RLock()
-			test.That(t, s.axis2Time.Sub(startTime), test.ShouldBeBetween, 0*time.Millisecond, 40*time.Millisecond)
+			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 70*time.Millisecond, 130*time.Millisecond)
 			s.axisMu.RUnlock()
 		}
 	})
