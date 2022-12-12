@@ -1,9 +1,8 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import { CameraClient, Camera, Client, cameraApi, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { CameraClient, Camera, Client, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
