@@ -64,15 +64,13 @@ const toggleExpand = () => {
   viewCamera(camera);
 };
 
-const renderPCD = () => {
-  new CameraClient(props.client, props.cameraName)
-    .getPointCloud()
-    .then((bytes) => {
-      pointcloud = bytes;
-    })
-    .catch((error) => {
-      toast.error(`Error getting point cloud: ${error}`);
-    });
+const renderPCD = async () => {
+  try {
+    const bytes = await new CameraClient(props.client, props.cameraName).getPointCloud();
+    pointcloud = bytes;
+  } catch (error) {
+    toast.error(`Error getting point cloud: ${error}`);
+  }
 };
 
 const togglePCDExpand = () => {
@@ -98,13 +96,16 @@ const refreshCamera = () => {
   emit('clear-interval');
 };
 
-const exportScreenshot = (cameraName: string) => {
-  new CameraClient(props.client, cameraName)
-    .renderFrame(Camera.MimeType.JPEG)
-    .then((blob) => {
-      window.open(URL.createObjectURL(blob), '_blank');
-    })
-    .catch(displayError);
+const exportScreenshot = async (cameraName: string) => {
+  let blob;
+  try {
+    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
+
+  window.open(URL.createObjectURL(blob), '_blank');
 };
 
 onMounted(() => {
