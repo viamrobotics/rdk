@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/rand"
 	"strings"
@@ -22,55 +23,90 @@ var (
 )
 
 const (
-	constrainedTries  = 30
-	nloptStepsPerIter = 4001
+	defaultConstrainedTries = 30
+	defaultStepsPerIter     = 4001
+	defaultMaxIterations    = 5000
+
+	// Default distance below which two distances are considered equal.
+	defaultEpsilon = 1e-3
+
+	defaultSolveEpsilon = 1e-12
+	defaultJump         = 1e-8
 )
 
-// NLOptIKSolver TODO.
-type NLOptIKSolver struct {
-	*ikSolver
-	id            int
-	lowerBound    []float64
-	upperBound    []float64
-	maxIterations int
-	epsilon       float64
-	solveEpsilon  float64
-	jump          float64
+type nloptOptions struct {
+	ConstrainedTries  int `json:"constrained_tries"`
+	StepsPerIteration int `json:"steps_per_iteration"`
+	MaxIterations     int `json:"iterations"`
+
+	// How close we want to get to the goal
+	Epsilon float64 `json:"epsilon"`
+
+	// Stop optimizing when iterations change by less than this much
+	SolveEpsilon float64 `json:"solve_epsilon"`
+
+	// How much to adjust joints to determine slope
+	Jump float64 `json:"jump"`
 }
 
-// NewNLOptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
+func newNLOptOptions(opt *ikOptions) (*nloptOptions, error) {
+	algOpts := &nloptOptions{
+		ConstrainedTries:  defaultConstrainedTries,
+		StepsPerIteration: defaultStepsPerIter,
+		MaxIterations:     defaultMaxIterations,
+		Epsilon:           defaultEpsilon,
+		SolveEpsilon:      defaultSolveEpsilon,
+		Jump:              defaultJump,
+	}
+	// convert map to json
+	jsonString, err := json.Marshal(opt.extra)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonString, algOpts)
+	if err != nil {
+		return nil, err
+	}
+	return algOpts, nil
+}
+
+type nloptIKSolver struct {
+	*ikSolver
+	algOpts    *nloptOptions
+	id         int
+	lowerBound []float64
+	upperBound []float64
+}
+
+// newNLOptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func NewNLOptIKSolver(model referenceframe.Frame, logger golog.Logger, planOpts *PlannerOptions, iter int) (*NLOptIKSolver, error) {
-	ik := &NLOptIKSolver{ikSolver: &ikSolver{
-		logger: logger,
-		model:  model,
-		opts:   planOpts,
-	}}
-
-	ik.id = 0
-	// How close we want to get to the goal
-	ik.epsilon = defaultEpsilon
-	// Stop optimizing when iterations change by less than this much
-	ik.solveEpsilon = math.Pow(ik.epsilon, 4)
-	if iter < 1 {
-		// default value
-		iter = 5000
+func newNLOptIKSolver(model referenceframe.Frame, logger golog.Logger, opts *ikOptions) (*nloptIKSolver, error) {
+	if opts == nil {
+		opts = newBasicIKOptions()
 	}
-	ik.maxIterations = iter
-
+	algOpts, err := newNLOptOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	ik := &nloptIKSolver{
+		ikSolver: &ikSolver{
+			logger: logger,
+			model:  model,
+			opts:   opts,
+		},
+		algOpts: algOpts,
+		id:      0,
+	}
 	for _, limit := range model.DoF() {
 		ik.lowerBound = append(ik.lowerBound, limit.Min)
 		ik.upperBound = append(ik.upperBound, limit.Max)
 	}
-	// How much to adjust joints to determine slope
-	ik.jump = 1e-8
-
 	return ik, nil
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *NLOptIKSolver) solve(ctx context.Context,
+func (ik *nloptIKSolver) solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
 	newGoal spatial.Pose,
 	seed []referenceframe.Input,
@@ -116,9 +152,9 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 
 		if len(gradient) > 0 {
 			for i := range gradient {
-				x[i] += ik.jump
+				x[i] += ik.algOpts.Jump
 				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
-				x[i] -= ik.jump
+				x[i] -= ik.algOpts.Jump
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
@@ -127,22 +163,22 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 				}
 				dist2 := m(eePos, newGoal)
 
-				gradient[i] = (dist2 - dist) / ik.jump
+				gradient[i] = (dist2 - dist) / ik.algOpts.Jump
 			}
 		}
 		return dist
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolAbs(ik.solveEpsilon),
-		opt.SetFtolRel(ik.solveEpsilon),
+		opt.SetFtolAbs(ik.algOpts.SolveEpsilon),
+		opt.SetFtolRel(ik.algOpts.SolveEpsilon),
 		opt.SetLowerBounds(ik.lowerBound),
-		opt.SetStopVal(ik.epsilon*ik.epsilon),
+		opt.SetStopVal(ik.algOpts.Epsilon*ik.algOpts.Epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		opt.SetXtolAbs1(ik.solveEpsilon),
-		opt.SetXtolRel(ik.solveEpsilon),
+		opt.SetXtolAbs1(ik.algOpts.SolveEpsilon),
+		opt.SetXtolRel(ik.algOpts.SolveEpsilon),
 		opt.SetMinObjective(nloptMinFunc),
-		opt.SetMaxEval(nloptStepsPerIter),
+		opt.SetMaxEval(ik.algOpts.StepsPerIteration),
 	)
 
 	if ik.id > 0 {
@@ -161,7 +197,7 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
 			startingPos = ik.GenerateRandomPositions(randSeed)
-			tries = constrainedTries
+			tries = ik.algOpts.ConstrainedTries
 		}
 	}
 
@@ -172,7 +208,7 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 	default:
 	}
 
-	for iterations < ik.maxIterations {
+	for iterations < ik.algOpts.MaxIterations {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -186,7 +222,7 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		if result < ik.epsilon*ik.epsilon {
+		if result < ik.algOpts.Epsilon*ik.algOpts.Epsilon {
 			select {
 			case <-ctx.Done():
 				return err
@@ -195,7 +231,7 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 			solutionsFound++
 		}
 		tries++
-		if ik.id > 0 && tries < constrainedTries {
+		if ik.id > 0 && tries < ik.algOpts.ConstrainedTries {
 			err = ik.updateBounds(seed, tries, opt)
 			if err != nil {
 				return err
@@ -218,7 +254,7 @@ func (ik *NLOptIKSolver) solve(ctx context.Context,
 }
 
 // GenerateRandomPositions generates a random set of positions within the limits of this solver.
-func (ik *NLOptIKSolver) GenerateRandomPositions(randSeed *rand.Rand) []referenceframe.Input {
+func (ik *nloptIKSolver) GenerateRandomPositions(randSeed *rand.Rand) []referenceframe.Input {
 	pos := make([]referenceframe.Input, len(ik.model.DoF()))
 	for i, l := range ik.lowerBound {
 		u := ik.upperBound[i]
@@ -241,7 +277,7 @@ func (ik *NLOptIKSolver) GenerateRandomPositions(randSeed *rand.Rand) []referenc
 
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
 // have been tried.
-func (ik *NLOptIKSolver) updateBounds(seed []referenceframe.Input, tries int, opt *nlopt.NLopt) error {
+func (ik *nloptIKSolver) updateBounds(seed []referenceframe.Input, tries int, opt *nlopt.NLopt) error {
 	rangeStep := 0.1
 	newLower := make([]float64, len(ik.lowerBound))
 	newUpper := make([]float64, len(ik.upperBound))

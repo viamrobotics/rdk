@@ -5,6 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -59,7 +60,7 @@ type rrtPlanner struct {
 	maps *rrtMaps
 }
 
-func newRRTPlanner(frame referenceframe.Frame, seed *rand.Rand, logger golog.Logger, opt *PlannerOptions) (*rrtPlanner, error) {
+func newRRTPlanner(frame referenceframe.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*rrtPlanner, error) {
 	mp, err := newPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func (rrt *rrtPlanner) initRRTSolutions(ctx context.Context, goal spatialmath.Po
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
-	solutions, err := BestNIKSolutions(ctx, rrt.ik, goal, seed, rrt.randseed.Int(), nSolutions)
+	solutions, err := getSolutions(ctx, rrt.ik, goal, seed, rrt.randseed.Int(), nSolutions)
 	if err != nil {
 		return &rrtPlanReturn{maps: rrt.maps, planerr: err}
 	}
@@ -156,7 +157,7 @@ func newCostNode(q []referenceframe.Input, cost float64) *costNode {
 	return &costNode{&basicNode{q: q}, cost}
 }
 
-// nodePair groups together nodes in a tuple
+// nodePair groups together nodes in a tuple.
 type nodePair struct{ a, b node }
 
 func (np *nodePair) sumCosts() float64 {

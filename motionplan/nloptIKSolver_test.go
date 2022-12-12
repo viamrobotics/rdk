@@ -19,7 +19,7 @@ func TestNewNloptIKSolver(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	ik, err := NewNLOptIKSolver(m, logger, makeIKTestOpts(t, m), -1)
+	ik, err := newNLOptIKSolver(m, logger, makeIKTestOpts(t, m).ikOptions)
 	test.That(t, err, test.ShouldBeNil)
 	ik.id = 1
 
@@ -34,16 +34,16 @@ func TestNewNloptIKSolver(t *testing.T) {
 	)
 
 	seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
-	BestIKSolution(context.Background(), ik, pos, seed, 1)
+	getSolutions(context.Background(), ik, pos, seed, 1, 1)
 	_, err = solveTest(context.Background(), ik, pos, seed)
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func makeIKTestOpts(t *testing.T, f referenceframe.Frame) *PlannerOptions {
+func makeIKTestOpts(t *testing.T, f referenceframe.Frame) *plannerOptions {
 	t.Helper()
 	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 	fs.AddFrame(f, fs.Frame(referenceframe.World))
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 	inputMap := referenceframe.StartPositions(fs)
 	collisionConstraint, err := NewCollisionConstraintFromWorldState(f, fs, &referenceframe.WorldState{}, inputMap, false)
 	test.That(t, err, test.ShouldBeNil)

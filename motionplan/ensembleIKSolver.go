@@ -12,27 +12,27 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// EnsembleIKSolver defines the fields necessary to run a combined solver.
-type EnsembleIKSolver struct {
+// ensembleIKSolver defines the fields necessary to run a combined solver.
+type ensembleIKSolver struct {
 	*ikSolver
 	solvers []InverseKinematicsSolver
 }
 
-// NewEnsembleIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
+// newEnsembleIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func NewEnsembleIKSolver(model referenceframe.Frame, logger golog.Logger, planOpts *PlannerOptions) (*EnsembleIKSolver, error) {
-	ik := &EnsembleIKSolver{ikSolver: &ikSolver{
+func newEnsembleIKSolver(model referenceframe.Frame, logger golog.Logger, opts *ikOptions) (*ensembleIKSolver, error) {
+	ik := &ensembleIKSolver{ikSolver: &ikSolver{
 		logger: logger,
 		model:  model,
-		opts:   planOpts,
+		opts:   opts,
 	}}
 
-	if planOpts.NumThreads == 0 {
-		planOpts.NumThreads = 1
+	if opts.NumThreads == 0 {
+		opts.NumThreads = 1
 	}
-	for i := 1; i <= planOpts.NumThreads; i++ {
-		nlopt, err := NewNLOptIKSolver(model, logger, planOpts, -1)
+	for i := 1; i <= opts.NumThreads; i++ {
+		nlopt, err := newNLOptIKSolver(model, logger, opts)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -44,7 +44,7 @@ func NewEnsembleIKSolver(model referenceframe.Frame, logger golog.Logger, planOp
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
-func (ik *EnsembleIKSolver) solve(ctx context.Context,
+func (ik *ensembleIKSolver) solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
 	newGoal spatialmath.Pose,
 	seed []referenceframe.Input,

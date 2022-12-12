@@ -31,7 +31,7 @@ type planManager struct {
 
 func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, NewBasicPlannerOptions())
+	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	var goals []spatialmath.Pose
-	var opts []*PlannerOptions
+	var opts []*plannerOptions
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
@@ -120,7 +120,7 @@ func (pm *planManager) planMotion(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
-	opts []*PlannerOptions,
+	opts []*plannerOptions,
 	maps *rrtMaps,
 	iter int,
 ) ([][]referenceframe.Input, error) {
@@ -128,7 +128,7 @@ func (pm *planManager) planMotion(
 	goal := goals[iter]
 	opt := opts[iter]
 	if opt == nil {
-		opt = NewBasicPlannerOptions()
+		opt = newBasicPlannerOptions()
 	}
 
 	// Build planner
@@ -210,7 +210,6 @@ func (pm *planManager) planMotion(
 				endpointPreview <- nextSeed
 			}
 			parallelPlanner.rrtBackgroundRunner(planctx, goal, seed, solutionChan)
-
 		})
 
 		for {
@@ -287,7 +286,7 @@ func (pm *planManager) planMotion(
 							ctx,
 							[]spatialmath.Pose{goal},
 							seed,
-							[]*PlannerOptions{opt.Fallback},
+							[]*plannerOptions{opt.Fallback},
 							nextSeed,
 							iter,
 						)
@@ -359,9 +358,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
 	planningOpts map[string]interface{},
-) (*PlannerOptions, error) {
+) (*plannerOptions, error) {
 	// Start with normal options
-	opt := NewBasicPlannerOptions()
+	opt := newBasicPlannerOptions()
 
 	opt.extra = planningOpts
 
@@ -477,7 +476,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func goodPlan(pr *rrtPlanReturn, opt *PlannerOptions) (bool, float64) {
+func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.cost <= 0 {

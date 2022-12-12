@@ -58,11 +58,11 @@ func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	if planOpts == nil {
-		planOpts = NewBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions()
 	}
 
 	utils.PanicCapturingGo(func() {
@@ -82,7 +82,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	solutionChan chan *rrtPlanReturn,
 	goalRate float64,
 ) {
@@ -226,7 +226,7 @@ func updateChildren(
 
 func (mp *DubinsRRTMotionPlanner) checkPath(
 	from, to node,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	dm *dubinPathAttrManager,
 	o DubinPathAttr,
 ) bool {

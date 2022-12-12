@@ -279,7 +279,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := NewEnsembleIKSolver(m, logger, makeIKTestOpts(t, m))
+	ik, err := newEnsembleIKSolver(m, logger, makeIKTestOpts(t, m).ikOptions)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -304,7 +304,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := NewEnsembleIKSolver(m, logger, makeIKTestOpts(t, m))
+	ik, err := newEnsembleIKSolver(m, logger, makeIKTestOpts(t, m).ikOptions)
 	test.That(t, err, test.ShouldBeNil)
 	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := ComputePosition(m, goalJP)
@@ -337,9 +337,9 @@ func TestCombinedCPUs(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	opts := NewBasicPlannerOptions()
+	opts := newBasicPlannerOptions()
 	opts.NumThreads = runtime.NumCPU() / 400000
-	ik, err := NewEnsembleIKSolver(m, logger, opts)
+	ik, err := newEnsembleIKSolver(m, logger, opts.ikOptions)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
 }

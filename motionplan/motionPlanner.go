@@ -28,7 +28,7 @@ type motionPlanner interface {
 	checkInputs([]frame.Input) bool
 }
 
-type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *PlannerOptions) (motionPlanner, error)
+type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
@@ -180,11 +180,11 @@ type planner struct {
 	logger   golog.Logger
 	randseed *rand.Rand
 	start    time.Time
-	planOpts *PlannerOptions
+	planOpts *plannerOptions
 }
 
-func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *PlannerOptions) (*planner, error) {
-	ik, err := NewEnsembleIKSolver(frame, logger, opt)
+func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
+	ik, err := newEnsembleIKSolver(frame, logger, opt.ikOptions)
 	if err != nil {
 		return nil, err
 	}

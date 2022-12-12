@@ -2,13 +2,15 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/utils"
 )
 
 // InverseKinematics defines an interface which, provided with a goal position and seed inputs, will output all found
@@ -16,38 +18,72 @@ import (
 type InverseKinematicsSolver interface {
 	solve(context.Context, chan<- []referenceframe.Input, spatial.Pose, []referenceframe.Input, Metric, int) error
 	frame() referenceframe.Frame
-	options() *PlannerOptions
+	options() *ikOptions
 }
 
 type ikSolver struct {
 	model  referenceframe.Frame
 	logger golog.Logger
-	opts   *PlannerOptions
+	opts   *ikOptions
 }
 
 func (ik *ikSolver) frame() referenceframe.Frame {
 	return ik.model
 }
 
-func (ik *ikSolver) options() *PlannerOptions {
+func (ik *ikSolver) options() *ikOptions {
 	return ik.opts
 }
 
-func BestIKSolution(
-	ctx context.Context,
-	ik InverseKinematicsSolver,
-	goal spatialmath.Pose,
-	seed []referenceframe.Input,
-	randseed int,
-) (*costNode, error) {
-	solutions, err := BestNIKSolutions(ctx, ik, goal, seed, randseed, 1)
+func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[string]interface{}) (InverseKinematicsSolver, error) {
+	// Start with normal options
+	opt := newBasicIKOptions()
+	opt.extra = ikConfig
+
+	// convert map to json, then to a struct, overwriting present defaults
+	jsonString, err := json.Marshal(ikConfig)
 	if err != nil {
 		return nil, err
 	}
-	return solutions[0], err
+	err = json.Unmarshal(jsonString, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	// infer IK solver to build based on number of threads allowed
+	if opt.NumThreads == 1 {
+		return newNLOptIKSolver(frame, logger, opt)
+	}
+	return newEnsembleIKSolver(frame, logger, opt)
 }
 
-func BestNIKSolutions(
+func BestIKSolutions(
+	ctx context.Context,
+	ik InverseKinematicsSolver,
+	goal spatialmath.Pose,
+	input []referenceframe.Input,
+	worldState *referenceframe.WorldState,
+	randseed int,
+	nSolutions int,
+) ([]*costNode, error) {
+	// build an ephemeral framesystem and make a map of the inputs to it
+	model := ik.frame()
+	fs := referenceframe.NewEmptySimpleFrameSystem("temp")
+	fs.AddFrame(model, fs.Frame(referenceframe.World))
+	inputMap := make(map[string][]referenceframe.Input, 0)
+	inputMap[model.Name()] = input
+
+	// Add a constraint for the worldState
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(model, fs, worldState, inputMap, false)
+	if err != nil {
+		return nil, err
+	}
+	ik.options().AddConstraint(defaultCollisionConstraintName, collisionConstraint)
+	defer ik.options().RemoveConstraint(defaultCollisionConstraintName)
+	return getSolutions(ctx, ik, goal, input, randseed, nSolutions)
+}
+
+func getSolutions(
 	ctx context.Context,
 	ik InverseKinematicsSolver,
 	goal spatialmath.Pose,

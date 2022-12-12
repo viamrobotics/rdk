@@ -32,9 +32,6 @@ type cbirrtOptions struct {
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	JointSolveDist float64 `json:"joint_solve_dist"`
 
-	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
-	SolutionsToSeed int `json:"solutions_to_seed"`
-
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
 
@@ -47,13 +44,12 @@ type cbirrtOptions struct {
 
 // newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
 // defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
+func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
 	algOpts := &cbirrtOptions{
-		FrameStep:       defaultFrameStep,
-		JointSolveDist:  defaultJointSolveDist,
-		SolutionsToSeed: defaultSolutionsToSeed,
-		IterBeforeRand:  defaultIterBeforeRand,
-		rrtOptions:      newRRTOptions(),
+		FrameStep:      defaultFrameStep,
+		JointSolveDist: defaultJointSolveDist,
+		IterBeforeRand: defaultIterBeforeRand,
+		rrtOptions:     newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -75,7 +71,7 @@ func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cb
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	*rrtPlanner
-	fastGradDescent *NLOptIKSolver
+	fastGradDescent *nloptIKSolver
 	algOpts         *cbirrtOptions
 	corners         map[node]bool
 }
@@ -85,17 +81,18 @@ func newCBiRRTMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
 	logger golog.Logger,
-	opt *PlannerOptions,
+	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
-		opt = NewBasicPlannerOptions()
+		opt = newBasicPlannerOptions()
 	}
 	mp, err := newRRTPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := NewNLOptIKSolver(frame, logger, opt, 1)
+	// TODO(rb): need to try only once
+	nlopt, err := newNLOptIKSolver(frame, logger, opt.ikOptions)
 	if err != nil {
 		return nil, err
 	}

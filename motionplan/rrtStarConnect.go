@@ -27,16 +27,22 @@ type rrtStarConnectOptions struct {
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
 
+	OptimalityThreshold float64 `json:"optimality_threshold"`
+
+	OptimalityCheckIterations int `json:"optimality_check_iterations"`
+
 	// Parameters common to all RRT implementations
 	*rrtOptions
 }
 
 // newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
-func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions, error) {
+func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
-		NeighborhoodSize: defaultNeighborhoodSize,
-		rrtOptions:       newRRTOptions(),
+		NeighborhoodSize:          defaultNeighborhoodSize,
+		OptimalityThreshold:       defaultOptimalityThreshold,
+		OptimalityCheckIterations: defaultOptimalityCheckIter,
+		rrtOptions:                newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -63,10 +69,10 @@ func newRRTStarConnectMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
 	logger golog.Logger,
-	opt *PlannerOptions,
+	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
-		opt = NewBasicPlannerOptions()
+		opt = newBasicPlannerOptions()
 	}
 	rrt, err := newRRTPlanner(frame, seed, logger, opt)
 	if err != nil {
@@ -108,7 +114,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(
 
 	// setup planner options
 	if mp.planOpts == nil {
-		mp.planOpts = NewBasicPlannerOptions()
+		mp.planOpts = newBasicPlannerOptions()
 	}
 
 	mp.start = time.Now()
@@ -162,10 +168,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(
 			shared = append(shared, &nodePair{map1reached, map2reached})
 
 			// Check if we can return
-			if nSolved%defaultOptimalityCheckIter == 0 {
+			if nSolved%mp.algOpts.OptimalityCheckIterations == 0 {
 				solution := shortestPath(mp.maps, shared)
 				solutionCost := EvaluatePlan(solution.toInputs(), mp.planOpts.DistanceFunc)
-				if solutionCost-mp.maps.optNode.cost < defaultOptimalityThreshold*mp.maps.optNode.cost {
+				if solutionCost-mp.maps.optNode.cost < mp.algOpts.OptimalityThreshold*mp.maps.optNode.cost {
 					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
 					solutionChan <- solution
 					return

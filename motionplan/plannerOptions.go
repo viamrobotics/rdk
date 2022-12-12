@@ -1,9 +1,6 @@
 package motionplan
 
 import (
-	"math"
-	"runtime"
-
 	"gonum.org/v1/gonum/floats"
 )
 
@@ -19,17 +16,8 @@ const (
 	// between the start and goal.
 	defaultPseudolinearTolerance = 0.8
 
-	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 50
-
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
-
-	// If an IK solution scores below this much, return it immediately.
-	defaultMinIkScore = 0.
-
-	// Default distance below which two distances are considered equal.
-	defaultEpsilon = 0.001
 
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
@@ -51,8 +39,6 @@ const (
 	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
 
-var defaultNumThreads = runtime.NumCPU() / 2
-
 // the set of supported motion profiles.
 const (
 	FreeMotionProfile         = "free"
@@ -72,16 +58,12 @@ func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
 	return true, floats.Norm(diff, 2)
 }
 
-// NewBasicPlannerOptions specifies a set of basic options for the planner.
-func NewBasicPlannerOptions() *PlannerOptions {
-	opt := &PlannerOptions{}
-	opt.AddConstraint(defaultJointConstraint, NewJointConstraint(math.Inf(1)))
-	opt.metric = NewSquaredNormMetric()
+// newBasicPlannerOptions specifies a set of basic options for the planner.
+func newBasicPlannerOptions() *plannerOptions {
+	opt := &plannerOptions{}
 	opt.pathDist = NewSquaredNormMetric()
 
 	// Set defaults
-	opt.MaxSolutions = defaultSolutionsToSeed
-	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 	opt.DistanceFunc = defaultDistanceFunc
@@ -92,31 +74,17 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.PlannerConstructor = newCBiRRTMotionPlanner
 
 	opt.SmoothIter = defaultSmoothIter
-
-	opt.NumThreads = defaultNumThreads
-
+	opt.ikOptions = newBasicIKOptions()
 	return opt
 }
 
-// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-type PlannerOptions struct {
-	constraintHandler
-	metric   Metric // Distance function to the goal
-	pathDist Metric // Distance function to the nearest valid point
-	extra    map[string]interface{}
-
-	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
-	// Max number of ik solutions to consider
-	MaxSolutions int `json:"max_ik_solutions"`
-
-	// Movements that score below this amount are considered "good enough" and returned immediately
-	MinScore float64 `json:"min_ik_score"`
+// plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+type plannerOptions struct {
+	*ikOptions
+	pathDist Metric // Metric by which to measure nearness
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	Resolution float64 `json:"resolution"`
-
-	// Percentage interval of max iterations after which to print debug logs
-	LoggingInterval float64 `json:"logging_interval"`
 
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
@@ -124,34 +92,31 @@ type PlannerOptions struct {
 	// Number of times to try to smooth the path
 	SmoothIter int `json:"smooth_iter"`
 
-	// Number of cpu cores to use
-	NumThreads int `json:"num_threads"`
-
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
 	DistanceFunc Constraint
 
 	PlannerConstructor plannerConstructor
 
-	Fallback *PlannerOptions
+	Fallback *plannerOptions
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *PlannerOptions) SetMetric(m Metric) {
+func (p *plannerOptions) SetMetric(m Metric) {
 	p.metric = m
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *PlannerOptions) SetPathDist(m Metric) {
+func (p *plannerOptions) SetPathDist(m Metric) {
 	p.pathDist = m
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
+func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
 }
 
 // SetMinScore specifies the IK stopping score for the planner.
-func (p *PlannerOptions) SetMinScore(minScore float64) {
+func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }

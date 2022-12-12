@@ -28,7 +28,7 @@ type neighbor struct {
 }
 
 //nolint:revive
-func kNearestNeighbors(planOpts *PlannerOptions, rrtMap map[node]node, target []referenceframe.Input, neighborhoodSize int) []*neighbor {
+func kNearestNeighbors(planOpts *plannerOptions, rrtMap map[node]node, target []referenceframe.Input, neighborhoodSize int) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(rrtMap) {
 		kNeighbors = len(rrtMap)
@@ -55,7 +55,7 @@ func kNearestNeighbors(planOpts *PlannerOptions, rrtMap map[node]node, target []
 
 func (nm *neighborManager) nearestNeighbor(
 	ctx context.Context,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	seed []referenceframe.Input,
 	rrtMap map[node]node,
 ) node {
@@ -80,7 +80,7 @@ func (nm *neighborManager) nearestNeighbor(
 
 func (nm *neighborManager) parallelNearestNeighbor(
 	ctx context.Context,
-	planOpts *PlannerOptions,
+	planOpts *plannerOptions,
 	seed []referenceframe.Input,
 	rrtMap map[node]node,
 ) node {
@@ -119,7 +119,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	return best
 }
 
-func (nm *neighborManager) startNNworkers(ctx context.Context, planOpts *PlannerOptions) {
+func (nm *neighborManager) startNNworkers(ctx context.Context, planOpts *plannerOptions) {
 	nm.neighbors = make(chan *neighbor, nm.nCPU)
 	nm.nnKeys = make(chan node, nm.nCPU)
 	for i := 0; i < nm.nCPU; i++ {
@@ -129,7 +129,7 @@ func (nm *neighborManager) startNNworkers(ctx context.Context, planOpts *Planner
 	}
 }
 
-func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *PlannerOptions) {
+func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOptions) {
 	var best node
 	bestDist := math.Inf(1)
 
