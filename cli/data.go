@@ -38,9 +38,10 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 		concurrentRequests = defaultConcurrentRequests
 	}
 
-	ids := make(chan string, 10)
-	getIDsErrs := make(chan error)
-	downloadErrs := make(chan error, concurrentRequests)
+	ids := make(chan string, concurrentRequests)
+	// Give channel buffer of 1+concurrentRequests because that is the number of goroutines that may be passing an
+	// error into this channel (1 get ids routine + concurrentRequest download routines).
+	errs := make(chan error, 1+concurrentRequests)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := sync.WaitGroup{}
@@ -49,11 +50,10 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids); err != nil {
+		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, concurrentRequests); err != nil {
+			errs <- err
 			cancel()
-			getIDsErrs <- err
 		}
-		close(getIDsErrs)
 	}()
 
 	// In parallel, read from ids and download the binary for each id in batches of defaultConcurrentRequests.
@@ -65,6 +65,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 		downloadWG := sync.WaitGroup{}
 		for {
 			for i := 0; i < concurrentRequests; i++ {
+				if err := ctx.Err(); err != nil {
+					errs <- err
+					cancel()
+					done = true
+					break
+				}
+
 				nextID = <-ids
 
 				// If nextID is zero value, the channel has been closed and there are no more IDs to be read.
@@ -78,7 +85,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 					defer downloadWG.Done()
 					err := downloadBinary(ctx, c.dataClient, dst, id)
 					if err != nil {
-						downloadErrs <- err
+						errs <- err
 						cancel()
 						done = true
 					}
@@ -89,21 +96,11 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 				break
 			}
 		}
-		close(downloadErrs)
 	}()
 	wg.Wait()
+	close(errs)
 
-	// TODO: how do we filter out all the context cancelled errors? We don't really care about those generally -
-	//       their a side effect of some first "real" error causing the rest to be cancelled.
-
-	// TODO: I feel like we should ensure we read some "real" error first. I think if we receive an error in download
-	//       we would first read the context cancellation error from getIDs first here and return that, when it's not
-	//       our root cause. Should we filter out all context.Cancelled errors though? Then we will miss out on "real"
-	//       context cancellation errors.
-	if err := <-getIDsErrs; err != nil {
-		return err
-	}
-	if err := <-downloadErrs; err != nil {
+	if err := <-errs; err != nil {
 		return err
 	}
 
@@ -112,25 +109,28 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequ
 
 // getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
-	ids chan string) error {
-
+	ids chan string, concurrent int,
+) error {
 	var last string
+	defer close(ids)
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		resp, err := client.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
-				Limit:  50,
+				Limit:  uint64(concurrent),
 				Last:   last,
 			},
 			CountOnly: false,
 		})
 		if err != nil {
-			close(ids)
 			return err
 		}
 		// If no data is returned, there is no more data.
 		if len(resp.GetData()) == 0 {
-			close(ids)
 			return nil
 		}
 		last = resp.GetLast()
@@ -141,7 +141,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id string) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, id string) error {
 	resp, err := client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 		FileIds:       []string{id},
 		IncludeBinary: true,
