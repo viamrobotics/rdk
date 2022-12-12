@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/armremotecontrol"
+	"go.viam.com/rdk/session"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -39,7 +40,11 @@ const (
 )
 
 func init() {
-	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultModelName, registry.Service{Constructor: NewBuiltIn})
+	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger)
+		},
+	})
 	cType := config.ServiceType(armremotecontrol.SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf ServiceConfig
@@ -79,6 +84,7 @@ type ControllerMode struct {
 
 // controllerState.
 type controllerState struct {
+	mu         sync.Mutex
 	event      controllerEvent        // type of event to execute
 	curModeIdx int                    // current controller mode
 	buttons    map[input.Control]bool // controller button pressed - which command to execute
@@ -140,6 +146,8 @@ func (config *ServiceConfig) validate() ([]string, error) {
 
 // state of control, event, axis, mode, command.
 func (cs *controllerState) init() {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
 	cs.event = noop
 	cs.curModeIdx = 0
 	cs.buttons = map[input.Control]bool{
@@ -156,6 +164,8 @@ func (cs *controllerState) init() {
 }
 
 func (cs *controllerState) set(event input.Event, svcConfig ServiceConfig) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
 	//exhaustive:ignore
 	switch event.Event {
 	case input.ButtonPress:
@@ -181,6 +191,8 @@ func (cs *controllerState) set(event input.Event, svcConfig ServiceConfig) {
 
 // reset state.
 func (cs *controllerState) reset() {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
 	cs.event = noop
 	for k := range cs.buttons {
 		cs.buttons[k] = false
@@ -193,10 +205,19 @@ type builtIn struct {
 	inputController input.Controller
 	config          *ServiceConfig
 	logger          golog.Logger
+
+	cancel                  func()
+	cancelCtx               context.Context
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
+func NewBuiltIn(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Service,
+	logger golog.Logger,
+) (armremotecontrol.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*ServiceConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
@@ -244,11 +265,14 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		}
 	}
 
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	armRemoteSvc := &builtIn{
 		arm:             armComponent,
 		inputController: controller,
 		config:          svcConfig,
 		logger:          logger,
+		cancelCtx:       cancelCtx,
+		cancel:          cancel,
 	}
 
 	if err := armRemoteSvc.start(ctx); err != nil {
@@ -275,10 +299,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 		}
 		lastEvent = event
 
-		err := svc.processEvent(ctx, state, event)
-		if err != nil {
-			svc.logger.Errorw("error with moving arm to desired position", "error", err)
-		}
+		svc.processEvent(ctx, state, event)
 	}
 
 	controls, err := svc.inputController.Controls(ctx, map[string]interface{}{})
@@ -304,6 +325,9 @@ func (svc *builtIn) start(ctx context.Context) error {
 
 // Close out of all remote control related systems.
 func (svc *builtIn) Close(ctx context.Context) error {
+	svc.cancel()
+	svc.activeBackgroundWorkers.Wait()
+
 	controls, err := svc.inputController.Controls(ctx, map[string]interface{}{})
 	if err != nil {
 		return err
@@ -324,15 +348,24 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return nil
 }
 
-func (svc *builtIn) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
-	// set state to be executed
-	state.set(event, *svc.config)
-	defer state.reset()
-	// execute stated arm control
-	if err := processArmControllerEvent(ctx, svc, state, event); err != nil {
-		return err
-	}
-	return nil
+func (svc *builtIn) processEvent(ctx context.Context, state *controllerState, event input.Event) {
+	// This would be better deeper down in the processing but it's not trivial to move
+	// the defer of state.reset around right now. That means it assumes any event we register
+	// is considered safety monitor which is not 100% true.
+	session.SafetyMonitor(ctx, svc.arm)
+
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+		// set state to be executed
+		state.set(event, *svc.config)
+		defer state.reset()
+
+		// execute stated arm control
+		if err := processArmControllerEvent(ctx, svc, state, event); err != nil {
+			svc.logger.Errorw("error with moving arm to desired position", "error", err)
+		}
+	})
 }
 
 // isInvalid: currently assume sensitivity is 0-5.
@@ -343,15 +376,19 @@ func isInvalid(sensitivity, val float64) bool {
 
 // processCommandEvent should properly map to arm control functions.
 func processCommandEvent(ctx context.Context, svc *builtIn, state *controllerState) error {
+	state.mu.Lock()
 	switch {
 	case state.buttons[input.ButtonSouth]:
+		state.mu.Unlock()
 		svc.logger.Debug("stopping arm")
 		return svc.arm.Stop(ctx, nil)
 	case state.buttons[input.ButtonWest]:
 		// move through state
 		state.curModeIdx = (state.curModeIdx + 1) % len(svc.config.ControllerModes)
+		state.mu.Unlock()
 		svc.logger.Debug("switched joint control")
 	default:
+		state.mu.Unlock()
 		return nil
 	}
 	return nil
@@ -374,7 +411,9 @@ func processArmEndPointEvent(ctx context.Context, svc *builtIn, state *controlle
 		return err
 	}
 
+	state.mu.Lock()
 	mappings := svc.config.ControllerModes[state.curModeIdx].ControlMapping
+	state.mu.Unlock()
 	mmStep := svc.config.MMStep
 	degStep := svc.config.DegreeStep
 
@@ -415,7 +454,9 @@ func processArmJointEvent(ctx context.Context, svc *builtIn, state *controllerSt
 		return nil
 	}
 
+	state.mu.Lock()
 	mappings := svc.config.ControllerModes[state.curModeIdx].ControlMapping
+	state.mu.Unlock()
 	jointStep := svc.config.JointStep
 
 	jointPositions, err := svc.arm.JointPositions(ctx, nil)

@@ -11,7 +11,8 @@ import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import {
   Client,
-  RobotService,
+  ResponseStream,
+  ServiceError,
   cameraApi,
   commonApi,
   robotApi,
@@ -32,7 +33,7 @@ import AudioInput from './components/audio-input.vue';
 import Base from './components/base.vue';
 import Board from './components/board.vue';
 import Camera from './components/camera.vue';
-import CurrentOperations from './components/current-operations.vue';
+import OperationsSessions from './components/operations-sessions.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
 import Gripper from './components/gripper.vue';
@@ -69,12 +70,12 @@ const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
-let statusStream: grpc.Request | null = null;
-let statusStreamOpID: string | undefined;
+let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: robotApi.Operation.AsObject, elapsed: number }[]>([]);
+let currentSessions = $ref<robotApi.Session.AsObject[]>([]);
 let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resourcesOnce = false;
@@ -124,7 +125,6 @@ let appConnectionManager = $ref<{
   isConnected(): boolean;
   rtt: number;
 }>(null!);
-const sessionOps = new Set<string>();
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -254,12 +254,8 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
 
 const restartStatusStream = () => {
   if (statusStream) {
-    statusStream.close();
+    statusStream.cancel();
     statusStream = null;
-    if (statusStreamOpID) {
-      sessionOps.delete(statusStreamOpID);
-      statusStreamOpID = undefined;
-    }
   }
 
   let newResources: commonApi.ResourceName.AsObject[] = [];
@@ -282,41 +278,21 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  interface svcWithOpts {
-    options: {
-      transport: grpc.TransportFactory;
-      debug: boolean;
-    };
-  }
+  statusStream = client.robotService.streamStatus(streamReq);
 
-  const robotSvcWithOpts = client.robotService as unknown as svcWithOpts;
-  statusStream = grpc.invoke(RobotService.StreamStatus, {
-    request: streamReq,
-    host: client.robotService.serviceHost,
-    transport: robotSvcWithOpts.options.transport,
-    debug: robotSvcWithOpts.options.debug,
-    onHeaders: (headers: grpc.Metadata) => {
-      if (headers.headersMap.opid && headers.headersMap.opid.length > 0) {
-        const [opID] = headers.headersMap.opid;
-        sessionOps.add(opID!);
-        statusStreamOpID = opID;
-      }
-    },
-    onMessage: (response) => {
-      lastStatusTS = Date.now();
-      updateStatus((response as robotApi.StreamStatusResponse).getStatusList());
-    },
-    onEnd: (endStatus, endStatusMessage, trailers) => {
-      console.error(
-        'error streaming robot status',
-        endStatus,
-        ' ',
-        endStatusMessage,
-        ' ',
-        trailers
-      );
-      statusStream = null;
-    },
+  statusStream.on('data', (response) => {
+    updateStatus(response.getStatusList());
+    lastStatusTS = Date.now();
+  });
+  statusStream.on('status', (newStatus) => {
+    if (!ConnectionClosedError.isError(newStatus.details)) {
+      console.error('error streaming robot status', newStatus);
+    }
+    statusStream = null;
+  });
+  statusStream.on('end', () => {
+    console.error('done streaming robot status');
+    statusStream = null;
   });
 };
 
@@ -426,6 +402,37 @@ const loadCurrentOps = async () => {
   return currentOps;
 };
 
+let sessionsSupported = $ref<boolean>(true);
+const fetchCurrentSessions = () => {
+  if (!sessionsSupported) {
+    return [];
+  }
+  return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
+    const req = new robotApi.GetSessionsRequest();
+
+    client.robotService.getSessions(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        if ((err as ServiceError).code === grpc.Code.Unimplemented) {
+          sessionsSupported = false;
+        }
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occurred.'));
+        return;
+      }
+
+      const list = resp.toObject().sessionsList;
+      list.sort((sess1, sess2) => {
+        return sess1.id < sess2.id ? -1 : 1;
+      });
+      resolve(list);
+    });
+  });
+};
+
 const isWebRtcEnabled = () => {
   return window.webrtcEnabled;
 };
@@ -435,6 +442,7 @@ const createAppConnectionManager = () => {
   const statuses = {
     resources: false,
     ops: false,
+    sessions: false,
   };
 
   let timeout = -1;
@@ -488,6 +496,24 @@ const createAppConnectionManager = () => {
         }
       }
 
+      if (statuses.ops) {
+        try {
+          currentSessions = await fetchCurrentSessions();
+
+          if (!statuses.sessions) {
+            connectionRestablished = true;
+          }
+
+          statuses.sessions = true;
+        } catch (error) {
+          if (ConnectionClosedError.isError(error)) {
+            statuses.sessions = false;
+          } else {
+            newErrors.push(error);
+          }
+        }
+      }
+
       if (isConnected()) {
         if (connectionRestablished) {
           toast.success('Connection established');
@@ -508,7 +534,7 @@ const createAppConnectionManager = () => {
 
         // reset status/stream state
         if (statusStream) {
-          statusStream.close();
+          statusStream.cancel();
           statusStream = null;
         }
         resourcesOnce = false;
@@ -876,13 +902,14 @@ onMounted(async () => {
       :resources="filterComponentsWithNames(resources)"
     />
 
-    <!-- ******* OPERATIONS ******* -->
-    <CurrentOperations
+    <!-- ******* OPERATIONS AND SESSIONS ******* -->
+    <OperationsSessions
       v-if="connectedOnce"
       :client="client"
       :operations="currentOps"
+      :sessions="currentSessions"
+      :sessions-supported="sessionsSupported"
       :connection-manager="appConnectionManager"
-      :session-ops="sessionOps"
     />
   </div>
 </template>
