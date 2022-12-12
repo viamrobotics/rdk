@@ -119,8 +119,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	mapRate := 1
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm: "orbslamv3",
-		Sensors:   sensors,
+		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
 			"orb_n_features":    "1250",
@@ -139,7 +138,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Release camera image(s) for service validation
 	releaseImages(t, mode)
 	// Create slam service using a real orbslam binary
-	svc, err := createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	svc, err := createSLAMService(t, attrCfg, "orbslamv3", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)
@@ -212,8 +211,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
-		Algorithm: "orbslamv3",
-		Sensors:   []string{},
+		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
 			"orb_n_features":    "1250",
@@ -228,7 +226,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	}
 
 	// Create slam service using a real orbslam binary
-	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	svc, err = createSLAMService(t, attrCfg, "orbslamv3", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check if orbslam hangs and needs to be shut down
@@ -287,8 +285,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	mapRate = 9999
 
 	attrCfg = &builtin.AttrConfig{
-		Algorithm: "orbslamv3",
-		Sensors:   sensors,
+		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
 			"orb_n_features":    "1250",
@@ -305,7 +302,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Release camera image(s) for service validation
 	releaseImages(t, mode)
 	// Create slam service using a real orbslam binary
-	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	svc, err = createSLAMService(t, attrCfg, "orbslamv3", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map

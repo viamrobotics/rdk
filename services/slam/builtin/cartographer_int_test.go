@@ -74,8 +74,7 @@ func TestCartographerIntegration(t *testing.T) {
 	mapRate := 1
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm: "cartographer",
-		Sensors:   []string{"cartographer_int_lidar"},
+		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": "2d",
 			"v":    "1",
@@ -87,7 +86,7 @@ func TestCartographerIntegration(t *testing.T) {
 	// Release point cloud for service validation
 	cartographerIntLidarReleasePointCloudChan <- 1
 	// Create slam service using a real cartographer binary
-	svc, err := createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	svc, err := createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud
@@ -130,8 +129,7 @@ func TestCartographerIntegration(t *testing.T) {
 	t.Log("Testing offline mode")
 
 	attrCfg = &builtin.AttrConfig{
-		Algorithm: "cartographer",
-		Sensors:   []string{},
+		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode": "2d",
 			"v":    "1",
@@ -141,7 +139,7 @@ func TestCartographerIntegration(t *testing.T) {
 	}
 
 	// Create slam service using a real cartographer binary
-	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Wait for cartographer to finish processing data
