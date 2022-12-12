@@ -10,13 +10,14 @@ interface Props {
     elapsed: number
   }[],
 
+  sessions: robotApi.Session.AsObject[],
+  sessionsSupported: boolean,
+
   connectionManager: {
     rtt: number;
   },
 
-  sessionOps: Set<string>
-
-  client: Client;
+  client: Client
 }
 
 const props = defineProps<Props>();
@@ -27,11 +28,28 @@ const killOperation = (id: string) => {
   props.client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
 };
 
+const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
+  if (!info) {
+    return 'N/A';
+  }
+  switch (info.type) {
+    case robotApi.PeerConnectionType.PEER_CONNECTION_TYPE_GRPC: {
+      return 'gRPC';
+    }
+    case robotApi.PeerConnectionType.PEER_CONNECTION_TYPE_WEBRTC: {
+      return 'WebRTC';
+    }
+    default: {
+      return 'Unknown';
+    }
+  }
+};
+
 </script>
 
 <template>
   <v-collapse
-    title="Current Operations"
+    :title="sessionsSupported ? 'Operations & Sessions' : 'Operations'"
     class="operations"
   >
     <div class="border border-t-0 border-black p-4">
@@ -58,10 +76,16 @@ const killOperation = (id: string) => {
         </div>
 
         <div class="overflow-auto">
+          <div class="font-bold p-2">
+            Operations
+          </div>
           <table class="w-full table-auto border border-black">
             <tr>
               <th class="border border-black p-2">
                 id
+              </th>
+              <th class="border border-black p-2">
+                session
               </th>
               <th class="border border-black p-2">
                 method
@@ -77,9 +101,12 @@ const killOperation = (id: string) => {
             >
               <td class="border border-black p-2">
                 {{ op.id }} <span
-                  v-if="sessionOps.has(op.id)"
+                  v-if="client.sessionId === op.sessionId"
                   class="font-bold"
                 >(this session)</span>
+              </td>
+              <td class="border border-black p-2">
+                {{ op.sessionId || 'N/A' }}
               </td>
               <td class="border border-black p-2">
                 {{ op.method }}
@@ -92,6 +119,51 @@ const killOperation = (id: string) => {
                   label="Kill"
                   @click="killOperation(op.id)"
                 />
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div
+          v-if="sessionsSupported"
+          class="overflow-auto"
+        >
+          <div class="font-bold p-2">
+            Sessions
+          </div>
+          <table class="w-full table-auto border border-black">
+            <tr>
+              <th class="border border-black p-2">
+                id
+              </th>
+              <th class="border border-black p-2">
+                type
+              </th>
+              <th class="border border-black p-2">
+                remote address
+              </th>
+              <th class="border border-black p-2">
+                local address
+              </th>
+            </tr>
+            <tr
+              v-for="sess in sessions"
+              :key="sess.id"
+            >
+              <td class="border border-black p-2">
+                {{ sess.id }} <span
+                  v-if="client.sessionId && sess.id === client.sessionId"
+                  class="font-bold"
+                >(ours)</span>
+              </td>
+              <td class="border border-black p-2">
+                {{ peerConnectionType(sess.peerConnectionInfo) }}
+              </td>
+              <td class="border border-black p-2">
+                {{ sess.peerConnectionInfo?.remoteAddress || 'N/A' }}
+              </td>
+              <td class="border border-black p-2">
+                {{ sess.peerConnectionInfo?.localAddress || 'N/A' }}
               </td>
             </tr>
           </table>

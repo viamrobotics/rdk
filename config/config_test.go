@@ -104,6 +104,11 @@ func TestConfig3(t *testing.T) {
 		},
 		BoardName: "board1",
 	})
+
+	test.That(t, cfg.Network.Sessions.HeartbeatWindow, test.ShouldEqual, 5*time.Second)
+	test.That(t, cfg.Remotes, test.ShouldHaveLength, 1)
+	test.That(t, cfg.Remotes[0].ConnectionCheckInterval, test.ShouldEqual, 12*time.Second)
+	test.That(t, cfg.Remotes[0].ReconnectInterval, test.ShouldEqual, 3*time.Second)
 }
 
 func TestCreateCloudRequest(t *testing.T) {
@@ -239,6 +244,24 @@ func TestConfigEnsure(t *testing.T) {
 
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = ""
+	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+
+	test.That(t, invalidNetwork.Network.Sessions.HeartbeatWindow, test.ShouldNotBeNil)
+	test.That(t, invalidNetwork.Network.Sessions.HeartbeatWindow, test.ShouldEqual, config.DefaultSessionHeartbeatWindow)
+
+	invalidNetwork.Network.Sessions.HeartbeatWindow = time.Millisecond
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
+
+	invalidNetwork.Network.Sessions.HeartbeatWindow = 2 * time.Minute
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
+
+	invalidNetwork.Network.Sessions.HeartbeatWindow = 10 * time.Millisecond
 	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
 
 	invalidNetwork.Network.BindAddress = "woop"

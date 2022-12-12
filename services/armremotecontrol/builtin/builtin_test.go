@@ -134,7 +134,7 @@ func TestArmRemoteControl(t *testing.T) {
 		},
 		logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.New("dependency \"armTest\" should an implementation of <nil> but it was a *inject.InputController"))
+		errors.New("dependency \"armTest\" should be an implementation of arm.Arm but it was a *inject.InputController"))
 
 	// Start checks
 	err = svc.start(ctx)

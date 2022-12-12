@@ -3,7 +3,6 @@ package universalrobots
 import (
 	"context"
 	"math"
-	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -18,26 +17,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
-
-func TestUR5eForwardKinematicsSVAvsDH(t *testing.T) {
-	numTests := 10000
-
-	mSVA, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
-	test.That(t, err, test.ShouldBeNil)
-	mDH, err := referenceframe.UnmarshalModelJSON(ur5DHmodeljson, "")
-	test.That(t, err, test.ShouldBeNil)
-
-	seed := rand.New(rand.NewSource(23))
-	for i := 0; i < numTests; i++ {
-		joints := referenceframe.JointPositionsFromRadians(referenceframe.GenerateRandomConfiguration(mSVA, seed))
-
-		posSVA, err := motionplan.ComputePosition(mSVA, joints)
-		test.That(t, err, test.ShouldBeNil)
-		posDH, err := motionplan.ComputePosition(mDH, joints)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqual(posSVA, posDH), test.ShouldBeTrue)
-	}
-}
 
 func testUR5eForwardKinematics(t *testing.T, jointRadians []float64, correct r3.Vector) {
 	t.Helper()

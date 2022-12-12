@@ -2,6 +2,9 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
+// ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
+var ErrCircularReference = errors.New("infinite loop finding path from end effector to world")
+
 // ErrEmptyStringFrameName denotes an error when a frame with a name "" is specified.
 var ErrEmptyStringFrameName = errors.New("frame with name \"\" cannot be used")
 
@@ -23,4 +26,9 @@ func NewFrameAlreadyExistsError(frameName string) error {
 // NewIncorrectInputLengthError returns an error indicating that the length of the Innput array does not match the DoF of the frame.
 func NewIncorrectInputLengthError(actual, expected int) error {
 	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
+}
+
+// NewUnsupportedJointTypeError returns an error indicating that a given joint type is not supported by current model parsing.
+func NewUnsupportedJointTypeError(jointType string) error {
+	return errors.Errorf("unsupported joint type detected: %q", jointType)
 }

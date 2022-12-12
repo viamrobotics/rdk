@@ -5,7 +5,10 @@ import (
 	"strconv"
 
 	"github.com/golang/geo/r3"
+	//nolint:staticcheck
+	protov1 "github.com/golang/protobuf/proto"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -102,4 +105,16 @@ func ConvertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any
 		methodParams[key] = anyVal
 	}
 	return methodParams, nil
+}
+
+// MessageToProtoV1 converts a message to a protov1.Message. It is
+// assumed it is either a proto.Message or a protov1.Message.
+func MessageToProtoV1(msg interface{}) protov1.Message {
+	switch v := msg.(type) {
+	case proto.Message:
+		return protov1.MessageV1(v)
+	case protov1.Message:
+		return v
+	}
+	return nil
 }
