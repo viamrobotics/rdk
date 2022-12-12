@@ -2,6 +2,7 @@ package builtin_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -67,7 +68,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
-	// createLuaFiles(name)
+	createLuaFiles(name)
 
 	t.Log("Testing online mode")
 
@@ -162,12 +163,13 @@ func TestCartographerIntegration(t *testing.T) {
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
-	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
-	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
-
 	// Count the initial number of maps in the map directory
 	numMaps, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println("yo nummaps: ", numMaps)
+	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
+	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode in localization mode")
 
@@ -227,7 +229,7 @@ func TestCartographerIntegration(t *testing.T) {
 	numMapsLocalize, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(numMapsLocalize), test.ShouldEqual, len(numMaps))
-
+	fmt.Println("yo nummaps2: ", numMaps)
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
