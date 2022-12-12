@@ -29,6 +29,9 @@ type robotClientOpts struct {
 
 	// the name of the robot.
 	remoteName string
+
+	// controls whether or not sessions are disabled.
+	disableSessions bool
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -79,6 +82,13 @@ func WithReconnectEvery(reconnectEvery time.Duration) RobotClientOption {
 func WithRemoteName(remoteName string) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.remoteName = remoteName
+	})
+}
+
+// WithDisableSessions returns a RobotClientOption that disables session support.
+func WithDisableSessions() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.disableSessions = true
 	})
 }
 
