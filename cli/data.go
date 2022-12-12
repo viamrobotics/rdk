@@ -209,18 +209,6 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 	return nil
 }
 
-func (c *AppClient) sendBinaryDataByFilterRequest(filter *datapb.Filter, last string) (*datapb.BinaryDataByFilterResponse, error) {
-	return c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
-		DataRequest: &datapb.DataRequest{
-			Filter: filter,
-			Limit:  1,
-			Last:   last,
-		},
-		IncludeBinary: true,
-		CountOnly:     false,
-	})
-}
-
 // TabularData downloads binary data matching filter to dst.
 func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -231,21 +219,14 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	var err error
-	var resp *datapb.TabularDataByFilterResponse
-	for count := 0; count < maxRetryCount; count++ {
-		resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
-			DataRequest: &datapb.DataRequest{
-				Filter: filter,
-				// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
-				//       tabular is implemented.
-			},
-			CountOnly: false,
-		})
-		if err == nil {
-			break
-		}
-	}
+	resp, err := c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
+		DataRequest: &datapb.DataRequest{
+			Filter: filter,
+			// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
+			//       tabular is implemented.
+		},
+		CountOnly: false,
+	})
 	if err != nil {
 		return err
 	}
@@ -257,7 +238,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			return errors.Wrap(err, "error marshaling metadata")
 		}
 		//nolint:gosec
-		mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(i)+".json"))
+		mdFile, err := os.Create(filepath.Join(dst, "metadata", strconv.Itoa(i)+".json"))
 		if err != nil {
 			return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
 		}
@@ -272,7 +253,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	data := resp.GetData()
 	// TODO: [DATA-640] Support export in additional formats.
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
+	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, "error creating data file")
 	}
@@ -300,8 +281,6 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "error flushing writer for %s", dataFile.Name())
 	}
-
-	fmt.Fprintf(c.c.App.Writer, "downloaded %d datapoints to %s\n", len(data), dst)
 
 	return nil
 }
