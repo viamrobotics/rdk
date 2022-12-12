@@ -15,7 +15,6 @@ import {
   Client,
   ResponseStream,
   ServiceError,
-  cameraApi,
   commonApi,
   robotApi,
   sensorsApi,
