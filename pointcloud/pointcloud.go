@@ -67,6 +67,21 @@ func NewMetaData() MetaData {
 	}
 }
 
+// TotalX returns the totalX stored in metadata.
+func (meta *MetaData) TotalX() float64 {
+	return meta.totalX
+}
+
+// TotalY returns the totalY stored in metadata.
+func (meta *MetaData) TotalY() float64 {
+	return meta.totalY
+}
+
+// TotalZ returns the totalZ stored in metadata.
+func (meta *MetaData) TotalZ() float64 {
+	return meta.totalZ
+}
+
 // Merge updates the meta data with the new data.
 func (meta *MetaData) Merge(v r3.Vector, data Data) {
 	if data != nil {
