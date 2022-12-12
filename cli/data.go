@@ -169,11 +169,6 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 	}
 	data := resp.GetData()
 
-	// We should always receive data.
-	if len(data) == 0 {
-		return errors.Errorf("received no binary data for id %s", id)
-	}
-
 	if len(data) != 1 {
 		return errors.Errorf("expected a single response, received %d", len(data))
 	}
