@@ -3,7 +3,6 @@ package mpu6050
 
 import (
 	"context"
-	"encoding/binary"
 	"math"
 	"sync"
 	"time"
@@ -156,7 +155,42 @@ func NewMpu6050(
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
 	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(sensor.pollData)
+	utils.PanicCapturingGo(func() {
+		defer sensor.activeBackgroundWorkers.Done()
+		// Reading data a thousand times per second is probably fast enough.
+		timer := time.NewTicker(time.Millisecond)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-timer.C:
+				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
+				if err != nil {
+					sensor.logger.Infof("error reading MPU6050 sensor: '%s'", err)
+					sensor.mu.Lock()
+					sensor.lastError = err
+					sensor.mu.Unlock()
+					continue
+				}
+
+				linearAcceleration := toLinearAcceleration(rawData[0:6])
+				// Taken straight from the MPU6050 register map. Yes, these are weird constants.
+				temperature := float64(rutils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
+				angularVelocity := toAngularVelocity(rawData[8:14])
+
+				// Lock the mutex before modifying the state within the object. By keeping the mutex
+				// unlocked for everything else, we maximize the time when another thread can read the
+				// values.
+				sensor.mu.Lock()
+				sensor.linearAcceleration = linearAcceleration
+				sensor.temperature = temperature
+				sensor.angularVelocity = angularVelocity
+				sensor.mu.Unlock()
+			case <-sensor.backgroundContext.Done():
+				return
+			}
+		}
+	})
 
 	return sensor, nil
 }
@@ -200,11 +234,6 @@ func (mpu *mpu6050) writeByte(ctx context.Context, register, value byte) error {
 	return handle.WriteByteData(ctx, register, value)
 }
 
-// A helper function: takes 2 bytes and reinterprets them as a big-endian signed integer.
-func toSignedValue(data []byte) int {
-	return int(int16(binary.BigEndian.Uint16(data)))
-}
-
 // Given a value, scales it so that the range of int16s becomes the range of +/- maxValue.
 func setScale(value int, maxValue float64) float64 {
 	return float64(value) * maxValue / (1 << 15)
@@ -213,9 +242,9 @@ func setScale(value int, maxValue float64) float64 {
 // A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity, in
 // radians per second.
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
-	gx := toSignedValue(data[0:2])
-	gy := toSignedValue(data[2:4])
-	gz := toSignedValue(data[4:6])
+	gx := int(rutils.Int16FromBytesBE(data[0:2]))
+	gy := int(rutils.Int16FromBytesBE(data[2:4]))
+	gz := int(rutils.Int16FromBytesBE(data[4:6]))
 
 	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
 	radiansPerDegree := math.Pi / 180.0
@@ -228,9 +257,9 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 
 // A helper function that takes 6 bytes and gives back linear acceleration.
 func toLinearAcceleration(data []byte) r3.Vector {
-	x := toSignedValue(data[0:2])
-	y := toSignedValue(data[2:4])
-	z := toSignedValue(data[4:6])
+	x := int(rutils.Int16FromBytesBE(data[0:2]))
+	y := int(rutils.Int16FromBytesBE(data[2:4]))
+	z := int(rutils.Int16FromBytesBE(data[4:6]))
 
 	// The scale is +/- 2G's, but our units should be mm/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
@@ -241,47 +270,12 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	}
 }
 
-func (mpu *mpu6050) pollData() {
-	defer mpu.activeBackgroundWorkers.Done()
-	// Reading data a thousand times per second is probably fast enough.
-	timer := time.NewTicker(time.Millisecond)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-mpu.backgroundContext.Done():
-			return
-		case <-timer.C:
-			rawData, err := mpu.readBlock(mpu.backgroundContext, 59, 14)
-			if err != nil {
-				mpu.logger.Infof("error reading MPU6050 sensor: '%s'", err)
-				mpu.mu.Lock()
-				mpu.lastError = err
-				mpu.mu.Unlock()
-				continue
-			}
-
-			linearAcceleration := toLinearAcceleration(rawData[0:6])
-			// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-			temperature := float64(toSignedValue(rawData[6:8]))/340.0 + 36.53
-			angularVelocity := toAngularVelocity(rawData[8:14])
-
-			// Lock the mutex before modifying the state within the object. By keeping the mutex
-			// unlocked for everything else, we maximize the time when another thread can read the
-			// values.
-			mpu.mu.Lock()
-			mpu.linearAcceleration = linearAcceleration
-			mpu.temperature = temperature
-			mpu.angularVelocity = angularVelocity
-			mpu.mu.Unlock()
-		}
-	}
-}
-
 func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
-	return mpu.angularVelocity, nil
+	lastError := mpu.lastError
+	mpu.lastError = nil
+	return mpu.angularVelocity, lastError
 }
 
 func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -313,7 +307,10 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	readings["temperature_celsius"] = mpu.temperature
 	readings["angular_velocity"] = mpu.angularVelocity
 
-	return readings, nil
+	// Return the last error, if there was one, and clear it.
+	lastError := mpu.lastError
+	mpu.lastError = nil
+	return readings, lastError
 }
 
 func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
