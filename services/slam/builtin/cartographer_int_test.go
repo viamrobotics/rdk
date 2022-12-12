@@ -67,7 +67,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
-	createLuaFiles(name)
+	// createLuaFiles(name)
 
 	t.Log("Testing online mode")
 
@@ -158,6 +158,139 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
+	// Don't clear out the directory, since we will re-use the maps for the next run
+	closeOutSLAMService(t, "")
+
+	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
+	// Orbslam will use the most recent config.
+	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+
+	// Count the initial number of maps in the map directory
+	numMaps, err := ioutil.ReadDir(name + "/map")
+	test.That(t, err, test.ShouldBeNil)
+	// Test online mode using the map generated in the offline test
+	t.Log("Testing online mode in localization mode")
+
+	mapRate = 0
+
+	attrCfg = &builtin.AttrConfig{
+		Algorithm: "cartographer",
+		Sensors:   []string{"cartographer_int_lidar"},
+		ConfigParams: map[string]string{
+			"mode": "2d",
+			"v":    "1",
+		},
+		MapRateSec:    &mapRate,
+		DataDirectory: name,
+	}
+
+	// Release point cloud for service validation
+	cartographerIntLidarReleasePointCloudChan <- 1
+	// Create slam service using a real orbslam binary
+	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Make sure we initialize from a saved map
+	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Running in localization only mode") {
+			break
+		}
+		test.That(t, strings.Contains(line, "Running in updating mode"), test.ShouldBeFalse)
+		test.That(t, strings.Contains(line, "Running in mapping mode"), test.ShouldBeFalse)
+	}
+
+	// Release point cloud, since cartographer looks for the second most recent point cloud
+	cartographerIntLidarReleasePointCloudChan <- 1
+	// Check if orbslam hangs and needs to be shut down
+	// Wait for orbslam to finish processing images
+	for i := 0; i < numCartographerPointClouds-2; i++ {
+		t.Logf("Find log line for point cloud %v", i)
+		cartographerIntLidarReleasePointCloudChan <- 1
+		for {
+			line, err := logReader.ReadString('\n')
+			test.That(t, err, test.ShouldBeNil)
+			if strings.Contains(line, "Passed sensor data to SLAM") {
+				break
+			}
+		}
+	}
+
+	testCartographerPositionAndMap(t, svc)
+
+	// Close out slam service
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
+	// Test that no new maps were generated
+	numMapsLocalize, err := ioutil.ReadDir(name + "/map")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numMapsLocalize, test.ShouldEqual, numMaps)
+
+	// Don't clear out the directory, since we will re-use the maps for the next run
+	closeOutSLAMService(t, "")
+
+	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
+	// Orbslam will use the most recent config.
+	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+
+	// Test online mode using the map generated in the offline test
+	t.Log("Testing online mode with saved map")
+
+	mapRate = 9999
+
+	attrCfg = &builtin.AttrConfig{
+		Algorithm: "cartographer",
+		Sensors:   []string{"cartographer_int_lidar"},
+		ConfigParams: map[string]string{
+			"mode": "2d",
+			"v":    "1",
+		},
+		MapRateSec:    &mapRate,
+		DataDirectory: name,
+	}
+
+	// Release point cloud for service validation
+	cartographerIntLidarReleasePointCloudChan <- 1
+	// Create slam service using a real orbslam binary
+	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Make sure we initialize from a saved map
+	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Running in updating mode") {
+			break
+		}
+		test.That(t, strings.Contains(line, "Running in localization only mode"), test.ShouldBeFalse)
+		test.That(t, strings.Contains(line, "Running in mapping mode"), test.ShouldBeFalse)
+	}
+
+	// Release point cloud, since cartographer looks for the second most recent point cloud
+	cartographerIntLidarReleasePointCloudChan <- 1
+	// Check if orbslam hangs and needs to be shut down
+	// Wait for orbslam to finish processing images
+	for i := 0; i < numCartographerPointClouds-2; i++ {
+		t.Logf("Find log line for point cloud %v", i)
+		cartographerIntLidarReleasePointCloudChan <- 1
+		for {
+			line, err := logReader.ReadString('\n')
+			test.That(t, err, test.ShouldBeNil)
+			if strings.Contains(line, "Passed sensor data to SLAM") {
+				break
+			}
+		}
+	}
+
+	testCartographerPositionAndMap(t, svc)
+
+	// Close out slam service
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
 	// Clear out directory
 	closeOutSLAMService(t, name)
 
