@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	// This value allows for high level of granularity in the octree while still allowing for fast access times
+	// even on a pi.
 	maxRecursionDepth = 1000
 )
 
@@ -90,11 +92,15 @@ func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
 	return nil, false
 }
 
-// Iterate is a batchable process that will go through a basic octree and apply a specified function
+// Iterate is a batchable process that will go through a basic octree and applies a specified function
 // to either all the data points or a subset of them based on the given numBatches and currentBatch
 // inputs. If any of the applied functions returns a false value, iteration will stop and no further
 // points will be processed.
 func (octree *basicOctree) Iterate(numBatches, currentBatch int, fn func(p r3.Vector, d pc.Data) bool) {
+	if numBatches < 0 || currentBatch < 0 || (numBatches > 0 && currentBatch >= numBatches) {
+		return
+	}
+
 	lowerBound := 0
 	upperBound := octree.Size()
 
@@ -106,9 +112,8 @@ func (octree *basicOctree) Iterate(numBatches, currentBatch int, fn func(p r3.Ve
 	if upperBound > octree.Size() {
 		upperBound = octree.Size()
 	}
-	if lowerBound < upperBound {
-		octree.helperIterate(lowerBound, upperBound, 0, fn)
-	}
+
+	octree.helperIterate(lowerBound, upperBound, 0, fn)
 }
 
 // MarshalOctree TODO: Implement marshalling for octree.

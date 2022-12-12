@@ -159,7 +159,6 @@ func (octree *basicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 
 			if (idx+numPoints > lowerBound) && (idx < upperBound) {
 				if ok = child.helperIterate(lowerBound, upperBound, idx, fn); !ok {
-					ok = false
 					break
 				}
 			}

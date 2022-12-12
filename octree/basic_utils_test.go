@@ -293,7 +293,7 @@ func createLopsidedOctree(oct *basicOctree, i, max int) *basicOctree {
 		}
 	}
 	oct.node = newInternalNode(children)
-	oct.node.children[0] = createLopsidedOctree(oct, i+1, max)
+	oct.node.children[0] = createLopsidedOctree(oct.node.children[0], i+1, max)
 	return oct
 }
 
@@ -314,12 +314,12 @@ func stringBasicOctreeNodeType(n NodeType) string {
 
 //nolint:unused
 func printBasicOctree(bOct *basicOctree, s string) {
-	bOct.logger.Infof("%v %.2f %.2f %.2f - %v | Children: %v Side: %v Size: %v\n", s,
+	bOct.logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
 		bOct.center.X, bOct.center.Y, bOct.center.Z,
 		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
 
 	if bOct.node.nodeType == LeafNodeFilled {
-		bOct.logger.Infof("%s (%.2f %.2f %.2f) - Val: %v\n", s,
+		bOct.logger.Infof("%s (%e %e %e) - Val: %v\n", s,
 			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
 	}
 	for _, v := range bOct.node.children {
