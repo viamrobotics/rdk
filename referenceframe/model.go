@@ -240,3 +240,32 @@ func floatsToString(inputs []Input) string {
 	}
 	return string(b)
 }
+
+// Create an ordered list of transforms given a parent mapping, keeping an eye out for a sentinel string (World).
+func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, start, finish string) ([]Frame, error) {
+	seen := map[string]bool{}
+
+	nextTransform := unsorted[start]
+	orderedTransforms := []Frame{nextTransform}
+	seen[start] = true
+	for {
+		parent := parentMap[nextTransform.Name()]
+		if seen[parent] {
+			return nil, ErrCircularReference
+		}
+		// Reserved word, we reached the end of the chain
+		if parent == finish {
+			break
+		}
+		seen[parent] = true
+		nextTransform = unsorted[parent]
+		orderedTransforms = append(orderedTransforms, nextTransform)
+	}
+
+	// After the above loop, the transforms are in reverse order, so we reverse the list.
+	for i, j := 0, len(orderedTransforms)-1; i < j; i, j = i+1, j-1 {
+		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
+	}
+
+	return orderedTransforms, nil
+}

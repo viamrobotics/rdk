@@ -89,12 +89,12 @@ var (
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Servo)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Servo)(nil), actual)
 }
 
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((LocalServo)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*LocalServo)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named servo from the given Robot.

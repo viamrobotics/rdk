@@ -22,6 +22,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -33,8 +34,6 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
@@ -472,7 +471,9 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 			Cooldown:  5 * time.Second,
 		}
 		if err := streamFunc(opts); err != nil {
-			svc.logger.Errorw("error streaming", "error", err)
+			if utils.FilterOutError(err, context.Canceled) != nil {
+				svc.logger.Errorw("error streaming", "error", err)
+			}
 		}
 	})
 	<-waitCh
@@ -694,21 +695,20 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
 		}),
 	}
+	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
 	if options.Debug {
-		rpcOpts = append(rpcOpts,
-			rpc.WithDebug(),
-			rpc.WithUnaryServerInterceptor(func(
-				ctx context.Context,
-				req interface{},
-				info *googlegrpc.UnaryServerInfo,
-				handler googlegrpc.UnaryHandler,
-			) (interface{}, error) {
-				ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
-				defer span.End()
+		rpcOpts = append(rpcOpts, rpc.WithDebug())
+		unaryInterceptors = append(unaryInterceptors, func(
+			ctx context.Context,
+			req interface{},
+			info *googlegrpc.UnaryServerInfo,
+			handler googlegrpc.UnaryHandler,
+		) (interface{}, error) {
+			ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
+			defer span.End()
 
-				return handler(ctx, req)
-			}),
-		)
+			return handler(ctx, req)
+		})
 	}
 
 	if options.Network.TLSConfig != nil {
@@ -721,16 +721,30 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
 
+	var streamInterceptors []googlegrpc.StreamServerInterceptor
+
 	opManager := svc.r.OperationManager()
-	rpcOpts = append(
-		rpcOpts,
-		rpc.WithUnaryServerInterceptor(opManager.UnaryServerInterceptor),
-		rpc.WithStreamServerInterceptor(opManager.StreamServerInterceptor),
-	)
+	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
+	if sessManagerInts.UnaryServerInterceptor != nil {
+		unaryInterceptors = append(unaryInterceptors, sessManagerInts.UnaryServerInterceptor)
+	}
+	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
+
+	if sessManagerInts.StreamServerInterceptor != nil {
+		streamInterceptors = append(streamInterceptors, sessManagerInts.StreamServerInterceptor)
+	}
+	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 
 	rpcOpts = append(
 		rpcOpts,
 		rpc.WithUnknownServiceHandler(svc.foreignServiceHandler),
+	)
+
+	unaryInterceptor := grpc_middleware.ChainUnaryServer(unaryInterceptors...)
+	streamInterceptor := grpc_middleware.ChainStreamServer(streamInterceptors...)
+	rpcOpts = append(rpcOpts,
+		rpc.WithUnaryServerInterceptor(unaryInterceptor),
+		rpc.WithStreamServerInterceptor(streamInterceptor),
 	)
 
 	return rpcOpts, nil
@@ -917,34 +931,14 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	return mux, nil
 }
 
-var unimplErr = status.Error(codes.Unimplemented, codes.Unimplemented.String())
-
 func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
-		return unimplErr
+		return grpc.UnimplementedError
 	}
-	methodParts := strings.Split(method, "/")
-	if len(methodParts) != 3 {
-		return unimplErr
-	}
-	protoSvc := methodParts[1]
-	protoMethod := methodParts[2]
-
-	var foundType *resource.RPCSubtype
-	for _, resSubtype := range svc.r.ResourceRPCSubtypes() {
-		if resSubtype.Desc.GetFullyQualifiedName() == protoSvc {
-			subtypeCopy := resSubtype
-			foundType = &subtypeCopy
-			break
-		}
-	}
-	if foundType == nil {
-		return unimplErr
-	}
-	methodDesc := foundType.Desc.FindMethodByName(protoMethod)
-	if methodDesc == nil {
-		return unimplErr
+	subType, methodDesc, err := robot.TypeAndMethodDescFromMethod(svc.r, method)
+	if err != nil {
+		return err
 	}
 
 	firstMsg := dynamic.NewMessage(methodDesc.GetInputType())
@@ -953,17 +947,9 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return err
 	}
 
-	// we assume a convention that there will be a field called name that will be the resource
-	// name and a string.
-	name, ok := firstMsg.GetFieldByName("name").(string)
-	if !ok || name == "" {
-		return fmt.Errorf("unable to route foreign message due to invalid name field %v", name)
-	}
-
-	fqName := resource.NameFromSubtype(foundType.Subtype, name)
-
-	resource, err := svc.r.ResourceByName(fqName)
+	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.Subtype)
 	if err != nil {
+		svc.logger.Errorw("unable to route foreign message", "error", err)
 		return err
 	}
 
@@ -974,7 +960,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	foreignRes, ok := resource.(*grpc.ForeignResource)
 	if !ok {
 		svc.logger.Errorf("expected resource to be a foreign RPC resource but was %T", foreignRes)
-		return unimplErr
+		return grpc.UnimplementedError
 	}
 
 	foreignClient := foreignRes.NewStub()

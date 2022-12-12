@@ -95,7 +95,10 @@ const toggleKeyboard = (nowActive: boolean) => {
 
 const handlePointerDown = (key: Keys) => {
   emitKeyDown(key);
-  window.addEventListener('pointerup', () => emitKeyUp(key), { once: true });
+};
+
+const handlePointerUp = (key: Keys) => {
+  emitKeyUp(key);
 };
 
 onClickOutside($$(root), () => {
@@ -135,6 +138,8 @@ onUnmounted(() => {
           'bg-white': !pressedKeys[key],
         }"
         @pointerdown="handlePointerDown(key)"
+        @pointerup="handlePointerUp(key)"
+        @pointerleave="handlePointerUp(key)"
       >
         {{ key.toUpperCase() }}
         <Icon :path="keyIcons[key]" />

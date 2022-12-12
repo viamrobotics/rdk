@@ -3,23 +3,30 @@ package robot
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/dynamic"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
 
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((LocalRobot)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*LocalRobot)(nil), actual)
 }
 
 // A Robot encompasses all functionality of some robot comprised
@@ -48,6 +55,9 @@ type Robot interface {
 
 	// OperationManager returns the operation manager the robot is using.
 	OperationManager() *operation.Manager
+
+	// SessionManager returns the session manager the robot is using.
+	SessionManager() session.Manager
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
@@ -140,4 +150,58 @@ func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
 		}
 	}
 	return names
+}
+
+// TypeAndMethodDescFromMethod attempts to determine the resource subtype and its respective gRPC method information
+// from the given robot and method path. If nothing can be found, grpc.UnimplementedError is returned.
+func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, *desc.MethodDescriptor, error) {
+	methodParts := strings.Split(method, "/")
+	if len(methodParts) != 3 {
+		return nil, nil, grpc.UnimplementedError
+	}
+	protoSvc := methodParts[1]
+	protoMethod := methodParts[2]
+
+	var foundType *resource.RPCSubtype
+	for _, resSubtype := range r.ResourceRPCSubtypes() {
+		if resSubtype.Desc.GetFullyQualifiedName() == protoSvc {
+			subtypeCopy := resSubtype
+			foundType = &subtypeCopy
+			break
+		}
+	}
+	if foundType == nil {
+		return nil, nil, grpc.UnimplementedError
+	}
+	methodDesc := foundType.Desc.FindMethodByName(protoMethod)
+	if methodDesc == nil {
+		return nil, nil, grpc.UnimplementedError
+	}
+
+	return foundType, methodDesc, nil
+}
+
+// ResourceFromProtoMessage attempts to find out the name/resource associated with a gRPC message.
+func ResourceFromProtoMessage(
+	robot Robot,
+	msg *dynamic.Message,
+	subtype resource.Subtype,
+) (interface{}, resource.Name, error) {
+	// we assume a convention that there will be a field called name that will be the resource
+	// name and a string.
+	if !msg.HasFieldName("name") {
+		return nil, resource.Name{}, errors.New("unable to determine resource name due to missing 'name' field")
+	}
+	name, ok := msg.GetFieldByName("name").(string)
+	if !ok || name == "" {
+		return nil, resource.Name{}, fmt.Errorf("unable to determine resource name due to invalid name field %v", name)
+	}
+
+	fqName := resource.NameFromSubtype(subtype, name)
+
+	res, err := robot.ResourceByName(fqName)
+	if err != nil {
+		return nil, resource.Name{}, err
+	}
+	return res, fqName, nil
 }

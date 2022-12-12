@@ -575,6 +575,8 @@ func credentialsTypeFromProto(ct pb.CredentialsType) (rpc.CredentialsType, error
 		fallthrough
 	case pb.CredentialsType_CREDENTIALS_TYPE_INTERNAL:
 		fallthrough
+	case pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH:
+		fallthrough
 	default:
 		return "", errors.New("unsupported credential type")
 	}
