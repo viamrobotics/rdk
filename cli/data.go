@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -22,6 +23,8 @@ const (
 	dataDir                    = "data"
 	metadataDir                = "metadata"
 	defaultConcurrentDownloads = 10
+	maxRetryCount              = 5
+	logEveryN                  = 100
 )
 
 // BinaryData downloads binary data matching filter to dst.
@@ -62,6 +65,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 		defer wg.Done()
 		var nextID string
 		var done bool
+		numFilesDownloaded := &atomic.Int32{}
 		downloadWG := sync.WaitGroup{}
 		for {
 			for i := 0; i < concurrentDownloads; i++ {
@@ -89,12 +93,19 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 						cancel()
 						done = true
 					}
+					numFilesDownloaded.Add(1)
 				}(nextID)
 			}
 			downloadWG.Wait()
+			if numFilesDownloaded.Load()%logEveryN == 0 {
+				fmt.Fprintf(c.c.App.Writer, "downloaded %d files\n", numFilesDownloaded.Load())
+			}
 			if done {
 				break
 			}
+		}
+		if numFilesDownloaded.Load()%logEveryN != 0 {
+			fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded.Load(), dst)
 		}
 	}()
 	wg.Wait()
@@ -142,10 +153,17 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 }
 
 func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, id string) error {
-	resp, err := client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-		FileIds:       []string{id},
-		IncludeBinary: true,
-	})
+	var resp *datapb.BinaryDataByIDsResponse
+	var err error
+	for count := 0; count < maxRetryCount; count++ {
+		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+			FileIds:       []string{id},
+			IncludeBinary: true,
+		})
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
