@@ -35,12 +35,85 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	var last string
-	idsChannel := make(chan string, 10)
+	ids := make(chan string, 10)
+	getIDsErrs := make(chan error)
+	downloadErrs := make(chan error, numConcurrentRequests)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	wg := sync.WaitGroup{}
 
-	// In one loop: Send series of IncludeBinary=false requests with Limit 50. Through IDs into channel
+	// In one routine, get all IDs matching the filter and pass them into ids.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids); err != nil {
+			cancel()
+			getIDsErrs <- err
+		}
+		close(getIDsErrs)
+	}()
+
+	// In parallel, read from ids and download the binary for each id in batches of numConcurrentRequests.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var nextID string
+		var done bool
+		downloadWG := sync.WaitGroup{}
+		for {
+			for i := 0; i < numConcurrentRequests; i++ {
+				nextID = <-ids
+
+				// If nextID is zero value, the channel has been closed and there are no more IDs to be read.
+				if nextID == "" {
+					done = true
+					break
+				}
+
+				downloadWG.Add(1)
+				go func(id string) {
+					defer downloadWG.Done()
+					err := downloadBinary(ctx, c.dataClient, dst, nextID)
+					if err != nil {
+						downloadErrs <- err
+						cancel()
+						done = true
+					}
+				}(nextID)
+			}
+			downloadWG.Wait()
+			if done {
+				break
+			}
+		}
+		close(downloadErrs)
+	}()
+	wg.Wait()
+
+	// TODO: how do we filter out all the context cancelled errors? We don't really care about those generally -
+	//       their a side effect of some first "real" error causing the rest to be cancelled.
+
+	// TODO: I feel like we should ensure we read some "real" error first. I think if we receive an error in download
+	//       we would first read the context cancellation error from getIDs first here and return that, when it's not
+	//       our root cause. Should we filter out all context.Cancelled errors though? Then we will miss out on "real"
+	//       context cancellation errors.
+	if err := <-getIDsErrs; err != nil {
+		return err
+	}
+	if err := <-downloadErrs; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
+func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
+	ids chan string) error {
+
+	var last string
 	for {
-		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
+		resp, err := client.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
 				Limit:  50,
@@ -49,54 +122,23 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			CountOnly: false,
 		})
 		if err != nil {
-			return errors.Wrapf(err, "received error from server")
+			close(ids)
+			return err
 		}
 		// If no data is returned, there is no more data.
 		if len(resp.GetData()) == 0 {
-			close(idsChannel)
-			break
+			close(ids)
+			return nil
 		}
 
 		for _, bd := range resp.GetData() {
-			idsChannel <- bd.GetMetadata().GetId()
+			ids <- bd.GetMetadata().GetId()
 		}
 	}
-
-	// In other loop: read from channel, and 10 IDs concurrently at a time, do IncludeBinary
-	var nextID string
-	var done bool
-	wg := sync.WaitGroup{}
-	for {
-		for i := 0; i < numConcurrentRequests; i++ {
-			nextID = <-idsChannel
-
-			// If nextID is zero value, the channel has been closed and there are no more IDs.
-			if nextID == "" {
-				done = true
-				break
-			}
-			wg.Add(1)
-			go func(id string) {
-				defer wg.Done()
-				err := downloadBinary(c.dataClient, dst, nextID)
-				// TODO: Cancel other requests and return from parent function if we receive an error. Use an error
-				//       channel and cancelCTx for this.
-				if err != nil {
-					fmt.Println(err)
-				}
-			}(nextID)
-		}
-		wg.Wait()
-		if done {
-			break
-		}
-	}
-
-	return nil
 }
 
-func downloadBinary(client datapb.DataServiceClient, dst string, id string) error {
-	resp, err := client.BinaryDataByIDs(context.Background(), &datapb.BinaryDataByIDsRequest{
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id string) error {
+	resp, err := client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 		FileIds:       []string{id},
 		IncludeBinary: true,
 	})
@@ -138,7 +180,7 @@ func downloadBinary(client datapb.DataServiceClient, dst string, id string) erro
 	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
+		return errors.Wrapf(err, fmt.Sprintf("error creating file for datum %s", datum.GetMetadata().GetId()))
 	}
 	//nolint:gosec
 	if _, err := io.Copy(dataFile, r); err != nil {
