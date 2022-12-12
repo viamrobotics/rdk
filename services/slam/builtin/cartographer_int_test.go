@@ -166,7 +166,7 @@ func TestCartographerIntegration(t *testing.T) {
 	// Count the initial number of maps in the map directory
 	numMaps, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("yo nummaps: ", numMaps)
+	fmt.Println("yo nummaps: ", len(numMaps))
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
 
