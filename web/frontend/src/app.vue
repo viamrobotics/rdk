@@ -611,22 +611,25 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewFrame = (cameraName: string) => {
-  new CameraClient(client, cameraName)
-    .renderFrame(Camera.MimeType.JPEG)
-    .then((blob) => {
-      const streamContainers = document.querySelectorAll(
-        `[data-stream="${cameraName}"]`
-      );
-      for (const streamContainer of streamContainers) {
-        streamContainer.querySelector('video')?.remove();
-        streamContainer.querySelector('img')?.remove();
-        const image = new Image();
-        image.src = URL.createObjectURL(blob);
-        streamContainer.append(image);
-      }
-    })
-    .catch(displayError);
+const viewFrame = async (cameraName: string) => {
+  let blob;
+  try {
+    blob = await new CameraClient(client, cameraName).renderFrame(Camera.MimeType.JPEG);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
+
+  const streamContainers = document.querySelectorAll(
+    `[data-stream="${cameraName}"]`
+  );
+  for (const streamContainer of streamContainers) {
+    streamContainer.querySelector('video')?.remove();
+    streamContainer.querySelector('img')?.remove();
+    const image = new Image();
+    image.src = URL.createObjectURL(blob);
+    streamContainer.append(image);
+  }
 };
 
 const clearFrameInterval = () => {

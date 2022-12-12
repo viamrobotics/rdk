@@ -30,6 +30,7 @@
     "cypress": "^10.10.0",
     "eslint": "^8.26.0",
     "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-unicorn": "^44.0.2",
     "eslint-plugin-vue": "^9.6.0",
     "jshashes": "^1.0.8",
