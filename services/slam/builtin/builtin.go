@@ -370,7 +370,11 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 	// The 'port' provided in the config is already expected to include "localhost:", if needed, so that it doesn't need to be
 	// added anywhere in the code. This will allow cloud-based SLAM processing to exist in the future.
 	// TODO: add credentials when running SLAM processing in the cloud.
-	connLib, err := grpc.DialContext(ctx, port, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+	// Increasing the gRPC max message size from the default value of 4MB to 32MB, to match the limit that is set in RDK. This is
+	// necessary for transmitting large pointclouds.
+	maxMsgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(32 * 1024 * 1024))
+	connLib, err := grpc.DialContext(ctx, port, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(), maxMsgSizeOption)
 	if err != nil {
 		logger.Errorw("error connecting to slam process", "error", err)
 		return nil, nil, err
