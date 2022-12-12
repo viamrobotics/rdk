@@ -13,34 +13,43 @@ import (
 
 // ModelConfig represents all supported fields in a kinematics JSON file.
 type ModelConfig struct {
-	Name         string `json:"name"`
-	KinParamType string `json:"kinematic_param_type"`
-	Links        []struct {
-		ID          string                    `json:"id"`
-		Parent      string                    `json:"parent"`
-		Translation spatial.TranslationConfig `json:"translation"`
-		Orientation spatial.OrientationConfig `json:"orientation"`
-		Geometry    spatial.GeometryConfig    `json:"geometry"`
-	} `json:"links"`
-	Joints []struct {
-		ID     string             `json:"id"`
-		Type   string             `json:"type"`
-		Parent string             `json:"parent"`
-		Axis   spatial.AxisConfig `json:"axis"`
-		Max    float64            `json:"max"` // in mm or degs
-		Min    float64            `json:"min"` // in mm or degs
-	} `json:"joints"`
-	DHParams []struct {
-		ID       string                 `json:"id"`
-		Parent   string                 `json:"parent"`
-		A        float64                `json:"a"`
-		D        float64                `json:"d"`
-		Alpha    float64                `json:"alpha"`
-		Max      float64                `json:"max"` // in mm or degs
-		Min      float64                `json:"min"` // in mm or degs
-		Geometry spatial.GeometryConfig `json:"geometry"`
-	} `json:"dhParams"`
-	RawFrames []FrameMapConfig `json:"frames"`
+	Name         string           `json:"name"`
+	KinParamType string           `json:"kinematic_param_type"`
+	Links        []JSONLink       `json:"links"`
+	Joints       []JSONJoint      `json:"joints"`
+	DHParams     []JSONDHParam    `json:"dhParams"`
+	RawFrames    []FrameMapConfig `json:"frames"`
+}
+
+// JSONLink is a struct which details the JSON used in a ModelJSON link element.
+type JSONLink struct {
+	ID          string                    `json:"id"`
+	Parent      string                    `json:"parent"`
+	Translation spatial.TranslationConfig `json:"translation"`
+	Orientation spatial.OrientationConfig `json:"orientation"`
+	Geometry    spatial.GeometryConfig    `json:"geometry"`
+}
+
+// JSONJoint is a struct which details the JSON used in a ModelJSON joint element.
+type JSONJoint struct {
+	ID     string             `json:"id"`
+	Type   string             `json:"type"`
+	Parent string             `json:"parent"`
+	Axis   spatial.AxisConfig `json:"axis"`
+	Max    float64            `json:"max"` // in mm or degs
+	Min    float64            `json:"min"` // in mm or degs
+}
+
+// JSONDHParam is a struct which details the JSON used to describe DH parameters.
+type JSONDHParam struct {
+	ID       string                 `json:"id"`
+	Parent   string                 `json:"parent"`
+	A        float64                `json:"a"`
+	D        float64                `json:"d"`
+	Alpha    float64                `json:"alpha"`
+	Max      float64                `json:"max"` // in mm or degs
+	Min      float64                `json:"min"` // in mm or degs
+	Geometry spatial.GeometryConfig `json:"geometry"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
@@ -91,14 +100,14 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		for _, joint := range config.Joints {
 			parentMap[joint.ID] = joint.Parent
 			switch joint.Type {
-			case "revolute":
+			case RevoluteJoint:
 				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
 					Limit{Min: utils.DegToRad(joint.Min), Max: utils.DegToRad(joint.Max)})
-			case "prismatic":
+			case PrismaticJoint:
 				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
 					Limit{Min: joint.Min, Max: joint.Max})
 			default:
-				return nil, errors.Errorf("unsupported joint type detected: %v", joint.Type)
+				return nil, NewUnsupportedJointTypeError(joint.Type)
 			}
 			if err != nil {
 				return nil, err
@@ -170,28 +179,11 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	}
 
 	// Create an ordered list of transforms
-	seen := map[string]bool{}
-	nextTransform := transforms[eename]
-	orderedTransforms := []Frame{nextTransform}
-	seen[eename] = true
-	for {
-		parent := parentMap[nextTransform.Name()]
-		if seen[parent] {
-			return nil, errors.New("infinite loop finding path from end effector to world")
-		}
-		// Reserved word, we reached the end of the chain
-		if parent == World {
-			break
-		}
-		seen[parent] = true
-		nextTransform = transforms[parent]
-		orderedTransforms = append(orderedTransforms, nextTransform)
+	model.OrdTransforms, err = sortTransforms(transforms, parentMap, eename, World)
+	if err != nil {
+		return nil, err
 	}
-	// After the above loop, the transforms are in reverse order, so we reverse the list.
-	for i, j := 0, len(orderedTransforms)-1; i < j; i, j = i+1, j-1 {
-		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
-	}
-	model.OrdTransforms = orderedTransforms
+
 	return model, nil
 }
 

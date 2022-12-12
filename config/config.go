@@ -146,18 +146,88 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
+	Name                    string
+	Address                 string
+	Frame                   *Frame
+	Auth                    RemoteAuth
+	ManagedBy               string
+	Insecure                bool
+	ConnectionCheckInterval time.Duration
+	ReconnectInterval       time.Duration
+	ServiceConfig           []ResourceLevelServiceConfig
+
+	// Secret is a helper for a robot location secret.
+	Secret string
+}
+
+// Note: keep this in sync with Remote.
+type remoteData struct {
 	Name                    string                       `json:"name"`
 	Address                 string                       `json:"address"`
 	Frame                   *Frame                       `json:"frame,omitempty"`
 	Auth                    RemoteAuth                   `json:"auth"`
 	ManagedBy               string                       `json:"managed_by"`
 	Insecure                bool                         `json:"insecure"`
-	ConnectionCheckInterval time.Duration                `json:"connection_check_interval,omitempty"`
-	ReconnectInterval       time.Duration                `json:"reconnect_interval,omitempty"`
+	ConnectionCheckInterval string                       `json:"connection_check_interval,omitempty"`
+	ReconnectInterval       string                       `json:"reconnect_interval,omitempty"`
 	ServiceConfig           []ResourceLevelServiceConfig `json:"service_config"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
+}
+
+// UnmarshalJSON unmarshals JSON data into this config.
+func (config *Remote) UnmarshalJSON(data []byte) error {
+	var temp remoteData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	*config = Remote{
+		Name:          temp.Name,
+		Address:       temp.Address,
+		Frame:         temp.Frame,
+		Auth:          temp.Auth,
+		ManagedBy:     temp.ManagedBy,
+		Insecure:      temp.Insecure,
+		ServiceConfig: temp.ServiceConfig,
+		Secret:        temp.Secret,
+	}
+	if temp.ConnectionCheckInterval != "" {
+		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
+		if err != nil {
+			return err
+		}
+		config.ConnectionCheckInterval = dur
+	}
+	if temp.ReconnectInterval != "" {
+		dur, err := time.ParseDuration(temp.ReconnectInterval)
+		if err != nil {
+			return err
+		}
+		config.ReconnectInterval = dur
+	}
+	return nil
+}
+
+// MarshalJSON marshals out this config.
+func (config Remote) MarshalJSON() ([]byte, error) {
+	temp := remoteData{
+		Name:          config.Name,
+		Address:       config.Address,
+		Frame:         config.Frame,
+		Auth:          config.Auth,
+		ManagedBy:     config.ManagedBy,
+		Insecure:      config.Insecure,
+		ServiceConfig: config.ServiceConfig,
+		Secret:        config.Secret,
+	}
+	if config.ConnectionCheckInterval != 0 {
+		temp.ConnectionCheckInterval = config.ConnectionCheckInterval.String()
+	}
+	if config.ReconnectInterval != 0 {
+		temp.ReconnectInterval = config.ReconnectInterval.String()
+	}
+	return json.Marshal(temp)
 }
 
 // RemoteAuth specifies how to authenticate against a remote. If no credentials are
@@ -207,9 +277,30 @@ func (config *Remote) Validate(path string) error {
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
+	ID                string
+	Secret            string
+	LocationSecret    string // Deprecated: Use LocationSecrets
+	LocationSecrets   []LocationSecret
+	ManagedBy         string
+	FQDN              string
+	LocalFQDN         string
+	SignalingAddress  string
+	SignalingInsecure bool
+	Path              string
+	LogPath           string
+	AppAddress        string
+	RefreshInterval   time.Duration
+
+	// cached by us and fetched from a non-config endpoint.
+	TLSCertificate string
+	TLSPrivateKey  string
+}
+
+// Note: keep this in sync with Cloud.
+type cloudData struct {
 	ID                string           `json:"id"`
 	Secret            string           `json:"secret"`
-	LocationSecret    string           `json:"location_secret"` // Deprecated: Use LocationSecrets
+	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
 	ManagedBy         string           `json:"managed_by"`
 	FQDN              string           `json:"fqdn"`
@@ -219,11 +310,67 @@ type Cloud struct {
 	Path              string           `json:"path"`
 	LogPath           string           `json:"log_path"`
 	AppAddress        string           `json:"app_address"`
-	RefreshInterval   time.Duration    `json:"refresh_interval,omitempty"`
+	RefreshInterval   string           `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
 	TLSPrivateKey  string `json:"tls_private_key"`
+}
+
+// UnmarshalJSON unmarshals JSON data into this config.
+func (config *Cloud) UnmarshalJSON(data []byte) error {
+	var temp cloudData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	*config = Cloud{
+		ID:                temp.ID,
+		Secret:            temp.Secret,
+		LocationSecret:    temp.LocationSecret,
+		LocationSecrets:   temp.LocationSecrets,
+		ManagedBy:         temp.ManagedBy,
+		FQDN:              temp.FQDN,
+		LocalFQDN:         temp.LocalFQDN,
+		SignalingAddress:  temp.SignalingAddress,
+		SignalingInsecure: temp.SignalingInsecure,
+		Path:              temp.Path,
+		LogPath:           temp.LogPath,
+		AppAddress:        temp.AppAddress,
+		TLSCertificate:    temp.TLSCertificate,
+		TLSPrivateKey:     temp.TLSPrivateKey,
+	}
+	if temp.RefreshInterval != "" {
+		dur, err := time.ParseDuration(temp.RefreshInterval)
+		if err != nil {
+			return err
+		}
+		config.RefreshInterval = dur
+	}
+	return nil
+}
+
+// MarshalJSON marshals out this config.
+func (config Cloud) MarshalJSON() ([]byte, error) {
+	temp := cloudData{
+		ID:                config.ID,
+		Secret:            config.Secret,
+		LocationSecret:    config.LocationSecret,
+		LocationSecrets:   config.LocationSecrets,
+		ManagedBy:         config.ManagedBy,
+		FQDN:              config.FQDN,
+		LocalFQDN:         config.LocalFQDN,
+		SignalingAddress:  config.SignalingAddress,
+		SignalingInsecure: config.SignalingInsecure,
+		Path:              config.Path,
+		LogPath:           config.LogPath,
+		AppAddress:        config.AppAddress,
+		TLSCertificate:    config.TLSCertificate,
+		TLSPrivateKey:     config.TLSPrivateKey,
+	}
+	if config.RefreshInterval != 0 {
+		temp.RefreshInterval = config.RefreshInterval.String()
+	}
+	return json.Marshal(temp)
 }
 
 // Validate ensures all parts of the config are valid.
@@ -286,6 +433,9 @@ type NetworkConfigData struct {
 	// TLSConfig is used to enable secure communications on the hosted HTTP server.
 	// This is mutually exclusive with TLSCertFile and TLSKeyFile.
 	TLSConfig *tls.Config `json:"-"`
+
+	// Sessions configures session management.
+	Sessions SessionsConfig `json:"sessions"`
 }
 
 // MarshalJSON marshals out this config.
@@ -316,6 +466,59 @@ func (nc *NetworkConfig) Validate(path string) error {
 	}
 	if (nc.TLSCertFile == "") != (nc.TLSKeyFile == "") {
 		return utils.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
+	}
+
+	return nc.Sessions.Validate(path + ".sessions")
+}
+
+// SessionsConfig configures various parameters used in session management.
+type SessionsConfig struct {
+	// HeartbeatWindow is the window within which clients must send at least one
+	// heartbeat in order to keep a session alive.
+	HeartbeatWindow time.Duration
+}
+
+// Note: keep this in sync with SessionsConfig.
+type sessionsConfigData struct {
+	HeartbeatWindow string `json:"heartbeat_window,omitempty"`
+}
+
+// UnmarshalJSON unmarshals JSON data into this config.
+func (sc *SessionsConfig) UnmarshalJSON(data []byte) error {
+	var temp sessionsConfigData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	if temp.HeartbeatWindow != "" {
+		dur, err := time.ParseDuration(temp.HeartbeatWindow)
+		if err != nil {
+			return err
+		}
+		sc.HeartbeatWindow = dur
+	}
+	return nil
+}
+
+// MarshalJSON marshals out this config.
+func (sc SessionsConfig) MarshalJSON() ([]byte, error) {
+	var temp sessionsConfigData
+	if sc.HeartbeatWindow != 0 {
+		temp.HeartbeatWindow = sc.HeartbeatWindow.String()
+	}
+	return json.Marshal(temp)
+}
+
+// DefaultSessionHeartbeatWindow is the default session heartbeat window to use when not specified.
+// It can be set with network.sessions.heartbeat_window.
+const DefaultSessionHeartbeatWindow = 2 * time.Second
+
+// Validate ensures all parts of the config are valid.
+func (sc *SessionsConfig) Validate(path string) error {
+	if sc.HeartbeatWindow == 0 {
+		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
+	} else if sc.HeartbeatWindow < 10*time.Millisecond ||
+		sc.HeartbeatWindow > time.Minute {
+		return utils.NewConfigValidationError(path, errors.New("heartbeat_window must be between [10ms, 1m]"))
 	}
 
 	return nil

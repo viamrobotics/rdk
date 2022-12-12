@@ -149,7 +149,7 @@ func TestCartographerIntegration(t *testing.T) {
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
-		if strings.Contains(line, "Finished processing offline data") {
+		if strings.Contains(line, "Finished optimizing final map") {
 			break
 		}
 	}
