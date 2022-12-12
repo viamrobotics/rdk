@@ -19,14 +19,13 @@ import (
 )
 
 const (
-	dataDir     = "data"
-	metadataDir = "metadata"
-	// TODO: possibly make this param with default value.
-	numConcurrentRequests = 10
+	dataDir                   = "data"
+	metadataDir               = "metadata"
+	defaultConcurrentRequests = 10
 )
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
+func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentRequests int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -35,9 +34,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
+	if concurrentRequests == 0 {
+		concurrentRequests = defaultConcurrentRequests
+	}
+
 	ids := make(chan string, 10)
 	getIDsErrs := make(chan error)
-	downloadErrs := make(chan error, numConcurrentRequests)
+	downloadErrs := make(chan error, concurrentRequests)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := sync.WaitGroup{}
@@ -53,7 +56,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		close(getIDsErrs)
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of numConcurrentRequests.
+	// In parallel, read from ids and download the binary for each id in batches of defaultConcurrentRequests.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -61,7 +64,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		var done bool
 		downloadWG := sync.WaitGroup{}
 		for {
-			for i := 0; i < numConcurrentRequests; i++ {
+			for i := 0; i < concurrentRequests; i++ {
 				nextID = <-ids
 
 				// If nextID is zero value, the channel has been closed and there are no more IDs to be read.
@@ -73,7 +76,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 				downloadWG.Add(1)
 				go func(id string) {
 					defer downloadWG.Done()
-					err := downloadBinary(ctx, c.dataClient, dst, nextID)
+					err := downloadBinary(ctx, c.dataClient, dst, id)
 					if err != nil {
 						downloadErrs <- err
 						cancel()
@@ -130,6 +133,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 			close(ids)
 			return nil
 		}
+		last = resp.GetLast()
 
 		for _, bd := range resp.GetData() {
 			ids <- bd.GetMetadata().GetId()
