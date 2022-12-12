@@ -226,13 +226,18 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 
 	t.Run("Set point, hit max recursion depth", func(t *testing.T) {
-		side = 1.
+		side = 2.
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct = createLopsidedOctree(basicOct, 0, 100)
+		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth-1)
 
-		err = basicOct.Set(r3.Vector{X: math.Pow(.9, 10), Y: math.Pow(.9, 10), Z: math.Pow(.9, 10)}, pc.NewBasicData())
+		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, pc.NewBasicData())
+		test.That(t, err, test.ShouldBeNil)
+
+		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth)
+		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, pc.NewBasicData())
+
 		test.That(t, err, test.ShouldBeError, errors.New("error max allowable recursion depth reached"))
 	})
 
