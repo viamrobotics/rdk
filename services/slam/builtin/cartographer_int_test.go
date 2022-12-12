@@ -227,7 +227,7 @@ func TestCartographerIntegration(t *testing.T) {
 	// Test that no new maps were generated
 	numMapsLocalize, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("yo nummaps2: ", numMapsLocalize)
+	fmt.Println("yo nummaps2: ", len(numMapsLocalize))
 	test.That(t, len(numMapsLocalize), test.ShouldEqual, len(numMaps))
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
