@@ -65,10 +65,10 @@ func init() {
 // joinAttrs is the attribute struct for aligning.
 type joinAttrs struct {
 	ImageType            string                             `json:"output_image_type"`
-	Debug                bool                               `json:"debug,omitempty"`
 	Color                string                             `json:"color_camera_name"`
 	Depth                string                             `json:"depth_camera_name"`
-	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
+	Debug                bool                               `json:"debug,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
