@@ -28,9 +28,6 @@ func newEnsembleIKSolver(model referenceframe.Frame, logger golog.Logger, opts *
 		opts:   opts,
 	}}
 
-	if opts.NumThreads == 0 {
-		opts.NumThreads = 1
-	}
 	for i := 1; i <= opts.NumThreads; i++ {
 		nlopt, err := newNLOptIKSolver(model, logger, opts)
 		nlopt.id = i

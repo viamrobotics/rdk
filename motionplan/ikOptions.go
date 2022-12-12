@@ -5,7 +5,7 @@ import (
 	"runtime"
 )
 
-// default values for inverse kinematics
+// default values for inverse kinematics.
 const (
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.

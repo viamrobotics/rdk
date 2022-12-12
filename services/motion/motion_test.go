@@ -4,16 +4,20 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -148,35 +152,24 @@ func TestReconfigurable(t *testing.T) {
 }
 
 // TODO(rb): remove these tests before merging.  they are just to prove that you can use kinematics outside motionplan now.
-// func TestNewNloptIKSolver(t *testing.T) {
-// 	logger := golog.NewTestLogger(t)
-// 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
-// 	test.That(t, err, test.ShouldBeNil)
+func TestNewNloptIKSolver(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
 
-// 	ik, err := motionplan.NewNLOptIKSolver(m, logger, makeIKTestOpts(t, m), -1)
-// 	test.That(t, err, test.ShouldBeNil)
+	ikConfig := make(map[string]interface{}, 0)
+	ik, err := motionplan.NewIKSolver(m, logger, ikConfig)
+	test.That(t, err, test.ShouldBeNil)
 
-// 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 360, Z: 362})
-// 	seed := referenceframe.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})
+	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 360, Z: 362})
+	seed := referenceframe.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})
 
-// 	solutions, err := motionplan.BestNIKSolutions(context.Background(), ik, pos, seed, 1, 2)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	for _, solution := range solutions {
-// 		found, err := m.Transform(solution.Q())
-// 		test.That(t, err, test.ShouldBeNil)
-// 		fmt.Print(found)
-// 	}
-// 	test.That(t, err, test.ShouldBeNil)
-// }
-
-// func makeIKTestOpts(t *testing.T, f referenceframe.Frame) *motionplan.PlannerOptions {
-// 	t.Helper()
-// 	fs := referenceframe.NewEmptySimpleFrameSystem("test")
-// 	fs.AddFrame(f, fs.Frame(referenceframe.World))
-// 	opt := motionplan.NewBasicPlannerOptions()
-// 	inputMap := referenceframe.StartPositions(fs)
-// 	collisionConstraint, err := motionplan.NewCollisionConstraintFromWorldState(f, fs, &referenceframe.WorldState{}, inputMap, false)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	opt.AddConstraint("defaultCollisionConstraintName", collisionConstraint)
-// 	return opt
-// }
+	solutions, err := motionplan.BestIKSolutions(context.Background(), ik, pos, seed, &referenceframe.WorldState{}, 1, 10)
+	test.That(t, err, test.ShouldBeNil)
+	for _, solution := range solutions {
+		found, err := m.Transform(solution.Q())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatialmath.PoseAlmostCoincidentEps(found, pos, 1e-3), test.ShouldBeTrue)
+	}
+	test.That(t, err, test.ShouldBeNil)
+}

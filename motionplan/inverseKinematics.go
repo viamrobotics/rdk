@@ -51,7 +51,7 @@ func NewIKSolver(frame referenceframe.Frame, logger golog.Logger, ikConfig map[s
 	}
 
 	// infer IK solver to build based on number of threads allowed
-	if opt.NumThreads == 1 {
+	if opt.NumThreads <= 1 {
 		return newNLOptIKSolver(frame, logger, opt)
 	}
 	return newEnsembleIKSolver(frame, logger, opt)
