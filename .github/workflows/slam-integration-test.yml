@@ -6,7 +6,7 @@ on:
 
 jobs:
   test_orbslam_integration:
-      name:  Test SLAM Integration
+      name:  Test ORB_SLAM3 Integration
       runs-on: [x64, qemu-host]
       container:
         image: ghcr.io/viamrobotics/canon:amd64-cache
@@ -36,7 +36,7 @@ jobs:
           sudo -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
 
   test_cartographer_integration:
-      name:  Test SLAM Integration
+      name:  Test Cartographer Integration
       runs-on: [x64, qemu-host]
       container:
         image: ghcr.io/viamrobotics/canon:amd64-cache
