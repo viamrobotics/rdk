@@ -50,7 +50,7 @@ func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 	}
 }
 
-// String returns a human readable string that represents the boxCreator
+// String returns a human readable string that represents the boxCreator.
 func (bc *boxCreator) String() string {
 	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*bc.halfSize.X, 2*bc.halfSize.Y, 2*bc.halfSize.Z)
 }

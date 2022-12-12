@@ -39,7 +39,7 @@ func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
 	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
 }
 
-// String returns a human readable string that represents the sphereCreator
+// String returns a human readable string that represents the sphereCreator.
 func (sc *sphereCreator) String() string {
 	return fmt.Sprintf("Type: Sphere, Radius: %.0f", sc.radius)
 }

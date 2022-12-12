@@ -36,7 +36,7 @@ func (pc *pointCreator) Offset() Pose {
 	return pc.offset
 }
 
-// String returns a human readable string that represents the pointCreator
+// String returns a human readable string that represents the pointCreator.
 func (pc *pointCreator) String() string {
 	pt := pc.offset.Point()
 	return fmt.Sprintf("Type: Point, Location X:%.0f, Y:%.0f, Z:%.0f", pt.X, pt.Y, pt.Z)

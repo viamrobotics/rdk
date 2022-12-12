@@ -442,7 +442,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 
 // LinkInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
 func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, error) {
-	if transform.Name() == "" || transform.Parent() == "" {
+	if transform.Name() == "" || transform.FrameName() == "" {
 		return nil, ErrEmptyStringFrameName
 	}
 	part := &FrameSystemPart{

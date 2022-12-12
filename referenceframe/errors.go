@@ -14,7 +14,7 @@ var ErrNilPoseInFrame = errors.New("pose in frame was nil")
 // ErrNilPose denotes an error when a pose is nil.
 var ErrNilPose = errors.New("pose was nil")
 
-// ErrMarshalingHighDOFFrame describes the error when attempting to marshal a frame with multiple degrees of freedom
+// ErrMarshalingHighDOFFrame describes the error when attempting to marshal a frame with multiple degrees of freedom.
 var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, use a Model instead")
 
 // NewParentFrameMissingError returns an error indicating that the parent frame is nil.
