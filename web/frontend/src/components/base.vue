@@ -39,7 +39,7 @@ const direction = ref<Directions>('Forwards');
 const spinType = ref<SpinTypes>('Clockwise');
 const increment = ref(1000);
 // straight mm/s
-const speed = ref(200);
+const speed = ref(300);
 // deg/s
 const spinSpeed = ref(90);
 const angle = ref(0);
