@@ -367,24 +367,25 @@ func toPC(b Geometry) (r3.Vector, error) {
 	var faces [][]float64
 	var theVecs []rot.Vec
 	my_list := golist.New()
-	// should not iterate by 0.05 instead do
 	// offset divided by X = 0.05 where X is the number of points we want for each row
 	for j := min.Y; j <= max.Y; j += 0.05 { // this is Y
 		for i := min.X; i <= max.X; i += 0.05 { // this is X
-			//-----
-			points := []float64{i, j, min.Z}
-			faces = append(faces, points)
-			//-----
-			tempVec := rot.Vec{X: i, Y: j, Z: min.Z}
-			theVecs = append(theVecs, tempVec)
-			//-----
+
+			//1-------------------------
+
 			points_list := golist.New()
 			points_list.Append(i)
 			points_list.Append(j)
 			points_list.Append(min.Z)
 			my_list.Append(points_list)
+			//-----
+			tempVec := rot.Vec{X: i, Y: j, Z: min.Z}
+			theVecs = append(theVecs, tempVec)
+			//-----
+			points := []float64{i, j, min.Z}
+			faces = append(faces, points)
 
-			//-------------------------
+			//2-------------------------
 
 			points_list = golist.New()
 			points_list.Append(i)
@@ -395,10 +396,10 @@ func toPC(b Geometry) (r3.Vector, error) {
 			tempVec = rot.Vec{X: i, Y: j, Z: min.Z + offset}
 			theVecs = append(theVecs, tempVec)
 			//-----
-			points = []float64{i, j, min.Z}
+			points = []float64{i, j, min.Z + offset}
 			faces = append(faces, points)
 
-			//-------------------------
+			//3-------------------------
 
 			points_list = golist.New()
 			points_list.Append(min.Z)
@@ -408,7 +409,12 @@ func toPC(b Geometry) (r3.Vector, error) {
 			//-----
 			tempVec = rot.Vec{X: min.Z, Y: j, Z: i}
 			theVecs = append(theVecs, tempVec)
-			//-------------------------
+			//-----
+			points = []float64{min.Z, j, i}
+			faces = append(faces, points)
+
+			//4-------------------------
+
 			points_list = golist.New()
 			points_list.Append(min.Z + offset)
 			points_list.Append(j)
@@ -417,7 +423,12 @@ func toPC(b Geometry) (r3.Vector, error) {
 			//-----
 			tempVec = rot.Vec{X: min.Z + offset, Y: j, Z: i}
 			theVecs = append(theVecs, tempVec)
-			//-------------------------
+			//-----
+			points = []float64{min.Z + offset, j, i}
+			faces = append(faces, points)
+
+			//5-------------------------
+
 			points_list = golist.New()
 			points_list.Append(j)
 			points_list.Append(min.Z)
@@ -426,7 +437,12 @@ func toPC(b Geometry) (r3.Vector, error) {
 			//-----
 			tempVec = rot.Vec{X: j, Y: min.Z, Z: i}
 			theVecs = append(theVecs, tempVec)
-			//-------------------------
+			//-----
+			points = []float64{j, min.Z, i}
+			faces = append(faces, points)
+
+			//6-------------------------
+
 			points_list = golist.New()
 			points_list.Append(j)
 			points_list.Append(min.Z + offset)
@@ -435,19 +451,24 @@ func toPC(b Geometry) (r3.Vector, error) {
 			//-----
 			tempVec = rot.Vec{X: j, Y: min.Z + offset, Z: i}
 			theVecs = append(theVecs, tempVec)
+			//-----
+			points = []float64{j, min.Z + offset, i}
+			faces = append(faces, points)
+
 		}
 	}
 
 	// to do:
-	// add in rotation to double check
+	// add rotation code
 
 	rotMat := b.Pose().Orientation().RotationMatrix().mat
 	myMat := mat.NewDense(3, 3, rotMat[:])
 	fmt.Println("myMat: ", myMat)
-	// blarg := mat.NewDense(1, 3, theVecs[0])
 
-	// for i := 0; i <= len(theVecs); i++ {
-	// 	theVecs[i] = myMat.Mul(myMat, theVecs[i])
+	// for i := 0; i <= len(faces); i++ {
+	// 	blarg := mat.NewDense(1, 3, faces[i])
+	// 	new := myMat.Mul(myMat, blarg)
+
 	// }
 	// f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
 	// f.WriteString(my_list.String())
