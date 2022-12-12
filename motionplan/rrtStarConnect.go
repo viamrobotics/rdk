@@ -91,7 +91,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, solutionChan)
+		mp.planParallel(ctx, goal, seed, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -101,9 +101,9 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 	}
 }
 
-// rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
-// Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(
+// planParallel will execute the plan. Plan() will call planParallel in a separate thread and wait for results.
+// Separating this allows other things to call planParallel allowing the thread-agnostic Plan to be accessible.
+func (mp *rrtStarConnectMotionPlanner) planParallel(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,

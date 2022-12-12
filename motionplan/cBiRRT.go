@@ -90,12 +90,14 @@ func newCBiRRTMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	// nlopt should try only once
-	// TODO(rb): need to try only once
-	nlopt, err := newNLOptIKSolver(frame, logger, opt.ikOptions)
+
+	// make separate IK solver for fast gradient descent.  Set MaxIterations to 1 so that it solves faster
+	nlopt, err := newNLOptIKSolver(frame, logger, copyIKOptions(opt.ikOptions))
 	if err != nil {
 		return nil, err
 	}
+	nlopt.algOpts.MaxIterations = 1
+
 	algOpts, err := newCbirrtOptions(opt, mp.frame)
 	if err != nil {
 		return nil, err
@@ -114,7 +116,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, solutionChan)
+		mp.planParallel(ctx, goal, seed, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -124,9 +126,9 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	}
 }
 
-// rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
-// Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
+// planParallel will execute the plan. Plan() will call planParallel in a separate thread and wait for results.
+// Separating this allows other things to call planParallel allowing the thread-agnostic Plan to be accessible.
+func (mp *cBiRRTMotionPlanner) planParallel(
 	ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,

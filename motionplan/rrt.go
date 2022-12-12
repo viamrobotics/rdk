@@ -20,12 +20,6 @@ type rrtMotionPlanner interface {
 	initRRTSolutions(context.Context, spatialmath.Pose, []referenceframe.Input) *rrtPlanReturn
 }
 
-type rrtParallelMotionPlanner interface {
-	rrtMotionPlanner
-
-	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, chan<- *rrtPlanReturn)
-}
-
 type rrtOptions struct {
 	// Number of planner iterations before giving up.
 	PlanIter int `json:"plan_iter"`

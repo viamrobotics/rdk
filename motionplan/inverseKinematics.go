@@ -55,6 +55,17 @@ func newBasicIKOptions() *ikOptions {
 	return opts
 }
 
+func copyIKOptions(toCopy *ikOptions) *ikOptions {
+	return &ikOptions{
+		constraintHandler: toCopy.constraintHandler,
+		extra:             deepAtomicCopyMap(toCopy.extra),
+		metric:            toCopy.metric,
+		MinScore:          toCopy.MinScore,
+		MaxSolutions:      toCopy.MaxSolutions,
+		NumThreads:        toCopy.NumThreads,
+	}
+}
+
 // inverseKinematicsSolver defines an interface which is used to solve inverse kinematics queries.
 type inverseKinematicsSolver interface {
 	solve(context.Context, chan<- []referenceframe.Input, spatialmath.Pose, []referenceframe.Input, Metric, int) error
