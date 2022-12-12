@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/baseremotecontrol"
+	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
 
@@ -92,8 +93,9 @@ type builtIn struct {
 	config *Config
 	logger golog.Logger
 
-	cancel    func()
-	cancelCtx context.Context
+	cancel                  func()
+	cancelCtx               context.Context
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // NewDefault returns a new remote control service for the given robot.
@@ -185,10 +187,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 			return
 		}
 
-		err := svc.processEvent(ctx, state, event)
-		if err != nil {
-			svc.logger.Errorw("error with moving base to desired position", "error", err)
-		}
+		svc.processEvent(ctx, state, event)
 	}
 
 	connect := func(ctx context.Context, event input.Event) {
@@ -227,6 +226,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 // Close out of all remote control related systems.
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.cancel()
+	svc.activeBackgroundWorkers.Wait()
 	return nil
 }
 
@@ -247,39 +247,52 @@ func (svc *builtIn) ControllerInputs() []input.Control {
 	return []input.Control{}
 }
 
-func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
+func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, event input.Event) {
 	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
 
+	state.mu.Lock()
 	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {
-		return nil
+		state.mu.Unlock()
+		return
 	}
+	state.mu.Unlock()
 
-	if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
-		if err := svc.base.SetVelocity(
-			ctx,
-			r3.Vector{
-				X: svc.config.MaxLinearVelocity * newLinear.X,
-				Y: svc.config.MaxLinearVelocity * newLinear.Y,
-				Z: svc.config.MaxLinearVelocity * newLinear.Z,
-			},
-			r3.Vector{
-				X: svc.config.MaxAngularVelocity * newAngular.X,
-				Y: svc.config.MaxAngularVelocity * newAngular.Y,
-				Z: svc.config.MaxAngularVelocity * newAngular.Z,
-			},
-			nil,
-		); err != nil {
-			return err
-		}
-	} else {
-		if err := svc.base.SetPower(ctx, newLinear, newAngular, nil); err != nil {
-			return err
-		}
-	}
+	session.SafetyMonitor(ctx, svc.base)
 
-	state.linearThrottle = newLinear
-	state.angularThrottle = newAngular
-	return nil
+	svc.activeBackgroundWorkers.Add(1)
+	vutils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+
+		if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+			if err := svc.base.SetVelocity(
+				svc.cancelCtx,
+				r3.Vector{
+					X: svc.config.MaxLinearVelocity * newLinear.X,
+					Y: svc.config.MaxLinearVelocity * newLinear.Y,
+					Z: svc.config.MaxLinearVelocity * newLinear.Z,
+				},
+				r3.Vector{
+					X: svc.config.MaxAngularVelocity * newAngular.X,
+					Y: svc.config.MaxAngularVelocity * newAngular.Y,
+					Z: svc.config.MaxAngularVelocity * newAngular.Z,
+				},
+				nil,
+			); err != nil {
+				svc.logger.Errorw("error setting velocity", "error", err)
+				return
+			}
+		} else {
+			if err := svc.base.SetPower(svc.cancelCtx, newLinear, newAngular, nil); err != nil {
+				svc.logger.Errorw("error setting power", "error", err)
+				return
+			}
+		}
+
+		state.mu.Lock()
+		state.linearThrottle = newLinear
+		state.angularThrottle = newAngular
+		state.mu.Unlock()
+	})
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
@@ -430,6 +443,7 @@ func scaleThrottle(a float64) float64 {
 }
 
 type throttleState struct {
+	mu                              sync.Mutex
 	linearThrottle, angularThrottle r3.Vector
 	buttons                         map[input.Control]bool
 	arrows                          map[input.Control]float64
@@ -450,6 +464,9 @@ func (ts *throttleState) init() {
 }
 
 func parseEvent(mode controlMode, state *throttleState, event input.Event) (r3.Vector, r3.Vector) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
 	newLinear := state.linearThrottle
 	newAngular := state.angularThrottle
 

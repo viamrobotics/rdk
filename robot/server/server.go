@@ -8,11 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -22,6 +25,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/session"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -67,12 +71,17 @@ func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest
 			return nil, err
 		}
 
-		res.Operations = append(res.Operations, &pb.Operation{
+		pbOp := &pb.Operation{
 			Id:        o.ID.String(),
 			Method:    o.Method,
 			Arguments: s,
 			Started:   timestamppb.New(o.Started),
-		})
+		}
+		if o.SessionID != uuid.Nil {
+			sid := o.SessionID.String()
+			pbOp.SessionId = &sid
+		}
+		res.Operations = append(res.Operations, pbOp)
 	}
 
 	return res, nil
@@ -106,6 +115,21 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// GetSessions lists all active sessions.
+func (s *Server) GetSessions(ctx context.Context, req *pb.GetSessionsRequest) (*pb.GetSessionsResponse, error) {
+	allSessions := s.r.SessionManager().All()
+
+	resp := &pb.GetSessionsResponse{}
+	for _, sess := range allSessions {
+		resp.Sessions = append(resp.Sessions, &pb.Session{
+			Id:                 sess.ID().String(),
+			PeerConnectionInfo: sess.PeerConnectionInfo(),
+		})
+	}
+
+	return resp, nil
 }
 
 // ResourceNames returns the list of resources.
@@ -278,4 +302,74 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 		return nil, err
 	}
 	return &pb.StopAllResponse{}, nil
+}
+
+// StartSession creates a new session that expects heartbeats at the given interval. If the interval
+// lapses, any resources that have safety heart monitored methods, where this session was the last caller
+// on the resource, will be stopped.
+func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) (*pb.StartSessionResponse, error) {
+	authUID, _ := rpc.ContextAuthSubject(ctx)
+	if _, ok := session.FromContext(ctx); ok {
+		return nil, errors.New("session already exists")
+	}
+	if req.Resume != "" {
+		resumeWith, err := uuid.Parse(req.Resume)
+		if err != nil {
+			return nil, err
+		}
+		if sess, err := s.r.SessionManager().FindByID(resumeWith, authUID); err != nil {
+			if !errors.Is(err, session.ErrNoSession) {
+				return nil, err
+			}
+		} else {
+			return &pb.StartSessionResponse{
+				Id:              req.Resume,
+				HeartbeatWindow: durationpb.New(sess.HeartbeatWindow()),
+			}, nil
+		}
+	}
+	sess, err := s.r.SessionManager().Start(
+		authUID,
+		peerConnectionInfoToProto(rpc.PeerConnectionInfoFromContext(ctx)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.StartSessionResponse{
+		Id:              sess.ID().String(),
+		HeartbeatWindow: durationpb.New(sess.HeartbeatWindow()),
+	}, nil
+}
+
+func peerConnectionInfoToProto(info rpc.PeerConnectionInfo) *pb.PeerConnectionInfo {
+	var connType pb.PeerConnectionType
+	switch info.ConnectionType {
+	case rpc.PeerConnectionTypeGRPC:
+		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC
+	case rpc.PeerConnectionTypeWebRTC:
+		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_WEBRTC
+	case rpc.PeerConnectionTypeUnknown:
+		fallthrough
+	default:
+		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_UNSPECIFIED
+	}
+
+	return &pb.PeerConnectionInfo{
+		Type:          connType,
+		LocalAddress:  &info.LocalAddress,
+		RemoteAddress: &info.RemoteAddress,
+	}
+}
+
+// SendSessionHeartbeat sends a heartbeat to the given session.
+func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHeartbeatRequest) (*pb.SendSessionHeartbeatResponse, error) {
+	authUID, _ := rpc.ContextAuthSubject(ctx)
+	sessID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.r.SessionManager().FindByID(sessID, authUID); err != nil {
+		return nil, err
+	}
+	return &pb.SendSessionHeartbeatResponse{}, nil
 }
