@@ -1,4 +1,16 @@
 {
+    "network": {
+        "sessions": {
+            "heartbeat_window": "5s"
+        }
+    },
+    "remotes": [
+        {
+            "name": "rem1",
+            "connection_check_interval": "12s",
+            "reconnect_interval": "3s"
+        }  
+    ],
     "components": [
         {
             "name": "thing",

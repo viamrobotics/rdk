@@ -19,7 +19,7 @@ type preprocessDepthTransform struct {
 }
 
 func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSource,
-) (gostream.VideoSource, camera.StreamType, error) {
+) (gostream.VideoSource, camera.ImageType, error) {
 	reader := &preprocessDepthTransform{gostream.NewEmbeddedVideoStream(source)}
 	var cameraModel *transform.PinholeCameraModel
 	if cameraSrc, ok := source.(camera.Camera); ok {

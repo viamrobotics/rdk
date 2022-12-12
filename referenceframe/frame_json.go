@@ -11,6 +11,14 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// The following are joint types we treat as constants.
+const (
+	FixedJoint      = "fixed"
+	ContinuousJoint = "continuous"
+	PrismaticJoint  = "prismatic"
+	RevoluteJoint   = "revolute"
+)
+
 // FrameMapConfig represents the format for configuring a Frame object.
 type FrameMapConfig map[string]interface{}
 
