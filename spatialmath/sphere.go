@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -36,6 +37,11 @@ func NewSphereCreator(radius float64, offset Pose, label string) (GeometryCreato
 // NewGeometry instantiates a new sphere from a SphereCreator class.
 func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
 	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
+}
+
+// String returns a human readable string that represents the sphereCreator
+func (sc *sphereCreator) String() string {
+	return fmt.Sprintf("Type: Sphere, Radius: %.0f", sc.radius)
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {

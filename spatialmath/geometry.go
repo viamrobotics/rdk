@@ -13,6 +13,7 @@ type GeometryCreator interface {
 	NewGeometry(Pose) Geometry
 	Offset() Pose
 	ToProtobuf() *commonpb.Geometry
+	String() string
 	json.Marshaler
 }
 

@@ -356,21 +356,21 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
 	if len(pf.limits) > 1 {
-		return nil, errors.New("cannot marshal translational frame with >1 DOF, use a mobile2DFrame or a Model")
+		return nil, ErrMarshalingHighDOFFrame
 	}
 	temp := JointConfig{
 		ID:   pf.name,
-		Type: "prismatic",
+		Type: PrismaticJoint,
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
 		Max:  pf.limits[0].Max,
 		Min:  pf.limits[0].Min,
 	}
 	if pf.geometryCreator != nil {
-		geometryConfig, err := spatial.NewGeometryConfig(pf.geometryCreator)
+		var err error
+		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometryCreator)
 		if err != nil {
 			return nil, err
 		}
-		temp.Geometry = geometryConfig
 	}
 
 	return json.Marshal(temp)
@@ -429,7 +429,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return nil, fmt.Errorf("s not implemented for type %T", rf)
+	return nil, fmt.Errorf("Geometries not implemented for type %T", rf)
 }
 
 // Name returns the name of the referenceframe.
@@ -439,11 +439,11 @@ func (rf *rotationalFrame) Name() string {
 
 func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
 	if len(rf.limits) > 1 {
-		return nil, errors.New("cannot marshal revolute frame with >1 DOF, use a Model")
+		return nil, ErrMarshalingHighDOFFrame
 	}
 	temp := JointConfig{
 		ID:   rf.name,
-		Type: "revolute",
+		Type: RevoluteJoint,
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
 		Max:  utils.RadToDeg(rf.limits[0].Max),
 		Min:  utils.RadToDeg(rf.limits[0].Min),

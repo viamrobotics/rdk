@@ -74,7 +74,6 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	pif := NewNamedPoseInFrame(cfg.Parent, pose, cfg.ID)
 	var geom spatial.GeometryCreator
 	if cfg.Geometry != nil {
 		geom, err = cfg.Geometry.ParseConfig()
@@ -82,8 +81,7 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 			return nil, err
 		}
 	}
-
-	return &LinkInFrame{PoseInFrame: pif, geometry: geom}, nil
+	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
 }
 
 // Pose will parse out the Pose of a LinkConfig and return it if it is valid.

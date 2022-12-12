@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/golang/geo/r3"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -27,42 +25,13 @@ func (fsp Parts) String() string {
 		tra := pose.Point()
 		ori := pose.Orientation().EulerAngles()
 		geomString := ""
-		if part.FrameConfig.Geometry() != nil {
-			creator := part.FrameConfig.Geometry()
-			gCfg, err := spatialmath.NewGeometryConfig(creator)
-			if err == nil {
-				switch gCfg.Type {
-				case spatialmath.BoxType:
-					geomString = fmt.Sprintf("Type: Box Dim: X:%.0f, Y:%.0f, Z:%.0f", gCfg.X, gCfg.Y, gCfg.Z)
-				case spatialmath.SphereType:
-					geomString = fmt.Sprintf("Type: Sphere Radius: %.0f", gCfg.R)
-				case spatialmath.PointType:
-					geomString = fmt.Sprintf(
-						"Type: Point Loc X:%.0f, Y:%.0f, Z:%.0f",
-						gCfg.TranslationOffset.X,
-						gCfg.TranslationOffset.Y,
-						gCfg.TranslationOffset.Z,
-					)
-				case spatialmath.UnknownType:
-					// no type specified, iterate through supported types and try to infer intent
-					if _, err := spatialmath.NewBoxCreator(
-						r3.Vector{X: gCfg.X, Y: gCfg.Y, Z: gCfg.Z},
-						creator.Offset(),
-						gCfg.Label,
-					); err == nil {
-						geomString = fmt.Sprintf("Type: Box Dim: X:%.0f, Y:%.0f, Z:%.0f", gCfg.X, gCfg.Y, gCfg.Z)
-					}
-					if _, err := spatialmath.NewSphereCreator(gCfg.R, creator.Offset(), gCfg.Label); err == nil {
-						geomString = fmt.Sprintf("Type: Sphere Radius: %.0f", gCfg.R)
-					}
-					// never try to infer point geometry if nothing is specified
-				}
-			}
+		if gc := part.FrameConfig.Geometry(); gc != nil {
+			geomString = gc.String()
 		}
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),
 			part.FrameConfig.Name(),
-			part.FrameConfig.Parent(),
+			part.FrameConfig.FrameName(),
 			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
 			fmt.Sprintf(
 				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
@@ -95,11 +64,11 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	// make map of children
 	children := make(map[string]Parts)
 	for _, part := range parts {
-		parent := part.FrameConfig.Parent()
+		parent := part.FrameConfig.FrameName()
 		if !existingParts[parent] {
 			return nil, NewMissingParentError(part.FrameConfig.Name(), parent)
 		}
-		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
+		children[part.FrameConfig.FrameName()] = append(children[part.FrameConfig.FrameName()], part)
 	}
 	topoSortedParts := Parts{} // keep track of tree structure
 	// If there are no frames, return the empty list
@@ -138,13 +107,13 @@ func RenameRemoteParts(
 	connectionName string,
 ) Parts {
 	for _, p := range remoteParts {
-		if p.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
+		if p.FrameConfig.FrameName() == referenceframe.World { // rename World of remote parts
 			p.FrameConfig.SetParent(connectionName)
 		}
 		// rename each non-world part with prefix
 		p.FrameConfig.SetName(remoteName + ":" + p.FrameConfig.Name())
-		if p.FrameConfig.Parent() != connectionName {
-			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.Parent())
+		if p.FrameConfig.FrameName() != connectionName {
+			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.FrameName())
 		}
 	}
 	return remoteParts

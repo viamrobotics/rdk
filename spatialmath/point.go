@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -33,6 +34,12 @@ func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
 
 func (pc *pointCreator) Offset() Pose {
 	return pc.offset
+}
+
+// String returns a human readable string that represents the pointCreator
+func (pc *pointCreator) String() string {
+	pt := pc.offset.Point()
+	return fmt.Sprintf("Type: Point, Location X:%.0f, Y:%.0f, Z:%.0f", pt.X, pt.Y, pt.Z)
 }
 
 func (pc *pointCreator) MarshalJSON() ([]byte, error) {

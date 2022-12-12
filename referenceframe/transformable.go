@@ -55,11 +55,6 @@ func (pF *PoseInFrame) FrameName() string {
 	return pF.parent
 }
 
-// Parent returns the name of the frame in which the pose was observed.
-func (pF *PoseInFrame) Parent() string {
-	return pF.parent
-}
-
 // SetParent sets the name of the frame in which the pose was observed.
 func (pF *PoseInFrame) SetParent(parent string) {
 	pF.parent = parent
@@ -94,20 +89,15 @@ func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
 	}
 }
 
-// NewNamedPoseInFrame generates a new PoseInFrame and gives it the specified name.
-func NewNamedPoseInFrame(frame string, pose spatialmath.Pose, name string) *PoseInFrame {
-	return &PoseInFrame{
-		parent: frame,
-		pose:   pose,
-		name:   name,
-	}
-}
-
 // NewLinkInFrame generates a new LinkInFrame.
 func NewLinkInFrame(frame string, pose spatialmath.Pose, name string, geometry spatialmath.GeometryCreator) *LinkInFrame {
 	return &LinkInFrame{
-		PoseInFrame: NewNamedPoseInFrame(frame, pose, name),
-		geometry:    geometry,
+		PoseInFrame: &PoseInFrame{
+			parent: frame,
+			pose:   pose,
+			name:   name,
+		},
+		geometry: geometry,
 	}
 }
 
@@ -163,15 +153,14 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 	}
 	poseMsg := poseInObserverFrame.GetPose()
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
-	lif := &LinkInFrame{PoseInFrame: NewNamedPoseInFrame(parentFrame, pose, frameName)}
+	var geometry spatialmath.GeometryCreator
 	if proto.Geometry != nil {
-		lif.geometry, err = spatialmath.NewGeometryCreatorFromProto(proto.Geometry)
+		geometry, err = spatialmath.NewGeometryCreatorFromProto(proto.Geometry)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	return lif, nil
+	return NewLinkInFrame(parentFrame, pose, frameName, geometry), nil
 }
 
 // LinkInFramesToTransformsProtobuf converts a slice of LinkInFrame structs to a slice of Transform protobuf messages.

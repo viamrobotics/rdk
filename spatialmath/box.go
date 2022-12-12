@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -47,6 +48,11 @@ func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 		boundingSphereR: bc.halfSize.Norm(),
 		label:           bc.label,
 	}
+}
+
+// String returns a human readable string that represents the boxCreator
+func (bc *boxCreator) String() string {
+	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*bc.halfSize.X, 2*bc.halfSize.Y, 2*bc.halfSize.Z)
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {

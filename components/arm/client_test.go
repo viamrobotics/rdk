@@ -243,7 +243,7 @@ func TestClientModel(t *testing.T) {
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{&referenceframe.FrameSystemPart{
 			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, testArmName, nil),
-			ModelFrame: model,
+			ModelFrame:  model,
 		}}, nil
 	}
 
