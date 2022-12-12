@@ -1,6 +1,4 @@
-
 <script setup lang="ts">
-
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, motorApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
@@ -8,9 +6,9 @@ import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
 interface Props {
-  name: string
-  status: motorApi.Status.AsObject
-  client: Client
+  name: string;
+  status: motorApi.Status.AsObject;
+  client: Client;
 }
 
 const props = defineProps<Props>();
@@ -19,7 +17,7 @@ type MovementTypes = 'go' | 'goFor' | 'goTo';
 
 const position = $ref(0);
 const rpm = $ref(0);
-const power = $ref(25);
+const power = $ref(50);
 const revolutions = $ref(0);
 
 let movementType = $ref('Go');
@@ -61,7 +59,7 @@ const setDirection = (value: string) => {
 };
 
 const setPower = () => {
-  const powerPct = power * direction / 100;
+  const powerPct = (power * direction) / 100;
   const req = new motorApi.SetPowerRequest();
   req.setName(props.name);
   req.setPowerPct(powerPct);
@@ -111,7 +109,6 @@ const motorStop = () => {
   rcLogConditionally(req);
   props.client.motorService.stop(req, new grpc.Metadata(), displayError);
 };
-
 </script>
 
 <template>
@@ -150,16 +147,10 @@ const motorStop = () => {
     </div>
 
     <div>
-      <div
-        class="border border-t-0 border-black p-4"
-      >
+      <div class="border border-t-0 border-black p-4">
         <v-radio
           label="Set Power"
-          :options="
-            status.positionReporting
-              ? 'Go, Go For, Go To'
-              : 'Go'
-          "
+          :options="status.positionReporting ? 'Go, Go For, Go To' : 'Go'"
           :selected="movementType"
           class="mb-4"
           @input="setMovementType($event.detail.value)"
@@ -171,9 +162,7 @@ const motorStop = () => {
           >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
-              <InfoButton
-                :info-rows="['Relative to Home']"
-              />
+              <InfoButton :info-rows="['Relative to Home']" />
             </div>
             <v-input
               type="number"
@@ -196,9 +185,7 @@ const motorStop = () => {
           >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
-              <InfoButton
-                :info-rows="['Relative to where the robot is currently']"
-              />
+              <InfoButton :info-rows="['Relative to where the robot is currently']" />
             </div>
             <v-input
               type="number"
@@ -227,9 +214,7 @@ const motorStop = () => {
           >
             <div class="flex flex-wrap gap-2">
               <span class="text-lg">{{ movementType }}</span>
-              <InfoButton
-                :info-rows="['Continuously moves']"
-              />
+              <InfoButton :info-rows="['Continuously moves']" />
             </div>
             <v-radio
               label="Direction of Rotation"
