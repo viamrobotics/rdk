@@ -119,12 +119,12 @@ func FromDependencies(deps registry.Dependencies, name string) (MovementSensor, 
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((MovementSensor)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*MovementSensor)(nil), actual)
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name, actual interface{}) error {
-	return utils.DependencyTypeError(name, (MovementSensor)(nil), actual)
+func DependencyTypeError(name string, actual interface{}) error {
+	return utils.DependencyTypeError(name, (*MovementSensor)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named MovementSensor from the given Robot.
