@@ -75,7 +75,6 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-
 			if motorConfig.Encoder != "" {
 				e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 				if err != nil {
