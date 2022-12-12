@@ -35,7 +35,6 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
@@ -74,39 +73,41 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	registry.RegisterService(slam.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, deps, c, logger, false)
-		},
-	})
-	cType := config.ServiceType(slam.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &AttrConfig{})
+	for _, slamLibrary := range slam.SLAMLibraries {
+		registry.RegisterService(slam.Subtype, slamLibrary.AlgoName, registry.Service{
+			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+				return NewBuiltIn(ctx, deps, c, logger, false)
+			},
+		})
+		cType := config.ServiceType(slam.SubtypeName)
+		config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &AttrConfig{})
+	}
 }
 
 // RuntimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 // Returns the slam mode.
-func RuntimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (slam.Mode, error) {
-	slamLib, ok := slam.SLAMLibraries[svcConfig.Algorithm]
+func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
+	slamLib, ok := slam.SLAMLibraries[model]
 	if !ok {
-		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
+		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
 	}
 
 	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
 	if !ok {
 		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
-			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
+			model, svcConfig.ConfigParams["mode"])
 	}
 
 	for _, directoryName := range [4]string{"", "data", "map", "config"} {
@@ -250,7 +251,6 @@ func runtimeServiceValidation(
 // AttrConfig describes how to configure the service.
 type AttrConfig struct {
 	Sensors          []string          `json:"sensors"`
-	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
 	DataRateMs       int               `json:"data_rate_msec"`
 	MapRateSec       *int              `json:"map_rate_sec"`
@@ -261,9 +261,6 @@ type AttrConfig struct {
 
 // Validate creates the list of implicit dependencies.
 func (config *AttrConfig) Validate(path string) ([]string, error) {
-	if config.Algorithm == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "algorithm")
-	}
 
 	if config.ConfigParams["mode"] == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "config_params[mode]")
@@ -505,7 +502,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	slamMode, err := RuntimeConfigValidation(svcConfig, logger)
+	slamMode, err := RuntimeConfigValidation(svcConfig, config.Model, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
@@ -546,7 +543,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	// SLAM Service Object
 	slamSvc := &builtIn{
 		cameraName:            cameraName,
-		slamLib:               slam.SLAMLibraries[svcConfig.Algorithm],
+		slamLib:               slam.SLAMLibraries[config.Model],
 		slamMode:              slamMode,
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
