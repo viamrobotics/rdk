@@ -8,7 +8,6 @@ import (
 	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"gonum.org/v1/gonum/mat"
 	rot "gonum.org/v1/gonum/spatial/r3"
 
 	"go.viam.com/rdk/utils"
@@ -461,13 +460,18 @@ func toPC(b Geometry) (r3.Vector, error) {
 	// to do:
 	// add rotation code
 
-	rotMat := b.Pose().Orientation().RotationMatrix().mat
-	myMat := mat.NewDense(3, 3, rotMat[:])
-	fmt.Println("myMat: ", myMat)
-
+	// rotMat := b.Pose().Orientation().RotationMatrix().mat
+	// myMat := mat.NewDense(3, 3, rotMat[:])
+	// fmt.Println("myMat: ", myMat)
+	// last_list := golist.New()
+	fmt.Println(len(faces))
 	// for i := 0; i <= len(faces); i++ {
-	// 	blarg := mat.NewDense(1, 3, faces[i])
-	// 	new := myMat.Mul(myMat, blarg)
+	// fmt.Println(faces[i])
+	// blarg := mat.NewDense(1, 3, faces[i])
+	// fmt.Println(blarg)
+	// blarg.Mul(blarg, myMat)
+	// fmt.Println(blarg)
+	// fmt.Println(" ")
 
 	// }
 	// f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
