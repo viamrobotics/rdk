@@ -163,11 +163,10 @@ func TestCartographerIntegration(t *testing.T) {
 	closeOutSLAMService(t, "")
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
-	// Orbslam will use the most recent config.
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
 
 	// Count the initial number of maps in the map directory
-	numMaps, err := ioutil.ReadDir(name + "/map")
+	numMaps, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode in localization mode")
@@ -225,7 +224,7 @@ func TestCartographerIntegration(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	// Test that no new maps were generated
-	numMapsLocalize, err := ioutil.ReadDir(name + "/map")
+	numMapsLocalize, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(numMapsLocalize), test.ShouldEqual, len(numMaps))
 
