@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -38,6 +39,11 @@ func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
 	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
 }
 
+// String returns a human readable string that represents the sphereCreator.
+func (sc *sphereCreator) String() string {
+	return fmt.Sprintf("Type: Sphere, Radius: %.0f", sc.radius)
+}
+
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(sc)
 	if err != nil {
@@ -46,6 +52,19 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 	config.Type = "sphere"
 	config.R = sc.radius
 	return json.Marshal(config)
+}
+
+// ToProto converts the sphere to a Geometry proto message.
+func (sc *sphereCreator) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(sc.offset),
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: sc.radius,
+			},
+		},
+		Label: sc.label,
+	}
 }
 
 // NewSphere instantiates a new sphere Geometry.
@@ -98,6 +117,7 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 				RadiusMm: s.radius,
 			},
 		},
+		Label: s.label,
 	}
 }
 

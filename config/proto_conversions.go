@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/rpc/oauth"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -210,21 +211,27 @@ func ResourceLevelServiceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (
 }
 
 // FrameConfigToProto converts Frame to proto equivalent.
-func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
+func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
+	pose, err := frame.Pose()
+	if err != nil {
+		return nil, err
+	}
+	pt := pose.Point()
+	orient := pose.Orientation()
 	proto := pb.Frame{
 		Parent: frame.Parent,
 		Translation: &pb.Translation{
-			X: frame.Translation.X,
-			Y: frame.Translation.Y,
-			Z: frame.Translation.Z,
+			X: pt.X,
+			Y: pt.Y,
+			Z: pt.Z,
 		},
 	}
 
 	var orientation pb.Orientation
 
-	switch oType := frame.Orientation.(type) {
+	switch oType := orient.(type) {
 	case *spatial.R4AA:
-		r4aa := frame.Orientation.(*spatial.R4AA)
+		r4aa := orient.(*spatial.R4AA)
 		config := pb.Orientation_AxisAngles{
 			Theta: r4aa.Theta,
 			X:     r4aa.RX,
@@ -235,7 +242,7 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 			Type: &pb.Orientation_AxisAngles_{AxisAngles: &config},
 		}
 	case *spatial.OrientationVector:
-		vector := frame.Orientation.(*spatial.OrientationVector)
+		vector := orient.(*spatial.OrientationVector)
 		config := pb.Orientation_OrientationVectorRadians{
 			Theta: vector.Theta,
 			X:     vector.OX,
@@ -246,7 +253,7 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 			Type: &pb.Orientation_VectorRadians{VectorRadians: &config},
 		}
 	case *spatial.OrientationVectorDegrees:
-		vector := frame.Orientation.(*spatial.OrientationVectorDegrees)
+		vector := orient.(*spatial.OrientationVectorDegrees)
 		config := pb.Orientation_OrientationVectorDegrees{
 			Theta: vector.Theta,
 			X:     vector.OX,
@@ -257,7 +264,7 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 			Type: &pb.Orientation_VectorDegrees{VectorDegrees: &config},
 		}
 	case *spatial.EulerAngles:
-		eulerAngles := frame.Orientation.(*spatial.EulerAngles)
+		eulerAngles := orient.(*spatial.EulerAngles)
 		config := pb.Orientation_EulerAngles{
 			Roll:  eulerAngles.Roll,
 			Pitch: eulerAngles.Pitch,
@@ -267,7 +274,7 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 			Type: &pb.Orientation_EulerAngles_{EulerAngles: &config},
 		}
 	case *spatial.Quaternion:
-		q := frame.Orientation.(*spatial.Quaternion)
+		q := orient.(*spatial.Quaternion)
 		config := pb.Orientation_Quaternion{
 			W: q.Real,
 			X: q.Imag,
@@ -282,13 +289,20 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 	}
 
 	proto.Orientation = &orientation
+	if frame.Geometry != nil {
+		proto.Geometry, err = frame.Geometry.ToProtobuf()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return &proto, nil
 }
 
 // FrameConfigFromProto creates Frame from proto equivalent.
-func FrameConfigFromProto(proto *pb.Frame) (*Frame, error) {
-	frame := Frame{
+func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
+	var err error
+	frame := &referenceframe.LinkConfig{
 		Parent: proto.GetParent(),
 		Translation: r3.Vector{
 			X: proto.GetTranslation().GetX(),
@@ -298,38 +312,39 @@ func FrameConfigFromProto(proto *pb.Frame) (*Frame, error) {
 	}
 
 	if proto.GetOrientation() != nil {
+		var orient spatial.Orientation
 		switch or := proto.GetOrientation().Type.(type) {
 		case *pb.Orientation_NoOrientation_:
-			frame.Orientation = spatial.NewZeroOrientation()
+			orient = spatial.NewZeroOrientation()
 		case *pb.Orientation_VectorRadians:
-			frame.Orientation = &spatial.OrientationVector{
+			orient = &spatial.OrientationVector{
 				Theta: or.VectorRadians.Theta,
 				OX:    or.VectorRadians.X,
 				OY:    or.VectorRadians.Y,
 				OZ:    or.VectorRadians.Z,
 			}
 		case *pb.Orientation_VectorDegrees:
-			frame.Orientation = &spatial.OrientationVectorDegrees{
+			orient = &spatial.OrientationVectorDegrees{
 				Theta: or.VectorDegrees.Theta,
 				OX:    or.VectorDegrees.X,
 				OY:    or.VectorDegrees.Y,
 				OZ:    or.VectorDegrees.Z,
 			}
 		case *pb.Orientation_EulerAngles_:
-			frame.Orientation = &spatial.EulerAngles{
+			orient = &spatial.EulerAngles{
 				Pitch: or.EulerAngles.Pitch,
 				Roll:  or.EulerAngles.Roll,
 				Yaw:   or.EulerAngles.Yaw,
 			}
 		case *pb.Orientation_AxisAngles_:
-			frame.Orientation = &spatial.R4AA{
+			orient = &spatial.R4AA{
 				Theta: or.AxisAngles.Theta,
 				RX:    or.AxisAngles.X,
 				RY:    or.AxisAngles.Y,
 				RZ:    or.AxisAngles.Z,
 			}
 		case *pb.Orientation_Quaternion_:
-			frame.Orientation = &spatial.Quaternion{
+			orient = &spatial.Quaternion{
 				Real: or.Quaternion.W,
 				Imag: or.Quaternion.X,
 				Jmag: or.Quaternion.Y,
@@ -338,9 +353,24 @@ func FrameConfigFromProto(proto *pb.Frame) (*Frame, error) {
 		default:
 			return nil, errors.New("Orientation type unsupported")
 		}
+		frame.Orientation, err = spatial.NewOrientationConfig(orient)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &frame, nil
+	if proto.GetGeometry() != nil {
+		geom, err := spatial.NewGeometryCreatorFromProto(proto.GetGeometry())
+		if err != nil {
+			return nil, err
+		}
+		frame.Geometry, err = spatial.NewGeometryConfig(geom)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return frame, nil
 }
 
 // RemoteConfigToProto converts Remote to proto equivalent.

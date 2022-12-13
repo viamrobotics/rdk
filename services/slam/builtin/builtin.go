@@ -417,7 +417,7 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 		}
 		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
 			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
-		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+		pInFrame = referenceframe.NewPoseInFrame(pInFrame.Parent(), newPose)
 	}
 
 	return pInFrame, nil

@@ -631,7 +631,7 @@ func (r *localRobot) Refresh(ctx context.Context) error {
 // FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
 func (r *localRobot) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
 	framesystem, err := r.fsService()
 	if err != nil {
@@ -646,7 +646,7 @@ func (r *localRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	framesystem, err := r.fsService()
 	if err != nil {
