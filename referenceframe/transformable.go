@@ -46,6 +46,7 @@ func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 
 // NewPoseInFrame generates a new PoseInFrame.
 func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
+	// fmt.Println("frame: ", frame)
 	return &PoseInFrame{
 		frame: frame,
 		pose:  pose,
