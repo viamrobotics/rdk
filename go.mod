@@ -371,8 +371,10 @@ require (
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
 
+
+// SMURF: Remove lint skip line etc/.golangci.yaml after these are removed.
 //replace go.viam.com/api => ../api
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221202202559-36c73633d1bb
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221212231839-adf8f7b6b0e0
 
 //replace go.viam.com/utils => ../goutils
-replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221202202521-de8cc39af99b
+replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221212231903-b4bd4cddd2d9

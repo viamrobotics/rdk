@@ -1,0 +1,19 @@
+{
+	"modules": [
+		{
+			"name": "TestModule",
+			"executable_path": "module/testmodule/run.sh"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "generic",
+			"name": "helper1",
+			"model": "rdk:test:helper"
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}

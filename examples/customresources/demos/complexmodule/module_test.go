@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 )
@@ -32,8 +34,11 @@ func TestComplexModule(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Modify the example config to run directly, without compiling the module first.
-	cfgFilename, err := modifyCfg(utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
+	cfgFilename, port, err := modifyCfg(utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer func(){
+			test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
+	}()
 
 	// Build a binary server and run it. This seperate process avoids having custom APIs (imported above) in the parent server.
 	// Compiling is needed because "go run ..." doesn't pass signals. https://github.com/golang/go/issues/40467
@@ -50,7 +55,7 @@ func TestComplexModule(t *testing.T) {
 		test.That(t, server.Stop(), test.ShouldBeNil)
 	}()
 
-	rc, err := connect(logger)
+	rc, err := connect(port, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
@@ -277,12 +282,12 @@ func TestComplexModule(t *testing.T) {
 	})
 }
 
-func connect(logger golog.Logger) (robot.Robot, error) {
+func connect(port string, logger golog.Logger) (robot.Robot, error) {
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second * 30)
 	defer cancelConn()
 	for {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond * 500)
-		rc, err := client.New(dialCtx, "localhost:8080", logger, client.WithDialOptions(rpc.WithForceDirectGRPC()))
+		rc, err := client.New(dialCtx, "localhost:" + port, logger, client.WithDialOptions(rpc.WithForceDirectGRPC()))
 		dialCancel()
 		if !errors.Is(err, context.DeadlineExceeded) {
 			return rc, err
@@ -295,24 +300,33 @@ func connect(logger golog.Logger) (robot.Robot, error) {
 	}
 }
 
-func modifyCfg(cfgIn string, logger golog.Logger) (string, error) {
+func modifyCfg(cfgIn string, logger golog.Logger) (string, string, error) {
+	p, err := goutils.TryReserveRandomPort()
+	if err != nil {
+		return "", "", err
+	}
+ 	port := strconv.Itoa(p)
+ 	if err != nil {
+ 		return "", "", err
+ 	}
 	cfg, err := config.Read(context.Background(), cfgIn, logger)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+	cfg.Network.BindAddress = "localhost:" + port
 	cfg.Modules[0].ExePath = utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
 	output, err := json.Marshal(cfg)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	file, err := os.CreateTemp("", "viam-test-config-*")
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	cfgFilename := file.Name()
 	_, err = file.Write(output)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return cfgFilename, file.Close()
+	return cfgFilename, port, file.Close()
 }
