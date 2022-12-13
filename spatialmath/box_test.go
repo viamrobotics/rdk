@@ -53,9 +53,10 @@ func TestBoxVertices(t *testing.T) {
 }
 
 func TestBoxPCD(t *testing.T) {
-	offset := r3.Vector{2, 2, 2}
-	dims := r3.Vector{2, 2, 2}
-	orien := &Quaternion{0, 1, 0, 0}
-	box := makeTestBox(orien, offset, dims, "")
+	offset := r3.Vector{0, 0, 0}
+	dims := r3.Vector{2, 4, 6}
+	orien := &Quaternion{1, 0, 0, 0}
+	pose := NewPoseFromOrientation(offset, orien)
+	box := &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, ""}
 	toPC(box)
 }
