@@ -1799,7 +1799,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (interface{}, error) {
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
 func (rr *dummyRobot) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
 	panic("change to return nil")
 }
@@ -1808,7 +1808,7 @@ func (rr *dummyRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	panic("change to return nil")
 }

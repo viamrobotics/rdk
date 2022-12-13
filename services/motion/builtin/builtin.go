@@ -55,7 +55,7 @@ func (ms *builtIn) Move(
 	logger := ms.r.Logger()
 
 	// get goal frame
-	goalFrameName := destination.FrameName()
+	goalFrameName := destination.Parent()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
@@ -139,8 +139,8 @@ func (ms *builtIn) MoveSingleComponent(
 
 	// get destination pose in frame of movable component
 	goalPose := destination.Pose()
-	if destination.FrameName() != componentName.ShortName() {
-		logger.Debugf("goal given in frame of %q", destination.FrameName())
+	if destination.Parent() != componentName.ShortName() {
+		logger.Debugf("goal given in frame of %q", destination.Parent())
 
 		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 		if err != nil {
@@ -173,7 +173,7 @@ func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*referenceframe.PoseInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {

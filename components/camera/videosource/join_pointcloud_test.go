@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -75,25 +74,25 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	r := &inject.Robot{}
 	fsParts := framesystemparts.Parts{
 		{
-			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
 		{
-			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{100, 0, 0}},
+			FrameConfig: referenceframe.NewLinkInFrame(
+				referenceframe.World,
+				spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0}),
+				"cam1",
+				nil),
 		},
 		{
-			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, 100}},
+			FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}), "cam2", nil),
 		},
 		{
-			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: "cam2", Translation: r3.Vector{0, 100, 0}},
+			FrameConfig: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0}), "cam3", nil),
 		},
 	}
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}
@@ -316,41 +315,42 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	base1 := &inject.Base{}
 
 	r := &inject.Robot{}
+	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
+	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
+
 	fsParts := framesystemparts.Parts{
 		{
-			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
 		{
-			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1", nil),
 		},
 		{
-			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, -100}},
+			FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2", nil),
 		},
 		{
-			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
+			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3", nil),
 		},
 		{
-			Name: "cam4",
-			FrameConfig: &config.Frame{
-				Parent: "cam3", Translation: r3.Vector{-60, 0, -10},
-				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0},
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(
+				"cam3",
+				spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o1),
+				"cam4",
+				nil,
+			),
 		},
 		{
-			Name: "cam5",
-			FrameConfig: &config.Frame{
-				Parent: "cam4", Translation: r3.Vector{-60, 0, 10},
-				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3},
-			},
+			FrameConfig: referenceframe.NewLinkInFrame(
+				"cam4",
+				spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o2),
+				"cam5",
+				nil,
+			),
 		},
 	}
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return fsParts, nil
 	}

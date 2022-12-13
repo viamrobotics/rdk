@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/rpc/oauth"
 
+	"go.viam.com/rdk/referenceframe"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -150,7 +151,7 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 type Remote struct {
 	Name                    string
 	Address                 string
-	Frame                   *Frame
+	Frame                   *referenceframe.LinkConfig
 	Auth                    RemoteAuth
 	ManagedBy               string
 	Insecure                bool
@@ -166,7 +167,7 @@ type Remote struct {
 type remoteData struct {
 	Name                    string                       `json:"name"`
 	Address                 string                       `json:"address"`
-	Frame                   *Frame                       `json:"frame,omitempty"`
+	Frame                   *referenceframe.LinkConfig   `json:"frame,omitempty"`
 	Auth                    RemoteAuth                   `json:"auth"`
 	ManagedBy               string                       `json:"managed_by"`
 	Insecure                bool                         `json:"insecure"`
