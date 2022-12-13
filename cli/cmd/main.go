@@ -284,7 +284,7 @@ func main() {
 						Required: false,
 						Usage:    "mime_types filter",
 					},
-					&cli.IntFlag{
+					&cli.UintFlag{
 						Name:     dataFlagParallelDownloads,
 						Required: false,
 						Usage:    "number of download requests to make in parallel, with a default value of 10",
@@ -778,7 +778,7 @@ func DataCommand(c *cli.Context) error {
 	dataType := c.String(dataFlagDataType)
 	switch dataType {
 	case dataTypeBinary:
-		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Int(dataFlagParallelDownloads)); err != nil {
+		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:

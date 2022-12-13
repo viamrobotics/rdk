@@ -30,7 +30,7 @@ const (
 )
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownloads int) error {
+func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	go func() {
 		defer wg.Done()
 		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
-		var limit int
+		var limit uint
 		if parallelDownloads > maxLimit {
 			limit = maxLimit
 		} else {
@@ -77,7 +77,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 		numFilesDownloaded := &atomic.Int32{}
 		downloadWG := sync.WaitGroup{}
 		for {
-			for i := 0; i < parallelDownloads; i++ {
+			for i := uint(0); i < parallelDownloads; i++ {
 				if err := ctx.Err(); err != nil {
 					errs <- err
 					cancel()
@@ -129,7 +129,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 // getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
-	ids chan string, limit int,
+	ids chan string, limit uint,
 ) error {
 	var last string
 	defer close(ids)
@@ -208,7 +208,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 	}
 
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
+	dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt()))
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("error creating file for datum %s", datum.GetMetadata().GetId()))
 	}
@@ -238,8 +238,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
-				// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
-				//       tabular is implemented.
+				// TODO DATA-928: Get data in multiple requests. Each response can only return a few MBs of data.
 			},
 			CountOnly: false,
 		})
