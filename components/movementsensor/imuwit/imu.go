@@ -16,6 +16,7 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -37,8 +38,8 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
-	var isValid = false
+func (cfg *AttrConfig) Validate(path string, logger golog.Logger) error {
+	isValid := false
 
 	// Validating serial path
 	if cfg.Port == "" {
@@ -52,15 +53,7 @@ func (cfg *AttrConfig) Validate(path string) error {
 		}
 	}
 	if !isValid {
-
-		fmt.Print("\n")
-		fmt.Print("Please enter values from: ")
-		for i := 0; i < len(baudRateList); i++ {
-			fmt.Print(baudRateList[i], " ")
-		}
-		fmt.Print("\n")
-		return rutils.InvalidIntegerValue(cfg.BaudRate)
-
+		return errors.Errorf("Baud rate is not in %v", baudRateList)
 	}
 
 	return nil
@@ -308,7 +301,7 @@ func (imu *wit) parseWIT(line string) error {
 	return nil
 }
 
-// Close shuts down wit and closes imu.port
+// Close shuts down wit and closes imu.port.
 func (imu *wit) Close() error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
@@ -319,7 +312,6 @@ func (imu *wit) Close() error {
 			return err
 		}
 		imu.port = nil
-
 	}
 
 	imu.logger.Debug("Closed wit motion imu")
