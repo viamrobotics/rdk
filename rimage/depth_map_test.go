@@ -30,7 +30,7 @@ func TestRawDepthMap(t *testing.T) {
 	_, err = WriteRawDepthMapTo(m, &buf)
 	test.That(t, err, test.ShouldBeNil)
 
-	m, err = ReadRawDepthMap(bufio.NewReader(&buf))
+	m, err = ReadDepthMap(bufio.NewReader(&buf))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
 	test.That(t, m.Height(), test.ShouldEqual, 720)
@@ -334,16 +334,16 @@ func TestDepthColorModel(t *testing.T) {
 }
 
 func TestDepthMapEncoding(t *testing.T) {
-	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2gray.vnd.viam.dep"))
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/fakeDM.vnd.viam.dep"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test values at points of DepthMap
-	test.That(t, m.Width(), test.ShouldEqual, 1280)
-	test.That(t, m.Height(), test.ShouldEqual, 720)
-	testPt1 := m.GetDepth(300, 300)
-	test.That(t, testPt1, test.ShouldEqual, 749)
-	testPt2 := m.GetDepth(600, 600)
-	test.That(t, testPt2, test.ShouldEqual, 685)
+	test.That(t, m.Width(), test.ShouldEqual, 20)
+	test.That(t, m.Height(), test.ShouldEqual, 10)
+	testPt1 := m.GetDepth(13, 3)
+	test.That(t, testPt1, test.ShouldEqual, 39)
+	testPt2 := m.GetDepth(10, 6)
+	test.That(t, testPt2, test.ShouldEqual, 60)
 
 	// Save DepthMap BYTES to a file
 	buf := bytes.Buffer{}
@@ -351,27 +351,34 @@ func TestDepthMapEncoding(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, buf.Bytes(), test.ShouldNotBeNil)
 	outDir := testutils.TempDirT(t, "", "rimage")
-	saveTo := outDir + "/grayboard_bytes.txt"
-	err = os.WriteFile(saveTo, buf.Bytes(), 0777)
+	saveTo := outDir + "/grayboard_bytes.vnd.viam.dep"
+	err = WriteRawDepthMapToFile(m, saveTo)
+	// err = os.WriteFile(saveTo, buf.Bytes(), 0777)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Read bytes from file
-	newbuf := bytes.Buffer{}
-	boardBytes, err := os.ReadFile(saveTo)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = newbuf.Write(boardBytes)
-	test.That(t, err, test.ShouldBeNil)
+
+	// boardBytes, err := os.ReadFile(saveTo)
+	// test.That(t, err, test.ShouldBeNil)
+	// _, err = newbuf.Write(boardBytes)
+	// test.That(t, err, test.ShouldBeNil)
+	newM, err := NewDepthMapFromFile(context.Background(), saveTo)
+
+	// f, err := os.Open(saveTo)
+	// test.That(t, err, test.ShouldBeNil)
 
 	// Decode image and test the same points
-	img, _, err := image.Decode(bufio.NewReader(&newbuf))
+	// img, format, err := image.Decode(f)
+	// fmt.Printf("The format is %v\n", format)
+	// test.That(t, format, test.ShouldResemble, "vnd.viam.dep")
+	// test.That(t, format, test.ShouldResemble, "png")
+	// test.That(t, err, test.ShouldBeNil)
+	// newM, err := ConvertImageToDepthMap(context.Background(), img)
 	test.That(t, err, test.ShouldBeNil)
-	newM, err := ConvertImageToDepthMap(context.Background(), img)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newM.Width(), test.ShouldEqual, 1280)
-	test.That(t, newM.Height(), test.ShouldEqual, 720)
-	testPt1 = newM.GetDepth(300, 300)
-	test.That(t, testPt1, test.ShouldEqual, 749)
-	testPt2 = newM.GetDepth(600, 600)
-	test.That(t, testPt2, test.ShouldEqual, 685)
-
+	test.That(t, newM.Bounds().Dx(), test.ShouldEqual, 20)
+	test.That(t, newM.Bounds().Dy(), test.ShouldEqual, 10)
+	testPtA := newM.GetDepth(13, 3)
+	test.That(t, testPtA, test.ShouldEqual, 39)
+	testPtB := newM.GetDepth(10, 6)
+	test.That(t, testPtB, test.ShouldEqual, 60)
 }

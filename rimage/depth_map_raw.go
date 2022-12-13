@@ -43,28 +43,32 @@ func ParseRawDepthMap(fn string) (*DepthMap, error) {
 		}
 	}
 
-	return ReadRawDepthMap(bufio.NewReader(f))
+	return ReadDepthMap(bufio.NewReader(f))
 }
 
 // ReadRawDepthMap --> ReadDepthMap (namewise)
 
-// ReadDepthMap returns a depth map from the given reader
+// ReadDepthMap returns a depth map from the given reader.
 func ReadDepthMap(r io.Reader) (*DepthMap, error) {
 	// We expect the first 8 bytes to be a magic number assigned to a depthmap type
 	firstBytes, err := _readNext(r)
-	fmt.Print("ANYTHING READING/DECODING A VND.VIAM.DEP SHOULD GO THRU HERE")
 	if err != nil {
 		return nil, err
 	}
-	if firstBytes == 6363110499870197078 { // magic number for VERSIONX
+	switch firstBytes {
+	case 6363110499870197078: // magic number for VERSIONX
 		return readDepthMapVersionX(r.(*bufio.Reader))
+	case 5782988369567958340:
+		fmt.Println("THE NEW ONE")
+		return readDepthMapViam(r.(*bufio.Reader))
+	default:
+		return readDepthMapRaw(r.(*bufio.Reader), firstBytes)
 	}
-
-	return readDepthMapRaw(r.(*bufio.Reader), firstBytes)
 }
 
 func readDepthMapRaw(f *bufio.Reader, firstBytes int64) (*DepthMap, error) {
 	dm := DepthMap{}
+
 	dm.width = int(firstBytes)
 
 	rawHeight, err := _readNext(f)
@@ -90,7 +94,39 @@ func readDepthMapRaw(f *bufio.Reader, firstBytes int64) (*DepthMap, error) {
 	}
 
 	return &dm, nil
+}
 
+func readDepthMapViam(f *bufio.Reader) (*DepthMap, error) {
+	dm := DepthMap{}
+
+	rawWidth, err := _readNext(f)
+	if err != nil {
+		return nil, err
+	}
+	dm.width = int(rawWidth)
+	rawHeight, err := _readNext(f)
+	if err != nil {
+		return nil, err
+	}
+	dm.height = int(rawHeight)
+
+	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
+		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+	}
+
+	dm.data = make([]Depth, dm.width*dm.height)
+
+	for x := 0; x < dm.width; x++ {
+		for y := 0; y < dm.height; y++ {
+			temp, err := _readNext(f)
+			if err != nil {
+				return nil, err
+			}
+			dm.Set(x, y, Depth(temp))
+		}
+	}
+
+	return &dm, nil
 }
 
 // ReadRawDepthMap returns a depth map from the given reader.
@@ -238,6 +274,10 @@ func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 		}()
 	}
 
+	if strings.HasSuffix(fn, ".vnd.viam.dep") {
+		out.Write(DepthMapMagicNumber)
+	}
+
 	_, err = WriteRawDepthMapTo(dm, out)
 	if err != nil {
 		return err
@@ -255,8 +295,8 @@ func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 // WriteRawDepthMapTo writes this depth map to the given writer.
 func WriteRawDepthMapTo(dm *DepthMap, out io.Writer) (int64, error) {
 	buf := make([]byte, 8)
-
 	var totalN int64
+
 	binary.LittleEndian.PutUint64(buf, uint64(dm.width))
 	n, err := out.Write(buf)
 	totalN += int64(n)
