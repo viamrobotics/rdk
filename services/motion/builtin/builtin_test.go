@@ -154,7 +154,7 @@ func TestMoveSingleComponent(t *testing.T) {
 	ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, -200}))
+		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0}))
 		_, err = ms.MoveSingleComponent(
 			context.Background(),
 			arm.Named("pieceArm"),
