@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"sync"
@@ -27,6 +28,8 @@ import (
 
 const model = "imu-wit"
 
+var baudRateList = [...]int{115200, 9600}
+
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
 	Port     string `json:"serial_path"`
@@ -35,9 +38,31 @@ type AttrConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
+	var isValid = false
+
+	// Validating serial path
 	if cfg.Port == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
+
+	// Validating baud rate
+	for _, val := range baudRateList {
+		if val == cfg.BaudRate {
+			isValid = true
+		}
+	}
+	if !isValid {
+
+		fmt.Print("\n")
+		fmt.Print("Please enter values from: ")
+		for i := 0; i < len(baudRateList); i++ {
+			fmt.Print(baudRateList[i], " ")
+		}
+		fmt.Print("\n")
+		return rutils.InvalidIntegerValue(cfg.BaudRate)
+
+	}
+
 	return nil
 }
 
@@ -71,6 +96,7 @@ type wit struct {
 
 	mu sync.Mutex
 
+	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
@@ -282,9 +308,20 @@ func (imu *wit) parseWIT(line string) error {
 	return nil
 }
 
-func (imu *wit) Close() {
+// Close shuts down wit and closes imu.port
+func (imu *wit) Close() error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
+
+	if imu.port != nil {
+		if err := imu.port.Close(); err != nil {
+			return err
+		}
+		imu.port = nil
+
+	}
+
 	imu.logger.Debug("Closed wit motion imu")
+	return imu.lastError
 }
