@@ -307,7 +307,7 @@ func TestServiceWithRemote(t *testing.T) {
 	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r2, transforms)
-	// test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
 	allParts, err := r2.FrameSystemConfig(context.Background(), transforms)
