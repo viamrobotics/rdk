@@ -53,7 +53,7 @@ func (cfg *AttrConfig) Validate(path string, logger golog.Logger) error {
 		}
 	}
 	if !isValid {
-		return errors.Errorf("Baud rate is not in %v", baudRateList)
+		return utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
 	return nil
@@ -199,6 +199,7 @@ func NewWit(
 	if err != nil {
 		return nil, err
 	}
+	i.port = port
 
 	portReader := bufio.NewReader(port)
 
