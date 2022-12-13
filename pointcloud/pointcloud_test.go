@@ -73,6 +73,11 @@ func TestPointCloudBasic(t *testing.T) {
 	err = pc.Set(pBad, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "z component")
+
+	meta := pc.MetaData()
+	test.That(t, meta.totalX, test.ShouldEqual, meta.TotalX())
+	test.That(t, meta.totalY, test.ShouldEqual, meta.TotalY())
+	test.That(t, meta.totalZ, test.ShouldEqual, meta.TotalZ())
 }
 
 func TestPointCloudCentroid(t *testing.T) {
