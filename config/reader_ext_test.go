@@ -81,9 +81,11 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, badComponentMapConverter, test.ShouldPanic)
 
 	badServiceMapConverter := func() {
-		config.RegisterServiceAttributeMapConverter(config.ServiceType("someservice"), func(attributes config.AttributeMap) (interface{}, error) {
-			return &conf, nil
-		}, nil)
+		config.RegisterServiceAttributeMapConverter(config.ServiceType("someservice"),
+			"somemodel",
+			func(attributes config.AttributeMap) (interface{}, error) {
+				return &conf, nil
+			}, nil)
 	}
 	test.That(t, badServiceMapConverter, test.ShouldPanic)
 }
