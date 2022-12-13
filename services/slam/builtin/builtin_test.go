@@ -436,6 +436,7 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 func createSLAMService(
 	t *testing.T,
 	attrCfg *builtin.AttrConfig,
+	model string,
 	logger golog.Logger,
 	bufferSLAMProcessLogs bool,
 	success bool,
@@ -443,7 +444,7 @@ func createSLAMService(
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam"}
+	cfgService := config.Service{Name: "test", Type: "slam", Model: model}
 	cfgService.ConvertedAttributes = attrCfg
 
 	deps := setupDeps(attrCfg)
@@ -480,27 +481,26 @@ func TestGeneralNew(t *testing.T) {
 	t.Run("New slam service blank config", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		attrCfg := &builtin.AttrConfig{}
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
-		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "algorithm"))
+		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "config_params[mode]"))
 	})
 
 	t.Run("New slam service with no data dir", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		attrCfg := &builtin.AttrConfig{Algorithm: "test", ConfigParams: map[string]string{"mode": "2d"}}
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		attrCfg := &builtin.AttrConfig{ConfigParams: map[string]string{"mode": "2d"}}
+		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
 		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "data_dir"))
 	})
 
 	t.Run("New slam service with no mode", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		attrCfg := &builtin.AttrConfig{Algorithm: "test", DataDirectory: "test"}
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		attrCfg := &builtin.AttrConfig{DataDirectory: "test"}
+		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
 		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "config_params[mode]"))
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_cartographer",
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
@@ -510,7 +510,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, false, true)
+		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -519,7 +519,6 @@ func TestGeneralNew(t *testing.T) {
 
 	t.Run("New slam service with bad camera", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"gibberish"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
@@ -528,7 +527,7 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("configuring camera error: error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
 
@@ -536,7 +535,6 @@ func TestGeneralNew(t *testing.T) {
 
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "test",
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
@@ -552,7 +550,7 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "runtime slam service error: invalid slam algorithm \"test\"")
 
 		delete(slam.SLAMLibraries, "test")
@@ -569,7 +567,6 @@ func TestCartographerNew(t *testing.T) {
 
 	t.Run("New cartographer service with good lidar in slam mode 2d", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
@@ -580,7 +577,7 @@ func TestCartographerNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, false, true)
+		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -589,7 +586,6 @@ func TestCartographerNew(t *testing.T) {
 
 	t.Run("New cartographer service with lidar that errors during call to NextPointCloud", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"bad_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
@@ -599,14 +595,13 @@ func TestCartographerNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: error getting data in desired mode: %v", attrCfg.Sensors[0]))
 	})
 
 	t.Run("New cartographer service with camera without NextPointCloud implementation", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
@@ -616,7 +611,7 @@ func TestCartographerNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: camera not lidar"))
@@ -632,7 +627,6 @@ func TestORBSLAMNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_color_camera", "good_depth_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
@@ -643,7 +637,7 @@ func TestORBSLAMNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, false, true)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -652,7 +646,6 @@ func TestORBSLAMNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due to a single camera", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
@@ -662,14 +655,13 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(attrCfg.Sensors)).Error())
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_depth_camera", "good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
@@ -679,14 +671,13 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
@@ -697,7 +688,7 @@ func TestORBSLAMNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, false, true)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -706,7 +697,6 @@ func TestORBSLAMNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with camera that errors during call to Next", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"bad_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
@@ -715,7 +705,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: "+
 				"error getting data in desired mode: %v", attrCfg.Sensors[0]))
@@ -723,7 +713,6 @@ func TestORBSLAMNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"bad_camera_intrinsics"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
@@ -732,7 +721,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			transform.NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", 0, 0)).Error())
@@ -740,7 +729,6 @@ func TestORBSLAMNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with lidar without Next implementation", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
@@ -749,7 +737,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false, false)
+		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: lidar not camera"))
 	})
@@ -763,7 +751,6 @@ func TestCartographerDataProcess(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm:     "fake_cartographer",
 		Sensors:       []string{"good_lidar"},
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
@@ -774,7 +761,7 @@ func TestCartographerDataProcess(t *testing.T) {
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, false, true)
+	svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
@@ -848,7 +835,6 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm:     "fake_orbslamv3",
 		Sensors:       []string{"good_color_camera"},
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
@@ -859,7 +845,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, false, true)
+	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
@@ -938,7 +924,6 @@ func TestGetMapAndPosition(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
@@ -951,7 +936,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	// Create slam service
 	logger := golog.NewTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, false, true)
+	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
@@ -981,7 +966,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
@@ -994,7 +978,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	// Create slam service
 	logger := golog.NewTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, false, true)
+	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc := svc.(internal.Service)
@@ -1032,7 +1016,6 @@ func TestSLAMProcessFail(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
@@ -1045,7 +1028,7 @@ func TestSLAMProcessFail(t *testing.T) {
 	// Create slam service
 	logger := golog.NewTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, false, true)
+	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc := svc.(internal.Service)
@@ -1084,7 +1067,6 @@ func TestGRPCConnection(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
@@ -1096,7 +1078,7 @@ func TestGRPCConnection(t *testing.T) {
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
-	_, err = createSLAMService(t, attrCfg, logger, false, false)
+	_, err = createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with initial grpc client to slam algorithm")
 
 	closeOutSLAMService(t, name)
