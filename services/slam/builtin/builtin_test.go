@@ -966,13 +966,14 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:4445",
+		Sensors:             []string{"good_color_camera"},
+		ConfigParams:        map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory:       name,
+		MapRateSec:          &validMapRate,
+		DataRateMs:          validDataRateMS,
+		InputFilePattern:    "10:200:1",
+		DeleteProcessedData: true,
+		Port:                "localhost:4445",
 	}
 
 	// Create slam service
@@ -993,6 +994,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		{"-map_rate_sec=200"},
 		{"-data_dir=" + name},
 		{"-input_file_pattern=10:200:1"},
+		{"-delete_processed_data=true"},
 		{"-port=localhost:4445"},
 		{"--aix-auto-update"},
 	}
