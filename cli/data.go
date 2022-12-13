@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -20,15 +21,16 @@ import (
 )
 
 const (
-	dataDir                    = "data"
-	metadataDir                = "metadata"
-	defaultConcurrentDownloads = 10
-	maxRetryCount              = 5
-	logEveryN                  = 100
+	dataDir                  = "data"
+	metadataDir              = "metadata"
+	defaultParallelDownloads = 10
+	maxRetryCount            = 5
+	logEveryN                = 100
+	maxLimit                 = 100
 )
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDownloads int) error {
+func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownloads int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -37,14 +39,14 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	if concurrentDownloads == 0 {
-		concurrentDownloads = defaultConcurrentDownloads
+	if parallelDownloads == 0 {
+		parallelDownloads = defaultParallelDownloads
 	}
 
-	ids := make(chan string, concurrentDownloads)
-	// Give channel buffer of 1+concurrentDownloads because that is the number of goroutines that may be passing an
-	// error into this channel (1 get ids routine + concurrentRequest download routines).
-	errs := make(chan error, 1+concurrentDownloads)
+	ids := make(chan string, parallelDownloads)
+	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
+	// error into this channel (1 get ids routine + parallelDownloads download routines).
+	errs := make(chan error, 1+parallelDownloads)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wg := sync.WaitGroup{}
@@ -55,10 +57,10 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 		defer wg.Done()
 		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
 		var limit int
-		if concurrentDownloads > 100 {
-			limit = 100
+		if parallelDownloads > maxLimit {
+			limit = maxLimit
 		} else {
-			limit = concurrentDownloads
+			limit = parallelDownloads
 		}
 		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
 			errs <- err
@@ -66,7 +68,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 		}
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of defaultConcurrentDownloads.
+	// In parallel, read from ids and download the binary for each id in batches of defaultParallelDownloads.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -75,7 +77,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 		numFilesDownloaded := &atomic.Int32{}
 		downloadWG := sync.WaitGroup{}
 		for {
-			for i := 0; i < concurrentDownloads; i++ {
+			for i := 0; i < parallelDownloads; i++ {
 				if err := ctx.Err(); err != nil {
 					errs <- err
 					cancel()
@@ -101,12 +103,12 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 						done = true
 					}
 					numFilesDownloaded.Add(1)
+					if numFilesDownloaded.Load()%logEveryN == 0 {
+						fmt.Fprintf(c.c.App.Writer, "downloaded %d files\n", numFilesDownloaded.Load())
+					}
 				}(nextID)
 			}
 			downloadWG.Wait()
-			if numFilesDownloaded.Load()%logEveryN == 0 {
-				fmt.Fprintf(c.c.App.Writer, "downloaded %d files\n", numFilesDownloaded.Load())
-			}
 			if done {
 				break
 			}
@@ -142,7 +144,8 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 				Limit:  uint64(limit),
 				Last:   last,
 			},
-			CountOnly: false,
+			CountOnly:     false,
+			IncludeBinary: false,
 		})
 		if err != nil {
 			return err
@@ -186,8 +189,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 		return err
 	}
 
+	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339)
+	fileName := timeRequested + "_" + datum.GetMetadata().GetId()
+
 	//nolint:gosec
-	jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetMetadata().GetId()+".json"))
+	jsonFile, err := os.Create(filepath.Join(dst, metadataDir, fileName+".json"))
 	if err != nil {
 		return err
 	}
@@ -202,7 +208,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 	}
 
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
+	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("error creating file for datum %s", datum.GetMetadata().GetId()))
 	}
@@ -226,26 +232,33 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	resp, err := c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
-		DataRequest: &datapb.DataRequest{
-			Filter: filter,
-			// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
-			//       tabular is implemented.
-		},
-		CountOnly: false,
-	})
+	var err error
+	var resp *datapb.TabularDataByFilterResponse
+	for count := 0; count < maxRetryCount; count++ {
+		resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
+			DataRequest: &datapb.DataRequest{
+				Filter: filter,
+				// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
+				//       tabular is implemented.
+			},
+			CountOnly: false,
+		})
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return err
 	}
-	mds := resp.GetMetadata()
 
+	mds := resp.GetMetadata()
 	for i, md := range mds {
 		mdJSONBytes, err := protojson.Marshal(md)
 		if err != nil {
 			return errors.Wrap(err, "error marshaling metadata")
 		}
 		//nolint:gosec
-		mdFile, err := os.Create(filepath.Join(dst, "metadata", strconv.Itoa(i)+".json"))
+		mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(i)+".json"))
 		if err != nil {
 			return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
 		}
@@ -260,7 +273,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	data := resp.GetData()
 	// TODO: [DATA-640] Support export in additional formats.
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
+	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, "error creating data file")
 	}

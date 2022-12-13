@@ -20,22 +20,22 @@ import (
 
 const (
 	// Flags.
-	dataFlagDestination         = "destination"
-	dataFlagDataType            = "data_type"
-	dataFlagOrgIDs              = "org_ids"
-	dataFlagLocationIDs         = "location_ids"
-	dataFlagRobotID             = "robot_id"
-	dataFlagPartID              = "part_id"
-	dataFlagRobotName           = "robot_name"
-	dataFlagPartName            = "part_name"
-	dataFlagComponentType       = "component_type"
-	dataFlagComponentModel      = "component_model"
-	dataFlagComponentName       = "component_name"
-	dataFlagMethod              = "method"
-	dataFlagMimeTypes           = "mime_types"
-	dataFlagStart               = "start"
-	dataFlagEnd                 = "end"
-	dataFlagConcurrentDownloads = "concurrent"
+	dataFlagDestination       = "destination"
+	dataFlagDataType          = "data_type"
+	dataFlagOrgIDs            = "org_ids"
+	dataFlagLocationIDs       = "location_ids"
+	dataFlagRobotID           = "robot_id"
+	dataFlagPartID            = "part_id"
+	dataFlagRobotName         = "robot_name"
+	dataFlagPartName          = "part_name"
+	dataFlagComponentType     = "component_type"
+	dataFlagComponentModel    = "component_model"
+	dataFlagComponentName     = "component_name"
+	dataFlagMethod            = "method"
+	dataFlagMimeTypes         = "mime_types"
+	dataFlagStart             = "start"
+	dataFlagEnd               = "end"
+	dataFlagParallelDownloads = "parallel"
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -217,7 +217,7 @@ func main() {
 				UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 					dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
 					dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
-					dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagConcurrentDownloads),
+					dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads),
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     dataFlagDestination,
@@ -285,9 +285,9 @@ func main() {
 						Usage:    "mime_types filter",
 					},
 					&cli.IntFlag{
-						Name:     dataFlagConcurrentDownloads,
+						Name:     dataFlagParallelDownloads,
 						Required: false,
-						Usage:    "number of download requests to make in parallel",
+						Usage:    "number of download requests to make in parallel, with a default value of 10",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagStart,
@@ -778,7 +778,7 @@ func DataCommand(c *cli.Context) error {
 	dataType := c.String(dataFlagDataType)
 	switch dataType {
 	case dataTypeBinary:
-		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Int(dataFlagConcurrentDownloads)); err != nil {
+		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Int(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
