@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"context"
-	"fmt"
 
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -71,17 +70,4 @@ func InterpolateInputs(from, to []Input, by float64) []Input {
 		newVals = append(newVals, Input{j1.Value + ((to[i].Value - j1.Value) * by)})
 	}
 	return newVals
-}
-
-// GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
-func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
-	var input []Input
-	// Get frame inputs if necessary
-	if len(frame.DoF()) > 0 {
-		if _, ok := inputMap[frame.Name()]; !ok {
-			return nil, fmt.Errorf("no inputs provided for frame with name %s", frame.Name())
-		}
-		input = inputMap[frame.Name()]
-	}
-	return input, nil
 }

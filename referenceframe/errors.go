@@ -32,3 +32,7 @@ func NewIncorrectInputLengthError(actual, expected int) error {
 func NewUnsupportedJointTypeError(jointType string) error {
 	return errors.Errorf("unsupported joint type detected: %q", jointType)
 }
+
+func NewInputMissingFromMapError(framename string) error {
+	return errors.Errorf("no inputs provided for frame with name %s", framename)
+}

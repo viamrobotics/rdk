@@ -123,7 +123,7 @@ func BestIKSolutions(
 	if err != nil {
 		return nil, err
 	}
-	input, err := referenceframe.GetFrameInputs(frame, inputMap)
+	input, err := frame.InputFromMap(inputMap)
 	if err != nil {
 		return nil, err
 	}

@@ -359,8 +359,13 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 	q := spatial.NewZeroPose() // empty initial dualquat
 	var errAll error
 	for sfs.parents[frame] != nil { // stop once you reach world node
+		inputs, err := frame.InputFromMap(inputMap)
+		if err != nil {
+			return nil, err
+		}
+
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		pose, err := poseFromPositions(frame, inputMap)
+		pose, err := frame.Transform(inputs)
 		if err != nil && pose == nil {
 			return nil, err
 		}
@@ -369,12 +374,4 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 		frame = sfs.parents[frame]
 	}
 	return q, errAll
-}
-
-func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
-	inputs, err := GetFrameInputs(frame, positions)
-	if err != nil {
-		return nil, err
-	}
-	return frame.Transform(inputs)
 }

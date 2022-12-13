@@ -203,13 +203,7 @@ func NewCollisionConstraintFromWorldState(
 	}
 
 	// extract inputs corresponding to the frame
-	var goodInputs []referenceframe.Input
-	switch f := frame.(type) {
-	case *solverFrame:
-		goodInputs, err = f.mapToSlice(observationInput)
-	default:
-		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
-	}
+	goodInputs, err := frame.InputFromMap(observationInput)
 	if err != nil {
 		return nil, err
 	}

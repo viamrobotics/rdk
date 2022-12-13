@@ -166,7 +166,7 @@ func PlanWaypoints(ctx context.Context,
 			return nil, err
 		}
 		for j, resultSlice := range resultSlices {
-			stepMap := sf.sliceToMap(resultSlice)
+			stepMap := sf.inputToMap(resultSlice)
 			steps = append(steps, stepMap)
 			if j == len(resultSlices)-1 {
 				// update seed map

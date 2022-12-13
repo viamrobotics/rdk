@@ -121,6 +121,9 @@ type Frame interface {
 	// ProtobufFromInput does there correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
 	ProtobufFromInput([]Input) *pb.JointPositions
 
+	// InputFromMap looks through a map and returns a slice of Inputs corresponding to the given frame's name
+	InputFromMap(map[string][]Input) ([]Input, error)
+
 	json.Marshaler
 }
 
@@ -138,6 +141,17 @@ func (bf *baseFrame) Name() string {
 // DoF will return a slice with length equal to the number of joints/degrees of freedom.
 func (bf *baseFrame) DoF() []Limit {
 	return bf.limits
+}
+
+// InputFromMap looks through a map and returns a slice of Inputs corresponding to the given frame's name
+func (bf *baseFrame) InputFromMap(inputMap map[string][]Input) ([]Input, error) {
+	if len(bf.limits) > 0 {
+		if input, ok := inputMap[bf.name]; ok {
+			return input, nil
+		}
+		return nil, NewInputMissingFromMapError(bf.name)
+	}
+	return []Input{}, nil
 }
 
 // validInputs checks whether the given array of joint positions violates any joint limits.

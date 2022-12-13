@@ -60,7 +60,7 @@ func newPlanManager(
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) PlanSingleWaypoint(ctx context.Context) ([][]referenceframe.Input, error) {
-	seed, err := pm.frame.mapToSlice(pm.inputMap)
+	seed, err := pm.frame.InputFromMap(pm.inputMap)
 	if err != nil {
 		return nil, err
 	}

@@ -168,7 +168,7 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if sf.worldRooted {
 		solveName = frame.World
 	}
-	tf, err := sf.fss.Transform(sf.sliceToMap(inputs), pf, solveName)
+	tf, err := sf.fss.Transform(sf.inputToMap(inputs), pf, solveName)
 	if err != nil {
 		return nil, err
 	}
@@ -208,14 +208,14 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
 	var errAll error
-	inputMap := sf.sliceToMap(inputs)
+	inputMap := sf.inputToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
 	for _, fName := range sf.movingGeom {
 		f := sf.fss.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)
 		}
-		inputs, err := frame.GetFrameInputs(f, inputMap)
+		inputs, err := f.InputFromMap(inputMap)
 		if err != nil {
 			return nil, err
 		}
@@ -248,10 +248,10 @@ func (sf *solverFrame) DoF() []frame.Limit {
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
+func (sf *solverFrame) InputFromMap(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
 	for _, f := range sf.frames {
-		input, err := frame.GetFrameInputs(f, inputMap)
+		input, err := f.InputFromMap(inputMap)
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +260,7 @@ func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.In
 	return inputs, nil
 }
 
-func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {
+func (sf *solverFrame) inputToMap(inputSlice []frame.Input) map[string][]frame.Input {
 	inputs := map[string][]frame.Input{}
 	for k, v := range sf.origSeed {
 		inputs[k] = v
