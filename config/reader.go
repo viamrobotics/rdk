@@ -63,6 +63,7 @@ type ComponentAttributeMapConverterRegistration struct {
 // for a model of a type of service.
 type ServiceAttributeMapConverterRegistration struct {
 	SvcType ServiceType
+	Model   string
 	Conv    AttributeMapConverter
 	RetType interface{} // the shape of what is converted to
 }
@@ -131,11 +132,13 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
-func RegisterServiceAttributeMapConverter(svcType ServiceType, conv AttributeMapConverter, retType interface{}) {
+func RegisterServiceAttributeMapConverter(svcType ServiceType, model string, conv AttributeMapConverter, retType interface{}) {
 	if retType == nil {
 		panic("retType should not be nil")
 	}
-	serviceAttributeMapConverters = append(serviceAttributeMapConverters, ServiceAttributeMapConverterRegistration{svcType, conv, retType})
+	serviceAttributeMapConverters = append(
+		serviceAttributeMapConverters,
+		ServiceAttributeMapConverterRegistration{svcType, model, conv, retType})
 }
 
 // RegisteredComponentAttributeConverters returns a copy of the registered component attribute converters.
