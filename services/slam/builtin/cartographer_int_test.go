@@ -60,7 +60,21 @@ func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 
-	// TODO DATA-701 test GetPosition
+	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+	// Typical values for RGBD are around (-0.001, -0.004, -0.008)
+	// Typical values for Mono without an existing map are around (0.020, -0.032, -0.053)
+	// Typical values for Mono with an existing map are around (0.023, -0.036, -0.040)
+	t.Logf("Position point: (%v, %v, %v)",
+		position.Pose().Point().X, position.Pose().Point().Y, position.Pose().Point().Z)
+	// Typical values for RGBD are around (0.602, -0.772, -0.202), theta=0.002
+	// Typical values for Mono without an existing map are around (0.144, 0.980, -0.137), theta=0.104
+	// Typical values for Mono with an existing map are around ( 0.092, 0.993, -0.068), theta=0.099
+	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v",
+		position.Pose().Orientation().AxisAngles().RX,
+		position.Pose().Orientation().AxisAngles().RY,
+		position.Pose().Orientation().AxisAngles().RZ,
+		position.Pose().Orientation().AxisAngles().Theta)
 }
 
 func TestCartographerIntegration(t *testing.T) {
@@ -305,6 +319,4 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Clear out directory
 	closeOutSLAMService(t, name)
-
-	// TODO DATA-701 test localization and a priori map loading
 }
