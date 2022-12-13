@@ -28,9 +28,11 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/jwks"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	"go.viam.com/utils/rpc/oauth"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
@@ -132,7 +134,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data.WebRTCEnabled = true
 	}
 
-	if app.options.Managed && len(app.options.Auth.Handlers) == 1 {
+	if app.options.Managed && hasManagedAuthHandlers(app.options.Auth.Handlers) {
 		data.BakedAuth = map[string]interface{}{
 			"authEntity": app.options.BakedAuthEntity,
 			"creds":      app.options.BakedAuthCreds,
@@ -147,6 +149,30 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.logger.Debugf("couldn't execute web page: %s", err)
 	}
+}
+
+// Two known auth handlers (LocationSecret, WebOauth).
+func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
+	hasLocationSecretHandler := false
+	hasWebOAuthHandler := false
+	for _, h := range handlers {
+		if h.Type == rutils.CredentialsTypeRobotLocationSecret {
+			hasLocationSecretHandler = true
+		}
+
+		if h.Type == oauth.CredentialsTypeOAuthWeb {
+			hasWebOAuthHandler = true
+		}
+	}
+
+	// TODO(APP-1086): During rollout of weboauth feature we need to support the app returning only the 1 location secret.
+	if len(handlers) == 1 && hasLocationSecretHandler {
+		return true
+	} else if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+		return true
+	}
+
+	return false
 }
 
 // allVideoSourcesToDisplay returns every possible video source that could be viewed from
@@ -818,6 +844,19 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					handler.Type,
 					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
+			case oauth.CredentialsTypeOAuthWeb:
+				webOauthOptions := oauth.WebOAuthOptions{
+					AllowedAudiences: handler.WebOAuthConfig.AllowedAudiences,
+					KeyProvider:      jwks.NewStaticJWKKeyProvider(handler.WebOAuthConfig.ValidatedKeySet),
+					EntityVerifier: func(ctx context.Context, entity string) (interface{}, error) {
+						// For webauth handlers we assume some user subject/entity. For consistency with the app
+						// pass the entity as the email to the custom entity info set in the context.
+						return map[string]interface{}{"email": entity}, nil
+					},
+					Logger: svc.logger,
+				}
+
+				rpcOpts = append(rpcOpts, oauth.WithWebOAuthTokenAuthHandler(webOauthOptions))
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
 			}
