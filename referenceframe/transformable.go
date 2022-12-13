@@ -134,7 +134,7 @@ func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transfor
 		PoseInObserverFrame: PoseInFrameToProtobuf(framedLink.PoseInFrame),
 	}
 	if framedLink.geometry != nil {
-		tform.Geometry = framedLink.geometry.ToProtobuf()
+		tform.PhysicalObject = framedLink.geometry.ToProtobuf()
 	}
 	return tform, nil
 }
@@ -154,8 +154,8 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 	poseMsg := poseInObserverFrame.GetPose()
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
 	var geometry spatialmath.GeometryCreator
-	if proto.Geometry != nil {
-		geometry, err = spatialmath.NewGeometryCreatorFromProto(proto.Geometry)
+	if proto.PhysicalObject != nil {
+		geometry, err = spatialmath.NewGeometryCreatorFromProto(proto.PhysicalObject)
 		if err != nil {
 			return nil, err
 		}
