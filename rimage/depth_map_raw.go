@@ -75,23 +75,7 @@ func readDepthMapRaw(f *bufio.Reader, firstBytes int64) (*DepthMap, error) {
 	}
 	dm.height = int(rawHeight)
 
-	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
-	}
-
-	dm.data = make([]Depth, dm.width*dm.height)
-
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			temp, err := _readNext(f)
-			if err != nil {
-				return nil, err
-			}
-			dm.Set(x, y, Depth(temp))
-		}
-	}
-
-	return &dm, nil
+	return setRawDepthMapValues(f, &dm)
 }
 
 func readDepthMapViam(f *bufio.Reader) (*DepthMap, error) {
@@ -108,45 +92,10 @@ func readDepthMapViam(f *bufio.Reader) (*DepthMap, error) {
 	}
 	dm.height = int(rawHeight)
 
-	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
-	}
-
-	dm.data = make([]Depth, dm.width*dm.height)
-
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			temp, err := _readNext(f)
-			if err != nil {
-				return nil, err
-			}
-			dm.Set(x, y, Depth(temp))
-		}
-	}
-
-	return &dm, nil
+	return setRawDepthMapValues(f, &dm)
 }
 
-// ReadRawDepthMap returns a depth map from the given reader.
-func ReadRawDepthMap(f *bufio.Reader) (*DepthMap, error) {
-	var err error
-	dm := DepthMap{}
-
-	rawWidth, err := _readNext(f)
-	if err != nil {
-		return nil, err
-	}
-	dm.width = int(rawWidth)
-
-	if rawWidth == 6363110499870197078 { // magic number for VERSIONX
-		return readDepthMapVersionX(f)
-	}
-
-	rawHeight, err := _readNext(f)
-	if err != nil {
-		return nil, err
-	}
-	dm.height = int(rawHeight)
+func setRawDepthMapValues(f *bufio.Reader, dm *DepthMap) (*DepthMap, error) {
 
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
 		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
@@ -164,7 +113,7 @@ func ReadRawDepthMap(f *bufio.Reader) (*DepthMap, error) {
 		}
 	}
 
-	return &dm, nil
+	return dm, nil
 }
 
 func readDepthMapVersionX(r *bufio.Reader) (*DepthMap, error) {
@@ -278,7 +227,7 @@ func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 			return err
 		}
 	}
-
+	
 	_, err = WriteRawDepthMapTo(dm, out)
 	if err != nil {
 		return err
