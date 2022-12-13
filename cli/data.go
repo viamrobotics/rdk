@@ -53,6 +53,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, concurrentDown
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
 		var limit int
 		if concurrentDownloads > 100 {
 			limit = 100
