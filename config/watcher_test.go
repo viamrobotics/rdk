@@ -83,7 +83,12 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "echo",
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080"}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress: "localhost:8080",
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	}
 	writeConf(&confToWrite)
 
@@ -110,7 +115,12 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "bar",
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080"}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress: "localhost:8080",
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	}
 	writeConf(&confToWrite)
 
@@ -156,7 +166,12 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "mah",
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080"}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress: "localhost:8080",
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	}
 	writeConf(&confToWrite)
 
@@ -264,7 +279,12 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "echo",
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080"}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress: "localhost:8080",
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	}
 
 	confToExpect := confToReturn
@@ -297,7 +317,12 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "bar",
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080"}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress: "localhost:8080",
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	}
 	confMu.Lock()
 	confErr = false
@@ -338,7 +363,12 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "mah",
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080"}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress: "localhost:8080",
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	}
 	confMu.Lock()
 	confErr = false

@@ -168,7 +168,7 @@ type alignColorDepth struct {
 	color, depth gostream.VideoStream
 	aligner      transform.Aligner
 	projector    transform.Projector
-	stream       camera.StreamType
+	stream       camera.ImageType
 	height       int // height of the aligned image
 	width        int // width of the aligned image
 	debug        bool
@@ -190,7 +190,7 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		)
 	}
 	// get the projector for the alignment camera
-	stream := camera.StreamType(attrs.Stream)
+	stream := camera.ImageType(attrs.Stream)
 	var props camera.Properties
 	var intrinsicParams *transform.PinholeCameraIntrinsics
 	switch {
@@ -209,7 +209,7 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		}
 		intrinsicParams = props.IntrinsicParams
 	default:
-		return nil, camera.NewUnsupportedStreamError(stream)
+		return nil, camera.NewUnsupportedImageTypeError(stream)
 	}
 
 	videoSrc := &alignColorDepth{
@@ -252,7 +252,7 @@ func (acd *alignColorDepth) Read(ctx context.Context) (image.Image, func(), erro
 		_, alignedDepth, err := acd.aligner.AlignColorAndDepthImage(colDimImage, dm)
 		return alignedDepth, depthCloser, err
 	default:
-		return nil, nil, camera.NewUnsupportedStreamError(acd.stream)
+		return nil, nil, camera.NewUnsupportedImageTypeError(acd.stream)
 	}
 }
 

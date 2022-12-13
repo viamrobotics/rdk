@@ -181,7 +181,8 @@ func (m *Module) connectParent(ctx context.Context) error {
 		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger)
+		// SMURF TODO Add Session Support
+		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDisableSessions())
 		if err != nil {
 			return err
 		}

@@ -58,8 +58,8 @@ func getCallerName() string {
 
 // RegisterService registers a service type to a registration.
 func RegisterService(subtype resource.Subtype, model resource.Model, creator Service) {
-	mu.Lock()
-	defer mu.Unlock()
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	_, old := serviceRegistry[qName]
@@ -74,8 +74,8 @@ func RegisterService(subtype resource.Subtype, model resource.Model, creator Ser
 
 // DeregisterService removes a previously registered service.
 func DeregisterService(subtype resource.Subtype, model resource.Model) {
-	mu.Lock()
-	defer mu.Unlock()
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	delete(serviceRegistry, qName)
 }
@@ -83,6 +83,8 @@ func DeregisterService(subtype resource.Subtype, model resource.Model) {
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
 func ServiceLookup(subtype resource.Subtype, model resource.Model) *Service {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	if registration, ok := RegisteredServices()[qName]; ok {
 		return &registration
@@ -153,16 +155,16 @@ type SubtypeGrpc struct{}
 
 // all registries.
 var (
+	registryMu        sync.RWMutex
 	componentRegistry = map[string]Component{}
 	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
 	serviceRegistry   = map[string]Service{}
-	mu                = sync.RWMutex{}
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
 func RegisterComponent(subtype resource.Subtype, model resource.Model, creator Component) {
-	mu.Lock()
-	defer mu.Unlock()
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype.String(), model.String())
 
@@ -178,8 +180,8 @@ func RegisterComponent(subtype resource.Subtype, model resource.Model, creator C
 
 // DeregisterComponent removes a previously registered component.
 func DeregisterComponent(subtype resource.Subtype, model resource.Model) {
-	mu.Lock()
-	defer mu.Unlock()
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	delete(componentRegistry, qName)
 }
@@ -197,8 +199,8 @@ func ComponentLookup(subtype resource.Subtype, model resource.Model) *Component 
 
 // RegisterResourceSubtype register a ResourceSubtype to its corresponding component subtype.
 func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) {
-	mu.Lock()
-	defer mu.Unlock()
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	_, old := subtypeRegistry[subtype]
 	if old {
 		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
@@ -224,8 +226,8 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 
 // DeregisterResourceSubtype removes a previously registered subtype.
 func DeregisterResourceSubtype(subtype resource.Subtype) {
-	mu.Lock()
-	defer mu.Unlock()
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	delete(subtypeRegistry, subtype)
 }
 
@@ -240,8 +242,8 @@ func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
 
 // RegisteredServices returns a copy of the registered services.
 func RegisteredServices() map[string]Service {
-	mu.RLock()
-	defer mu.RUnlock()
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	copied, err := copystructure.Copy(serviceRegistry)
 	if err != nil {
 		panic(err)
@@ -251,8 +253,8 @@ func RegisteredServices() map[string]Service {
 
 // RegisteredComponents returns a copy of the registered components.
 func RegisteredComponents() map[string]Component {
-	mu.RLock()
-	defer mu.RUnlock()
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	copied, err := copystructure.Copy(componentRegistry)
 	if err != nil {
 		panic(err)
@@ -262,8 +264,8 @@ func RegisteredComponents() map[string]Component {
 
 // RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
 func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
-	mu.RLock()
-	defer mu.RUnlock()
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	toCopy := make(map[resource.Subtype]ResourceSubtype, len(subtypeRegistry))
 	for k, v := range subtypeRegistry {
 		toCopy[k] = v
@@ -275,6 +277,8 @@ var discoveryFunctions = map[discovery.Query]discovery.Discover{}
 
 // DiscoveryFunctionLookup finds a discovery function registration for a given query.
 func DiscoveryFunctionLookup(q discovery.Query) (discovery.Discover, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	df, ok := discoveryFunctions[q]
 	return df, ok
 }
