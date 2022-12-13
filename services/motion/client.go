@@ -3,7 +3,6 @@ package motion
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
@@ -70,7 +69,6 @@ func (c *client) MoveSingleComponent(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	fmt.Println("services/motions/client.go/MoveSingleComponent()")
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
@@ -86,7 +84,6 @@ func (c *client) MoveSingleComponent(
 		WorldState:    worldStateMsg,
 		Extra:         ext,
 	})
-	fmt.Println("err: ", err)
 	if err != nil {
 		return false, err
 	}
