@@ -125,25 +125,24 @@ func PlanWaypoints(ctx context.Context,
 		return nil, err
 	}
 
-	opts := make([]map[string]interface{}, 0, len(goals))
-
 	// If no planning opts, use default. If one, use for all goals. If one per goal, use respective option. Otherwise error.
+	configs := make([]map[string]interface{}, 0, len(goals))
 	if len(motionConfigs) != len(goals) {
 		switch len(motionConfigs) {
 		case 0:
 			for range goals {
-				opts = append(opts, map[string]interface{}{})
+				configs = append(configs, map[string]interface{}{})
 			}
 		case 1:
 			// If one config passed, use it for all waypoints
 			for range goals {
-				opts = append(opts, motionConfigs[0])
+				configs = append(configs, motionConfigs[0])
 			}
 		default:
 			return nil, errors.New("goals and motion configs had different lengths")
 		}
 	} else {
-		opts = motionConfigs
+		configs = motionConfigs
 	}
 
 	// Each goal is a different PoseInFrame and so may have a different destination Frame. Since the motion can be solved from either end,
@@ -158,11 +157,11 @@ func PlanWaypoints(ctx context.Context,
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
 
-		sfPlanner, err := newPlanManager(sf, fs, logger, i)
+		manager, err := newPlanManager(logger, fs, sf, seedMap, goal.Pose(), worldState, i, configs[i])
 		if err != nil {
 			return nil, err
 		}
-		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
+		resultSlices, err := manager.PlanSingleWaypoint(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +188,7 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := newEnsembleIKSolver(frame, logger, opt.ikOptions)
+	ik, err := newIKSolver(frame, logger, opt.ikOptions)
 	if err != nil {
 		return nil, err
 	}

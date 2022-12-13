@@ -75,6 +75,7 @@ func newBasicPlannerOptions() *plannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 	opt.ikOptions = newBasicIKOptions()
+
 	return opt
 }
 

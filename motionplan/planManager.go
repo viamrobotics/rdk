@@ -24,29 +24,43 @@ const (
 // Intended information flow should be:
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
-	*planner
-	frame *solverFrame
-	fs    referenceframe.FrameSystem
+	logger       golog.Logger
+	fs           referenceframe.FrameSystem
+	frame        referenceframe.Frame
+	inputMap     map[string][]referenceframe.Input
+	goalPos      spatialmath.Pose
+	worldState   *referenceframe.WorldState
+	randSeed     *rand.Rand
+	motionConfig map[string]interface{}
 }
 
-func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
+func newPlanManager(
+	logger golog.Logger,
+	fs referenceframe.FrameSystem,
+	frame referenceframe.Frame,
+	inputMap map[string][]referenceframe.Input,
+	goal spatialmath.Pose,
+	worldState *referenceframe.WorldState,
+	seed int,
+	motionConfig map[string]interface{},
+) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
-	if err != nil {
-		return nil, err
-	}
-	return &planManager{p, frame, fs}, nil
+	return &planManager{
+		logger:       logger,
+		fs:           fs,
+		frame:        frame,
+		inputMap:     inputMap,
+		goalPos:      goal,
+		worldState:   worldState,
+		randSeed:     rand.New(rand.NewSource(int64(seed))),
+		motionConfig: motionConfig,
+	}, nil
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
-	seedMap map[string][]referenceframe.Input,
-	goalPos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	motionConfig map[string]interface{},
-) ([][]referenceframe.Input, error) {
-	seed, err := pm.frame.mapToSlice(seedMap)
+func (pm *planManager) PlanSingleWaypoint(ctx context.Context) ([][]referenceframe.Input, error) {
+	seed, err := pm.frame.mapToSlice(pm.inputMap)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +72,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	var cancel func()
 
 	// set timeout for entire planning process if specified
-	if timeout, ok := motionConfig["timeout"].(float64); ok {
+	if timeout, ok := pm.motionConfig["timeout"].(float64); ok {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
 	}
 	if cancel != nil {
@@ -66,31 +80,35 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	// If we are world rooted, translate the goal pose into the world frame
-	if pm.frame.worldRooted {
-		tf, err := pm.frame.fss.Transform(seedMap, referenceframe.NewPoseInFrame(pm.frame.goalFrame.Name(), goalPos), referenceframe.World)
+	if sf, ok := pm.frame.(*solverFrame); ok && sf.worldRooted {
+		tf, err := sf.fss.Transform(
+			pm.inputMap,
+			referenceframe.NewPoseInFrame(sf.goalFrame.Name(), pm.goalPos),
+			referenceframe.World,
+		)
 		if err != nil {
 			return nil, err
 		}
-		goalPos = tf.(*referenceframe.PoseInFrame).Pose()
+		pm.goalPos = tf.(*referenceframe.PoseInFrame).Pose()
 	}
 
 	var goals []spatialmath.Pose
 	var opts []*plannerOptions
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
-		pathStepSize, ok := motionConfig["path_step_size"].(float64)
+	if profile, ok := pm.motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
+		pathStepSize, ok := pm.motionConfig["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
 		}
-		numSteps := PathStepCount(seedPos, goalPos, pathStepSize)
+		numSteps := PathStepCount(seedPos, pm.goalPos, pathStepSize)
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
 			by := float64(i) / float64(numSteps)
-			to := spatialmath.Interpolate(seedPos, goalPos, by)
+			to := spatialmath.Interpolate(seedPos, pm.goalPos, by)
 			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, motionConfig)
+			opt, err := pm.plannerOptionsFromConfig(from, to, pm.motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -100,18 +118,14 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 		seedPos = from
 	}
-	goals = append(goals, goalPos)
-	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, motionConfig)
+	goals = append(goals, pm.goalPos)
+	opt, err := pm.plannerOptionsFromConfig(seedPos, pm.goalPos, pm.motionConfig)
 	if err != nil {
 		return nil, err
 	}
 	opts = append(opts, opt)
 
-	resultSlices, err := pm.planMotion(ctx, goals, seed, opts, nil, 0)
-	if err != nil {
-		return nil, err
-	}
-	return resultSlices, nil
+	return pm.planMotion(ctx, goals, seed, opts, nil, 0)
 }
 
 // planMotion will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning the next
@@ -145,7 +159,7 @@ func (pm *planManager) planMotion(
 		//nolint: gosec
 		genericPlanner, err = opt.PlannerConstructor(
 			pm.frame,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			rand.New(rand.NewSource(int64(pm.randSeed.Int()))),
 			pm.logger,
 			opt,
 		)
@@ -353,22 +367,16 @@ func (pm *planManager) planMotion(
 }
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
-func (pm *planManager) plannerSetupFromMoveRequest(
-	from, to spatialmath.Pose,
-	seedMap map[string][]referenceframe.Input,
-	worldState *referenceframe.WorldState,
-	planningOpts map[string]interface{},
-) (*plannerOptions, error) {
+func (pm *planManager) plannerOptionsFromConfig(from, to spatialmath.Pose, motionConfig map[string]interface{}) (*plannerOptions, error) {
 	// Start with normal options
 	opt := newBasicPlannerOptions()
-
-	opt.extra = planningOpts
+	opt.extra = motionConfig
 
 	// set this to true to get collision penetration depth
 	// not yet fully supported, but could be used by cbirrt
 	getColDepth := false
 
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(pm.frame, pm.fs, worldState, seedMap, getColDepth)
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(pm.frame, pm.fs, pm.worldState, pm.inputMap, getColDepth)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +384,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
-	profile, ok := planningOpts["motion_profile"]
+	profile, ok := motionConfig["motion_profile"]
 	if ok {
 		motionProfile, ok = profile.(string)
 		if !ok {
@@ -385,7 +393,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
+	jsonString, err := json.Marshal(motionConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +403,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	var planAlg string
-	alg, ok := planningOpts["planning_alg"]
+	alg, ok := motionConfig["planning_alg"]
 	if ok {
 		planAlg, ok = alg.(string)
 		if !ok {
@@ -418,12 +426,12 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	switch motionProfile {
 	case LinearMotionProfile:
 		// Linear constraints
-		linTol, ok := planningOpts["line_tolerance"].(float64)
+		linTol, ok := motionConfig["line_tolerance"].(float64)
 		if !ok {
 			// Default
 			linTol = defaultLinearDeviation
 		}
-		orientTol, ok := planningOpts["orient_tolerance"].(float64)
+		orientTol, ok := motionConfig["orient_tolerance"].(float64)
 		if !ok {
 			// Default
 			orientTol = defaultLinearDeviation
@@ -432,7 +440,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddConstraint(defaultLinearConstraintName, constraint)
 		opt.pathDist = pathDist
 	case PseudolinearMotionProfile:
-		tolerance, ok := planningOpts["tolerance"].(float64)
+		tolerance, ok := motionConfig["tolerance"].(float64)
 		if !ok {
 			// Default
 			tolerance = defaultPseudolinearTolerance
@@ -441,7 +449,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddConstraint(defaultPseudolinearConstraintName, constraint)
 		opt.pathDist = pathDist
 	case OrientationMotionProfile:
-		tolerance, ok := planningOpts["tolerance"].(float64)
+		tolerance, ok := motionConfig["tolerance"].(float64)
 		if !ok {
 			// Default
 			tolerance = defaultOrientationDeviation
@@ -457,13 +465,13 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	default:
 		if planAlg == "" {
 			// set up deep copy for fallback
-			try1 := deepAtomicCopyMap(planningOpts)
+			try1 := deepAtomicCopyMap(motionConfig)
 			// No need to generate tons more IK solutions when the first alg will do it
 
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
+			try1Opt, err := pm.plannerOptionsFromConfig(from, to, try1)
 			if err != nil {
 				return nil, err
 			}

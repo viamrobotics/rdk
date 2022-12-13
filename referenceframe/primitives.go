@@ -79,7 +79,7 @@ func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
 	// Get frame inputs if necessary
 	if len(frame.DoF()) > 0 {
 		if _, ok := inputMap[frame.Name()]; !ok {
-			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
+			return nil, fmt.Errorf("no inputs provided for frame with name %s", frame.Name())
 		}
 		input = inputMap[frame.Name()]
 	}

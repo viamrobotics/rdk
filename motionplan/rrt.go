@@ -71,12 +71,7 @@ func (rrt *rrtPlanner) initRRTSolutions(ctx context.Context, goal spatialmath.Po
 	seedNode := newCostNode(seed, 0)
 	rrt.maps.startMap[seedNode] = nil
 
-	// get many potential end goals from IK solver
-	nSolutions := rrt.planOpts.MaxSolutions
-	if nSolutions == 0 {
-		nSolutions = defaultSolutionsToSeed
-	}
-	solutions, err := getSolutions(ctx, rrt.ik, goal, seed, rrt.randseed.Int(), nSolutions)
+	solutions, err := getSolutions(ctx, rrt.ik, goal, seed, rrt.randseed.Int())
 	if err != nil {
 		return &rrtPlanReturn{maps: rrt.maps, planerr: err}
 	}
