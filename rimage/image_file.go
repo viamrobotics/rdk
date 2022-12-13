@@ -31,6 +31,9 @@ import (
 // Ben Zotto for inventing this formulation
 // https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
 var RGBABitmapMagicNumber = []byte("RGBA")
+
+// DepthMapMagicNumber represents the magic number for our custom header
+// for raw DEPTH data.
 var DepthMapMagicNumber = []byte("DEPTHMAP")
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data

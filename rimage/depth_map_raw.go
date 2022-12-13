@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -59,7 +58,6 @@ func ReadDepthMap(r io.Reader) (*DepthMap, error) {
 	case 6363110499870197078: // magic number for VERSIONX
 		return readDepthMapVersionX(r.(*bufio.Reader))
 	case 5782988369567958340:
-		fmt.Println("THE NEW ONE")
 		return readDepthMapViam(r.(*bufio.Reader))
 	default:
 		return readDepthMapRaw(r.(*bufio.Reader), firstBytes)
@@ -275,7 +273,10 @@ func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 	}
 
 	if strings.HasSuffix(fn, ".vnd.viam.dep") {
-		out.Write(DepthMapMagicNumber)
+		_, err := out.Write(DepthMapMagicNumber)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = WriteRawDepthMapTo(dm, out)
