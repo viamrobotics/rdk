@@ -82,7 +82,7 @@ func TestModularResources(t *testing.T) {
 
 		// changed attribute
 		cfg2 := config.Component{Name: "oneton", API: compSubtype, Model: compModel, Attributes: config.AttributeMap{"arg1": "two"}}
-		_, err = cfg.Validate("test")
+		_, err = cfg2.Validate("test")
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -147,8 +147,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: config.AttributeMap{"arg1": "two"},
 		}
-
-		_, err = cfg.Validate("test")
+		_, err = cfg2.Validate("test")
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular

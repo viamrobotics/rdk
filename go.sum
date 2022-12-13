@@ -105,10 +105,10 @@ github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAE
 github.com/OpenPeeDeeP/depguard v1.0.1/go.mod h1:xsIw86fROiiwelg+jB2uM9PiKihMMmUx/1V+TNhjQvM=
 github.com/OpenPeeDeeP/depguard v1.1.1 h1:TSUznLjvp/4IUP+OQ0t/4jF4QUyxIcVX8YnghZdunyA=
 github.com/OpenPeeDeeP/depguard v1.1.1/go.mod h1:JtAMzWkmFEzDPyAd+W0NHl1lvpQKTvT9jnRVsohBKpc=
-github.com/Otterverse/api v0.0.0-20221202202559-36c73633d1bb h1:rV9g8v8xjRM+n0mWrKt3ZtynDi7bXKC3jdSXq6f1BlE=
-github.com/Otterverse/api v0.0.0-20221202202559-36c73633d1bb/go.mod h1:dmii3OZhAkhrb+zZmy5XvglINQPQrasaIzSJjFXZ17U=
-github.com/Otterverse/goutils v0.0.4-0.20221202202521-de8cc39af99b h1:FDHBSp7IeaPmgdM/NkEm4xYe8H9ln600xQYvLaS8sCk=
-github.com/Otterverse/goutils v0.0.4-0.20221202202521-de8cc39af99b/go.mod h1:L7RrtFddaBH1sMiAjzQ26yMKzSFcG+T1KIY+pOBxyAg=
+github.com/Otterverse/api v0.0.0-20221212231839-adf8f7b6b0e0 h1:FRiKd7iMNgJzswJsUch+GOXBlcL88iIF13brQyR9+qk=
+github.com/Otterverse/api v0.0.0-20221212231839-adf8f7b6b0e0/go.mod h1:dmii3OZhAkhrb+zZmy5XvglINQPQrasaIzSJjFXZ17U=
+github.com/Otterverse/goutils v0.0.4-0.20221212231903-b4bd4cddd2d9 h1:7o4a6Pl6GBbpKMFpiwv8GXeKk+uuakQMC7jWLxW1Gx4=
+github.com/Otterverse/goutils v0.0.4-0.20221212231903-b4bd4cddd2d9/go.mod h1:L7RrtFddaBH1sMiAjzQ26yMKzSFcG+T1KIY+pOBxyAg=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
