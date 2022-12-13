@@ -1,14 +1,22 @@
 package config
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/lestrrat-go/jwx/jwk"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -36,30 +44,42 @@ var testComponent = Component{
 			},
 		},
 	},
-	Frame: &Frame{
+	Frame: &referenceframe.LinkConfig{
 		Parent:      "world",
 		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-		Orientation: spatial.NewOrientationVector(),
+		Orientation: &spatial.OrientationConfig{
+			Type:  spatial.OrientationVectorDegreesType,
+			Value: json.RawMessage([]byte(`{"th":0,"x":0,"y":0,"z":1}`)),
+		},
+		Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
 	},
 }
 
-var testFrame = Frame{
+var testFrame = referenceframe.LinkConfig{
 	Parent: "world",
 	Translation: r3.Vector{
 		X: 1,
 		Y: 2,
 		Z: 3,
 	},
-	Orientation: spatial.NewEulerAngles(),
+	Orientation: &spatial.OrientationConfig{
+		Type:  spatial.EulerAnglesType,
+		Value: json.RawMessage([]byte(`{"roll":0,"pitch":0,"yaw":0}`)),
+	},
+	Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
 }
 
 var testRemote = Remote{
 	Name:    "some-name",
 	Address: "localohst:8080",
-	Frame: &Frame{
+	Frame: &referenceframe.LinkConfig{
 		Parent:      "world",
 		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-		Orientation: spatial.NewOrientationVector(),
+		Orientation: &spatial.OrientationConfig{
+			Type:  spatial.OrientationVectorDegreesType,
+			Value: json.RawMessage([]byte(`{"th":0,"x":0,"y":0,"z":1}`)),
+		},
+		Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
 	},
 	Auth: RemoteAuth{
 		Entity: "some-entity",
@@ -164,7 +184,11 @@ func validateComponent(t *testing.T, actual, expected Component) {
 	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
 	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
 
-	test.That(t, actual.Frame, test.ShouldResemble, testComponent.Frame)
+	f1, err := actual.Frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	f2, err := testComponent.Frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f1, test.ShouldResemble, f2)
 }
 
 func TestComponentConfigToProto(t *testing.T) {
@@ -179,11 +203,13 @@ func TestComponentConfigToProto(t *testing.T) {
 }
 
 func TestFrameConfigFromProto(t *testing.T) {
-	expectedFrameWithOrientation := func(or spatial.Orientation) *Frame {
-		return &Frame{
+	expectedFrameWithOrientation := func(or spatial.Orientation) *referenceframe.LinkConfig {
+		orCfg, err := spatial.NewOrientationConfig(or)
+		test.That(t, err, test.ShouldBeNil)
+		return &referenceframe.LinkConfig{
 			Parent:      "world",
 			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			Orientation: or,
+			Orientation: orCfg,
 		}
 	}
 	createNewFrame := func(or *pb.Orientation) *pb.Frame {
@@ -223,7 +249,7 @@ func TestFrameConfigFromProto(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		expectedFrame *Frame
+		expectedFrame *referenceframe.LinkConfig
 		inputFrame    *pb.Frame
 	}{
 		{
@@ -272,7 +298,11 @@ func TestFrameConfigFromProto(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			frameOut, err := FrameConfigFromProto(testCase.inputFrame)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, frameOut, test.ShouldResemble, testCase.expectedFrame)
+			f1, err := frameOut.ParseConfig()
+			test.That(t, err, test.ShouldBeNil)
+			f2, err := testCase.expectedFrame.ParseConfig()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, f1, test.ShouldResemble, f2)
 		})
 	}
 }
@@ -286,7 +316,11 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
 	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
 	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
-	test.That(t, actual.Frame, test.ShouldResemble, expected.Frame)
+	f1, err := actual.Frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	f2, err := testComponent.Frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f1, test.ShouldResemble, f2)
 
 	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
 	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
@@ -371,12 +405,63 @@ func validateAuthConfig(t *testing.T, actual, expected AuthConfig) {
 }
 
 func TestAuthConfigToProto(t *testing.T) {
-	proto, err := AuthConfigToProto(&testAuthConfig)
-	test.That(t, err, test.ShouldBeNil)
-	out, err := AuthConfigFromProto(proto)
+	t.Run("api-key auth handler", func(t *testing.T) {
+		proto, err := AuthConfigToProto(&testAuthConfig)
+		test.That(t, err, test.ShouldBeNil)
+		out, err := AuthConfigFromProto(proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		validateAuthConfig(t, *out, testAuthConfig)
+	})
+
+	t.Run("web oauth auth handler", func(t *testing.T) {
+		keyset := jwk.NewSet()
+		privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
+		test.That(t, err, test.ShouldBeNil)
+		publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
+		test.That(t, err, test.ShouldBeNil)
+		publicKeyForWebAuth.Set(jwk.KeyIDKey, "key-id-1")
+		test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
+
+		authConfig := AuthConfig{
+			Handlers: []AuthHandlerConfig{
+				{
+					Type:   oauth.CredentialsTypeOAuthWeb,
+					Config: AttributeMap{},
+					WebOAuthConfig: &WebOAuthConfig{
+						AllowedAudiences: []string{"aud1", "aud2"},
+						JSONKeySet:       keysetToInterface(t, keyset).AsMap(),
+					},
+				},
+			},
+			TLSAuthEntities: []string{"tls1", "tls2"},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		out, err := AuthConfigFromProto(proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, out.Handlers[0], test.ShouldResemble, authConfig.Handlers[0])
+	})
+}
+
+func keysetToInterface(t *testing.T, keyset jwks.KeySet) *structpb.Struct {
+	t.Helper()
+
+	// hack around marshaling the KeySet into pb.Struct. Passing interface directly
+	// does not work.
+	jwksAsJSON, err := json.Marshal(keyset)
 	test.That(t, err, test.ShouldBeNil)
 
-	validateAuthConfig(t, *out, testAuthConfig)
+	jwksAsInterface := map[string]interface{}{}
+	err = json.Unmarshal(jwksAsJSON, &jwksAsInterface)
+	test.That(t, err, test.ShouldBeNil)
+
+	jwksAsStruct, err := structpb.NewStruct(jwksAsInterface)
+	test.That(t, err, test.ShouldBeNil)
+
+	return jwksAsStruct
 }
 
 func TestCloudConfigToProto(t *testing.T) {

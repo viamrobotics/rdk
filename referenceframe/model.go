@@ -19,9 +19,10 @@ type ModelFramer interface {
 	ModelFrame() Model
 }
 
-// A Model represents a frame that can change its name.
+// A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
+	ModelConfig() *ModelConfig
 	ChangeName(string)
 }
 
@@ -30,6 +31,7 @@ type SimpleModel struct {
 	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
+	modelConfig   *ModelConfig
 	poseCache     *sync.Map
 	lock          sync.RWMutex
 }
@@ -60,6 +62,11 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 // ChangeName changes the name of this model - necessary for building frame systems.
 func (m *SimpleModel) ChangeName(name string) {
 	m.name = name
+}
+
+// ModelConfig returns the ModelConfig object used to create this model.
+func (m *SimpleModel) ModelConfig() *ModelConfig {
+	return m.modelConfig
 }
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
@@ -161,11 +168,7 @@ func (m *SimpleModel) DoF() []Limit {
 
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":                 m.name,
-		"kinematic_param_type": "frames",
-		"frames":               m.OrdTransforms,
-	})
+	return json.Marshal(m.modelConfig)
 }
 
 // AlmostEquals returns true if the only difference between this model and another is floating point inprecision.
@@ -198,7 +201,7 @@ func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(m.limits))
+		return nil, NewIncorrectInputLengthError(len(inputs), len(m.DoF()))
 	}
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))

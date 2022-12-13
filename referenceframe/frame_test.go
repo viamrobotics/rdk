@@ -1,17 +1,21 @@
 package referenceframe
 
 import (
+	"encoding/json"
+	"io"
 	"math"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestStaticFrame(t *testing.T) {
@@ -101,7 +105,7 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{overLimit}})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", utils.DegToRad(overLimit), OOBErrString, frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", rutils.DegToRad(overLimit), OOBErrString, frame.DoF()[0]))
 	// gets the correct limits back
 	limit := frame.DoF()
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
@@ -182,7 +186,14 @@ func TestSerializationStatic(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := UnmarshalFrameJSON(data)
+	f2Cfg := &LinkConfig{}
+	err = json.Unmarshal(data, f2Cfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	f2if, err := f2Cfg.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := f2if.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
@@ -195,7 +206,11 @@ func TestSerializationTranslation(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := UnmarshalFrameJSON(data)
+	f2Cfg := &JointConfig{}
+	err = json.Unmarshal(data, f2Cfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
@@ -209,10 +224,14 @@ func TestSerializationRotations(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := UnmarshalFrameJSON(data)
+	f2Cfg := &JointConfig{}
+	err = json.Unmarshal(data, f2Cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	f2, err := f2Cfg.ToFrame()
+	test.That(t, err, test.ShouldBeNil)
+
+	// ~ test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -229,4 +248,61 @@ func TestRandomFrameInputs(t *testing.T) {
 		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
 		test.That(t, err, test.ShouldBeNil)
 	}
+}
+
+func TestFrame(t *testing.T) {
+	file, err := os.Open("../config/data/frame.json")
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(file.Close)
+
+	data, err := io.ReadAll(file)
+	test.That(t, err, test.ShouldBeNil)
+	// Parse into map of tests
+	var testMap map[string]json.RawMessage
+	err = json.Unmarshal(data, &testMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	frame := LinkConfig{}
+	err = json.Unmarshal(testMap["test"], &frame)
+	test.That(t, err, test.ShouldBeNil)
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
+	test.That(t, err, test.ShouldBeNil)
+	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
+	expFrame, err := NewStaticFrameWithGeometry("", pose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	sFrameif, err := frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	sFrame, err := sFrameif.ToStaticFrame("")
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, sFrame, test.ShouldResemble, expFrame)
+
+	// test going back to json and validating.
+	rd, err := json.Marshal(&frame)
+	test.That(t, err, test.ShouldBeNil)
+	frame2 := LinkConfig{}
+	err = json.Unmarshal(rd, &frame2)
+	test.That(t, err, test.ShouldBeNil)
+
+	sFrame2if, err := frame2.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	sFrame2, err := sFrame2if.ToStaticFrame("")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sFrame2, test.ShouldResemble, expFrame)
+
+	pose, err = frame.Pose()
+	test.That(t, err, test.ShouldBeNil)
+	expPose, err := expFrame.Transform([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldResemble, expPose)
+
+	sFrameif, err = frame.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	sFrame, err = sFrameif.ToStaticFrame("test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	expStaticFrame, err := NewStaticFrameWithGeometry("test", expPose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sFrame, test.ShouldResemble, expStaticFrame)
 }
