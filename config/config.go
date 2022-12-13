@@ -13,8 +13,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
 
 	rutils "go.viam.com/rdk/utils"
 )
@@ -530,10 +532,76 @@ type AuthConfig struct {
 	TLSAuthEntities []string            `json:"tls_auth_entities"`
 }
 
+// WebOAuthConfig contains the structued AuthHandlerConfig for the CredentialsTypeOAuthWeb type.
+type WebOAuthConfig struct {
+	// The allowed jwt audiences the OAuthWeb auth handler will accept.
+	AllowedAudiences []string `json:"allowed_audiences"`
+	// contains the raw jwks json.
+	JSONKeySet AttributeMap `json:"jwks"`
+
+	// on validation the JSONKeySet is validated and parsed into this field and can be used.
+	ValidatedKeySet jwks.KeySet `json:"-"`
+}
+
+var (
+	allowedKeyTypesForWebOAuth = map[string]bool{
+		"RSA": true,
+	}
+
+	allowedAlgsForWebOAuth = map[string]bool{
+		"RS256": true,
+		"RS384": true,
+		"RS512": true,
+	}
+)
+
+// Validate returns true if the WebOAuth is valid. Ensures each key is valid and meets the required constraints.
+func (c *WebOAuthConfig) Validate(path string) error {
+	jwksPath := fmt.Sprintf("%s.jwks", path)
+	jsonJWKs, err := json.Marshal(c.JSONKeySet)
+	if err != nil {
+		return utils.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to marshal jwks"))
+	}
+
+	keyset, err := jwks.ParseKeySet(string(jsonJWKs))
+	if err != nil {
+		return utils.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to parse jwks"))
+	}
+
+	if keyset.Len() == 0 {
+		return utils.NewConfigValidationError(jwksPath, errors.New("must contain at least 1 key"))
+	}
+
+	for i := 0; i < keyset.Len(); i++ {
+		// validate keys
+		key, ok := keyset.Get(i)
+		if !ok {
+			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i), errors.New("failed to parse jwks, missing index"))
+		}
+
+		if _, ok := allowedKeyTypesForWebOAuth[key.KeyType().String()]; !ok {
+			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
+				errors.Errorf("failed to parse jwks, invalid key type (%s) only (RSA) supported", key.KeyType().String()))
+		}
+
+		if _, ok := allowedAlgsForWebOAuth[key.Algorithm()]; !ok {
+			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
+				errors.Errorf("failed to parse jwks, invalid alg (%s) type only (RS256, RS384, RS512) supported", key.Algorithm()))
+		}
+	}
+
+	c.ValidatedKeySet = keyset
+
+	return nil
+}
+
 // AuthHandlerConfig describes the configuration for a particular auth handler.
 type AuthHandlerConfig struct {
 	Type   rpc.CredentialsType `json:"type"`
 	Config AttributeMap        `json:"config"`
+
+	// Structured config for credential type CredentialsTypeOAuthWeb. When this is set the Config field should be empty.
+	WebOAuthConfig *WebOAuthConfig `json:"web_oauth_config,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -562,6 +630,19 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
 			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
 		}
+	case oauth.CredentialsTypeOAuthWeb:
+		if len(config.Config) != 0 {
+			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path),
+				errors.Errorf("config should be empty (use web_oauth_config) for type: %q", oauth.CredentialsTypeOAuthWeb))
+		}
+
+		subPath := fmt.Sprintf("%s.%s", path, "web_oauth_config")
+		if config.WebOAuthConfig == nil {
+			return utils.NewConfigValidationError(subPath,
+				errors.Errorf("web_oauth_config is required for type: %q", oauth.CredentialsTypeOAuthWeb))
+		}
+
+		return config.WebOAuthConfig.Validate(subPath)
 	default:
 		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
