@@ -285,12 +285,22 @@ func Float64FromBytesBE(bytes []byte) float64 {
 	return float
 }
 
-// Uint32FromBytesLE converts an array of bytes odered in little-endian to a uint32.
+// Uint32FromBytesLE converts an array of bytes ordered in little-endian to a uint32.
 func Uint32FromBytesLE(bytes []byte) uint32 {
 	return binary.LittleEndian.Uint32(bytes)
 }
 
-// Uint32FromBytesBE converts an array of bytes odered in big-endian to a uint32.
+// Uint32FromBytesBE converts an array of bytes ordered in big-endian to a uint32.
 func Uint32FromBytesBE(bytes []byte) uint32 {
 	return binary.BigEndian.Uint32(bytes)
+}
+
+// Int16FromBytesLE converts an array of bytes ordered in little-endian to a (signed) int16.
+func Int16FromBytesLE(bytes []byte) int16 {
+	return int16(binary.LittleEndian.Uint16(bytes))
+}
+
+// Int16FromBytesBE converts an array of bytes ordered in big-endian to a (signed) int16.
+func Int16FromBytesBE(bytes []byte) int16 {
+	return int16(binary.BigEndian.Uint16(bytes))
 }

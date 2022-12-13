@@ -4,8 +4,11 @@ package inject
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
@@ -17,6 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/session"
 )
 
 // Robot is an injected robot.
@@ -47,7 +51,7 @@ type Robot struct {
 	ModuleManagerFunc func() modmaninterface.ModuleManager
 
 	ops     *operation.Manager
-	opsLock sync.Mutex
+	SessMgr session.Manager
 }
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
@@ -132,13 +136,22 @@ func (r *Robot) ProcessManager() pexec.ProcessManager {
 func (r *Robot) OperationManager() *operation.Manager {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	r.opsLock.Lock()
-	defer r.opsLock.Unlock()
 
 	if r.ops == nil {
 		r.ops = operation.NewManager(r.Logger())
 	}
 	return r.ops
+}
+
+// SessionManager calls the injected SessionManager or the real version.
+func (r *Robot) SessionManager() session.Manager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+
+	if r.SessMgr == nil {
+		return noopSessionManager{}
+	}
+	return r.SessMgr
 }
 
 // Config calls the injected Config or the real version.
@@ -258,4 +271,28 @@ func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
 		return r.LocalRobot.ModuleManager()
 	}
 	return r.ModuleManagerFunc()
+}
+
+type noopSessionManager struct{}
+
+func (m noopSessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+	return session.New(ownerID, peerConnInfo, time.Minute, nil), nil
+}
+
+func (m noopSessionManager) All() []*session.Session {
+	return nil
+}
+
+func (m noopSessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+	return nil, session.ErrNoSession
+}
+
+func (m noopSessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {
+}
+
+func (m noopSessionManager) Close() {
+}
+
+func (m noopSessionManager) ServerInterceptors() session.ServerInterceptors {
+	return session.ServerInterceptors{}
 }

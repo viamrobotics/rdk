@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
@@ -35,6 +36,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/session"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -76,6 +78,13 @@ type RobotClient struct {
 	notifyParent func()
 
 	closeContext context.Context
+
+	// sessions
+	sessionsDisabled         bool
+	sessionMu                sync.RWMutex
+	sessionsSupported        *bool // when nil, we have not yet checked
+	currentSessionID         string
+	sessionHeartbeatInterval time.Duration
 }
 
 var exemptFromConnectionCheck = map[string]bool{
@@ -194,6 +203,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		notifyParent:            nil,
 		resourceClients:         make(map[resource.Name]interface{}),
 		remoteNameMap:           make(map[resource.Name]resource.Name),
+		sessionsDisabled:        rOpts.disableSessions,
 	}
 
 	// interceptors are applied in order from first to last
@@ -202,6 +212,11 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		// error handling
 		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
 		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
+		// sessions
+		rpc.WithUnaryClientInterceptor(grpc_retry.UnaryClientInterceptor()),
+		rpc.WithStreamClientInterceptor(grpc_retry.StreamClientInterceptor()),
+		rpc.WithUnaryClientInterceptor(rc.sessionUnaryClientInterceptor),
+		rpc.WithStreamClientInterceptor(rc.sessionStreamClientInterceptor),
 		// operations
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
@@ -643,6 +658,11 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 
 // OperationManager returns nil.
 func (rc *RobotClient) OperationManager() *operation.Manager {
+	return nil
+}
+
+// SessionManager returns nil.
+func (rc *RobotClient) SessionManager() session.Manager {
 	return nil
 }
 

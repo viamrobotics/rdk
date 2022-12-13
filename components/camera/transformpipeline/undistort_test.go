@@ -50,7 +50,7 @@ func TestUndistortSetup(t *testing.T) {
 	// bad stream type
 	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	am = config.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
-	us, _, err := newUndistortTransform(context.Background(), source, camera.StreamType("fake"), am)
+	us, _, err := newUndistortTransform(context.Background(), source, camera.ImageType("fake"), am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
 	test.That(t, err, test.ShouldNotBeNil)

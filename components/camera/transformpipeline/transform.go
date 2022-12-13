@@ -36,8 +36,8 @@ type Transformation struct {
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
-	ctx context.Context, r robot.Robot, source gostream.VideoSource, stream camera.StreamType, tr Transformation,
-) (gostream.VideoSource, camera.StreamType, error) {
+	ctx context.Context, r robot.Robot, source gostream.VideoSource, stream camera.ImageType, tr Transformation,
+) (gostream.VideoSource, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:
 		return source, stream, nil

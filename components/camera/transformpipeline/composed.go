@@ -26,8 +26,8 @@ type depthToPretty struct {
 func newDepthToPrettyTransform(
 	ctx context.Context,
 	source gostream.VideoSource,
-	stream camera.StreamType,
-) (gostream.VideoSource, camera.StreamType, error) {
+	stream camera.ImageType,
+) (gostream.VideoSource, camera.ImageType, error) {
 	if stream != camera.DepthStream {
 		return nil, camera.UnspecifiedStream,
 			errors.Errorf("source has stream type %s, depth_to_pretty only supports depth stream inputs", stream)
@@ -100,9 +100,9 @@ type overlaySource struct {
 func newOverlayTransform(
 	ctx context.Context,
 	src gostream.VideoSource,
-	stream camera.StreamType,
+	stream camera.ImageType,
 	am config.AttributeMap,
-) (gostream.VideoSource, camera.StreamType, error) {
+) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(overlayAttrs{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

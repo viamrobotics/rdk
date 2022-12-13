@@ -31,6 +31,7 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
 
@@ -46,12 +47,13 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu         sync.Mutex
-	manager    *resourceManager
-	config     *config.Config
-	operations *operation.Manager
-	modules    modif.ModuleManager
-	logger     golog.Logger
+	mu             sync.Mutex
+	manager        *resourceManager
+	config         *config.Config
+	operations     *operation.Manager
+	modules        modif.ModuleManager
+	sessionManager session.Manager
+	logger         golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
 	internalServices     map[internalServiceName]interface{}
@@ -137,6 +139,11 @@ func (r *localRobot) ModuleManager() modif.ModuleManager {
 	return r.modules
 }
 
+// SessionManager returns the session manager for the robot.
+func (r *localRobot) SessionManager() session.Manager {
+	return r.sessionManager
+}
+
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
 	web, err := r.webService()
@@ -163,9 +170,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err,
 		r.manager.Close(ctx, r),
 		r.modules.Close(ctx),
+		goutils.TryClose(ctx, web),
 	)
-
-	return multierr.Combine(err, goutils.TryClose(ctx, web))
+	r.sessionManager.Close()
+	return err
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
@@ -418,6 +426,13 @@ func newWithResources(
 		configTimer:                nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 	}
+	var heartbeatWindow time.Duration
+	if cfg.Network.Sessions.HeartbeatWindow == 0 {
+		heartbeatWindow = config.DefaultSessionHeartbeatWindow
+	} else {
+		heartbeatWindow = cfg.Network.Sessions.HeartbeatWindow
+	}
+	r.sessionManager = robot.NewSessionManager(r, heartbeatWindow)
 
 	var successful bool
 	defer func() {

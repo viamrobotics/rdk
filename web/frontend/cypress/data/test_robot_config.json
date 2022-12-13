@@ -26,6 +26,11 @@
             "model": "fake"
         },
         {
+            "name": "test_camera2",
+            "type": "camera",
+            "model": "fake"
+        },
+        {
             "name": "test_gantry",
             "type": "gantry",
             "model": "fake"

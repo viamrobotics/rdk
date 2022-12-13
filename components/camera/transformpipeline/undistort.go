@@ -24,13 +24,13 @@ type undistortAttrs struct {
 // within the intrinsic parameters.
 type undistortSource struct {
 	originalStream gostream.VideoStream
-	stream         camera.StreamType
+	stream         camera.ImageType
 	cameraParams   *transform.PinholeCameraModel
 }
 
 func newUndistortTransform(
-	ctx context.Context, source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
-) (gostream.VideoSource, camera.StreamType, error) {
+	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am config.AttributeMap,
+) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(undistortAttrs{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

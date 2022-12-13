@@ -55,6 +55,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -1829,6 +1830,10 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 
 func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
 	return rr.modmanager
+}
+
+func (rr *dummyRobot) SessionManager() session.Manager {
+	panic("change to return nil")
 }
 
 func (rr *dummyRobot) Logger() golog.Logger {
