@@ -3762,10 +3762,6 @@
       "hash": "f94fef53bb2a6f7e25441f679b71adc6",
       "size": 1540
     },
-    "board1.dat": {
-      "hash": "edb87dcaa0d57272882fe3873f1646b4",
-      "size": 7372816
-    },
     "board1.dat.gz": {
       "hash": "7c1dff933898f30d86407c5bd0c5edb5",
       "size": 165941
@@ -3805,14 +3801,6 @@
     "board2_small.png": {
       "hash": "234d75ca63901fc11677239760fb33e9",
       "size": 31333
-    },
-    "board2gray.vnd.viam.dep": {
-      "hash": "e5ba35b11cc8bf0c25cd997751b00b51",
-      "size": 151788
-    },
-    "board2gray.vnd.viam.rgba": {
-      "hash": "e5ba35b11cc8bf0c25cd997751b00b51",
-      "size": 151788
     },
     "canny1.png": {
       "hash": "2484495f4ffaec93f87c4bfb52a5613a",
