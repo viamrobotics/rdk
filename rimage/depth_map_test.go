@@ -356,24 +356,7 @@ func TestDepthMapEncoding(t *testing.T) {
 	// err = os.WriteFile(saveTo, buf.Bytes(), 0777)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Read bytes from file
-
-	// boardBytes, err := os.ReadFile(saveTo)
-	// test.That(t, err, test.ShouldBeNil)
-	// _, err = newbuf.Write(boardBytes)
-	// test.That(t, err, test.ShouldBeNil)
 	newM, err := NewDepthMapFromFile(context.Background(), saveTo)
-
-	// f, err := os.Open(saveTo)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// Decode image and test the same points
-	// img, format, err := image.Decode(f)
-	// fmt.Printf("The format is %v\n", format)
-	// test.That(t, format, test.ShouldResemble, "vnd.viam.dep")
-	// test.That(t, format, test.ShouldResemble, "png")
-	// test.That(t, err, test.ShouldBeNil)
-	// newM, err := ConvertImageToDepthMap(context.Background(), img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newM.Bounds().Dx(), test.ShouldEqual, 20)
 	test.That(t, newM.Bounds().Dy(), test.ShouldEqual, 10)
