@@ -277,25 +277,29 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 			case cfg := <-watcher.Config():
 				processedConfig, err := processConfig(cfg)
 				if err != nil {
-					s.logger.Errorw("error processing config", "error", err)
+					s.logger.Errorw("reconfiguration failed: error processing config", "error", err)
 					continue
+				}
+
+				// flag to restart web service if necessary
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
+				if err != nil {
+					s.logger.Errorw("reconfiguration failed: error diffing config", "error", err)
+					continue
+				}
+				var options weboptions.Options
+				if !diff.NetworkEqual {
+					options, err = s.createWebOptions(processedConfig)
+					if err != nil {
+						s.logger.Errorw("reconfiguration failed: error creating weboptions", "error", err)
+						continue
+					}
 				}
 				myRobot.Reconfigure(ctx, processedConfig)
 
-				// restart web service if necessary
-				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
-				if err != nil {
-					s.logger.Errorw("error diffing config", "error", err)
-					continue
-				}
 				if !diff.NetworkEqual {
 					if err := myRobot.StopWeb(); err != nil {
 						s.logger.Errorw("error stopping web service while reconfiguring", "error", err)
-						continue
-					}
-					options, err := s.createWebOptions(processedConfig)
-					if err != nil {
-						s.logger.Errorw("error creating weboptions", "error", err)
 						continue
 					}
 					if err := myRobot.StartWeb(ctx, options); err != nil {
