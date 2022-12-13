@@ -59,8 +59,3 @@ func typeStr(of interface{}) string {
 func NewUnimplementedInterfaceError(expected, actual interface{}) error {
 	return errors.Errorf("expected implementation of %s but got %T", typeStr(expected), actual)
 }
-
-// InvalidIntegerValue is used when an integer value is out of bound or not valid.
-func InvalidIntegerValue(val int) error {
-	return errors.Errorf("can not validate integer value %d in config", val)
-}
