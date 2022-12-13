@@ -78,7 +78,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, fs.Frame("pieceGripper"), test.ShouldNotBeNil)
 	pose, err = fs.Frame("pieceGripper").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
 	t.Log("pieceGripper_origin")
 	test.That(t, fs.Frame("pieceGripper_origin"), test.ShouldNotBeNil)
@@ -127,7 +127,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	pointAlmostEqual(t, transformPose.Pose().Point(), sensorPt)
 
-	gripperPt := r3.Vector{500, 0, -200}
+	gripperPt := r3.Vector{500, 0, 0}
 	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)

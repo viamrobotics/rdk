@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
@@ -18,6 +19,7 @@ type Base struct {
 	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
+	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
@@ -74,4 +76,12 @@ func (b *Base) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		return b.LocalBase.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
+}
+
+// SetPower calls the injected SetPower or the real version.
+func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	if b.SetPowerFunc == nil {
+		return b.LocalBase.SetPower(ctx, linear, angular, extra)
+	}
+	return b.SetPowerFunc(ctx, linear, angular, extra)
 }

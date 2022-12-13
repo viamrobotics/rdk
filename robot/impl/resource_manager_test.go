@@ -54,6 +54,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -1821,6 +1822,10 @@ func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 }
 
 func (rr *dummyRobot) OperationManager() *operation.Manager {
+	panic("change to return nil")
+}
+
+func (rr *dummyRobot) SessionManager() session.Manager {
 	panic("change to return nil")
 }
 

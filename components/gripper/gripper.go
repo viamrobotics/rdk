@@ -84,12 +84,12 @@ type LocalGripper interface {
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Gripper)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Gripper)(nil), actual)
 }
 
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((LocalGripper)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*LocalGripper)(nil), actual)
 }
 
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
