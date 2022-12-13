@@ -66,8 +66,7 @@ const toggleExpand = () => {
 
 const renderPCD = async () => {
   try {
-    const bytes = await new CameraClient(props.client, props.cameraName).getPointCloud();
-    pointcloud = bytes;
+    pointcloud = await new CameraClient(props.client, props.cameraName).getPointCloud();
   } catch (error) {
     toast.error(`Error getting point cloud: ${error}`);
   }
