@@ -141,6 +141,7 @@ func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
 		Type:       string(service.Type),
 		Attributes: attributes,
 		DependsOn:  service.DependsOn,
+		Model:      service.Model,
 	}
 
 	return &proto, nil
@@ -154,6 +155,7 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 		Type:       ServiceType(proto.GetType()),
 		Attributes: proto.GetAttributes().AsMap(),
 		DependsOn:  proto.GetDependsOn(),
+		Model:      proto.GetModel(),
 	}
 
 	return &service, nil
