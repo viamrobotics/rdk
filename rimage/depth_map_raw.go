@@ -45,8 +45,6 @@ func ParseRawDepthMap(fn string) (*DepthMap, error) {
 	return ReadDepthMap(bufio.NewReader(f))
 }
 
-// ReadRawDepthMap --> ReadDepthMap (namewise)
-
 // ReadDepthMap returns a depth map from the given reader.
 func ReadDepthMap(r io.Reader) (*DepthMap, error) {
 	// We expect the first 8 bytes to be a magic number assigned to a depthmap type
@@ -93,27 +91,6 @@ func readDepthMapViam(f *bufio.Reader) (*DepthMap, error) {
 	dm.height = int(rawHeight)
 
 	return setRawDepthMapValues(f, &dm)
-}
-
-func setRawDepthMapValues(f *bufio.Reader, dm *DepthMap) (*DepthMap, error) {
-
-	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
-	}
-
-	dm.data = make([]Depth, dm.width*dm.height)
-
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			temp, err := _readNext(f)
-			if err != nil {
-				return nil, err
-			}
-			dm.Set(x, y, Depth(temp))
-		}
-	}
-
-	return dm, nil
 }
 
 func readDepthMapVersionX(r *bufio.Reader) (*DepthMap, error) {
@@ -199,6 +176,26 @@ func readDepthMapVersionX(r *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
+func setRawDepthMapValues(f *bufio.Reader, dm *DepthMap) (*DepthMap, error) {
+	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
+		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+	}
+
+	dm.data = make([]Depth, dm.width*dm.height)
+
+	for x := 0; x < dm.width; x++ {
+		for y := 0; y < dm.height; y++ {
+			temp, err := _readNext(f)
+			if err != nil {
+				return nil, err
+			}
+			dm.Set(x, y, Depth(temp))
+		}
+	}
+
+	return dm, nil
+}
+
 // WriteRawDepthMapToFile writes the raw depth map to the given file.
 func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 	//nolint:gosec
@@ -227,7 +224,7 @@ func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 			return err
 		}
 	}
-	
+
 	_, err = WriteRawDepthMapTo(dm, out)
 	if err != nil {
 		return err
