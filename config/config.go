@@ -151,7 +151,7 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 type Remote struct {
 	Name                    string
 	Address                 string
-	Frame                   *Frame
+	Frame                   *referenceframe.LinkConfig
 	Auth                    RemoteAuth
 	ManagedBy               string
 	Insecure                bool
