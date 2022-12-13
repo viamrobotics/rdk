@@ -205,7 +205,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Release point cloud for service validation
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Create slam service using a real orbslam binary
+	// Create slam service using a real cartogapher binary
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -223,8 +223,6 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Check if orbslam hangs and needs to be shut down
-	// Wait for orbslam to finish processing images
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
 		cartographerIntLidarReleasePointCloudChan <- 1
@@ -254,7 +252,6 @@ func TestCartographerIntegration(t *testing.T) {
 	time.Sleep(time.Millisecond * cartoSleepMS)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
-	// Orbslam will use the most recent config.
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
 
 	// Test online mode using the map generated in the offline test
@@ -274,7 +271,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Release point cloud for service validation
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Create slam service using a real orbslam binary
+	// Create slam service using a real cartographer binary
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -292,8 +289,6 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Check if orbslam hangs and needs to be shut down
-	// Wait for orbslam to finish processing images
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
 		cartographerIntLidarReleasePointCloudChan <- 1
