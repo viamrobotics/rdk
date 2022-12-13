@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	rot "gonum.org/v1/gonum/spatial/r3"
 
 	"go.viam.com/rdk/utils"
 )
@@ -356,126 +354,70 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 }
 
 // toPC returns list of points that make up box pointcloud
-func toPC(b Geometry) (r3.Vector, error) {
+func toPC(b *box) (r3.Vector, error) {
 	vec := &r3.Vector{}
 	verts := b.Vertices()
-	max := verts[0] // https://pkg.go.dev/gonum.org/v1/gonum/spatial/r2#Box.Vertices
-	min := verts[len(verts)-1]
-	offset := math.Abs(max.X - min.X) // not needed if done correctly
-
-	var faces [][]float64
-	var theVecs []rot.Vec
-	my_list := golist.New()
-	// offset divided by X = 0.05 where X is the number of points we want for each row
-	for j := min.Y; j <= max.Y; j += 0.05 { // this is Y
-		for i := min.X; i <= max.X; i += 0.05 { // this is X
-
-			//1-------------------------
-
-			points_list := golist.New()
-			points_list.Append(i)
-			points_list.Append(j)
-			points_list.Append(min.Z)
-			my_list.Append(points_list)
-			//-----
-			tempVec := rot.Vec{X: i, Y: j, Z: min.Z}
-			theVecs = append(theVecs, tempVec)
-			//-----
-			points := []float64{i, j, min.Z}
-			faces = append(faces, points)
-
-			//2-------------------------
-
-			points_list = golist.New()
-			points_list.Append(i)
-			points_list.Append(j)
-			points_list.Append(min.Z + offset)
-			my_list.Append(points_list)
-			//-----
-			tempVec = rot.Vec{X: i, Y: j, Z: min.Z + offset}
-			theVecs = append(theVecs, tempVec)
-			//-----
-			points = []float64{i, j, min.Z + offset}
-			faces = append(faces, points)
-
-			//3-------------------------
-
-			points_list = golist.New()
-			points_list.Append(min.Z)
-			points_list.Append(j)
-			points_list.Append(i)
-			my_list.Append(points_list)
-			//-----
-			tempVec = rot.Vec{X: min.Z, Y: j, Z: i}
-			theVecs = append(theVecs, tempVec)
-			//-----
-			points = []float64{min.Z, j, i}
-			faces = append(faces, points)
-
-			//4-------------------------
-
-			points_list = golist.New()
-			points_list.Append(min.Z + offset)
-			points_list.Append(j)
-			points_list.Append(i)
-			my_list.Append(points_list)
-			//-----
-			tempVec = rot.Vec{X: min.Z + offset, Y: j, Z: i}
-			theVecs = append(theVecs, tempVec)
-			//-----
-			points = []float64{min.Z + offset, j, i}
-			faces = append(faces, points)
-
-			//5-------------------------
-
-			points_list = golist.New()
-			points_list.Append(j)
-			points_list.Append(min.Z)
-			points_list.Append(i)
-			my_list.Append(points_list)
-			//-----
-			tempVec = rot.Vec{X: j, Y: min.Z, Z: i}
-			theVecs = append(theVecs, tempVec)
-			//-----
-			points = []float64{j, min.Z, i}
-			faces = append(faces, points)
-
-			//6-------------------------
-
-			points_list = golist.New()
-			points_list.Append(j)
-			points_list.Append(min.Z + offset)
-			points_list.Append(i)
-			my_list.Append(points_list)
-			//-----
-			tempVec = rot.Vec{X: j, Y: min.Z + offset, Z: i}
-			theVecs = append(theVecs, tempVec)
-			//-----
-			points = []float64{j, min.Z + offset, i}
-			faces = append(faces, points)
-
-		}
+	for _, v := range verts {
+		fmt.Println("v: ", v)
 	}
+	// max := verts[0] // https://pkg.go.dev/gonum.org/v1/gonum/spatial/r2#Box.Vertices
+	// min := verts[0]
+	offset := b.halfSize
+	fmt.Println("offset: ", offset)
 
-	// to do:
-	// add rotation code
+	// for i := 0; i < len(verts); i++ {
+	// 	curr := verts[i]
+	// 	if curr.X >= max.X && curr.Y >= max.Y && curr.Z >= max.Z {
+	// 		max = verts[i]
+	// 	} else if curr.X <= min.X && curr.Y <= min.Y && curr.Z <= min.Z {
+	// 		min = verts[i]
+	// 	}
+	// }
+
+	// var faces [][]float64
+	// iter := offset / 40
+	// for j := 0.0; j <= offset; j += iter { // this is Y
+	// 	for i := 0.0; i <= offset; i += iter { // this is X
+	// 		points := []float64{i, j, 0} // 1
+	// 		faces = append(faces, points)
+	// 		points = []float64{i, j, offset} // 2
+	// 		faces = append(faces, points)
+	// 		points = []float64{0, j, i} // 3
+	// 		faces = append(faces, points)
+	// 		points = []float64{offset, j, i} // 4
+	// 		faces = append(faces, points)
+	// 		points = []float64{j, 0, i} // 5
+	// 		faces = append(faces, points)
+	// 		points = []float64{j, offset, i} // 6
+	// 		faces = append(faces, points)
+	// 	}
+	// }
 
 	// rotMat := b.Pose().Orientation().RotationMatrix().mat
 	// myMat := mat.NewDense(3, 3, rotMat[:])
-	// fmt.Println("myMat: ", myMat)
 	// last_list := golist.New()
-	fmt.Println(len(faces))
-	// for i := 0; i <= len(faces); i++ {
-	// fmt.Println(faces[i])
-	// blarg := mat.NewDense(1, 3, faces[i])
-	// fmt.Println(blarg)
-	// blarg.Mul(blarg, myMat)
-	// fmt.Println(blarg)
-	// fmt.Println(" ")
-
+	// for i := 0; i < len(faces); i++ {
+	// 	blarg := mat.NewVecDense(3, faces[i])
+	// 	actual := make([]float64, 3)
+	// 	c := mat.NewVecDense(3, actual)
+	// 	c.MulVec(myMat, blarg)
+	// 	points_list := golist.New()
+	// 	points_list.Append(actual[0])
+	// 	points_list.Append(actual[1])
+	// 	points_list.Append(actual[2])
+	// 	last_list.Append(points_list)
 	// }
+
+	// for i := 0; i < len(faces); i++ {
+	// 	points_list := golist.New()
+	// 	points_list.Append(faces[i][0])
+	// 	points_list.Append(faces[i][1])
+	// 	points_list.Append(faces[i][2])
+	// 	last_list.Append(points_list)
+	// }
+
 	// f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
-	// f.WriteString(my_list.String())
+	// f.WriteString(last_list.String())
 	// f.Close()
 
 	return *vec, nil
