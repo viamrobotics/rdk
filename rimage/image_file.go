@@ -39,7 +39,7 @@ const RawRGBAHeaderLength = 12
 
 // RawDepthHeaderLength is the length of our custom header for raw depth map
 // data in bytes. Header contains 8 bytes worth of magic number, followed by 4 bytes
-// for width (uint32) and another 4 bytes for height (uint32)
+// for width (uint32) and another 4 bytes for height (uint32).
 const RawDepthHeaderLength = 16
 
 func init() {
@@ -111,7 +111,7 @@ func init() {
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".dat.gz") || strings.HasSuffix(path, ".dat"):
+	case strings.HasSuffix(path, ".dat.gz"), strings.HasSuffix(path, ".dat"):
 		return ParseRawDepthMap(path)
 	default:
 		//nolint:gosec
@@ -275,6 +275,12 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	var buf bytes.Buffer
 	bounds := img.Bounds()
 	switch actualOutMIME {
+	case ut.MimeTypeRawDepth:
+		buf.Write(DepthMapMagicNumber)
+		// WriteRawDepthMapTo encodes the height and width
+		if _, err := WriteRawDepthMapTo(img.(*DepthMap), &buf); err != nil {
+			return nil, err
+		}
 	case ut.MimeTypeRawRGBA:
 		// Here we create a custom header to prepend to Raw RGBA data. Credit to
 		// Ben Zotto for inventing this formulation
