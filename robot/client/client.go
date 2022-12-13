@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -176,15 +175,12 @@ func (rc *RobotClient) handleStreamDisconnect(
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
-	fmt.Println("robot/client/client.go/New()")
 	var rOpts robotClientOpts
 
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
 	closeCtx, cancel := context.WithCancel(ctx)
-
-	fmt.Println("rOpts.remoteName: ", rOpts.remoteName)
 
 	rc := &RobotClient{
 		remoteName:              rOpts.remoteName,
@@ -212,14 +208,11 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	)
 
 	if err := rc.connect(ctx); err != nil {
-		fmt.Println("we are returning error on connect")
-		fmt.Println(" ")
 		return nil, err
 	}
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		fmt.Println("we have hydrated the robot")
 		return nil, multierr.Combine(err, rc.conn.Close())
 	}
 
@@ -285,17 +278,13 @@ func (rc *RobotClient) Changed() <-chan bool {
 }
 
 func (rc *RobotClient) connect(ctx context.Context) error {
-	fmt.Println("robot/client/client.go/(*RobotClient).connect()")
 	if rc.conn != nil {
 		if err := rc.conn.Close(); err != nil {
-			fmt.Println("error 1", err)
 			return err
 		}
 	}
-	fmt.Println("rc.address: ", rc.address)
 	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
 	if err != nil {
-		fmt.Println("error 2", err)
 		return err
 	}
 
@@ -312,7 +301,6 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.connected = true
 	if len(rc.resourceClients) != 0 {
 		if err := rc.updateResources(ctx, updateReasonReconnect); err != nil {
-			fmt.Println("error 3", err)
 			return err
 		}
 	}
@@ -323,7 +311,6 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	if rc.notifyParent != nil {
 		rc.notifyParent()
 	}
-	fmt.Println("why are we returning nil")
 	return nil
 }
 
