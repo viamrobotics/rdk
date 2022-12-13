@@ -292,6 +292,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 			return err
 		}
 	}
+	fmt.Println("rc.address: ", rc.address)
 	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
 	if err != nil {
 		fmt.Println("error 2", err)

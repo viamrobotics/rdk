@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -512,7 +511,6 @@ func (manager *resourceManager) processRemote(ctx context.Context,
 	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
-			fmt.Println("err is insecure with credentials")
 			if manager.opts.fromCommand {
 				err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
 			} else {

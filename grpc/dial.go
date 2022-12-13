@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -29,7 +28,6 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
-	fmt.Println("grpc/dial.go/Dial()")
 
 	return rpc.Dial(ctx, address, logger, optsCopy...)
 }
