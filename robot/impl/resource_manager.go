@@ -390,7 +390,8 @@ func (manager *resourceManager) completeConfig(
 				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
 				continue
 			}
-			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot) // SMURF remove "r" here?
+			// TODO: PRODUCT-266 "r" isn't likely needed here, as c.ResourceName() should be the same.
+			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
 				manager.logger.Errorw("error building component", "resource", c.ResourceName(), "model", c.Model, "error", err)
 				wrap.err = errors.Wrap(err, "component build error")

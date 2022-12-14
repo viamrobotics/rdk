@@ -60,9 +60,10 @@ type ResourceLevelServiceConfig struct {
 type Component struct {
 	Name string `json:"name"`
 
-	Namespace     resource.Namespace           `json:"namespace"`
-	Type          resource.SubtypeName         `json:"type"`
-	API           resource.Subtype             `json:"-"` // TODO SMURF doc this and link to jira.
+	Namespace resource.Namespace   `json:"namespace"`
+	Type      resource.SubtypeName `json:"type"`
+	// TODO: PRODUCT-266 API replaces Type and Namespace when Service/Component merge, so json needs to be enabled.
+	API           resource.Subtype             `json:"-"`
 	Model         resource.Model               `json:"model"`
 	Frame         *Frame                       `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
@@ -227,7 +228,7 @@ func (config *Component) fixAPI() error {
 //
 //nolint:dupl
 func ParseComponentFlag(flag string) (Component, error) {
-	// TODO Needs triplet support for model and API/subtype (SMURF link jira triplet)
+	// TODO: PRODUCT-266 Needs triplet support for model and API/subtype
 	cmp := Component{}
 	componentParts := strings.Split(flag, ",")
 	for _, part := range componentParts {
@@ -312,7 +313,7 @@ func (config *Service) ResourceName() resource.Name {
 // ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
-	// TODO Needs triplet support (SMURF link jira triplet)
+	// TODO: PRODUCT-266 needs triplet support here
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeService,

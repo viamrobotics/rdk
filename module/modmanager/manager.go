@@ -210,7 +210,7 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 
 func (m *module) dial() error {
 	var err error
-	// TODO SMURF add session support
+	// TODO: PRODUCT-343 session support probably means interceptors here
 	m.conn, err = grpc.Dial(
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

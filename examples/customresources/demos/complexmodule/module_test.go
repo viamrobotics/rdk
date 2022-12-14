@@ -289,7 +289,7 @@ func connect(port string, logger golog.Logger) (robot.Robot, error) {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond * 500)
 		rc, err := client.New(dialCtx, "localhost:" + port, logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
-			client.WithDisableSessions(), // SMURF enable sessions
+			client.WithDisableSessions(), // TODO: PRODUCT-343 add session support to modules
 		)
 		dialCancel()
 		if !errors.Is(err, context.DeadlineExceeded) {
@@ -312,6 +312,10 @@ func modifyCfg(cfgIn string, logger golog.Logger) (string, string, error) {
  	if err != nil {
  		return "", "", err
  	}
+
+ 	// workaround because config.Read can't validate a module config with a "missing" ExePath
+ 	touchFile("./complexmodule")
+	defer os.Remove("./complexmodule")
 	cfg, err := config.Read(context.Background(), cfgIn, logger)
 	if err != nil {
 		return "", "", err
@@ -332,4 +336,12 @@ func modifyCfg(cfgIn string, logger golog.Logger) (string, string, error) {
 		return "", "", err
 	}
 	return cfgFilename, port, file.Close()
+}
+
+func touchFile(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	return f.Close()
 }

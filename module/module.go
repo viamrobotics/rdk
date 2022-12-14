@@ -110,7 +110,7 @@ type Module struct {
 
 // NewModule returns the basic module framework/structure.
 func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
-	// TODO Smurf add session support
+	// TODO: PRODUCT-343 session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
 		opMgr.UnaryServerInterceptor,
@@ -188,7 +188,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}
-		// SMURF TODO Add Session Support
+		// TODO: PRODUCT-343 add session support to modules
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDisableSessions())
 		if err != nil {
 			return err
