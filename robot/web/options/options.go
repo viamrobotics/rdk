@@ -110,8 +110,9 @@ func FromConfig(cfg *config.Config) (Options, error) {
 			if cfg.Network.BindAddressDefaultSet {
 				options.Network.BindAddress = ":8080"
 			}
+
+			// This will only happen if we're switching from a local config to a cloud config.
 			if cfg.Network.TLSConfig == nil {
-				// TODO(RSDK-1033): Remove once we support switching.
 				return Options{}, errors.New("switching from local config to cloud config not currently supported")
 			}
 			cert, err := cfg.Network.TLSConfig.GetCertificate(&tls.ClientHelloInfo{})
