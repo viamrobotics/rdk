@@ -2,6 +2,8 @@ package web_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -13,11 +15,14 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
+	oauthutils "go.viam.com/utils/rpc/oauth/testutils"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -120,12 +125,22 @@ func TestWebWithAuth(t *testing.T) {
 		t.Run(tc.Case, func(t *testing.T) {
 			svc := web.New(ctx, injectRobot, logger)
 
+			keyset := jwk.NewSet()
+			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
+			test.That(t, err, test.ShouldBeNil)
+			publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
+			test.That(t, err, test.ShouldBeNil)
+			publicKeyForWebAuth.Set("alg", "RS256")
+			publicKeyForWebAuth.Set(jwk.KeyIDKey, "key-id-1")
+			test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
+
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
 			locationSecrets := []string{"locsosecret", "locsec2"}
+			expectedAudiences := []string{"https://app.viam.dev/"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -139,13 +154,21 @@ func TestWebWithAuth(t *testing.T) {
 						"secrets": locationSecrets,
 					},
 				},
+				{
+					Type:   oauth.CredentialsTypeOAuthWeb,
+					Config: config.AttributeMap{},
+					WebOAuthConfig: &config.WebOAuthConfig{
+						AllowedAudiences: expectedAudiences,
+						ValidatedKeySet:  keyset,
+					},
+				},
 			}
 			if tc.Managed {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
 
-			err := svc.Start(ctx, options)
+			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = rgrpc.Dial(context.Background(), addr, logger)
@@ -175,6 +198,7 @@ func TestWebWithAuth(t *testing.T) {
 				if entityName == "" {
 					entityName = options.LocalFQDN
 				}
+
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
@@ -225,6 +249,17 @@ func TestWebWithAuth(t *testing.T) {
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
+
+				t.Run("can connect with web-oauth", func(t *testing.T) {
+					accessToken, err := oauthutils.SignWebAuthAccessToken(privKeyForWebAuth, entityName, expectedAudiences[0], "iss", "key-id-1")
+					test.That(t, err, test.ShouldBeNil)
+					conn, err = rgrpc.Dial(context.Background(), addr, logger,
+						rpc.WithAllowInsecureWithCredentialsDowngrade(),
+						rpc.WithStaticAuthenticationMaterial(accessToken),
+					)
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, conn.Close(), test.ShouldBeNil)
+				})
 			} else {
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),

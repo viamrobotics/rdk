@@ -3,11 +3,15 @@ package server_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -19,14 +23,15 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/server"
+	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -151,33 +156,159 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, typesResp.ResourceRpcSubtypes, test.ShouldResemble, expectedResp)
 	})
+
+	t.Run("GetOperations", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+		injectRobot.LoggerFunc = func() golog.Logger {
+			return logger
+		}
+		server := server.New(injectRobot)
+
+		opsResp, err := server.GetOperations(context.Background(), &pb.GetOperationsRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, opsResp, test.ShouldResemble, &pb.GetOperationsResponse{
+			Operations: []*pb.Operation{},
+		})
+
+		sess1 := session.New("owner1", nil, time.Minute, nil)
+		sess2 := session.New("owner2", nil, time.Minute, nil)
+		sess1Ctx := session.ToContext(context.Background(), sess1)
+		sess2Ctx := session.ToContext(context.Background(), sess2)
+		op1, cancel1 := injectRobot.OperationManager().Create(context.Background(), "something1", nil)
+		defer cancel1()
+
+		op2, cancel2 := injectRobot.OperationManager().Create(sess1Ctx, "something2", nil)
+		defer cancel2()
+
+		op3, cancel3 := injectRobot.OperationManager().Create(sess2Ctx, "something3", nil)
+		defer cancel3()
+
+		opsResp, err = server.GetOperations(context.Background(), &pb.GetOperationsRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, opsResp.Operations, test.ShouldHaveLength, 3)
+
+		for idx, searchFor := range []struct {
+			opID   uuid.UUID
+			sessID uuid.UUID
+		}{
+			{operation.Get(op1).ID, uuid.Nil},
+			{operation.Get(op2).ID, sess1.ID()},
+			{operation.Get(op3).ID, sess2.ID()},
+		} {
+			t.Run(fmt.Sprintf("check op=%d", idx), func(t *testing.T) {
+				for _, op := range opsResp.Operations {
+					if op.Id == searchFor.opID.String() {
+						if searchFor.sessID == uuid.Nil {
+							test.That(t, op.SessionId, test.ShouldBeNil)
+							return
+						}
+						test.That(t, op.SessionId, test.ShouldNotBeNil)
+						test.That(t, *op.SessionId, test.ShouldEqual, searchFor.sessID.String())
+						return
+					}
+				}
+				t.Fail()
+			})
+		}
+	})
+
+	t.Run("GetSessions", func(t *testing.T) {
+		sessMgr := &sessionManager{}
+		injectRobot := &inject.Robot{SessMgr: sessMgr}
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+		server := server.New(injectRobot)
+
+		sessResp, err := server.GetSessions(context.Background(), &pb.GetSessionsRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sessResp, test.ShouldResemble, &pb.GetSessionsResponse{
+			Sessions: []*pb.Session{},
+		})
+
+		ownerID1 := "owner1"
+		remoteAddr1 := "rem1"
+		localAddr1 := "loc1"
+		info1 := &pb.PeerConnectionInfo{
+			Type:          pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC,
+			RemoteAddress: &remoteAddr1,
+			LocalAddress:  &localAddr1,
+		}
+		ownerID2 := "owner2"
+		remoteAddr2 := "rem2"
+		localAddr2 := "loc2"
+		info2 := &pb.PeerConnectionInfo{
+			Type:          pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC,
+			RemoteAddress: &remoteAddr2,
+			LocalAddress:  &localAddr2,
+		}
+		dur := time.Second
+
+		sessions := []*session.Session{
+			session.New(ownerID1, info1, dur, nil),
+			session.New(ownerID2, info2, dur, nil),
+		}
+
+		sessMgr.mu.Lock()
+		sessMgr.sessions = sessions
+		sessMgr.mu.Unlock()
+
+		sessResp, err = server.GetSessions(context.Background(), &pb.GetSessionsRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sessResp, test.ShouldResemble, &pb.GetSessionsResponse{
+			Sessions: []*pb.Session{
+				{
+					Id:                 sessions[0].ID().String(),
+					PeerConnectionInfo: sessions[0].PeerConnectionInfo(),
+				},
+				{
+					Id:                 sessions[1].ID().String(),
+					PeerConnectionInfo: sessions[1].PeerConnectionInfo(),
+				},
+			},
+		})
+	})
 }
 
 func TestServerFrameSystemConfig(t *testing.T) {
 	injectRobot := &inject.Robot{}
 
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
 	// test working config function
 	t.Run("test working config function", func(t *testing.T) {
-		fsConfigs := []*config.FrameSystemPart{
+		l1 := &referenceframe.LinkConfig{
+			ID:          "frame1",
+			Parent:      referenceframe.World,
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Orientation: o1Cfg,
+			Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+		}
+		lif1, err := l1.ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
+		l2 := &referenceframe.LinkConfig{
+			ID:          "frame2",
+			Parent:      "frame1",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+		}
+		lif2, err := l2.ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
+		fsConfigs := []*referenceframe.FrameSystemPart{
 			{
-				Name: "frame1",
-				FrameConfig: &config.Frame{
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-				},
+				FrameConfig: lif1,
 			},
 			{
-				Name: "frame2",
-				FrameConfig: &config.Frame{
-					Parent:      "frame1",
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				},
+				FrameConfig: lif2,
 			},
 		}
 
 		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame,
+			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
 		) (framesystemparts.Parts, error) {
 			return framesystemparts.Parts(fsConfigs), nil
 		}
@@ -186,49 +317,55 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		resp, err := server.FrameSystemConfig(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, resp.FrameSystemConfigs[0].Name, test.ShouldEqual, fsConfigs[0].Name)
-		test.That(t, resp.FrameSystemConfigs[0].PoseInParentFrame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
-		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.X,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.X,
+		test.That(t, resp.FrameSystemConfigs[0].Frame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
+		test.That(
+			t,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.ReferenceFrame,
+			test.ShouldEqual,
+			fsConfigs[0].FrameConfig.Parent(),
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Y,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.X,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Y,
+			fsConfigs[0].FrameConfig.Pose().Point().X,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Z,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Y,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Z,
+			fsConfigs[0].FrameConfig.Pose().Point().Y,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OX,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Z,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX,
+			fsConfigs[0].FrameConfig.Pose().Point().Z,
+		)
+		pose := fsConfigs[0].FrameConfig.Pose()
+		test.That(t,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OX,
+			test.ShouldAlmostEqual,
+			pose.Orientation().OrientationVectorDegrees().OX,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OY,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OY,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY,
+			pose.Orientation().OrientationVectorDegrees().OY,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OZ,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OZ,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ,
+			pose.Orientation().OrientationVectorDegrees().OZ,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Theta,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Theta,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
+			pose.Orientation().OrientationVectorDegrees().Theta,
 		)
 	})
 
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
 		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame,
+			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
 		) (framesystemparts.Parts, error) {
 			return nil, expectedErr
 		}
@@ -473,4 +610,34 @@ func (x *statusStreamServer) Send(m *pb.StreamStatusResponse) error {
 	}
 	x.messageCh <- m
 	return nil
+}
+
+type sessionManager struct {
+	mu       sync.Mutex
+	sessions []*session.Session
+}
+
+func (mgr *sessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+	panic("unimplemented")
+}
+
+func (mgr *sessionManager) All() []*session.Session {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	return mgr.sessions
+}
+
+func (mgr *sessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+	panic("unimplemented")
+}
+
+func (mgr *sessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {
+	panic("unimplemented")
+}
+
+func (mgr *sessionManager) Close() {
+}
+
+func (mgr *sessionManager) ServerInterceptors() session.ServerInterceptors {
+	panic("unimplemented")
 }

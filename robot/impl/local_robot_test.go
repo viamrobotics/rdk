@@ -115,6 +115,10 @@ func TestConfigRemote(t *testing.T) {
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
 	remoteConfig := &config.Config{
 		Components: []config.Component{
 			{
@@ -122,7 +126,7 @@ func TestConfigRemote(t *testing.T) {
 				Name:      "foo",
 				Type:      base.SubtypeName,
 				Model:     "fake",
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
 			},
@@ -131,7 +135,7 @@ func TestConfigRemote(t *testing.T) {
 				Name:      "myParentIsRemote",
 				Type:      base.SubtypeName,
 				Model:     "fake",
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent: "foo:cameraOver",
 				},
 			},
@@ -141,10 +145,10 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "foo",
 				Address: addr,
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent:      "foo",
 					Translation: r3.Vector{100, 200, 300},
-					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
+					Orientation: o1Cfg,
 				},
 			},
 			{
@@ -154,10 +158,10 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "squee",
 				Address: addr,
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent:      referenceframe.World,
 					Translation: r3.Vector{100, 200, 300},
-					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
+					Orientation: o1Cfg,
 				},
 			},
 		},
@@ -1182,7 +1186,7 @@ func TestStatusRemote(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	frameSystemConfigFunc := func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}

@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 		poseInFrame, ok := receivedPoseInFrames[bodyName]
 		test.That(t, ok, test.ShouldBeTrue)
 		expectedPoseInFrame := allBodiesToPoseInFrames[bodyName]
-		test.That(t, poseInFrame.FrameName(), test.ShouldEqual, expectedPoseInFrame.FrameName())
+		test.That(t, poseInFrame.Parent(), test.ShouldEqual, expectedPoseInFrame.Parent())
 		poseEqualToExpected := spatialmath.PoseAlmostEqual(poseInFrame.Pose(), expectedPoseInFrame.Pose())
 		test.That(t, poseEqualToExpected, test.ShouldBeTrue)
 	}

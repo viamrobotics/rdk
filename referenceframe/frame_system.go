@@ -1,9 +1,13 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"errors"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
+	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/utils/protoutils"
 
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -53,6 +57,14 @@ type FrameSystem interface {
 
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+}
+
+// FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
+// FrameConfig gives the frame's location relative to parent,
+// and ModelFrame is an optional ModelJSON that describes the internal kinematics of the robot part.
+type FrameSystemPart struct {
+	FrameConfig *LinkInFrame
+	ModelFrame  Model
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -170,7 +182,7 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
-	src := object.FrameName()
+	src := object.Parent()
 	if src == dst {
 		return object, nil
 	}
@@ -309,18 +321,6 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// StartPositions returns a zeroed input map ensuring all frames have inputs.
-func StartPositions(fs FrameSystem) map[string][]Input {
-	positions := make(map[string][]Input)
-	for _, fn := range fs.FrameNames() {
-		frame := fs.Frame(fn)
-		if frame != nil {
-			positions[fn] = make([]Input, len(frame.DoF()))
-		}
-	}
-	return positions
-}
-
 func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
@@ -369,6 +369,117 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 		frame = sfs.parents[frame]
 	}
 	return q, errAll
+}
+
+// StartPositions returns a zeroed input map ensuring all frames have inputs.
+func StartPositions(fs FrameSystem) map[string][]Input {
+	positions := make(map[string][]Input)
+	for _, fn := range fs.FrameNames() {
+		frame := fs.Frame(fn)
+		if frame != nil {
+			positions[fn] = make([]Input, len(frame.DoF()))
+		}
+	}
+	return positions
+}
+
+// ToProtobuf turns all the interfaces into serializable types.
+func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
+	if part.FrameConfig == nil {
+		return nil, ErrNoModelInformation
+	}
+	linkFrame, err := LinkInFrameToTransformProtobuf(part.FrameConfig)
+	if err != nil {
+		return nil, err
+	}
+	var modelJSON map[string]interface{}
+	if part.ModelFrame != nil {
+		bytes, err := part.ModelFrame.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(bytes, &modelJSON)
+		if err != nil {
+			return nil, err
+		}
+	}
+	kinematics, err := protoutils.StructToStructPb(modelJSON)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.FrameSystemConfig{
+		Frame:      linkFrame,
+		Kinematics: kinematics,
+	}, nil
+}
+
+// ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
+func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
+	frameConfig, err := LinkInFrameFromTransformProtobuf(fsc.Frame)
+	if err != nil {
+		return nil, err
+	}
+	part := &FrameSystemPart{
+		FrameConfig: frameConfig,
+	}
+
+	if len(fsc.Kinematics.AsMap()) > 0 {
+		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
+		if err != nil {
+			return nil, err
+		}
+		modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
+		if err != nil {
+			if errors.Is(err, ErrNoModelInformation) {
+				return part, nil
+			}
+			return nil, err
+		}
+		part.ModelFrame = modelFrame
+	}
+	return part, nil
+}
+
+// LinkInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
+func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, error) {
+	if transform.Name() == "" || transform.Parent() == "" {
+		return nil, ErrEmptyStringFrameName
+	}
+	part := &FrameSystemPart{
+		FrameConfig: transform,
+	}
+	return part, nil
+}
+
+// CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
+func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Frame, error) {
+	if part == nil || part.FrameConfig == nil {
+		return nil, nil, errors.New("config for FrameSystemPart is nil")
+	}
+	var modelFrame Frame
+	var err error
+	// use identity frame if no model frame defined
+	if part.ModelFrame == nil {
+		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
+	} else {
+		part.ModelFrame.ChangeName(part.FrameConfig.Name())
+		modelFrame = part.ModelFrame
+	}
+	// staticOriginFrame defines a change in origin from the parent part.
+	// If it is empty, the new frame will have the same origin as the parent.
+	staticOriginName := part.FrameConfig.Name() + "_origin"
+	// By default, this
+	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
+	if err != nil {
+		return nil, nil, err
+	}
+	staticOriginFrame, ok := originFrame.(*staticFrame)
+	if !ok {
+		return nil, nil, errors.New("failed to cast originFrame to a static frame")
+	}
+	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
+	// in the "_origin" static frame
+	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil
 }
 
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {

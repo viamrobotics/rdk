@@ -47,7 +47,7 @@ var (
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return rdkutils.NewUnimplementedInterfaceError((Service)(nil), actual)
+	return rdkutils.NewUnimplementedInterfaceError((*Service)(nil), actual)
 }
 
 // Output reflects an instance of shell output on either stdout or stderr.
