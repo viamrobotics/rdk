@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -37,6 +38,7 @@ import (
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -800,6 +802,29 @@ func (rc *RobotClient) TransformPose(
 		return nil, err
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
+// TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
+// Do not move the robot between the generation of the initial pointcloud and the receipt
+// of the transformed pointcloud because that will make the transformations inaccurate.
+func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
+	// get the offset pose from a TransformPose request
+	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
+		Destination:            dstName,
+		Source:                 referenceframe.PoseInFrameToProtobuf(sourceFrameZero),
+		SupplementalTransforms: transforms,
+	})
+	if err != nil {
+		return nil, err
+	}
+	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).(*referenceframe.PoseInFrame).Pose()
+	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, svc.r.Logger())
 }
 
 // Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
