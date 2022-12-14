@@ -362,8 +362,8 @@ func toPC(b *box) (r3.Vector, error) {
 	}
 	// max := verts[0] // https://pkg.go.dev/gonum.org/v1/gonum/spatial/r2#Box.Vertices
 	// min := verts[0]
-	offset := b.halfSize
-	fmt.Println("offset: ", offset)
+	// offset := b.halfSize
+	// fmt.Println("offset: ", offset)
 
 	// for i := 0; i < len(verts); i++ {
 	// 	curr := verts[i]
