@@ -212,13 +212,12 @@ func (svc *frameSystemService) TransformPose(
 // of the transformed pointcloud because that will make the transformations inaccurate.
 func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
-	// get the offset pose
 	if dstName == "" {
 		dstName = referenceframe.World
 	}
 	// get transform pose needed to get to destination frame
 	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
-	theTransform, err := svc.TransformPose(ctx, sourceFrameZero, destName, nil)
+	theTransform, err := svc.TransformPose(ctx, sourceFrameZero, dstName, nil)
 	if err != nil {
 		return nil, err
 	}
