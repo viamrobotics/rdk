@@ -20,10 +20,9 @@ import (
 )
 
 const (
-	cartoSleepMS = 100
+	cartoSleepMs = 100
 )
 
-// TODO DATA-916 remove lua files from tests
 // Creates the lua files required by the cartographer binary.
 func createLuaFiles(name string) error {
 	if err := os.Mkdir(name+"/config/lua_files", os.ModePerm); err != nil {
@@ -56,11 +55,6 @@ func createLuaFiles(name string) error {
 func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	t.Helper()
 
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
-	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
-
 	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	// Typical values for 2D lidar are around (-0.004, 0.004, 0) +- (0.001, 0.001, 0)
@@ -72,6 +66,10 @@ func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 		position.Pose().Orientation().AxisAngles().RY,
 		position.Pose().Orientation().AxisAngles().RZ,
 		position.Pose().Orientation().AxisAngles().Theta)
+	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
 func TestCartographerIntegration(t *testing.T) {
@@ -83,7 +81,6 @@ func TestCartographerIntegration(t *testing.T) {
 
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
-	// TODO DATA-916 remove lua files from tests
 	createLuaFiles(name)
 
 	t.Log("Testing online mode")
@@ -130,7 +127,7 @@ func TestCartographerIntegration(t *testing.T) {
 	closeOutSLAMService(t, "")
 
 	// added sleep to ensure cartographer stops
-	time.Sleep(time.Millisecond * cartoSleepMS)
+	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Delete the last .pcd file in the data directory, so that offline mode runs on the
 	// same data as online mode. (Online mode will not read the last .pcd file, since it
@@ -181,13 +178,16 @@ func TestCartographerIntegration(t *testing.T) {
 	closeOutSLAMService(t, "")
 
 	// added sleep to ensure cartographer stops
-	time.Sleep(time.Millisecond * cartoSleepMS)
+	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
-	// Count the initial number of maps in the map directory
-	numMaps, err := ioutil.ReadDir(name + "/map/")
+
+	// Count the initial number of maps in the map directory (should equal 1)
+	mapsInDir, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mapsInDir), test.ShouldEqual, 1)
+
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode in localization mode")
 
@@ -241,15 +241,15 @@ func TestCartographerIntegration(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	// Test that no new maps were generated
-	numMapsLocalize, err := ioutil.ReadDir(name + "/map/")
+	mapsInDirLocalize, err := ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(numMapsLocalize), test.ShouldEqual, len(numMaps))
+	test.That(t, len(mapsInDirLocalize), test.ShouldEqual, len(mapsInDir))
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
 	// added sleep to ensure cartographer stops
-	time.Sleep(time.Millisecond * cartoSleepMS)
+	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
