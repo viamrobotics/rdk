@@ -278,7 +278,7 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 	if err != nil {
 		return nil, err
 	}
-	return &pb.TransformPCDResponse{PointCloudPcd: buf}, err
+	return &pb.TransformPCDResponse{PointCloudPcd: buf.Bytes()}, err
 }
 
 // GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.

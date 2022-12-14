@@ -823,8 +823,8 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 	if err != nil {
 		return nil, err
 	}
-	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).(*referenceframe.PoseInFrame).Pose()
-	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, svc.r.Logger())
+	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
+	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
 }
 
 // Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.

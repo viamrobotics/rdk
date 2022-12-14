@@ -27,7 +27,7 @@ func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, l
 	cloudFunc := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
 		return srcpc, pose, nil
 	}
-	srcFunc := []pointcloud.CloudAndOffsetFunc{cloudFunc}
+	srcFunc := []CloudAndOffsetFunc{cloudFunc}
 	return MergePointClouds(ctx, srcFunc, logger)
 }
 
