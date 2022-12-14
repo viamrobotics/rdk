@@ -409,7 +409,7 @@ func TestMovementWithGripper(t *testing.T) {
 	geometries["obstacle"] = obstacle
 	obstacles := frame.NewGeometriesInFrame(frame.World, geometries)
 	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
-	
+
 	manager = newPlanManager(logger.Sugar(), fs, sf, zeroPosition, goal, worldState, 1, nil)
 	solution, err = manager.PlanSingleWaypoint(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -422,7 +422,7 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goal = spatialmath.NewPoseFromOrientation(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition = sf.inputToMap(make([]frame.Input, len(sf.DoF())))
-	
+
 	manager = newPlanManager(logger.Sugar(), fs, sf, zeroPosition, goal, worldState, 1, motionConfig)
 	_, err = manager.PlanSingleWaypoint(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
