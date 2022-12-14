@@ -38,7 +38,7 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string, logger golog.Logger) error {
+func (cfg *AttrConfig) Validate(path string) error {
 	isValid := false
 
 	// Validating serial path
