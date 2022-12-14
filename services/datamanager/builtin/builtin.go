@@ -36,17 +36,19 @@ func init() {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
-	config.RegisterServiceAttributeMapConverter(datamanager.Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	config.RegisterServiceAttributeMapConverter(datamanager.Subtype, resource.DefaultServiceModel,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &Config{},
+	)
 	resource.AddDefaultService(datamanager.Named(resource.DefaultServiceName))
 }
 

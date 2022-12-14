@@ -31,10 +31,11 @@ func init() {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
-	config.RegisterServiceAttributeMapConverter(vision.Subtype, resource.DefaultServiceModel, func(attributeMap config.AttributeMap) (interface{}, error) {
-		var attrs vision.Attributes
-		return config.TransformAttributeMapToStruct(&attrs, attributeMap)
-	},
+	config.RegisterServiceAttributeMapConverter(vision.Subtype, resource.DefaultServiceModel,
+		func(attributeMap config.AttributeMap) (interface{}, error) {
+			var attrs vision.Attributes
+			return config.TransformAttributeMapToStruct(&attrs, attributeMap)
+		},
 		&vision.Attributes{},
 	)
 	resource.AddDefaultService(vision.Named(resource.DefaultServiceName))

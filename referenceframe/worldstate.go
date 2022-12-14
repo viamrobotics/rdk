@@ -12,7 +12,7 @@ import (
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
 	Obstacles, InteractionSpaces []*GeometriesInFrame
-	Transforms                   []*PoseInFrame
+	Transforms                   []*LinkInFrame
 }
 
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
@@ -39,7 +39,7 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	if err != nil {
 		return nil, err
 	}
-	transforms, err := PoseInFramesFromTransformProtobuf(proto.GetTransforms())
+	transforms, err := LinkInFramesFromTransformsProtobuf(proto.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 		return list
 	}
 
-	transforms, err := PoseInFramesToTransformProtobuf(worldState.Transforms)
+	transforms, err := LinkInFramesToTransformsProtobuf(worldState.Transforms)
 	if err != nil {
 		return nil, err
 	}

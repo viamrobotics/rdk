@@ -45,17 +45,19 @@ func init() {
 			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
-	config.RegisterServiceAttributeMapConverter(armremotecontrol.Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf ServiceConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &ServiceConfig{})
+	config.RegisterServiceAttributeMapConverter(armremotecontrol.Subtype, resource.DefaultServiceModel,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ServiceConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &ServiceConfig{},
+	)
 }
 
 type (
