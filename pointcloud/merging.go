@@ -28,7 +28,7 @@ func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, l
 		return srcpc, pose, nil
 	}
 	srcFunc := []CloudAndOffsetFunc{cloudFunc}
-	return MergePointClouds(ctx, srcFunc, logger)
+	return MergePointClouds(ctx, srcFunc, logger) // MergePointClouds can also be used on one point cloud.
 }
 
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
