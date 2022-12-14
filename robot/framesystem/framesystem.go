@@ -212,28 +212,18 @@ func (svc *frameSystemService) TransformPose(
 // of the transformed pointcloud because that will make the transformations inaccurate.
 func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
-	// get FrameSystem from Robot
-	fs, err := RobotFrameSystem(ctx, svc.r, nil)
-	if err != nil {
-		return nil, err
-	}
-	// initialize frame system inputs
-	inputs, _, err := RobotFsCurrentInputs(ctx, svc.r, fs)
-	if err != nil {
-		return nil, err
-	}
+	// get the offset pose
 	if dstName == "" {
 		dstName = referenceframe.World
 	}
 	// get transform pose needed to get to destination frame
 	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
-	theTransform, err := fs.Transform(inputs, sourceFrameZero, dstName)
+	theTransform, err := svc.TransformPose(ctx, sourceFrameZero, destName, nil)
 	if err != nil {
 		return nil, err
 	}
-	transformPose := theTransform.(*referenceframe.PoseInFrame).Pose()
 	// returned the transformed pointcloud where the transform was applied to each point
-	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, svc.r.Logger())
+	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.r.Logger())
 }
 
 // updateLocalParts collects the physical parts of the robot that may have frame info,
