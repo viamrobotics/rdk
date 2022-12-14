@@ -126,7 +126,7 @@ func TestStatusClient(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	frameSystemConfigFunc := func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -279,15 +279,19 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
+	o1 := &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
 	cfg := config.Config{
 		Components: []config.Component{
 			{
 				Name: "a",
 				Type: arm.SubtypeName,
-				Frame: &config.Frame{
+				Frame: &referenceframe.LinkConfig{
 					Parent:      "b",
 					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
+					Orientation: o1Cfg,
 				},
 			},
 			{
@@ -711,7 +715,7 @@ func TestClientDisconnect(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -951,7 +955,7 @@ func TestClientReconnect(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -1223,20 +1227,21 @@ func TestClientDiscovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
-	if part.Name != otherPart.Name {
-		return errors.Errorf("part had name %s while other part had name %s", part.Name, otherPart.Name)
+func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
+	if part.FrameConfig.Name() != otherPart.FrameConfig.Name() {
+		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
-	if frameConfig.Parent != otherFrameConfig.Parent {
-		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent, otherFrameConfig.Parent)
+	if frameConfig.Parent() != otherFrameConfig.Parent() {
+		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
 	}
-	if !spatialmath.R3VectorAlmostEqual(frameConfig.Translation, otherFrameConfig.Translation, 1e-8) {
+	if !spatialmath.R3VectorAlmostEqual(frameConfig.Pose().Point(), otherFrameConfig.Pose().Point(), 1e-8) {
 		return errors.New("translations of parts not equal")
 	}
-	orient := frameConfig.Orientation
-	otherOrient := otherFrameConfig.Orientation
+
+	orient := frameConfig.Pose().Orientation()
+	otherOrient := otherFrameConfig.Pose().Orientation()
 
 	switch {
 	case orient == nil && otherOrient != nil:
@@ -1270,34 +1275,47 @@ func TestClientConfig(t *testing.T) {
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
 
-	fsConfigs := []*config.FrameSystemPart{
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	l1 := &referenceframe.LinkConfig{
+		ID:          "frame1",
+		Parent:      referenceframe.World,
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: o1Cfg,
+		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	}
+	lif1, err := l1.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	l2 := &referenceframe.LinkConfig{
+		ID:          "frame2",
+		Parent:      "frame1",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	}
+	lif2, err := l2.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	fsConfigs := []*referenceframe.FrameSystemPart{
 		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
-				Parent:      referenceframe.World,
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-			},
+			FrameConfig: lif1,
 		},
 		{
-			Name: "frame2",
-			FrameConfig: &config.Frame{
-				Parent:      "frame1",
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			},
+			FrameConfig: lif2,
 		},
 	}
 
 	workingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return nil, configErr
 	}
@@ -1502,7 +1520,7 @@ func TestForeignResource(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -1633,7 +1651,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot1.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}
@@ -1771,7 +1789,7 @@ func TestGetUnknownResource(t *testing.T) {
 	// TODO: RSDK-882 will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
 		return framesystemparts.Parts{}, nil
 	}

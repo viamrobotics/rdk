@@ -74,38 +74,43 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	registry.RegisterService(slam.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, deps, c, logger, false)
-		},
-	})
-	config.RegisterServiceAttributeMapConverter(slam.Subtype, resource.DefaultServiceModel, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &AttrConfig{})
+	for _, slamLibrary := range slam.SLAMLibraries {
+		// TODO: PRODUCT-266 use triplet Model names more properly here
+		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
+		registry.RegisterService(slam.Subtype, sModel, registry.Service{
+			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+				return NewBuiltIn(ctx, deps, c, logger, false)
+			},
+		})
+		cType := slam.Subtype
+		config.RegisterServiceAttributeMapConverter(cType, sModel, func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &AttrConfig{})
+	}
 }
 
 // RuntimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 // Returns the slam mode.
-func RuntimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (slam.Mode, error) {
-	slamLib, ok := slam.SLAMLibraries[svcConfig.Algorithm]
+func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
+	slamLib, ok := slam.SLAMLibraries[model]
 	if !ok {
-		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
+		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
 	}
 
 	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
 	if !ok {
 		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
-			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
+			model, svcConfig.ConfigParams["mode"])
 	}
 
 	for _, directoryName := range [4]string{"", "data", "map", "config"} {
@@ -249,7 +254,6 @@ func runtimeServiceValidation(
 // AttrConfig describes how to configure the service.
 type AttrConfig struct {
 	Sensors          []string          `json:"sensors"`
-	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
 	DataRateMs       int               `json:"data_rate_msec"`
 	MapRateSec       *int              `json:"map_rate_sec"`
@@ -260,9 +264,6 @@ type AttrConfig struct {
 
 // Validate creates the list of implicit dependencies.
 func (config *AttrConfig) Validate(path string) ([]string, error) {
-	if config.Algorithm == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "algorithm")
-	}
 
 	if config.ConfigParams["mode"] == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "config_params[mode]")
@@ -419,7 +420,7 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 		}
 		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
 			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
-		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+		pInFrame = referenceframe.NewPoseInFrame(pInFrame.Parent(), newPose)
 	}
 
 	return pInFrame, nil
@@ -504,7 +505,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	slamMode, err := RuntimeConfigValidation(svcConfig, logger)
+	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
@@ -545,7 +546,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	// SLAM Service Object
 	slamSvc := &builtIn{
 		cameraName:            cameraName,
-		slamLib:               slam.SLAMLibraries[svcConfig.Algorithm],
+		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
 		slamMode:              slamMode,
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,

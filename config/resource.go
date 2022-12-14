@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
@@ -65,7 +66,7 @@ type Component struct {
 	// TODO: PRODUCT-266 API replaces Type and Namespace when Service/Component merge, so json needs to be enabled.
 	API           resource.Subtype             `json:"-"`
 	Model         resource.Model               `json:"model"`
-	Frame         *Frame                       `json:"frame,omitempty"`
+	Frame         *referenceframe.LinkConfig   `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
 	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
 
