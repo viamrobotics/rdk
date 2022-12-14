@@ -43,7 +43,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -328,7 +327,16 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		return errors.WithMessage(err, "failed to listen")
 	}
 
-	svc.modServer = module.NewServer(operation.NewManager(svc.logger))
+	var (
+		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
+		streamInterceptors []googlegrpc.StreamServerInterceptor
+	)
+	opManager := svc.r.OperationManager()
+	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
+	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+	// TODO Add session manager interceptors
+
+	svc.modServer = module.NewServer(unaryInterceptors, streamInterceptors)
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}

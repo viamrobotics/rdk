@@ -210,13 +210,18 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 
 func (m *module) dial() error {
 	var err error
+	// TODO SMURF add session support
 	m.conn, err = grpc.Dial(
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
-		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
-		grpc.WithUnaryInterceptor(operation.UnaryClientInterceptor),
-		grpc.WithStreamInterceptor(operation.StreamClientInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			grpc_retry.UnaryClientInterceptor(),
+			operation.UnaryClientInterceptor,
+		),
+		grpc.WithChainStreamInterceptor(
+			grpc_retry.StreamClientInterceptor(),
+			operation.StreamClientInterceptor,
+		),
 	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")

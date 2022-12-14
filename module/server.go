@@ -7,19 +7,18 @@ import (
 	"net/http"
 	"sync"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
-	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-
-	"go.viam.com/rdk/operation"
 )
 
 // NewServer returns a new (module specific) rpc.Server.
-func NewServer(opManager *operation.Manager) rpc.Server {
-	s := &Server{server: googlegrpc.NewServer(
-		googlegrpc.UnaryInterceptor(opManager.UnaryServerInterceptor),
-		googlegrpc.StreamInterceptor(opManager.StreamServerInterceptor),
+func NewServer(unary []grpc.UnaryServerInterceptor, stream []grpc.StreamServerInterceptor) rpc.Server {
+	s := &Server{server: grpc.NewServer(
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unary...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(stream...)),
 	)}
 	reflection.Register(s.server)
 	return s
@@ -28,7 +27,7 @@ func NewServer(opManager *operation.Manager) rpc.Server {
 // Server provides an rpc.Server wrapper around a grpc.Server.
 type Server struct {
 	mu     sync.RWMutex
-	server *googlegrpc.Server
+	server *grpc.Server
 	addr   net.Addr
 }
 
@@ -75,7 +74,7 @@ func (s *Server) Stop() error {
 // its implementation along with any gateway handlers.
 func (s *Server) RegisterServiceServer(
 	ctx context.Context,
-	svcDesc *googlegrpc.ServiceDesc,
+	svcDesc *grpc.ServiceDesc,
 	svcServer interface{},
 	svcHandlers ...rpc.RegisterServiceHandlerFromEndpointFunc,
 ) error {
