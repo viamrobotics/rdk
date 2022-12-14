@@ -152,19 +152,23 @@ func TestReconfigurable(t *testing.T) {
 
 // TODO(rb): remove these tests before merging.  they are just to prove that you can use kinematics outside motionplan now.
 func TestNewNloptIKSolver(t *testing.T) {
+	nSolutions := 10
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	ikConfig := make(map[string]interface{}, 0)
-	ik, err := motionplan.NewIKSolver(m, logger, ikConfig)
-	test.That(t, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
+	test.That(t, fs.AddFrame(m, fs.Frame(referenceframe.World)), test.ShouldBeNil)
 
+	cfg := make(map[string]interface{}, 0)
+	cfg["max_ik_solutions"] = nSolutions
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 360, Z: 362})
-	seed := referenceframe.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})
+	inputs := referenceframe.StartPositions(fs)
+	inputs[m.Name()] = referenceframe.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})
 
-	solutions, err := motionplan.BestIKSolutions(context.Background(), ik, pos, seed, &referenceframe.WorldState{}, 1, 10)
+	solutions, err := motionplan.BestIKSolutions(context.Background(), logger, fs, m, inputs, pos, &referenceframe.WorldState{}, 1, cfg)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(solutions), test.ShouldEqual, nSolutions)
 	for _, solution := range solutions {
 		found, err := m.Transform(solution)
 		test.That(t, err, test.ShouldBeNil)

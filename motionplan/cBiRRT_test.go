@@ -36,6 +36,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	opt := newBasicPlannerOptions()
+	opt.MaxSolutions = nSolutions
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
@@ -43,7 +44,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	pos := spatialmath.NewPoseFromOrientation(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 	corners := map[node]bool{}
 
-	solutions, err := getSolutions(ctx, cbirrt.ik, pos, home7, cbirrt.randseed.Int(), nSolutions)
+	solutions, err := getSolutions(ctx, cbirrt.ik, pos, home7, cbirrt.randseed.Int())
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &basicNode{q: home7}

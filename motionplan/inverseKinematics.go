@@ -103,8 +103,8 @@ func newIKSolver(frame referenceframe.Frame, logger golog.Logger, opt *ikOptions
 func BestIKSolutions(
 	ctx context.Context,
 	logger golog.Logger,
-	frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
+	frame referenceframe.Frame,
 	inputMap map[string][]referenceframe.Input,
 	goal spatialmath.Pose,
 	worldState *referenceframe.WorldState,
@@ -127,8 +127,15 @@ func BestIKSolutions(
 	if err != nil {
 		return nil, err
 	}
-	getSolutions(ctx, ik, goal, input, randseed)
-	return nil, nil
+	nodes, err := getSolutions(ctx, ik, goal, input, randseed)
+	if err != nil {
+		return nil, err
+	}
+	solutions := make([][]referenceframe.Input, 0)
+	for _, node := range nodes {
+		solutions = append(solutions, node.Q())
+	}
+	return solutions, nil
 }
 
 func getSolutions(
