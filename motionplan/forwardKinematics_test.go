@@ -3,7 +3,6 @@ package motionplan
 import (
 	"math"
 	"math/rand"
-	"runtime"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -14,11 +13,6 @@ import (
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-)
-
-var (
-	home = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
 )
 
 func BenchmarkFK(b *testing.B) {

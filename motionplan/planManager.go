@@ -43,7 +43,7 @@ func newPlanManager(
 	worldState *referenceframe.WorldState,
 	seed int,
 	motionConfig map[string]interface{},
-) (*planManager, error) {
+) *planManager {
 	//nolint: gosec
 	return &planManager{
 		logger:       logger,
@@ -54,7 +54,7 @@ func newPlanManager(
 		worldState:   worldState,
 		randSeed:     rand.New(rand.NewSource(int64(seed))),
 		motionConfig: motionConfig,
-	}, nil
+	}
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.

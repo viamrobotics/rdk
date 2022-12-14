@@ -7,10 +7,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func TestIKConfiguration(t *testing.T) {
@@ -27,11 +28,7 @@ func TestIKConfiguration(t *testing.T) {
 			return nil, err
 		}
 		inputMap := referenceframe.StartPositions(fs)
-		manager, err := newPlanManager(logger, fs, m, inputMap, goal, &referenceframe.WorldState{}, 1, cfg)
-		if err != nil {
-			return nil, err
-		}
-		opt, err := manager.plannerOptionsFromConfig(nil, goal, cfg)
+		opt, err := newPlanManager(logger, fs, m, inputMap, goal, &referenceframe.WorldState{}, 1, cfg).plannerOptionsFromConfig(nil, goal, cfg)
 		if err != nil {
 			return nil, err
 		}

@@ -111,11 +111,7 @@ func BestIKSolutions(
 	randseed int,
 	ikConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
-	manager, err := newPlanManager(logger, fs, frame, inputMap, goal, worldState, randseed, ikConfig)
-	if err != nil {
-		return nil, err
-	}
-	opt, err := manager.plannerOptionsFromConfig(nil, goal, ikConfig)
+	opt, err := newPlanManager(logger, fs, frame, inputMap, goal, worldState, randseed, ikConfig).plannerOptionsFromConfig(nil, goal, ikConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,9 @@ package motionplan
 
 import (
 	"context"
+	"math"
 	"math/rand"
+	"runtime"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -61,7 +63,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	for _, solution := range solutions[:nSolutions] {
 		goalMap[solution] = nil
 	}
-	nn := &neighborManager{nCPU: nCPU}
+	nn := &neighborManager{nCPU: int(math.Max(1.0, float64(runtime.NumCPU()/4)))}
 
 	cOpt, err := newCbirrtOptions(opt, m)
 	test.That(t, err, test.ShouldBeNil)

@@ -42,6 +42,7 @@ func NewUnsupportedJointTypeError(jointType string) error {
 	return errors.Errorf("unsupported joint type detected: %q", jointType)
 }
 
-func NewInputMissingFromMapError(framename string) error {
+// NewFrameMissingFromMapError returns an error when the given framename cannot be found in a map.
+func NewFrameMissingFromMapError(framename string) error {
 	return errors.Errorf("no inputs provided for frame with name %s", framename)
 }

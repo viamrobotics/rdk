@@ -157,11 +157,7 @@ func PlanWaypoints(ctx context.Context,
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
 
-		manager, err := newPlanManager(logger, fs, sf, seedMap, goal.Pose(), worldState, i, configs[i])
-		if err != nil {
-			return nil, err
-		}
-		resultSlices, err := manager.PlanSingleWaypoint(ctx)
+		resultSlices, err := newPlanManager(logger, fs, sf, seedMap, goal.Pose(), worldState, i, configs[i]).PlanSingleWaypoint(ctx)
 		if err != nil {
 			return nil, err
 		}
