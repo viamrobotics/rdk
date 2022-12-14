@@ -61,8 +61,7 @@ func QuatToEulerAngles(q quat.Number) *EulerAngles {
 		// pitch (y-axis rotation)
 		angles.Pitch = math.Copysign(math.Pi/2., sinp) // use 90 degrees if out of range
 		// roll (x-axis rotation)
-		atan_thing := math.Atan2(q.Imag, q.Real)
-		angles.Roll = 2.0*atan_thing + math.Copysign(angles.Yaw, sinp)
+		angles.Roll = 2.0*math.Atan2(q.Imag, q.Real) + math.Copysign(angles.Yaw, sinp)
 	} else {
 		// pitch (y-axis rotation)
 		angles.Pitch = math.Asin(sinp)
