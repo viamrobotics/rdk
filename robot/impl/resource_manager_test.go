@@ -47,6 +47,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -1813,6 +1814,11 @@ func (rr *dummyRobot) TransformPose(
 	dst string,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
+	panic("change to return nil")
+}
+
+func (rr *dummyRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
 	panic("change to return nil")
 }
 
