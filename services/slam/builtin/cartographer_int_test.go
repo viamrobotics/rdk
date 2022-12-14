@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -72,7 +73,7 @@ func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
-func TestCartographerIntegration(t *testing.T) {
+func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	_, err := exec.LookPath("carto_grpc_server")
 	if err != nil {
 		t.Log("Skipping test because carto_grpc_server binary was not found")
@@ -90,7 +91,7 @@ func TestCartographerIntegration(t *testing.T) {
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
-			"mode": "2d",
+			"mode": reflect.ValueOf(mode).String(),
 			"v":    "1",
 		},
 		MapRateSec:    &mapRate,
@@ -148,7 +149,7 @@ func TestCartographerIntegration(t *testing.T) {
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
-			"mode": "2d",
+			"mode": reflect.ValueOf(mode).String(),
 			"v":    "1",
 		},
 		MapRateSec:    &mapRate,
@@ -196,7 +197,7 @@ func TestCartographerIntegration(t *testing.T) {
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
-			"mode": "2d",
+			"mode": reflect.ValueOf(mode).String(),
 			"v":    "1",
 		},
 		MapRateSec:    &mapRate,
@@ -262,7 +263,7 @@ func TestCartographerIntegration(t *testing.T) {
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
-			"mode": "2d",
+			"mode": reflect.ValueOf(mode).String(),
 			"v":    "1",
 		},
 		MapRateSec:    &mapRate,
@@ -308,4 +309,8 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Clear out directory
 	closeOutSLAMService(t, name)
+}
+
+func TestCartographerIntegration2D(t *testing.T) {
+	integrationTestHelperCartographer(t, slam.Dim2d)
 }

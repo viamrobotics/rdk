@@ -94,7 +94,7 @@ func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThan, 0)
 }
 
-func integrationTestHelper(t *testing.T, mode slam.Mode) {
+func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	_, err := exec.LookPath("orb_grpc_server")
 	if err != nil {
 		t.Skip("Skipping test because orb_grpc_server binary was not found")
@@ -359,9 +359,9 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 }
 
 func TestOrbslamIntegrationRGBD(t *testing.T) {
-	integrationTestHelper(t, slam.Rgbd)
+	integrationTestHelperOrbslam(t, slam.Rgbd)
 }
 
 func TestOrbslamIntegrationMono(t *testing.T) {
-	integrationTestHelper(t, slam.Mono)
+	integrationTestHelperOrbslam(t, slam.Mono)
 }
