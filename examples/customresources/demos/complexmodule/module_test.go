@@ -287,7 +287,10 @@ func connect(port string, logger golog.Logger) (robot.Robot, error) {
 	defer cancelConn()
 	for {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond * 500)
-		rc, err := client.New(dialCtx, "localhost:" + port, logger, client.WithDialOptions(rpc.WithForceDirectGRPC()))
+		rc, err := client.New(dialCtx, "localhost:" + port, logger,
+			client.WithDialOptions(rpc.WithForceDirectGRPC()),
+			client.WithDisableSessions(), // SMURF enable sessions
+		)
 		dialCancel()
 		if !errors.Is(err, context.DeadlineExceeded) {
 			return rc, err

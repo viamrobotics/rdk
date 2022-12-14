@@ -110,12 +110,19 @@ type Module struct {
 
 // NewModule returns the basic module framework/structure.
 func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
+	// TODO Smurf add session support
 	opMgr := operation.NewManager(logger)
+	unaries := []grpc.UnaryServerInterceptor{
+		opMgr.UnaryServerInterceptor,
+	}
+	streams := []grpc.StreamServerInterceptor{
+		opMgr.StreamServerInterceptor,
+	}
 	m := &Module{
 		logger:     logger,
 		addr:       address,
 		operations: opMgr,
-		server:     NewServer(opMgr),
+		server:     NewServer(unaries, streams),
 		ready:      true,
 		handlers:   HandlerMap{},
 		services:   map[resource.Subtype]subtype.Service{},
