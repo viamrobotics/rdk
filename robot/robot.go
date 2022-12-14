@@ -75,7 +75,7 @@ type Robot interface {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 
-	// TransformPCD will transform the pointcloud to the desired frame in the robot's frame system.
+	// TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
 	// Do not move the robot between the generation of the initial pointcloud and the receipt
 	// of the transformed pointcloud because that will make the transformations inaccurate.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
