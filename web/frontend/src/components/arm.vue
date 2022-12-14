@@ -2,12 +2,13 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, armApi, commonApi } from '@viamrobotics/sdk';
+import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
 
 interface ArmStatus {
   pos_pieces: {
-    endPosition: string
+    endPosition: string[]
     endPositionValue: number
   }[]
 
@@ -171,6 +172,26 @@ const armModifyAll = () => {
   toggle[props.name] = newStatus;
 };
 
+const armCopyPosition = (status: ArmStatus) => {
+  // eslint-disable-next-line unicorn/no-array-reduce
+  copyToClipboardWithToast(JSON.stringify(status.pos_pieces.reduce((acc, cur) => {
+    return {
+      ...acc,
+      [`${cur.endPosition[0]}`]: cur.endPositionValue,
+    };
+  }, {})));
+};
+
+const armCopyJoints = (status: ArmStatus) => {
+  // eslint-disable-next-line unicorn/no-array-reduce
+  copyToClipboardWithToast(JSON.stringify(status.joint_pieces.reduce((acc, cur) => {
+    return {
+      ...acc,
+      [`${cur.joint}`]: cur.jointValue,
+    };
+  }, {})));
+};
+
 </script>
 
 <template>
@@ -304,6 +325,11 @@ const armModifyAll = () => {
               label="Home"
               @click="armHome"
             />
+            <v-button
+              label="Copy"
+              class="flex-auto text-right"
+              @click="() => armCopyPosition(status!)"
+            />
             <div class="flex-auto text-right">
               <v-button
                 class="whitespace-nowrap"
@@ -353,6 +379,11 @@ const armModifyAll = () => {
             <v-button
               label="Home"
               @click="armHome"
+            />
+            <v-button
+              label="Copy"
+              class="flex-auto text-right"
+              @click="() => armCopyJoints(status!)"
             />
             <div class="flex-auto text-right">
               <v-button
