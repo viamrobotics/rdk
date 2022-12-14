@@ -23,9 +23,28 @@ const modelName = "gpio"
 
 // Config is the overall config.
 type Config struct {
-	Board   string                  `json:"board"`
-	Buttons map[string]ButtonConfig `json:"buttons"`
-	Axes    map[string]AxisConfig   `json:"axes"`
+	Board   string                   `json:"board"`
+	Buttons map[string]*ButtonConfig `json:"buttons"`
+	Axes    map[string]*AxisConfig   `json:"axes"`
+}
+
+// AxisConfig is a subconfig for axes.
+type AxisConfig struct {
+	Control       input.Control `json:"control"`
+	Min           int           `json:"min"`
+	Max           int           `json:"max"`
+	Bidirectional bool          `json:"bidirectional"`
+	Deadzone      int           `json:"deadzone"`
+	MinChange     int           `json:"min_change"`
+	PollHz        float64       `json:"poll_hz"`
+	Invert        bool          `json:"invert"`
+}
+
+// ButtonConfig is a subconfig for buttons.
+type ButtonConfig struct {
+	Control    input.Control `json:"control"`
+	Invert     bool          `json:"invert"`
+	DebounceMs int           `json:"debounce_msec"` // set to -1 to disable, default=5
 }
 
 // Validate ensures all parts of the config are valid.
@@ -39,6 +58,28 @@ func (config *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, config.Board)
 	return deps, nil
+}
+
+func (config *Config) validateValues() error {
+	for _, control := range config.Buttons {
+		if control.DebounceMs == 0 {
+			control.DebounceMs = 5
+		}
+	}
+
+	for _, axis := range config.Axes {
+		if axis.MinChange < 1 {
+			axis.MinChange = 1
+		}
+		if axis.PollHz <= 0 {
+			axis.PollHz = 10
+		}
+		if axis.Min >= axis.Max {
+			return fmt.Errorf("min (%d) must be less than max (%d)", axis.Min, axis.Max)
+		}
+	}
+
+	return nil
 }
 
 func init() {
@@ -73,20 +114,25 @@ func NewGPIOController(
 		return nil, errors.New("type assertion failed on input/gpio config")
 	}
 
+	err := cfg.validateValues()
+	if err != nil {
+		return nil, err
+	}
+
 	brd, err := board.FromDependencies(deps, cfg.Board)
 	if err != nil {
 		return nil, err
 	}
 
 	for interrupt, control := range cfg.Buttons {
-		err := c.newButton(ctx, brd, interrupt, control)
+		err := c.newButton(ctx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	for reader, axis := range cfg.Axes {
-		err := c.newAxis(ctx, brd, reader, axis)
+		err := c.newAxis(ctx, brd, reader, *axis)
 		if err != nil {
 			return nil, err
 		}
@@ -95,25 +141,6 @@ func NewGPIOController(
 	c.sendConnectionStatus(ctx, true)
 
 	return &c, nil
-}
-
-// AxisConfig is a subconfig for axes.
-type AxisConfig struct {
-	Control       input.Control `json:"control"`
-	Min           int           `json:"min"`
-	Max           int           `json:"max"`
-	Bidirectional bool          `json:"bidirectional"`
-	Deadzone      int           `json:"deadzone"`
-	MinChange     int           `json:"min_change"`
-	PollHz        float64       `json:"poll_hz"`
-	Invert        bool          `json:"invert"`
-}
-
-// ButtonConfig is a subconfig for buttons.
-type ButtonConfig struct {
-	Control    input.Control `json:"control"`
-	Invert     bool          `json:"invert"`
-	DebounceMs int           `json:"debounce_msec"` // set to -1 to disable, default=5
 }
 
 var _ = input.Controller(&Controller{})
@@ -243,10 +270,6 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 	intChan := make(chan bool)
 	interrupt.AddCallback(intChan)
 
-	if cfg.DebounceMs == 0 {
-		cfg.DebounceMs = 5
-	}
-
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		defer interrupt.RemoveCallback(intChan)
@@ -292,15 +315,7 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 	if !ok {
 		return fmt.Errorf("can't find AnalogReader (%s)", analogName)
 	}
-	if cfg.MinChange < 1 {
-		cfg.MinChange = 1
-	}
-	if cfg.PollHz <= 0 {
-		cfg.PollHz = 10
-	}
-	if cfg.Min >= cfg.Max {
-		return fmt.Errorf("min (%d) must be less than max (%d)", cfg.Min, cfg.Max)
-	}
+
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		var prevVal int

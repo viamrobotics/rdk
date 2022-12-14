@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -154,8 +153,8 @@ func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) re
 	}
 	cfgs := resp.GetFrameSystemConfigs()
 	for _, cfg := range cfgs {
-		if cfg.GetName() == name {
-			if part, err := config.ProtobufToFrameSystemPart(cfg); err == nil {
+		if cfg.GetFrame().GetReferenceFrame() == name {
+			if part, err := referenceframe.ProtobufToFrameSystemPart(cfg); err == nil {
 				return part.ModelFrame
 			}
 			return nil

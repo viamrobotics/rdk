@@ -116,7 +116,7 @@ type MyComponent interface {
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((MyComponent)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*MyComponent)(nil), actual)
 }
 
 func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {

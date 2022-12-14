@@ -146,7 +146,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.New("dependency \"baseTest\" should an implementation of <nil> but it was a *inject.InputController"))
+		errors.New("dependency \"baseTest\" should be an implementation of base.Base but it was a *inject.InputController"))
 
 	// Start checks
 	err = svc.start(ctx)
