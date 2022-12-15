@@ -53,6 +53,7 @@ var (
 	orbslamIntSynchronizeCamerasChan          chan int = make(chan int)
 	cartographerIntLidarReleasePointCloudChan chan int = make(chan int, 1)
 	validMapRate                                       = 200
+	trueDeleteProcessedData                            = true
 )
 
 func getNumOrbslamImages(mode slam.Mode) int {
@@ -972,7 +973,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		MapRateSec:          &validMapRate,
 		DataRateMs:          validDataRateMS,
 		InputFilePattern:    "10:200:1",
-		DeleteProcessedData: true,
+		DeleteProcessedData: &trueDeleteProcessedData,
 		Port:                "localhost:4445",
 	}
 
