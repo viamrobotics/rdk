@@ -182,6 +182,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
 
+	// test orbslam directory, should have N maps and 2 configs
+	testOrbslamDir(t, name, 5, 2)
+
 	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
 	// the same data as online mode. (Online mode will not read the last image (or image pair),
 	// since it always processes the second-most-recent image (or image pair), in case the
@@ -275,6 +278,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
+	// test orbslam directory, should have N maps and 2 configs
+	testOrbslamDir(t, name, 5, 2)
+
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
@@ -353,9 +359,23 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
 
+	// test orbslam directory, should have N maps and 3 configs
+	testOrbslamDir(t, name, 5, 3)
+
 	// Clear out directory
 	closeOutSLAMService(t, name)
 
+}
+
+// Checks the current slam directory to see if the number of files matches the expecteed amount
+func testOrbslamDir(t *testing.T, path string, expectedMaps int, expectedConfigs int) {
+	mapsInDir, err := ioutil.ReadDir(path + "/map/")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mapsInDir), test.ShouldEqual, expectedMaps)
+
+	configsInDir, err := ioutil.ReadDir(path + "/config/")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(configsInDir), test.ShouldEqual, expectedConfigs)
 }
 
 func TestOrbslamIntegrationRGBD(t *testing.T) {

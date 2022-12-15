@@ -185,9 +185,8 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
 
 	// Count the initial number of maps in the map directory (should equal 1)
-	mapsInDir, err := ioutil.ReadDir(name + "/map/")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldEqual, 1)
+
+	testCartographerDir(t, name, 1)
 
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode in localization mode")
@@ -242,9 +241,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	// Test that no new maps were generated
-	mapsInDirLocalize, err := ioutil.ReadDir(name + "/map/")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDirLocalize), test.ShouldEqual, len(mapsInDir))
+	testCartographerDir(t, name, 1)
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
@@ -258,7 +255,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
-	mapRate = 9999
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -307,8 +304,18 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
+	// Test that a new map was generated
+	testCartographerDir(t, name, 2)
+
 	// Clear out directory
 	closeOutSLAMService(t, name)
+}
+
+// Checks the current slam directory to see if the number of files matches the expected amount
+func testCartographerDir(t *testing.T, path string, expectedMaps int) {
+	mapsInDir, err := ioutil.ReadDir(path + "/map/")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mapsInDir), test.ShouldEqual, expectedMaps)
 }
 
 func TestCartographerIntegration2D(t *testing.T) {
