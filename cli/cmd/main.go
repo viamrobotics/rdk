@@ -787,62 +787,8 @@ func DataCommand(c *cli.Context) error {
 	}
 
 	filter := &datapb.Filter{}
-	if c.StringSlice(dataFlagOrgIDs) != nil {
-		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
-	}
-	if c.StringSlice(dataFlagLocationIDs) != nil {
-		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
-	}
-	if c.String(dataFlagRobotID) != "" {
-		filter.RobotId = c.String(dataFlagRobotID)
-	}
-	if c.String(dataFlagPartID) != "" {
-		filter.PartId = c.String(dataFlagPartID)
-	}
-	if c.String(dataFlagRobotName) != "" {
-		filter.RobotName = c.String(dataFlagRobotName)
-	}
-	if c.String(dataFlagPartName) != "" {
-		filter.PartName = c.String(dataFlagPartName)
-	}
-	if c.String(dataFlagComponentType) != "" {
-		filter.ComponentType = c.String(dataFlagComponentType)
-	}
-	if c.String(dataFlagComponentModel) != "" {
-		filter.ComponentModel = c.String(dataFlagComponentModel)
-	}
-	if c.String(dataFlagComponentName) != "" {
-		filter.ComponentName = c.String(dataFlagComponentName)
-	}
-	if c.String(dataFlagMethod) != "" {
-		filter.Method = c.String(dataFlagMethod)
-	}
-	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
-		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
-	}
-
-	var start *timestamppb.Timestamp
-	var end *timestamppb.Timestamp
-	timeLayout := time.RFC3339
-	if c.String(dataFlagStart) != "" {
-		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
-		if err != nil {
-			return errors.Wrap(err, "error parsing start flag")
-		}
-		start = timestamppb.New(t)
-	}
-	if c.String(dataFlagEnd) != "" {
-		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
-		if err != nil {
-			return errors.Wrap(err, "error parsing end flag")
-		}
-		end = timestamppb.New(t)
-	}
-	if start != nil || end != nil {
-		filter.Interval = &datapb.CaptureInterval{
-			Start: start,
-			End:   end,
-		}
+	if err := createDataFilter(c, filter); err != nil {
+		return err
 	}
 
 	client, err := rdkcli.NewAppClient(c)
@@ -874,6 +820,37 @@ func DeleteCommand(c *cli.Context) error {
 	}
 
 	filter := &datapb.Filter{}
+	if err := createDataFilter(c, filter); err != nil {
+		return err
+	}
+
+	client, err := rdkcli.NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	dataType := c.String(dataFlagDataType)
+	switch dataType {
+	case dataTypeBinary:
+		if err := client.DeleteBinaryData(filter); err != nil {
+			return err
+		}
+	case dataTypeTabular:
+		if err := client.DeleteTabularData(filter); err != nil {
+			return err
+		}
+	default:
+		return errors.Errorf("invalid data type %s", dataType)
+	}
+
+	return nil
+}
+
+func createDataFilter(c *cli.Context, filter *datapb.Filter) error {
+	if c.String(dataFlagDataType) != dataTypeBinary && c.String(dataFlagDataType) != dataTypeTabular {
+		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
+	}
+
 	if c.StringSlice(dataFlagOrgIDs) != nil {
 		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
 	}
@@ -931,25 +908,5 @@ func DeleteCommand(c *cli.Context) error {
 			End:   end,
 		}
 	}
-
-	client, err := rdkcli.NewAppClient(c)
-	if err != nil {
-		return err
-	}
-
-	dataType := c.String(dataFlagDataType)
-	switch dataType {
-	case dataTypeBinary:
-		if err := client.DeleteBinaryData(c.String(dataFlagDestination), filter); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		if err := client.DeleteTabularData(c.String(dataFlagDestination), filter); err != nil {
-			return err
-		}
-	default:
-		return errors.Errorf("invalid data type %s", dataType)
-	}
-
 	return nil
 }
