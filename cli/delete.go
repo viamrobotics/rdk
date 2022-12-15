@@ -22,7 +22,7 @@ func (c *AppClient) DeleteBinaryData(dst string, filter *datapb.Filter) error {
 
 	switch status {
 	case datapb.Status_STATUS_PARTIAL_SUCCESS:
-		fmt.Fprint(c.c.App.Writer, "errors", resp.GetResult().GetMessage())
+		fmt.Fprint(c.c.App.Writer, "received errors when deleting objects\n", resp.GetResult().GetMessage())
 	case datapb.Status_STATUS_SUCCESS:
 		fmt.Fprintf(c.c.App.Writer, "deleted %d files", deletedCount)
 	default:
@@ -60,7 +60,7 @@ func (c *AppClient) DeleteTabularData(dst string, filter *datapb.Filter) error {
 
 	switch status {
 	case datapb.Status_STATUS_PARTIAL_SUCCESS:
-		fmt.Fprint(c.c.App.Writer, "errors", resp.GetResult().GetMessage())
+		fmt.Fprint(c.c.App.Writer, "received errors when deleting objects\n", resp.GetResult().GetMessage())
 	case datapb.Status_STATUS_SUCCESS:
 		fmt.Fprintf(c.c.App.Writer, "deleted %d files", deletedCount)
 	default:
