@@ -44,6 +44,6 @@ func (c *AppClient) DeleteTabularData(filter *datapb.Filter) error {
 	if status == datapb.Status_STATUS_PARTIAL_SUCCESS {
 		fmt.Fprint(c.c.App.Writer, "received errors when deleting objects\n", resp.GetResult().GetMessage())
 	}
-	fmt.Fprintf(c.c.App.Writer, "deleted %d files", deletedCount)
+	fmt.Fprintf(c.c.App.Writer, "deleted %d datapoints", deletedCount)
 	return nil
 }

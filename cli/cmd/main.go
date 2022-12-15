@@ -914,25 +914,5 @@ func createDataFilter(c *cli.Context, filter *datapb.Filter) error {
 			End:   end,
 		}
 	}
-
-	client, err := rdkcli.NewAppClient(c)
-	if err != nil {
-		return err
-	}
-
-	dataType := c.String(dataFlagDataType)
-	switch dataType {
-	case dataTypeBinary:
-		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		if err := client.TabularData(c.String(dataFlagDestination), filter); err != nil {
-			return err
-		}
-	default:
-		return errors.Errorf("invalid data type %s", dataType)
-	}
-
 	return nil
 }
