@@ -1,11 +1,7 @@
 package referenceframe
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/golang/geo/r3"
-	"github.com/mitchellh/mapstructure"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -19,107 +15,129 @@ const (
 	RevoluteJoint   = "revolute"
 )
 
-// FrameMapConfig represents the format for configuring a Frame object.
-type FrameMapConfig map[string]interface{}
+// LinkConfig is a StaticFrame that also has a specified parent.
+type LinkConfig struct {
+	ID          string                     `json:"id"`
+	Translation r3.Vector                  `json:"translation"`
+	Orientation *spatial.OrientationConfig `json:"orientation"`
+	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"`
+	Parent      string                     `json:"parent,omitempty"`
+}
 
-// UnmarshalFrameJSON deserialized json into a reference referenceframe.
-func UnmarshalFrameJSON(data []byte) (Frame, error) {
-	config := FrameMapConfig{}
-	err := json.Unmarshal(data, &config)
+// JointConfig is a frame with nonzero DOF. Supports rotational or translational.
+type JointConfig struct {
+	ID       string                  `json:"id"`
+	Type     string                  `json:"type"`
+	Parent   string                  `json:"parent"`
+	Axis     spatial.AxisConfig      `json:"axis"`
+	Max      float64                 `json:"max"`                // in mm or degs
+	Min      float64                 `json:"min"`                // in mm or degs
+	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"` // only valid for prismatic/translational joints
+}
+
+// DHParamConfig is a revolute and static frame combined in a set of Denavit Hartenberg parameters.
+type DHParamConfig struct {
+	ID       string                  `json:"id"`
+	Parent   string                  `json:"parent"`
+	A        float64                 `json:"a"`
+	D        float64                 `json:"d"`
+	Alpha    float64                 `json:"alpha"`
+	Max      float64                 `json:"max"` // in mm or degs
+	Min      float64                 `json:"min"` // in mm or degs
+	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"`
+}
+
+// NewLinkConfig constructs a config from a Frame.
+func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
+	var geom *spatial.GeometryConfig
+	orient, err := spatial.NewOrientationConfig(frame.transform.Orientation())
 	if err != nil {
 		return nil, err
 	}
-
-	return config.ParseConfig()
+	if frame.geometryCreator != nil {
+		geom, err = spatial.NewGeometryConfig(frame.geometryCreator)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &LinkConfig{
+		ID:          frame.name,
+		Translation: frame.transform.Point(),
+		Orientation: orient,
+		Geometry:    geom,
+	}, nil
 }
 
-// ParseConfig converts a FrameMapConfig to a Frame object.
-func (config FrameMapConfig) ParseConfig() (Frame, error) {
-	name, ok := config["name"].(string)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(name, config["name"])
+// ParseConfig converts a LinkConfig into a staticFrame.
+func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
+	pose, err := cfg.Pose()
+	if err != nil {
+		return nil, err
 	}
+	var geom spatial.GeometryCreator
+	if cfg.Geometry != nil {
+		geom, err = cfg.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
+}
 
-	switch config["type"] {
-	case "static":
-		pose, ok := config["transform"].(map[string]interface{})
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(pose, config["transform"])
-		}
-		transform, err := decodePose(pose)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding transform (%v) %w", config["transform"], err)
-		}
-		return NewStaticFrame(name, transform)
-	case "translational":
-		var transAxis r3.Vector
-		err := mapstructure.Decode(config["transAxis"], &transAxis)
+// Pose will parse out the Pose of a LinkConfig and return it if it is valid.
+func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
+	pt := cfg.Translation
+	if cfg.Orientation != nil {
+		orient, err := cfg.Orientation.ParseConfig()
 		if err != nil {
 			return nil, err
 		}
-		var limit []Limit
-		err = mapstructure.Decode(config["limit"], &limit)
-		if err != nil {
-			return nil, err
-		}
-		return NewTranslationalFrame(name, transAxis, limit[0])
-	case "rotational":
-		rotAxis, ok := config["rotAxis"].(map[string]interface{})
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(rotAxis, config["rotAxis"])
-		}
-		var axis spatial.R4AA
-		axis.RX, ok = rotAxis["X"].(float64)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(axis.RX, rotAxis["X"])
-		}
-		axis.RY, ok = rotAxis["Y"].(float64)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(axis.RY, rotAxis["Y"])
-		}
-		axis.RZ, ok = rotAxis["Z"].(float64)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(axis.RZ, rotAxis["Z"])
-		}
-		var limit []Limit
-		err := mapstructure.Decode(config["limit"], &limit)
-		if err != nil {
-			return nil, err
-		}
-		return NewRotationalFrame(name, axis, limit[0])
+		return spatial.NewPoseFromOrientation(pt, orient), nil
+	}
+	return spatial.NewPoseFromPoint(pt), nil
+}
+
+// ToFrame converts a JointConfig into a joint frame.
+func (cfg *JointConfig) ToFrame() (Frame, error) {
+	switch cfg.Type {
+	case RevoluteJoint:
+		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(),
+			Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
+	case PrismaticJoint:
+		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis),
+			Limit{Min: cfg.Min, Max: cfg.Max})
 	default:
-		return nil, fmt.Errorf("no frame type: [%v]", config["type"])
+		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}
 }
 
-func decodePose(config FrameMapConfig) (spatial.Pose, error) {
-	var point r3.Vector
-
-	err := mapstructure.Decode(config["point"], &point)
+// ToDHFrames converts a DHParamConfig into a joint frame and a link frame.
+func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
+	jointID := cfg.ID + "_j"
+	rFrame, err := NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
+		Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
 	if err != nil {
-		return nil, err
-	}
-
-	orientationMap, ok := config["orientation"].(map[string]interface{})
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(orientationMap, config["orientation"])
-	}
-	oType, ok := orientationMap["type"].(string)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(oType, orientationMap["type"])
-	}
-	oValue, ok := orientationMap["value"].(map[string]interface{})
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(oValue, orientationMap["value"])
-	}
-	jsonValue, err := json.Marshal(oValue)
-	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	orientation, err := (&spatial.OrientationConfig{spatial.OrientationType(oType), jsonValue}).ParseConfig()
-	if err != nil {
-		return nil, err
+	// Link part of DH param
+	linkID := cfg.ID
+	pose := spatial.NewPoseFromDH(cfg.A, cfg.D, utils.DegToRad(cfg.Alpha))
+	var lFrame Frame
+	if cfg.Geometry != nil {
+		geometryCreator, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+		lFrame, err = NewStaticFrameWithGeometry(linkID, pose, geometryCreator)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		lFrame, err = NewStaticFrame(cfg.ID, pose)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-	return spatial.NewPoseFromOrientation(point, orientation), nil
+	return rFrame, lFrame, nil
 }

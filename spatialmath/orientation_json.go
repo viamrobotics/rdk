@@ -21,11 +21,15 @@ const (
 // OrientationConfig holds the underlying type of orientation, and the value.
 type OrientationConfig struct {
 	Type  OrientationType `json:"type"`
-	Value json.RawMessage `json:"value"`
+	Value json.RawMessage `json:"value,omitempty"`
 }
 
 // NewOrientationConfig encodes the orientation interface to something serializable and human readable.
 func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
+	if o == nil {
+		o = NewZeroOrientation()
+	}
+
 	bytes, err := json.Marshal(o)
 	if err != nil {
 		return nil, err
