@@ -107,17 +107,18 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode")
 
 	var sensors []string
-	var expectedMapsOnline int
-	var expectedMapsOffline int
+	var expectedMapsOnline, expectedMapsOffline, expectedMapsApriori int
 	switch mode {
 	case slam.Mono:
 		sensors = []string{"orbslam_int_webcam"}
 		expectedMapsOnline = 1
 		expectedMapsOffline = 1
+		expectedMapsApriori = expectedMapsOnline
 	case slam.Rgbd:
 		sensors = []string{"orbslam_int_color_camera", "orbslam_int_depth_camera"}
 		expectedMapsOnline = 5
 		expectedMapsOffline = 2
+		expectedMapsApriori = expectedMapsOnline + 1
 	default:
 		t.FailNow()
 	}
@@ -366,7 +367,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	// test orbslam directory, should have 3 configs
-	testOrbslamDir(t, name, expectedMapsOnline+1, 3)
+	testOrbslamDir(t, name, expectedMapsApriori, 3)
 
 	// Clear out directory
 	closeOutSLAMService(t, name)
