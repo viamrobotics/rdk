@@ -215,6 +215,9 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	if dstName == "" {
 		dstName = referenceframe.World
 	}
+	if srcName == "" {
+		return nil, errors.New("srcName cannot be empty, must provide name of point cloud origin")
+	}
 	// get transform pose needed to get to destination frame
 	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
 	theTransform, err := svc.TransformPose(ctx, sourceFrameZero, dstName, nil)
