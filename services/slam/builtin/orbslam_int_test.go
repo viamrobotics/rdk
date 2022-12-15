@@ -2,6 +2,7 @@ package builtin_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -117,6 +118,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	}
 
 	mapRate := 1
+	falseDeleteProcessedMap := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
@@ -132,7 +134,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		DataDirectory: name,
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
-		MapRateSec: &mapRate,
+		MapRateSec:          &mapRate,
+		DeleteProcessedData: &falseDeleteProcessedMap,
 	}
 
 	// Release camera image(s) for service validation
@@ -341,6 +344,12 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		if orbslam_hangs {
 			break
 		}
+
+		datas, err := ioutil.ReadDir(name + "/data")
+		if err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+		}
+		fmt.Printf("Number of images in %v folder: %v\n", name+"/data", len(datas))
 	}
 
 	testOrbslamPositionAndMap(t, svc)

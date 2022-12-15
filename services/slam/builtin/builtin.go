@@ -257,7 +257,7 @@ type AttrConfig struct {
 	DataDirectory       string            `json:"data_dir"`
 	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
-	DeleteProcessedData bool              `json:"delete_processed_data"`
+	DeleteProcessedData *bool             `json:"delete_processed_data"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -535,6 +535,15 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		mapRate = *svcConfig.MapRateSec
 	}
 
+	var deleteProcessedData bool
+	if svcConfig.DeleteProcessedData == nil {
+		deleteProcessedData = (len(cams) != 0)
+		logger.Debugf("no value given for delete_processed_data given, setting to default value of %b", deleteProcessedData)
+
+	} else {
+		deleteProcessedData = *svcConfig.DeleteProcessedData
+	}
+
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
 	for _, cam := range cams {
 		camStreams = append(camStreams, gostream.NewEmbeddedVideoStream(cam))
@@ -551,7 +560,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
 		inputFilePattern:      svcConfig.InputFilePattern,
-		deleteProcessedData:   svcConfig.DeleteProcessedData,
+		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
 		dataRateMs:            dataRate,
 		mapRateSec:            mapRate,
