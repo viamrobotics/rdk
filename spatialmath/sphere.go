@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
+	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
@@ -199,4 +201,38 @@ func sphereInSphere(inner, outer *sphere) bool {
 // sphereInBox returns a bool describing if the given sphere is fully encompassed by the given box.
 func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
+}
+
+func SpheretoPC(s *sphere) (r3.Vector, error) {
+	vec := &r3.Vector{}
+	// pose := s.pose.Point()
+	// radius := s.radius
+	// fmt.Println("pose: ", pose)
+	// fmt.Println("radius: ", radius)
+	// var points [][]float64
+	last_list := golist.New()
+	phi := math.Pi * (3.0 - math.Sqrt(5.0))
+
+	nums := 1000 * s.radius
+	for i := 0.; i < nums; i++ {
+		points_list := golist.New()
+
+		y := float64(1 - (i/(nums-1))*2)
+		radius := math.Sqrt(1 - y*y)
+		theta := phi * float64(i)
+
+		x := (math.Cos(theta) * radius) * s.radius
+		z := (math.Sin(theta) * radius) * s.radius
+		y = y * s.radius
+		// p := [3]float64{x, y, z}
+
+		points_list.Append(x)
+		points_list.Append(y)
+		points_list.Append(z)
+		last_list.Append(points_list)
+	}
+	f, _ := os.Create("/Users/nick/Desktop/play/last.txt")
+	f.WriteString(last_list.String())
+	f.Close()
+	return *vec, nil
 }
