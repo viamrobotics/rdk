@@ -52,11 +52,12 @@ func TestBoxVertices(t *testing.T) {
 	test.That(t, R3VectorAlmostEqual(vertices[7], r3.Vector{-1, -1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
 }
 
-func TestBoxPCD(t *testing.T) {
-	offset := r3.Vector{0, 0, 0}
-	dims := r3.Vector{2, 4, 6}
+func TestBoxPC(t *testing.T) {
+	offset := r3.Vector{0.5, 1, 1.5}
+	dims := r3.Vector{1, 2, 3}
+	// dims := r3.Vector{2, 2, 2}
 	orien := &Quaternion{1, 0, 0, 0}
 	pose := NewPoseFromOrientation(offset, orien)
-	box := &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, ""}
-	toPC(box)
+	box := &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, 10, ""}
+	BoxtoPC(box)
 }
