@@ -46,7 +46,7 @@ func init() {
 		},
 	})
 	cType := config.ServiceType(armremotecontrol.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultModelName, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf ServiceConfig
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

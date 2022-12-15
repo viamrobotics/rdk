@@ -37,7 +37,7 @@ func init() {
 	},
 	)
 	cType := config.ServiceType(navigation.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultModelName, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

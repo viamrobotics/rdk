@@ -96,7 +96,7 @@ func TestClientWorkingService(t *testing.T) {
 		extra := map[string]interface{}{"foo": "Position"}
 		pInFrame, err := workingSLAMClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get map
@@ -134,7 +134,7 @@ func TestClientWorkingService(t *testing.T) {
 		extra := map[string]interface{}{"foo": "Position"}
 		pInFrame, err := workingDialedClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get map
@@ -160,7 +160,7 @@ func TestClientWorkingService(t *testing.T) {
 		extra := map[string]interface{}{"foo": "Position"}
 		p, err := workingDialedClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, p.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, p.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

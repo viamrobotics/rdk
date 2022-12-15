@@ -12,6 +12,8 @@ import (
 type GeometryCreator interface {
 	NewGeometry(Pose) Geometry
 	Offset() Pose
+	ToProtobuf() *commonpb.Geometry
+	String() string
 	json.Marshaler
 }
 
@@ -53,8 +55,8 @@ type GeometryConfig struct {
 	R float64 `json:"r"`
 
 	// define an offset to position the geometry
-	TranslationOffset TranslationConfig `json:"translation"`
-	OrientationOffset OrientationConfig `json:"orientation"`
+	TranslationOffset r3.Vector         `json:"translation,omitempty"`
+	OrientationOffset OrientationConfig `json:"orientation,omitempty"`
 
 	Label string
 }
@@ -81,8 +83,8 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 	}
 	offset := gc.Offset()
 	o := offset.Orientation()
-	config.TranslationOffset = *NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
-	orientationConfig, err := NewOrientationConfig(o.AxisAngles())
+	config.TranslationOffset = Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point()
+	orientationConfig, err := NewOrientationConfig(o)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +99,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	if err != nil {
 		return nil, err
 	}
-	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
+	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset))
 
 	// build GeometryCreator depending on specified type
 	switch config.Type {
@@ -133,4 +135,28 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 		return NewSphere(pose.Point(), sphere.RadiusMm, geometry.Label)
 	}
 	return nil, ErrGeometryTypeUnsupported
+}
+
+// NewGeometryCreatorFromProto instantiates a new GeometryCreator from a protobuf Geometry message.
+func NewGeometryCreatorFromProto(geometry *commonpb.Geometry) (GeometryCreator, error) {
+	pose := NewPoseFromProtobuf(geometry.Center)
+	if box := geometry.GetBox().GetDimsMm(); box != nil {
+		return NewBoxCreator(r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, pose, geometry.Label)
+	}
+	if sphere := geometry.GetSphere(); sphere != nil {
+		if sphere.RadiusMm == 0 {
+			return NewPointCreator(pose, geometry.Label), nil
+		}
+		return NewSphereCreator(sphere.RadiusMm, pose, geometry.Label)
+	}
+	return nil, ErrGeometryTypeUnsupported
+}
+
+// ToProtobuf converts a GeometryConfig to Protobuf.
+func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
+	creator, err := config.ParseConfig()
+	if err != nil {
+		return nil, err
+	}
+	return creator.ToProtobuf(), nil
 }

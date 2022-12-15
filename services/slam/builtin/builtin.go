@@ -80,7 +80,7 @@ func init() {
 			},
 		})
 		cType := config.ServiceType(slam.SubtypeName)
-		config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+		config.RegisterServiceAttributeMapConverter(cType, slamLibrary.AlgoName, func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 			if err != nil {
@@ -417,7 +417,7 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 		}
 		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
 			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
-		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+		pInFrame = referenceframe.NewPoseInFrame(pInFrame.Parent(), newPose)
 	}
 
 	return pInFrame, nil

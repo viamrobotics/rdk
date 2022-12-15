@@ -26,7 +26,6 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
@@ -743,9 +742,9 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (rc *RobotClient) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -754,9 +753,9 @@ func (rc *RobotClient) FrameSystemConfig(
 		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
-	result := make([]*config.FrameSystemPart, 0, len(cfgs))
+	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
 	for _, cfg := range cfgs {
-		part, err := config.ProtobufToFrameSystemPart(cfg)
+		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -770,9 +769,9 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
