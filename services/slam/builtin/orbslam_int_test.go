@@ -183,7 +183,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	closeOutSLAMService(t, "")
 
 	// test orbslam directory, should have N maps and 2 configs
-	testOrbslamDir(t, name, 5, 2)
+	testOrbslamDir(t, name, 6, 2)
 
 	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
 	// the same data as online mode. (Online mode will not read the last image (or image pair),
@@ -279,7 +279,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	closeOutSLAMService(t, "")
 
 	// test orbslam directory, should have N maps and 2 configs
-	testOrbslamDir(t, name, 5, 2)
+	testOrbslamDir(t, name, 6, 2)
 
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
@@ -288,7 +288,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
-	mapRate = 9999
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -360,7 +360,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	// test orbslam directory, should have N maps and 3 configs
-	testOrbslamDir(t, name, 5, 3)
+	testOrbslamDir(t, name, 7, 3)
 
 	// Clear out directory
 	closeOutSLAMService(t, name)
