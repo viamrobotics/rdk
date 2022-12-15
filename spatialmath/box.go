@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
+	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -354,71 +357,76 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 }
 
 // toPC returns list of points that make up box pointcloud
-func toPC(b *box) (r3.Vector, error) {
+func BoxtoPC(b *box) (r3.Vector, error) {
 	vec := &r3.Vector{}
-	verts := b.Vertices()
-	for _, v := range verts {
-		fmt.Println("v: ", v)
+
+	dims := [3]float64{b.halfSize[0] * 2, b.halfSize[1] * 2, b.halfSize[2] * 2}
+
+	var faces [][]float64
+
+	// TODO: fix iteration values
+	for i := 0.0; i <= dims[0]; i += 0.05 {
+		for k := 0.0; k <= dims[2]; k += 0.05 {
+			p1 := []float64{i, 0, k}
+			p2 := []float64{i, dims[1], k}
+			faces = append(faces, p1, p2)
+		}
 	}
-	// max := verts[0] // https://pkg.go.dev/gonum.org/v1/gonum/spatial/r2#Box.Vertices
-	// min := verts[0]
-	// offset := b.halfSize
-	// fmt.Println("offset: ", offset)
+	for j := 0.0; j <= dims[1]; j += 0.05 {
+		for k := 0.0; k <= dims[2]; k += 0.05 {
+			p1 := []float64{0, j, k}
+			p2 := []float64{dims[0], j, k}
+			faces = append(faces, p1, p2)
+		}
+	}
+	for i := 0.0; i <= dims[0]; i += 0.05 {
+		for j := 0.0; j <= dims[1]; j += 0.05 {
+			p1 := []float64{i, j, 0}
+			p2 := []float64{i, j, dims[2]}
+			faces = append(faces, p1, p2)
+		}
+	}
 
-	// for i := 0; i < len(verts); i++ {
-	// 	curr := verts[i]
-	// 	if curr.X >= max.X && curr.Y >= max.Y && curr.Z >= max.Z {
-	// 		max = verts[i]
-	// 	} else if curr.X <= min.X && curr.Y <= min.Y && curr.Z <= min.Z {
-	// 		min = verts[i]
-	// 	}
-	// }
+	min := b.Vertices()[0]
+	for i := 0; i < len(b.Vertices()); i++ {
+		curr := b.Vertices()[i]
+		if curr.X <= min.X && curr.Y <= min.Y && curr.Z <= min.Z {
+			min = b.Vertices()[i]
+		}
+	}
 
-	// var faces [][]float64
-	// iter := offset / 40
-	// for j := 0.0; j <= offset; j += iter { // this is Y
-	// 	for i := 0.0; i <= offset; i += iter { // this is X
-	// 		points := []float64{i, j, 0} // 1
-	// 		faces = append(faces, points)
-	// 		points = []float64{i, j, offset} // 2
-	// 		faces = append(faces, points)
-	// 		points = []float64{0, j, i} // 3
-	// 		faces = append(faces, points)
-	// 		points = []float64{offset, j, i} // 4
-	// 		faces = append(faces, points)
-	// 		points = []float64{j, 0, i} // 5
-	// 		faces = append(faces, points)
-	// 		points = []float64{j, offset, i} // 6
-	// 		faces = append(faces, points)
-	// 	}
-	// }
+	for _, v := range faces {
+		v[0] = v[0] + min.X
+		v[1] = v[1] + min.Y
+		v[2] = v[2] + min.Z
+	}
 
-	// rotMat := b.Pose().Orientation().RotationMatrix().mat
-	// myMat := mat.NewDense(3, 3, rotMat[:])
-	// last_list := golist.New()
-	// for i := 0; i < len(faces); i++ {
-	// 	blarg := mat.NewVecDense(3, faces[i])
-	// 	actual := make([]float64, 3)
-	// 	c := mat.NewVecDense(3, actual)
-	// 	c.MulVec(myMat, blarg)
-	// 	points_list := golist.New()
-	// 	points_list.Append(actual[0])
-	// 	points_list.Append(actual[1])
-	// 	points_list.Append(actual[2])
-	// 	last_list.Append(points_list)
-	// }
+	rotMat := b.Pose().Orientation().RotationMatrix().mat
+	myMat := mat.NewDense(3, 3, rotMat[:])
+	last_list := golist.New()
+	for i := 0; i < len(faces); i++ {
+		blarg := mat.NewVecDense(3, faces[i])
+		actual := make([]float64, 3)
+		c := mat.NewVecDense(3, actual)
+		c.MulVec(myMat, blarg)
+		points_list := golist.New()
+		points_list.Append(actual[0])
+		points_list.Append(actual[1])
+		points_list.Append(actual[2])
+		last_list.Append(points_list)
+	}
 
-	// for i := 0; i < len(faces); i++ {
-	// 	points_list := golist.New()
-	// 	points_list.Append(faces[i][0])
-	// 	points_list.Append(faces[i][1])
-	// 	points_list.Append(faces[i][2])
-	// 	last_list.Append(points_list)
-	// }
+	for i := 0; i < len(faces); i++ {
+		points_list := golist.New()
+		points_list.Append(faces[i][0])
+		points_list.Append(faces[i][1])
+		points_list.Append(faces[i][2])
+		last_list.Append(points_list)
+	}
 
-	// f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
-	// f.WriteString(last_list.String())
-	// f.Close()
+	f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
+	f.WriteString(last_list.String())
+	f.Close()
 
 	return *vec, nil
 }

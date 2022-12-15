@@ -41,3 +41,12 @@ func TestSphereAlmostEqual(t *testing.T) {
 func TestSphereVertices(t *testing.T) {
 	test.That(t, R3VectorAlmostEqual(makeTestSphere(r3.Vector{}, 1, "").Vertices()[0], r3.Vector{}, 1e-8), test.ShouldBeTrue)
 }
+
+func TestSpherePC(t *testing.T) {
+	pt := r3.Vector{1, 1, 1}
+	radius := 2.0
+	label := ""
+
+	sphere := &sphere{NewPoseFromPoint(pt), radius, label}
+	SpheretoPC(sphere)
+}
