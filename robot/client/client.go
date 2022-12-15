@@ -807,18 +807,23 @@ func (rc *RobotClient) TransformPose(
 // TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
 // Do not move the robot between the generation of the initial pointcloud and the receipt
 // of the transformed pointcloud because that will make the transformations inaccurate.
+// TODO(RSDK-1197): Rather than having to apply a transform to every point using ApplyOffset,
+// implementing the suggested ticket would mean simply adding the transform to a field in the
+// point cloud struct, and then returning the updated struct. Would be super fast.
 func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
+	if dstName == "" {
+		dstName = referenceframe.World
+	}
+	if srcName == "" {
+		return nil, errors.New("srcName cannot be empty, must provide name of point cloud origin")
+	}
 	// get the offset pose from a TransformPose request
 	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
-	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(nil)
-	if err != nil {
-		return nil, err
-	}
 	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
 		Destination:            dstName,
 		Source:                 referenceframe.PoseInFrameToProtobuf(sourceFrameZero),
-		SupplementalTransforms: transforms,
+		SupplementalTransforms: []*commonpb.Transform{},
 	})
 	if err != nil {
 		return nil, err
