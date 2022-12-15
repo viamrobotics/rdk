@@ -115,6 +115,8 @@ var testService = Service{
 	Attributes: AttributeMap{
 		"attr1": 1,
 	},
+	Model:     "some-model",
+	DependsOn: []string{"some-depends-on"},
 }
 
 var testProcessConfig = pexec.ProcessConfig{
