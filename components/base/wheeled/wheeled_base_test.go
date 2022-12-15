@@ -41,7 +41,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, logger)
+	baseBase, err := createWheeledBase(context.Background(), motorDeps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -310,7 +310,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, logger)
+	baseBase, err := createWheeledBase(ctx, motorDeps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
