@@ -10,6 +10,12 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 )
 
+const (
+	// This value allows for high level of granularity in the octree while still allowing for fast access times
+	// even on a pi.
+	maxRecursionDepth = 1000
+)
+
 // basicOctree is a data structure that represents a basic octree structure with information regarding center
 // point, side length and node data.
 type basicOctree struct {
@@ -17,7 +23,7 @@ type basicOctree struct {
 	node       basicOctreeNode
 	center     r3.Vector
 	sideLength float64
-	size       int32
+	size       int
 	meta       pc.MetaData
 }
 
@@ -49,58 +55,13 @@ func New(ctx context.Context, center r3.Vector, sideLength float64, logger golog
 
 // Size returns the number of points stored in the octree's metadata.
 func (octree *basicOctree) Size() int {
-	return int(octree.size)
+	return octree.size
 }
 
-// Set checks if the point to be added is a valid point for a basic octree to contain based on its center and side
-// length. It then recursively iterates through the tree until it finds the appropriate node to add it to. If the
-// found node contains a point already, it will split the node into octants and will add both the old point and new
-// one to the newly created children trees.
+// Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
+// ensuring it falls within the bounds of the given basic octree.
 func (octree *basicOctree) Set(p r3.Vector, d pc.Data) error {
-	if (pc.PointAndData{P: p, D: d} == pc.PointAndData{}) {
-		octree.logger.Debug("no data given, skipping insertion")
-		return nil
-	}
-
-	if !octree.checkPointPlacement(p) {
-		return errors.New("error point is outside the bounds of this octree")
-	}
-
-	switch octree.node.nodeType {
-	case InternalNode:
-		for _, childNode := range octree.node.children {
-			if childNode.checkPointPlacement(p) {
-				err := childNode.Set(p, d)
-				if err == nil {
-					// Update metadata
-					octree.meta.Merge(p, d)
-					octree.size++
-				}
-				return err
-			}
-		}
-		return errors.New("error invalid internal node detected, please check your tree")
-
-	case LeafNodeFilled:
-		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
-			// Update data in point
-			octree.node.point.D = d
-			return nil
-		}
-		if err := octree.splitIntoOctants(); err != nil {
-			return errors.Errorf("error in splitting octree into new octants: %v", err)
-		}
-		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
-		return octree.Set(p, d)
-
-	case LeafNodeEmpty:
-		// Update metadata
-		octree.meta.Merge(p, d)
-		octree.size++
-		octree.node = newLeafNodeFilled(p, d)
-	}
-
-	return nil
+	return octree.helperSet(p, d, 0)
 }
 
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
@@ -131,8 +92,28 @@ func (octree *basicOctree) At(x, y, z float64) (pc.Data, bool) {
 	return nil, false
 }
 
-// Iterate TODO: Implement iterate for octree.
-func (octree *basicOctree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d pc.Data) bool) {
+// Iterate is a batchable process that will go through a basic octree and applies a specified function
+// to either all the data points or a subset of them based on the given numBatches and currentBatch
+// inputs. If any of the applied functions returns a false value, iteration will stop and no further
+// points will be processed.
+func (octree *basicOctree) Iterate(numBatches, currentBatch int, fn func(p r3.Vector, d pc.Data) bool) {
+	if numBatches < 0 || currentBatch < 0 || (numBatches > 0 && currentBatch >= numBatches) {
+		return
+	}
+
+	lowerBound := 0
+	upperBound := octree.Size()
+
+	if numBatches > 0 {
+		batchSize := (octree.Size() + numBatches - 1) / numBatches
+		lowerBound = currentBatch * batchSize
+		upperBound = (currentBatch + 1) * batchSize
+	}
+	if upperBound > octree.Size() {
+		upperBound = octree.Size()
+	}
+
+	octree.helperIterate(lowerBound, upperBound, 0, fn)
 }
 
 // MarshalOctree TODO: Implement marshalling for octree.

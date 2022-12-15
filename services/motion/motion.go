@@ -56,7 +56,7 @@ type Service interface {
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
-		supplementalTransforms []*referenceframe.PoseInFrame,
+		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
@@ -84,7 +84,7 @@ func Named(name string) resource.Name {
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Service)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named motion service from the given Robot.
@@ -138,7 +138,7 @@ func (svc *reconfigurableMotionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*referenceframe.PoseInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()

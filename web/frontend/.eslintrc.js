@@ -16,6 +16,7 @@ module.exports = {
     '@typescript-eslint',
     'unicorn',
     'tailwindcss',
+    'promise',
   ],
   extends: [
     'plugin:@typescript-eslint/recommended',
@@ -25,6 +26,7 @@ module.exports = {
     'plugin:vue/vue3-essential',
     'plugin:vue/vue3-strongly-recommended',
     'plugin:vue/vue3-recommended',
+    'plugin:promise/recommended',
   ],
   ignorePatterns: ['**/node_modules/**', '*.json', '**/protos/**'],
   rules: {
@@ -151,6 +153,9 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/ban-ts-comment': 'warn',
+
+    // Promise
+    'promise/prefer-await-to-then': 'error',
   },
   settings: {
     'import/extensions': ['.vue'],

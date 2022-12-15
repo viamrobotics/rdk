@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/session"
 )
 
 func TestBasic(t *testing.T) {
@@ -65,4 +68,24 @@ func TestBasic(t *testing.T) {
 		o6 := Get(ctx6)
 		test.That(t, len(o6.myManager.ops), test.ShouldEqual, 1)
 	}()
+}
+
+func TestCreateWithSession(t *testing.T) {
+	ctx := context.Background()
+
+	logger := golog.NewTestLogger(t)
+	manager := NewManager(logger)
+
+	op1Ctx, cleanup := manager.Create(ctx, "foo", nil)
+	op1 := Get(op1Ctx)
+	test.That(t, op1.SessionID, test.ShouldEqual, uuid.Nil)
+	cleanup()
+
+	sess1 := session.New("someone", nil, 0, nil)
+	sess1Ctx := session.ToContext(ctx, sess1)
+
+	op2Ctx, cleanup := manager.Create(sess1Ctx, "foo", nil)
+	op2 := Get(op2Ctx)
+	test.That(t, op2.SessionID, test.ShouldEqual, sess1.ID())
+	cleanup()
 }
