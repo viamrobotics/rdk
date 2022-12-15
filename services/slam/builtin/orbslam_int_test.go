@@ -22,6 +22,7 @@ import (
 
 const (
 	dataInsertionMaxTimeoutMin = 3
+	orbSleepMs                 = 100
 )
 
 // Creates the vocabulary file required by the orbslam binary.
@@ -189,6 +190,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
 
+	// Added sleep to ensure orbslam stops
+	time.Sleep(time.Millisecond * orbSleepMs)
+
 	// test orbslam directory, should have 2 configs
 	testOrbslamDir(t, name, expectedMapsOnline, 2)
 
@@ -285,6 +289,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
+	// Added sleep to ensure orbslam stops
+	time.Sleep(time.Millisecond * orbSleepMs)
+
 	// test orbslam directory, should have 2 configs
 	testOrbslamDir(t, name, expectedMapsOffline, 2)
 
@@ -365,6 +372,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	} else if err != nil {
 		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
+
+	// Added sleep to ensure orbslam stops
+	time.Sleep(time.Millisecond * orbSleepMs)
 
 	// test orbslam directory, should have 3 configs
 	testOrbslamDir(t, name, expectedMapsApriori, 3)
