@@ -111,6 +111,10 @@ func FromConfig(cfg *config.Config) (Options, error) {
 				options.Network.BindAddress = ":8080"
 			}
 
+			// This will only happen if we're switching from a local config to a cloud config.
+			if cfg.Network.TLSConfig == nil {
+				return Options{}, errors.New("switching from local config to cloud config not currently supported")
+			}
 			cert, err := cfg.Network.TLSConfig.GetCertificate(&tls.ClientHelloInfo{})
 			if err != nil {
 				return Options{}, err

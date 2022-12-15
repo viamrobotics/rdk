@@ -12,12 +12,6 @@ func TestR3VectorAlmostEqual(t *testing.T) {
 	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2.001, 3.001}, 1e-2), test.ShouldBeTrue)
 }
 
-func TestTranslationSerialization(t *testing.T) {
-	tc := NewTranslationConfig(r3.Vector{1, 2, 3})
-	newTc := NewTranslationConfig(tc.ParseConfig())
-	test.That(t, tc, test.ShouldResemble, newTc)
-}
-
 func TestAxisSerialization(t *testing.T) {
 	tc := NewAxisConfig(R4AA{Theta: 1, RX: 1})
 	newTc := NewAxisConfig(tc.ParseConfig())

@@ -94,14 +94,14 @@ func (c *client) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*referenceframe.PoseInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(supplementalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
 		return nil, err
 	}
