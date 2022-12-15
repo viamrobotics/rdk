@@ -28,11 +28,6 @@ type motionPlanner interface {
 	checkInputs([]frame.Input) bool
 }
 
-type parallelMotionPlanner interface {
-	motionPlanner
-	planParallel(context.Context, spatialmath.Pose, []frame.Input, chan<- *rrtPlanReturn) // TODO(rb): make planReturn an interface
-}
-
 type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.

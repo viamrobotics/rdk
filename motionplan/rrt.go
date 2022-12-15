@@ -15,6 +15,11 @@ const (
 	defaultPlanIter = 20000
 )
 
+type rrtParallelPlanner interface {
+	motionPlanner
+	planParallel(context.Context, spatialmath.Pose, []referenceframe.Input, chan<- *rrtPlanReturn)
+}
+
 type rrtMotionPlanner interface {
 	motionPlanner
 	initRRTSolutions(context.Context, spatialmath.Pose, []referenceframe.Input) *rrtPlanReturn

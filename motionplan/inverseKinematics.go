@@ -141,7 +141,10 @@ func getSolutions(
 	input []referenceframe.Input,
 	randseed int,
 ) ([]*costNode, error) {
-	seedPos, err := ik.frame().Transform(input)
+	options := ik.options()
+	frame := ik.frame()
+
+	seedPos, err := frame.Transform(input)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +160,7 @@ func getSolutions(
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
-		ikErr <- ik.solve(ctxWithCancel, solutionGen, goalPos, input, ik.options().metric, randseed)
+		ikErr <- ik.solve(ctxWithCancel, solutionGen, goalPos, input, options.metric, randseed)
 	})
 
 	solutions := map[float64][]referenceframe.Input{}
@@ -173,23 +176,23 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			cPass, cScore := ik.options().CheckConstraints(&ConstraintInput{
+			cPass, cScore := options.CheckConstraints(&ConstraintInput{
 				StartPos:   seedPos,
 				EndPos:     goalPos,
 				StartInput: input,
 				EndInput:   step,
-				Frame:      ik.frame(),
+				Frame:      frame,
 			})
-			endPass, _ := ik.options().CheckConstraints(&ConstraintInput{
+			endPass, _ := options.CheckConstraints(&ConstraintInput{
 				StartPos:   goalPos,
 				EndPos:     goalPos,
 				StartInput: step,
 				EndInput:   step,
-				Frame:      ik.frame(),
+				Frame:      frame,
 			})
 
 			if cPass && endPass {
-				if cScore < ik.options().MinScore && ik.options().MinScore > 0 {
+				if cScore < options.MinScore && options.MinScore > 0 {
 					solutions = map[float64][]referenceframe.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early
@@ -197,7 +200,7 @@ IK:
 				}
 
 				solutions[cScore] = step
-				if len(solutions) >= ik.options().MaxSolutions {
+				if len(solutions) >= options.MaxSolutions {
 					// sufficient solutions found, stopping early
 					break IK
 				}

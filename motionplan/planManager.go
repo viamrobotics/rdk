@@ -207,7 +207,7 @@ func (pm *planManager) planMotion(
 	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
 	defer cancel()
 
-	if parallelPlanner, ok := probablisticPlanner.(parallelMotionPlanner); ok {
+	if parallelPlanner, ok := probablisticPlanner.(rrtParallelPlanner); ok {
 		// publish endpoint of plan if it is known
 		var nextSeed node
 		if len(maps.goalMap) == 1 {

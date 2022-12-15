@@ -72,8 +72,7 @@ func (ik *ensembleIKSolver) solve(ctx context.Context,
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			runSolver := func() error { return thisSolver.solve(ctxWithCancel, c, newGoal, seed, m, parseed) }
-			errChan <- runSolver()
+			errChan <- thisSolver.solve(ctxWithCancel, c, newGoal, seed, m, parseed)
 		})
 	}
 
