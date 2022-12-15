@@ -118,7 +118,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	case slam.Rgbd:
 		sensors = []string{"orbslam_int_color_camera", "orbslam_int_depth_camera"}
 		expectedMapsOnline = 5
-		expectedMapsOffline = 2
+		expectedMapsOffline = 1
 		expectedMapsApriori = expectedMapsOnline + 1
 	default:
 		t.FailNow()
