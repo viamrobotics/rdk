@@ -805,7 +805,7 @@ func DataCommand(c *cli.Context) error {
 	dataType := c.String(dataFlagDataType)
 	switch dataType {
 	case dataTypeBinary:
-		if err := client.BinaryData(c.String(dataFlagDestination), filter); err != nil {
+		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
