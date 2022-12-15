@@ -107,11 +107,17 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode")
 
 	var sensors []string
+	var expectedMapsOnline int
+	var expectedMapsOffline int
 	switch mode {
 	case slam.Mono:
 		sensors = []string{"orbslam_int_webcam"}
+		expectedMapsOnline = 1
+		expectedMapsOffline = 1
 	case slam.Rgbd:
 		sensors = []string{"orbslam_int_color_camera", "orbslam_int_depth_camera"}
+		expectedMapsOnline = 5
+		expectedMapsOffline = 2
 	default:
 		t.FailNow()
 	}
@@ -182,8 +188,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
 
-	// test orbslam directory, should have N maps and 2 configs
-	testOrbslamDir(t, name, 6, 2)
+	// test orbslam directory, should have 2 configs
+	testOrbslamDir(t, name, expectedMapsOnline, 2)
 
 	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
 	// the same data as online mode. (Online mode will not read the last image (or image pair),
@@ -278,8 +284,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
-	// test orbslam directory, should have N maps and 2 configs
-	testOrbslamDir(t, name, 6, 2)
+	// test orbslam directory, should have 2 configs
+	testOrbslamDir(t, name, expectedMapsOffline, 2)
 
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
@@ -359,8 +365,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
 
-	// test orbslam directory, should have more than N maps and 3 configs
-	testOrbslamDir(t, name, 7, 3)
+	// test orbslam directory, should have 3 configs
+	testOrbslamDir(t, name, expectedMapsOnline+1, 3)
 
 	// Clear out directory
 	closeOutSLAMService(t, name)
