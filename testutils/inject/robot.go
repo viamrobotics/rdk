@@ -38,12 +38,12 @@ type Robot struct {
 	CloseFunc               func(ctx context.Context) error
 	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	RefreshFunc             func(ctx context.Context) error
-	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error)
+	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPoseFunc       func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	StatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 
@@ -215,7 +215,7 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) 
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
-func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error) {
+func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.FrameSystemConfigFunc == nil {
@@ -230,7 +230,7 @@ func (r *Robot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()

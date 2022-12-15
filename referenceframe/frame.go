@@ -166,6 +166,24 @@ type staticFrame struct {
 	geometryCreator spatial.GeometryCreator
 }
 
+// a tailGeometryStaticFrame is a static frame whose geometry is placed at the end of the frame's transform, rather than at the beginning.
+type tailGeometryStaticFrame struct {
+	*staticFrame
+}
+
+func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
+	if sf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
+	}
+	if len(input) != 0 {
+		return nil, NewIncorrectInputLengthError(len(input), 0)
+	}
+	m := make(map[string]spatial.Geometry)
+	// Create the new geometry at a pose of `transform` from the frame
+	m[sf.Name()] = sf.geometryCreator.NewGeometry(sf.transform)
+	return NewGeometriesInFrame(sf.name, m), nil
+}
+
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
@@ -244,16 +262,24 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
-	transform, err := spatial.PoseMap(sf.transform)
+	temp := LinkConfig{
+		ID:          sf.name,
+		Translation: sf.transform.Point(),
+	}
+
+	orientationConfig, err := spatial.NewOrientationConfig(sf.transform.Orientation())
 	if err != nil {
 		return nil, err
 	}
-	m := FrameMapConfig{
-		"type":      "static",
-		"name":      sf.name,
-		"transform": transform,
+	temp.Orientation = orientationConfig
+
+	if sf.geometryCreator != nil {
+		temp.Geometry, err = spatial.NewGeometryConfig(sf.geometryCreator)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return json.Marshal(m)
+	return json.Marshal(temp)
 }
 
 func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
@@ -329,13 +355,25 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 }
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
-	m := FrameMapConfig{
-		"type":      "translational",
-		"name":      pf.name,
-		"transAxis": pf.transAxis,
-		"limit":     pf.limits,
+	if len(pf.limits) > 1 {
+		return nil, ErrMarshalingHighDOFFrame
 	}
-	return json.Marshal(m)
+	temp := JointConfig{
+		ID:   pf.name,
+		Type: PrismaticJoint,
+		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
+		Max:  pf.limits[0].Max,
+		Min:  pf.limits[0].Min,
+	}
+	if pf.geometryCreator != nil {
+		var err error
+		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometryCreator)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return json.Marshal(temp)
 }
 
 func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
@@ -391,7 +429,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return nil, fmt.Errorf("s not implemented for type %T", rf)
+	return nil, fmt.Errorf("Geometries not implemented for type %T", rf)
 }
 
 // Name returns the name of the referenceframe.
@@ -400,13 +438,18 @@ func (rf *rotationalFrame) Name() string {
 }
 
 func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
-	m := FrameMapConfig{
-		"type":    "rotational",
-		"name":    rf.name,
-		"rotAxis": rf.rotAxis,
-		"limit":   rf.limits,
+	if len(rf.limits) > 1 {
+		return nil, ErrMarshalingHighDOFFrame
 	}
-	return json.Marshal(m)
+	temp := JointConfig{
+		ID:   rf.name,
+		Type: RevoluteJoint,
+		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
+		Max:  utils.RadToDeg(rf.limits[0].Max),
+		Min:  utils.RadToDeg(rf.limits[0].Min),
+	}
+
+	return json.Marshal(temp)
 }
 
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
@@ -470,11 +513,7 @@ func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
-	return json.Marshal(FrameMapConfig{
-		"type":  "rotational",
-		"name":  mf.name,
-		"limit": mf.limits,
-	})
+	return nil, fmt.Errorf("MarshalJSON not implemented for type %T", mf)
 }
 
 func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {

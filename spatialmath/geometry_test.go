@@ -12,7 +12,7 @@ import (
 )
 
 func TestGeometrySerialization(t *testing.T) {
-	translation := TranslationConfig{1, 1, 1}
+	translation := r3.Vector{1, 1, 1}
 	orientation := OrientationConfig{}
 	testMap := loadOrientationTests(t)
 	err := json.Unmarshal(testMap["euler"], &orientation)
