@@ -28,6 +28,7 @@ type Geometry interface {
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string
+	// ToPointCloud(Geometry)
 	// add as pointcloud func
 }
 
