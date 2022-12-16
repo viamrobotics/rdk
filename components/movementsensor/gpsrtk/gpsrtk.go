@@ -304,11 +304,12 @@ func (g *RTKMovementSensor) Connect(casterAddr, user, pwd string, maxAttempts in
 		g.logger.Errorf("Can't connect to NTRIP caster: %s", err)
 		return err
 	}
-	g.ntripClient.Client = c
-	g.logger.Debug("Connected to NTRIP caster")
 
+	g.logger.Debug("Connected to NTRIP caster")
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	g.ntripClient.Client = c
 	return g.lastError
 }
 
@@ -329,7 +330,11 @@ func (g *RTKMovementSensor) GetStream(mountPoint string, maxAttempts int) error 
 		default:
 		}
 
-		rc, err = g.ntripClient.Client.GetStream(mountPoint)
+		rc, err = func() {
+			g.mu.Lock()
+			defer g.mu.Unlock()
+			return g.ntripClient.Client.GetStream(mountPoint)
+		}()
 		if err == nil {
 			success = true
 		}
@@ -341,12 +346,11 @@ func (g *RTKMovementSensor) GetStream(mountPoint string, maxAttempts int) error 
 		return err
 	}
 
-	g.ntripClient.Stream = rc
-
 	g.logger.Debug("Connected to stream")
-
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	g.ntripClient.Stream = rc
 	return g.lastError
 }
 
@@ -422,8 +426,14 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 
 	scanner := rtcm3.NewScanner(r)
 
-	g.ntripStatus = true
+	g.ntripStatus = func() {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		return true
+	}
 
+	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
+	// goroutine itself.
 	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
@@ -442,7 +452,11 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.ntripStatus = false
+			g.ntripStatus = func() {
+				g.mu.Lock()
+				defer g.mu.Unlock()
+				return false
+			}
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
@@ -471,7 +485,11 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 				}
 
 				scanner = rtcm3.NewScanner(r)
-				g.ntripStatus = true
+				g.ntripStatus = func() {
+					g.mu.Lock()
+					defer g.mu.Unlock()
+					return true
+				}
 				continue
 			}
 		}
@@ -526,8 +544,14 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 	r := io.TeeReader(g.ntripClient.Stream, w)
 	scanner := rtcm3.NewScanner(r)
 
-	g.ntripStatus = true
+	g.func() {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		return ntripStatus = true
+	}
 
+	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
+	// goroutine itself.
 	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
@@ -537,7 +561,11 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.ntripStatus = false
+			g.ntripStatus = func() {
+				g.mu.Lock()
+				defer g.mu.Unlock()
+				return false
+			}
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
@@ -548,7 +576,11 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 
 				r = io.TeeReader(g.ntripClient.Stream, w)
 				scanner = rtcm3.NewScanner(r)
-				g.ntripStatus = true
+				g.ntripStatus = func() {
+					g.mu.Lock()
+					defer g.mu.Unlock()
+					return true
+				}
 				continue
 			}
 		}
