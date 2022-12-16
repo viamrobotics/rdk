@@ -81,6 +81,7 @@ func init() {
 
 // Ezopmp represents a motor connected via the I2C protocol.
 type Ezopmp struct {
+	name        string
 	board       board.Board
 	bus         board.I2C
 	I2CAddress  byte
