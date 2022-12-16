@@ -39,7 +39,7 @@ func TestValidate(t *testing.T) {
 		RequiredAccuracy: 0,
 		RequiredTime:     0,
 		SerialAttrConfig: &SerialAttrConfig{},
-		I2CAttrConfig:    &I2CAttrConfig{},
+		I2CAttrConfig:    &board.I2CAttrConfig{},
 		NtripAttrConfig:  &NtripAttrConfig{},
 	}
 	path := "path"
@@ -134,7 +134,7 @@ func TestRTK(t *testing.T) {
 			CorrectionSource: "I2C",
 			Board:            testBoardName,
 			SurveyIn:         "",
-			I2CAttrConfig: &I2CAttrConfig{
+			I2CAttrConfig: &board.I2CAttrConfig{
 				I2CBus: testBusName,
 			},
 			NtripAttrConfig: &NtripAttrConfig{

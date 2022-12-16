@@ -29,8 +29,8 @@ const modelName = "accel-adxl345"
 // AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
 type AttrConfig struct {
 	BoardName              string `json:"board"`
-	I2cBus                 string `json:"i2c_bus"`
 	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address"`
+	*board.I2CAttrConfig   `json:"i2c_attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
@@ -39,9 +39,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	if cfg.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
-	}
+	cfg.I2CAttrConfig.ValidateI2C(path, false)
 	var deps []string
 	deps = append(deps, cfg.BoardName)
 	return deps, nil
@@ -104,9 +102,9 @@ func NewAdxl345(
 	if !ok {
 		return nil, errors.Errorf("board %q is not local", cfg.BoardName)
 	}
-	bus, ok := localB.I2CByName(cfg.I2cBus)
+	bus, ok := localB.I2CByName(cfg.I2CBus)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", cfg.I2cBus)
+		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", cfg.I2CBus)
 	}
 
 	var address byte
@@ -131,7 +129,7 @@ func NewAdxl345(
 	deviceID, err := sensor.readByte(ctx, 0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't read from I2C address %d on bus %q of board %q",
-			address, cfg.I2cBus, cfg.BoardName)
+			address, cfg.I2CBus, cfg.BoardName)
 	}
 	if deviceID != 0xE5 {
 		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",

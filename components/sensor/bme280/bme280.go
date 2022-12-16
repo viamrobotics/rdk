@@ -82,9 +82,8 @@ const (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Board   string `json:"board"`
-	I2CBus  string `json:"i2c_bus"`
-	I2cAddr int    `json:"i2c_addr,omitempty"`
+	Board                string `json:"board"`
+	*board.I2CAttrConfig `json:"i2c_attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -94,8 +93,8 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.Board)
-	if len(config.I2CBus) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
+	if err := config.I2CAttrConfig.ValidateI2C(path, false); err != nil {
+		return nil, err
 	}
 	return deps, nil
 }

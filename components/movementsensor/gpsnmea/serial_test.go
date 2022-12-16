@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 )
@@ -72,7 +73,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 				SerialCorrectionPath:     path,
 				SerialCorrectionBaudRate: 0,
 			},
-			I2CAttrConfig: &I2CAttrConfig{},
+			I2CAttrConfig: &board.I2CAttrConfig{},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)
