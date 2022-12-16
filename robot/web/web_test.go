@@ -18,6 +18,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -36,12 +37,14 @@ import (
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -895,6 +898,24 @@ func (s *myCompServer) DoOne(ctx context.Context, req *gizmopb.DoOneRequest) (*g
 }
 
 func TestRawClientOperation(t *testing.T) {
+	// Need an unfiltered streaming call to test interceptors
+	echoSubType := resource.NewSubtype(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeComponent,
+		resource.SubtypeName("echo"),
+	)
+	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&echopb.TestEchoService_ServiceDesc,
+				&echoServer{},
+				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+			)
+		},
+		RPCServiceDesc: &echopb.TestEchoService_ServiceDesc,
+	})
+
 	logger := golog.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
@@ -937,26 +958,41 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	md, err := streamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md, false)
+	checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
+	// test with a simple echo proto as well
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	client = robotpb.NewRobotServiceClient(conn)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
 
 	hdr = metadata.MD{}
 	trailers := metadata.MD{} // won't do anything but helps test goutils
-	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
-	streamClient, err = client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
+	echoStreamClient, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	md, err = streamClient.Header()
+	md, err = echoStreamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md, false)
+	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+}
+
+type echoServer struct {
+	echopb.UnimplementedTestEchoServiceServer
+}
+
+func (srv *echoServer) EchoMultiple(
+	req *echopb.EchoMultipleRequest,
+	server echopb.TestEchoService_EchoMultipleServer,
+) error {
+	return server.Send(&echopb.EchoMultipleResponse{})
+}
+
+func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
+	return &echopb.EchoResponse{}, nil
 }
