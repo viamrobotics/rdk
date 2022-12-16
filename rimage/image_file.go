@@ -41,9 +41,9 @@ var DepthMapMagicNumber = []byte("DEPTHMAP")
 const RawRGBAHeaderLength = 12
 
 // RawDepthHeaderLength is the length of our custom header for raw depth map
-// data in bytes. Header contains 8 bytes worth of magic number, followed by 4 bytes
-// for width (uint32) and another 4 bytes for height (uint32).
-const RawDepthHeaderLength = 16
+// data in bytes. Header contains 8 bytes worth of magic number, followed by 8 bytes
+// for width and another 8bytes for height .
+const RawDepthHeaderLength = 24
 
 func init() {
 	// Here we register the custom format above so that we can simply use image.Decode
@@ -98,14 +98,22 @@ func init() {
 			// how the depth map is encoded, so send it to decode and then grab it.
 			// Using Gray 16 as underlying color model for depth
 			f := r.(*bufio.Reader)
-			dm, err := ReadDepthMap(f)
+			firstBytes, err := _readNext(r)
+			if err != nil || firstBytes != MagicNumIntViamType {
+				return image.Config{}, err
+			}
+			rawWidth, err := _readNext(f)
+			if err != nil {
+				return image.Config{}, err
+			}
+			rawHeight, err := _readNext(f)
 			if err != nil {
 				return image.Config{}, err
 			}
 			return image.Config{
 				ColorModel: color.Gray16Model,
-				Width:      dm.width,
-				Height:     dm.height,
+				Width:      int(rawWidth),
+				Height:     int(rawHeight),
 			}, nil
 		},
 	)

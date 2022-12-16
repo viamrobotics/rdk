@@ -14,6 +14,13 @@ import (
 	"go.uber.org/multierr"
 )
 
+// MagicNumIntVersionX is the magic number (as an int) for VERSIONX.
+const MagicNumIntVersionX = 6363110499870197078
+
+// MagicNumIntViamType is the magic number (as an int) for the custom Viam depth type.
+// magic number for ViamCustomType is int64([]byte("DEPTHMAP"))
+const MagicNumIntViamType = 5782988369567958340
+
 func _readNext(r io.Reader) (int64, error) {
 	data := make([]byte, 8)
 	x, err := r.Read(data)
@@ -53,9 +60,9 @@ func ReadDepthMap(r io.Reader) (*DepthMap, error) {
 		return nil, err
 	}
 	switch firstBytes {
-	case 6363110499870197078: // magic number for VERSIONX
+	case MagicNumIntVersionX: // magic number for VERSIONX
 		return readDepthMapVersionX(r.(*bufio.Reader))
-	case 5782988369567958340:
+	case MagicNumIntViamType: // magic number for ViamCustomType is int64([]byte("DEPTHMAP"))
 		return readDepthMapViam(r.(*bufio.Reader))
 	default:
 		return readDepthMapRaw(r.(*bufio.Reader), firstBytes)
