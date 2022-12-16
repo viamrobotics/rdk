@@ -2,6 +2,7 @@
 package universalrobots
 
 import (
+	"bufio"
 	"context"
 	// for embedding model file.
 	_ "embed"
@@ -10,6 +11,8 @@ import (
 	"io"
 	"math"
 	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -79,21 +82,25 @@ func Model(name string) (referenceframe.Model, error) {
 type URArm struct {
 	generic.Unimplemented
 	io.Closer
-	mu                      *sync.Mutex
-	muMove                  sync.Mutex
-	conn                    net.Conn
-	speed                   float64
-	state                   RobotState
-	runtimeError            error
-	debug                   bool
-	haveData                bool
-	logger                  golog.Logger
-	cancel                  func()
-	activeBackgroundWorkers *sync.WaitGroup
-	model                   referenceframe.Model
-	opMgr                   operation.SingleOperationManager
-	robot                   robot.Robot
-	urHostedKinematics      bool
+	mu                       *sync.Mutex
+	muMove                   sync.Mutex
+	connControl              net.Conn
+	speed                    float64
+	state                    RobotState
+	runtimeError             error
+	debug                    bool
+	haveData                 bool
+	logger                   golog.Logger
+	cancel                   func()
+	activeBackgroundWorkers  *sync.WaitGroup
+	model                    referenceframe.Model
+	opMgr                    operation.SingleOperationManager
+	robot                    robot.Robot
+	urHostedKinematics       bool
+	inRemoteMode             bool
+	dashboardConnection      net.Conn
+	readRobotStateConnection net.Conn
+	host                     string
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -103,8 +110,16 @@ func (ua *URArm) Close(ctx context.Context) error {
 	ua.cancel()
 
 	closeConn := func() {
-		if err := ua.conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		if err := ua.dashboardConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			ua.logger.Errorw("error closing arm connection", "error", err)
+		}
+		if err := ua.readRobotStateConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			ua.logger.Errorw("error closing arm connection", "error", err)
+		}
+		if ua.connControl != nil {
+			if err := ua.connControl.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+				ua.logger.Errorw("error closing arm connection", "error", err)
+			}
 		}
 	}
 
@@ -127,6 +142,9 @@ func (ua *URArm) Close(ctx context.Context) error {
 
 // URArmConnect TODO.
 func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+	// this is to speed up component build failure if the UR arm is not reachable
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+	defer cancel()
 	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
@@ -142,38 +160,57 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 	}
 
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", attrs.Host+":30001")
+
+	connReadRobotState, err := d.DialContext(ctx, "tcp", attrs.Host+":30011")
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", attrs.Host, err)
 	}
-
+	connDashboard, err := d.DialContext(ctx, "tcp", attrs.Host+":29999")
+	if err != nil {
+		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", attrs.Host, err)
+	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	newArm := &URArm{
-		mu:                      &sync.Mutex{},
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		conn:                    conn,
-		speed:                   attrs.Speed,
-		debug:                   false,
-		haveData:                false,
-		logger:                  logger,
-		cancel:                  cancel,
-		model:                   model,
-		robot:                   r,
-		urHostedKinematics:      attrs.ArmHostedKinematics,
+		mu:                       &sync.Mutex{},
+		activeBackgroundWorkers:  &sync.WaitGroup{},
+		connControl:              nil,
+		speed:                    attrs.Speed,
+		debug:                    false,
+		haveData:                 false,
+		logger:                   logger,
+		cancel:                   cancel,
+		model:                    model,
+		robot:                    r,
+		urHostedKinematics:       attrs.ArmHostedKinematics,
+		inRemoteMode:             false,
+		readRobotStateConnection: connReadRobotState,
+		dashboardConnection:      connDashboard,
+		host:                     attrs.Host,
 	}
+
+	newArm.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		readerWriter := bufio.NewReadWriter(bufio.NewReader(connDashboard), bufio.NewWriter(connDashboard))
+		if err := dashboardReader(cancelCtx, *readerWriter, newArm); err != nil {
+			logger.Errorw("dashboard failed", "error", err)
+		}
+	}, newArm.activeBackgroundWorkers.Done)
 
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
 	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if err := reader(cancelCtx, conn, newArm, func() {
+		if err := reader(cancelCtx, connReadRobotState, newArm, func() {
 			onDataOnce.Do(func() {
 				close(onData)
 			})
 		}); err != nil {
 			logger.Errorw("reader failed", "error", err)
 		}
-	}, newArm.activeBackgroundWorkers.Done)
+	}, func() {
+		logger.Error("reader closing")
+		newArm.activeBackgroundWorkers.Done()
+	})
 
 	respondTimeout := 2 * time.Second
 	timer := time.NewTimer(respondTimeout)
@@ -256,6 +293,9 @@ func (ua *URArm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
+	if !ua.inRemoteMode {
+		return errors.New("ur5 is in local mode switch to remote to control it")
+	}
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
 
@@ -276,11 +316,14 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 
 // Stop stops the arm with some deceleration.
 func (ua *URArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+	if !ua.inRemoteMode {
+		return errors.New("ur5 is in local mode switch to remote to control it")
+	}
 	_, done := ua.opMgr.New(ctx)
 	defer done()
 	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
 
-	_, err := ua.conn.Write([]byte(cmd))
+	_, err := ua.connControl.Write([]byte(cmd))
 	return err
 }
 
@@ -291,6 +334,9 @@ func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
 
 // MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+	if !ua.inRemoteMode {
+		return errors.New("ur5 is in local mode switch to remote to control it")
+	}
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
 
@@ -312,7 +358,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		4.0*ua.speed,
 	)
 
-	_, err := ua.conn.Write([]byte(cmd))
+	_, err := ua.connControl.Write([]byte(cmd))
 	if err != nil {
 		return err
 	}
@@ -341,7 +387,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		}
 
 		if slept > 5000 && !retried {
-			_, err := ua.conn.Write([]byte(cmd))
+			_, err := ua.connControl.Write([]byte(cmd))
 			if err != nil {
 				return err
 			}
@@ -384,10 +430,76 @@ func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 // AddToLog TODO.
 func (ua *URArm) AddToLog(msg string) error {
+	if !ua.inRemoteMode {
+		return errors.New("ur5 is in local mode switch to remote to control it")
+	}
 	// TODO(erh): check for " in msg
 	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)
-	_, err := ua.conn.Write([]byte(cmd))
+	_, err := ua.connControl.Write([]byte(cmd))
 	return err
+}
+
+func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *URArm) error {
+	// Discard first line which is hello from dashboard
+	_, _, err := conn.ReadLine()
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		_, err := conn.WriteString("is in remote control\n")
+		if err != nil {
+			return err
+		}
+
+		err = conn.Flush()
+		if err != nil {
+			return err
+		}
+
+		line, _, err := conn.ReadLine()
+		if err != nil {
+			return err
+		}
+
+		isRemote := strings.Contains(string(line), "true")
+		if isRemote != ua.inRemoteMode {
+			ua.mu.Lock()
+			if isRemote {
+				connect := func() (net.Conn, error) {
+					ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+					defer cancel()
+					var d net.Dialer
+					connControl, err := d.DialContext(ctx, "tcp", ua.host+":30001")
+					if err != nil {
+						return nil, errors.Wrapf(err, "while the arm is not in local mode couldn't to ur arm (%s)", ua.host)
+					}
+					return connControl, nil
+				}
+
+				conn, err := connect()
+				if err != nil {
+					return err
+				}
+				ua.connControl = conn
+			} else if ua.connControl != nil {
+				if err := ua.connControl.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
+					return err
+				}
+			}
+			ua.inRemoteMode = isRemote
+			ua.mu.Unlock()
+		}
+		if !goutils.SelectContextOrWait(ctx, 1*time.Second) {
+			return ctx.Err()
+		}
+	}
 }
 
 func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) error {
@@ -401,7 +513,6 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 		if err != nil {
 			return err
 		}
-
 		msgSize := binary.BigEndian.Uint32(sizeBuf)
 		if msgSize <= 4 || msgSize > 10000 {
 			return errors.Errorf("invalid msg size: %d", msgSize)
@@ -503,7 +614,7 @@ func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmat
 		aa.Y,
 		aa.Z,
 	)
-	_, err := ua.conn.Write([]byte(cmd))
+	_, err := ua.connControl.Write([]byte(cmd))
 	if err != nil {
 		return err
 	}
@@ -528,7 +639,7 @@ func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmat
 		slept += 10
 
 		if slept > 5000 && !retried {
-			_, err := ua.conn.Write([]byte(cmd))
+			_, err := ua.connControl.Write([]byte(cmd))
 			if err != nil {
 				return err
 			}
