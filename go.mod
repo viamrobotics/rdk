@@ -74,10 +74,10 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.20
+	go.viam.com/api v0.1.24
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.6-0.20221213193744-d7c797cdf467
+	go.viam.com/utils v0.1.6-0.20221216234103-3e35192a689c
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.1.0
 	golang.org/x/tools v0.1.12
@@ -378,10 +378,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
-
-// SMURF: Remove lint skip line etc/.golangci.yaml after these are removed.
-//replace go.viam.com/api => ../api
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221216225710-513b11b0d41b
-
-//replace go.viam.com/utils => ../goutils
-replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221216225534-35d9bd9e1f58
