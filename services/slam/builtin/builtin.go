@@ -250,13 +250,14 @@ func runtimeServiceValidation(
 
 // AttrConfig describes how to configure the service.
 type AttrConfig struct {
-	Sensors          []string          `json:"sensors"`
-	ConfigParams     map[string]string `json:"config_params"`
-	DataRateMs       int               `json:"data_rate_msec"`
-	MapRateSec       *int              `json:"map_rate_sec"`
-	DataDirectory    string            `json:"data_dir"`
-	InputFilePattern string            `json:"input_file_pattern"`
-	Port             string            `json:"port"`
+	Sensors             []string          `json:"sensors"`
+	ConfigParams        map[string]string `json:"config_params"`
+	DataRateMs          int               `json:"data_rate_msec"`
+	MapRateSec          *int              `json:"map_rate_sec"`
+	DataDirectory       string            `json:"data_dir"`
+	InputFilePattern    string            `json:"input_file_pattern"`
+	Port                string            `json:"port"`
+	DeleteProcessedData *bool             `json:"delete_processed_data"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -284,9 +285,10 @@ type builtIn struct {
 	clientAlgo      pb.SLAMServiceClient
 	clientAlgoClose func() error
 
-	configParams     map[string]string
-	dataDirectory    string
-	inputFilePattern string
+	configParams        map[string]string
+	dataDirectory       string
+	inputFilePattern    string
+	deleteProcessedData bool
 
 	port       string
 	dataRateMs int
@@ -533,6 +535,15 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		mapRate = *svcConfig.MapRateSec
 	}
 
+	var deleteProcessedData bool
+	if svcConfig.DeleteProcessedData == nil {
+		deleteProcessedData = (len(cams) != 0)
+		logger.Debugf("no value given for delete_processed_data given, setting to default value of %b", deleteProcessedData)
+
+	} else {
+		deleteProcessedData = *svcConfig.DeleteProcessedData
+	}
+
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
 	for _, cam := range cams {
 		camStreams = append(camStreams, gostream.NewEmbeddedVideoStream(cam))
@@ -549,6 +560,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
 		inputFilePattern:      svcConfig.InputFilePattern,
+		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
 		dataRateMs:            dataRate,
 		mapRateSec:            mapRate,
@@ -701,6 +713,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
+	args = append(args, "-delete_processed_data="+strconv.FormatBool(slamSvc.deleteProcessedData))
 	args = append(args, "-port="+slamSvc.port)
 	args = append(args, "--aix-auto-update")
 
