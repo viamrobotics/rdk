@@ -2,7 +2,6 @@ package builtin_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -118,7 +117,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	}
 
 	mapRate := 1
-	falseDeleteProcessedMap := false
+	deleteProcessedData := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
@@ -135,7 +134,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
 		MapRateSec:          &mapRate,
-		DeleteProcessedData: &falseDeleteProcessedMap,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release camera image(s) for service validation
@@ -148,6 +147,11 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	releaseImages(t, mode)
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs := false
+
+	files, err := ioutil.ReadDir(name + "/data/rgb")
+	test.That(t, err, test.ShouldBeNil)
+	prev := len(files)
+
 	// Wait for orbslam to finish processing images
 	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
@@ -158,7 +162,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				break
+				// Check delete_processed_data is working as intended
+				prev = checkDeleteProcessedData(t, mode, name, prev, len(attrCfg.Sensors) != 0, deleteProcessedData)
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 			if time.Since(start_time_sent_image) > time.Duration(dataInsertionMaxTimeoutMin)*time.Minute {
@@ -210,6 +215,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Test offline mode using the config and data generated in the online test
 	t.Log("Testing offline mode")
+	deleteProcessedData = false
 
 	mapRate = 1
 
@@ -224,8 +230,9 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"orb_n_min_th_fast": "7",
 			"debug":             "true",
 		},
-		DataDirectory: name,
-		MapRateSec:    &mapRate,
+		DataDirectory:       name,
+		MapRateSec:          &mapRate,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -234,6 +241,11 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
+
+	files, err = ioutil.ReadDir(name + "/data/rgb")
+	test.That(t, err, test.ShouldBeNil)
+	prev = len(files)
+
 	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
 	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
@@ -241,7 +253,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed image to SLAM") {
-			start_time_sent_image = time.Now()
+			// Check delete_processed_data is working as intended
+			prev = checkDeleteProcessedData(t, mode, name, prev, len(attrCfg.Sensors) != 0, deleteProcessedData)
 		}
 		if strings.Contains(line, "Finished processing offline images") {
 			break
@@ -286,6 +299,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode with saved map")
 
 	mapRate = 9999
+	deleteProcessedData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -298,8 +312,9 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"orb_n_min_th_fast": "7",
 			"debug":             "true",
 		},
-		DataDirectory: name,
-		MapRateSec:    &mapRate,
+		DataDirectory:       name,
+		MapRateSec:          &mapRate,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release camera image(s) for service validation
@@ -323,6 +338,11 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	releaseImages(t, mode)
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
+
+	files, err = ioutil.ReadDir(name + "/data/rgb")
+	test.That(t, err, test.ShouldBeNil)
+	prev = len(files)
+
 	// Wait for orbslam to finish processing images
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
 		start_time_sent_image = time.Now()
@@ -332,6 +352,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
+				// Check delete_processed_data is working as intended
+				prev = checkDeleteProcessedData(t, mode, name, prev, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -344,12 +366,6 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		if orbslam_hangs {
 			break
 		}
-
-		datas, err := ioutil.ReadDir(name + "/data")
-		if err != nil {
-			fmt.Printf("ERROR: %v\n", err)
-		}
-		fmt.Printf("Number of images in %v folder: %v\n", name+"/data", len(datas))
 	}
 
 	testOrbslamPositionAndMap(t, svc)
