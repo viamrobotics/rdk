@@ -47,6 +47,5 @@ func TestSpherePC(t *testing.T) {
 	radius := 2.0
 	label := ""
 	sphere := &sphere{NewPoseFromPoint(pt), radius, label}
-	myMap := make(map[string]interface{})
-	sphere.ToPointCloud(myMap)
+	sphere.ToPointCloud(make(map[string]interface{}))
 }
