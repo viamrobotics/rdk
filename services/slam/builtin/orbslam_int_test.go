@@ -384,12 +384,12 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 }
 
-// Checks the current slam directory to see if the number of files exceeds the expecteed amount
-// Because how orbslam runs, the number of maps does not appear to be the same between integration tests
+// Checks the current slam directory to see if the number of files is around the expected amount
+// Because how orbslam runs, the number of maps is not the same between integration tests
 func testOrbslamDir(t *testing.T, path string, expectedMaps int, expectedConfigs int) {
 	mapsInDir, err := ioutil.ReadDir(path + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldBeGreaterThanOrEqualTo, expectedMaps)
+	test.That(t, len(mapsInDir), test.ShouldBeBetweenOrEqual, expectedMaps, expectedMaps+4)
 
 	configsInDir, err := ioutil.ReadDir(path + "/config/")
 	test.That(t, err, test.ShouldBeNil)
