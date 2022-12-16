@@ -18,7 +18,7 @@ import (
 const MagicNumIntVersionX = 6363110499870197078
 
 // MagicNumIntViamType is the magic number (as an int) for the custom Viam depth type.
-// magic number for ViamCustomType is int64([]byte("DEPTHMAP"))
+// magic number for ViamCustomType is int64([]byte("DEPTHMAP")).
 const MagicNumIntViamType = 5782988369567958340
 
 func _readNext(r io.Reader) (int64, error) {
