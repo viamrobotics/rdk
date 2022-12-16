@@ -27,13 +27,8 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	if len(args) < 2 {
-		return errors.New("need socket path as command line argument")
-	}
-	socketPath := args[1]
-
 	var err error
-	myMod, err = module.NewModule(ctx, socketPath, logger)
+	myMod, err = module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
 		return err
 	}

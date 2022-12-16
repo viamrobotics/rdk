@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
@@ -26,6 +27,19 @@ var Subtype = resource.NewSubtype(
 // Named is a helper for getting the named Summation's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
+}
+
+// FromRobot is a helper for getting the named Summation from the given Robot.
+func FromRobot(r robot.Robot, name string) (Summation, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
+	}
+	part, ok := res.(Summation)
+	if !ok {
+		return nil, NewUnimplementedInterfaceError(res)
+	}
+	return part, nil
 }
 
 func init() {
@@ -180,4 +194,9 @@ func (c *client) Sum(ctx context.Context, nums []float64) (float64, error) {
 		return 0, err
 	}
 	return resp.Sum, nil
+}
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Summation)(nil), actual)
 }

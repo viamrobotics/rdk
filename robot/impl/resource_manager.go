@@ -390,7 +390,7 @@ func (manager *resourceManager) completeConfig(
 				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
 				continue
 			}
-			// TODO: PRODUCT-266 "r" isn't likely needed here, as c.ResourceName() should be the same.
+			// TODO(PRODUCT-266): "r" isn't likely needed here, as c.ResourceName() should be the same.
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
 				manager.logger.Errorw("error building component", "resource", c.ResourceName(), "model", c.Model, "error", err)
@@ -559,7 +559,7 @@ func (manager *resourceManager) processService(ctx context.Context,
 		return robot.newService(ctx, c)
 	}
 
-	if robot.ModuleManager().NeedsModule(config.ServiceConfigToShared(c)) {
+	if robot.ModuleManager().Provides(config.ServiceConfigToShared(c)) {
 		deps, err := robot.getDependencies(c.ResourceName())
 		if err != nil {
 			return nil, err
@@ -619,7 +619,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 		return r.newResource(ctx, conf)
 	}
 	res := config.Rebuild
-	if r.ModuleManager().NeedsModule(conf) {
+	if r.ModuleManager().Provides(conf) {
 		deps, err := r.getDependencies(rName)
 		if err != nil {
 			return nil, err

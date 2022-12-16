@@ -114,11 +114,11 @@ func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 
 // IsMoving queries of a component is in motion.
 func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
-	base, err := s.getArm(req.GetName())
+	arm, err := s.getArm(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	moving, err := base.IsMoving(ctx)
+	moving, err := arm.IsMoving(ctx)
 	if err != nil {
 		return nil, err
 	}

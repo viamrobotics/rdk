@@ -29,11 +29,10 @@ func main() {
 	defer robot.Close(context.Background())
 
 	logger.Info("---- Testing gizmo1 (gizmoapi) -----")
-	res, err := robot.ResourceByName(gizmoapi.Named("gizmo1"))
+	comp1, err := gizmoapi.FromRobot(robot, "gizmo1")
 	if err != nil {
 		logger.Fatal(err)
 	}
-	comp1 := res.(gizmoapi.Gizmo)
 	ret1, err := comp1.DoOne(context.Background(), "hello")
 	if err != nil {
 		logger.Fatal(err)
@@ -71,11 +70,11 @@ func main() {
 	logger.Info(ret3)
 
 	logger.Info("---- Testing adder (summationapi) -----")
-	res, err = robot.ResourceByName(summationapi.Named("adder"))
+	add, err := summationapi.FromRobot(robot, "adder")
 	if err != nil {
 		logger.Fatal(err)
 	}
-	add := res.(summationapi.Summation)
+
 	nums := []float64{10, 0.5, 12}
 	retAdd, err := add.Sum(context.Background(), nums)
 	if err != nil {
@@ -84,11 +83,10 @@ func main() {
 	logger.Info(nums, " sum to ", retAdd)
 
 	logger.Info("---- Testing subtractor (summationapi) -----")
-	res, err = robot.ResourceByName(summationapi.Named("subtractor"))
+	sub, err := summationapi.FromRobot(robot, "subtractor")
 	if err != nil {
 		logger.Fatal(err)
 	}
-	sub := res.(summationapi.Summation)
 	retSub, err := sub.Sum(context.Background(), nums)
 	if err != nil {
 		logger.Fatal(err)
@@ -97,12 +95,10 @@ func main() {
 
 
 	logger.Info("---- Testing denali (navigation) -----")
-
-	res, err = robot.ResourceByName(navigation.Named("denali"))
+	nav, err := navigation.FromRobot(robot, "denali")
 	if err != nil {
 		logger.Fatal(err)
 	}
-	nav := res.(navigation.Service)
 	loc, err := nav.Location(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
@@ -133,11 +129,10 @@ func main() {
 	}
 
 	logger.Info("---- Testing base1 (base) -----")
-	res, err = robot.ResourceByName(base.Named("base1"))
+	mybase, err := base.FromRobot(robot, "base1")
 	if err != nil {
 		logger.Fatal(err)
 	}
-	mybase := res.(base.Base)
 
 	logger.Info("move forward")
 	err = mybase.SetPower(context.Background(), r3.Vector{Y: 1}, r3.Vector{}, nil)

@@ -112,9 +112,10 @@ func (s *subtypeSvc) doAdd(n resource.Name, iface interface{}) error {
 func (s *subtypeSvc) doRemove(n resource.Name) error {
 	name := n.ShortName()
 	_, ok := s.resources[name]
-	if ok {
-		delete(s.resources, name)
+	if !ok {
+		return errors.Errorf("resource %s not found", name)
 	}
+	delete(s.resources, name)
 
 	shortcut := getShortcutName(name)
 	_, ok = s.shortNames[shortcut]

@@ -72,8 +72,8 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
-// AddModule adds and starts a new resource module.
-func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
+// Add adds and starts a new resource module.
+func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
@@ -94,6 +94,15 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
+	var success bool
+	defer func() {
+		if !success {
+			if err := mod.process.Stop(); err != nil {
+				mgr.logger.Error(err)
+			}
+		}
+	}()
+
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
@@ -104,6 +113,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 
 	mod.registerResources(mgr, mgr.logger)
 
+	success = true
 	return nil
 }
 
@@ -156,8 +166,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Componen
 	return nil
 }
 
-// NeedsModule returns true if a component/service config WOULD be handled by a module.
-func (mgr *Manager) NeedsModule(cfg config.Component) bool {
+// Provides returns true if a component/service config WOULD be handled by a module.
+func (mgr *Manager) Provides(cfg config.Component) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
 	_, ok := mgr.getModule(cfg)
@@ -210,7 +220,7 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 
 func (m *module) dial() error {
 	var err error
-	// TODO: PRODUCT-343 session support probably means interceptors here
+	// TODO(PRODUCT-343): session support probably means interceptors here
 	m.conn, err = grpc.Dial(
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

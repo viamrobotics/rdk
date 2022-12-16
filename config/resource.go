@@ -63,7 +63,7 @@ type Component struct {
 
 	Namespace resource.Namespace   `json:"namespace"`
 	Type      resource.SubtypeName `json:"type"`
-	// TODO: PRODUCT-266 API replaces Type and Namespace when Service/Component merge, so json needs to be enabled.
+	// TODO(PRODUCT-266): API replaces Type and Namespace when Service/Component merge, so json needs to be enabled.
 	API           resource.Subtype             `json:"-"`
 	Model         resource.Model               `json:"model"`
 	Frame         *referenceframe.LinkConfig   `json:"frame,omitempty"`
@@ -105,7 +105,7 @@ func (config *Component) String() string {
 // ResourceName returns the  ResourceName for the component.
 func (config *Component) ResourceName() resource.Name {
 	if err := config.fixAPI(); err != nil {
-		utils.UncheckedError(err)
+		panic(err)
 	}
 	remotes := strings.Split(config.Name, ":")
 	if len(remotes) > 1 {
@@ -220,7 +220,7 @@ func (config *Component) fixAPI() error {
 
 	// this shouldn't be able to happen except with directly instantiated config structs
 	if config.API.Namespace != config.Namespace || config.API.ResourceSubtype != config.Type {
-		return errors.New("Component.Namespace and/or Component.Type do not match Component.API field")
+		return errors.New("component namespace and/or type do not match component api field")
 	}
 	return nil
 }
@@ -229,7 +229,7 @@ func (config *Component) fixAPI() error {
 //
 //nolint:dupl
 func ParseComponentFlag(flag string) (Component, error) {
-	// TODO: PRODUCT-266 Needs triplet support for model and API/subtype
+	// TODO(PRODUCT-266): Needs triplet support for model and api
 	cmp := Component{}
 	componentParts := strings.Split(flag, ",")
 	for _, part := range componentParts {
@@ -314,7 +314,7 @@ func (config *Service) ResourceName() resource.Name {
 // ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
-	// TODO: PRODUCT-266 needs triplet support here
+	// TODO(PRODUCT-266): needs triplet support here
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeService,
@@ -394,11 +394,11 @@ func (config *Service) Validate(path string) ([]string, error) {
 	}
 	// If services do not have a name use the name builtin
 	if config.Name == "" {
-		golog.Global().Warnw("no name given, defaulting name to builtin")
+		golog.Global().Debugw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultServiceName
 	}
 	if config.Model.Name == "" {
-		golog.Global().Warnw("no model given; using default")
+		golog.Global().Debugw("no model given; using default")
 		config.Model = resource.DefaultServiceModel
 	}
 

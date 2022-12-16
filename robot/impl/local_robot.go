@@ -244,7 +244,7 @@ func (r *localRobot) WebAddress() (string, error) {
 	return webSvc.Address(), nil
 }
 
-// LiteAddress return the lite grpc service's address.
+// ModuleAddress return the module service's address.
 func (r *localRobot) ModuleAddress() (string, error) {
 	webSvc, err := r.webService()
 	if err != nil {
@@ -466,7 +466,7 @@ func newWithResources(
 	r.modules = modMgr
 
 	for _, mod := range cfg.Modules {
-		err := r.modules.AddModule(ctx, mod)
+		err := r.modules.Add(ctx, mod)
 		if err != nil {
 			return nil, err
 		}

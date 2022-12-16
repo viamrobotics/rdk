@@ -28,7 +28,7 @@ import (
 
 func TestOpID(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfgFilename, port, err := mkCfg()
+	cfgFilename, port, err := makeConfig()
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
@@ -142,7 +142,7 @@ func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 	return rc, gc, conn, nil
 }
 
-func mkCfg() (string, string, error) {
+func makeConfig() (string, string, error) {
 	p, err := goutils.TryReserveRandomPort()
 	if err != nil {
 		return "", "", err
@@ -163,8 +163,6 @@ func mkCfg() (string, string, error) {
 		}},
 	}
 
-	// cfg.Modules[0].ExePath = utils.ResolveFile("module/testmodule/run.sh")
-	// cfg.Network.BindAddress = "localhost:"+ string(port)
 	output, err := json.Marshal(cfg)
 	if err != nil {
 		return "", "", err

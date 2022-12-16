@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/module"
@@ -26,12 +25,7 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	if len(args) < 2 {
-		return errors.New("need socket path as command line argument")
-	}
-	socketPath := args[1]
-
-	myMod, err := module.NewModule(ctx, socketPath, logger)
+	myMod, err := module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,7 @@ func TestModel(t *testing.T) {
 				ModelFamily: resource.ModelFamily{Namespace: "", Family: "test"},
 				Name:        "modelA",
 			},
-			"namespace field for resource missing",
+			"namespace field for model missing",
 		},
 		{
 			"missing family",
@@ -37,7 +37,7 @@ func TestModel(t *testing.T) {
 				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: ""},
 				Name:        "modelA",
 			},
-			"model family field for resource missing",
+			"model_family field for model missing",
 		},
 		{
 			"missing name",
@@ -48,7 +48,7 @@ func TestModel(t *testing.T) {
 				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "test"},
 				Name:        "",
 			},
-			"model name field for resource missing",
+			"name field for model missing",
 		},
 		{
 			"reserved character in model namespace",
@@ -247,7 +247,7 @@ func TestModelFromString(t *testing.T) {
 			`{"namespace": "acme", "name": "model#B"}`,
 			resource.Model{},
 			"not a valid model name",
-			"field for resource missing",
+			"field for model missing",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {

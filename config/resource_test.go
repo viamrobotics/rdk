@@ -170,7 +170,7 @@ func TestComponentValidate(t *testing.T) {
 		})
 	})
 
-	t.Run("API/subtype/namespace variations", func(t *testing.T) {
+	t.Run("api subtype namespace variations", func(t *testing.T) {
 		t.Run("empty API and builtin type", func(t *testing.T) {
 			shortConfig := config.Component{
 				Namespace: resource.ResourceNamespaceRDK,
@@ -209,7 +209,7 @@ func TestComponentValidate(t *testing.T) {
 			deps, err := shortConfig.Validate("path")
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, "do not match Component.API field")
+			test.That(t, err.Error(), test.ShouldContainSubstring, "do not match component api field")
 		})
 
 		t.Run("empty API with external type", func(t *testing.T) {
@@ -245,12 +245,12 @@ func TestComponentValidate(t *testing.T) {
 				Name:      "foo",
 				Type:      "gizmo",
 				Model:     fakeModel,
-				API:       resource.NewDefaultSubtype("nada", false),
+				API:       resource.NewDefaultSubtype("nada", resource.ResourceTypeComponent),
 			}
 			deps, err := shortConfig.Validate("path")
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, "do not match Component.API field")
+			test.That(t, err.Error(), test.ShouldContainSubstring, "do not match component api field")
 		})
 	})
 }
