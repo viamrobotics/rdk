@@ -259,9 +259,9 @@ func (g *RTKMovementSensor) setLastError(err error) {
 func (g *RTKMovementSensor) Start(ctx context.Context) error {
 	switch g.inputProtocol {
 	case serialStr:
-		go g.ReceiveAndWriteSerial()
+		utils.PanicCapturingGo(g.ReceiveAndWriteSerial)
 	case i2cStr:
-		go g.ReceiveAndWriteI2C(ctx)
+		utils.PanicCapturingGo(func() { g.ReceiveAndWriteI2C(ctx) })
 	}
 	if err := g.nmeamovementsensor.Start(ctx); err != nil {
 		return err
