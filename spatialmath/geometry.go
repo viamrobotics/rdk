@@ -28,7 +28,6 @@ type Geometry interface {
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string
-	// instead we return []r3.Vector
 	ToPointCloud(map[string]interface{}) ([]r3.Vector, error)
 }
 
