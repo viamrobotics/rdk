@@ -187,7 +187,7 @@ func newRTKMovementSensor(
 		}
 	case i2cStr:
 		var err error
-		nmeaAttr.I2CAttrConfig = (*board.I2CAttrConfig)(attr.I2CAttrConfig)
+		nmeaAttr.I2CAttrConfig = attr.I2CAttrConfig
 		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, nmeaAttr, logger)
 		if err != nil {
 			return nil, err

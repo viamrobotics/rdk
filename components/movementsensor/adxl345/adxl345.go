@@ -39,7 +39,9 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	cfg.I2CAttrConfig.ValidateI2C(path, false)
+	if err := cfg.I2CAttrConfig.ValidateI2C(path, false); err != nil {
+		return nil, err
+	}
 	var deps []string
 	deps = append(deps, cfg.BoardName)
 	return deps, nil

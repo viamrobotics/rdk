@@ -57,6 +57,8 @@ func (reg *I2CRegister) WriteWordData(ctx context.Context, data uint16) error {
 	return reg.Handle.WriteWordData(ctx, reg.Register, data)
 }
 
+// I2CAttrConfig is used for converting config attributes necessary
+// for establishing an I2C connection.
 type I2CAttrConfig struct {
 	I2CBus      string `json:"i2c_bus"`
 	I2cAddr     int    `json:"i2c_addr,omitempty"`
