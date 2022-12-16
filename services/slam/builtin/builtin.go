@@ -75,7 +75,7 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
 	for _, slamLibrary := range slam.SLAMLibraries {
-		// TODO: PRODUCT-266 use triplet Model names more properly here
+		// TODO(PRODUCT-266): use triplet model names more properly here
 		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
 		registry.RegisterService(slam.Subtype, sModel, registry.Service{
 			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {

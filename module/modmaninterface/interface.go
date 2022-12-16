@@ -10,14 +10,14 @@ import (
 
 // ModuleManager abstracts the module manager interface.
 type ModuleManager interface {
-	AddModule(ctx context.Context, cfg config.Module) error
+	Add(ctx context.Context, cfg config.Module) error
 
 	AddResource(ctx context.Context, cfg config.Component, deps []string) (interface{}, error)
 	ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error
 	RemoveResource(ctx context.Context, name resource.Name) error
 	IsModularResource(name resource.Name) bool
 
-	NeedsModule(cfg config.Component) bool
+	Provides(cfg config.Component) bool
 
 	Close(ctx context.Context) error
 }

@@ -207,7 +207,7 @@ func (r *Robot) Refresh(ctx context.Context) error {
 	return r.RefreshFunc(ctx)
 }
 
-// DiscoverComponents call the injected DiscoverComponents or the real one.
+// DiscoverComponents calls the injected DiscoverComponents or the real one.
 func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -243,7 +243,7 @@ func (r *Robot) TransformPose(
 	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
 }
 
-// Status call the injected Status or the real one.
+// Status calls the injected Status or the real one.
 func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -253,7 +253,7 @@ func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]ro
 	return r.StatusFunc(ctx, resourceNames)
 }
 
-// ModuleAddress call the injected ModuleAddress or the real one.
+// ModuleAddress calls the injected ModuleAddress or the real one.
 func (r *Robot) ModuleAddress() (string, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -263,7 +263,7 @@ func (r *Robot) ModuleAddress() (string, error) {
 	return r.ModuleAddressFunc()
 }
 
-// ModuleManager call the injected ModuleManager or the real one.
+// ModuleManager calls the injected ModuleManager or the real one.
 func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()

@@ -908,6 +908,10 @@ func TestRawClientOperation(t *testing.T) {
 		return []robot.Status{}, nil
 	}
 
+	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+
 	checkOpID := func(md metadata.MD, expected bool) {
 		t.Helper()
 		if expected {

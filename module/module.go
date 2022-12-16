@@ -110,7 +110,7 @@ type Module struct {
 
 // NewModule returns the basic module framework/structure.
 func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
-	// TODO: PRODUCT-343 session support likely means interceptors here
+	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
 		opMgr.UnaryServerInterceptor,
@@ -131,6 +131,14 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 		return nil, err
 	}
 	return m, nil
+}
+
+// NewModuleFromArgs directly parses the command line argument to get its address.
+func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
+	if len(os.Args) != 2 {
+		return nil, errors.New("need socket path as command line argument")
+	}
+	return NewModule(ctx, os.Args[1], logger)
 }
 
 // Start starts the module service and grpc server.
@@ -188,7 +196,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}
-		// TODO: PRODUCT-343 add session support to modules
+		// TODO(PRODUCT-343): add session support to modules
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDisableSessions())
 		if err != nil {
 			return err
@@ -401,7 +409,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 	if creator.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
 	}
-	rpcST := resource.RPCSubtype{
+	rpcSubtype := resource.RPCSubtype{
 		Subtype:      api,
 		ProtoSvcName: creator.RPCServiceDesc.ServiceName,
 		Desc:         creator.ReflectRPCServiceDesc,
@@ -409,7 +417,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.handlers[rpcST] = append(m.handlers[rpcST], model)
+	m.handlers[rpcSubtype] = append(m.handlers[rpcSubtype], model)
 	return nil
 }
 

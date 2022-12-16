@@ -360,7 +360,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
-	// TODO Add session manager interceptors
+	// TODO(PRODUCT-343): Add session manager interceptors
 
 	svc.modServer = module.NewServer(unaryInterceptors, streamInterceptors)
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
@@ -377,11 +377,11 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		defer utils.UncheckedErrorFunc(func() error { return os.Remove(addr) })
-		svc.logger.Debugf("module server listening at %v", lis.Addr())
-		if err := svc.modServer.Serve(lis); err != nil {
-			svc.logger.Fatalf("failed to serve: %v", err)
-		}
+		svc.logger.Debugw("module server listening at ", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
+		if err := svc.modServer.Serve(lis); err != nil {
+			svc.logger.Errorw("failed to serve module service", "error", err)
+		}
 	})
 	return nil
 }
@@ -999,14 +999,12 @@ func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error 
 		}
 
 		if rs.RegisterRPCService != nil {
+			server := svc.rpcServer
 			if mod {
-				if err := rs.RegisterRPCService(ctx, svc.modServer, subtypeSvc); err != nil {
-					return err
-				}
-			} else {
-				if err := rs.RegisterRPCService(ctx, svc.rpcServer, subtypeSvc); err != nil {
-					return err
-				}
+				server = svc.modServer
+			}
+			if err := rs.RegisterRPCService(ctx, server, subtypeSvc); err != nil {
+				return err
 			}
 		}
 	}

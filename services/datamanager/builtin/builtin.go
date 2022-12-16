@@ -670,7 +670,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
-					// TODO: PRODUCT-266 move this to using triplets
+					// TODO(PRODUCT-266): move this to using triplets
 					attrs.Model = c.Model
 					attrs.Type = c.ResourceName().Subtype // Using this instead of c.API to guarantee it's backward compatible
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)

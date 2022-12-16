@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -26,6 +27,19 @@ var Subtype = resource.NewSubtype(
 // Named is a helper for getting the named Gizmo's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
+}
+
+// FromRobot is a helper for getting the named Gizmo from the given Robot.
+func FromRobot(r robot.Robot, name string) (Gizmo, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
+	}
+	part, ok := res.(Gizmo)
+	if !ok {
+		return nil, NewUnimplementedInterfaceError(res)
+	}
+	return part, nil
 }
 
 func init() {

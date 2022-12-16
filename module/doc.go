@@ -17,14 +17,14 @@ The module manager (modmanager) integrates with the robot and resource manager. 
 listening on a unix socket in a temporary directory (ex: /tmp/viam-modules-893893/parent.sock) and then individual modules are executed.
 These are each passed dedicated socket address of their own in the same directory, and based on the module name.
 (ex: /tmp/viam-modules-893893/acme.sock) The parent then queries this address with Ready() and waits for confirmation. The ready response
-also includes a HandlerMap that defines which protocols and models the module provides support for. Once all modules are started, normal
-robot loading continues.
+also includes a HandlerMap that defines which protocols and models the module provides support for. The parent then registers these
+subtypes and models, with creator functions that call the manager's AddResource() method. Once all modules are started, normal robot
+loading continues.
 
-When resources or components are attempting to load that are not built in, the modmanager is queried and, if the
-resource is supported by a module, an AddResource() request is built and sent to the module. The entire config is sent as part of this, as
-are dependencies. Dependencies are passed by name only through GRPC, and the module library on the module side automatically creates
-grpc clients for each resource, before calling the component/service construction. In this way, fully usable dependencies are provided,
-just as they would be during built-in resource creation.
+When resources or components are attempting to load that are not built in, their creator method calls AddResource() and a request is built
+and sent to the module. The entire config is sent as part of this, as are dependencies. Dependencies are passed by name only through GRPC,
+and the module library on the module side automatically creates grpc clients for each resource, before calling the component/service
+constructor. In this way, fully usable dependencies are provided, just as they would be during built-in resource creation.
 
 Back on the parent side, once the AddResource() call completes, the modmanager then establishes an rpc client for the resource,
 and returns that to the resource manager, which inserts it into the resource graph. For built-in protocols (arm, motor, base, etc.) this
@@ -43,7 +43,7 @@ If the cast fails (e.g. the resource doesn't have the Reconfigure method.) then 
 its place. Note that unlike built-in resources, no proxy resource is used, since the real client is in the parent, and will automatically
 get the new resource, since it is looked up by name on each function call.
 
-For removal (during reconfiguration) RemoveResource() is called, and only passes the resource.Name to the module.
+For removal (during shutdown) RemoveResource() is called, and only passes the resource.Name to the module.
 
 # Shutdown
 
@@ -68,7 +68,7 @@ all that's required is that the module:
 
 Under Golang, the module side of things tries to use as much of the "RDK" idioms as possible. Most notably, this includes the registry. So
 when creating modular components with this package, resources (and protocols) register their "Creator" methods and such during init() or
-during main(). They then are explicitly added via AddModelFromRegistry() so that merely importing a module doesn't add uneeded/unused
+during main(). They then are explicitly added via AddModelFromRegistry() so that merely importing a module doesn't add unneeded/unused
 grpc services.
 
 In other languages, and for small modules not part of a larger code ecosystem, the registry concept may not make as much sense, and

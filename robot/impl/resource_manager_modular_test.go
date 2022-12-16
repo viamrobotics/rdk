@@ -257,7 +257,7 @@ func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	return name.Name != "built-in"
 }
 
-func (m *dummyModMan) NeedsModule(cfg config.Component) bool {
+func (m *dummyModMan) Provides(cfg config.Component) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.needsModCount++

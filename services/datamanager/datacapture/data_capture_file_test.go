@@ -72,7 +72,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			actualMetadata, err := BuildCaptureMetadata(
-				resource.NewDefaultSubtype(tc.componentType, false),
+				resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent),
 				tc.componentName, resource.NewDefaultModel(resource.ModelName(tc.componentModel)), tc.method, tc.additionalParams, tc.tags)
 			test.That(t, err, test.ShouldEqual, nil)
 
@@ -80,7 +80,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			test.That(t, err, test.ShouldEqual, nil)
 
 			expectedMetadata := v1.DataCaptureMetadata{
-				ComponentType:    resource.NewDefaultSubtype(tc.componentType, false).String(),
+				ComponentType:    resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent).String(),
 				ComponentName:    tc.componentName,
 				ComponentModel:   resource.NewDefaultModel(resource.ModelName(tc.componentModel)).String(),
 				MethodName:       tc.method,

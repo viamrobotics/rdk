@@ -65,6 +65,9 @@ func TestSubtypeRemoteNames(t *testing.T) {
 	name4 := "remote2:remote1:name4"
 	name5 := "remote2:remote1:name5name6"
 	name7 := "remote2:remote4:name1"
+	name8 := "remote1:name0"
+	name9 := "remote1:nameX"
+	name10 := "remote2:nameX"
 	resources := map[resource.Name]interface{}{
 		resource.NewName(
 			resource.ResourceNamespaceRDK,
@@ -108,6 +111,24 @@ func TestSubtypeRemoteNames(t *testing.T) {
 			strType,
 			name7,
 		): name7,
+		resource.NewName(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			strType,
+			name8,
+		): name8,
+		resource.NewName(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			strType,
+			name9,
+		): name9,
+		resource.NewName(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			strType,
+			name10,
+		): name10,
 	}
 	svc, err := subtype.New(resources)
 	test.That(t, err, test.ShouldBeNil)
@@ -118,6 +139,9 @@ func TestSubtypeRemoteNames(t *testing.T) {
 	test.That(t, svc.Resource(name4), test.ShouldEqual, name4)
 	test.That(t, svc.Resource(name5), test.ShouldEqual, name5)
 	test.That(t, svc.Resource(name7), test.ShouldEqual, name7)
+	test.That(t, svc.Resource(name8), test.ShouldEqual, name8)
+	test.That(t, svc.Resource(name9), test.ShouldEqual, name9)
+	test.That(t, svc.Resource(name10), test.ShouldEqual, name10)
 
 	test.That(t, svc.Resource("name2"), test.ShouldEqual, name2)
 	test.That(t, svc.Resource("remote1:name2"), test.ShouldBeNil)
@@ -130,6 +154,9 @@ func TestSubtypeRemoteNames(t *testing.T) {
 	test.That(t, svc.Resource("name5"), test.ShouldBeNil)
 	test.That(t, svc.Resource("name6"), test.ShouldBeNil)
 	test.That(t, svc.Resource("name5name6"), test.ShouldEqual, name5)
+
+	test.That(t, svc.Resource("name0"), test.ShouldEqual, name0)
+	test.That(t, svc.Resource("nameX"), test.ShouldBeNil)
 }
 
 func TestSubtypeAddRemoveReplaceOne(t *testing.T) {

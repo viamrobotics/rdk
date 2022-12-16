@@ -41,10 +41,10 @@ func NewModelFamily(namespace Namespace, family ModelFamilyName) ModelFamily {
 // Validate ensures that important fields exist and are valid.
 func (f ModelFamily) Validate() error {
 	if f.Namespace == "" {
-		return errors.New("model namespace field for resource missing")
+		return errors.New("namespace field for model missing")
 	}
 	if f.Family == "" {
-		return errors.New("model family field for resource missing")
+		return errors.New("model_family field for model missing")
 	}
 	if err := ContainsReservedCharacter(string(f.Namespace)); err != nil {
 		return err
@@ -90,7 +90,7 @@ func NewModelFromString(modelStr string) (Model, error) {
 		return NewModel(Namespace(matches[1]), ModelFamilyName(matches[2]), ModelName(matches[3])), nil
 	}
 
-	// TODO: PRODUCT-266 Remove when triplet support complete
+	// TODO(PRODUCT-266): Remove when triplet support complete
 	if singleFieldRegexValidator.MatchString(modelStr) {
 		return NewModel(ResourceNamespaceRDK, DefaultModelFamilyName, ModelName(modelStr)), nil
 	}
@@ -103,7 +103,7 @@ func (m Model) Validate() error {
 		return err
 	}
 	if m.Name == "" {
-		return errors.New("model name field for resource missing")
+		return errors.New("name field for model missing")
 	}
 	if err := ContainsReservedCharacter(string(m.Name)); err != nil {
 		return err
@@ -130,7 +130,7 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	// TODO: PRODUCT-266 Remove when triplet support complete
+	// TODO(PRODUCT-266): Remove when triplet support complete
 	if singleFieldRegexValidator.MatchString(modelStr) {
 		m.Namespace = ResourceNamespaceRDK
 		m.ModelFamily.Family = DefaultModelFamilyName

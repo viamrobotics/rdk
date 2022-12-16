@@ -289,7 +289,7 @@ func connect(port string, logger golog.Logger) (robot.Robot, error) {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond * 500)
 		rc, err := client.New(dialCtx, "localhost:" + port, logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
-			client.WithDisableSessions(), // TODO: PRODUCT-343 add session support to modules
+			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()
 		if !errors.Is(err, context.DeadlineExceeded) {
