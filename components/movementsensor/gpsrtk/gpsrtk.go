@@ -156,8 +156,10 @@ type RTKMovementSensor struct {
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string
+	// the ntripClient is used in multiple threads
 	ntripClient        *NtripInfo
 	correctionWriter   io.ReadWriteCloser
+	// ntripStatus is written from one thread and read in the other.
 	ntripStatus        bool
 
 	bus       board.I2C
@@ -257,14 +259,15 @@ func (g *RTKMovementSensor) setLastError(err error) {
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
 func (g *RTKMovementSensor) Start(ctx context.Context) error {
+	if err := g.nmeamovementsensor.Start(ctx); err != nil {
+		return err
+	}
+
 	switch g.inputProtocol {
 	case serialStr:
 		utils.PanicCapturingGo(g.ReceiveAndWriteSerial)
 	case i2cStr:
 		utils.PanicCapturingGo(func() { g.ReceiveAndWriteI2C(ctx) })
-	}
-	if err := g.nmeamovementsensor.Start(ctx); err != nil {
-		return err
 	}
 
 	return g.lastError
