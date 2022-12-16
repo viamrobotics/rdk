@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -1108,4 +1109,46 @@ func createTempFolderArchitecture() (string, error) {
 func resetFolder(path string) error {
 	err := os.RemoveAll(path)
 	return err
+}
+
+func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int, deleteProcessedData, online bool) int {
+	var numFiles int
+
+	switch mode {
+	case slam.Mono:
+		numFilesRGB, err := checkDataDir(t, dir+"/data/rgb", prev, online, deleteProcessedData)
+		test.That(t, err, test.ShouldBeNil)
+
+		numFiles = numFilesRGB
+	case slam.Rgbd:
+		numFilesRGB, err := checkDataDir(t, dir+"/data/rgb", prev, online, deleteProcessedData)
+		test.That(t, err, test.ShouldBeNil)
+
+		numFilesDepth, err := checkDataDir(t, dir+"/data/depth", prev, online, deleteProcessedData)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, numFilesRGB, test.ShouldEqual, numFilesDepth)
+		numFiles = numFilesRGB
+	}
+	return numFiles
+}
+
+func checkDataDir(t *testing.T, dir string, prev int, delete_processed_data, online bool) (int, error) {
+
+	files, err := ioutil.ReadDir(dir)
+	test.That(t, err, test.ShouldBeNil)
+
+	if delete_processed_data && online {
+		test.That(t, prev, test.ShouldEqual, len(files))
+	}
+	if !delete_processed_data && online {
+		test.That(t, prev, test.ShouldBeLessThan, len(files))
+	}
+	if !delete_processed_data && !online {
+		test.That(t, prev, test.ShouldEqual, len(files))
+	}
+	if !delete_processed_data && !online {
+		test.That(t, prev, test.ShouldBeGreaterThan, len(files))
+	}
+	return len(files), nil
 }
