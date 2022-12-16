@@ -25,10 +25,9 @@ import (
 
 // AttrConfig is user config inputs for ezopmp.
 type AttrConfig struct {
-	BoardName   string `json:"board"`
-	BusName     string `json:"bus_name"`
-	I2CAddress  *byte  `json:"i2c_address"`
-	MaxReadBits *int   `json:"max_read_bits"`
+	BoardName            string `json:"board"`
+	MaxReadBits          *int   `json:"max_read_bits"`
+	*board.I2CAttrConfig `json:"i2c_attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -37,17 +36,11 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 	if config.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-
-	if config.BusName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
-	}
-
-	if config.I2CAddress == nil {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
-	}
-
 	if config.MaxReadBits == nil {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
+	}
+	if err := config.I2CAttrConfig.ValidateI2C(path, true); err != nil {
+		return nil, err
 	}
 
 	deps = append(deps, config.BoardName)
@@ -113,15 +106,15 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, lo
 	if !ok {
 		return nil, fmt.Errorf("board %s is not local", c.BoardName)
 	}
-	bus, ok := localB.I2CByName(c.BusName)
+	bus, ok := localB.I2CByName(c.I2CBus)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus (%s) requested by Motor", c.BusName)
+		return nil, errors.Errorf("can't find I2C bus (%s) requested by Motor", c.I2CBus)
 	}
 
 	m := &Ezopmp{
 		board:       b,
 		bus:         bus,
-		I2CAddress:  *c.I2CAddress,
+		I2CAddress:  byte(c.I2cAddr),
 		maxReadBits: *c.MaxReadBits,
 		logger:      logger,
 		maxPowerPct: 1.0,

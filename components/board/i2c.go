@@ -2,6 +2,8 @@ package board
 
 import (
 	"context"
+
+	"go.viam.com/utils"
 )
 
 // I2C represents a shareable I2C bus on the board.
@@ -53,4 +55,22 @@ func (reg *I2CRegister) ReadWordData(ctx context.Context) (uint16, error) {
 // WriteWordData writes a word to the I2C channel register.
 func (reg *I2CRegister) WriteWordData(ctx context.Context, data uint16) error {
 	return reg.Handle.WriteWordData(ctx, reg.Register, data)
+}
+
+type I2CAttrConfig struct {
+	I2CBus      string `json:"i2c_bus"`
+	I2cAddr     int    `json:"i2c_addr,omitempty"`
+	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
+}
+
+// ValidateI2C ensures all parts of the config are valid.
+func (cfg *I2CAttrConfig) ValidateI2C(path string, requireAddress bool) error {
+	if cfg.I2CBus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	if (cfg.I2cAddr == 0) && requireAddress {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
+	}
+
+	return nil
 }

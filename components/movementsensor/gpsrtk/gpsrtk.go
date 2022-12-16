@@ -36,9 +36,9 @@ type AttrConfig struct {
 	Board            string `json:"board,omitempty"`
 	ConnectionType   string `json:"connection_type,omitempty"`
 
-	*SerialAttrConfig `json:"serial_attributes,omitempty"`
-	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
-	*NtripAttrConfig  `json:"ntrip_attributes,omitempty"`
+	*SerialAttrConfig    `json:"serial_attributes,omitempty"`
+	*board.I2CAttrConfig `json:"i2c_attributes,omitempty"`
+	*NtripAttrConfig     `json:"ntrip_attributes,omitempty"`
 }
 
 // NtripAttrConfig is used for converting attributes for a correction source.
@@ -61,13 +61,6 @@ type SerialAttrConfig struct {
 	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
 }
 
-// I2CAttrConfig is used for converting attributes for a correction source.
-type I2CAttrConfig struct {
-	I2CBus      string `json:"i2c_bus"`
-	I2cAddr     int    `json:"i2c_addr"`
-	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
-}
-
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
@@ -79,7 +72,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
+		return deps, cfg.I2CAttrConfig.ValidateI2C(path, true)
 	case serialStr:
 		return nil, cfg.SerialAttrConfig.ValidateSerial(path)
 	case "":
@@ -87,18 +80,6 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	default:
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	}
-}
-
-// ValidateI2C ensures all parts of the config are valid.
-func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
-	if cfg.I2CBus == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
-	}
-	if cfg.I2cAddr == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
-	}
-
-	return nil
 }
 
 // ValidateSerial ensures all parts of the config are valid.
@@ -206,7 +187,7 @@ func newRTKMovementSensor(
 		}
 	case i2cStr:
 		var err error
-		nmeaAttr.I2CAttrConfig = (*gpsnmea.I2CAttrConfig)(attr.I2CAttrConfig)
+		nmeaAttr.I2CAttrConfig = (*board.I2CAttrConfig)(attr.I2CAttrConfig)
 		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, nmeaAttr, logger)
 		if err != nil {
 			return nil, err

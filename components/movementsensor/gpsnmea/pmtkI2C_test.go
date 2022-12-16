@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -29,19 +28,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	deps[board.Named(testBoardName)] = actualBoard
 
 	return deps
-}
-
-func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CAttrConfig{I2CBus: "some-bus"}
-
-	path := "path"
-	err := fakecfg.ValidateI2C(path)
-	test.That(t, err, test.ShouldBeError,
-		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
-
-	fakecfg.I2cAddr = 66
-	err = fakecfg.ValidateI2C(path)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestNewI2CMovementSensor(t *testing.T) {
@@ -70,7 +56,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 			ConnectionType: "I2C",
 			Board:          testBoardName,
 			DisableNMEA:    false,
-			I2CAttrConfig:  &I2CAttrConfig{I2CBus: testBusName},
+			I2CAttrConfig:  &board.I2CAttrConfig{I2CBus: testBusName},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)

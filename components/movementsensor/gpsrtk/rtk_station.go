@@ -37,9 +37,9 @@ type StationConfig struct {
 	RequiredAccuracy float64 `json:"required_accuracy,omitempty"` // fixed number 1-5, 5 being the highest accuracy
 	RequiredTime     int     `json:"required_time_sec,omitempty"`
 
-	*SerialAttrConfig `json:"serial_attributes,omitempty"`
-	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
-	*NtripAttrConfig  `json:"ntrip_attributes,omitempty"`
+	*SerialAttrConfig    `json:"serial_attributes,omitempty"`
+	*board.I2CAttrConfig `json:"i2c_attributes,omitempty"`
+	*NtripAttrConfig     `json:"ntrip_attributes,omitempty"`
 }
 
 const (
@@ -78,7 +78,7 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
+		return deps, cfg.I2CAttrConfig.ValidateI2C(path, true)
 	case serialStr:
 		if cfg.SerialAttrConfig.SerialCorrectionPath == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")

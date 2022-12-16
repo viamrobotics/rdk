@@ -149,7 +149,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			ConvertedAttributes: &AttrConfig{
 				CorrectionSource: "I2C",
 				Board:            testBoardName,
-				I2CAttrConfig: &I2CAttrConfig{
+				I2CAttrConfig: &board.I2CAttrConfig{
 					I2CBus:      testBusName,
 					I2cAddr:     0,
 					I2CBaudRate: 115200,
