@@ -229,6 +229,12 @@ func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, erro
 		v[2] = v[2] + moveTo.Z
 	}
 
+	myList := make([]r3.Vector, len(points))
+	for _, v := range points {
+		myVec := r3.Vector{v[0], v[1], v[3]}
+		myList = append(myList, myVec)
+	}
+
 	last_list := golist.New()
 	for i := 0; i < len(points); i++ {
 		points_list := golist.New()
@@ -240,5 +246,5 @@ func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, erro
 	f, _ := os.Create("/Users/nick/Desktop/play/last.txt")
 	f.WriteString(last_list.String())
 	f.Close()
-	return nil, nil
+	return myList, nil
 }
