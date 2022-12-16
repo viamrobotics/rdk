@@ -162,3 +162,11 @@ func pointVsBoxDistance(b *box, pt r3.Vector) float64 {
 	}
 	return -b.penetrationDepth(pt)
 }
+
+// TODO: add descriptions
+func (p *point) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
+	myVec := r3.Vector{p.pose.Point().X, p.pose.Point().Y, p.pose.Point().Z}
+	pcList := make([]r3.Vector, 1)
+	pcList = append(pcList, myVec)
+	return pcList, nil
+}

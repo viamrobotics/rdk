@@ -43,10 +43,11 @@ func TestSphereVertices(t *testing.T) {
 }
 
 func TestSpherePC(t *testing.T) {
-	pt := r3.Vector{1, 1, 1}
+	pt := r3.Vector{-4, -4, -4}
 	radius := 2.0
-	label := ""
 
+	label := ""
 	sphere := &sphere{NewPoseFromPoint(pt), radius, label}
-	SpheretoPC(sphere)
+	myMap := make(map[string]interface{})
+	sphere.ToPointCloud(myMap)
 }

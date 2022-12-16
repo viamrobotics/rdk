@@ -28,8 +28,8 @@ type Geometry interface {
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string
-	// ToPointCloud(Geometry)
-	// add as pointcloud func
+	// instead we return []r3.Vector
+	ToPointCloud(map[string]interface{}) ([]r3.Vector, error)
 }
 
 // GeometryType defines what geometry creator representations are known.
