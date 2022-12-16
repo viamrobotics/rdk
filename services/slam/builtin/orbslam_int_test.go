@@ -22,6 +22,7 @@ import (
 
 const (
 	dataInsertionMaxTimeoutMin = 3
+	orbSleepMs                 = 100
 )
 
 // Creates the vocabulary file required by the orbslam binary.
@@ -94,7 +95,7 @@ func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThan, 0)
 }
 
-func integrationTestHelper(t *testing.T, mode slam.Mode) {
+func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	_, err := exec.LookPath("orb_grpc_server")
 	if err != nil {
 		t.Skip("Skipping test because orb_grpc_server binary was not found")
@@ -107,11 +108,18 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode")
 
 	var sensors []string
+	var expectedMapsOnline, expectedMapsOffline, expectedMapsApriori int
 	switch mode {
 	case slam.Mono:
 		sensors = []string{"orbslam_int_webcam"}
+		expectedMapsOnline = 0
+		expectedMapsOffline = 1
+		expectedMapsApriori = expectedMapsOnline + 1
 	case slam.Rgbd:
 		sensors = []string{"orbslam_int_color_camera", "orbslam_int_depth_camera"}
+		expectedMapsOnline = 5
+		expectedMapsOffline = 1
+		expectedMapsApriori = expectedMapsOnline + 1
 	default:
 		t.FailNow()
 	}
@@ -181,6 +189,12 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
+
+	// Added sleep to ensure orbslam stops
+	time.Sleep(time.Millisecond * orbSleepMs)
+
+	// test orbslam directory, should have 2 configs
+	testOrbslamDir(t, name, expectedMapsOnline, 2)
 
 	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
 	// the same data as online mode. (Online mode will not read the last image (or image pair),
@@ -275,6 +289,12 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
+	// Added sleep to ensure orbslam stops
+	time.Sleep(time.Millisecond * orbSleepMs)
+
+	// test orbslam directory, should have 2 configs
+	testOrbslamDir(t, name, expectedMapsOffline, 2)
+
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
@@ -282,7 +302,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
-	mapRate = 9999
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -353,15 +373,33 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		t.Skip("Skipping test because orbslam hangs and failed to shut down")
 	}
 
+	// Added sleep to ensure orbslam stops
+	time.Sleep(time.Millisecond * orbSleepMs)
+
+	// test orbslam directory, should have 3 configs
+	testOrbslamDir(t, name, expectedMapsApriori, 3)
+
 	// Clear out directory
 	closeOutSLAMService(t, name)
 
 }
 
+// Checks the current slam directory to see if the number of files is around the expected amount
+// Because how orbslam runs, the number of maps is not the same between integration tests
+func testOrbslamDir(t *testing.T, path string, expectedMaps int, expectedConfigs int) {
+	mapsInDir, err := ioutil.ReadDir(path + "/map/")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mapsInDir), test.ShouldBeBetweenOrEqual, expectedMaps, expectedMaps*2+1)
+
+	configsInDir, err := ioutil.ReadDir(path + "/config/")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(configsInDir), test.ShouldEqual, expectedConfigs)
+}
+
 func TestOrbslamIntegrationRGBD(t *testing.T) {
-	integrationTestHelper(t, slam.Rgbd)
+	integrationTestHelperOrbslam(t, slam.Rgbd)
 }
 
 func TestOrbslamIntegrationMono(t *testing.T) {
-	integrationTestHelper(t, slam.Mono)
+	integrationTestHelperOrbslam(t, slam.Mono)
 }

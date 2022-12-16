@@ -113,7 +113,7 @@ type builtIn struct {
 	modelManagerConstructor model.ManagerConstructor
 }
 
-var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
+var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
@@ -530,8 +530,12 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	toggledSyncOn := toggledSync && !svc.syncDisabled
 
 	// If sync has been toggled on, sync previously captured files and update the capture directory.
-	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
-	svc.captureDir = svcConfig.CaptureDir
+	captureDir := svcConfig.CaptureDir
+	if captureDir == "" {
+		captureDir = viamCaptureDotDir
+	}
+	updateCaptureDir := (svc.captureDir != captureDir) || toggledSyncOn
+	svc.captureDir = captureDir
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
