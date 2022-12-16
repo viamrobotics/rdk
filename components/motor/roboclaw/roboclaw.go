@@ -56,7 +56,6 @@ func init() {
 		motor.Subtype,
 		modelname,
 		registry.Component{
-			//name in config.component
 			Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 				return newRoboClaw(deps, config, logger)
 			},
