@@ -100,7 +100,10 @@ type wit struct {
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return imu.angularVelocity, imu.lastError
+	// Return the most recent error, and clear it for next time.
+	lastError := imu.lastError
+	imu.lastError = nil
+	return imu.angularVelocity, lastError
 }
 
 func (imu *wit) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -112,21 +115,30 @@ func (imu *wit) LinearVelocity(ctx context.Context, extra map[string]interface{}
 func (imu *wit) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return &imu.orientation, imu.lastError
+	// Return the most recent error, and clear it for next time.
+	lastError := imu.lastError
+	imu.lastError = nil
+	return &imu.orientation, lastError
 }
 
 // LinearAcceleration returns linear acceleration in mm_per_sec_per_sec.
 func (imu *wit) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return imu.acceleration, imu.lastError
+	// Return the most recent error, and clear it for next time.
+	lastError := imu.lastError
+	imu.lastError = nil
+	return imu.acceleration, lastError
 }
 
 // GetMagnetometer returns magnetic field in gauss.
 func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return imu.magnetometer, imu.lastError
+	// Return the most recent error, and clear it for next time.
+	lastError := imu.lastError
+	imu.lastError = nil
+	return imu.magnetometer, lastError
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
