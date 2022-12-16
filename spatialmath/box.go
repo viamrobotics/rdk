@@ -356,7 +356,7 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 	return sum
 }
 
-// toPC returns list of points that make up box pointcloud
+// TODO: add function description
 func (b *box) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
 
 	dims := [3]float64{b.halfSize[0] * 2, b.halfSize[1] * 2, b.halfSize[2] * 2}
