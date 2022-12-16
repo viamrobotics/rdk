@@ -151,15 +151,14 @@ type RTKMovementSensor struct {
 	cancelFunc func()
 
 	activeBackgroundWorkers sync.WaitGroup
-	errMu                   sync.Mutex
+	// Lock the mutex whenever you interact with lastError, ntripClient, or ntripStatus.
+	mu                      sync.Mutex
 	lastError               error
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string
-	// the ntripClient is used in multiple threads
 	ntripClient        *NtripInfo
 	correctionWriter   io.ReadWriteCloser
-	// ntripStatus is written from one thread and read in the other.
 	ntripStatus        bool
 
 	bus       board.I2C
@@ -251,8 +250,8 @@ func newRTKMovementSensor(
 }
 
 func (g *RTKMovementSensor) setLastError(err error) {
-	g.errMu.Lock()
-	defer g.errMu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	g.lastError = err
 }
