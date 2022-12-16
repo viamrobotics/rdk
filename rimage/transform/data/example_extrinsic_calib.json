@@ -903,7 +903,7 @@
             "Z": 1467
         }
     ],
-    "color_intrinsics": {
+    "color_intrinsic_parameters": {
         "width_px": 1280,
         "height_px": 720,
         "fx": 900.538,
@@ -911,7 +911,7 @@
         "ppx": 648.934,
         "ppy": 367.736
     },
-    "depth_intrinsics": {
+    "depth_intrinsic_parameters": {
         "width_px": 1024,
         "height_px": 768,
         "fx": 734.938,
