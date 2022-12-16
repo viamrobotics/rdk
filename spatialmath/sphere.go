@@ -203,6 +203,7 @@ func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
 
+// TODO: add function description
 func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
 
 	var points [][]float64

@@ -51,3 +51,14 @@ func (cloud *basicPointCloud) Set(p r3.Vector, d Data) error {
 func (cloud *basicPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
 	cloud.points.Iterate(numBatches, myBatch, fn)
 }
+
+// TODO: add function description
+func VectorConvert(vectors []r3.Vector) (basicPointCloud, error) {
+	myCloud := basicPointCloud{
+		points: &matrixStorage{points: make([]PointAndData, 0, 10), indexMap: make(map[r3.Vector]uint, 10)},
+		meta:   NewMetaData(),
+	}
+	// TODO: finish function
+
+	return myCloud, nil
+}
