@@ -415,6 +415,12 @@ func (b *box) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) 
 		faces[i][2] = actual[2]
 	}
 
+	myList := make([]r3.Vector, len(faces))
+	for _, v := range faces {
+		myVec := r3.Vector{v[0], v[1], v[3]}
+		myList = append(myList, myVec)
+	}
+
 	last_list := golist.New()
 	for i := 0; i < len(faces); i++ {
 		points_list := golist.New()
@@ -428,5 +434,5 @@ func (b *box) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) 
 	f.WriteString(last_list.String())
 	f.Close()
 
-	return nil, nil
+	return myList, nil
 }
