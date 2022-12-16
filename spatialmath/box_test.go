@@ -54,13 +54,11 @@ func TestBoxVertices(t *testing.T) {
 
 func TestBoxPC(t *testing.T) {
 	offset := r3.Vector{0, 0, 0}
-	dims := r3.Vector{2, 2, 2}
+	dims := r3.Vector{1, 2, 3}
 	orien := &Quaternion{1, 1, 0, 0}
 	pose := NewPoseFromOrientation(offset, orien)
 	box := &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, 10, ""}
 	myMap := make(map[string]interface{})
-	myMap["xIter"] = 0.5
-	myMap["yIter"] = 0.5
-	myMap["zIter"] = 0.5
+	// myMap["resolution"] = 0.2
 	box.ToPointCloud(myMap)
 }

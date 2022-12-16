@@ -356,83 +356,66 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 	return sum
 }
 
-// TODO: add function description
+// TODO: add function description.
 func (b *box) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
-
 	dims := [3]float64{b.halfSize[0] * 2, b.halfSize[1] * 2, b.halfSize[2] * 2}
-
 	var faces [][]float64
+	// explain what this does
+	var iter float64
+	if options["resolution"] != nil {
+		iter = options["resolution"].(float64)
+	} else {
+		iter = 0.15 // default value or spacing
+	}
 	// which faces are these
-	for i := 0.0; i <= dims[0]; i += options["xIter"].(float64) {
-		for k := 0.0; k <= dims[2]; k += options["zIter"].(float64) {
+	for i := 0.0; i <= dims[0]; i += iter {
+		for k := 0.0; k <= dims[2]; k += iter {
 			p1 := []float64{i, 0, k}
 			p2 := []float64{i, dims[1], k}
 			faces = append(faces, p1, p2)
 		}
 	}
 	// which faces are these
-	for j := 0.0; j <= dims[1]; j += options["yIter"].(float64) {
-		for k := 0.0; k <= dims[2]; k += options["zIter"].(float64) {
+	for j := 0.0; j <= dims[1]; j += iter {
+		for k := 0.0; k <= dims[2]; k += iter {
 			p1 := []float64{0, j, k}
 			p2 := []float64{dims[0], j, k}
 			faces = append(faces, p1, p2)
 		}
 	}
 	// which faces are these
-	for i := 0.0; i <= dims[0]; i += options["xIter"].(float64) {
-		for j := 0.0; j <= dims[1]; j += options["yIter"].(float64) {
+	for i := 0.0; i <= dims[0]; i += iter {
+		for j := 0.0; j <= dims[1]; j += iter {
 			p1 := []float64{i, j, 0}
 			p2 := []float64{i, j, dims[2]}
 			faces = append(faces, p1, p2)
 		}
 	}
-	// what does this do
-	min := b.Vertices()[0]
-	for i := 0; i < len(b.Vertices()); i++ {
-		curr := b.Vertices()[i]
-		if curr.X <= min.X && curr.Y <= min.Y && curr.Z <= min.Z {
-			min = b.Vertices()[i]
-		}
-	}
-	// what does this do
-	for _, v := range faces {
-		v[0] = v[0] + min.X
-		v[1] = v[1] + min.Y
-		v[2] = v[2] + min.Z
-	}
-	fmt.Println("len(faces): ", len(faces))
-
-	// what does this do
+	// explain what this does
 	rotMat := b.Pose().Orientation().RotationMatrix().mat
 	myMat := mat.NewDense(3, 3, rotMat[:])
+	var myList []r3.Vector
 	for i := 0; i < len(faces); i++ {
 		blarg := mat.NewVecDense(3, faces[i]) // todo rename this
 		actual := make([]float64, 3)
-		c := mat.NewVecDense(3, actual)
+		c := mat.NewVecDense(3, actual) // todo rename this
 		c.MulVec(myMat, blarg)
-		faces[i][0] = actual[0]
-		faces[i][1] = actual[1]
-		faces[i][2] = actual[2]
-	}
-
-	myList := make([]r3.Vector, len(faces))
-	for _, v := range faces {
-		myVec := r3.Vector{v[0], v[1], v[3]}
+		myVec := r3.Vector{actual[0] + b.pose.Point().X, actual[1] + b.pose.Point().Y, actual[2] + b.pose.Point().Z}
 		myList = append(myList, myVec)
 	}
 
-	last_list := golist.New()
-	for i := 0; i < len(faces); i++ {
-		points_list := golist.New()
-		points_list.Append(faces[i][0])
-		points_list.Append(faces[i][1])
-		points_list.Append(faces[i][2])
-		last_list.Append(points_list)
+	// This is here so I can export myList as a python list
+	// will be deleted
+	lastList := golist.New()
+	for i := 0; i < len(myList); i++ {
+		pointsList := golist.New()
+		pointsList.Append(myList[i].X)
+		pointsList.Append(myList[i].Y)
+		pointsList.Append(myList[i].Z)
+		lastList.Append(pointsList)
 	}
-
 	f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
-	f.WriteString(last_list.String())
+	f.WriteString(lastList.String())
 	f.Close()
-
 	return myList, nil
 }
