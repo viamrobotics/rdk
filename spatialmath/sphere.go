@@ -203,19 +203,13 @@ func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
 
-func SpheretoPC(s *sphere) (r3.Vector, error) {
-	vec := &r3.Vector{}
-	// pose := s.pose.Point()
-	// radius := s.radius
-	// fmt.Println("pose: ", pose)
-	// fmt.Println("radius: ", radius)
-	// var points [][]float64
-	last_list := golist.New()
+func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
+
+	var points [][]float64
 	phi := math.Pi * (3.0 - math.Sqrt(5.0))
 
-	nums := 1000 * s.radius
+	nums := 500 * s.radius
 	for i := 0.; i < nums; i++ {
-		points_list := golist.New()
 
 		y := float64(1 - (i/(nums-1))*2)
 		radius := math.Sqrt(1 - y*y)
@@ -224,15 +218,27 @@ func SpheretoPC(s *sphere) (r3.Vector, error) {
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
 		y = y * s.radius
-		// p := [3]float64{x, y, z}
+		point := [3]float64{x, y, z}
+		points = append(points, point[:])
+	}
+	// translation method
+	moveTo := s.pose.Point()
+	for _, v := range points {
+		v[0] = v[0] + moveTo.X
+		v[1] = v[1] + moveTo.Y
+		v[2] = v[2] + moveTo.Z
+	}
 
-		points_list.Append(x)
-		points_list.Append(y)
-		points_list.Append(z)
+	last_list := golist.New()
+	for i := 0; i < len(points); i++ {
+		points_list := golist.New()
+		points_list.Append(points[i][0])
+		points_list.Append(points[i][1])
+		points_list.Append(points[i][2])
 		last_list.Append(points_list)
 	}
 	f, _ := os.Create("/Users/nick/Desktop/play/last.txt")
 	f.WriteString(last_list.String())
 	f.Close()
-	return *vec, nil
+	return nil, nil
 }
