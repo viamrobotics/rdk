@@ -155,7 +155,9 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	if g.data.location == nil {
 		return geo.NewPoint(0, 0), 0, errNilLocation
 	}
-	return g.data.location, g.data.alt, g.lastError
+	lastError := g.lastError
+	g.lastError = nil
+	return g.data.location, g.data.alt, lastError
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
@@ -209,7 +211,7 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g, extra)
 	if err != nil {
-		return nil, g.lastError
+		return nil, err
 	}
 
 	fix, err := g.ReadFix(ctx)
@@ -219,7 +221,7 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 
 	readings["fix"] = fix
 
-	return readings, g.lastError
+	return readings, nil
 }
 
 // Properties what do I do!
@@ -227,7 +229,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
-	}, g.lastError
+	}, nil
 }
 
 // Close shuts down the SerialNMEAMovementSensor.

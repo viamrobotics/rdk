@@ -192,21 +192,29 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.location, g.data.alt, g.lastError
+	// Return the most recent error, and clear it for next time.
+	lastError := g.lastError
+	g.lastError = nil
+	return g.data.location, g.data.alt, lastError
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
 func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.lastError
+	// Return the most recent error, and clear it for next time.
+	lastError := g.lastError
+	g.lastError = nil
+	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, lastError
 }
 
 // LinearVelocity returns the current speed of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
+	lastError := g.lastError
+	g.lastError = nil
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, lastError
 }
 
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
@@ -230,7 +238,9 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, g.lastError
+	lastError := g.lastError
+	g.lastError = nil
+	return 0, lastError
 }
 
 // Orientation not supporter.
@@ -245,14 +255,16 @@ func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[st
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
-	}, g.lastError
+	}, nil
 }
 
 // ReadFix returns quality.
 func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.fixQuality, g.lastError
+	lastError := g.lastError
+	g.lastError = nil
+	return g.data.fixQuality, lastError
 }
 
 // Readings will use return all of the MovementSensor Readings.
