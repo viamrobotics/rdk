@@ -204,48 +204,36 @@ func sphereInBox(s *sphere, b *box) bool {
 }
 
 // TODO: add function description
+// TODO: double check this still works as expected
+// TODO: add s/o link for where I found this code.
 func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
-
-	var points [][]float64
-	phi := math.Pi * (3.0 - math.Sqrt(5.0))
-
-	nums := 500 * s.radius
-	for i := 0.; i < nums; i++ {
-
-		y := float64(1 - (i/(nums-1))*2)
-		radius := math.Sqrt(1 - y*y)
-		theta := phi * float64(i)
-
-		x := (math.Cos(theta) * radius) * s.radius
-		z := (math.Sin(theta) * radius) * s.radius
-		y = y * s.radius
-		point := [3]float64{x, y, z}
-		points = append(points, point[:])
-	}
-	// translation method
 	moveTo := s.pose.Point()
-	for _, v := range points {
-		v[0] = v[0] + moveTo.X
-		v[1] = v[1] + moveTo.Y
-		v[2] = v[2] + moveTo.Z
-	}
-
-	myList := make([]r3.Vector, len(points))
-	for _, v := range points {
-		myVec := r3.Vector{v[0], v[1], v[3]}
+	phi := math.Pi * (3.0 - math.Sqrt(5.0))
+	nums := 500 * s.radius
+	myList := make([]r3.Vector, int32(nums))
+	for i := 0.; i < nums; i++ {
+		y := 1 - (i/(nums-1))*2
+		radius := math.Sqrt(1 - y*y)
+		theta := phi * i
+		x := (math.Cos(theta)*radius)*s.radius + moveTo.X
+		z := (math.Sin(theta)*radius)*s.radius + moveTo.Z
+		y = y*s.radius + moveTo.Y
+		myVec := r3.Vector{x, y, z}
 		myList = append(myList, myVec)
 	}
 
-	last_list := golist.New()
-	for i := 0; i < len(points); i++ {
-		points_list := golist.New()
-		points_list.Append(points[i][0])
-		points_list.Append(points[i][1])
-		points_list.Append(points[i][2])
-		last_list.Append(points_list)
+	// This is here so I can export myList as a python list
+	// will be deleted
+	lastList := golist.New()
+	for i := 0; i < len(myList); i++ {
+		pointsList := golist.New()
+		pointsList.Append(myList[i].X)
+		pointsList.Append(myList[i].Y)
+		pointsList.Append(myList[i].Z)
+		lastList.Append(pointsList)
 	}
 	f, _ := os.Create("/Users/nick/Desktop/play/last.txt")
-	f.WriteString(last_list.String())
+	f.WriteString(lastList.String())
 	f.Close()
 	return myList, nil
 }
