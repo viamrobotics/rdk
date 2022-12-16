@@ -59,7 +59,7 @@ const modelName = "ezopmp"
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, deps, config.ConvertedAttributes.(*AttrConfig), logger)
+			return NewMotor(ctx, deps, config.ConvertedAttributes.(*AttrConfig), config, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -104,7 +104,7 @@ const (
 )
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, cfg config.Component, logger golog.Logger) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, err
@@ -127,6 +127,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, lo
 		logger:      logger,
 		maxPowerPct: 1.0,
 		powerPct:    0.0,
+		name:        cfg.Name,
 	}
 
 	flowRate, err := m.findMaxFlowRate(ctx)
@@ -385,5 +386,5 @@ func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 
 // GoTillStop is unimplemented.
 func (m *Ezopmp) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
+	return motor.NewGoTillStopUnsupportedError(m.name)
 }
