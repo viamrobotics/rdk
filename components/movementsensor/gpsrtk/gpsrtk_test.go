@@ -60,7 +60,6 @@ func TestConnect(t *testing.T) {
 	url := "http://fakeurl"
 	username := "user"
 	password := "pwd"
-	mountPoint := "mp"
 
 	// create new ntrip client and connect
 	err := g.Connect("invalidurl", username, password, 10)
@@ -73,9 +72,6 @@ func TestConnect(t *testing.T) {
 
 	err = g.GetStream("", 10)
 	test.That(t, err, test.ShouldNotBeNil)
-
-	err = g.GetStream(mountPoint, 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
 }
 
 func TestNewRTKMovementSensor(t *testing.T) {
