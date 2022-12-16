@@ -22,7 +22,7 @@ import (
 
 const (
 	dataInsertionMaxTimeoutMin = 3
-	orbSleepMs                 = 100
+	orbSleepMs                 = 300
 )
 
 // Creates the vocabulary file required by the orbslam binary.
@@ -389,7 +389,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 func testOrbslamDir(t *testing.T, path string, expectedMaps int, expectedConfigs int) {
 	mapsInDir, err := ioutil.ReadDir(path + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldBeBetweenOrEqual, expectedMaps, expectedMaps*2)
+	test.That(t, len(mapsInDir), test.ShouldBeBetweenOrEqual, expectedMaps, expectedMaps*2+1)
 
 	configsInDir, err := ioutil.ReadDir(path + "/config/")
 	test.That(t, err, test.ShouldBeNil)
