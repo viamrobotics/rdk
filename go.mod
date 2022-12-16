@@ -381,7 +381,7 @@ require (
 
 // SMURF: Remove lint skip line etc/.golangci.yaml after these are removed.
 //replace go.viam.com/api => ../api
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221214221814-8f6af870afea
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221216225710-513b11b0d41b
 
 //replace go.viam.com/utils => ../goutils
-replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221214220923-44aebc4fbc50
+replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221216225534-35d9bd9e1f58

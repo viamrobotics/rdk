@@ -19,11 +19,7 @@ import (
 )
 
 var (
-	Model = resource.NewModel(
-		resource.Namespace("acme"),
-		resource.ModelFamilyName("demo"),
-		resource.ModelName("mybase"),
-	)
+	Model = resource.NewModel("acme", "demo", "mybase")
  	errUnimplemented = errors.New("unimplemented")
 )
 
