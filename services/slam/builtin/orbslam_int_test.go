@@ -418,7 +418,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 func testOrbslamDir(t *testing.T, path string, expectedMaps int, expectedConfigs int) {
 	mapsInDir, err := ioutil.ReadDir(path + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldBeBetweenOrEqual, expectedMaps, expectedMaps*2+1)
+	test.That(t, len(mapsInDir), test.ShouldBeGreaterThan, expectedMaps)
 
 	configsInDir, err := ioutil.ReadDir(path + "/config/")
 	test.That(t, err, test.ShouldBeNil)
