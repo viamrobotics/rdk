@@ -118,13 +118,7 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 		return nil, err
 	}
 
-	motorName := config.Name
-
-	if motorName == "" {
-		return nil, err
-	}
-
-	return &roboclawMotor{name: motorName, conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
+	return &roboclawMotor{name: config.Name, conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
 }
 
 var _ = motor.LocalMotor(&roboclawMotor{})
