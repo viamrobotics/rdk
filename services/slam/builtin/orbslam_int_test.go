@@ -22,7 +22,7 @@ import (
 
 const (
 	dataInsertionMaxTimeoutMin = 3
-	orbSleepMs                 = 300
+	orbSleepMs                 = 100
 )
 
 // Creates the vocabulary file required by the orbslam binary.
@@ -112,9 +112,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	switch mode {
 	case slam.Mono:
 		sensors = []string{"orbslam_int_webcam"}
-		expectedMapsOnline = 1
+		expectedMapsOnline = 0
 		expectedMapsOffline = 1
-		expectedMapsApriori = expectedMapsOnline
+		expectedMapsApriori = expectedMapsOnline + 1
 	case slam.Rgbd:
 		sensors = []string{"orbslam_int_color_camera", "orbslam_int_depth_camera"}
 		expectedMapsOnline = 5
