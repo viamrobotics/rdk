@@ -50,6 +50,8 @@ type PointCloud interface {
 	// numBatches lets you divide up he work. 0 means don't divide
 	// myBatch is used iff numBatches > 0 and is which batch you want
 	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
+
+	// TODO add function that converts []r3.Vector to basic pointcloud
 }
 
 // NewMetaData creates a new MetaData.
