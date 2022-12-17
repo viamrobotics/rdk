@@ -33,27 +33,28 @@ const (
 	buttonControl
 	arrowControl
 	droneControl
-	SubtypeName = resource.SubtypeName("base_remote_control")
 )
+var Subtype = baseremotecontrol.Subtype
 
 func init() {
-	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
-	cType := config.ServiceType(SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultModelName, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	config.RegisterServiceAttributeMapConverter(Subtype, resource.DefaultServiceModel,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &Config{},
+	)
 }
 
 // ControlMode is the control type for the remote control.

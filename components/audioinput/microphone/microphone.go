@@ -15,10 +15,11 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-const model = "microphone"
+var model = resource.NewDefaultModel("microphone")
 
 func init() {
 	registry.RegisterComponent(
@@ -37,7 +38,7 @@ func init() {
 			return newMicrophoneSource(attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(audioinput.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(audioinput.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Attrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

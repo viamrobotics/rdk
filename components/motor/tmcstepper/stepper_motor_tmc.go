@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // PinConfig defines the mapping of where motor are wired.
@@ -42,6 +43,8 @@ type TMC5072Config struct {
 	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
+var modelname = resource.NewDefaultModel("TMC5072")
+
 // Validate ensures all parts of the config are valid.
 func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
@@ -64,10 +67,6 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const (
-	modelname = "TMC5072"
-)
-
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -77,7 +76,7 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf TMC5072Config

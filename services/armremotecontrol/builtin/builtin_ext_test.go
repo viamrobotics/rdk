@@ -37,7 +37,7 @@ func TestSafetyMonitoring(t *testing.T) {
 	fakeArm, err := fakearm.NewArm(
 		config.Component{
 			Name:                arm.Subtype.String(),
-			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName6DOF},
+			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: string(xarm.ModelName6DOF.Name)},
 		},
 		logger,
 	)

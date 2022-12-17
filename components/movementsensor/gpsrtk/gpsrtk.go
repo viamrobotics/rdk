@@ -26,6 +26,7 @@ import (
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -120,7 +121,7 @@ func (cfg *NtripAttrConfig) ValidateNtrip(path string) error {
 	return nil
 }
 
-const roverModel = "gps-rtk"
+var roverModel = resource.NewDefaultModel("gps-rtk")
 
 func init() {
 	registry.RegisterComponent(
@@ -135,7 +136,7 @@ func init() {
 			return newRTKStation(ctx, deps, cfg, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, roverModel,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, roverModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr StationConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)

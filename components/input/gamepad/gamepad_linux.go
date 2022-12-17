@@ -22,12 +22,12 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelname      = "gamepad"
-	defaultMapping = "Microsoft X-Box 360 pad"
-)
+const defaultMapping = "Microsoft X-Box 360 pad"
+
+var modelname = resource.NewDefaultModel("gamepad")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -39,7 +39,7 @@ func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 
 	config.RegisterComponentAttributeMapConverter(
-		input.SubtypeName,
+		input.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

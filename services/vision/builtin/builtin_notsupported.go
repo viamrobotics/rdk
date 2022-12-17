@@ -22,7 +22,7 @@ func init() {
                         return nil, errors.New("not supported on 32 bit arm")
                 },
         })
-        cType := config.ServiceType(vision.SubtypeName)
+        cType := vision.SubtypeName
         config.RegisterServiceAttributeMapConverter(cType, func(attributeMap config.AttributeMap) (interface{}, error) {
                 return nil, errors.New("not supported on 32 bit arm")
         },

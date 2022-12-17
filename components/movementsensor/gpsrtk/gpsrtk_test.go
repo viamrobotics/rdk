@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 var (
@@ -88,7 +89,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		// serial protocol
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: resource.NewDefaultModel("rtk"),
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_send_nmea":           true,
@@ -129,7 +130,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 	t.Run("I2C protocol", func(t *testing.T) {
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: resource.NewDefaultModel("rtk"),
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
@@ -170,7 +171,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		// invalid protocol
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: resource.NewDefaultModel("rtk"),
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
@@ -193,7 +194,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 	t.Run("no ntrip address", func(t *testing.T) {
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: resource.NewDefaultModel("rtk"),
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",

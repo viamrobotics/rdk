@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
+	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -106,6 +107,15 @@ type LocalRobot interface {
 
 	// StopWeb stops the web server, will be a noop if server is not up.
 	StopWeb() error
+
+	// WebAddress returns the address of the web service.
+	WebAddress() (string, error)
+
+	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
+	ModuleAddress() (string, error)
+
+	// ModuleManager returns the module manager the robot is using.
+	ModuleManager() modif.ModuleManager
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
