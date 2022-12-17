@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -24,7 +25,7 @@ var testComponent = Component{
 	Name:      "some-name",
 	Type:      "some-type",
 	Namespace: "some-namespace",
-	Model:     "some-model",
+	Model:     resource.NewDefaultModel("some-model"),
 	DependsOn: []string{"dep1", "dep2"},
 	Attributes: AttributeMap{
 		"attr1": 1,
@@ -112,10 +113,10 @@ var testService = Service{
 	Name:      "some-name",
 	Namespace: "some-namespace",
 	Type:      "some-type",
+	Model:     resource.NewDefaultModel("some-model"),
 	Attributes: AttributeMap{
 		"attr1": 1,
 	},
-	Model:     "some-model",
 	DependsOn: []string{"some-depends-on"},
 }
 
@@ -170,21 +171,48 @@ var testCloudConfig = Cloud{
 	SignalingInsecure: true,
 }
 
+var testModule = Module{
+	Name:    "testmod",
+	ExePath: "/tmp/test.mod",
+}
+
+//nolint:thelper
+func validateModule(t *testing.T, actual, expected Module) {
+	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
+	test.That(t, actual.ExePath, test.ShouldEqual, expected.ExePath)
+}
+
+func TestModuleConfigToProto(t *testing.T) {
+	proto, err := ModuleConfigToProto(&testModule)
+	test.That(t, err, test.ShouldBeNil)
+
+	out, err := ModuleConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	validateModule(t, *out, testModule)
+}
+
 //nolint:thelper
 func validateComponent(t *testing.T, actual, expected Component) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.Type, test.ShouldEqual, expected.Type)
 	test.That(t, actual.Namespace, test.ShouldEqual, expected.Namespace)
-	test.That(t, actual.Model, test.ShouldEqual, expected.Model)
+	test.That(t, actual.Model, test.ShouldResemble, expected.Model)
 	test.That(t, actual.DependsOn, test.ShouldResemble, expected.DependsOn)
 	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
 	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))
 
 	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
+	test.That(t, actual.ServiceConfig[0].Type, test.ShouldResemble, expected.ServiceConfig[0].Type)
 	test.That(t, actual.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
+	test.That(t, actual.ServiceConfig[1].Type, test.ShouldResemble, expected.ServiceConfig[1].Type)
 	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
+
+	// triplet checking
+	test.That(t, actual.API.Namespace, test.ShouldEqual, actual.Namespace)
+	test.That(t, actual.API.ResourceSubtype, test.ShouldEqual, actual.Type)
+	test.That(t, actual.API.ResourceType, test.ShouldEqual, resource.ResourceTypeComponent)
 
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
@@ -202,6 +230,133 @@ func TestComponentConfigToProto(t *testing.T) {
 	test.That(t, out, test.ShouldNotBeNil)
 
 	validateComponent(t, *out, testComponent)
+
+	for _, tc := range []struct {
+		Name string
+		Conf Component
+	}{
+		{
+			Name: "basic component with internal API",
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "rdk",
+				Type:      "base",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic component with external API",
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic component with external model",
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewModel("acme", "test", "model"),
+			},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			proto, err := ComponentConfigToProto(&tc.Conf)
+			test.That(t, err, test.ShouldBeNil)
+			out, err := ComponentConfigFromProto(proto)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, out, test.ShouldNotBeNil)
+			test.That(t, out, test.ShouldResemble, &tc.Conf)
+			test.That(t, out.API.Namespace, test.ShouldEqual, out.Namespace)
+			test.That(t, out.API.ResourceSubtype, test.ShouldEqual, out.Type)
+			_, err = out.Validate("test")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+}
+
+func TestComponentTripletsFallback(t *testing.T) {
+	for _, tc := range []struct {
+		Name  string
+		Proto pb.ComponentConfig
+		Conf  Component
+	}{
+		{
+			Name: "basic component with internal API",
+			Proto: pb.ComponentConfig{
+				Name:      "foo",
+				Namespace: "rdk",
+				Type:      "base",
+				Model:     "fake",
+			},
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "rdk",
+				Type:      "base",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic component with external API",
+			Proto: pb.ComponentConfig{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     "fake",
+			},
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic component with external model",
+			Proto: pb.ComponentConfig{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     "acme:test:model",
+			},
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewModel("acme", "test", "model"),
+			},
+		},
+		{
+			Name: "basic component with api only",
+			Proto: pb.ComponentConfig{
+				Name:  "foo",
+				Api:   "acme:component:gizmo",
+				Model: "acme:test:model",
+			},
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewModel("acme", "test", "model"),
+			},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			out, err := ComponentConfigFromProto(&tc.Proto)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, out, test.ShouldNotBeNil)
+			_, err = tc.Conf.Validate("test")
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, out, test.ShouldResemble, &tc.Conf)
+			test.That(t, out.API.Namespace, test.ShouldEqual, out.Namespace)
+			test.That(t, out.API.ResourceSubtype, test.ShouldEqual, out.Type)
+			_, err = out.Validate("test")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
 }
 
 func TestFrameConfigFromProto(t *testing.T) {
@@ -325,9 +480,9 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, f1, test.ShouldResemble, f2)
 
 	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
+	test.That(t, actual.ServiceConfig[0].Type, test.ShouldResemble, expected.ServiceConfig[0].Type)
 	test.That(t, actual.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
+	test.That(t, actual.ServiceConfig[1].Type, test.ShouldResemble, expected.ServiceConfig[1].Type)
 	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
 }
 
@@ -362,7 +517,7 @@ func validateService(t *testing.T, actual, expected Service) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.Type, test.ShouldEqual, expected.Type)
 	test.That(t, actual.Namespace, test.ShouldEqual, expected.Namespace)
-	test.That(t, actual.Model, test.ShouldEqual, expected.Model)
+	test.That(t, actual.Model, test.ShouldResemble, expected.Model)
 	test.That(t, actual.DependsOn, test.ShouldResemble, expected.DependsOn)
 	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
 	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))
@@ -376,6 +531,115 @@ func TestServiceConfigToProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	validateService(t, *out, testService)
+
+	for _, tc := range []struct {
+		Name string
+		Conf Service
+	}{
+		{
+			Name: "basic component with internal API",
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "rdk",
+				Type:      "base",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic component with external API",
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic component with external model",
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewModel("acme", "test", "model"),
+			},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			proto, err := ServiceConfigToProto(&tc.Conf)
+			test.That(t, err, test.ShouldBeNil)
+			out, err := ServiceConfigFromProto(proto)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, out, test.ShouldNotBeNil)
+			test.That(t, out, test.ShouldResemble, &tc.Conf)
+			_, err = out.Validate("test")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+}
+
+func TestServiceTripletsFallback(t *testing.T) {
+	for _, tc := range []struct {
+		Name  string
+		Proto pb.ServiceConfig
+		Conf  Service
+	}{
+		{
+			Name: "basic service with internal API",
+			Proto: pb.ServiceConfig{
+				Name:      "foo",
+				Namespace: "rdk",
+				Type:      "base",
+				Model:     "fake",
+			},
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "rdk",
+				Type:      "base",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic service with external API",
+			Proto: pb.ServiceConfig{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     "fake",
+			},
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewDefaultModel("fake"),
+			},
+		},
+		{
+			Name: "basic service with external model",
+			Proto: pb.ServiceConfig{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     "acme:test:model",
+			},
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewModel("acme", "test", "model"),
+			},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			out, err := ServiceConfigFromProto(&tc.Proto)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, out, test.ShouldNotBeNil)
+			_, err = tc.Conf.Validate("test")
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, out, test.ShouldResemble, &tc.Conf)
+			_, err = out.Validate("test")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
 }
 
 func TestProcessConfigToProto(t *testing.T) {
@@ -482,6 +746,9 @@ func TestFromProto(t *testing.T) {
 	remoteConfig, err := RemoteConfigToProto(&testRemote)
 	test.That(t, err, test.ShouldBeNil)
 
+	moduleConfig, err := ModuleConfigToProto(&testModule)
+	test.That(t, err, test.ShouldBeNil)
+
 	componentConfig, err := ComponentConfigToProto(&testComponent)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -502,6 +769,7 @@ func TestFromProto(t *testing.T) {
 	input := &pb.RobotConfig{
 		Cloud:      cloudConfig,
 		Remotes:    []*pb.RemoteConfig{remoteConfig},
+		Modules:    []*pb.ModuleConfig{moduleConfig},
 		Components: []*pb.ComponentConfig{componentConfig},
 		Processes:  []*pb.ProcessConfig{processConfig},
 		Services:   []*pb.ServiceConfig{serviceConfig},
@@ -515,6 +783,7 @@ func TestFromProto(t *testing.T) {
 
 	test.That(t, *out.Cloud, test.ShouldResemble, testCloudConfig)
 	validateRemote(t, out.Remotes[0], testRemote)
+	validateModule(t, out.Modules[0], testModule)
 	validateComponent(t, out.Components[0], testComponent)
 	test.That(t, out.Processes[0], test.ShouldResemble, testProcessConfig)
 	validateService(t, out.Services[0], testService)

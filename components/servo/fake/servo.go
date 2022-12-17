@@ -10,10 +10,11 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterComponent(servo.Subtype, "fake", registry.Component{
+	registry.RegisterComponent(servo.Subtype, resource.NewDefaultModel("fake"), registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			var s servo.LocalServo = &Servo{Name: config.Name}
 			return s, nil

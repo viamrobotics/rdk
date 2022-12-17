@@ -20,10 +20,11 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-const modelName = "arduino"
+var model = resource.NewDefaultModel("arduino")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
@@ -36,7 +37,7 @@ type Config struct {
 func init() {
 	registry.RegisterComponent(
 		board.Subtype,
-		modelName,
+		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,
@@ -50,8 +51,8 @@ func init() {
 			return newArduino(boardConfig, logger)
 		}})
 	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
-		modelName,
+		board.Subtype,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

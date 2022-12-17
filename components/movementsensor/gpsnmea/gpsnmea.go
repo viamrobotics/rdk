@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -91,7 +92,7 @@ func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
 	return nil
 }
 
-const modelname = "gps-nmea"
+var modelname = resource.NewDefaultModel("gps-nmea")
 
 // NmeaMovementSensor implements a gps that sends nmea messages for movement data.
 type NmeaMovementSensor interface {
@@ -114,7 +115,7 @@ func init() {
 			return newNMEAGPS(ctx, deps, cfg, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)

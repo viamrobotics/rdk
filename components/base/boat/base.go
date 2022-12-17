@@ -21,8 +21,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var modelname = resource.NewDefaultModel("boat")
 
 func init() {
 	boatComp := registry.Component{
@@ -32,11 +35,11 @@ func init() {
 			return createBoat(deps, config.ConvertedAttributes.(*boatConfig), logger)
 		},
 	}
-	registry.RegisterComponent(base.Subtype, "boat", boatComp)
+	registry.RegisterComponent(base.Subtype, modelname, boatComp)
 
 	config.RegisterComponentAttributeMapConverter(
-		base.SubtypeName,
-		"boat",
+		base.Subtype,
+		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf boatConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

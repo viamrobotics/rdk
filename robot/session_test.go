@@ -73,8 +73,8 @@ func TestSessions(t *testing.T) {
 			stopChEcho1 := make(chan struct{})
 			stopChBase1 := make(chan struct{})
 
-			modelName := utils.RandomAlphaString(8)
-			streamModelName := utils.RandomAlphaString(8)
+			modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+			streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 			dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
 			dummyMotor2 := dummyMotor{stopCh: stopChMotor2}
 			dummyEcho1 := dummyEcho{stopCh: stopChEcho1}
@@ -317,8 +317,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	stopChMotor1 := make(chan struct{})
 	stopChBase1 := make(chan struct{})
 
-	modelName := utils.RandomAlphaString(8)
-	streamModelName := utils.RandomAlphaString(8)
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyRemMotor1 := dummyMotor{stopCh: stopChRemMotor1}
 	dummyRemMotor2 := dummyMotor{stopCh: stopChRemMotor2}
 	dummyRemEcho1 := dummyEcho{stopCh: stopChRemEcho1}
@@ -709,7 +709,7 @@ func TestSessionsMixedClients(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
 	registry.RegisterComponent(
 		motor.Subtype,
@@ -795,7 +795,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
 	registry.RegisterComponent(
 		motor.Subtype,
@@ -892,7 +892,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
 	registry.RegisterComponent(
 		motor.Subtype,

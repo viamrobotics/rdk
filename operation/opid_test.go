@@ -57,13 +57,13 @@ func TestBasic(t *testing.T) {
 	func() {
 		ctx4, cleanup4 := h.Create(ctx, "/proto.rpc.webrtc.v1.SignalingService/Answer", nil)
 		defer cleanup4()
-		ctx5, cleanup5 := h.Create(ctx, "/proto.api.robot.v1.RobotService/StreamStatus", nil)
+		ctx5, cleanup5 := h.Create(ctx, "/viam.robot.v1.RobotService/StreamStatus", nil)
 		defer cleanup5()
 
 		test.That(t, ctx4.Value(opidKey), test.ShouldBeNil)
 		test.That(t, ctx5.Value(opidKey), test.ShouldBeNil)
 
-		ctx6, cleanup6 := h.Create(ctx, "/proto.api.robot.v1.RobotService/", nil)
+		ctx6, cleanup6 := h.Create(ctx, "/viam.robot.v1.RobotService/", nil)
 		defer cleanup6()
 		o6 := Get(ctx6)
 		test.That(t, len(o6.myManager.ops), test.ShouldEqual, 1)

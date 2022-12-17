@@ -19,10 +19,11 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-const modelname = "yahboom-dofbot"
+var modelname = resource.NewDefaultModel("yahboom-dofbot")
 
 // AttrConfig is the config for a dofbot gripper.
 type AttrConfig struct {
@@ -46,7 +47,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
