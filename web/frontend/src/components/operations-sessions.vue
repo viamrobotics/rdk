@@ -3,6 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   operations: {
@@ -25,6 +26,8 @@ const props = defineProps<Props>();
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();
   req.setId(id);
+
+  rcLogConditionally(req);
   props.client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
 };
 
