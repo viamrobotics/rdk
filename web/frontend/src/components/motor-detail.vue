@@ -118,12 +118,12 @@ onMounted(() => {
 
   rcLogConditionally(req);
   props.client.motorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
-        if (err) {
-          return displayError(err);
-        }
+    if (err) {
+      return displayError(err);
+    }
 
-        properties = resp!.toObject();
-      });
+    properties = resp!.toObject();
+  });
 });
 </script>
 
