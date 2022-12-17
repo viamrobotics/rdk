@@ -13,17 +13,16 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelname = "mux"
-)
+var modelname = resource.NewDefaultModel("mux")
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 
 	config.RegisterComponentAttributeMapConverter(
-		input.SubtypeName,
+		input.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

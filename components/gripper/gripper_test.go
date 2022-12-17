@@ -237,15 +237,6 @@ func TestReconfigurableGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGripper3, test.ShouldNotBeNil)
 
-	err = reconfGripper1.Reconfigure(context.Background(), reconfGripper3)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGripper1, reconfGripper3))
-	test.That(t, actualGripper3.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfGripper3.Reconfigure(context.Background(), reconfGripper1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGripper3, reconfGripper1))
-
 	actualGripper4 := &mock{Name: testGripperName2}
 	reconfGripper4, err := gripper.WrapWithReconfigurable(actualGripper4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)

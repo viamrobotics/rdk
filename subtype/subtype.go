@@ -13,7 +13,10 @@ import (
 // Service defines an service that holds and replaces resources.
 type Service interface {
 	Resource(name string) interface{}
-	Replace(resources map[resource.Name]interface{}) error
+	ReplaceAll(resources map[resource.Name]interface{}) error
+	Add(name resource.Name, iface interface{}) error
+	Remove(name resource.Name) error
+	ReplaceOne(n resource.Name, iface interface{}) error
 }
 
 type subtypeSvc struct {
@@ -25,7 +28,7 @@ type subtypeSvc struct {
 // New creates a new subtype service, which holds and replaces resources belonging to that subtype.
 func New(r map[resource.Name]interface{}) (Service, error) {
 	s := &subtypeSvc{}
-	if err := s.Replace(r); err != nil {
+	if err := s.ReplaceAll(r); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -45,27 +48,94 @@ func (s *subtypeSvc) Resource(name string) interface{} {
 	return nil
 }
 
-// Replace replaces all resources with r.
-func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
+// ReplaceAll replaces all resources with r.
+func (s *subtypeSvc) ReplaceAll(r map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
 	shortNames := make(map[string]string, len(r))
-	for n, v := range r {
-		if n.Name == "" {
-			return errors.Errorf("Empty name used for resource: %s", n)
-		}
-		name := n.ShortName()
-		resources[name] = v
-		shortcut := name[strings.LastIndexAny(name, ":")+1:]
-		if _, ok := shortNames[shortcut]; ok {
-			shortNames[shortcut] = ""
-		} else {
-			shortNames[shortcut] = name
-		}
-		resources[n.ShortName()] = v
-	}
 	s.resources = resources
 	s.shortNames = shortNames
+	for n, v := range r {
+		if err := s.doAdd(n, v); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (s *subtypeSvc) Add(n resource.Name, iface interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.doAdd(n, iface)
+}
+
+func (s *subtypeSvc) Remove(n resource.Name) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.doRemove(n)
+}
+
+func (s *subtypeSvc) ReplaceOne(n resource.Name, iface interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.doRemove(n)
+	if err != nil {
+		return err
+	}
+	return s.doAdd(n, iface)
+}
+
+func (s *subtypeSvc) doAdd(n resource.Name, iface interface{}) error {
+	if n.Name == "" {
+		return errors.Errorf("empty name used for resource: %s", n)
+	}
+	name := n.ShortName()
+
+	_, exists := s.resources[name]
+	if exists {
+		return errors.Errorf("resource %s already exists", n)
+	}
+
+	s.resources[name] = iface
+	shortcut := getShortcutName(name)
+	if shortcut != name {
+		if _, ok := s.shortNames[shortcut]; ok {
+			s.shortNames[shortcut] = ""
+		} else {
+			s.shortNames[shortcut] = name
+		}
+	}
+	return nil
+}
+
+func (s *subtypeSvc) doRemove(n resource.Name) error {
+	name := n.ShortName()
+	_, ok := s.resources[name]
+	if !ok {
+		return errors.Errorf("resource %s not found", name)
+	}
+	delete(s.resources, name)
+
+	shortcut := getShortcutName(name)
+	_, ok = s.shortNames[shortcut]
+	if ok {
+		delete(s.shortNames, shortcut)
+	}
+
+	// case: remote1:nameA and remote2:nameA both existed, and remote2:nameA is being deleted, restore shortcut to remote1:nameA
+	for k := range s.resources {
+		if shortcut == getShortcutName(k) && name != getShortcutName(k) {
+			if _, ok := s.shortNames[shortcut]; ok {
+				s.shortNames[shortcut] = ""
+			} else {
+				s.shortNames[shortcut] = k
+			}
+		}
+	}
+	return nil
+}
+
+func getShortcutName(name string) string {
+	return name[strings.LastIndexAny(name, ":")+1:]
 }

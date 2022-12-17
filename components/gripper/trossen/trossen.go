@@ -19,12 +19,13 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	modelNameWX250s = "trossen-wx250s"
-	modelNameVX300s = "trossen-vx300s"
+var (
+	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
+	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
 )
 
 // AttrConfig is the config for a trossen gripper.
@@ -56,7 +57,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelNameWX250s,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelNameWX250s,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -72,7 +73,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelNameVX300s,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelNameVX300s,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

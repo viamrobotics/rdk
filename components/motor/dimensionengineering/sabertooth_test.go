@@ -13,9 +13,12 @@ import (
 	"go.viam.com/rdk/components/motor/dimensionengineering"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // var txMu sync.Mutex
+
+var sabertoothModel = resource.NewDefaultModel("de-sabertooth")
 
 func checkTx(t *testing.T, resChan chan string, c chan []byte, expects []byte) {
 	t.Helper()
@@ -40,7 +43,7 @@ func TestSabertoothMotor(t *testing.T) {
 		DirectionFlip: false,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -139,7 +142,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		DirectionFlip: true,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -231,7 +234,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 		RampValue:     100,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -262,7 +265,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 		SerialAddress: 129,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -286,7 +289,7 @@ func TestInvalidMotorChannel(t *testing.T) {
 		SerialAddress: 129,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -309,7 +312,7 @@ func TestInvalidBaudRate(t *testing.T) {
 		BaudRate:      1,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -331,7 +334,7 @@ func TestInvalidSerialAddress(t *testing.T) {
 		SerialAddress: 140,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -355,7 +358,7 @@ func TestInvalidMinPowerPct(t *testing.T) {
 		MaxPowerPct:   0.5,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -379,7 +382,7 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 		MaxPowerPct:   1.5,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -404,7 +407,7 @@ func TestMultipleInvalidParameters(t *testing.T) {
 		MaxPowerPct:   1.5,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes

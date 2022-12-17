@@ -5,6 +5,7 @@ import { Client, armApi, commonApi } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
+import { rcLogConditionally } from '../lib/log';
 
 interface ArmStatus {
   pos_pieces: {
@@ -52,6 +53,7 @@ const toggle = $ref<Record<string, ArmStatus>>({});
 const stop = () => {
   const request = new armApi.StopRequest();
   request.setName(props.name);
+  rcLogConditionally(request);
   props.client.armService.stop(request, new grpc.Metadata(), displayError);
 };
 
@@ -68,6 +70,7 @@ const armModifyAllDoEndPosition = () => {
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setTo(newPose);
+  rcLogConditionally(req);
   props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 
   delete toggle[props.name];
@@ -92,6 +95,7 @@ const armModifyAllDoJoint = () => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
+  rcLogConditionally(req);
   props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
   delete toggle[props.name];
 };
@@ -115,6 +119,7 @@ const armEndPositionInc = (getterSetter: string, amount: number) => {
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setTo(newPose);
+  rcLogConditionally(req);
   props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
@@ -128,6 +133,7 @@ const armJointInc = (field: number, amount: number) => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
+  rcLogConditionally(req);
   props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
 };
 
@@ -145,6 +151,7 @@ const armHome = () => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
+  rcLogConditionally(req);
   props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
 };
 
