@@ -64,6 +64,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+var fakeModel = resource.NewDefaultModel("fake")
+
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger)
@@ -125,7 +127,7 @@ func TestConfigRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
@@ -134,7 +136,7 @@ func TestConfigRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "myParentIsRemote",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 				Frame: &referenceframe.LinkConfig{
 					Parent: "foo:cameraOver",
 				},
@@ -172,10 +174,10 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		motion.Named(resource.DefaultModelName),
-		vision.Named(resource.DefaultModelName),
-		sensors.Named(resource.DefaultModelName),
-		datamanager.Named(resource.DefaultModelName),
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -450,10 +452,10 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				motion.Named(resource.DefaultModelName),
-				vision.Named(resource.DefaultModelName),
-				sensors.Named(resource.DefaultModelName),
-				datamanager.Named(resource.DefaultModelName),
+				motion.Named(resource.DefaultServiceName),
+				vision.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
 				audioinput.Named("bar:mic1"),
@@ -654,10 +656,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		motion.Named(resource.DefaultModelName),
-		vision.Named(resource.DefaultModelName),
-		sensors.Named(resource.DefaultModelName),
-		datamanager.Named(resource.DefaultModelName),
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
@@ -756,7 +758,7 @@ func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
 	registry.RegisterComponent(
@@ -788,8 +790,7 @@ func TestStopAll(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
-
+	`, modelName.String())
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -877,7 +878,7 @@ func (db *dummyBoard) Close() {
 func TestNewTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	var dummyBoard1 dummyBoard
 	registry.RegisterComponent(
 		board.Subtype,
@@ -954,10 +955,10 @@ func TestMetadataUpdate(t *testing.T) {
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
-		motion.Named(resource.DefaultModelName),
-		vision.Named(resource.DefaultModelName),
-		sensors.Named(resource.DefaultModelName),
-		datamanager.Named(resource.DefaultModelName),
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -974,7 +975,7 @@ func TestSensorsService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, err := sensors.FromRobot(r, resource.DefaultModelName)
+	svc, err := sensors.FromRobot(r, resource.DefaultServiceName)
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
@@ -1253,10 +1254,10 @@ func TestStatusRemote(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
-			vision.Named(resource.DefaultModelName),
-			sensors.Named(resource.DefaultModelName),
-			datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"),
 			arm.Named("foo:arm2"),
 			arm.Named("bar:arm1"),
@@ -1293,19 +1294,19 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm1",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm2",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "pieceArm",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 		},
 		Services: []config.Service{},
@@ -1366,10 +1367,10 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
-			vision.Named(resource.DefaultModelName),
-			sensors.Named(resource.DefaultModelName),
-			datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -1430,7 +1431,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "test",
 				Type:                base.SubtypeName,
-				Model:               "random",
+				Model:               resource.NewDefaultModel("random"),
 				ConvertedAttributes: attrs{},
 			},
 		},
@@ -1486,7 +1487,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "test",
 				Type:                base.SubtypeName,
-				Model:               "fake",
+				Model:               fakeModel,
 				ConvertedAttributes: attrs{},
 			},
 		},
@@ -1494,7 +1495,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 			{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                config.ServiceType(datamanager.SubtypeName),
+				Type:                datamanager.SubtypeName,
 				ConvertedAttributes: attrs{},
 			},
 		},
@@ -1521,15 +1522,15 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "test",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 		},
 		Services: []config.Service{
 			{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                config.ServiceType(datamanager.SubtypeName),
-				Model:               resource.DefaultModelName,
+				Type:                datamanager.SubtypeName,
+				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1583,7 +1584,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
 		Type:      arm.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg := config.Config{
 		Components: []config.Component{armConfig},
@@ -1605,15 +1606,15 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "test",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 		},
 		Services: []config.Service{
 			{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                config.ServiceType(datamanager.SubtypeName),
-				Model:               resource.DefaultModelName,
+				Type:                datamanager.SubtypeName,
+				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1637,7 +1638,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "test",
 				Type:                base.SubtypeName,
-				Model:               "fake",
+				Model:               fakeModel,
 				ConvertedAttributes: attrs{},
 			},
 		},
@@ -1645,7 +1646,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 			{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                config.ServiceType(datamanager.SubtypeName),
+				Type:                datamanager.SubtypeName,
 				ConvertedAttributes: attrs{},
 			},
 		},
@@ -1701,7 +1702,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake0",
 				Type:      base.SubtypeName,
-				Model:     "random",
+				Model:     resource.NewDefaultModel("random"),
 			},
 		},
 		Services: []config.Service{
@@ -1719,15 +1720,15 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake0",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 		},
 		Services: []config.Service{
 			{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                config.ServiceType(datamanager.SubtypeName),
-				Model:               resource.DefaultModelName,
+				Type:                datamanager.SubtypeName,
+				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1747,7 +1748,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		rutils.NewResourceNotAvailableError(
 			base.Named("fake0"),
-			errors.New("component build error: unknown component type: rdk:component:base and/or model: random"),
+			errors.New("component build error: unknown component type: rdk:component:base and/or model: rdk:builtin:random"),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
@@ -1795,7 +1796,7 @@ func TestReconnectRemote(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
 		Type:      arm.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg := config.Config{
 		Components: []config.Component{armConfig},
@@ -1907,7 +1908,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
 		Type:      arm.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg := config.Config{
 		Components: []config.Component{armConfig},
@@ -1989,7 +1990,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "base1",
 		Type:      base.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg = config.Config{
 		Components: []config.Component{baseConfig},
@@ -2037,14 +2038,14 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
-			Model:     resource.DefaultModelName,
-			Type:      config.ServiceType(motion.SubtypeName),
+			Model:     resource.DefaultServiceModel,
+			Type:      motion.SubtypeName,
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
-			Model:     resource.DefaultModelName,
-			Type:      config.ServiceType(motion.SubtypeName),
+			Model:     resource.DefaultServiceModel,
+			Type:      motion.SubtypeName,
 		},
 	}}
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -2068,20 +2069,20 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
-			Model:     resource.DefaultModelName,
-			Type:      config.ServiceType(datamanager.SubtypeName),
+			Model:     resource.DefaultServiceModel,
+			Type:      datamanager.SubtypeName,
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
-			Model:     resource.DefaultModelName,
-			Type:      config.ServiceType(datamanager.SubtypeName),
+			Model:     resource.DefaultServiceModel,
+			Type:      datamanager.SubtypeName,
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake3",
-			Model:     resource.DefaultModelName,
-			Type:      config.ServiceType(datamanager.SubtypeName),
+			Model:     resource.DefaultServiceModel,
+			Type:      datamanager.SubtypeName,
 		},
 	}}
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -2118,14 +2119,14 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake1",
-				Model:     resource.DefaultModelName,
-				Type:      config.ServiceType(datamanager.SubtypeName),
+				Model:     resource.DefaultServiceModel,
+				Type:      datamanager.SubtypeName,
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake2",
-				Model:     resource.DefaultModelName,
-				Type:      config.ServiceType(datamanager.SubtypeName),
+				Model:     resource.DefaultServiceModel,
+				Type:      datamanager.SubtypeName,
 			},
 		},
 		Remotes: []config.Remote{

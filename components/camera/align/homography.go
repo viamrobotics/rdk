@@ -16,14 +16,17 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var homographyModel = resource.NewDefaultModel("align_color_depth_homography")
+
 //nolint:dupl
 func init() {
-	registry.RegisterComponent(camera.Subtype, "align_color_depth_homography",
+	registry.RegisterComponent(camera.Subtype, homographyModel,
 		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -45,7 +48,7 @@ func init() {
 			return newColorDepthHomography(ctx, color, depth, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "align_color_depth_homography",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, homographyModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf homographyAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

@@ -300,15 +300,6 @@ func TestReconfigurableGantry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGantry3, test.ShouldNotBeNil)
 
-	err = reconfGantry1.Reconfigure(context.Background(), reconfGantry3)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGantry1, reconfGantry3))
-	test.That(t, actualGantry3.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfGantry3.Reconfigure(context.Background(), reconfGantry1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGantry3, reconfGantry1))
-
 	actualGantry4 := &mock{Name: testGantryName2}
 	reconfGantry4, err := gantry.WrapWithReconfigurable(actualGantry4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)

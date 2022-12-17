@@ -39,11 +39,11 @@ func init() {
 		},
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: position.String(),
 	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: lengths.String(),
 	}, newLengthsCollector)
 }
@@ -82,6 +82,7 @@ type Gantry interface {
 	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
+	resource.MovingCheckable
 }
 
 // FromDependencies is a helper for getting the named gantry from a collection of
@@ -101,8 +102,6 @@ func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
 // A LocalGantry represents a Gantry that can report whether it is moving or not.
 type LocalGantry interface {
 	Gantry
-
-	resource.MovingCheckable
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
@@ -140,7 +139,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the gantry.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	gantry, ok := resource.(LocalGantry)
+	gantry, ok := resource.(Gantry)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
@@ -285,6 +284,12 @@ func (g *reconfigurableGantry) GoToInputs(ctx context.Context, goal []referencef
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.GoToInputs(ctx, goal)
+}
+
+func (g *reconfigurableGantry) IsMoving(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving(ctx)
 }
 
 type reconfigurableLocalGantry struct {

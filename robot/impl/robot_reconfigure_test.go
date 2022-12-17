@@ -66,7 +66,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
-	registry.RegisterComponent(mockSubtype, modelName1, registry.Component{
+	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)), registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			// test if implicit depencies are properly propagated
 			for _, dep := range config.ConvertedAttributes.(*mockFakeConfig).InferredDep {
@@ -82,8 +82,8 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 
 	config.RegisterComponentAttributeMapConverter(
-		mockSubtype.ResourceSubtype,
-		modelName1,
+		mockSubtype,
+		resource.NewDefaultModel(resource.ModelName(modelName1)),
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf mockFakeConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -94,7 +94,7 @@ func TestRobotReconfigure(t *testing.T) {
 	// testing for a reconfigurability mismatch
 	reconfigurableTrue := true
 	testReconfiguringMismatch := false
-	registry.RegisterComponent(mockSubtype, modelName2, registry.Component{
+	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)), registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if reconfigurableTrue && testReconfiguringMismatch {
 				reconfigurableTrue = false
@@ -2254,7 +2254,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot, resource.DefaultModelName)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
@@ -2275,7 +2275,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot, resource.DefaultModelName)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
@@ -2296,7 +2296,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot, resource.DefaultModelName)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
@@ -2321,14 +2321,14 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			{
 				Name:      visName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(vision.SubtypeName),
-				Model:     resource.DefaultModelName,
+				Type:      vision.SubtypeName,
+				Model:     resource.DefaultServiceModel,
 			},
 			{
 				Name:      dmName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(datamanager.SubtypeName),
-				Model:     resource.DefaultModelName,
+				Type:      datamanager.SubtypeName,
+				Model:     resource.DefaultServiceModel,
 			},
 		},
 	}
@@ -2343,10 +2343,10 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultServiceName),
 			vision.Named(visName),
 			datamanager.Named(dmName),
-			sensors.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultServiceName),
 		),
 	)
 	visName = "vis2"
@@ -2356,14 +2356,14 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			{
 				Name:      visName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(vision.SubtypeName),
-				Model:     resource.DefaultModelName,
+				Type:      vision.SubtypeName,
+				Model:     resource.DefaultServiceModel,
 			},
 			{
 				Name:      sName,
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      config.ServiceType(sensors.SubtypeName),
-				Model:     resource.DefaultModelName,
+				Type:      sensors.SubtypeName,
+				Model:     resource.DefaultServiceModel,
 			},
 		},
 	}
@@ -2373,9 +2373,9 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultServiceName),
 			vision.Named(visName),
-			datamanager.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultServiceName),
 			sensors.Named(sName),
 		),
 	)
@@ -2482,14 +2482,14 @@ func TestRemoteRobotsGold(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:      "arm1",
-				Model:     "fake",
+				Model:     resource.NewDefaultModel("fake"),
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"foo:pieceGripper"},
 			},
 			{
 				Name:      "arm2",
-				Model:     "fake",
+				Model:     resource.NewDefaultModel("fake"),
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"bar:pieceArm"},
@@ -2518,10 +2518,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
-			vision.Named(resource.DefaultModelName),
-			sensors.Named(resource.DefaultModelName),
-			datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2546,10 +2546,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
-		motion.Named(resource.DefaultModelName),
-		vision.Named(resource.DefaultModelName),
-		sensors.Named(resource.DefaultModelName),
-		datamanager.Named(resource.DefaultModelName),
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("arm2"),
 		arm.Named("foo:pieceArm"),
@@ -2586,10 +2586,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
-			vision.Named(resource.DefaultModelName),
-			sensors.Named(resource.DefaultModelName),
-			datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),

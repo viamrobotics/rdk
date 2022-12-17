@@ -35,6 +35,7 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
@@ -74,13 +75,15 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
 	for _, slamLibrary := range slam.SLAMLibraries {
-		registry.RegisterService(slam.Subtype, slamLibrary.AlgoName, registry.Service{
+		// TODO(PRODUCT-266): use triplet model names more properly here
+		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
+		registry.RegisterService(slam.Subtype, sModel, registry.Service{
 			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 				return NewBuiltIn(ctx, deps, c, logger, false)
 			},
 		})
-		cType := config.ServiceType(slam.SubtypeName)
-		config.RegisterServiceAttributeMapConverter(cType, slamLibrary.AlgoName, func(attributes config.AttributeMap) (interface{}, error) {
+		cType := slam.Subtype
+		config.RegisterServiceAttributeMapConverter(cType, sModel, func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 			if err != nil {
@@ -502,7 +505,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	slamMode, err := RuntimeConfigValidation(svcConfig, config.Model, logger)
+	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
@@ -543,7 +546,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	// SLAM Service Object
 	slamSvc := &builtIn{
 		cameraName:            cameraName,
-		slamLib:               slam.SLAMLibraries[config.Model],
+		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
 		slamMode:              slamMode,
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
