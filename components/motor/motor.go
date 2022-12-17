@@ -197,7 +197,6 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	}
 	return &pb.Status{
 		IsPowered:         isPowered,
-		PositionReporting: features[PositionReporting],
 		Position:          position,
 		IsMoving:          isMoving,
 	}, nil
