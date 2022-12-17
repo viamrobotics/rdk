@@ -3,6 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string
@@ -14,18 +15,24 @@ const props = defineProps<Props>();
 const stop = () => {
   const request = new gripperApi.StopRequest();
   request.setName(props.name);
+
+  rcLogConditionally(request);
   props.client.gripperService.stop(request, new grpc.Metadata(), displayError);
 };
 
 const open = () => {
   const request = new gripperApi.OpenRequest();
   request.setName(props.name);
+
+  rcLogConditionally(request);
   props.client.gripperService.open(request, new grpc.Metadata(), displayError);
 };
 
 const grab = () => {
   const request = new gripperApi.GrabRequest();
   request.setName(props.name);
+
+  rcLogConditionally(request);
   props.client.gripperService.grab(request, new grpc.Metadata(), displayError);
 };
 
