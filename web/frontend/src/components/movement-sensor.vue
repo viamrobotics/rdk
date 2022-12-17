@@ -5,6 +5,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, movementSensorApi as movementsensorApi } from '@viamrobotics/sdk';
 import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string
@@ -27,6 +28,8 @@ const refresh = async () => {
   properties = await new Promise((resolve) => {
     const req = new movementsensorApi.GetPropertiesRequest();
     req.setName(props.name);
+
+    rcLogConditionally(req);
     props.client.movementSensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -40,6 +43,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetOrientationRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -53,6 +57,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetAngularVelocityRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -66,6 +71,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetLinearVelocityRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -79,6 +85,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetCompassHeadingRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -92,6 +99,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetPositionRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
