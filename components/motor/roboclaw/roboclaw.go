@@ -17,10 +17,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelname = "roboclaw"
+var modelname = resource.NewDefaultModel("roboclaw")
 
 // AttrConfig is used for converting motor config attributes.
 type AttrConfig struct {
@@ -63,7 +64,7 @@ func init() {
 	)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig

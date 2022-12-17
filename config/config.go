@@ -25,6 +25,7 @@ import (
 // A Config describes the configuration of a robot.
 type Config struct {
 	Cloud      *Cloud                `json:"cloud,omitempty"`
+	Modules    []Module              `json:"modules,omitempty"`
 	Remotes    []Remote              `json:"remotes,omitempty"`
 	Components []Component           `json:"components,omitempty"`
 	Processes  []pexec.ProcessConfig `json:"processes,omitempty"`
@@ -59,6 +60,12 @@ type Config struct {
 func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
+			return err
+		}
+	}
+
+	for idx := 0; idx < len(c.Modules); idx++ {
+		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
 			return err
 		}
 	}

@@ -62,11 +62,11 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(motor.Subtype, "arduino", _motor)
+	registry.RegisterComponent(motor.Subtype, model, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
-		"arduino",
+		motor.Subtype,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf gpio.Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

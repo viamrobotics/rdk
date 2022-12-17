@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
@@ -28,10 +29,12 @@ import (
 
 const numThreadsVideoSource = 8 // This should be a param
 
+var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"join_pointclouds",
+		modelJoinPC,
 		registry.Component{RobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -45,7 +48,7 @@ func init() {
 			return newJoinPointCloudSource(ctx, r, logger, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_pointclouds",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelJoinPC,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf JoinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

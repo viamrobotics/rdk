@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -42,7 +43,7 @@ type Config struct {
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 	registry.RegisterComponent(
 		board.Subtype,
-		modelName,
+		resource.NewDefaultModel(resource.ModelName(modelName)),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,
@@ -91,8 +92,8 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 			}, nil
 		}})
 	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
-		modelName,
+		board.Subtype,
+		resource.NewDefaultModel(resource.ModelName(modelName)),
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
