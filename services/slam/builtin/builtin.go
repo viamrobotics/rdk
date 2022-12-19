@@ -543,8 +543,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	} else {
 		deleteProcessedData = *svcConfig.DeleteProcessedData
 		if offlineFlag && deleteProcessedData {
-			logger.Debug("a value of true cannot be given for delete_processed_data when in offline mode, 
-				setting delete_processed_data to false")
+			logger.Debug("a value of true cannot be given for delete_processed_data when in offline mode, setting to false")
 			deleteProcessedData = false
 		}
 	}
