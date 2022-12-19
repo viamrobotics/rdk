@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -28,7 +29,7 @@ import (
 var vgripperv1json []byte
 
 // modelName is used to register the gripper to a model name.
-const modelName = "viam-v1"
+var modelName = resource.NewDefaultModel("viam-v1")
 
 // AttrConfig is the config for a viam gripper.
 type AttrConfig struct {
@@ -65,7 +66,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

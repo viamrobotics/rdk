@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package acme.service.summation.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "go.acme.com/proto/api/service/summation/v1";
+
+service SummationService {
+  rpc Sum(SumRequest) returns (SumResponse) {
+    option (google.api.http) = {
+      post: "/acme/api/v1/service/summation/{name}/sum"
+    };
+  }
+}
+
+message SumRequest {
+  string name = 1;
+  repeated double numbers = 2;
+}
+
+message SumResponse {
+  double sum = 1;
+}

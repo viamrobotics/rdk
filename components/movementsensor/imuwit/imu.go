@@ -23,11 +23,12 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu-wit"
+var model = resource.NewDefaultModel("imu-wit")
 
 var baudRateList = [...]int{115200, 9600}
 
@@ -71,7 +72,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
