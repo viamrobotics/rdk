@@ -39,7 +39,7 @@ var (
 	// InitialWaitTimeMillis defines the time to wait on the first retried upload attempt.
 	InitialWaitTimeMillis = atomic.NewInt32(1000)
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
-	RetryExponentialFactor = 2
+	RetryExponentialFactor = atomic.NewInt32(2)
 	maxRetryInterval       = time.Hour
 )
 
@@ -277,14 +277,14 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	if lastWait == time.Duration(0) {
 		return time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
 	}
-	nextWait := lastWait * time.Duration(RetryExponentialFactor)
+	nextWait := lastWait * time.Duration(RetryExponentialFactor.Load())
 	if nextWait > maxRetryInterval {
 		return maxRetryInterval
 	}
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
