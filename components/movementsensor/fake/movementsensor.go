@@ -11,10 +11,11 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-const modelname = "fake"
+var modelname = resource.NewDefaultModel("fake")
 
 // AttrConfig is used for converting fake movementsensor attributes.
 type AttrConfig struct {
@@ -34,7 +35,7 @@ func init() {
 			return movementsensor.MovementSensor(&MovementSensor{}), nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)

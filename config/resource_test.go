@@ -7,12 +7,18 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils"
+)
+
+var (
+	extAPI        = resource.NewSubtype("acme", "component", "gizmo")
+	extServiceAPI = resource.NewSubtype("acme", "service", "gadget")
 )
 
 func TestComponentValidate(t *testing.T) {
@@ -29,6 +35,7 @@ func TestComponentValidate(t *testing.T) {
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "foo",
 			Type:      "arm",
+			Model:     fakeModel,
 		}
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
@@ -40,6 +47,8 @@ func TestComponentValidate(t *testing.T) {
 			invalidConfig := config.Component{
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "foo",
+				Type:                "base",
+				Model:               fakeModel,
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
 			deps, err := invalidConfig.Validate("path")
@@ -52,6 +61,8 @@ func TestComponentValidate(t *testing.T) {
 			invalidConfig := config.Component{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
+				Type:      "base",
+				Model:     fakeModel,
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
@@ -64,8 +75,9 @@ func TestComponentValidate(t *testing.T) {
 
 	t.Run("no namespace", func(t *testing.T) {
 		validConfig := config.Component{
-			Name: "foo",
-			Type: "arm",
+			Name:  "foo",
+			Type:  "arm",
+			Model: fakeModel,
 		}
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
@@ -78,6 +90,7 @@ func TestComponentValidate(t *testing.T) {
 			Namespace: "acme",
 			Name:      "foo",
 			Type:      "arm",
+			Model:     fakeModel,
 		}
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
@@ -90,6 +103,7 @@ func TestComponentValidate(t *testing.T) {
 			Namespace: "acme",
 			Name:      "fo:o",
 			Type:      "arm",
+			Model:     fakeModel,
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -101,10 +115,143 @@ func TestComponentValidate(t *testing.T) {
 			Namespace: "ac:me",
 			Name:      "foo",
 			Type:      "arm",
+			Model:     fakeModel,
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+	})
+
+	//nolint:dupl
+	t.Run("model variations", func(t *testing.T) {
+		t.Run("config valid short model", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "base",
+				Model:     resource.Model{Name: "fake"},
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+			test.That(t, shortConfig.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
+			test.That(t, shortConfig.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+		})
+
+		t.Run("config valid full model", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "base",
+				Model:     fakeModel,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+			test.That(t, shortConfig.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
+			test.That(t, shortConfig.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+		})
+
+		t.Run("config valid external model", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "base",
+				Model:     extModel,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.Model.Namespace, test.ShouldEqual, resource.Namespace("acme"))
+			test.That(t, shortConfig.Model.Family, test.ShouldEqual, resource.ModelFamilyName("test"))
+			test.That(t, shortConfig.Model.Name, test.ShouldEqual, resource.ModelName("model"))
+		})
+	})
+
+	t.Run("api subtype namespace variations", func(t *testing.T) {
+		t.Run("empty API and builtin type", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "base",
+				Model:     fakeModel,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.API, test.ShouldResemble, base.Subtype)
+		})
+
+		t.Run("filled API with builtin type", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "base",
+				Model:     fakeModel,
+				API:       base.Subtype,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.API, test.ShouldResemble, base.Subtype)
+		})
+
+		t.Run("mismatched API", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: "acme",
+				Name:      "foo",
+				Type:      "gizmo",
+				Model:     fakeModel,
+				API:       base.Subtype,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "do not match component api field")
+		})
+
+		t.Run("empty API with external type", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: "acme",
+				Name:      "foo",
+				Type:      "gizmo",
+				Model:     fakeModel,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.API, test.ShouldResemble, extAPI)
+		})
+
+		t.Run("filled API with external type", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: "acme",
+				Name:      "foo",
+				Type:      "gizmo",
+				Model:     fakeModel,
+				API:       extAPI,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.API, test.ShouldResemble, extAPI)
+		})
+
+		t.Run("mismatched API with external type", func(t *testing.T) {
+			shortConfig := config.Component{
+				Namespace: "acme",
+				Name:      "foo",
+				Type:      "gizmo",
+				Model:     fakeModel,
+				API:       resource.NewDefaultSubtype("nada", resource.ResourceTypeComponent),
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "do not match component api field")
+		})
 	})
 }
 
@@ -121,6 +268,7 @@ func TestComponentResourceName(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      "arm",
 				Name:      "foo",
+				Model:     fakeModel,
 			},
 			arm.Subtype,
 			arm.Named("foo"),
@@ -200,6 +348,17 @@ func TestComponentResourceName(t *testing.T) {
 				Name: "",
 			},
 		},
+		{
+			"all fields included with external type",
+			config.Component{
+				Namespace: "acme",
+				Type:      "gizmo",
+				Name:      "foo",
+				Model:     extModel,
+			},
+			extAPI,
+			resource.NameFromSubtype(extAPI, "foo"),
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			rName := tc.Config.ResourceName()
@@ -259,11 +418,11 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err = config.ParseComponentFlag("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = config.ParseComponentFlag("type=foo,model=bar,name=baz,attr=wee:woo,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Type, test.ShouldEqual, resource.SubtypeName("foo"))
-	test.That(t, comp.Model, test.ShouldEqual, "bar")
+	test.That(t, comp.Model, test.ShouldResemble, resource.NewDefaultModel("bar"))
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})
 	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
@@ -364,7 +523,7 @@ func TestServiceValidate(t *testing.T) {
 		deps, err := testConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultModelName)
+		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
 	})
 
 	t.Run("with namespace", func(t *testing.T) {
@@ -407,10 +566,59 @@ func TestServiceValidate(t *testing.T) {
 			Name:      "foo",
 			Type:      "thingy",
 		}
+
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validConfig.Model, test.ShouldEqual, "builtin")
+		test.That(t, validConfig.Model.String(), test.ShouldEqual, "rdk:builtin:builtin")
+	})
+
+	//nolint:dupl
+	t.Run("model variations", func(t *testing.T) {
+		t.Run("config valid short model", func(t *testing.T) {
+			shortConfig := config.Service{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "bar",
+				Model:     resource.Model{Name: "fake"},
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+			test.That(t, shortConfig.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
+			test.That(t, shortConfig.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+		})
+
+		t.Run("config valid full model", func(t *testing.T) {
+			shortConfig := config.Service{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "bar",
+				Model:     fakeModel,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+			test.That(t, shortConfig.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
+			test.That(t, shortConfig.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+		})
+
+		t.Run("config valid external model", func(t *testing.T) {
+			shortConfig := config.Service{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "foo",
+				Type:      "bar",
+				Model:     extModel,
+			}
+			deps, err := shortConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shortConfig.Model.Namespace, test.ShouldEqual, resource.Namespace("acme"))
+			test.That(t, shortConfig.Model.Family, test.ShouldEqual, resource.ModelFamilyName("test"))
+			test.That(t, shortConfig.Model.Name, test.ShouldEqual, resource.ModelName("model"))
+		})
 	})
 }
 
@@ -431,6 +639,17 @@ func TestServiceResourceName(t *testing.T) {
 			motion.Subtype,
 			resource.NameFromSubtype(motion.Subtype, "motion1"),
 		},
+		{
+			"all fields included with external type",
+			config.Service{
+				Namespace: "acme",
+				Type:      "gadget",
+				Name:      "foo",
+				Model:     extModel,
+			},
+			extServiceAPI,
+			resource.NameFromSubtype(extServiceAPI, "foo"),
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			rName := tc.Config.ResourceName()
@@ -450,9 +669,9 @@ func TestSet(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conf.Type, test.ShouldEqual, config.ServiceType("foo"))
+	test.That(t, conf.Type, test.ShouldEqual, resource.SubtypeName("foo"))
 	test.That(t, conf.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 		"one": "two",

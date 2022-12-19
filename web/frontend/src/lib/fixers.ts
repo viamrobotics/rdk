@@ -111,13 +111,11 @@ export const fixInputStatus = (old: {
 
 export const fixMotorStatus = (old: {
   is_powered: boolean
-  position_reporting: boolean
   position: number
   is_moving: boolean
 }) => {
   return {
     isPowered: old.is_powered || false,
-    positionReporting: old.position_reporting || false,
     position: old.position || 0,
     isMoving: old.is_moving || false,
   };

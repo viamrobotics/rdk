@@ -21,7 +21,7 @@
         {
             "name": "base1",
             "type": "base",
-            "model": "fake",
+            "model": "acme:test:model",
             "attributes": {
                 "three": 3
             }
