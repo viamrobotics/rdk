@@ -247,7 +247,7 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		parts[c.Name] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+		parts[c.cfgCopy.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil
