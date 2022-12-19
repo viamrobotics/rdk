@@ -17,13 +17,16 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var extrinsicsModel = resource.NewDefaultModel("align_color_depth_extrinsics")
+
 func init() {
-	registry.RegisterComponent(camera.Subtype, "align_color_depth_extrinsics",
+	registry.RegisterComponent(camera.Subtype, extrinsicsModel,
 		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -45,7 +48,7 @@ func init() {
 			return newColorDepthExtrinsics(ctx, color, depth, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "align_color_depth_extrinsics",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, extrinsicsModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf extrinsicsAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -59,7 +62,7 @@ func init() {
 			return result, nil
 		}, &extrinsicsAttrs{})
 
-	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth_extrinsics", "camera_system",
+	config.RegisterComponentAttributeConverter(camera.Subtype, extrinsicsModel, "camera_system",
 		func(val interface{}) (interface{}, error) {
 			b, err := json.Marshal(val)
 			if err != nil {

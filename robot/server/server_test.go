@@ -81,23 +81,44 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
-		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
+
+		q := discovery.Query{arm.Named("arm").Subtype, resource.NewDefaultModel("some-arm")}
 		disc := discovery.Discovery{Query: q, Results: struct{}{}}
 		discoveries := []discovery.Discovery{disc}
 		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 			return discoveries, nil
 		}
-		req := &pb.DiscoverComponentsRequest{
-			Queries: []*pb.DiscoveryQuery{{Subtype: string(q.SubtypeName), Model: q.Model}},
-		}
 
-		resp, err := server.DiscoverComponents(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+		t.Run("full api and model", func(t *testing.T) {
+			req := &pb.DiscoverComponentsRequest{
+				Queries: []*pb.DiscoveryQuery{{Subtype: q.API.String(), Model: q.Model.String()}},
+			}
 
-		observed := resp.Discovery[0].Results.AsMap()
-		expected := map[string]interface{}{}
-		test.That(t, observed, test.ShouldResemble, expected)
+			resp, err := server.DiscoverComponents(context.Background(), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+			observed := resp.Discovery[0].Results.AsMap()
+			expected := map[string]interface{}{}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm"}
+			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
+			test.That(t, observed, test.ShouldResemble, expected)
+		})
+		t.Run("short api and model", func(t *testing.T) {
+			req := &pb.DiscoverComponentsRequest{
+				Queries: []*pb.DiscoveryQuery{{Subtype: "arm", Model: "some-arm"}},
+			}
+
+			resp, err := server.DiscoverComponents(context.Background(), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+			observed := resp.Discovery[0].Results.AsMap()
+			expected := map[string]interface{}{}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm"}
+			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
+			test.That(t, observed, test.ShouldResemble, expected)
+		})
 	})
 
 	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
