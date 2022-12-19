@@ -14,9 +14,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
+// NOTE: Component NAME (in config file) must be set to "WebGamepad" exactly
 // This is because there's no way to get a component's model from a robot.Robot.
-var modelname = resource.NewDefaultModel("WebGamepad")
+var modelname = resource.NewDefaultModel("webgamepad")
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
