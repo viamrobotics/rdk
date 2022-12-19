@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 
-	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"gonum.org/v1/gonum/mat"
@@ -435,19 +433,6 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	}
 	// translate points by offset and rotate
 	myList := transformPointsToPose(faces, b.Pose().Orientation().RotationMatrix().mat, b.pose.Point())
-	// This is here so I can export myList as a python list
-	// will be deleted
-	lastList := golist.New()
-	for i := 0; i < len(myList); i++ {
-		pointsList := golist.New()
-		pointsList.Append(myList[i].X)
-		pointsList.Append(myList[i].Y)
-		pointsList.Append(myList[i].Z)
-		lastList.Append(pointsList)
-	}
-	f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
-	f.WriteString(lastList.String())
-	f.Close()
 	return myList
 }
 
