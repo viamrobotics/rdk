@@ -1,4 +1,6 @@
 // Package eva implements the Eva robot from Automata.
+// api found at
+// https://github.com/automata-tech/eva_python_sdk/blob/development/evasdk/eva_http_client.py
 package eva
 
 import (
@@ -100,6 +102,34 @@ type eva struct {
 	frameJSON []byte
 
 	opMgr operation.SingleOperationManager
+}
+
+// NewEva TODO.
+func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+	model, err := Model(cfg.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	e := &eva{
+		host:      cfg.ConvertedAttributes.(*AttrConfig).Host,
+		version:   "v1",
+		token:     cfg.ConvertedAttributes.(*AttrConfig).Token,
+		logger:    logger,
+		moveLock:  &sync.Mutex{},
+		model:     model,
+		robot:     r,
+		frameJSON: evamodeljson,
+	}
+
+	name, err := e.apiName(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	e.logger.Debugf("connected to eva: %v", name)
+
+	return e, nil
 }
 
 func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
@@ -282,8 +312,13 @@ func (e *eva) resetErrors(ctx context.Context) error {
 }
 
 func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// RSDK-374: Implement Stop
-	return arm.ErrStopUnimplemented
+	if e.opMgr.OpRunning() {
+		return multierr.Combine(
+			e.apiRequest(ctx, "POST", "controls/pause", nil, true, nil),  // pause robot
+			e.apiRequest(ctx, "POST", "controls/cancel", nil, true, nil), // make state ready to run again
+		)
+	}
+	return nil
 }
 
 func (e *eva) IsMoving(ctx context.Context) (bool, error) {
@@ -361,32 +396,4 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 // Model returns the kinematics model of the eva arm, also has all Frame information.
 func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
-}
-
-// NewEva TODO.
-func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := Model(cfg.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	e := &eva{
-		host:      cfg.ConvertedAttributes.(*AttrConfig).Host,
-		version:   "v1",
-		token:     cfg.ConvertedAttributes.(*AttrConfig).Token,
-		logger:    logger,
-		moveLock:  &sync.Mutex{},
-		model:     model,
-		robot:     r,
-		frameJSON: evamodeljson,
-	}
-
-	name, err := e.apiName(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	e.logger.Debugf("connected to eva: %v", name)
-
-	return e, nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
@@ -241,7 +242,10 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 // Stop is unimplemented for trossen.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
-	return arm.ErrStopUnimplemented
+	return multierr.Combine(
+		a.TorqueOff(),
+		a.TorqueOn(),
+	)
 }
 
 // IsMoving returns whether the arm is moving.
