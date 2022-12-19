@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -35,12 +36,31 @@ func (pc *pointCreator) Offset() Pose {
 	return pc.offset
 }
 
+// String returns a human readable string that represents the pointCreator.
+func (pc *pointCreator) String() string {
+	pt := pc.offset.Point()
+	return fmt.Sprintf("Type: Point, Location X:%.0f, Y:%.0f, Z:%.0f", pt.X, pt.Y, pt.Z)
+}
+
 func (pc *pointCreator) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(pc)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(config)
+}
+
+// ToProto converts the point to a Geometry proto message.
+func (pc *pointCreator) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(pc.offset),
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: 0,
+			},
+		},
+		Label: pc.label,
+	}
 }
 
 // NewPoint instantiates a new point Geometry.
@@ -89,6 +109,7 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 				RadiusMm: 0,
 			},
 		},
+		Label: pt.label,
 	}
 }
 

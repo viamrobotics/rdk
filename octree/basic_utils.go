@@ -92,3 +92,84 @@ func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
 		(math.Abs(octree.center.Y-p.Y) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
 }
+
+// helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
+// If the maximum recursion depth is reached before a valid node is found for the point it will return
+// an error.
+func (octree *basicOctree) helperSet(p r3.Vector, d pc.Data, recursionDepth int) error {
+	if recursionDepth >= maxRecursionDepth {
+		return errors.New("error max allowable recursion depth reached")
+	}
+	if (pc.PointAndData{P: p, D: d} == pc.PointAndData{}) {
+		octree.logger.Debug("no data given, skipping insertion")
+		return nil
+	}
+
+	if !octree.checkPointPlacement(p) {
+		return errors.New("error point is outside the bounds of this octree")
+	}
+
+	switch octree.node.nodeType {
+	case InternalNode:
+		for _, childNode := range octree.node.children {
+			if childNode.checkPointPlacement(p) {
+				err := childNode.helperSet(p, d, recursionDepth+1)
+				if err == nil {
+					// Update metadata
+					octree.meta.Merge(p, d)
+					octree.size++
+				}
+				return err
+			}
+		}
+		return errors.New("error invalid internal node detected, please check your tree")
+
+	case LeafNodeFilled:
+		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
+			// Update data in point
+			octree.node.point.D = d
+			return nil
+		}
+		if err := octree.splitIntoOctants(); err != nil {
+			return errors.Errorf("error in splitting octree into new octants: %v", err)
+		}
+		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
+		return octree.helperSet(p, d, recursionDepth+1)
+
+	case LeafNodeEmpty:
+		// Update metadata
+		octree.meta.Merge(p, d)
+		octree.size++
+		octree.node = newLeafNodeFilled(p, d)
+	}
+
+	return nil
+}
+
+// helperIterate is a recursive helper function for iterating through a basic octree that returns
+// the result of the specified boolean function. Batching is done using the calculated upper and
+// lower bounds and the tracking of the index, this allows for only a subset of the basic octree
+// to be searched through. If the applied function ever returns false, the iteration will end.
+func (octree *basicOctree) helperIterate(lowerBound, upperBound, idx int, fn func(p r3.Vector, d pc.Data) bool) bool {
+	ok := true
+	switch octree.node.nodeType {
+	case InternalNode:
+		for _, child := range octree.node.children {
+			numPoints := child.size
+
+			if (idx+numPoints > lowerBound) && (idx < upperBound) {
+				if ok = child.helperIterate(lowerBound, upperBound, idx, fn); !ok {
+					break
+				}
+			}
+			idx += numPoints
+		}
+
+	case LeafNodeFilled:
+		ok = fn(octree.node.point.P, octree.node.point.D)
+
+	case LeafNodeEmpty:
+	}
+
+	return ok
+}

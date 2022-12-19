@@ -317,7 +317,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 func TestSVAvsDH(t *testing.T) {
 	mSVA, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e_DH.json"), "")
+	mDH, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	numTests := 10000
@@ -388,4 +388,26 @@ IK:
 	}
 
 	return solutions, nil
+}
+
+// Test loading model kinematics of the same arm via ModelJSON parsing and URDF parsing and comparing results.
+func TestKinematicsJSONvsURDF(t *testing.T) {
+	numTests := 100
+
+	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	mURDF, err := frame.ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	seed := rand.New(rand.NewSource(50))
+	for i := 0; i < numTests; i++ {
+		joints := frame.JointPositionsFromRadians(frame.GenerateRandomConfiguration(mJSON, seed))
+
+		posJSON, err := ComputePosition(mJSON, joints)
+		test.That(t, err, test.ShouldBeNil)
+		posURDF, err := ComputePosition(mURDF, joints)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, spatial.PoseAlmostEqual(posJSON, posURDF), test.ShouldBeTrue)
+	}
 }

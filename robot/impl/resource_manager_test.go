@@ -54,6 +54,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -1798,7 +1799,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (interface{}, error) {
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
 func (rr *dummyRobot) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
 	panic("change to return nil")
 }
@@ -1807,7 +1808,7 @@ func (rr *dummyRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	panic("change to return nil")
 }
@@ -1821,6 +1822,10 @@ func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 }
 
 func (rr *dummyRobot) OperationManager() *operation.Manager {
+	panic("change to return nil")
+}
+
+func (rr *dummyRobot) SessionManager() session.Manager {
 	panic("change to return nil")
 }
 

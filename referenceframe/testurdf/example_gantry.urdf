@@ -1,0 +1,33 @@
+<!-- This URDF is an example of a gantry with purely prismatic joints, such as a rack-and-pinion and pneumatic slide -->
+<?xml version="1.0" ?>
+<robot name="gantry">
+  <link name="world"/>
+
+  <joint name="base_joint" type="fixed"> 
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+  </joint>
+
+  <link name="base_link" />
+
+  <joint name="gantry_y_joint" type="prismatic">
+    <parent link="base_link"/>
+    <child link="gantry_carriage"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.15"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.1" upper="2.1" />
+  </joint>
+
+  <link name="gantry_carriage" />
+
+  <joint name="gantry_x_joint" type="prismatic">
+    <parent link="gantry_carriage"/>
+    <child link="gantry_mount"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.2 0.1 0.1"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.05" upper="0.250" />
+  </joint>
+
+  <link name="gantry_mount" />
+</robot>

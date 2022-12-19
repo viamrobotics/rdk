@@ -28,14 +28,14 @@ const modelname = "oneaxis"
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
-	Board           string                    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
-	Motor           string                    `json:"motor"`
-	LimitSwitchPins []string                  `json:"limit_pins,omitempty"`
-	LimitPinEnabled *bool                     `json:"limit_pin_enabled_high,omitempty"`
-	LengthMm        float64                   `json:"length_mm"`
-	MmPerRevolution float64                   `json:"mm_per_rev,omitempty"`
-	GantryRPM       float64                   `json:"gantry_rpm,omitempty"`
-	Axis            spatial.TranslationConfig `json:"axis"`
+	Board           string    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
+	Motor           string    `json:"motor"`
+	LimitSwitchPins []string  `json:"limit_pins,omitempty"`
+	LimitPinEnabled *bool     `json:"limit_pin_enabled_high,omitempty"`
+	LengthMm        float64   `json:"length_mm"`
+	MmPerRevolution float64   `json:"mm_per_rev,omitempty"`
+	GantryRPM       float64   `json:"gantry_rpm,omitempty"`
+	Axis            r3.Vector `json:"axis"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -167,7 +167,7 @@ func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.C
 		lengthMm:        conf.LengthMm,
 		mmPerRevolution: conf.MmPerRevolution,
 		rpm:             conf.GantryRPM,
-		axis:            r3.Vector(conf.Axis),
+		axis:            conf.Axis,
 	}
 
 	switch len(oAx.limitSwitchPins) {

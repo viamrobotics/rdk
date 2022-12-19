@@ -8,30 +8,30 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 // Parts is a slice of *config.FrameSystemPart.
-type Parts []*config.FrameSystemPart
+type Parts []*referenceframe.FrameSystemPart
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
 func (fsp Parts) String() string {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation"})
-	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", ""})
+	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
+	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
 	for i, part := range fsp {
-		tra := part.FrameConfig.Translation
-		ori := &spatialmath.EulerAngles{}
-		if part.FrameConfig.Orientation != nil {
-			ori = part.FrameConfig.Orientation.EulerAngles()
+		pose := part.FrameConfig.Pose()
+		tra := pose.Point()
+		ori := pose.Orientation().EulerAngles()
+		geomString := ""
+		if gc := part.FrameConfig.Geometry(); gc != nil {
+			geomString = gc.String()
 		}
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),
-			part.Name,
-			part.FrameConfig.Parent,
+			part.FrameConfig.Name(),
+			part.FrameConfig.Parent(),
 			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
 			fmt.Sprintf(
 				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
@@ -39,6 +39,7 @@ func (fsp Parts) String() string {
 				utils.RadToDeg(ori.Pitch),
 				utils.RadToDeg(ori.Yaw),
 			),
+			geomString,
 		})
 	}
 	return t.Render()
@@ -58,16 +59,16 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[referenceframe.World] = true
 	for _, part := range parts {
-		existingParts[part.Name] = true
+		existingParts[part.FrameConfig.Name()] = true
 	}
 	// make map of children
 	children := make(map[string]Parts)
 	for _, part := range parts {
-		parent := part.FrameConfig.Parent
+		parent := part.FrameConfig.Parent()
 		if !existingParts[parent] {
-			return nil, NewMissingParentError(part.Name, parent)
+			return nil, NewMissingParentError(part.FrameConfig.Name(), parent)
 		}
-		children[part.FrameConfig.Parent] = append(children[part.FrameConfig.Parent], part)
+		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
 	}
 	topoSortedParts := Parts{} // keep track of tree structure
 	// If there are no frames, return the empty list
@@ -89,10 +90,10 @@ func TopologicallySort(parts Parts) (Parts, error) {
 		}
 		visited[parent] = true
 		sort.Slice(children[parent], func(i, j int) bool {
-			return children[parent][i].Name < children[parent][j].Name
+			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
 		}) // sort alphabetically within the topological sort
 		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, part.Name)
+			stack = append(stack, part.FrameConfig.Name())
 			topoSortedParts = append(topoSortedParts, part)
 		}
 	}
@@ -106,21 +107,21 @@ func RenameRemoteParts(
 	connectionName string,
 ) Parts {
 	for _, p := range remoteParts {
-		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
-			p.FrameConfig.Parent = connectionName
+		if p.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
+			p.FrameConfig.SetParent(connectionName)
 		}
 		// rename each non-world part with prefix
-		p.Name = remoteName + ":" + p.Name
-		if p.FrameConfig.Parent != connectionName {
-			p.FrameConfig.Parent = remoteName + ":" + p.FrameConfig.Parent
+		p.FrameConfig.SetName(remoteName + ":" + p.FrameConfig.Name())
+		if p.FrameConfig.Parent() != connectionName {
+			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.Parent())
 		}
 	}
 	return remoteParts
 }
 
 // PartMapToPartSlice returns a Parts constructed of the FrameSystemParts values of a string map.
-func PartMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
-	parts := make([]*config.FrameSystemPart, 0, len(partsMap))
+func PartMapToPartSlice(partsMap map[string]*referenceframe.FrameSystemPart) Parts {
+	parts := make([]*referenceframe.FrameSystemPart, 0, len(partsMap))
 	for _, part := range partsMap {
 		parts = append(parts, part)
 	}
@@ -131,7 +132,7 @@ func PartMapToPartSlice(partsMap map[string]*config.FrameSystemPart) Parts {
 func Names(parts Parts) []string {
 	names := make([]string, len(parts))
 	for i, p := range parts {
-		names[i] = p.Name
+		names[i] = p.FrameConfig.Name()
 	}
 	return names
 }
