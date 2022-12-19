@@ -113,7 +113,7 @@ type builtIn struct {
 	modelManagerConstructor model.ManagerConstructor
 }
 
-var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
+var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
@@ -151,9 +151,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
 	svc.closeCollectors()
-	if svc.syncer != nil {
-		svc.syncer.Close()
-	}
+	svc.closeSyncer()
 	svc.cancelSyncScheduler()
 
 	svc.lock.Unlock()

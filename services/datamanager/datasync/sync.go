@@ -112,12 +112,12 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
 	s.cancelFunc()
-	s.backgroundWorkers.Wait()
 	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
 			s.logger.Errorw("error closing datasync server connection", "error", err)
 		}
 	}
+	s.backgroundWorkers.Wait()
 }
 
 func (s *syncer) SyncDirectory(dir string) {
