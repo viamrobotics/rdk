@@ -296,7 +296,7 @@ onUnmounted(() => {
             <v-multiselect
               v-model="selectCameras"
               class="mb-4"
-              clearable='false'
+              clearable="false"
               placeholder="Select Cameras"
               aria-label="Select Cameras"
               :options="
@@ -320,7 +320,7 @@ onUnmounted(() => {
                 :data-stream-preview="basecamera.name"
                 :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
               />
-              <p>{{ baseStreamStates.get(basecamera.name)}}</p>
+              <p>{{ baseStreamStates.get(basecamera.name) }}</p>
             </template>
           </div>
         </div>
