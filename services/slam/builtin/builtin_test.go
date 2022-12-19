@@ -54,6 +54,7 @@ var (
 	orbslamIntSynchronizeCamerasChan          chan int = make(chan int)
 	cartographerIntLidarReleasePointCloudChan chan int = make(chan int, 1)
 	validMapRate                                       = 200
+	falseDeleteProcessedData = false
 )
 
 func getNumOrbslamImages(mode slam.Mode) int {
@@ -974,6 +975,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
+		DeleteProcessedData: &falseDeleteProcessedData,
 	}
 
 	// Create slam service
@@ -994,6 +996,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		{"-map_rate_sec=200"},
 		{"-data_dir=" + name},
 		{"-input_file_pattern=10:200:1"},
+		{"-delete_processed_data=false"},
 		{"-port=localhost:4445"},
 		{"--aix-auto-update"},
 	}
@@ -1105,6 +1108,10 @@ func createTempFolderArchitecture() (string, error) {
 
 func resetFolder(path string) error {
 	err := os.RemoveAll(path)
+	if err != nil {
+		return err
+	}
+	err = os.Mkdir(path, os.ModePerm)
 	return err
 }
 
@@ -1126,6 +1133,11 @@ func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int
 
 		test.That(t, numFilesRGB, test.ShouldEqual, numFilesDepth)
 		numFiles = numFilesRGB
+	case slam.Dim2d:
+		numFiles2D, err := checkDataDirForExpectedFiles(t, dir+"/data", prev, online, deleteProcessedData)
+		test.That(t, err, test.ShouldBeNil)
+		numFiles = numFiles2D
+	default:
 	}
 	return numFiles
 }

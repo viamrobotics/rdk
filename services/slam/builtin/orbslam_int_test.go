@@ -2,7 +2,6 @@ package builtin_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -105,6 +104,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 	createVocabularyFile(name)
+	prevNumFiles := 0
 
 	t.Log("Testing online mode")
 
@@ -157,10 +157,6 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs := false
 
-	files, err := ioutil.ReadDir(name + "/data/rgb")
-	test.That(t, err, test.ShouldBeNil)
-	prev := len(files)
-
 	// Wait for orbslam to finish processing images
 	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
@@ -172,7 +168,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
 				// Check delete_processed_data is working as intended
-				prev = checkDeleteProcessedData(t, mode, name, prev, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -225,6 +221,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		lastFileName := files[len(files)-1].Name()
 		test.That(t, os.Remove(name+"/data/"+directoryName+lastFileName), test.ShouldBeNil)
 	}
+	prevNumFiles -=1
 
 	// Remove any maps
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
@@ -234,7 +231,6 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	mapRate = 1
 	deleteProcessedData = false
-	fmt.Printf("%v %v\n", prev, deleteProcessedData)
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -259,10 +255,6 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
 
-	files, err = ioutil.ReadDir(name + "/data/rgb")
-	test.That(t, err, test.ShouldBeNil)
-	prev = len(files)
-
 	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
 	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
@@ -271,7 +263,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed image to SLAM") {
 			// Check delete_processed_data is working as intended
-			prev = checkDeleteProcessedData(t, mode, name, prev, len(attrCfg.Sensors) != 0, deleteProcessedData)
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 			start_time_sent_image = time.Now()
 		}
 		if strings.Contains(line, "Finished processing offline images") {
@@ -318,6 +310,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
@@ -363,10 +356,6 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
 
-	files, err = ioutil.ReadDir(name + "/data/rgb")
-	test.That(t, err, test.ShouldBeNil)
-	prev = len(files)
-
 	// Wait for orbslam to finish processing images
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
 		start_time_sent_image = time.Now()
@@ -377,7 +366,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
 				// Check delete_processed_data is working as intended
-				prev = checkDeleteProcessedData(t, mode, name, prev, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
