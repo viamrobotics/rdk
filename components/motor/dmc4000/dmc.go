@@ -23,14 +23,13 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelName = "DMC4000"
+// Timeout for Home() and GoTillStop().
+const homeTimeout = time.Minute
 
-	// Timeout for Home() and GoTillStop().
-	homeTimeout = time.Minute
-)
+var modelName = resource.NewDefaultModel("DMC4000")
 
 // controllers is global to all instances, mapped by serial device.
 var (
@@ -96,7 +95,7 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

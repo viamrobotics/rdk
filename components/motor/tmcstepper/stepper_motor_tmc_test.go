@@ -68,7 +68,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "TMC5072")
+	motorReg := registry.ComponentLookup(motor.Subtype, resource.NewDefaultModel("TMC5072"))
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes

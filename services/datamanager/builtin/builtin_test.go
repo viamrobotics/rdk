@@ -98,8 +98,6 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	return testCfg
 }
 
-// TODO: add arbitrary file sync tests, including with syncAdditionalPaths
-
 func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, GetDurationFromHz(0.1), test.ShouldEqual, time.Second*10)
 	test.That(t, GetDurationFromHz(0.5), test.ShouldEqual, time.Second*2)

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // AttrConfig is user config inputs for ezopmp.
@@ -54,7 +55,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const modelName = "ezopmp"
+var modelName = resource.NewDefaultModel("ezopmp")
 
 func init() {
 	_motor := registry.Component{
@@ -64,7 +65,7 @@ func init() {
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig

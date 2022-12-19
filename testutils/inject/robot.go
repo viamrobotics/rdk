@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -45,7 +46,9 @@ type Robot struct {
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
-	StatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	StatusFunc        func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	ModuleAddressFunc func() (string, error)
+	ModuleManagerFunc func() modmaninterface.ModuleManager
 
 	ops     *operation.Manager
 	SessMgr session.Manager
@@ -204,7 +207,7 @@ func (r *Robot) Refresh(ctx context.Context) error {
 	return r.RefreshFunc(ctx)
 }
 
-// DiscoverComponents call the injected DiscoverComponents or the real one.
+// DiscoverComponents calls the injected DiscoverComponents or the real one.
 func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -240,7 +243,7 @@ func (r *Robot) TransformPose(
 	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
 }
 
-// Status call the injected Status or the real one.
+// Status calls the injected Status or the real one.
 func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -248,6 +251,26 @@ func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]ro
 		return r.LocalRobot.Status(ctx, resourceNames)
 	}
 	return r.StatusFunc(ctx, resourceNames)
+}
+
+// ModuleAddress calls the injected ModuleAddress or the real one.
+func (r *Robot) ModuleAddress() (string, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleAddressFunc == nil {
+		return r.LocalRobot.ModuleAddress()
+	}
+	return r.ModuleAddressFunc()
+}
+
+// ModuleManager calls the injected ModuleManager or the real one.
+func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleManagerFunc == nil {
+		return r.LocalRobot.ModuleManager()
+	}
+	return r.ModuleManagerFunc()
 }
 
 type noopSessionManager struct{}

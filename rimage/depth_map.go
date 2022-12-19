@@ -265,7 +265,7 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 	}
 
 	// made this a panic
-	panic("vision.DepthMap can only rotate 180 degrees right now")
+	panic("vision.DepthMap can only rotate 90, -90, or 180 degrees right now")
 }
 
 // Rotate90 rotates a copy of this depth map either by 90 degrees clockwise or counterclockwise.

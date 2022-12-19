@@ -238,15 +238,6 @@ func TestReconfigurableServo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfServo3, test.ShouldNotBeNil)
 
-	err = reconfServo1.Reconfigure(context.Background(), reconfServo3)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo1, reconfServo3))
-	test.That(t, actualServo3.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfServo3.Reconfigure(context.Background(), reconfServo1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfServo3, reconfServo1))
-
 	actualServo4 := &mock{Name: testServoName2}
 	reconfServo4, err := servo.WrapWithReconfigurable(actualServo4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)

@@ -18,11 +18,12 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "gyro-mpu6050"
+var model = resource.NewDefaultModel("gyro-mpu6050")
 
 // AttrConfig is used to configure the attributes of the chip.
 type AttrConfig struct {
@@ -47,7 +48,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Component{
+	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		// Note: this looks like it can be simplified to just be `Constructor: NewMpu6050`.
 		// However, if you try that, the compiler says the types are subtly incompatible. Just
 		// leave it like this.
@@ -61,7 +62,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
