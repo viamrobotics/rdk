@@ -24,13 +24,14 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is the string used to refer to the yahboom model.
-const ModelName = "yahboom-dofbot"
+// ModelName is the model used to refer to the yahboom model.
+var ModelName = resource.NewDefaultModel("yahboom-dofbot")
 
 //go:embed dofbot.json
 var modeljson []byte
@@ -89,8 +90,6 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-const modelname = "yahboom-dofbot"
-
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -98,7 +97,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

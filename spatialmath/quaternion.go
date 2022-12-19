@@ -49,24 +49,27 @@ func (q *Quaternion) RotationMatrix() *RotationMatrix {
 func QuatToEulerAngles(q quat.Number) *EulerAngles {
 	angles := EulerAngles{}
 
-	// roll (x-axis rotation)
-	sinrCosp := 2 * (q.Real*q.Imag + q.Jmag*q.Kmag)
-	cosrCosp := 1 - 2*(q.Imag*q.Imag+q.Jmag*q.Jmag)
-	angles.Roll = math.Atan2(sinrCosp, cosrCosp)
-
-	// pitch (y-axis rotation)
-	sinp := 2 * (q.Real*q.Jmag - q.Kmag*q.Imag)
-	if math.Abs(sinp) >= 1 {
-		angles.Pitch = math.Copysign(math.Pi/2., sinp) // use 90 degrees if out of range
-	} else {
-		angles.Pitch = math.Asin(sinp)
-	}
-
 	// yaw (z-axis rotation)
-	sinyCosp := 2 * (q.Real*q.Kmag + q.Imag*q.Jmag)
-	cosyCosp := 1 - 2*(q.Jmag*q.Jmag+q.Kmag*q.Kmag)
+	sinyCosp := 2.0 * (q.Real*q.Kmag + q.Imag*q.Jmag)
+	cosyCosp := 1.0 - 2.0*(q.Jmag*q.Jmag+q.Kmag*q.Kmag)
 	angles.Yaw = math.Atan2(sinyCosp, cosyCosp)
 
+	// for a pitch that is π / 2, we experience gimbal lock
+	// and must calculate roll based on the real rotation and yaw
+	sinp := 2.0 * (q.Real*q.Jmag - q.Kmag*q.Imag)
+	if math.Abs(sinp) >= 1.0 {
+		// pitch (y-axis rotation)
+		angles.Pitch = math.Copysign(math.Pi/2., sinp) // use 90 degrees if out of range
+		// roll (x-axis rotation)
+		angles.Roll = 2.0*math.Atan2(q.Imag, q.Real) + math.Copysign(angles.Yaw, sinp)
+	} else {
+		// pitch (y-axis rotation)
+		angles.Pitch = math.Asin(sinp)
+		// roll (x-axis rotation)
+		sinrCosp := 2.0 * (q.Real*q.Imag + q.Jmag*q.Kmag)
+		cosrCosp := 1.0 - 2.0*(q.Imag*q.Imag+q.Jmag*q.Jmag)
+		angles.Roll = math.Atan2(sinrCosp, cosrCosp)
+	}
 	return &angles
 }
 

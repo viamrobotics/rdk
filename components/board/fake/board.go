@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var _ = board.LocalBoard(&Board{})
@@ -60,7 +61,7 @@ func (config *Config) Validate(path string) error {
 	return nil
 }
 
-const modelName = "fake"
+var modelName = resource.NewDefaultModel("fake")
 
 func init() {
 	registry.RegisterComponent(
@@ -76,7 +77,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
+		board.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

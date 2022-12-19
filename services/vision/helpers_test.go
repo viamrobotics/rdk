@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -62,7 +63,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
-		Model: "image_file",
+		Model: resource.NewDefaultModel("image_file"),
 		Attributes: config.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth_image_file_path": "",
@@ -72,7 +73,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	cameraComp2 := config.Component{
 		Name:  "fake_cam2",
 		Type:  camera.SubtypeName,
-		Model: "image_file",
+		Model: resource.NewDefaultModel("image_file"),
 		Attributes: config.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/tflite/lion.jpeg"),
 			"depth_image_file_path": "",

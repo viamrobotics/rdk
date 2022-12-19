@@ -19,10 +19,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "gpiostepper"
+var model = resource.NewDefaultModel("gpiostepper")
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -61,10 +62,10 @@ func init() {
 			return newGPIOStepper(ctx, actualBoard, *motorConfig, logger)
 		},
 	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
+	registry.RegisterComponent(motor.Subtype, model, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
-		modelName,
+		motor.Subtype,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

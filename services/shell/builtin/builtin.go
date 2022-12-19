@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	registry.RegisterService(shell.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(shell.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, dep registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(logger)
 		},

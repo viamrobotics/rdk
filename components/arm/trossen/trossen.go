@@ -26,22 +26,15 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	modelNameWX250s = "trossen-wx250s"
-	modelNameVX300s = "trossen-vx300s"
-)
-
-const (
-	// ModelNameWX250S is the string used to refer to the wx250s arm model.
-	ModelNameWX250S = "wx250s"
-
-	// ModelNameVX300S is the string used to refer to the vx300s arm model.
-	ModelNameVX300S = "vx300s"
+var (
+	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
+	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
 )
 
 // SleepAngles are the angles we go to to prepare to turn off torque.
@@ -137,7 +130,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelNameWX250s,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, modelNameWX250s,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -149,7 +142,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelNameVX300s,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, modelNameVX300s,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

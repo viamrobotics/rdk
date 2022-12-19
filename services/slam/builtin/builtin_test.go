@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
@@ -444,7 +445,7 @@ func createSLAMService(
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam", Model: model}
+	cfgService := config.Service{Name: "test", Type: "slam", Model: resource.NewDefaultModel(resource.ModelName(model))}
 	cfgService.ConvertedAttributes = attrCfg
 
 	deps := setupDeps(attrCfg)
