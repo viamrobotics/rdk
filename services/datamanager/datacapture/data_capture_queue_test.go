@@ -72,9 +72,7 @@ func TestCaptureQueue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "")
-			defer os.RemoveAll(tmpDir)
-			test.That(t, err, test.ShouldBeNil)
+			tmpDir := t.TempDir()
 			md := &v1.DataCaptureMetadata{Type: tc.dataType}
 			sut := NewBuffer(tmpDir, md)
 			var pushValue *v1.SensorData
@@ -94,7 +92,7 @@ func TestCaptureQueue(t *testing.T) {
 			test.That(t, len(inProgressFiles), test.ShouldEqual, tc.expInProgressFiles)
 
 			// Test that sync is respected: after closing, all files should no longer be in progress.
-			err = sut.Flush()
+			err := sut.Flush()
 			test.That(t, err, test.ShouldBeNil)
 			completeFiles, remainingProgFiles := getCaptureFiles(tmpDir)
 			test.That(t, len(remainingProgFiles), test.ShouldEqual, 0)
@@ -121,7 +119,7 @@ func TestCaptureQueue(t *testing.T) {
 	}
 }
 
-//nolint
+// nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

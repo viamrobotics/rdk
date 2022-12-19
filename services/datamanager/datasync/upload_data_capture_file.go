@@ -32,14 +32,11 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		},
 		SensorContents: sensorData,
 	}
-	resp, err := client.DataCaptureUpload(ctx, ur)
+	_, err = client.DataCaptureUpload(ctx, ur)
 	if err != nil {
 		return err
 	}
-	// TODO: real code handling
-	if resp.GetCode() != 200 {
-		return errors.New("error making DataCaptureUpload request: " + resp.GetMessage())
-	}
+
 	return nil
 }
 
