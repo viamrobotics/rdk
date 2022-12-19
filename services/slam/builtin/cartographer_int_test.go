@@ -83,10 +83,12 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 	createLuaFiles(name)
+	prevNumFiles := 0
 
 	t.Log("Testing online mode")
 
 	mapRate := 1
+	deleteProcessedData := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -96,6 +98,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:    &mapRate,
 		DataDirectory: name,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release point cloud for service validation
@@ -115,6 +118,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -138,6 +142,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 	lastFileName := files[len(files)-1].Name()
 	test.That(t, os.Remove(name+"/data/"+lastFileName), test.ShouldBeNil)
+	prevNumFiles -= 1
 
 	// Remove maps so that testing in offline mode will run in mapping mode,
 	// as opposed to updating mode.
@@ -154,6 +159,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:    &mapRate,
 		DataDirectory: name,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Create slam service using a real cartographer binary
@@ -165,6 +171,10 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Passed sensor data to SLAM") {
+			// Check delete_processed_data is working as intended
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+		}
 		if strings.Contains(line, "Finished optimizing final map") {
 			break
 		}
@@ -183,6 +193,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+	prevNumFiles = 0
 
 	// Count the initial number of maps in the map directory (should equal 1)
 
@@ -192,6 +203,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode in localization mode")
 
 	mapRate = 0
+	deleteProcessedData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -201,6 +213,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:    &mapRate,
 		DataDirectory: name,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release point cloud for service validation
@@ -230,6 +243,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -251,6 +265,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
@@ -294,6 +309,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -315,7 +331,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 func testCartographerDir(t *testing.T, path string, expectedMaps int) {
 	mapsInDir, err := ioutil.ReadDir(path + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldEqual, expectedMaps)
+	test.That(t, len(mapsInDir), test.ShouldBeGreaterThanOrEqualTo, expectedMaps)
 }
 
 func TestCartographerIntegration2D(t *testing.T) {

@@ -503,6 +503,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
+	offlineFlag := (len(cams) == 0)
 
 	slamMode, err := RuntimeConfigValidation(svcConfig, config.Model, logger)
 	if err != nil {
@@ -537,11 +538,13 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	var deleteProcessedData bool
 	if svcConfig.DeleteProcessedData == nil {
-		deleteProcessedData = (len(cams) != 0)
-		logger.Debugf("no value given for delete_processed_data given, setting to default value of %b", deleteProcessedData)
+		deleteProcessedData = !(offlineFlag)
 
 	} else {
 		deleteProcessedData = *svcConfig.DeleteProcessedData
+		if offlineFlag && deleteProcessedData {
+			logger.Debug("a value of true cannot be given for delete_processed_data when in offline mode")
+		}
 	}
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
