@@ -62,7 +62,7 @@ func TestServerSync(t *testing.T) {
 			expectedError: nil,
 		},
 	}
-	extra := map[string]interface{}{"foo": "SyncCaptureQueues"}
+	extra := map[string]interface{}{"foo": "Sync"}
 	ext, err := protoutils.StructToStructPb(extra)
 	test.That(t, err, test.ShouldBeNil)
 

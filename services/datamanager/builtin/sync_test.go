@@ -63,6 +63,7 @@ func TestSyncEnabled(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
+			tmpDir := t.TempDir()
 			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
@@ -200,12 +201,7 @@ func TestDataCaptureUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
-			tmpDir, err := os.MkdirTemp("", "")
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				err := os.RemoveAll(tmpDir)
-				test.That(t, err, test.ShouldBeNil)
-			}()
+			tmpDir := t.TempDir()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.serviceFailAt, tc.numFails)
 			defer func() {
 				err := rpcServer.Stop()
@@ -222,7 +218,7 @@ func TestDataCaptureUpload(t *testing.T) {
 				cfg = setupConfig(t, enabledBinaryCollectorConfigPath)
 			}
 
-			// Set up service config.
+			// Set up service config with only capture enabled.
 			svcConfig, ok1, err := getServiceConfig(cfg)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok1, test.ShouldBeTrue)
@@ -364,12 +360,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
-			tmpDir, err := os.MkdirTemp("", "")
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				err := os.RemoveAll(tmpDir)
-				test.That(t, err, test.ShouldBeNil)
-			}()
+			tmpDir := t.TempDir()
 
 			var failFor int
 			if tc.serviceFail {
@@ -584,10 +575,7 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 		return nil, errors.New("oh no error!!")
 	}
 	*m.successfulDCUploadRequests = append(*m.successfulDCUploadRequests, ur)
-	return &v1.DataCaptureUploadResponse{
-		Code:    200,
-		Message: "",
-	}, nil
+	return &v1.DataCaptureUploadResponse{}, nil
 }
 
 func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUploadServer) error {
@@ -601,10 +589,7 @@ func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUplo
 	for {
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
-			err := stream.SendAndClose(&v1.FileUploadResponse{
-				Code:    200,
-				Message: "yay",
-			})
+			err := stream.SendAndClose(&v1.FileUploadResponse{})
 			if err != nil {
 				return err
 			}

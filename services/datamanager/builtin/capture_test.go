@@ -4,7 +4,6 @@ import (
 	"context"
 	"go.viam.com/rdk/config"
 	"go.viam.com/test"
-	"os"
 	"testing"
 	"time"
 )
@@ -87,18 +86,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up capture directories.
-			initCaptureDir, err := os.MkdirTemp("", "")
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				err := os.RemoveAll(initCaptureDir)
-				test.That(t, err, test.ShouldBeNil)
-			}()
-			updatedCaptureDir, err := os.MkdirTemp("", "")
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				err := os.RemoveAll(updatedCaptureDir)
-				test.That(t, err, test.ShouldBeNil)
-			}()
+			initCaptureDir := t.TempDir()
+			updatedCaptureDir := t.TempDir()
 
 			// Set up robot config.
 			var initConfig *config.Config
