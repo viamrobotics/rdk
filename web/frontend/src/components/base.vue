@@ -82,6 +82,7 @@ const stop = () => {
   stopped = true;
   const req = new baseApi.StopRequest();
   req.setName(props.name);
+  rcLogConditionally(req);
   props.client.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
