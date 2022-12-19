@@ -1,4 +1,5 @@
 // Package yahboom implements a yahboom based robot.
+// code with commands found at http://www.yahboom.net/study/Dofbot-Pi
 package yahboom
 
 import (
@@ -18,7 +19,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -107,13 +107,14 @@ func init() {
 // Dofbot implements a yahboom dofbot arm.
 type Dofbot struct {
 	generic.Unimplemented
-	handle board.I2CHandle
-	model  referenceframe.Model
-	robot  robot.Robot
-	mu     sync.Mutex
-	muMove sync.Mutex
-	logger golog.Logger
-	opMgr  operation.SingleOperationManager
+	handle  board.I2CHandle
+	model   referenceframe.Model
+	robot   robot.Robot
+	mu      sync.Mutex
+	muMove  sync.Mutex
+	logger  golog.Logger
+	opMgr   operation.SingleOperationManager
+	stopped bool
 }
 
 // NewDofBot is a constructor to create a new dofbot arm.
@@ -189,6 +190,10 @@ func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.Join
 
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
+	if a.stopped {
+		err := a.turnOnTorque(ctx)
+		a.logger.Warnf("error turning on torque %s: ", err)
+	}
 	if len(pos.Values) > 5 {
 		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Values))
 	}
@@ -301,14 +306,34 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 
 // Stop is unimplemented for the dofbot.
 func (a *Dofbot) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// RSDK-374: Implement Stop for arm
-	return arm.ErrStopUnimplemented
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.stopped = true
+	return a.turnOffTorque(ctx)
+}
+
+func (a *Dofbot) turnOffTorque(ctx context.Context) error {
+	buf := make([]byte, 2)
+
+	buf[0] = byte(0x1A)
+	buf[1] = byte(0x00)
+	return a.handle.Write(ctx, buf)
+}
+
+func (a *Dofbot) turnOnTorque(ctx context.Context) error {
+	buf := make([]byte, 2)
+
+	buf[0] = byte(0x1A)
+	buf[1] = byte(0x01)
+
+	return a.handle.Write(ctx, buf)
 }
 
 // GripperStop is unimplemented for the dofbot.
 func (a *Dofbot) GripperStop(ctx context.Context) error {
-	// RSDK-388: Implement Stop for gripper
-	return gripper.ErrStopUnimplemented
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.Stop(ctx, nil)
 }
 
 // IsMoving returns whether the arm is moving.
