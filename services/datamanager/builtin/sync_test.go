@@ -64,12 +64,6 @@ func TestSyncEnabled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
 			tmpDir := t.TempDir()
-			tmpDir, err := os.MkdirTemp("", "")
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				err := os.RemoveAll(tmpDir)
-				test.That(t, err, test.ShouldBeNil)
-			}()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0, 0)
 			defer func() {
 				err := rpcServer.Stop()
@@ -138,7 +132,7 @@ func TestDataCaptureUpload(t *testing.T) {
 	// and the we start writing to a new file once the existing file size is > MaxFileSize.
 	sensorDataPerUploadRequest := 3.0
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor = 1
+	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
 	captureTime := time.Millisecond * 300
 	syncTime := time.Millisecond * 100
@@ -318,7 +312,7 @@ func TestDataCaptureUpload(t *testing.T) {
 // To validate: uploaded all data once, deleted file if no error, builds additional sync paths if none exist
 func TestArbitraryFileUpload(t *testing.T) {
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor = 1
+	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
 	syncTime := time.Millisecond * 100
 	datasync.UploadChunkSize = 1024
