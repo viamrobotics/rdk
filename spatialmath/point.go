@@ -17,7 +17,7 @@ type pointCreator struct {
 
 // point is a collision geometry that represents a single point in 3D space that occupies no geometry.
 type point struct {
-	pose  Pose
+	pose  Pose // remove this field
 	label string
 }
 
@@ -163,7 +163,7 @@ func pointVsBoxDistance(b *box, pt r3.Vector) float64 {
 	return -b.penetrationDepth(pt)
 }
 
-// TODO: add descriptions.
-func (pt *point) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
-	return []r3.Vector{pt.pose.Point()}, nil
+// ToPointCloud converts a point geometry into a []r3.Vector
+func (pt *point) ToPointCloud(options map[string]interface{}) []r3.Vector {
+	return []r3.Vector{pt.pose.Point()}
 }

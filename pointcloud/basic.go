@@ -1,6 +1,8 @@
 package pointcloud
 
 import (
+	"image/color"
+
 	"github.com/golang/geo/r3"
 )
 
@@ -52,15 +54,18 @@ func (cloud *basicPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.Vect
 	cloud.points.Iterate(numBatches, myBatch, fn)
 }
 
-// TODO: add function description.
-// VectorConvert ...
-func VectorConvert(vectors []r3.Vector) (basicPointCloud, error) {
+// vectorConvert converts a list of r3.Vectors into a pointcloud with the specified color
+func vectorConvert(vectors []r3.Vector, c color.NRGBA) (basicPointCloud, error) {
+	// initialize empty pointcloud
 	myCloud := basicPointCloud{
 		points: &matrixStorage{points: make([]PointAndData, 0, len(vectors)), indexMap: make(map[r3.Vector]uint, len(vectors))},
 		meta:   NewMetaData(),
 	}
-	// TODO: finish function
-	// handle colors here?
+	// iterate throught the vector list and add to the pointcloud
+	for _, v := range vectors {
+		data := &basicData{hasColor: true, c: c}
+		myCloud.Set(v, data)
+	}
 
 	return myCloud, nil
 }

@@ -356,54 +356,85 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 	return sum
 }
 
-// TODO: add function description.
-func (b *box) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
-	dims := [3]float64{b.halfSize[0] * 2, b.halfSize[1] * 2, b.halfSize[2] * 2}
+// ToPointCloud converts a box geometry into a []r3.Vector
+func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
+	// check for user defined spacing
 	var faces [][]float64
-	// explain what this does
 	var iter float64
 	if options["resolution"] != nil {
 		iter = options["resolution"].(float64)
 	} else {
-		iter = 0.15 // default value or spacing
+		iter = 0.15 // default spacing
 	}
-	// which faces are these
-	for i := 0.0; i <= dims[0]; i += iter {
-		for k := 0.0; k <= dims[2]; k += iter {
-			p1 := []float64{i, 0, k}
-			p2 := []float64{i, dims[1], k}
-			faces = append(faces, p1, p2)
+	// create points on box faces with box centered at (0, 0, 0)
+	for i := 0.0; i <= b.halfSize[0]; i += iter {
+		for k := 0.0; k <= b.halfSize[2]; k += iter {
+			// front and back faces
+			p1 := []float64{i, b.halfSize[1], k}
+			p2 := []float64{i, b.halfSize[1], -k}
+			p3 := []float64{-i, b.halfSize[1], k}
+			p4 := []float64{-i, b.halfSize[1], -k}
+			p5 := []float64{-i, -b.halfSize[1], -k}
+			p6 := []float64{-i, -b.halfSize[1], k}
+			p7 := []float64{i, -b.halfSize[1], -k}
+			p8 := []float64{i, -b.halfSize[1], k}
+			if i == 0.0 && k == 0.0 {
+				faces = append(faces, p1, p5)
+			} else if i == 0.0 && k > 0.0 {
+				faces = append(faces, p1, p2, p7, p8)
+			} else if i > 0.0 && k == 0.0 {
+				faces = append(faces, p1, p3, p6, p7)
+			} else {
+				faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
+			}
 		}
 	}
-	// which faces are these
-	for j := 0.0; j <= dims[1]; j += iter {
-		for k := 0.0; k <= dims[2]; k += iter {
-			p1 := []float64{0, j, k}
-			p2 := []float64{dims[0], j, k}
-			faces = append(faces, p1, p2)
+	for j := 0.0; j < b.halfSize[1]; j += iter {
+		for k := 0.0; k <= b.halfSize[2]; k += iter {
+			// left and right faces
+			p1 := []float64{b.halfSize[0], j, k}
+			p2 := []float64{b.halfSize[0], j, -k}
+			p3 := []float64{-b.halfSize[0], j, k}
+			p4 := []float64{-b.halfSize[0], j, -k}
+			p5 := []float64{-b.halfSize[0], -j, -k}
+			p6 := []float64{-b.halfSize[0], -j, k}
+			p7 := []float64{b.halfSize[0], -j, -k}
+			p8 := []float64{b.halfSize[0], -j, k}
+			if j == 0.0 && k == 0.0 {
+				faces = append(faces, p1, p5)
+			} else if j == 0.0 && k > 0.0 {
+				faces = append(faces, p1, p2, p3, p4)
+			} else if j > 0.0 && k == 0.0 {
+				faces = append(faces, p1, p3, p6, p7)
+			} else {
+				faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
+			}
 		}
 	}
-	// which faces are these
-	for i := 0.0; i <= dims[0]; i += iter {
-		for j := 0.0; j <= dims[1]; j += iter {
-			p1 := []float64{i, j, 0}
-			p2 := []float64{i, j, dims[2]}
-			faces = append(faces, p1, p2)
+	for i := 0.0; i < b.halfSize[0]; i += iter {
+		for j := 0.0; j < b.halfSize[1]; j += iter {
+			// top and bottom faces
+			p1 := []float64{i, j, b.halfSize[2]}
+			p2 := []float64{i, j, -b.halfSize[2]}
+			p3 := []float64{-i, j, b.halfSize[2]}
+			p4 := []float64{-i, j, -b.halfSize[2]}
+			p5 := []float64{-i, -j, -b.halfSize[2]}
+			p6 := []float64{-i, -j, b.halfSize[2]}
+			p7 := []float64{i, -j, -b.halfSize[2]}
+			p8 := []float64{i, -j, b.halfSize[2]}
+			if i == 0.0 && j == 0.0 {
+				faces = append(faces, p1, p5)
+			} else if i == 0.0 && j > 0.0 {
+				faces = append(faces, p1, p2, p7, p8)
+			} else if i > 0.0 && j == 0.0 {
+				faces = append(faces, p1, p3, p6, p7)
+			} else {
+				faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
+			}
 		}
 	}
-	// explain what this does
-	rotMat := b.Pose().Orientation().RotationMatrix().mat
-	myMat := mat.NewDense(3, 3, rotMat[:])
-	var myList []r3.Vector
-	for i := 0; i < len(faces); i++ {
-		blarg := mat.NewVecDense(3, faces[i]) // todo rename this
-		actual := make([]float64, 3)
-		c := mat.NewVecDense(3, actual) // todo rename this
-		c.MulVec(myMat, blarg)
-		myVec := r3.Vector{actual[0] + b.pose.Point().X, actual[1] + b.pose.Point().Y, actual[2] + b.pose.Point().Z}
-		myList = append(myList, myVec)
-	}
-
+	// translate points by offset and rotate
+	myList := transformPointsToPose(faces, b.Pose().Orientation().RotationMatrix().mat, b.pose.Point())
 	// This is here so I can export myList as a python list
 	// will be deleted
 	lastList := golist.New()
@@ -417,5 +448,20 @@ func (b *box) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) 
 	f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
 	f.WriteString(lastList.String())
 	f.Close()
-	return myList, nil
+	return myList
+}
+
+// todo: add function description
+func transformPointsToPose(points [][]float64, rotationMatrix [9]float64, pose r3.Vector) []r3.Vector {
+	myMat := mat.NewDense(3, 3, rotationMatrix[:])
+	var myList []r3.Vector
+	for i := 0; i < len(points); i++ {
+		pointMatrix := mat.NewVecDense(3, points[i])
+		actual := make([]float64, 3)
+		temp := mat.NewVecDense(3, actual)
+		temp.MulVec(myMat, pointMatrix)
+		myVec := r3.Vector{actual[0] + pose.X, actual[1] + pose.Y, actual[2] + pose.Z}
+		myList = append(myList, myVec)
+	}
+	return myList
 }

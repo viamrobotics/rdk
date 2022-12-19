@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 
-	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
@@ -206,7 +204,7 @@ func sphereInBox(s *sphere, b *box) bool {
 // TODO: add function description
 // TODO: double check this still works as expected
 // TODO: add s/o link for where I found this code.
-func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, error) {
+func (s *sphere) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	moveTo := s.pose.Point()
 	phi := math.Pi * (3.0 - math.Sqrt(5.0))
 	nums := 500 * s.radius
@@ -222,18 +220,5 @@ func (s *sphere) ToPointCloud(options map[string]interface{}) ([]r3.Vector, erro
 		myList = append(myList, myVec)
 	}
 
-	// This is here so I can export myList as a python list
-	// will be deleted
-	lastList := golist.New()
-	for i := 0; i < len(myList); i++ {
-		pointsList := golist.New()
-		pointsList.Append(myList[i].X)
-		pointsList.Append(myList[i].Y)
-		pointsList.Append(myList[i].Z)
-		lastList.Append(pointsList)
-	}
-	f, _ := os.Create("/Users/nick/Desktop/play/last.txt")
-	f.WriteString(lastList.String())
-	f.Close()
-	return myList, nil
+	return myList
 }
