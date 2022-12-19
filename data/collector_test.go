@@ -210,8 +210,7 @@ func TestClose(t *testing.T) {
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
 func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
-	// TODO: replace all usages of os.TempDir with proper os/io temp dir method
-	tmpDir := os.TempDir()
+	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
 	target := datacapture.NewBuffer(tmpDir, &md)
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
