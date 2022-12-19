@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -24,10 +23,10 @@ const LocalFrameSystemName = "robot"
 
 // A Service that returns the frame system for a robot.
 type Service interface {
-	Config(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error)
+	Config(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPose(
 		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -85,8 +84,8 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 type frameSystemService struct {
 	mu          sync.RWMutex
 	r           robot.Robot
-	localParts  framesystemparts.Parts             // gotten from the local robot's config.Config
-	offsetParts map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
+	localParts  framesystemparts.Parts                     // gotten from the local robot's config.Config
+	offsetParts map[string]*referenceframe.FrameSystemPart // gotten from local robot's config.Remote
 	logger      golog.Logger
 }
 
@@ -123,7 +122,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
 func (svc *frameSystemService) Config(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
@@ -135,7 +134,7 @@ func (svc *frameSystemService) Config(
 	// build the config
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
 	for _, transformMsg := range additionalTransforms {
-		newPart, err := config.PoseInFrameToFrameSystemPart(transformMsg)
+		newPart, err := referenceframe.LinkInFrameToFrameSystemPart(transformMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +152,7 @@ func (svc *frameSystemService) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
@@ -209,7 +208,7 @@ func (svc *frameSystemService) TransformPose(
 func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateLocalParts")
 	defer span.End()
-	parts := make(map[string]*config.FrameSystemPart)
+	parts := make(map[string]*referenceframe.FrameSystemPart)
 	seen := make(map[string]bool)
 	local, ok := svc.r.(robot.LocalRobot)
 	if !ok {
@@ -229,12 +228,19 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if c.Frame.Parent == "" {
 			return errors.Errorf("parent field in frame config for part %q is empty", c.Name)
 		}
+		if c.Frame.ID == "" {
+			c.Frame.ID = c.Name
+		}
 		seen[c.Name] = true
 		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return err
 		}
-		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
+		lif, err := c.Frame.ParseConfig()
+		if err != nil {
+			return err
+		}
+		parts[c.Frame.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil
@@ -253,7 +259,7 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 		return err
 	}
 	remoteNames := local.RemoteNames()
-	offsetParts := make(map[string]*config.FrameSystemPart)
+	offsetParts := make(map[string]*referenceframe.FrameSystemPart)
 	for _, remoteName := range remoteNames {
 		rConf, err := getRemoteRobotConfig(remoteName, conf)
 		if err != nil {
@@ -263,12 +269,16 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 			svc.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
 			continue
 		}
-		connectionName := rConf.Name + "_" + referenceframe.World
-		// build the frame system part that connects remote world to base world
-		connection := &config.FrameSystemPart{
-			Name:        connectionName,
-			FrameConfig: rConf.Frame,
+
+		lif, err := rConf.Frame.ParseConfig()
+		if err != nil {
+			return err
 		}
+		// build the frame system part that connects remote world to base world
+		connection := &referenceframe.FrameSystemPart{
+			FrameConfig: lif,
+		}
+		connection.FrameConfig.SetName(rConf.Name + "_" + referenceframe.World)
 		offsetParts[remoteName] = connection
 	}
 	svc.offsetParts = offsetParts

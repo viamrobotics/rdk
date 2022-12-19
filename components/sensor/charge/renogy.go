@@ -16,17 +16,19 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var globalMu sync.Mutex
 
 // defaults assume the device is connected via UART serial.
 const (
-	modelname       = "renogy"
 	pathDefault     = "/dev/serial0"
 	baudDefault     = 9600
 	modbusIDDefault = 1
 )
+
+var modelname = resource.NewDefaultModel("renogy")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -75,7 +77,7 @@ func init() {
 				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID), nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

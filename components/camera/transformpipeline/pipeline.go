@@ -17,16 +17,19 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
+var model = resource.NewDefaultModel("transform")
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"transform",
+		model,
 		registry.Component{RobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -45,7 +48,7 @@ func init() {
 			return newTransformPipeline(ctx, source, attrs, r)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "transform",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

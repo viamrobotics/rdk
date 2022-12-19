@@ -19,7 +19,8 @@ const opidKey = opidKeyType("opid")
 
 var methodPrefixesToFilter = [...]string{
 	"/proto.rpc.webrtc.v1.SignalingService",
-	"/proto.api.robot.v1.RobotService/StreamStatus",
+	"/viam.robot.v1.RobotService/StreamStatus",
+	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
 }
 
 // Operation is an operation happening on the server.
@@ -132,6 +133,11 @@ func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string,
 		if strings.HasPrefix(method, val) {
 			return ctx, func() {}
 		}
+	}
+
+	o := m.Find(id)
+	if o != nil {
+		m.logger.Warnw("attempt to create duplicate operation", "id", id.String(), "method", method)
 	}
 
 	op := &Operation{

@@ -3,8 +3,6 @@ package fake
 
 import (
 	"context"
-	// for embedding model file.
-	_ "embed"
 
 	"github.com/edaniels/golog"
 
@@ -13,12 +11,10 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-//go:embed gripper_model.json
-var gripperjson []byte
-
-const modelname = "fake"
+var modelname = resource.NewDefaultModel("fake")
 
 // AttrConfig is the config for a trossen gripper.
 type AttrConfig struct{}
@@ -31,18 +27,13 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
-			if err != nil {
-				return nil, err
-			}
-
-			var g gripper.LocalGripper = &Gripper{Name: config.Name, model: model}
+			var g gripper.LocalGripper = &Gripper{Name: config.Name}
 
 			return g, nil
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -52,13 +43,12 @@ func init() {
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
 	generic.Echo
-	Name  string
-	model referenceframe.Model
+	Name string
 }
 
 // ModelFrame returns the dynamic frame of the model.
 func (g *Gripper) ModelFrame() referenceframe.Model {
-	return g.model
+	return nil
 }
 
 // Open does nothing.

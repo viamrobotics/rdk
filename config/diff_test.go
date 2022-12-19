@@ -18,6 +18,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+var (
+	fakeModel = resource.NewDefaultModel("fake")
+	extModel  = resource.NewModel("acme", "test", "model")
+)
+
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
 		Remotes: []config.Remote{
@@ -35,7 +40,8 @@ func TestDiffConfigs(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm1",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				API:       arm.Subtype,
+				Model:     fakeModel,
 				Attributes: config.AttributeMap{
 					"one": float64(1),
 				},
@@ -44,7 +50,8 @@ func TestDiffConfigs(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "base1",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				API:       base.Subtype,
+				Model:     fakeModel,
 				Attributes: config.AttributeMap{
 					"two": float64(2),
 				},
@@ -52,8 +59,9 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "board1",
-				Model:     "fake",
+				Model:     fakeModel,
 				Type:      board.SubtypeName,
+				API:       board.Subtype,
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -101,7 +109,8 @@ func TestDiffConfigs(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm1",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				API:       arm.Subtype,
+				Model:     fakeModel,
 				Attributes: config.AttributeMap{
 					"two": float64(2),
 				},
@@ -110,7 +119,8 @@ func TestDiffConfigs(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "base1",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				API:       base.Subtype,
+				Model:     extModel,
 				Attributes: config.AttributeMap{
 					"three": float64(3),
 				},
@@ -118,8 +128,9 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "board1",
-				Model:     "fake",
+				Model:     fakeModel,
 				Type:      board.SubtypeName,
+				API:       board.Subtype,
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -228,13 +239,15 @@ func TestDiffConfigs(t *testing.T) {
 							Namespace: resource.ResourceNamespaceRDK,
 							Name:      "base2",
 							Type:      base.SubtypeName,
-							Model:     "fake",
+							API:       base.Subtype,
+							Model:     fakeModel,
 						},
 						{
 							Namespace: resource.ResourceNamespaceRDK,
 							Name:      "board2",
 							Type:      board.SubtypeName,
-							Model:     "fake",
+							API:       board.Subtype,
+							Model:     fakeModel,
 							ConvertedAttributes: &fakeboard.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
@@ -265,7 +278,8 @@ func TestDiffConfigs(t *testing.T) {
 							Namespace: resource.ResourceNamespaceRDK,
 							Name:      "arm1",
 							Type:      arm.SubtypeName,
-							Model:     "fake",
+							API:       arm.Subtype,
+							Model:     extModel,
 							Attributes: config.AttributeMap{
 								"two": float64(2),
 							},
@@ -274,7 +288,8 @@ func TestDiffConfigs(t *testing.T) {
 							Namespace: resource.ResourceNamespaceRDK,
 							Name:      "board1",
 							Type:      board.SubtypeName,
-							Model:     "fake",
+							API:       board.Subtype,
+							Model:     fakeModel,
 							ConvertedAttributes: &fakeboard.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
@@ -295,7 +310,8 @@ func TestDiffConfigs(t *testing.T) {
 							Namespace: resource.ResourceNamespaceRDK,
 							Name:      "base1",
 							Type:      base.SubtypeName,
-							Model:     "fake",
+							API:       base.Subtype,
+							Model:     fakeModel,
 							Attributes: config.AttributeMap{
 								"two": float64(2),
 							},

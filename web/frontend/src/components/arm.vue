@@ -2,12 +2,14 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, armApi, commonApi } from '@viamrobotics/sdk';
+import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
+import { rcLogConditionally } from '../lib/log';
 
 interface ArmStatus {
   pos_pieces: {
-    endPosition: string
+    endPosition: string[]
     endPositionValue: number
   }[]
 
@@ -51,6 +53,7 @@ const toggle = $ref<Record<string, ArmStatus>>({});
 const stop = () => {
   const request = new armApi.StopRequest();
   request.setName(props.name);
+  rcLogConditionally(request);
   props.client.armService.stop(request, new grpc.Metadata(), displayError);
 };
 
@@ -67,6 +70,7 @@ const armModifyAllDoEndPosition = () => {
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setTo(newPose);
+  rcLogConditionally(req);
   props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 
   delete toggle[props.name];
@@ -91,6 +95,7 @@ const armModifyAllDoJoint = () => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
+  rcLogConditionally(req);
   props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
   delete toggle[props.name];
 };
@@ -114,6 +119,7 @@ const armEndPositionInc = (getterSetter: string, amount: number) => {
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setTo(newPose);
+  rcLogConditionally(req);
   props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
@@ -127,6 +133,7 @@ const armJointInc = (field: number, amount: number) => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
+  rcLogConditionally(req);
   props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
 };
 
@@ -144,6 +151,7 @@ const armHome = () => {
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
+  rcLogConditionally(req);
   props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
 };
 
@@ -169,6 +177,26 @@ const armModifyAll = () => {
   }
 
   toggle[props.name] = newStatus;
+};
+
+const armCopyPosition = (status: ArmStatus) => {
+  // eslint-disable-next-line unicorn/no-array-reduce
+  copyToClipboardWithToast(JSON.stringify(status.pos_pieces.reduce((acc, cur) => {
+    return {
+      ...acc,
+      [`${cur.endPosition[0]}`]: cur.endPositionValue,
+    };
+  }, {})));
+};
+
+const armCopyJoints = (status: ArmStatus) => {
+  // eslint-disable-next-line unicorn/no-array-reduce
+  copyToClipboardWithToast(JSON.stringify(status.joint_pieces.reduce((acc, cur) => {
+    return {
+      ...acc,
+      [`${cur.joint}`]: cur.jointValue,
+    };
+  }, {})));
 };
 
 </script>
@@ -304,6 +332,11 @@ const armModifyAll = () => {
               label="Home"
               @click="armHome"
             />
+            <v-button
+              label="Copy"
+              class="flex-auto text-right"
+              @click="() => armCopyPosition(status!)"
+            />
             <div class="flex-auto text-right">
               <v-button
                 class="whitespace-nowrap"
@@ -353,6 +386,11 @@ const armModifyAll = () => {
             <v-button
               label="Home"
               @click="armHome"
+            />
+            <v-button
+              label="Copy"
+              class="flex-auto text-right"
+              @click="() => armCopyJoints(status!)"
             />
             <div class="flex-auto text-right">
               <v-button

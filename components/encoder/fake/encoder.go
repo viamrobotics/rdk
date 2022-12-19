@@ -13,9 +13,10 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const fakeModelName = "fake"
+var fakeModel = resource.NewDefaultModel("fake")
 
 func init() {
 	_encoder := registry.Component{
@@ -32,11 +33,11 @@ func init() {
 			return e, nil
 		},
 	}
-	registry.RegisterComponent(encoder.Subtype, fakeModelName, _encoder)
+	registry.RegisterComponent(encoder.Subtype, fakeModel, _encoder)
 
 	config.RegisterComponentAttributeMapConverter(
-		encoder.SubtypeName,
-		fakeModelName,
+		encoder.Subtype,
+		fakeModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)

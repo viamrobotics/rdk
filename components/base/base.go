@@ -79,6 +79,7 @@ type Base interface {
 	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	generic.Generic
+	resource.MovingCheckable
 }
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.
@@ -86,7 +87,6 @@ type LocalBase interface {
 	Base
 	// Width returns the width of the base in millimeters.
 	Width(ctx context.Context) (int, error)
-	resource.MovingCheckable
 }
 
 var (
@@ -146,7 +146,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the base.
 func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
-	base, ok := resource.(LocalBase)
+	base, ok := resource.(Base)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
@@ -229,6 +229,12 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.reconfigure(ctx, newBase)
+}
+
+func (r *reconfigurableBase) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
 }
 
 func (r *reconfigurableBase) reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {

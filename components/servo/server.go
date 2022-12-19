@@ -66,3 +66,16 @@ func (server *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb
 	}
 	return &pb.StopResponse{}, servo.Stop(ctx, req.Extra.AsMap())
 }
+
+// IsMoving queries of a component is in motion.
+func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
+	servo, err := server.getServo(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	moving, err := servo.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.IsMovingResponse{IsMoving: moving}, nil
+}

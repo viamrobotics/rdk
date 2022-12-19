@@ -20,13 +20,14 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/odometry"
 )
 
-const modelname = "camera_mono"
+var model = resource.NewDefaultModel("camera_mono")
 
 // AttrConfig is used for converting config attributes of a cameramono movement sensor.
 type AttrConfig struct {
@@ -87,7 +88,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		modelname,
+		model,
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
@@ -99,8 +100,8 @@ func init() {
 			},
 		})
 	config.RegisterComponentAttributeMapConverter(
-		movementsensor.SubtypeName,
-		modelname,
+		movementsensor.Subtype,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
