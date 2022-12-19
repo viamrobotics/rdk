@@ -2,7 +2,6 @@ package builtin_test
 
 import (
 	"context"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -17,40 +16,11 @@ import (
 	"go.viam.com/rdk/services/slam/internal"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 )
 
 const (
 	cartoSleepMs = 100
 )
-
-// Creates the lua files required by the cartographer binary.
-func createLuaFiles(name string) error {
-	if err := os.Mkdir(name+"/config/lua_files", os.ModePerm); err != nil {
-		return err
-	}
-	for _, luaFile := range []string{"locating_in_map.lua", "mapping_new_map.lua",
-		"updating_a_map.lua", "map_builder.lua", "map_builder_server.lua",
-		"pose_graph.lua", "trajectory_builder_2d.lua", "trajectory_builder_3d.lua",
-		"trajectory_builder.lua"} {
-
-		source, err := os.Open(artifact.MustPath("slam/" + luaFile))
-		if err != nil {
-			return err
-		}
-		defer source.Close()
-		destination, err := os.Create(name + "/config/lua_files/" + luaFile)
-		if err != nil {
-			return err
-		}
-		defer destination.Close()
-		_, err = io.Copy(destination, source)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 // Checks the cartographer position and map.
 func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
@@ -82,7 +52,6 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
-	createLuaFiles(name)
 
 	t.Log("Testing online mode")
 
