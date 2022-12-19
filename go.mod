@@ -21,7 +21,6 @@ require (
 	github.com/edaniels/golog v0.0.0-20221004200432-5f6b7167aca8
 	github.com/edaniels/gostream v0.0.0-20221205212507-0f3bbdcc651b
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
-	github.com/emre/golist v0.0.0-20131110135854-758ca839bda6
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.5.4
