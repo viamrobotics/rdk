@@ -14,13 +14,14 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterComponent(
 		encoder.Subtype,
-		"arduino",
+		resource.NewDefaultModel("arduino"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -31,8 +32,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		encoder.SubtypeName,
-		"arduino",
+		encoder.Subtype,
+		resource.NewDefaultModel("arduino"),
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf EncoderConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

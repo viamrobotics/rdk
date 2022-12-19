@@ -1,0 +1,96 @@
+{
+	"modules": [
+		{
+			"name": "AcmeModule",
+			"executable_path": "./complexmodule"
+		}
+	],
+	"services": [
+		{
+			"namespace": "rdk",
+			"type": "navigation",
+			"name": "denali",
+			"model": "acme:demo:mynavigation",
+			"attributes": {
+				"lat": 63.0691739667009,
+				"long": -151.00698515692034
+			}
+		},
+		{
+			"namespace": "acme",
+			"type": "summation",
+			"name": "adder",
+			"model": "acme:demo:mysum"
+		},
+		{
+			"namespace": "acme",
+			"type": "summation",
+			"name": "subtractor",
+			"model": "acme:demo:mysum",
+			"attributes": {
+				"subtract": true
+			}
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "motor",
+			"name": "motor1",
+			"model": "rdk:builtin:fake",
+			"attributes": {
+				"max_rpm": 500,
+				"encoder": "encoder1",
+				"max_power_pct": 0.5,
+				"ticks_per_rotation": 10000
+			},
+			"depends_on": ["encoder1"]
+		},
+		{
+			"name": "encoder1",
+			"type": "encoder",
+			"model": "fake"
+		},
+		{
+			"namespace": "rdk",
+			"type": "motor",
+			"name": "motor2",
+			"model": "rdk:builtin:fake",
+			"attributes": {
+				"max_rpm": 500,
+				"encoder": "encoder2",
+				"max_power_pct": 0.5,
+				"ticks_per_rotation": 10000
+			},
+			"depends_on": ["encoder2"]
+		},
+		{
+			"name": "encoder2",
+			"type": "encoder",
+			"model": "fake"
+		},
+		{
+			"model": "acme:demo:mygizmo",
+			"name": "gizmo1",
+			"namespace": "acme",
+			"type": "gizmo",
+			"attributes": {
+				"arg1": "arg1"
+			}
+		},
+		{
+			"namespace": "rdk",
+			"type": "base",
+			"name": "base1",
+			"model": "acme:demo:mybase",
+			"depends_on": ["motor1", "motor2"],
+			"attributes": {
+				"motorL": "motor1",
+				"motorR": "motor2"
+			}
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}

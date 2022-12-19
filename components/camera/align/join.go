@@ -18,14 +18,17 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var joinModel = resource.NewDefaultModel("join_color_depth")
+
 //nolint:dupl
 func init() {
-	registry.RegisterComponent(camera.Subtype, "join_color_depth",
+	registry.RegisterComponent(camera.Subtype, joinModel,
 		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -47,7 +50,7 @@ func init() {
 			return newJoinColorDepth(ctx, color, depth, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "join_color_depth",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, joinModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf joinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

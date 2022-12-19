@@ -479,6 +479,7 @@ type mock struct {
 	featuresCount int
 	stopCount     int
 	poweredCount  int
+	isMovingCount int
 	reconfCount   int
 	extra         map[string]interface{}
 }
@@ -531,6 +532,11 @@ func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (boo
 	return isPowered, mockPowerPct, nil
 }
 
+func (m *mock) IsMoving(ctx context.Context) (bool, error) {
+	m.isMovingCount++
+	return isMoving, nil
+}
+
 func (m *mock) Close() { m.reconfCount++ }
 
 func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -542,15 +548,9 @@ type mockLocal struct {
 	Name string
 
 	goTillStopCount int
-	isMovingCount   int
 }
 
 func (m *mockLocal) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	m.goTillStopCount++
 	return nil
-}
-
-func (m *mockLocal) IsMoving(ctx context.Context) (bool, error) {
-	m.isMovingCount++
-	return isMoving, nil
 }

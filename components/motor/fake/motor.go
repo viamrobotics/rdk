@@ -18,13 +18,13 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	modelName     = "fake"
-	defaultMaxRpm = 100
-)
+var model = resource.NewDefaultModel("fake")
+
+const defaultMaxRpm = 100
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -106,10 +106,10 @@ func init() {
 			return m, nil
 		},
 	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
+	registry.RegisterComponent(motor.Subtype, model, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
-		modelName,
+		motor.Subtype,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
