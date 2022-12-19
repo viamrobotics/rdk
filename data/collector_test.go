@@ -147,12 +147,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "")
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				err := os.RemoveAll(tmpDir)
-				test.That(t, err, test.ShouldBeNil)
-			}()
+			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
 			target := datacapture.NewBuffer(tmpDir, &md)
 			test.That(t, target, test.ShouldNotBeNil)
@@ -182,8 +177,7 @@ func TestSuccessfulWrite(t *testing.T) {
 func TestClose(t *testing.T) {
 	// Set up a collector.
 	l := golog.NewTestLogger(t)
-	tmpDir, err := os.MkdirTemp("", "")
-	test.That(t, err, test.ShouldBeNil)
+	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
 	target := datacapture.NewBuffer(tmpDir, &md)
 
@@ -258,7 +252,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
