@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -49,12 +50,32 @@ func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 	}
 }
 
+// String returns a human readable string that represents the boxCreator.
+func (bc *boxCreator) String() string {
+	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*bc.halfSize.X, 2*bc.halfSize.Y, 2*bc.halfSize.Z)
+}
+
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(bc)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(config)
+}
+
+// ToProtobuf converts the box to a Geometry proto message.
+func (bc *boxCreator) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(bc.offset),
+		GeometryType: &commonpb.Geometry_Box{
+			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+				X: 2 * bc.halfSize.X,
+				Y: 2 * bc.halfSize.Y,
+				Z: 2 * bc.halfSize.Z,
+			}},
+		},
+		Label: bc.label,
+	}
 }
 
 // NewBox instantiates a new box Geometry.

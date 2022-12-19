@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -26,7 +27,6 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
@@ -92,6 +92,7 @@ var exemptFromConnectionCheck = map[string]bool{
 	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
 	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
 	"/proto.rpc.v1.AuthService/Authenticate":                     true,
+	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":           true,
 }
 
 func skipConnectionCheck(method string) bool {
@@ -532,6 +533,12 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 		if name.Namespace != resource.ResourceNamespaceRDK {
 			return grpc.NewForeignResource(name, rc.conn), nil
 		}
+		// At this point we checked that the 'name' is in the rc.resourceNames list
+		// and it is in the RDK namespace, so it's likely we provide a package for
+		// interacting with it.
+		rc.logger.Errorw("the client registration for resource doesn't exist, you may need to import relevant client package",
+			"resource", name,
+			"import_guess", fmt.Sprintf("go.viam.com/rdk/%s/%s/register", name.ResourceType, name.Subtype))
 		return nil, ErrMissingClientRegistration
 	}
 	// pass in conn
@@ -716,7 +723,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 	for _, q := range qs {
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: string(q.SubtypeName), Model: q.Model},
+			&pb.DiscoveryQuery{Subtype: q.API.String(), Model: q.Model.String()},
 		)
 	}
 
@@ -727,9 +734,17 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 
 	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
 	for _, disc := range resp.Discovery {
+		m, err := resource.NewModelFromString(disc.Query.Model)
+		if err != nil {
+			return nil, err
+		}
+		s, err := resource.NewSubtypeFromString(disc.Query.Subtype)
+		if err != nil {
+			return nil, err
+		}
 		q := discovery.Query{
-			SubtypeName: resource.SubtypeName(disc.Query.Subtype),
-			Model:       disc.Query.Model,
+			API:   s,
+			Model: m,
 		}
 		discoveries = append(
 			discoveries, discovery.Discovery{
@@ -743,9 +758,9 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (rc *RobotClient) FrameSystemConfig(
 	ctx context.Context,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -754,9 +769,9 @@ func (rc *RobotClient) FrameSystemConfig(
 		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
-	result := make([]*config.FrameSystemPart, 0, len(cfgs))
+	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
 	for _, cfg := range cfgs {
-		part, err := config.ProtobufToFrameSystemPart(cfg)
+		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -770,9 +785,9 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.PoseInFramesToTransformProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
 	}

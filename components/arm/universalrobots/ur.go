@@ -26,13 +26,14 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
-// ModelName is the string used to refer to the ur5e arm model.
-const ModelName = "ur5e"
+// ModelName is the resource model.
+var ModelName = resource.NewDefaultModel("ur5e")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -62,7 +63,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

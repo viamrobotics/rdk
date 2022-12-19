@@ -72,16 +72,17 @@ func TestBuildCaptureMetadata(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			actualMetadata, err := BuildCaptureMetadata(
-				tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
+				resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent),
+				tc.componentName, resource.NewDefaultModel(resource.ModelName(tc.componentModel)), tc.method, tc.additionalParams, tc.tags)
 			test.That(t, err, test.ShouldEqual, nil)
 
 			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 			test.That(t, err, test.ShouldEqual, nil)
 
 			expectedMetadata := v1.DataCaptureMetadata{
-				ComponentType:    string(tc.componentType),
+				ComponentType:    resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent).String(),
 				ComponentName:    tc.componentName,
-				ComponentModel:   tc.componentModel,
+				ComponentModel:   resource.NewDefaultModel(resource.ModelName(tc.componentModel)).String(),
 				MethodName:       tc.method,
 				Type:             tc.dataType,
 				MethodParameters: methodParams,

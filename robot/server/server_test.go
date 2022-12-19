@@ -23,7 +23,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -82,23 +81,44 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
-		q := discovery.Query{arm.Named("arm").ResourceSubtype, "some arm"}
+
+		q := discovery.Query{arm.Named("arm").Subtype, resource.NewDefaultModel("some-arm")}
 		disc := discovery.Discovery{Query: q, Results: struct{}{}}
 		discoveries := []discovery.Discovery{disc}
 		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 			return discoveries, nil
 		}
-		req := &pb.DiscoverComponentsRequest{
-			Queries: []*pb.DiscoveryQuery{{Subtype: string(q.SubtypeName), Model: q.Model}},
-		}
 
-		resp, err := server.DiscoverComponents(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+		t.Run("full api and model", func(t *testing.T) {
+			req := &pb.DiscoverComponentsRequest{
+				Queries: []*pb.DiscoveryQuery{{Subtype: q.API.String(), Model: q.Model.String()}},
+			}
 
-		observed := resp.Discovery[0].Results.AsMap()
-		expected := map[string]interface{}{}
-		test.That(t, observed, test.ShouldResemble, expected)
+			resp, err := server.DiscoverComponents(context.Background(), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+			observed := resp.Discovery[0].Results.AsMap()
+			expected := map[string]interface{}{}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm"}
+			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
+			test.That(t, observed, test.ShouldResemble, expected)
+		})
+		t.Run("short api and model", func(t *testing.T) {
+			req := &pb.DiscoverComponentsRequest{
+				Queries: []*pb.DiscoveryQuery{{Subtype: "arm", Model: "some-arm"}},
+			}
+
+			resp, err := server.DiscoverComponents(context.Background(), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+			observed := resp.Discovery[0].Results.AsMap()
+			expected := map[string]interface{}{}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm"}
+			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
+			test.That(t, observed, test.ShouldResemble, expected)
+		})
 	})
 
 	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
@@ -276,28 +296,40 @@ func TestServer(t *testing.T) {
 func TestServerFrameSystemConfig(t *testing.T) {
 	injectRobot := &inject.Robot{}
 
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
 	// test working config function
 	t.Run("test working config function", func(t *testing.T) {
-		fsConfigs := []*config.FrameSystemPart{
+		l1 := &referenceframe.LinkConfig{
+			ID:          "frame1",
+			Parent:      referenceframe.World,
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Orientation: o1Cfg,
+			Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+		}
+		lif1, err := l1.ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
+		l2 := &referenceframe.LinkConfig{
+			ID:          "frame2",
+			Parent:      "frame1",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+		}
+		lif2, err := l2.ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
+		fsConfigs := []*referenceframe.FrameSystemPart{
 			{
-				Name: "frame1",
-				FrameConfig: &config.Frame{
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-				},
+				FrameConfig: lif1,
 			},
 			{
-				Name: "frame2",
-				FrameConfig: &config.Frame{
-					Parent:      "frame1",
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				},
+				FrameConfig: lif2,
 			},
 		}
 
 		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame,
+			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
 		) (framesystemparts.Parts, error) {
 			return framesystemparts.Parts(fsConfigs), nil
 		}
@@ -306,49 +338,55 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		resp, err := server.FrameSystemConfig(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, resp.FrameSystemConfigs[0].Name, test.ShouldEqual, fsConfigs[0].Name)
-		test.That(t, resp.FrameSystemConfigs[0].PoseInParentFrame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
-		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.X,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.X,
+		test.That(t, resp.FrameSystemConfigs[0].Frame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
+		test.That(
+			t,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.ReferenceFrame,
+			test.ShouldEqual,
+			fsConfigs[0].FrameConfig.Parent(),
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Y,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.X,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Y,
+			fsConfigs[0].FrameConfig.Pose().Point().X,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Z,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Y,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Z,
+			fsConfigs[0].FrameConfig.Pose().Point().Y,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OX,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Z,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX,
+			fsConfigs[0].FrameConfig.Pose().Point().Z,
+		)
+		pose := fsConfigs[0].FrameConfig.Pose()
+		test.That(t,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OX,
+			test.ShouldAlmostEqual,
+			pose.Orientation().OrientationVectorDegrees().OX,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OY,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OY,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY,
+			pose.Orientation().OrientationVectorDegrees().OY,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OZ,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OZ,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ,
+			pose.Orientation().OrientationVectorDegrees().OZ,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Theta,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Theta,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
+			pose.Orientation().OrientationVectorDegrees().Theta,
 		)
 	})
 
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
 		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame,
+			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
 		) (framesystemparts.Parts, error) {
 			return nil, expectedErr
 		}
