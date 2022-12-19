@@ -1,4 +1,4 @@
-package gpio_test
+package gpio
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/components/input/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -57,9 +56,9 @@ func setup(t *testing.T) *setupResult {
 	deps := make(registry.Dependencies)
 	deps[board.Named("main")] = s.b
 
-	ic := gpio.Config{
+	ic := Config{
 		Board: "main",
-		Buttons: map[string]gpio.ButtonConfig{
+		Buttons: map[string]*ButtonConfig{
 			"interrupt1": {
 				Control:    input.ButtonNorth,
 				Invert:     false,
@@ -71,7 +70,7 @@ func setup(t *testing.T) *setupResult {
 				DebounceMs: -1,
 			},
 		},
-		Axes: map[string]gpio.AxisConfig{
+		Axes: map[string]*AxisConfig{
 			"analog1": {
 				Control:       input.AbsoluteX,
 				Min:           0,
@@ -171,6 +170,81 @@ func teardown(t *testing.T, s *setupResult) {
 }
 
 func TestGPIOInput(t *testing.T) {
+	t.Run("config defaults", func(t *testing.T) {
+		c := &Config{
+			Board: "main",
+			Buttons: map[string]*ButtonConfig{
+				"interrupt1": {
+					Control:    input.ButtonNorth,
+					Invert:     false,
+					DebounceMs: 20,
+				},
+				"interrupt2": {
+					Control:    input.ButtonSouth,
+					Invert:     true,
+					DebounceMs: -1,
+				},
+				"interrupt3": {
+					Control:    input.ButtonWest,
+					Invert:     false,
+					DebounceMs: 0, // default
+				},
+			},
+			Axes: map[string]*AxisConfig{
+				"analog1": {
+					Control:       input.AbsoluteX,
+					Min:           0,
+					Max:           1023,
+					Bidirectional: false,
+					Deadzone:      0,
+					MinChange:     0,
+					PollHz:        0,
+					Invert:        false,
+				},
+				"analog2": {
+					Control:       input.AbsoluteY,
+					Min:           0,
+					Max:           1023,
+					Bidirectional: true,
+					Deadzone:      20,
+					MinChange:     15,
+					PollHz:        50,
+					Invert:        false,
+				},
+			},
+		}
+		err := c.validateValues()
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, c.Buttons["interrupt1"].DebounceMs, test.ShouldEqual, 20) // unchanged
+		test.That(t, c.Buttons["interrupt2"].DebounceMs, test.ShouldEqual, -1) // unchanged
+		test.That(t, c.Buttons["interrupt3"].DebounceMs, test.ShouldEqual, 5)  // default
+
+		test.That(t, c.Axes["analog1"].PollHz, test.ShouldEqual, 10) // default
+		test.That(t, c.Axes["analog2"].PollHz, test.ShouldEqual, 50) // default
+	})
+
+	t.Run("config axis min > max", func(t *testing.T) {
+		c := &Config{
+			Board: "main",
+			Axes: map[string]*AxisConfig{
+				"analog1": {
+					Control:       input.AbsoluteX,
+					Min:           1023,
+					Max:           0,
+					Bidirectional: false,
+					Deadzone:      0,
+					MinChange:     0,
+					PollHz:        0,
+					Invert:        false,
+				},
+			},
+		}
+		err := c.validateValues()
+
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
 	t.Run("initial button state", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
@@ -522,8 +596,7 @@ func TestGPIOInput(t *testing.T) {
 				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i)
 			})
 			s.axisMu.RLock()
-			epsilon := 15 * time.Millisecond
-			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 70*time.Millisecond, 100*time.Millisecond+epsilon)
+			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 70*time.Millisecond, 130*time.Millisecond)
 			s.axisMu.RUnlock()
 		}
 	})

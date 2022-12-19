@@ -64,10 +64,11 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p := r3.Vector{X: 0, Y: 0, Z: 0}
-		d := pc.NewValueData(1.0)
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+		}
 
-		err = basicOct.Set(p, d)
+		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = basicOct.splitIntoOctants()
@@ -93,8 +94,9 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, len(filledLeaves), test.ShouldEqual, 1)
 		test.That(t, len(emptyLeaves), test.ShouldEqual, 7)
 		test.That(t, len(internalLeaves), test.ShouldEqual, 0)
-		test.That(t, filledLeaves[0].node.point, test.ShouldResemble, pc.PointAndData{P: p, D: d})
-		test.That(t, filledLeaves[0].checkPointPlacement(p), test.ShouldBeTrue)
+		test.That(t, filledLeaves[0].checkPointPlacement(pointsAndData[0].P), test.ShouldBeTrue)
+
+		checkPoints(t, basicOct, pointsAndData)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -103,26 +105,19 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p1 := r3.Vector{X: 0, Y: 0, Z: 0}
-		d1 := pc.NewValueData(1.0)
-		basicOct.Set(p1, d1)
+		pointsAndData := []pc.PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: pc.NewValueData(1)},
+			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: pc.NewValueData(2)},
+		}
+
+		err = addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
-		p2 := r3.Vector{X: .5, Y: 0, Z: 0}
-		d2 := pc.NewValueData(2.0)
-		basicOct.Set(p2, d2)
-		test.That(t, err, test.ShouldBeNil)
+		checkPoints(t, basicOct, pointsAndData)
 
-		d, ok := basicOct.At(p1.X, p1.Y, p1.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d1)
-
-		d, ok = basicOct.At(p2.X, p2.Y, p2.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, d, test.ShouldResemble, d2)
-
-		_, ok = basicOct.At(0, 1, .5)
+		d, ok := basicOct.At(0, 1, .5)
 		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, d, test.ShouldBeNil)
 
 		err = basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error attempted to split internal node"))
@@ -176,16 +171,15 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper function that recursively checks a basic octree's structure and metadata.
-func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, sideLength float64) int32 {
+func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, sideLength float64) int {
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
 	test.That(t, center, test.ShouldResemble, bOct.center)
 
-	// TODO: add check of internal metadata once iterate function is available for easy looping over all points.
+	validateMetadata(t, bOct)
 
-	var size int32
-
+	var size int
 	switch bOct.node.nodeType {
 	case InternalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -244,6 +238,65 @@ func validateBasicOctree(t *testing.T, bOct *basicOctree, center r3.Vector, side
 	return size
 }
 
+// Helper function for checking basic octree metadata.
+func validateMetadata(t *testing.T, bOct *basicOctree) {
+	t.Helper()
+
+	metadata := pc.NewMetaData()
+	bOct.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
+		metadata.Merge(p, d)
+		return true
+	})
+
+	test.That(t, bOct.meta.HasColor, test.ShouldEqual, metadata.HasColor)
+	test.That(t, bOct.meta.HasValue, test.ShouldEqual, metadata.HasValue)
+	test.That(t, bOct.meta.MaxX, test.ShouldEqual, metadata.MaxX)
+	test.That(t, bOct.meta.MinX, test.ShouldEqual, metadata.MinX)
+	test.That(t, bOct.meta.MaxY, test.ShouldEqual, metadata.MaxY)
+	test.That(t, bOct.meta.MinY, test.ShouldEqual, metadata.MinY)
+	test.That(t, bOct.meta.MaxZ, test.ShouldEqual, metadata.MaxZ)
+	test.That(t, bOct.meta.MinZ, test.ShouldEqual, metadata.MinZ)
+	test.That(t, bOct.meta.TotalX(), test.ShouldAlmostEqual, metadata.TotalX())
+	test.That(t, bOct.meta.TotalY(), test.ShouldAlmostEqual, metadata.TotalY())
+	test.That(t, bOct.meta.TotalZ(), test.ShouldAlmostEqual, metadata.TotalZ())
+}
+
+// Helper function to create lopsided octree for testing of recursion depth limit.
+func createLopsidedOctree(oct *basicOctree, i, max int) *basicOctree {
+	if i >= max {
+		return oct
+	}
+
+	children := []*basicOctree{}
+	newSideLength := oct.sideLength / 2
+	for _, i := range []float64{-1.0, 1.0} {
+		for _, j := range []float64{-1.0, 1.0} {
+			for _, k := range []float64{-1.0, 1.0} {
+				centerOffset := r3.Vector{
+					X: i * newSideLength / 2.,
+					Y: j * newSideLength / 2.,
+					Z: k * newSideLength / 2.,
+				}
+				newCenter := oct.center.Add(centerOffset)
+
+				// Create a new basic octree child
+				child := &basicOctree{
+					center:     newCenter,
+					sideLength: newSideLength,
+					size:       0,
+					logger:     oct.logger,
+					node:       newLeafNodeEmpty(),
+					meta:       pc.NewMetaData(),
+				}
+				children = append(children, child)
+			}
+		}
+	}
+	oct.node = newInternalNode(children)
+	oct.node.children[0] = createLopsidedOctree(oct.node.children[0], i+1, max)
+	return oct
+}
+
 // Helper functions for visualizing octree during testing
 //
 //nolint:unused
@@ -261,12 +314,12 @@ func stringBasicOctreeNodeType(n NodeType) string {
 
 //nolint:unused
 func printBasicOctree(bOct *basicOctree, s string) {
-	bOct.logger.Infof("%v %.2f %.2f %.2f - %v | Children: %v Side: %v Size: %v\n", s,
+	bOct.logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
 		bOct.center.X, bOct.center.Y, bOct.center.Z,
 		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
 
 	if bOct.node.nodeType == LeafNodeFilled {
-		bOct.logger.Infof("%s (%.2f %.2f %.2f) - Val: %v\n", s,
+		bOct.logger.Infof("%s (%e %e %e) - Val: %v\n", s,
 			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
 	}
 	for _, v := range bOct.node.children {

@@ -67,7 +67,7 @@ func TestClient(t *testing.T) {
 
 		client := motion.NewClientFromConn(context.Background(), conn, testMotionServiceName, logger)
 
-		receivedTransforms := make(map[string]*referenceframe.PoseInFrame)
+		receivedTransforms := make(map[string]*referenceframe.LinkInFrame)
 		success := true
 		injectMS.MoveFunc = func(
 			ctx context.Context,
@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
-			supplementalTransforms []*referenceframe.PoseInFrame,
+			supplementalTransforms []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			for _, tf := range supplementalTransforms {
@@ -101,25 +101,25 @@ func TestClient(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
-		transforms := []*referenceframe.PoseInFrame{
-			referenceframe.NewNamedPoseInFrame("arm1", testPose, "frame1"),
-			referenceframe.NewNamedPoseInFrame("frame1", testPose, "frame2"),
+		transforms := []*referenceframe.LinkInFrame{
+			referenceframe.NewLinkInFrame("arm1", testPose, "frame1", nil),
+			referenceframe.NewLinkInFrame("frame1", testPose, "frame2", nil),
 		}
 
-		tfMap := make(map[string]*referenceframe.PoseInFrame)
+		tfMap := make(map[string]*referenceframe.LinkInFrame)
 		for _, tf := range transforms {
 			tfMap[tf.Name()] = tf
 		}
 		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
+		test.That(t, poseResult.Parent(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
 		test.That(t, poseResult.Pose().Point().Y, test.ShouldEqual, 2)
 		test.That(t, poseResult.Pose().Point().Z, test.ShouldEqual, 3)
 		for name, tf := range tfMap {
 			receivedTf := receivedTransforms[name]
 			test.That(t, tf.Name(), test.ShouldEqual, receivedTf.Name())
-			test.That(t, tf.FrameName(), test.ShouldEqual, receivedTf.FrameName())
+			test.That(t, tf.Parent(), test.ShouldEqual, receivedTf.Parent())
 			test.That(t, spatialmath.PoseAlmostEqual(tf.Pose(), receivedTf.Pose()), test.ShouldBeTrue)
 		}
 		test.That(t, receivedTransforms, test.ShouldNotBeNil)
@@ -150,7 +150,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
-			supplementalTransform []*referenceframe.PoseInFrame,
+			supplementalTransform []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			return nil, passedErr

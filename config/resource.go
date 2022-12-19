@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
@@ -63,7 +64,7 @@ type Component struct {
 	Namespace     resource.Namespace           `json:"namespace"`
 	Type          resource.SubtypeName         `json:"type"`
 	Model         string                       `json:"model"`
-	Frame         *Frame                       `json:"frame,omitempty"`
+	Frame         *referenceframe.LinkConfig   `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
 	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
 

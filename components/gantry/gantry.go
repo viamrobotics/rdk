@@ -107,17 +107,17 @@ type LocalGantry interface {
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Gantry)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Gantry)(nil), actual)
 }
 
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Gantry)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Gantry)(nil), actual)
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name, actual interface{}) error {
-	return utils.DependencyTypeError(name, (Gantry)(nil), actual)
+func DependencyTypeError(name string, actual interface{}) error {
+	return utils.DependencyTypeError(name, (*Gantry)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named gantry from the given Robot.

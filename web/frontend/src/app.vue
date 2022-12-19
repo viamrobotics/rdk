@@ -11,7 +11,7 @@ import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import {
   Client,
-  RobotService,
+  ResponseStream,
   ServiceError,
   cameraApi,
   commonApi,
@@ -33,7 +33,7 @@ import AudioInput from './components/audio-input.vue';
 import Base from './components/base.vue';
 import Board from './components/board.vue';
 import Camera from './components/camera.vue';
-import CurrentOperations from './components/current-operations.vue';
+import OperationsSessions from './components/operations-sessions.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
 import Gripper from './components/gripper.vue';
@@ -54,7 +54,6 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from './lib/fixers';
-import { addStream, removeStream } from './lib/stream';
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -71,13 +70,12 @@ const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
-let statusStream: grpc.Request | null = null;
-let statusStreamOpID: string | undefined;
-let baseCameraState = new Map<string, boolean>();
+let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: robotApi.Operation.AsObject, elapsed: number }[]>([]);
+let currentSessions = $ref<robotApi.Session.AsObject[]>([]);
 let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resourcesOnce = false;
@@ -87,6 +85,14 @@ let connectedFirstTimeResolve: (value: void) => void;
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
+
+const selectedMap = {
+  Live: 'live',
+  'Manual Refresh': 0,
+  'Every 30 Seconds': 30,
+  'Every 10 Seconds': 10,
+  'Every Second': 1,
+} as const;
 
 const rtcConfig = {
   iceServers: [
@@ -119,7 +125,6 @@ let appConnectionManager = $ref<{
   isConnected(): boolean;
   rtt: number;
 }>(null!);
-const sessionOps = new Set<string>();
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -249,12 +254,8 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
 
 const restartStatusStream = () => {
   if (statusStream) {
-    statusStream.close();
+    statusStream.cancel();
     statusStream = null;
-    if (statusStreamOpID) {
-      sessionOps.delete(statusStreamOpID);
-      statusStreamOpID = undefined;
-    }
   }
 
   let newResources: commonApi.ResourceName.AsObject[] = [];
@@ -277,41 +278,21 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  interface svcWithOpts {
-    options: {
-      transport: grpc.TransportFactory;
-      debug: boolean;
-    };
-  }
+  statusStream = client.robotService.streamStatus(streamReq);
 
-  const robotSvcWithOpts = client.robotService as unknown as svcWithOpts;
-  statusStream = grpc.invoke(RobotService.StreamStatus, {
-    request: streamReq,
-    host: client.robotService.serviceHost,
-    transport: robotSvcWithOpts.options.transport,
-    debug: robotSvcWithOpts.options.debug,
-    onHeaders: (headers: grpc.Metadata) => {
-      if (headers.headersMap.opid && headers.headersMap.opid.length > 0) {
-        const [opID] = headers.headersMap.opid;
-        sessionOps.add(opID!);
-        statusStreamOpID = opID;
-      }
-    },
-    onMessage: (response) => {
-      lastStatusTS = Date.now();
-      updateStatus((response as robotApi.StreamStatusResponse).getStatusList());
-    },
-    onEnd: (endStatus, endStatusMessage, trailers) => {
-      console.error(
-        'error streaming robot status',
-        endStatus,
-        ' ',
-        endStatusMessage,
-        ' ',
-        trailers
-      );
-      statusStream = null;
-    },
+  statusStream.on('data', (response) => {
+    updateStatus(response.getStatusList());
+    lastStatusTS = Date.now();
+  });
+  statusStream.on('status', (newStatus) => {
+    if (!ConnectionClosedError.isError(newStatus.details)) {
+      console.error('error streaming robot status', newStatus);
+    }
+    statusStream = null;
+  });
+  statusStream.on('end', () => {
+    console.error('done streaming robot status');
+    statusStream = null;
   });
 };
 
@@ -421,6 +402,37 @@ const loadCurrentOps = async () => {
   return currentOps;
 };
 
+let sessionsSupported = $ref<boolean>(true);
+const fetchCurrentSessions = () => {
+  if (!sessionsSupported) {
+    return [];
+  }
+  return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
+    const req = new robotApi.GetSessionsRequest();
+
+    client.robotService.getSessions(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        if ((err as ServiceError).code === grpc.Code.Unimplemented) {
+          sessionsSupported = false;
+        }
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occurred.'));
+        return;
+      }
+
+      const list = resp.toObject().sessionsList;
+      list.sort((sess1, sess2) => {
+        return sess1.id < sess2.id ? -1 : 1;
+      });
+      resolve(list);
+    });
+  });
+};
+
 const isWebRtcEnabled = () => {
   return window.webrtcEnabled;
 };
@@ -430,6 +442,7 @@ const createAppConnectionManager = () => {
   const statuses = {
     resources: false,
     ops: false,
+    sessions: false,
   };
 
   let timeout = -1;
@@ -483,6 +496,24 @@ const createAppConnectionManager = () => {
         }
       }
 
+      if (statuses.ops) {
+        try {
+          currentSessions = await fetchCurrentSessions();
+
+          if (!statuses.sessions) {
+            connectionRestablished = true;
+          }
+
+          statuses.sessions = true;
+        } catch (error) {
+          if (ConnectionClosedError.isError(error)) {
+            statuses.sessions = false;
+          } else {
+            newErrors.push(error);
+          }
+        }
+      }
+
       if (isConnected()) {
         if (connectionRestablished) {
           toast.success('Connection established');
@@ -503,7 +534,7 @@ const createAppConnectionManager = () => {
 
         // reset status/stream state
         if (statusStream) {
-          statusStream.close();
+          statusStream.cancel();
           statusStream = null;
         }
         resourcesOnce = false;
@@ -579,33 +610,10 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewCamera = async (name: string, isOn: boolean) => {
-  if (isOn) {
-    try {
-      // only add stream if base camera is not active
-      if (!baseCameraState.get(name)) {
-        await addStream(client, name);
-      }
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  } else {
-    try {
-      // only remove stream if base camera is not active
-      if (!baseCameraState.get(name)) {
-        await removeStream(client, name);
-      }
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  }
-};
-
-const viewManualFrame = (cameraName: string) => {
+const viewFrame = (cameraName: string) => {
   const req = new cameraApi.RenderFrameRequest();
   req.setName(cameraName);
-  const mimeType = 'image/jpeg';
-  req.setMimeType(mimeType);
+  req.setMimeType('image/jpeg');
   client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
@@ -618,48 +626,31 @@ const viewManualFrame = (cameraName: string) => {
       streamContainer.querySelector('video')?.remove();
       streamContainer.querySelector('img')?.remove();
       const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
+      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
       image.src = URL.createObjectURL(blob);
       streamContainer.append(image);
     }
   });
 };
 
-const viewIntervalFrame = (cameraName: string, time: string) => {
-  cameraFrameIntervalId = window.setInterval(() => {
-    const req = new cameraApi.RenderFrameRequest();
-    req.setName(cameraName);
-    req.setMimeType('image/jpeg');
-    client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
-
-      const streamContainers = document.querySelectorAll(
-        `[data-stream="${cameraName}"]`
-      );
-      for (const streamContainer of streamContainers) {
-        streamContainer.querySelector('video')?.remove();
-        streamContainer.querySelector('img')?.remove();
-        const image = new Image();
-        const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-        image.src = URL.createObjectURL(blob);
-        streamContainer.append(image);
-      }
-    });
-  }, Number(time) * 1000);
+const clearFrameInterval = () => {
+  window.clearInterval(cameraFrameIntervalId);
 };
 
 const viewCameraFrame = (cameraName: string, time: string) => {
-  window.clearInterval(cameraFrameIntervalId);
-  if (time === 'manual') {
-    viewCamera(cameraName, false);
-    viewManualFrame(cameraName);
-  } else if (time === 'live') {
-    viewCamera(cameraName, true);
+  clearFrameInterval();
+  const selectedInterval = selectedMap[time as keyof typeof selectedMap];
+
+  if (time === 'Live') {
+    return;
+  }
+
+  if (time === 'Manual Refresh') {
+    viewFrame(cameraName);
   } else {
-    viewCamera(cameraName, false);
-    viewIntervalFrame(cameraName, time);
+    cameraFrameIntervalId = window.setInterval(() => {
+      viewFrame(cameraName);
+    }, Number(selectedInterval) * 1000);
   }
 };
 
@@ -696,7 +687,7 @@ const doLogin = (authType: string) => {
   doConnect(window.host, creds, (error) => {
     document.querySelector('#connecting')!.classList.add('hidden');
     disableAuthElements = false;
-    console.log(error);
+    console.error(error);
     toast.error(`failed to connect: ${error}`);
   });
 };
@@ -708,10 +699,6 @@ const initConnect = () => {
       setTimeout(initConnect, 1000);
     });
   }
-};
-
-const updatedBaseCameraState = (event: Map<string, boolean>) => {
-  baseCameraState = event;
 };
 
 onMounted(async () => {
@@ -781,7 +768,6 @@ onMounted(async () => {
       :name="base.name"
       :client="client"
       :resources="resources"
-      @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->
@@ -871,9 +857,8 @@ onMounted(async () => {
       :camera-name="camera.name"
       :client="client"
       :resources="resources"
-      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
-      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
+      @clear-interval="clearFrameInterval"
     />
 
     <!-- ******* NAVIGATION ******* -->
@@ -917,13 +902,14 @@ onMounted(async () => {
       :resources="filterComponentsWithNames(resources)"
     />
 
-    <!-- ******* OPERATIONS ******* -->
-    <CurrentOperations
+    <!-- ******* OPERATIONS AND SESSIONS ******* -->
+    <OperationsSessions
       v-if="connectedOnce"
       :client="client"
       :operations="currentOps"
+      :sessions="currentSessions"
+      :sessions-supported="sessionsSupported"
       :connection-manager="appConnectionManager"
-      :session-ops="sessionOps"
     />
   </div>
 </template>

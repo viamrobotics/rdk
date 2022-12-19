@@ -88,6 +88,9 @@ issues:
         - gosec
         - govet
         - noctx
+    - path: /doc.go$
+      linters:
+        - lll
   exclude-use-default: false
   max-per-linter: 0
   max-same-issues: 0
