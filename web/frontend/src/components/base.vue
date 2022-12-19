@@ -321,7 +321,6 @@ onUnmounted(() => {
                 :data-stream-preview="basecamera.name"
                 :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
               />
-              <p>{{ baseStreamStates.get(basecamera.name) }}</p>
             </template>
           </div>
         </div>
