@@ -123,7 +123,7 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{"is_powered": true, "position_reporting": true, "position": 7.7, "is_moving": true},
+		map[string]interface{}{"is_powered": true, "position": 7.7, "is_moving": true},
 	)
 
 	convMap := &pb.Status{}
