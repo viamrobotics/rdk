@@ -3,6 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string
@@ -28,13 +29,17 @@ const increment = (axis: number, amount: number) => {
   const req = new gantryApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setPositionsMmList(pos);
+
+  rcLogConditionally(req);
   props.client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
 const stop = () => {
-  const request = new gantryApi.StopRequest();
-  request.setName(props.name);
-  props.client.gantryService.stop(request, new grpc.Metadata(), displayError);
+  const req = new gantryApi.StopRequest();
+  req.setName(props.name);
+
+  rcLogConditionally(req);
+  props.client.gantryService.stop(req, new grpc.Metadata(), displayError);
 };
 
 </script>
