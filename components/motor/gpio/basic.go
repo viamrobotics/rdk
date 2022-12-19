@@ -298,12 +298,12 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewGoToUnsupportedError(m.motorName)
 }
 
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
 }
 
 // GoTillStop is not supported.
