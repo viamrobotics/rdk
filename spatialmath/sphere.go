@@ -201,14 +201,21 @@ func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
 
-// TODO: add function description
-// TODO: double check this still works as expected
-// TODO: add s/o link for where I found this code.
+// ToPointCloud converts a sphere geometry into []r3.Vector
 func (s *sphere) ToPointCloud(options map[string]interface{}) []r3.Vector {
+	// check for user defined spacing
+	var iter float64
+	if options["resolution"] != nil {
+		iter = options["resolution"].(float64)
+	} else {
+		iter = 100 // default spacing
+	}
+
+	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+	nums := iter * s.radius
 	moveTo := s.pose.Point()
 	phi := math.Pi * (3.0 - math.Sqrt(5.0))
-	nums := 500 * s.radius
-	myList := make([]r3.Vector, int32(nums))
+	var myList []r3.Vector
 	for i := 0.; i < nums; i++ {
 		y := 1 - (i/(nums-1))*2
 		radius := math.Sqrt(1 - y*y)
@@ -219,6 +226,5 @@ func (s *sphere) ToPointCloud(options map[string]interface{}) []r3.Vector {
 		myVec := r3.Vector{x, y, z}
 		myList = append(myList, myVec)
 	}
-
 	return myList
 }
