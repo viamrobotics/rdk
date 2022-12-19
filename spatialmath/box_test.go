@@ -53,12 +53,33 @@ func TestBoxVertices(t *testing.T) {
 }
 
 func TestBoxPC(t *testing.T) {
-	offset := r3.Vector{0, 0, 0}
-	dims := r3.Vector{1, 2, 3}
-	orien := &Quaternion{1, 1, 0, 0}
-	pose := NewPoseFromOrientation(offset, orien)
-	box := &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, 10, ""}
-	myMap := make(map[string]interface{})
-	// myMap["resolution"] = 0.2
-	box.ToPointCloud(myMap)
+	//box1 test
+	offset1 := r3.Vector{0, 0, 0}
+	dims1 := r3.Vector{2, 2, 2}
+	orien1 := &Quaternion{1, 1, 1, 0}
+	pose1 := NewPoseFromOrientation(offset1, orien1)
+	box1 := &box{pose1, [3]float64{0.5 * dims1.X, 0.5 * dims1.Y, 0.5 * dims1.Z}, 10, ""} // with abitrary radius bounding sphere
+	myMap1 := make(map[string]interface{})
+	myMap1["resolution"] = 1. // using custom point density
+	output1 := box1.ToPointCloud(myMap1)
+	checkAgainst1 := []r3.Vector{r3.Vector{2, -1, -2}, r3.Vector{-2, 1, 2}, r3.Vector{0, 1, -5}, r3.Vector{4, -3, 1}, r3.Vector{0, -1, 5}, r3.Vector{-4, 3, -1}, r3.Vector{1, 1, 0}, r3.Vector{3, -3, -4}, r3.Vector{-1, -1, 0}, r3.Vector{-3, 3, 4}, r3.Vector{-1, 3, -3}, r3.Vector{3, -1, 3}, r3.Vector{1, -1, -7}, r3.Vector{5, -5, -1}, r3.Vector{1, -3, 3}, r3.Vector{-3, 1, -3}, r3.Vector{-1, 1, 7}, r3.Vector{-5, 5, 1}, r3.Vector{-1, 2, 2}, r3.Vector{1, -2, -2}, r3.Vector{-3, 4, -1}, r3.Vector{1, 0, 5}, r3.Vector{-1, 0, -5},
+		r3.Vector{3, -4, 1}, r3.Vector{-2, 2, -3}, r3.Vector{2, -2, 3}}
+	for i, v := range output1 {
+		test.That(t, R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
+	}
+
+	//box2 test
+	offset2 := r3.Vector{0, 0, 0}
+	dims2 := r3.Vector{1, 1.5, 4}
+	orien2 := &Quaternion{1, 0, 1, 0}
+	pose2 := NewPoseFromOrientation(offset2, orien2)
+	box2 := &box{pose2, [3]float64{0.5 * dims2.X, 0.5 * dims2.Y, 0.5 * dims2.Z}, 10, ""} // with abitrary radius bounding sphere
+	myMap2 := make(map[string]interface{})
+	myMap2["resolution"] = 1. // using custom point density
+	output2 := box2.ToPointCloud(myMap2)
+	checkAgainst2 := []r3.Vector{r3.Vector{0, 0.75, 0}, r3.Vector{0, -0.75, 0}, r3.Vector{-2, 0.75, -1}, r3.Vector{2, 0.75, 1}, r3.Vector{2, -0.75, 1}, r3.Vector{-2, -0.75, -1}, r3.Vector{-4, 0.75, -2}, r3.Vector{4, 0.75, 2}, r3.Vector{4, -0.75, 2}, r3.Vector{-4, -0.75, -2}, r3.Vector{-0.5, 0, 1}, r3.Vector{0.5, 0, -1},
+		r3.Vector{-2.5, 0, 0}, r3.Vector{1.5, 0, 2}, r3.Vector{-1.5, 0, -2}, r3.Vector{2.5, 0, 0}, r3.Vector{-4.5, 0, -1}, r3.Vector{3.5, 0, 3}, r3.Vector{-3.5, 0, -3}, r3.Vector{4.5, 0, 1}, r3.Vector{-4, 0, -2}, r3.Vector{4, 0, 2}}
+	for i, v := range output2 {
+		test.That(t, R3VectorAlmostEqual(v, checkAgainst2[i], 1e-2), test.ShouldBeTrue)
+	}
 }
