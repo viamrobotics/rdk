@@ -184,6 +184,15 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	return NewGeometriesInFrame(sf.name, m), nil
 }
 
+// a noGeometryFrame is a frame wrapper which will always return nil for its geometry
+type noGeometryFrame struct {
+	Frame
+}
+
+func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
+	return nil, nil
+}
+
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
