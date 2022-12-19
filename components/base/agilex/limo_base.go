@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var (
@@ -52,6 +53,8 @@ func (m steeringMode) String() string {
 	return "Unknown"
 }
 
+var modelName = resource.NewDefaultModel("agilex-limo")
+
 func init() {
 	controllers = make(map[string]*controller)
 
@@ -63,10 +66,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, "agilex-limo", limoBaseComp)
+	registry.RegisterComponent(base.Subtype, modelName, limoBaseComp)
 	config.RegisterComponentAttributeMapConverter(
-		base.SubtypeName,
-		"agilex-limo",
+		base.Subtype,
+		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

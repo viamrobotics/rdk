@@ -13,9 +13,10 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const singlemodelname = "single"
+var singlemodelname = resource.NewDefaultModel("single")
 
 func init() {
 	registry.RegisterComponent(
@@ -31,7 +32,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
+		Subtype,
 		singlemodelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf SingleWireConfig

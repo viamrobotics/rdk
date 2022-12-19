@@ -20,11 +20,12 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // ModelName is the string used to refer to the fake arm model.
-const ModelName = "fake"
+var ModelName = resource.NewDefaultModel("fake")
 
 //go:embed fake_model.json
 var fakeModelJSON []byte
@@ -52,7 +53,7 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(
-		arm.SubtypeName,
+		arm.Subtype,
 		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
@@ -73,18 +74,18 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 			return nil, errors.New("whoops! failed to start up")
 		}
 
-		switch converted.ArmModel {
-		case xarm.ModelName6DOF:
+		switch resource.ModelName(converted.ArmModel) {
+		case xarm.ModelName6DOF.Name:
 			model, err = xarm.Model(cfg.Name, 6)
-		case xarm.ModelName7DOF:
+		case xarm.ModelName7DOF.Name:
 			model, err = xarm.Model(cfg.Name, 7)
-		case ur.ModelName:
+		case ur.ModelName.Name:
 			model, err = ur.Model(cfg.Name)
-		case yahboom.ModelName:
+		case yahboom.ModelName.Name:
 			model, err = yahboom.Model(cfg.Name)
-		case eva.ModelName:
+		case eva.ModelName.Name:
 			model, err = eva.Model(cfg.Name)
-		case ModelName, "":
+		case ModelName.Name, "":
 			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 		default:
 			return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", cfg.ConvertedAttributes.(*AttrConfig).ArmModel)
