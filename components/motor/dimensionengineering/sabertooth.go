@@ -418,7 +418,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
 func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewGoToUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d", m.Channel, m.c.address))
 }
 
 // GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
@@ -428,7 +428,8 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewResetZeroPositionUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d",
+		m.Channel, m.c.address))
 }
 
 // Position reports the position in revolutions.
