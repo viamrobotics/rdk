@@ -13,14 +13,15 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const incrModelName = "incremental"
+var incrModel = resource.NewDefaultModel("incremental")
 
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		incrModelName,
+		incrModel,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -31,8 +32,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
-		incrModelName,
+		Subtype,
+		incrModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf IncrementalConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

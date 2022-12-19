@@ -295,10 +295,10 @@ onUnmounted(() => {
             @toggle="(active: boolean) => { !active && (pressed.size > 0 || !stopped) && stop() }"
           />
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
-            <v-select
+            <v-multiselect
               v-model="selectCameras"
               class="mb-4"
-              variant="multiple"
+              clearable='false'
               placeholder="Select Cameras"
               aria-label="Select Cameras"
               :options="
@@ -322,6 +322,7 @@ onUnmounted(() => {
                 :data-stream-preview="basecamera.name"
                 :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
               />
+              <p>{{ baseStreamStates.get(basecamera.name)}}</p>
             </template>
           </div>
         </div>

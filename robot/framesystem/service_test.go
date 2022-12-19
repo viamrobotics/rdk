@@ -259,7 +259,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     resource.NewDefaultModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
@@ -268,7 +268,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "myParentIsRemote",
 				Type:      gripper.SubtypeName,
-				Model:     "fake",
+				Model:     resource.NewDefaultModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: "bar:pieceArm",
 				},
