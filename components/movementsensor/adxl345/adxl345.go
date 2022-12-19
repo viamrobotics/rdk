@@ -20,11 +20,12 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "accel-adxl345"
+var modelName = resource.NewDefaultModel("accel-adxl345")
 
 // AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
 type AttrConfig struct {
@@ -59,7 +60,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)

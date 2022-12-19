@@ -13,6 +13,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -56,7 +57,7 @@ func getCallerName() string {
 }
 
 // RegisterService registers a service type to a registration.
-func RegisterService(subtype resource.Subtype, model string, creator Service) {
+func RegisterService(subtype resource.Subtype, model resource.Model, creator Service) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	creator.RegistrarLoc = getCallerName()
@@ -71,9 +72,17 @@ func RegisterService(subtype resource.Subtype, model string, creator Service) {
 	serviceRegistry[qName] = creator
 }
 
+// DeregisterService removes a previously registered service.
+func DeregisterService(subtype resource.Subtype, model resource.Model) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	delete(serviceRegistry, qName)
+}
+
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
-func ServiceLookup(subtype resource.Subtype, model string) *Service {
+func ServiceLookup(subtype resource.Subtype, model resource.Model) *Service {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
@@ -153,11 +162,12 @@ var (
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
-func RegisterComponent(subtype resource.Subtype, model string, creator Component) {
+func RegisterComponent(subtype resource.Subtype, model resource.Model, creator Component) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	creator.RegistrarLoc = getCallerName()
-	qName := fmt.Sprintf("%s/%s", subtype, model)
+	qName := fmt.Sprintf("%s/%s", subtype.String(), model.String())
+
 	_, old := componentRegistry[qName]
 	if old {
 		panic(errors.Errorf("trying to register two resources with same subtype:%s, model:%s", subtype, model))
@@ -168,10 +178,19 @@ func RegisterComponent(subtype resource.Subtype, model string, creator Component
 	componentRegistry[qName] = creator
 }
 
+// DeregisterComponent removes a previously registered component.
+func DeregisterComponent(subtype resource.Subtype, model resource.Model) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	delete(componentRegistry, qName)
+}
+
 // ComponentLookup looks up a creator by the given subtype and model. nil is returned if
 // there is no creator registered.
-func ComponentLookup(subtype resource.Subtype, model string) *Component {
+func ComponentLookup(subtype resource.Subtype, model resource.Model) *Component {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
+
 	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration
 	}
@@ -186,14 +205,16 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if old {
 		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
 	}
-	if creator.Reconfigurable == nil && creator.Status == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
+	if creator.Reconfigurable == nil && creator.Status == nil &&
+		creator.RegisterRPCService == nil && creator.RPCClient == nil &&
+		creator.ReflectRPCServiceDesc == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	if creator.RegisterRPCService != nil && creator.RPCServiceDesc == nil {
 		panic(errors.Errorf("cannot register a RPC enabled subtype with no RPC service description: %s", subtype))
 	}
 
-	if creator.RPCServiceDesc != nil {
+	if creator.RPCServiceDesc != nil && creator.ReflectRPCServiceDesc == nil {
 		reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(creator.RPCServiceDesc)
 		if err != nil {
 			panic(err)
@@ -201,6 +222,13 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 		creator.ReflectRPCServiceDesc = reflectSvcDesc
 	}
 	subtypeRegistry[subtype] = creator
+}
+
+// DeregisterResourceSubtype removes a previously registered subtype.
+func DeregisterResourceSubtype(subtype resource.Subtype) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	delete(subtypeRegistry, subtype)
 }
 
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
@@ -257,33 +285,41 @@ func DiscoveryFunctionLookup(q discovery.Query) (discovery.Discover, bool) {
 
 // RegisterDiscoveryFunction registers a discovery function for a given query.
 func RegisterDiscoveryFunction(q discovery.Query, discover discovery.Discover) {
-	_, ok := lookupSubtype(q.SubtypeName)
+	_, ok := RegisteredResourceSubtypes()[q.API]
 	if !ok {
-		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.SubtypeName))
+		panic(errors.Errorf("trying to register discovery function for unregistered subtype %q", q.API))
 	}
 	if _, ok := discoveryFunctions[q]; ok {
-		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.SubtypeName, q.Model))
+		panic(errors.Errorf("trying to register two discovery functions for subtype %q and model %q", q.API, q.Model))
 	}
 	discoveryFunctions[q] = discover
 }
 
-func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {
-	for s := range RegisteredResourceSubtypes() {
-		if s.ResourceSubtype == subtypeName {
-			return &s, true
-		}
-	}
-	return nil, false
-}
-
 // FindValidServiceModels returns a list of valid models for a specified service.
-func FindValidServiceModels(rName resource.Name) []string {
-	validModels := make([]string, 0)
+func FindValidServiceModels(rName resource.Name) []resource.Model {
+	validModels := make([]resource.Model, 0)
 	for key := range RegisteredServices() {
 		if strings.Contains(key, rName.Subtype.String()) {
 			splitName := strings.Split(key, "/")
-			validModels = append(validModels, splitName[1])
+			model, err := resource.NewModelFromString(splitName[1])
+			if err != nil {
+				utils.UncheckedError(err)
+				continue
+			}
+			validModels = append(validModels, model)
 		}
 	}
 	return validModels
+}
+
+// ReconfigurableComponent is implemented when component/service of a robot is reconfigurable.
+type ReconfigurableComponent interface {
+	// Reconfigure reconfigures the resource
+	Reconfigure(ctx context.Context, cfg config.Component, deps Dependencies) error
+}
+
+// ReconfigurableService is implemented when component/service of a robot is reconfigurable.
+type ReconfigurableService interface {
+	// Reconfigure reconfigures the resource
+	Reconfigure(ctx context.Context, cfg config.Service, deps Dependencies) error
 }

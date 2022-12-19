@@ -20,8 +20,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
+
+var modelname = resource.NewDefaultModel("wheeled")
 
 // Config is how you configure a wheeled base.
 type Config struct {
@@ -77,10 +80,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
+	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
-		base.SubtypeName,
-		"wheeled",
+		base.Subtype,
+		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

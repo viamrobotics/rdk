@@ -1,4 +1,6 @@
 // Package robotiq implements the gripper from robotiq.
+// commands found at
+// https://assets.robotiq.com/website-assets/support_documents/document/2F-85_2F-140_Instruction_Manual_CB-Series_PDF_20190329.pdf
 package robotiq
 
 import (
@@ -18,12 +20,11 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	modelname = "robotiq"
-)
+var modelname = resource.NewDefaultModel("robotiq")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -49,7 +50,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -271,7 +272,11 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 // Stop is unimplemented for robotiqGripper.
 func (g *robotiqGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-388: Implement Stop
-	return gripper.ErrStopUnimplemented
+	err := g.Set("GTO", "0")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // IsMoving returns whether the gripper is moving.

@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -164,9 +165,24 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
+	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
+	// TODO(PRODUCT-344): remove triplet checking here after complete
+	var nonTriplet bool
 	queries := make([]discovery.Query, 0, len(req.Queries))
 	for _, q := range req.Queries {
-		queries = append(queries, discovery.Query{resource.SubtypeName(q.Subtype), q.Model})
+		m, err := resource.NewModelFromString(q.Model)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.ContainsRune(q.Subtype, ':') {
+			nonTriplet = true
+			q.Subtype = "rdk:component:" + q.Subtype
+		}
+		s, err := resource.NewSubtypeFromString(q.Subtype)
+		if err != nil {
+			return nil, err
+		}
+		queries = append(queries, discovery.Query{API: s, Model: m})
 	}
 
 	discoveries, err := s.r.DiscoverComponents(ctx, queries)
@@ -180,7 +196,11 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbQuery := &pb.DiscoveryQuery{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
+		pbQuery := &pb.DiscoveryQuery{Subtype: discovery.Query.API.String(), Model: discovery.Query.Model.String()}
+		if nonTriplet {
+			pbQuery.Subtype = string(discovery.Query.API.ResourceSubtype)
+			pbQuery.Model = string(discovery.Query.Model.Name)
+		}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{

@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -55,10 +56,10 @@ var xArm6modeljson []byte
 var xArm7modeljson []byte
 
 // ModelName6DOF is a function used to get the string used to refer to the xarm model of 6 dof.
-const ModelName6DOF = "xArm6"
+var ModelName6DOF = resource.NewDefaultModel("xArm6")
 
 // ModelName7DOF is a function used to get the string used to refer to the xarm model of 7 dof.
-const ModelName7DOF = "xArm7"
+var ModelName7DOF = resource.NewDefaultModel("xArm7")
 
 // Model returns the kinematics model of the xarm arm, also has all Frame information.
 func Model(name string, dof int) (referenceframe.Model, error) {
@@ -80,7 +81,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName6DOF,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName6DOF,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -94,7 +95,7 @@ func init() {
 			return NewxArm(ctx, r, config, logger, 7)
 		},
 	})
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName7DOF,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName7DOF,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

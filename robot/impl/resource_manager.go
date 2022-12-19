@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -304,7 +305,7 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 			continue
 		}
 
-		if st.RPCServiceDesc != nil {
+		if st.ReflectRPCServiceDesc != nil {
 			types[k.Subtype] = st.ReflectRPCServiceDesc
 		}
 	}
@@ -337,7 +338,7 @@ func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot
 }
 
 // Close attempts to close/stop all parts.
-func (manager *resourceManager) Close(ctx context.Context) error {
+func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error {
 	var allErrs error
 	if err := manager.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
@@ -349,8 +350,15 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 		if !ok {
 			continue
 		}
+
 		if err := utils.TryClose(ctx, iface); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
+		}
+
+		if r.modules != nil && r.ModuleManager().IsModularResource(x) {
+			if err := r.ModuleManager().RemoveResource(ctx, x); err != nil {
+				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource"))
+			}
 		}
 	}
 	return allErrs
@@ -382,6 +390,7 @@ func (manager *resourceManager) completeConfig(
 				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
 				continue
 			}
+			// TODO(PRODUCT-266): "r" isn't likely needed here, as c.ResourceName() should be the same.
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
 				manager.logger.Errorw("error building component", "resource", c.ResourceName(), "model", c.Model, "error", err)
@@ -549,6 +558,15 @@ func (manager *resourceManager) processService(ctx context.Context,
 	if old == nil {
 		return robot.newService(ctx, c)
 	}
+
+	if robot.ModuleManager().Provides(config.ServiceConfigToShared(c)) {
+		deps, err := robot.getDependencies(c.ResourceName())
+		if err != nil {
+			return nil, err
+		}
+		return old, robot.ModuleManager().ReconfigureResource(ctx, config.ServiceConfigToShared(c), modmanager.DepsToNames(deps))
+	}
+
 	svc, err := robot.newService(ctx, c)
 	if err != nil {
 		return nil, err
@@ -600,10 +618,22 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	if old == nil {
 		return r.newResource(ctx, conf)
 	}
-	obj, canValidate := old.(config.ComponentUpdate)
 	res := config.Rebuild
-	if canValidate {
-		res = obj.UpdateAction(&conf)
+	if r.ModuleManager().Provides(conf) {
+		deps, err := r.getDependencies(rName)
+		if err != nil {
+			return nil, err
+		}
+		err = r.ModuleManager().ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
+		if err != nil {
+			return nil, err
+		}
+		res = config.None
+	} else {
+		obj, canValidate := old.(config.ComponentUpdate)
+		if canValidate {
+			res = obj.UpdateAction(&conf)
+		}
 	}
 	switch res {
 	case config.None:

@@ -16,12 +16,12 @@ import (
 )
 
 func init() {
-	registry.RegisterService(sensors.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(sensors.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
-	resource.AddDefaultService(sensors.Named(resource.DefaultModelName))
+	resource.AddDefaultService(sensors.Named(resource.DefaultServiceName))
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.

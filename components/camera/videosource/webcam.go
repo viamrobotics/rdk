@@ -22,11 +22,12 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
-const model = "webcam"
+var model = resource.NewDefaultModel("webcam")
 
 func init() {
 	registry.RegisterComponent(
@@ -45,7 +46,7 @@ func init() {
 			return NewWebcamSource(ctx, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf WebcamAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -60,7 +61,7 @@ func init() {
 		}, &WebcamAttrs{})
 
 	registry.RegisterDiscoveryFunction(
-		discovery.NewQuery(camera.SubtypeName, model),
+		discovery.NewQuery(camera.Subtype, model),
 		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
 	)
 }

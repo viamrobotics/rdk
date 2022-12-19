@@ -50,7 +50,7 @@ func TestFromReaderValidate(t *testing.T) {
 
 	conf, err = config.FromReader(context.Background(),
 		"somepath",
-		strings.NewReader(`{"components": [{"name": "foo", "type": "arm"}]}`),
+		strings.NewReader(`{"components": [{"name": "foo", "type": "arm", "model": "foo"}]}`),
 		logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &config.Config{
@@ -59,6 +59,8 @@ func TestFromReaderValidate(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
+				API:       arm.Subtype,
+				Model:     resource.NewDefaultModel("foo"),
 				Type:      arm.SubtypeName,
 			},
 		},
@@ -72,8 +74,9 @@ func TestFromReaderValidate(t *testing.T) {
 	})
 
 	badComponentMapConverter := func() {
-		config.RegisterComponentAttributeMapConverter(resource.SubtypeName("somecomponent"),
-			"somemodel",
+		config.RegisterComponentAttributeMapConverter(
+			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "somecomponent"),
+			resource.NewDefaultModel("somemodel"),
 			func(attributes config.AttributeMap) (interface{}, error) {
 				return &conf, nil
 			}, nil)
@@ -81,11 +84,13 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, badComponentMapConverter, test.ShouldPanic)
 
 	badServiceMapConverter := func() {
-		config.RegisterServiceAttributeMapConverter(config.ServiceType("someservice"),
-			"somemodel",
+		config.RegisterServiceAttributeMapConverter(
+			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeService, "someservice"),
+			resource.DefaultServiceModel,
 			func(attributes config.AttributeMap) (interface{}, error) {
 				return &conf, nil
-			}, nil)
+			}, nil,
+		)
 	}
 	test.That(t, badServiceMapConverter, test.ShouldPanic)
 }
