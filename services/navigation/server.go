@@ -19,7 +19,7 @@ type subtypeServer struct {
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a framesystem gRPC service server.
+// NewServer constructs a navigation gRPC service server.
 func NewServer(s subtype.Service) pb.NavigationServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }

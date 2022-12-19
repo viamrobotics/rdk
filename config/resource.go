@@ -61,9 +61,11 @@ type ResourceLevelServiceConfig struct {
 type Component struct {
 	Name string `json:"name"`
 
-	Namespace     resource.Namespace           `json:"namespace"`
-	Type          resource.SubtypeName         `json:"type"`
-	Model         string                       `json:"model"`
+	Namespace resource.Namespace   `json:"namespace"`
+	Type      resource.SubtypeName `json:"type"`
+	// TODO(PRODUCT-266): API replaces Type and Namespace when Service/Component merge, so json needs to be enabled.
+	API           resource.Subtype             `json:"-"`
+	Model         resource.Model               `json:"model"`
 	Frame         *referenceframe.LinkConfig   `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
 	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
@@ -101,34 +103,52 @@ func (config *Component) String() string {
 }
 
 // ResourceName returns the  ResourceName for the component.
-// TODO(npmemard) Before merge should remove this also the service one.
 func (config *Component) ResourceName() resource.Name {
+	if err := config.fixAPI(); err != nil {
+		panic(err)
+	}
 	remotes := strings.Split(config.Name, ":")
-	cType := string(config.Type)
 	if len(remotes) > 1 {
-		rName := resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), remotes[len(remotes)-1])
+		rName := resource.NameFromSubtype(config.API, remotes[len(remotes)-1])
 		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
 	}
-	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
+	return resource.NameFromSubtype(config.API, config.Name)
 }
 
 // Validate ensures all parts of the config are valid and returns dependencies.
 func (config *Component) Validate(path string) ([]string, error) {
 	var deps []string
+	if err := config.fixAPI(); err != nil {
+		return nil, err
+	}
+
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
+
+	if config.Model.Namespace == "" {
+		config.Model.Namespace = resource.ResourceNamespaceRDK
+		config.Model.ModelFamily = resource.DefaultModelFamily
+	}
+
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
-		return nil, err
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
 	}
+
+	if err := config.Model.Validate(); err != nil {
+		return nil, err
+	}
+
+	// this effectively checks reserved characters and the rest for namespace and type
+	if err := config.API.Validate(); err != nil {
+		return nil, err
+	}
+
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
 		switch v := value.(type) {
@@ -176,8 +196,40 @@ func (config *Component) Get() interface{} {
 	return config
 }
 
+// fixAPI updates Namespace and Type into the API (subtype field), or vice versa, depending on what fields are empty.
+func (config *Component) fixAPI() error {
+	//nolint:gocritic
+	if config.API.Namespace == "" && config.Namespace == "" {
+		config.Namespace = resource.ResourceNamespaceRDK
+		config.API.Namespace = config.Namespace
+	} else if config.API.Namespace == "" {
+		config.API.Namespace = config.Namespace
+	} else {
+		config.Namespace = config.API.Namespace
+	}
+
+	if config.API.ResourceType == "" {
+		config.API.ResourceType = resource.ResourceTypeComponent
+	}
+
+	if config.API.ResourceSubtype == "" {
+		config.API.ResourceSubtype = config.Type
+	} else if config.Type == "" {
+		config.Type = config.API.ResourceSubtype
+	}
+
+	// this shouldn't be able to happen except with directly instantiated config structs
+	if config.API.Namespace != config.Namespace || config.API.ResourceSubtype != config.Type {
+		return errors.New("component namespace and/or type do not match component api field")
+	}
+	return nil
+}
+
 // ParseComponentFlag parses a component flag from command line arguments.
+//
+//nolint:dupl
 func ParseComponentFlag(flag string) (Component, error) {
+	// TODO(PRODUCT-266): Needs triplet support for model and api
 	cmp := Component{}
 	componentParts := strings.Split(flag, ",")
 	for _, part := range componentParts {
@@ -191,7 +243,11 @@ func ParseComponentFlag(flag string) (Component, error) {
 		case "type":
 			cmp.Type = resource.SubtypeName(keyVal[1])
 		case "model":
-			cmp.Model = keyVal[1]
+			m, err := resource.NewModelFromString(keyVal[1])
+			if err != nil {
+				return cmp, err
+			}
+			cmp.Model = m
 		case "depends_on":
 			split := strings.Split(keyVal[1], "|")
 
@@ -219,17 +275,14 @@ func ParseComponentFlag(flag string) (Component, error) {
 	return cmp, nil
 }
 
-// A ServiceType defines a type of service.
-type ServiceType string
-
 // A Service describes the configuration of a service.
 type Service struct {
 	Name string `json:"name"`
 
-	Namespace resource.Namespace `json:"namespace"`
-	Type      ServiceType        `json:"type"`
-	Model     string             `json:"model"`
-	DependsOn []string           `json:"depends_on"`
+	Namespace resource.Namespace   `json:"namespace"`
+	Type      resource.SubtypeName `json:"type"`
+	Model     resource.Model       `json:"model"`
+	DependsOn []string             `json:"depends_on"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
@@ -261,6 +314,7 @@ func (config *Service) ResourceName() resource.Name {
 // ResourceName returns the  ResourceName for the component within a service_config.
 func (config *ResourceLevelServiceConfig) ResourceName() resource.Name {
 	cType := string(config.Type)
+	// TODO(PRODUCT-266): needs triplet support here
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeService,
@@ -285,6 +339,8 @@ func (config *Service) Get() interface{} {
 }
 
 // ParseServiceFlag parses a service flag from command line arguments.
+//
+//nolint:dupl
 func ParseServiceFlag(flag string) (Service, error) {
 	svc := Service{}
 	serviceParts := strings.Split(flag, ",")
@@ -297,9 +353,13 @@ func ParseServiceFlag(flag string) (Service, error) {
 		case "name":
 			svc.Name = keyVal[1]
 		case "type":
-			svc.Type = ServiceType(keyVal[1])
+			svc.Type = resource.SubtypeName(keyVal[1])
 		case "model":
-			svc.Model = keyVal[1]
+			m, err := resource.NewModelFromString(keyVal[1])
+			if err != nil {
+				return svc, err
+			}
+			svc.Model = m
 		case "depends_on":
 			split := strings.Split(keyVal[1], "|")
 
@@ -334,13 +394,19 @@ func (config *Service) Validate(path string) ([]string, error) {
 	}
 	// If services do not have a name use the name builtin
 	if config.Name == "" {
-		golog.Global().Debug("no name given, defaulting name to builtin")
-		config.Name = resource.DefaultModelName
+		golog.Global().Debugw("no name given, defaulting name to builtin")
+		config.Name = resource.DefaultServiceName
 	}
-	if config.Model == "" {
-		golog.Global().Debug("no model given; using default")
-		config.Model = resource.DefaultModelName
+	if config.Model.Name == "" {
+		golog.Global().Debugw("no model given; using default")
+		config.Model = resource.DefaultServiceModel
 	}
+
+	if config.Model.Namespace == "" {
+		config.Model.Namespace = resource.ResourceNamespaceRDK
+		config.Model.ModelFamily = resource.DefaultModelFamily
+	}
+
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
@@ -352,6 +418,11 @@ func (config *Service) Validate(path string) ([]string, error) {
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
 	}
+
+	if err := config.Model.Validate(); err != nil {
+		return nil, err
+	}
+
 	var deps []string
 	for key, value := range config.Attributes {
 		switch v := value.(type) {

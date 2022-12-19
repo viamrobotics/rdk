@@ -48,11 +48,11 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: nextPointCloud.String(),
 	}, newNextPointCloudCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: readImage.String(),
 	}, newReadImageCollector)
 }

@@ -53,7 +53,11 @@ var (
 
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
-	armDir             = captureDir + "/arm/arm1/EndPosition"
+	armDir = captureDir + "/" + arm.Subtype.String() + "/arm1/EndPosition"
+	cameraDir = captureDir+ "/" + camera.Subtype.String() + "/c1/ReadImage"
+	localArmDir = captureDir + "/" + arm.Subtype.String() + "/localArm/EndPosition"
+	remoteArmDir = captureDir + "/" + arm.Subtype.String() + "/remoteArm/EndPosition"
+
 	emptyFileBytesSize = 30 // size of leading metadata message
 )
 
@@ -168,7 +172,6 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check that a collector wrote to file.
-	armDir := captureDir + "/arm/arm1/EndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
@@ -201,7 +204,6 @@ func TestNewDataManager(t *testing.T) {
 
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
-	captureDir := "/tmp/capture"
 	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
@@ -216,7 +218,6 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
-	localArmDir := captureDir + "/arm/localArm/EndPosition"
 	filesInLocalArmDir, err := readDir(t, localArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
@@ -224,7 +225,6 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
 
-	remoteArmDir := captureDir + "/arm/remoteArm/EndPosition"
 	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
@@ -714,8 +714,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	dmCfg.AdditionalSyncPaths = dirs
 
 	// Make the captureDir where we're logging data for our arm.
-	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/EndPosition"
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -865,7 +863,7 @@ func TestAdditionalParamsInConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureWaitTime)
 
-	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/ReadImage")
+	filesInCamDir, err := readDir(t, cameraDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInCamDir), test.ShouldEqual, 1)
 	info, err := filesInCamDir[0].Info()

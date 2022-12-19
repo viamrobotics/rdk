@@ -71,7 +71,7 @@ func init() {
 	})
 	registry.RegisterComponent(
 		echoSubType,
-		"fake",
+		resource.NewDefaultModel("fake"),
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
