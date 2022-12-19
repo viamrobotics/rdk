@@ -1,0 +1,25 @@
+{
+	"modules": [
+		{
+			"name": "SimpleModule",
+			"executable_path": "./simplemodule"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "generic",
+			"name": "counter1",
+			"model": "acme:demo:mycounter"
+		},
+		{
+			"namespace": "rdk",
+			"type": "generic",
+			"name": "counter2",
+			"model": "acme:demo:mycounter"
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}

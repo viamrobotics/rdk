@@ -75,7 +75,3 @@ lf_logs/
 
 # exclude credential created during CI
 google-credentials.json
-
-# cypress output
-web/frontend/cypress/screenshots
-web/frontend/cypress/videos

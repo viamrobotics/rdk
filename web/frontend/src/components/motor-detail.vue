@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, motorApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
@@ -23,6 +24,7 @@ const revolutions = $ref(0);
 let movementType = $ref('Go');
 let direction = $ref<-1 | 1>(1);
 let type = $ref<MovementTypes>('go');
+let properties = $ref<motorApi.GetPropertiesResponse.AsObject | undefined>();
 
 const setMovementType = (value: string) => {
   movementType = value;
@@ -109,6 +111,20 @@ const motorStop = () => {
   rcLogConditionally(req);
   props.client.motorService.stop(req, new grpc.Metadata(), displayError);
 };
+
+onMounted(() => {
+  const req = new motorApi.GetPropertiesRequest();
+  req.setName(props.name);
+
+  rcLogConditionally(req);
+  props.client.motorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+
+    properties = resp!.toObject();
+  });
+});
 </script>
 
 <template>
@@ -125,7 +141,7 @@ const motorStop = () => {
       class="flex items-center justify-between gap-2"
     >
       <v-badge
-        v-if="status.positionReporting"
+        v-if="properties?.positionReporting"
         :label="`Position ${status.position}`"
       />
       <v-badge
@@ -150,7 +166,7 @@ const motorStop = () => {
       <div class="border border-t-0 border-black p-4">
         <v-radio
           label="Set Power"
-          :options="status.positionReporting ? 'Go, Go For, Go To' : 'Go'"
+          :options="properties?.positionReporting ? 'Go, Go For, Go To' : 'Go'"
           :selected="movementType"
           class="mb-4"
           @input="setMovementType($event.detail.value)"

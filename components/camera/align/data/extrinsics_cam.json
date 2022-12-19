@@ -1,0 +1,66 @@
+{
+    "components": [
+        {
+            "name": "extrinsics_cam",
+            "type": "camera",
+            "model": "align_color_depth_extrinsics",
+            "attributes": {
+                "color_camera_name": "front-color",
+                "depth_camera_name": "front-depth",
+                "output_image_type": "depth",
+                "debug": false,
+                "intrinsic_parameters": {
+                    "height_px": 720,
+                    "width_px": 1280,
+                    "fx": 900.538000,
+                    "fy": 900.818000,
+                    "ppx": 648.934000,
+                    "ppy": 367.736000
+                },
+                "distortion_parameters": {
+                        "rk1": 0.158701,
+                        "rk2": -0.485405,
+                        "rk3": 0.435342,
+                        "tp1": -0.00143327,
+                        "tp2": -0.000705919
+                },
+                "camera_system": {
+                    "color_intrinsic_parameters": {
+                        "height_px": 720,
+                        "width_px": 1280,
+                        "fx": 900.538000,
+                        "fy": 900.818000,
+                        "ppx": 648.934000,
+                        "ppy": 367.736000
+                    },
+                    "depth_intrinsic_parameters": {
+                        "height_px": 768,
+                        "width_px": 1024,
+                        "fx": 734.938,
+                        "fy": 735.516,
+                        "ppx": 542.078,
+                        "ppy": 398.016
+                    },
+                    "depth_to_color_extrinsic_parameters": {
+                        "rotation_rads": [
+                            0.999958,
+                            -0.00838489,
+                            0.00378392,
+                            0.00824708,
+                            0.999351,
+                            0.0350734,
+                            -0.00407554,
+                            -0.0350407,
+                            0.999378
+                        ],
+                        "translation_mm": [
+                            -0.000828434,
+                            0.0139185,
+                            -0.0033418
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}

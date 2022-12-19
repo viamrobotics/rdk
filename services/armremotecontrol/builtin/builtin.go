@@ -40,23 +40,24 @@ const (
 )
 
 func init() {
-	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
-	cType := config.ServiceType(armremotecontrol.SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, resource.DefaultModelName, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf ServiceConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &ServiceConfig{})
+	config.RegisterServiceAttributeMapConverter(armremotecontrol.Subtype, resource.DefaultServiceModel,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ServiceConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &ServiceConfig{},
+	)
 }
 
 type (

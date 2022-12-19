@@ -7,6 +7,7 @@ import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { Client, inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string;
@@ -52,6 +53,7 @@ const sendEvent = (newEvent: InputController.Event) => {
   const req = new InputController.TriggerEventRequest();
   req.setController(props.name);
   req.setEvent(newEvent);
+  rcLogConditionally(req);
   props.client.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
     if (error) {
       if (ConnectionClosedError.isError(error)) {

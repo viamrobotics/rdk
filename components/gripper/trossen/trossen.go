@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
+	"go.uber.org/multierr"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
@@ -19,12 +20,13 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	modelNameWX250s = "trossen-wx250s"
-	modelNameVX300s = "trossen-vx300s"
+var (
+	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
+	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
 )
 
 // AttrConfig is the config for a trossen gripper.
@@ -56,7 +58,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelNameWX250s,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelNameWX250s,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -72,7 +74,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelNameVX300s,
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelNameVX300s,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -186,8 +188,10 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 
 // Stop is unimplemented for Gripper.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// RSDK-388: Implement Stop
-	return gripper.ErrStopUnimplemented
+	return multierr.Combine(
+		g.jServo.SetTorqueEnable(false),
+		g.jServo.SetTorqueEnable(true),
+	)
 }
 
 // IsMoving returns whether the gripper is moving.
