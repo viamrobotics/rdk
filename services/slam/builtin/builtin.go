@@ -541,8 +541,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	var deleteProcessedData bool
 	if svcConfig.DeleteProcessedData == nil {
-		deleteProcessedData = !(offlineFlag)
-
+		deleteProcessedData = !offlineFlag
 	} else {
 		deleteProcessedData = *svcConfig.DeleteProcessedData
 		if offlineFlag && deleteProcessedData {
