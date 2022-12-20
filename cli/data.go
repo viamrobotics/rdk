@@ -12,9 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"go.uber.org/atomic"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
