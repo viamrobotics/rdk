@@ -130,7 +130,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
-			return NewMotor(ctx, conf, config, logger)
+			return NewMotor(ctx, conf, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -219,7 +219,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, mc config.Component, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -260,7 +260,7 @@ func NewMotor(ctx context.Context, c *Config, mc config.Component, logger golog.
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
-		motorName:   mc.Name,
+		motorName:   name,
 	}
 
 	if err := m.configure(c); err != nil {

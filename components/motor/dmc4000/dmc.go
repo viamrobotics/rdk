@@ -91,7 +91,7 @@ func init() {
 
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, config.ConvertedAttributes.(*Config), config, logger)
+			return NewMotor(ctx, config.ConvertedAttributes.(*Config), config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -115,7 +115,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, mc config.Component, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -168,7 +168,7 @@ func NewMotor(ctx context.Context, c *Config, mc config.Component, logger golog.
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
-		motorName:        mc.Name,
+		motorName:        name,
 	}
 
 	if m.MaxRPM <= 0 {

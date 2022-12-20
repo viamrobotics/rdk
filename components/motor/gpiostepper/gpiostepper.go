@@ -58,7 +58,7 @@ func init() {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, config, logger)
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -88,9 +88,8 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc Config, c config.Component,
-	logger golog.Logger,
-) (motor.Motor, error) {
+func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
+	logger golog.Logger) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
 		return nil, errors.New("expected ticks_per_rotation in config for motor")
 	}
@@ -100,7 +99,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, c config.Comp
 		stepsPerRotation: mc.TicksPerRotation,
 		stepperDelay:     mc.StepperDelay,
 		logger:           logger,
-		motorName:        c.Name,
+		motorName:        name,
 	}
 
 	if mc.Pins.EnablePinHigh != "" {
