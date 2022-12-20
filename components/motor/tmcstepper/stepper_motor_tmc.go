@@ -153,7 +153,8 @@ const (
 
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, name string,
-	logger golog.Logger) (motor.LocalMotor, error) {
+	logger golog.Logger,
+) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, errors.Errorf("%q is not a board", c.BoardName)
