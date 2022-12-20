@@ -26,8 +26,8 @@ import (
 // AttrConfig is user config inputs for ezopmp.
 type AttrConfig struct {
 	BoardName   string `json:"board"`
-	BusName     string `json:"bus_name"`
-	I2CAddress  *byte  `json:"i2c_address"`
+	BusName     string `json:"i2c_bus"`
+	I2CAddress  *byte  `json:"i2c_addr"`
 	MaxReadBits *int   `json:"max_read_bits"`
 }
 
