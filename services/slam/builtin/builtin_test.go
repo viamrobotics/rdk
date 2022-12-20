@@ -1207,8 +1207,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	t.Run("Test offline SLAM process with default parameters", func(t *testing.T) {
 
-		//deleteProcessedData := false
-
 		attrCfg := &builtin.AttrConfig{
 			Sensors:          []string{},
 			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
