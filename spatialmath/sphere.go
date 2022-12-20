@@ -210,21 +210,19 @@ func (s *sphere) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	} else {
 		iter = 100 // default spacing
 	}
-
 	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 	nums := iter * s.radius
-	moveTo := s.pose.Point()
 	phi := math.Pi * (3.0 - math.Sqrt(5.0))
-	var myList []r3.Vector
+	var vecList []r3.Vector
 	for i := 0.; i < nums; i++ {
 		y := 1 - (i/(nums-1))*2
 		radius := math.Sqrt(1 - y*y)
 		theta := phi * i
-		x := (math.Cos(theta)*radius)*s.radius + moveTo.X
-		z := (math.Sin(theta)*radius)*s.radius + moveTo.Z
-		y = y*s.radius + moveTo.Y
-		myVec := r3.Vector{x, y, z}
-		myList = append(myList, myVec)
+		x := (math.Cos(theta) * radius) * s.radius
+		z := (math.Sin(theta) * radius) * s.radius
+		myVec := r3.Vector{x, y * s.radius, z}
+		vecList = append(vecList, myVec)
 	}
+	myList := transformPointsToPose(vecList, s.Pose())
 	return myList
 }

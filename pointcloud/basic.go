@@ -61,6 +61,7 @@ func vectorConvert(vectors []r3.Vector, c color.NRGBA) (basicPointCloud, error) 
 		points: &matrixStorage{points: make([]PointAndData, 0, len(vectors)), indexMap: make(map[r3.Vector]uint, len(vectors))},
 		meta:   NewMetaData(),
 	}
+	// TODO: the for loop below can be made concurrent if vectorConvert is too slow
 	// iterate throught the vector list and add to the pointcloud
 	for _, v := range vectors {
 		data := &basicData{hasColor: true, c: c}

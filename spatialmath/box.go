@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -357,25 +356,26 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 // ToPointCloud converts a box geometry into a []r3.Vector
 func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	// check for user defined spacing
-	var faces [][]float64
+	var faces []r3.Vector
 	var iter float64
 	if options["resolution"] != nil {
 		iter = options["resolution"].(float64)
 	} else {
 		iter = 0.15 // default spacing
 	}
+	// TODO: the for loops below can be made concurrent if the ToPointCloud method is too slow
 	// create points on box faces with box centered at (0, 0, 0)
 	for i := 0.0; i <= b.halfSize[0]; i += iter {
 		for k := 0.0; k <= b.halfSize[2]; k += iter {
 			// front and back faces
-			p1 := []float64{i, b.halfSize[1], k}
-			p2 := []float64{i, b.halfSize[1], -k}
-			p3 := []float64{-i, b.halfSize[1], k}
-			p4 := []float64{-i, b.halfSize[1], -k}
-			p5 := []float64{-i, -b.halfSize[1], -k}
-			p6 := []float64{-i, -b.halfSize[1], k}
-			p7 := []float64{i, -b.halfSize[1], -k}
-			p8 := []float64{i, -b.halfSize[1], k}
+			p1 := r3.Vector{i, b.halfSize[1], k}
+			p2 := r3.Vector{i, b.halfSize[1], -k}
+			p3 := r3.Vector{-i, b.halfSize[1], k}
+			p4 := r3.Vector{-i, b.halfSize[1], -k}
+			p5 := r3.Vector{-i, -b.halfSize[1], -k}
+			p6 := r3.Vector{-i, -b.halfSize[1], k}
+			p7 := r3.Vector{i, -b.halfSize[1], -k}
+			p8 := r3.Vector{i, -b.halfSize[1], k}
 			if i == 0.0 && k == 0.0 {
 				faces = append(faces, p1, p5)
 			} else if i == 0.0 && k > 0.0 {
@@ -390,14 +390,14 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	for j := 0.0; j < b.halfSize[1]; j += iter {
 		for k := 0.0; k <= b.halfSize[2]; k += iter {
 			// left and right faces
-			p1 := []float64{b.halfSize[0], j, k}
-			p2 := []float64{b.halfSize[0], j, -k}
-			p3 := []float64{-b.halfSize[0], j, k}
-			p4 := []float64{-b.halfSize[0], j, -k}
-			p5 := []float64{-b.halfSize[0], -j, -k}
-			p6 := []float64{-b.halfSize[0], -j, k}
-			p7 := []float64{b.halfSize[0], -j, -k}
-			p8 := []float64{b.halfSize[0], -j, k}
+			p1 := r3.Vector{b.halfSize[0], j, k}
+			p2 := r3.Vector{b.halfSize[0], j, -k}
+			p3 := r3.Vector{-b.halfSize[0], j, k}
+			p4 := r3.Vector{-b.halfSize[0], j, -k}
+			p5 := r3.Vector{-b.halfSize[0], -j, -k}
+			p6 := r3.Vector{-b.halfSize[0], -j, k}
+			p7 := r3.Vector{b.halfSize[0], -j, -k}
+			p8 := r3.Vector{b.halfSize[0], -j, k}
 			if j == 0.0 && k == 0.0 {
 				faces = append(faces, p1, p5)
 			} else if j == 0.0 && k > 0.0 {
@@ -412,14 +412,14 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	for i := 0.0; i < b.halfSize[0]; i += iter {
 		for j := 0.0; j < b.halfSize[1]; j += iter {
 			// top and bottom faces
-			p1 := []float64{i, j, b.halfSize[2]}
-			p2 := []float64{i, j, -b.halfSize[2]}
-			p3 := []float64{-i, j, b.halfSize[2]}
-			p4 := []float64{-i, j, -b.halfSize[2]}
-			p5 := []float64{-i, -j, -b.halfSize[2]}
-			p6 := []float64{-i, -j, b.halfSize[2]}
-			p7 := []float64{i, -j, -b.halfSize[2]}
-			p8 := []float64{i, -j, b.halfSize[2]}
+			p1 := r3.Vector{i, j, b.halfSize[2]}
+			p2 := r3.Vector{i, j, -b.halfSize[2]}
+			p3 := r3.Vector{-i, j, b.halfSize[2]}
+			p4 := r3.Vector{-i, j, -b.halfSize[2]}
+			p5 := r3.Vector{-i, -j, -b.halfSize[2]}
+			p6 := r3.Vector{-i, -j, b.halfSize[2]}
+			p7 := r3.Vector{i, -j, -b.halfSize[2]}
+			p8 := r3.Vector{i, -j, b.halfSize[2]}
 			if i == 0.0 && j == 0.0 {
 				faces = append(faces, p1, p5)
 			} else if i == 0.0 && j > 0.0 {
@@ -432,20 +432,15 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 		}
 	}
 	// translate points by offset and rotate
-	myList := transformPointsToPose(faces, b.Pose().Orientation().RotationMatrix().mat, b.pose.Point())
+	myList := transformPointsToPose(faces, b.Pose())
 	return myList
 }
 
-// todo: add function description
-func transformPointsToPose(points [][]float64, rotationMatrix [9]float64, pose r3.Vector) []r3.Vector {
-	myMat := mat.NewDense(3, 3, rotationMatrix[:])
+// transformPointsToPose rotates the box then offsets the box points to be in the specified location
+func transformPointsToPose(points []r3.Vector, pose Pose) []r3.Vector {
 	var myList []r3.Vector
 	for i := 0; i < len(points); i++ {
-		pointMatrix := mat.NewVecDense(3, points[i])
-		actual := make([]float64, 3)
-		temp := mat.NewVecDense(3, actual)
-		temp.MulVec(myMat, pointMatrix)
-		myVec := r3.Vector{actual[0] + pose.X, actual[1] + pose.Y, actual[2] + pose.Z}
+		myVec := Compose(NewPoseFromPoint(pose.Point()), Compose(NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation()), NewPoseFromPoint(points[i]))).Point()
 		myList = append(myList, myVec)
 	}
 	return myList
