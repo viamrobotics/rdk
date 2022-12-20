@@ -25,29 +25,29 @@ func Test1(t *testing.T) {
 
 	// Create motor with no board and default config
 	t.Run("gpiostepper initializing test with no board and default config", func(t *testing.T) {
-		_, err := newGPIOStepper(ctx, nil, mc, c, logger)
+		_, err := newGPIOStepper(ctx, nil, mc, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	// Create motor with board and default config
 	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
-		_, err := newGPIOStepper(ctx, b, mc, c, logger)
+		_, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	mc.Pins = PinConfig{Direction: "b"}
 
-	_, err := newGPIOStepper(ctx, b, mc, c, logger)
+	_, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.Pins.Step = "c"
 
-	_, err = newGPIOStepper(ctx, b, mc, c, logger)
+	_, err = newGPIOStepper(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
 
-	mm, err := newGPIOStepper(ctx, b, mc, c, logger)
+	mm, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	m := mm.(*gpioStepper)

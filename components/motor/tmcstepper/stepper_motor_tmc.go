@@ -71,7 +71,7 @@ const (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), config, logger)
+			return NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
@@ -152,9 +152,8 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, mc config.Component,
-	logger golog.Logger,
-) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, name string,
+	logger golog.Logger) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, errors.Errorf("%q is not a board", c.BoardName)
@@ -193,7 +192,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
 		logger:      logger,
-		motorName:   mc.Name,
+		motorName:   name,
 	}
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)

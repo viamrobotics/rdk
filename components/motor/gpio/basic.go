@@ -12,13 +12,12 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc Config, c config.Component, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -41,7 +40,7 @@ func NewMotor(b board.Board, mc Config, c config.Component, logger golog.Logger)
 		maxRPM:      mc.MaxRPM,
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
-		motorName:   c.Name,
+		motorName:   name,
 	}
 
 	if mc.Pins.A != "" {
