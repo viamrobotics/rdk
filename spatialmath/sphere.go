@@ -31,12 +31,12 @@ func NewSphereCreator(radius float64, offset Pose, label string) (GeometryCreato
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphereCreator{radius, pointCreator{offset, label}, label}, nil
+	return &sphereCreator{radius, pointCreator{offset.Point(), label}, label}, nil
 }
 
 // NewGeometry instantiates a new sphere from a SphereCreator class.
 func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
-	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
+	return &sphere{Compose(NewPoseFromPoint(sc.offset), pose), sc.radius, sc.label}
 }
 
 // String returns a human readable string that represents the sphereCreator.
@@ -57,7 +57,7 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 // ToProto converts the sphere to a Geometry proto message.
 func (sc *sphereCreator) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
-		Center: PoseToProtobuf(sc.offset),
+		Center: PoseToProtobuf(sc.Offset()),
 		GeometryType: &commonpb.Geometry_Sphere{
 			Sphere: &commonpb.Sphere{
 				RadiusMm: sc.radius,
@@ -130,7 +130,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()) <= CollisionBuffer, nil
+		return sphereVsPointDistance(s, other.pose) <= CollisionBuffer, nil
 	}
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
@@ -144,7 +144,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsSphereDistance(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()), nil
+		return sphereVsPointDistance(s, other.pose), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
