@@ -11,13 +11,13 @@ import (
 
 // PointCreator implements the GeometryCreator interface for point structs.
 type pointCreator struct {
-	offset r3.Vector // this needs to be changed
+	offset r3.Vector
 	label  string
 }
 
 // point is a collision geometry that represents a single point in 3D space that occupies no geometry.
 type point struct {
-	pose  r3.Vector // remove this field
+	pose  r3.Vector
 	label string
 }
 
