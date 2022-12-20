@@ -58,7 +58,7 @@ func (s *Server) Serve(listener net.Listener) error {
 
 // ServeTLS is unsupported.
 func (s *Server) ServeTLS(listener net.Listener, certFile, keyFile string, tlsConfig *tls.Config) error {
-	return errors.New("tls unsupoorted on module grpc server")
+	return errors.New("tls unsupported on module grpc server")
 }
 
 // Stop performs a GracefulStop() on the underlying grpc server.
