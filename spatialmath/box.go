@@ -36,14 +36,14 @@ func NewBoxCreator(dims r3.Vector, offset Pose, label string) (GeometryCreator, 
 	return &boxCreator{
 		halfSize:        halfSize,
 		boundingSphereR: halfSize.Norm(),
-		pointCreator:    pointCreator{offset, label},
+		pointCreator:    pointCreator{offset.Point(), label},
 	}, nil
 }
 
 // NewGeometry instantiates a new box from a BoxCreator class.
 func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 	return &box{
-		pose:            Compose(bc.offset, pose),
+		pose:            Compose(NewPoseFromPoint(bc.offset), pose),
 		halfSize:        [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z},
 		boundingSphereR: bc.halfSize.Norm(),
 		label:           bc.label,
@@ -66,7 +66,7 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 // ToProtobuf converts the box to a Geometry proto message.
 func (bc *boxCreator) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
-		Center: PoseToProtobuf(bc.offset),
+		Center: PoseToProtobuf(NewPoseFromPoint(bc.offset)),
 		GeometryType: &commonpb.Geometry_Box{
 			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
 				X: 2 * bc.halfSize.X,
@@ -167,7 +167,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxCollision(b, other.pose.Point()), nil
+		return pointVsBoxCollision(b, other.pose), nil
 	}
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
@@ -180,7 +180,7 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsBoxDistance(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxDistance(b, other.pose.Point()), nil
+		return pointVsBoxDistance(b, other.pose), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
