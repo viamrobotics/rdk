@@ -969,16 +969,18 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	logger := golog.NewTestLogger(t)
 
-	t.Run("Test online SLAM process", func(t *testing.T) {
+	t.Run("Test online SLAM process with various parameters #1", func(t *testing.T) {
 		deleteProcessedData := false
+		mapRate  := 200
+		dataRateMS := 200
 
 		attrCfg := &builtin.AttrConfig{
 			Sensors:          []string{"good_color_camera"},
 			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 			DataDirectory:    name,
-			MapRateSec:       &validMapRate,
-			DataRateMs:       validDataRateMS,
-			InputFilePattern: "10:200:1",
+			MapRateSec:       &mapRate,
+			DataRateMs:       dataRateMS,
+			InputFilePattern: "40:200:20",
 			Port:             "localhost:4445",
 			DeleteProcessedData: &deleteProcessedData,
 		}
@@ -999,7 +1001,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=200"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern=10:200:1"},
+			{"-input_file_pattern=40:200:20"},
 			{"-delete_processed_data=false"},
 			{"-port=localhost:4445"},
 			{"--aix-auto-update"},
@@ -1015,16 +1017,67 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
-	t.Run("Test offline SLAM process with true delete delete_processed_data", func(t *testing.T) {
+	t.Run("Test online SLAM process with various parameters #2", func(t *testing.T) {
 
 		deleteProcessedData := true
+		mapRate  := 200
+		dataRateMS := 200
+
+		attrCfg := &builtin.AttrConfig{
+			Sensors:          []string{"good_color_camera", "good_depth_camera"},
+			ConfigParams:     map[string]string{"mode": "rgbd"},
+			DataDirectory:    name,
+			MapRateSec:       &mapRate,
+			DataRateMs:       dataRateMS,
+			InputFilePattern: "10:200:1",
+			Port:             "localhost:4409",
+			DeleteProcessedData: &deleteProcessedData,
+		}
+
+		// Create slam service
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		slamSvc := svc.(internal.Service)
+		processCfg := slamSvc.GetSLAMProcessConfig()
+		cmd := append([]string{processCfg.Name}, processCfg.Args...)
+
+		cmdResult := [][]string{
+			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
+			{"-sensors=good_color_camera"},
+			{"-config_param={mode=rgbd}"},
+			{"-data_rate_ms=200"},
+			{"-map_rate_sec=200"},
+			{"-data_dir=" + name},
+			{"-input_file_pattern=10:200:1"},
+			{"-delete_processed_data=true"},
+			{"-port=localhost:4409"},
+			{"--aix-auto-update"},
+		}
+
+		for i, s := range cmd {
+			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
+				test.That(t, s, test.ShouldBeIn, cmdResult[i])
+			})
+		}
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("Test offline SLAM process with various parameters #3", func(t *testing.T) {
+
+		deleteProcessedData := true
+		mapRate  := 1
+		dataRateMS := 0
 
 		attrCfg := &builtin.AttrConfig{
 			Sensors:          []string{},
 			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 			DataDirectory:    name,
-			MapRateSec:       &validMapRate,
-			DataRateMs:       validDataRateMS,
+			MapRateSec:       &mapRate,
+			DataRateMs:       dataRateMS,
 			InputFilePattern: "10:200:1",
 			Port:             "localhost:4445",
 			DeleteProcessedData: &deleteProcessedData,
@@ -1044,9 +1097,142 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-sensors="},
 			{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
 			{"-data_rate_ms=200"},
+			{"-map_rate_sec=1"},
+			{"-data_dir=" + name},
+			{"-input_file_pattern=10:200:1"},
+			{"-delete_processed_data=false"},
+			{"-port=localhost:4445"},
+			{"--aix-auto-update"},
+		}
+
+		for i, s := range cmd {
+			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
+				test.That(t, s, test.ShouldBeIn, cmdResult[i])
+			})
+		}
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("Test offline SLAM process with various parameters #4", func(t *testing.T) {
+
+		deleteProcessedData := false
+		mapRate  := 200
+		dataRateMS := 300
+
+		attrCfg := &builtin.AttrConfig{
+			Sensors:          []string{},
+			ConfigParams:     map[string]string{"mode": "mono"},
+			DataDirectory:    name,
+			MapRateSec:       &mapRate,
+			DataRateMs:       dataRateMS,
+			InputFilePattern: "10:200:1",
+			Port:             "localhost:4445",
+			DeleteProcessedData: &deleteProcessedData,
+		}
+
+		// Create slam service
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		slamSvc := svc.(internal.Service)
+		processCfg := slamSvc.GetSLAMProcessConfig()
+		cmd := append([]string{processCfg.Name}, processCfg.Args...)
+
+		cmdResult := [][]string{
+			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
+			{"-sensors="},
+			{"-config_param={mode=mono,test_param=viam}", "-config_param={mode=mono}"},
+			{"-data_rate_ms=300"},
 			{"-map_rate_sec=200"},
 			{"-data_dir=" + name},
 			{"-input_file_pattern=10:200:1"},
+			{"-delete_processed_data=false"},
+			{"-port=localhost:4445"},
+			{"--aix-auto-update"},
+		}
+
+		for i, s := range cmd {
+			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
+				test.That(t, s, test.ShouldBeIn, cmdResult[i])
+			})
+		}
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("Test online SLAM process with default parameters", func(t *testing.T) {
+
+		attrCfg := &builtin.AttrConfig{
+			Sensors:          []string{"good_lidar"},
+			ConfigParams:     map[string]string{"mode": "2d", "test_param": "viam"},
+			DataDirectory:    name,
+			Port:             "localhost:4445",
+		}
+
+		// Create slam service
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		slamSvc := svc.(internal.Service)
+		processCfg := slamSvc.GetSLAMProcessConfig()
+		cmd := append([]string{processCfg.Name}, processCfg.Args...)
+
+		cmdResult := [][]string{
+			{slam.SLAMLibraries["fake_cartographer"].BinaryLocation},
+			{"-sensors=good_lidar"},
+			{"-config_param={mode=mono,test_param=viam}", "-config_param={mode=2d,test_param=viam}"},
+			{"-data_rate_ms=200"},
+			{"-map_rate_sec=60"},
+			{"-data_dir=" + name},
+			{"-input_file_pattern="},
+			{"-delete_processed_data=true"},
+			{"-port=localhost:4445"},
+			{"--aix-auto-update"},
+		}
+
+		for i, s := range cmd {
+			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
+				test.That(t, s, test.ShouldBeIn, cmdResult[i])
+			})
+		}
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("Test offline SLAM process with default parameters", func(t *testing.T) {
+
+		//deleteProcessedData := false
+
+		attrCfg := &builtin.AttrConfig{
+			Sensors:          []string{},
+			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
+			DataDirectory:    name,
+			Port:             "localhost:4445",
+		}
+
+		// Create slam service
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		slamSvc := svc.(internal.Service)
+		processCfg := slamSvc.GetSLAMProcessConfig()
+		cmd := append([]string{processCfg.Name}, processCfg.Args...)
+
+		cmdResult := [][]string{
+			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
+			{"-sensors="},
+			{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
+			{"-data_rate_ms=200"},
+			{"-map_rate_sec=60"},
+			{"-data_dir=" + name},
+			{"-input_file_pattern="},
 			{"-delete_processed_data=false"},
 			{"-port=localhost:4445"},
 			{"--aix-auto-update"},
