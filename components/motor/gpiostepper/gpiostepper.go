@@ -89,7 +89,8 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 }
 
 func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
-	logger golog.Logger) (motor.Motor, error) {
+	logger golog.Logger,
+) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
 		return nil, errors.New("expected ticks_per_rotation in config for motor")
 	}

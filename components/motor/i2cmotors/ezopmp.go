@@ -105,7 +105,8 @@ const (
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
 func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, name string,
-	logger golog.Logger) (motor.LocalMotor, error) {
+	logger golog.Logger,
+) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, err
