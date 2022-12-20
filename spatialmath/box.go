@@ -353,7 +353,7 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 	return sum
 }
 
-// ToPointCloud converts a box geometry into a []r3.Vector
+// ToPointCloud converts a box geometry into a []r3.Vector.
 func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	// check for user defined spacing
 	var faces []r3.Vector
@@ -376,6 +376,7 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 			p6 := r3.Vector{-i, -b.halfSize[1], k}
 			p7 := r3.Vector{i, -b.halfSize[1], -k}
 			p8 := r3.Vector{i, -b.halfSize[1], k}
+			//nolint:gocritic
 			if i == 0.0 && k == 0.0 {
 				faces = append(faces, p1, p5)
 			} else if i == 0.0 && k > 0.0 {
@@ -398,6 +399,7 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 			p6 := r3.Vector{-b.halfSize[0], -j, k}
 			p7 := r3.Vector{b.halfSize[0], -j, -k}
 			p8 := r3.Vector{b.halfSize[0], -j, k}
+			//nolint:gocritic
 			if j == 0.0 && k == 0.0 {
 				faces = append(faces, p1, p5)
 			} else if j == 0.0 && k > 0.0 {
@@ -420,6 +422,7 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 			p6 := r3.Vector{-i, -j, b.halfSize[2]}
 			p7 := r3.Vector{i, -j, -b.halfSize[2]}
 			p8 := r3.Vector{i, -j, b.halfSize[2]}
+			//nolint:gocritic
 			if i == 0.0 && j == 0.0 {
 				faces = append(faces, p1, p5)
 			} else if i == 0.0 && j > 0.0 {
@@ -436,11 +439,14 @@ func (b *box) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	return myList
 }
 
-// transformPointsToPose rotates the box then offsets the box points to be in the specified location
+// transformPointsToPose rotates the box then offsets the box points to be in the specified location.
 func transformPointsToPose(points []r3.Vector, pose Pose) []r3.Vector {
 	var myList []r3.Vector
 	for i := 0; i < len(points); i++ {
-		myVec := Compose(NewPoseFromPoint(pose.Point()), Compose(NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation()), NewPoseFromPoint(points[i]))).Point()
+		myVec := Compose(
+			NewPoseFromPoint(pose.Point()),
+			Compose(NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation()),
+				NewPoseFromPoint(points[i]))).Point()
 		myList = append(myList, myVec)
 	}
 	return myList
