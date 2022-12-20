@@ -1123,7 +1123,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 		attrCfg := &builtin.AttrConfig{
 			Sensors:          []string{},
-			ConfigParams:     map[string]string{"mode": "mono"},
+			ConfigParams:     map[string]string{"mode": "2d"},
 			DataDirectory:    name,
 			MapRateSec:       &mapRate,
 			DataRateMs:       dataRateMS,
@@ -1134,7 +1134,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 		// Create slam service
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		slamSvc := svc.(internal.Service)
@@ -1142,9 +1142,9 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		cmd := append([]string{processCfg.Name}, processCfg.Args...)
 
 		cmdResult := [][]string{
-			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
+			{slam.SLAMLibraries["fake_cartographer"].BinaryLocation},
 			{"-sensors="},
-			{"-config_param={mode=mono,test_param=viam}", "-config_param={mode=mono}"},
+			{"-config_param={mode=mono,test_param=viam}", "-config_param={mode=2d}"},
 			{"-data_rate_ms=300"},
 			{"-map_rate_sec=200"},
 			{"-data_dir=" + name},
