@@ -255,7 +255,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
-	mapRate = 2
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -315,7 +315,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 func testCartographerDir(t *testing.T, path string, expectedMaps int) {
 	mapsInDir, err := ioutil.ReadDir(path + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldEqual, expectedMaps)
+	test.That(t, len(mapsInDir), test.ShouldBeGreaterThanOrEqualTo, expectedMaps)
 }
 
 func TestCartographerIntegration2D(t *testing.T) {

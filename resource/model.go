@@ -63,6 +63,12 @@ func (f ModelFamily) Validate() error {
 
 // String returns the model family string for the resource.
 func (f ModelFamily) String() string {
+	// Allow unvalidated empty models to produce an empty string instead
+	// of "::" or ":Name". During proto conversions we may not have validated
+	// the model and need it to pass as is to the model name.
+	if f.Namespace == "" {
+		return string(f.Family)
+	}
 	return fmt.Sprintf("%s:%s", f.Namespace, f.Family)
 }
 
@@ -97,6 +103,16 @@ func NewModelFromString(modelStr string) (Model, error) {
 	return Model{}, errors.Errorf("string %q is not a valid model name", modelStr)
 }
 
+// NewModelFromStringIgnoreErrors parses a model but ignores all errors and creates an empty model. This is used
+// when validation of the model should happen later.
+func NewModelFromStringIgnoreErrors(modelStr string) Model {
+	model, err := NewModelFromString(modelStr)
+	if err != nil {
+		return Model{NewModelFamily("", ""), ModelName(modelStr)}
+	}
+	return model
+}
+
 // Validate ensures that important fields exist and are valid.
 func (m Model) Validate() error {
 	if err := m.ModelFamily.Validate(); err != nil {
@@ -116,7 +132,14 @@ func (m Model) Validate() error {
 
 // String returns the resource model string for the component.
 func (m Model) String() string {
-	return fmt.Sprintf("%s:%s", m.ModelFamily, m.Name)
+	mf := m.ModelFamily.String()
+	// Allow unvalidated empty models to produce an empty string instead
+	// of "::" or ":Name". During proto conversions we may not have validated
+	// the model and need it to pass as is to the model name.
+	if mf == "" {
+		return string(m.Name)
+	}
+	return fmt.Sprintf("%s:%s", mf, m.Name)
 }
 
 // UnmarshalJSON parses namespace:family:modelname strings to the full Model{} struct.

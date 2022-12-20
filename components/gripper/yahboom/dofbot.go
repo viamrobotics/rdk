@@ -1,4 +1,5 @@
 // Package yahboom implements a yahboom based gripper.
+// code with commands found at http://www.yahboom.net/study/Dofbot-Pi
 package yahboom
 
 import (
@@ -80,8 +81,7 @@ func newGripper(deps registry.Dependencies, config config.Component) (gripper.Lo
 type dofGripper struct {
 	generic.Unimplemented
 	dofArm *yahboom.Dofbot
-
-	opMgr operation.SingleOperationManager
+	opMgr  operation.SingleOperationManager
 }
 
 func (g *dofGripper) Open(ctx context.Context, extra map[string]interface{}) error {

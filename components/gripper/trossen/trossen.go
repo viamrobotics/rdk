@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
+	"go.uber.org/multierr"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
@@ -187,8 +188,10 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 
 // Stop is unimplemented for Gripper.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// RSDK-388: Implement Stop
-	return gripper.ErrStopUnimplemented
+	return multierr.Combine(
+		g.jServo.SetTorqueEnable(false),
+		g.jServo.SetTorqueEnable(true),
+	)
 }
 
 // IsMoving returns whether the gripper is moving.

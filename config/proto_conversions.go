@@ -92,10 +92,6 @@ func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
 		return nil, errors.Wrap(err, "failed to convert namespace/type/api config")
 	}
 
-	if err := component.Model.Validate(); err != nil {
-		return nil, errors.Wrap(err, "failed to convert component model")
-	}
-
 	proto := pb.ComponentConfig{
 		Name:           component.Name,
 		Namespace:      string(component.Namespace),
@@ -125,11 +121,6 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
-	model, err := resource.NewModelFromString(proto.GetModel())
-	if err != nil {
-		return nil, err
-	}
-
 	// for consistency, nil out empty maps and configs (otherwise go>proto>go conversion doesn't match)
 	attrs := proto.GetAttributes().AsMap()
 	if len(attrs) == 0 {
@@ -144,7 +135,7 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		Name:          proto.GetName(),
 		Type:          resource.SubtypeName(proto.GetType()),
 		Namespace:     resource.Namespace(proto.GetNamespace()),
-		Model:         model,
+		Model:         resource.NewModelFromStringIgnoreErrors(proto.GetModel()),
 		Attributes:    attrs,
 		DependsOn:     proto.GetDependsOn(),
 		ServiceConfig: serviceConfigs,
@@ -213,11 +204,6 @@ func ServiceConfigToSharedProto(service *Service) (*pb.ComponentConfig, error) {
 
 // ServiceConfigFromProto creates Service from the proto equivalent shared with Components.
 func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
-	model, err := resource.NewModelFromString(proto.GetModel())
-	if err != nil {
-		return nil, err
-	}
-
 	// for consistency, nil out empty map (otherwise go>proto>go conversion doesn't match)
 	attrs := proto.GetAttributes().AsMap()
 	if len(attrs) == 0 {
@@ -228,7 +214,7 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 		Name:       proto.GetName(),
 		Namespace:  resource.Namespace(proto.GetNamespace()),
 		Type:       resource.SubtypeName(proto.GetType()),
-		Model:      model,
+		Model:      resource.NewModelFromStringIgnoreErrors(proto.GetModel()),
 		Attributes: attrs,
 		DependsOn:  proto.GetDependsOn(),
 	}
@@ -238,16 +224,11 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 
 // ServiceConfigFromSharedProto creates a Service from the proto equivalent.
 func ServiceConfigFromSharedProto(proto *pb.ComponentConfig) (*Service, error) {
-	model, err := resource.NewModelFromString(proto.GetModel())
-	if err != nil {
-		return nil, err
-	}
-
 	service := Service{
 		Name:       proto.GetName(),
 		Namespace:  resource.Namespace(proto.GetNamespace()),
 		Type:       resource.SubtypeName(proto.GetType()),
-		Model:      model,
+		Model:      resource.NewModelFromStringIgnoreErrors(proto.GetModel()),
 		Attributes: proto.GetAttributes().AsMap(),
 		DependsOn:  proto.GetDependsOn(),
 	}
