@@ -172,7 +172,6 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed sensor data to SLAM") {
-			// Check delete_processed_data is working as intended
 			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 		}
 		if strings.Contains(line, "Finished optimizing final map") {
