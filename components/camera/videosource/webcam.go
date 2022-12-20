@@ -268,7 +268,7 @@ func tryWebcamOpen(ctx context.Context,
 		}
 		if img.Bounds().Dx() != attrs.Width || img.Bounds().Dy() != attrs.Height {
 			return nil, errors.Errorf("requested width and height (%dx%d) are not available for this webcam"+
-				"(closest driver found by gostream supports resolution %dx%d)",
+				" (closest driver found by gostream supports resolution %dx%d)",
 				attrs.Width, attrs.Height, img.Bounds().Dx(), img.Bounds().Dy())
 		}
 	}
