@@ -169,7 +169,7 @@ func (m *Module) Start(ctx context.Context) error {
 func (m *Module) Close(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.logger.Info("Sutting down gracefully.")
+	m.logger.Info("Shutting down gracefully.")
 	if m.parent != nil {
 		if err := m.parent.Close(ctx); err != nil {
 			m.logger.Error(err)
