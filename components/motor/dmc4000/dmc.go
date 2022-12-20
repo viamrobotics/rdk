@@ -4,7 +4,6 @@ package dmc4000
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -16,6 +15,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/usb"
 
@@ -62,6 +62,7 @@ type Motor struct {
 	jogging          bool
 	opMgr            operation.SingleOperationManager
 	powerPct         float64
+	motorName        string
 }
 
 // Config adds DMC-specific config options.
@@ -90,7 +91,7 @@ func init() {
 
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, config.ConvertedAttributes.(*Config), logger)
+			return NewMotor(ctx, config.ConvertedAttributes.(*Config), config, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -114,7 +115,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, mc config.Component, logger golog.Logger) (motor.LocalMotor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -167,6 +168,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
+		motorName:        mc.Name,
 	}
 
 	if m.MaxRPM <= 0 {
@@ -542,7 +544,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 	defer m.c.mu.Unlock()
 
 	if err := m.doGoTo(rpm, position); err != nil {
-		return err
+		return motor.NewGoToUnsupportedError(m.motorName)
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -601,6 +603,9 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.TicksPerRotation))))
+	if err != nil {
+		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
+	}
 	return err
 }
 
@@ -622,7 +627,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.jogging = false
 	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in Stop function from motor (%s)", m.motorName)
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -646,6 +651,9 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 // IsPowered returns whether or not the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
+	if err != nil {
+		return on, m.powerPct, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+	}
 	return on, m.powerPct, err
 }
 
