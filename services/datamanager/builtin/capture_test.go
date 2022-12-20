@@ -109,6 +109,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Build and start data manager.
 			dmsvc := newTestDataManager(t)
+			defer dmsvc.Close(context.Background())
 			err = dmsvc.Update(context.Background(), initConfig)
 			time.Sleep(captureTime)
 

@@ -22,6 +22,7 @@ import (
 
 const (
 	fiftyMillis = 0.0008
+	syncTime    = time.Millisecond * 150
 )
 
 var (
@@ -31,8 +32,6 @@ var (
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 
 func TestSyncEnabled(t *testing.T) {
-	syncTime := time.Millisecond * 100
-
 	tests := []struct {
 		name                        string
 		initialServiceDisableStatus bool
@@ -72,6 +71,7 @@ func TestSyncEnabled(t *testing.T) {
 
 			// Set up data manager.
 			dmsvc := newTestDataManager(t)
+			defer dmsvc.Close(context.Background())
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			cfg := setupConfig(t, enabledBinaryCollectorConfigPath)
 
@@ -204,6 +204,7 @@ func TestDataCaptureUpload(t *testing.T) {
 
 			// Set up data manager.
 			dmsvc := newTestDataManager(t)
+			defer dmsvc.Close(context.Background())
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			var cfg *config.Config
 			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
@@ -236,6 +237,7 @@ func TestDataCaptureUpload(t *testing.T) {
 
 			// Turn dmsvc back on with capture disabled.
 			newDMSvc := newTestDataManager(t)
+			defer newDMSvc.Close(context.Background())
 			newDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			svcConfig.CaptureDisabled = true
@@ -268,6 +270,7 @@ func TestDataCaptureUpload(t *testing.T) {
 				}()
 
 				newestDMSvc := newTestDataManager(t)
+				defer newestDMSvc.Close(context.Background())
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 				newestDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
 				err = newestDMSvc.Update(context.Background(), cfg)
@@ -368,6 +371,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Set up data manager.
 			dmsvc := newTestDataManager(t)
+			defer dmsvc.Close(context.Background())
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			cfg := setupConfig(t, enabledTabularCollectorConfigPath)
 
@@ -599,7 +603,7 @@ func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUplo
 
 //nolint:thelper
 func buildAndStartLocalSyncServer(t *testing.T, failAt int, failFor int) (rpc.Server, *mockDataSyncServiceServer) {
-	logger, _ := golog.NewObservedTestLogger(t)
+	logger := golog.NewTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
