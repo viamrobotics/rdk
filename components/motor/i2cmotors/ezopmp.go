@@ -287,15 +287,15 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
-		return errors.New("motor cannot move this slowly")
+		return errors.Errorf("motor (%s) cannot move this slowly", m.name)
 	case speed > m.maxFlowRate:
-		return errors.Errorf("max continuous flow rate is: %f", m.maxFlowRate)
+		return errors.Errorf("max continuous flow rate of motor (%s) is: %f", m.name, m.maxFlowRate)
 	}
 
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.name)
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
@@ -306,15 +306,15 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
-		return errors.New("motor cannot move this slowly")
+		return errors.Errorf("motor (%s) cannot move this slowly", m.name)
 	case speed > 105:
-		return errors.New("motor cannot move this fast")
+		return errors.Errorf("motor (%s) cannot move this fast", m.name)
 	}
 
 	commandString := "D," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.name)
 	}
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
@@ -330,11 +330,11 @@ func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (fl
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return 0, writeErr
+		return 0, errors.Wrapf(writeErr, "error in Position from motor (%s)", m.name)
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "error in Position from motor (%s)", m.name)
 	}
 	splitMsg := strings.Split(string(val), ",")
 	floatVal, err := strconv.ParseFloat(splitMsg[1], 64)
@@ -366,18 +366,18 @@ func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 	command := []byte(dispenseStatus)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return false, 0, writeErr
+		return false, 0, errors.Wrapf(writeErr, "error in IsPowered from motor (%s)", m.name)
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return false, 0, err
+		return false, 0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.name)
 	}
 
 	splitMsg := strings.Split(string(val), ",")
 
 	pumpStatus, err := strconv.ParseFloat(splitMsg[2], 64)
 	if err != nil {
-		return false, 0, err
+		return false, 0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.name)
 	}
 
 	if pumpStatus == 1 || pumpStatus == -1 {

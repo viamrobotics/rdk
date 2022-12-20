@@ -58,7 +58,7 @@ func init() {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, logger)
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, config, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -88,7 +88,9 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc Config, logger golog.Logger) (motor.Motor, error) {
+func newGPIOStepper(ctx context.Context, b board.Board, mc Config, c config.Component,
+	logger golog.Logger,
+) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
 		return nil, errors.New("expected ticks_per_rotation in config for motor")
 	}
@@ -98,6 +100,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, logger golog.
 		stepsPerRotation: mc.TicksPerRotation,
 		stepperDelay:     mc.StepperDelay,
 		logger:           logger,
+		motorName:        c.Name,
 	}
 
 	if mc.Pins.EnablePinHigh != "" {
@@ -145,6 +148,7 @@ type gpioStepper struct {
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
 	logger                      golog.Logger
+	motorName                   string
 
 	// state
 	lock  sync.Mutex
@@ -189,7 +193,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		return nil
 	}
 
-	return errors.New("gpioStepper doesn't support raw power mode")
+	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.motorName)
 }
 
 func (m *gpioStepper) startThread(ctx context.Context) {
@@ -268,7 +272,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 
 	err := m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
 
 	if revolutions == 0 {
@@ -317,7 +321,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
 	}
 	moveDistance := positionRevolutions - curPos
 
@@ -337,7 +341,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 	}
 	defer func() {
 		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Errorw("failed to turn off motor", "error", err)
+			m.logger.Errorw("failed to turn off motor (%s)", m.motorName, "error", err)
 		}
 	}()
 	for {
@@ -402,7 +406,7 @@ func (m *gpioStepper) stop() {
 func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, 0.0, err
+		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
 	}
 	percent := 0.0
 	if on {

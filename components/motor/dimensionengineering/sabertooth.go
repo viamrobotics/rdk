@@ -3,7 +3,6 @@ package dimensionengineering
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -14,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
@@ -67,6 +67,9 @@ type Motor struct {
 
 	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
 	opMgr operation.SingleOperationManager
+
+	// Name of the motor
+	motorName string
 }
 
 // Config adds DimensionEngineering-specific config options.
@@ -127,7 +130,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
-			return NewMotor(ctx, conf, logger)
+			return NewMotor(ctx, conf, config, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -216,7 +219,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, mc config.Component, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -257,6 +260,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
+		motorName:   mc.Name,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -384,7 +388,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 	c, err := newCommand(m.c.address, cmd, m.Channel, byte(int(rawSpeed)))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in SetPower from motor (%s)", m.motorName)
 	}
 	err = m.c.sendCmd(c)
 	return err
@@ -401,7 +405,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
 
 	if revolutions == 0 {
