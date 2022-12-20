@@ -28,7 +28,7 @@ func TestMotorABPWM(t *testing.T) {
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
 		m, err := NewMotor(b, Config{
 			Pins: PinConfig{A: "1", B: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000,
-		}, mc, logger)
+		}, mc.Name, logger)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
@@ -36,7 +36,7 @@ func TestMotorABPWM(t *testing.T) {
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{A: "1", B: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
-	}, mc, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B/PWM) Off testing", func(t *testing.T) {
@@ -139,7 +139,8 @@ func TestMotorDirPWM(t *testing.T) {
 	mc := config.Component{}
 
 	t.Run("motor (DIR/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000}, mc, logger)
+		m, err := NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000},
+			mc.Name, logger)
 
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
@@ -147,7 +148,7 @@ func TestMotorDirPWM(t *testing.T) {
 		_, err = NewMotor(
 			b,
 			Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
-			mc, logger,
+			mc.Name, logger,
 		)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
@@ -155,7 +156,7 @@ func TestMotorDirPWM(t *testing.T) {
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
-	}, mc, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (DIR/PWM) Off testing", func(t *testing.T) {
@@ -221,7 +222,7 @@ func TestMotorAB(t *testing.T) {
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{A: "1", B: "2", EnablePinLow: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
-	}, mc, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B) On testing", func(t *testing.T) {
@@ -292,7 +293,7 @@ func TestMotorABNoEncoder(t *testing.T) {
 	m, err := NewMotor(b, Config{
 		Pins:    PinConfig{A: "1", B: "2", EnablePinLow: "3"},
 		PWMFreq: 4000,
-	}, mc, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor no encoder GoFor testing", func(t *testing.T) {
