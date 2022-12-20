@@ -54,7 +54,7 @@ func (cloud *basicPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.Vect
 	cloud.points.Iterate(numBatches, myBatch, fn)
 }
 
-// vectorConvert converts a list of r3.Vectors into a pointcloud with the specified color
+// vectorConvert converts a list of r3.Vectors into a pointcloud with the specified color.
 func vectorConvert(vectors []r3.Vector, c color.NRGBA) (basicPointCloud, error) {
 	// initialize empty pointcloud
 	myCloud := basicPointCloud{
@@ -62,10 +62,12 @@ func vectorConvert(vectors []r3.Vector, c color.NRGBA) (basicPointCloud, error) 
 		meta:   NewMetaData(),
 	}
 	// TODO: the for loop below can be made concurrent if vectorConvert is too slow
-	// iterate throught the vector list and add to the pointcloud
+	// iterate thought the vector list and add to the pointcloud
 	for _, v := range vectors {
 		data := &basicData{hasColor: true, c: c}
-		myCloud.Set(v, data)
+		if err := myCloud.Set(v, data); err != nil {
+			return myCloud, err
+		}
 	}
 
 	return myCloud, nil
