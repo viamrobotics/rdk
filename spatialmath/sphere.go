@@ -201,7 +201,7 @@ func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
 
-// ToPointCloud converts a sphere geometry into []r3.Vector
+// ToPointCloud converts a sphere geometry into []r3.Vector.
 func (s *sphere) ToPointCloud(options map[string]interface{}) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
