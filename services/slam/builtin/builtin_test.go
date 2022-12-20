@@ -1144,7 +1144,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		cmdResult := [][]string{
 			{slam.SLAMLibraries["fake_cartographer"].BinaryLocation},
 			{"-sensors="},
-			{"-config_param={mode=mono,test_param=viam}", "-config_param={mode=2d}"},
+			{"-config_param={mode=2d}"},
 			{"-data_rate_ms=300"},
 			{"-map_rate_sec=200"},
 			{"-data_dir=" + name},
@@ -1185,7 +1185,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		cmdResult := [][]string{
 			{slam.SLAMLibraries["fake_cartographer"].BinaryLocation},
 			{"-sensors=good_lidar"},
-			{"-config_param={mode=mono,test_param=viam}", "-config_param={mode=2d,test_param=viam}"},
+			{"-config_param={test_param=viam,mode=2d}", "-config_param={mode=2d,test_param=viam}"},
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
