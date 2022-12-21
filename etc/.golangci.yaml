@@ -12,7 +12,6 @@ run:
 linters:
   enable-all: true
   disable:
-    - gomoddirectives # SMURF REMOVE THIS BEFORE MERGE
     - asasalint
     - containedctx
     - contextcheck

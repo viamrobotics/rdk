@@ -3,7 +3,6 @@ package config
 import (
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -267,7 +266,7 @@ func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, erro
 		OneShot:     process.OneShot,
 		Log:         process.Log,
 		StopSignal:  int32(process.StopSignal),
-		StopTimeout: int64(process.StopTimeout),
+		StopTimeout: durationpb.New(process.StopTimeout),
 	}, nil
 }
 
@@ -281,7 +280,7 @@ func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, erro
 		OneShot:     proto.OneShot,
 		Log:         proto.Log,
 		StopSignal:  syscall.Signal(proto.StopSignal),
-		StopTimeout: time.Duration(proto.StopTimeout),
+		StopTimeout: proto.StopTimeout.AsDuration(),
 	}, nil
 }
 
