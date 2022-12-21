@@ -21,7 +21,9 @@ func Test1(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
 	mc := Config{}
-	c := config.Component{}
+	c := config.Component{
+		Name: "fake_gpiostepper",
+	}
 
 	// Create motor with no board and default config
 	t.Run("gpiostepper initializing test with no board and default config", func(t *testing.T) {
