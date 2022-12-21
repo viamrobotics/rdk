@@ -165,13 +165,13 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 
 	switch {
 	case len(base.movementSensor) > 0 && base.orienationSupported[0]:
-		return base.SpinWithtMovementSensor(ctx, angleDeg, degsPerSec, extra)
+		return base.spinWithtMovementSensor(ctx, angleDeg, degsPerSec, extra)
 	default:
-		return base.SpinWithoutMovementSensor(ctx, angleDeg, degsPerSec, extra)
+		return base.spinWithoutMovementSensor(ctx, angleDeg, degsPerSec, extra)
 	}
 }
 
-func (base *wheeledBase) SpinWithoutMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := base.Stop(ctx, nil)
@@ -186,19 +186,43 @@ func (base *wheeledBase) SpinWithoutMovementSensor(ctx context.Context, angleDeg
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
-func (base *wheeledBase) SpinWithtMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	// Stop the motors if the speed is 0
-	if math.Abs(degsPerSec) < 0.0001 {
-		err := base.Stop(ctx, nil)
-		if err != nil {
-			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
-		}
-		return err
-	}
-	// Spin math
-	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
+func (base *wheeledBase) spinWithtMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) {
 
-	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
+	var spinning bool
+	timer := time.NewTicker(time.Duration(10 * time.Millisecond))
+	defer timer.Stop()
+	var tick uint
+	for {
+		tick++
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+
+		orientation, _ := base.movementSensor[0].Orientation(ctx, nil)
+		startYaw := orientation.EulerAngles().Yaw
+		diffAngle := startYaw - angleDeg
+
+		if math.Abs(diffAngle) < 5 {
+			spinning = false
+			base.Stop(ctx, nil)
+			return
+		}
+
+		currentSpeed := rpm
+
+		newO, _ := base.movementSensor[0].Orientation(ctx, nil)
+		newYaw := newO.EulerAngles().Yaw
+
+	}
+
+	return nil
 }
 
 // returns rpm, revolutions for a spin motion.
