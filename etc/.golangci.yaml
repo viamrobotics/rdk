@@ -63,7 +63,7 @@ linters-settings:
       - default
       - prefix(go.viam.com/rdk)
   gofumpt:
-    lang-version: "1.18"
+    lang-version: "1.19"
     extra-rules: true
   gosec:
     excludes:

@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 var (
@@ -43,7 +44,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "gps-nmea",
+		Model: resource.NewDefaultModel("gps-nmea"),
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"path":            "",
@@ -60,7 +61,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 
 	cfig = config.Component{
 		Name:  "movementsensor1",
-		Model: "gps-nmea",
+		Model: resource.NewDefaultModel("gps-nmea"),
 		Type:  movementsensor.SubtypeName,
 		ConvertedAttributes: &AttrConfig{
 			ConnectionType: "serial",

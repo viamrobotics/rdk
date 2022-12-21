@@ -24,7 +24,7 @@ var logger = golog.NewDebugLogger("mysensor")
 func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
-		"mySensor",
+		resource.NewDefaultModel("mySensor"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

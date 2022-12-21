@@ -42,6 +42,13 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 		return nil, nil, err
 	}
 	c.activeBackgroundWorkers.Add(2)
+	// prime the right service
+	if err := client.Send(&pb.ShellRequest{
+		Name:  c.name,
+		Extra: ext,
+	}); err != nil {
+		return nil, nil, err
+	}
 
 	input := make(chan string)
 	output := make(chan Output)

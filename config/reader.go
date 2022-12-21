@@ -44,8 +44,8 @@ type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
 // A ComponentAttributeConverterRegistration describes how to convert a specific attribute
 // for a model of a type of component.
 type ComponentAttributeConverterRegistration struct {
-	Subtype resource.SubtypeName
-	Model   string
+	Subtype resource.Subtype
+	Model   resource.Model
 	Attr    string
 	Conv    AttributeConverter
 }
@@ -53,8 +53,8 @@ type ComponentAttributeConverterRegistration struct {
 // A ComponentAttributeMapConverterRegistration describes how to convert all attributes
 // for a model of a type of component.
 type ComponentAttributeMapConverterRegistration struct {
-	Subtype resource.SubtypeName
-	Model   string
+	Subtype resource.Subtype
+	Model   resource.Model
 	Conv    AttributeMapConverter
 	RetType interface{} // the shape of what is converted to
 }
@@ -62,8 +62,8 @@ type ComponentAttributeMapConverterRegistration struct {
 // A ServiceAttributeMapConverterRegistration describes how to convert all attributes
 // for a model of a type of service.
 type ServiceAttributeMapConverterRegistration struct {
-	SvcType ServiceType
-	Model   string
+	SvcType resource.Subtype
+	Model   resource.Model
 	Conv    AttributeMapConverter
 	RetType interface{} // the shape of what is converted to
 }
@@ -76,12 +76,17 @@ var (
 
 // RegisterComponentAttributeConverter associates a component type and model with a way to convert a
 // particular attribute name.
-func RegisterComponentAttributeConverter(subtype resource.SubtypeName, model, attr string, conv AttributeConverter) {
+func RegisterComponentAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
 	componentAttributeConverters = append(componentAttributeConverters, ComponentAttributeConverterRegistration{subtype, model, attr, conv})
 }
 
 // RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterComponentAttributeMapConverter(subtype resource.SubtypeName, model string, conv AttributeMapConverter, retType interface{}) {
+func RegisterComponentAttributeMapConverter(
+	subtype resource.Subtype,
+	model resource.Model,
+	conv AttributeMapConverter,
+	retType interface{},
+) {
 	if retType == nil {
 		panic("retType should not be nil")
 	}
@@ -132,13 +137,19 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
-func RegisterServiceAttributeMapConverter(svcType ServiceType, model string, conv AttributeMapConverter, retType interface{}) {
+func RegisterServiceAttributeMapConverter(
+	svcType resource.Subtype,
+	model resource.Model,
+	conv AttributeMapConverter,
+	retType interface{},
+) {
 	if retType == nil {
 		panic("retType should not be nil")
 	}
 	serviceAttributeMapConverters = append(
 		serviceAttributeMapConverters,
-		ServiceAttributeMapConverterRegistration{svcType, model, conv, retType})
+		ServiceAttributeMapConverterRegistration{svcType, model, conv, retType},
+	)
 }
 
 // RegisteredComponentAttributeConverters returns a copy of the registered component attribute converters.
@@ -168,7 +179,7 @@ func RegisteredServiceAttributeMapConverters() []ServiceAttributeMapConverterReg
 	return copied.([]ServiceAttributeMapConverterRegistration)
 }
 
-func findConverter(subtype resource.SubtypeName, model, attr string) AttributeConverter {
+func findConverter(subtype resource.Subtype, model resource.Model, attr string) AttributeConverter {
 	for _, r := range componentAttributeConverters {
 		if r.Subtype == subtype && r.Model == model && r.Attr == attr {
 			return r.Conv
@@ -177,7 +188,7 @@ func findConverter(subtype resource.SubtypeName, model, attr string) AttributeCo
 	return nil
 }
 
-func findMapConverter(subtype resource.SubtypeName, model string) AttributeMapConverter {
+func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range componentAttributeMapConverters {
 		if r.Subtype == subtype && r.Model == model {
 			return r.Conv
@@ -186,9 +197,9 @@ func findMapConverter(subtype resource.SubtypeName, model string) AttributeMapCo
 	return nil
 }
 
-func findServiceMapConverter(svcType ServiceType) AttributeMapConverter {
+func findServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range serviceAttributeMapConverters {
-		if r.SvcType == svcType {
+		if r.SvcType == svcType && r.Model == model {
 			return r.Conv
 		}
 	}
@@ -644,10 +655,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
 	for idx, c := range cfg.Components {
-		conv := findMapConverter(c.Type, c.Model)
+		cType := resource.NewSubtype(c.Namespace, "component", c.Type)
+		conv := findMapConverter(cType, c.Model)
 		// inner attributes may have their own converters
 		for k, v := range c.Attributes {
-			attrConv := findConverter(c.Type, c.Model, k)
+			attrConv := findConverter(cType, c.Model, k)
 			if attrConv == nil {
 				continue
 			}
@@ -671,7 +683,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	}
 
 	for idx, c := range cfg.Services {
-		conv := findServiceMapConverter(c.Type)
+		conv := findServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
 		if conv == nil {
 			continue
 		}

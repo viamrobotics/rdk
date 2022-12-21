@@ -228,19 +228,26 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if c.Frame.Parent == "" {
 			return errors.Errorf("parent field in frame config for part %q is empty", c.Name)
 		}
-		if c.Frame.ID == "" {
-			c.Frame.ID = c.Name
+		cfgCopy := &referenceframe.LinkConfig{
+			ID:          c.Frame.ID,
+			Translation: c.Frame.Translation,
+			Orientation: c.Frame.Orientation,
+			Geometry:    c.Frame.Geometry,
+			Parent:      c.Frame.Parent,
+		}
+		if cfgCopy.ID == "" {
+			cfgCopy.ID = c.Name
 		}
 		seen[c.Name] = true
 		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return err
 		}
-		lif, err := c.Frame.ParseConfig()
+		lif, err := cfgCopy.ParseConfig()
 		if err != nil {
 			return err
 		}
-		parts[c.Frame.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+		parts[cfgCopy.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil

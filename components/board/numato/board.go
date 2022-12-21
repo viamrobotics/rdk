@@ -26,10 +26,11 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "numato"
+var modelName = resource.NewDefaultModel("numato")
 
 var errNoBoard = errors.New("no numato boards found")
 
@@ -58,7 +59,7 @@ func init() {
 			return connect(ctx, conf, logger)
 		}})
 	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
+		board.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

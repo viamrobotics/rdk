@@ -11,14 +11,17 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
+var fileModel = resource.NewDefaultModel("image_file")
+
 func init() {
-	registry.RegisterComponent(camera.Subtype, "file",
+	registry.RegisterComponent(camera.Subtype, fileModel,
 		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -27,15 +30,19 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
+			imgType := camera.ColorStream
+			if attrs.Color == "" {
+				imgType = camera.DepthStream
+			}
 			return camera.NewFromReader(
 				ctx,
 				videoSrc,
 				&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
-				camera.ImageType(attrs.Stream),
+				imgType,
 			)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, fileModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf fileSourceAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -62,10 +69,9 @@ type fileSource struct {
 type fileSourceAttrs struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug,omitempty"`
-	Color                string                             `json:"color_file_path"`
-	Depth                string                             `json:"depth_file_path"`
+	Color                string                             `json:"color_image_file_path,omitempty"`
+	Depth                string                             `json:"depth_image_file_path,omitempty"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.

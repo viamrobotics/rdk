@@ -73,13 +73,12 @@ type Gripper interface {
 
 	generic.Generic
 	referenceframe.ModelFramer
+	resource.MovingCheckable
 }
 
 // A LocalGripper represents a Gripper that can report whether it is moving or not.
 type LocalGripper interface {
 	Gripper
-
-	resource.MovingCheckable
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
@@ -143,7 +142,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the gripper.
 func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
-	gripper, ok := resource.(LocalGripper)
+	gripper, ok := resource.(Gripper)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
@@ -217,6 +216,12 @@ func (g *reconfigurableGripper) ModelFrame() referenceframe.Model {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.ModelFrame()
+}
+
+func (g *reconfigurableGripper) IsMoving(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.IsMoving(ctx)
 }
 
 type reconfigurableLocalGripper struct {
