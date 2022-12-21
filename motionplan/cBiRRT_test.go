@@ -63,7 +63,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	for _, solution := range solutions[:nSolutions] {
 		goalMap[solution] = nil
 	}
-	nn := &neighborManager{nCPU: int(math.Max(1.0, float64(runtime.NumCPU()/4)))}
+	nn := &neighborManager{nCPU: int(math.Max(1.0, float64(runtime.NumCPU()/2)))}
 
 	cOpt, err := newCbirrtOptions(opt, m)
 	test.That(t, err, test.ShouldBeNil)

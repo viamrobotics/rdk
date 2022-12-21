@@ -6,6 +6,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -19,6 +20,7 @@ type solverFrame struct {
 	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
+	limits     []referenceframe.Limit
 	// If this is true, then goals are translated to their position in `World` before solving.
 	// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
 	// TODO(pl): explore allowing this to be frames other than world
@@ -141,6 +143,11 @@ func newSolverFrame(
 		delete(origSeed, frame.Name())
 	}
 
+	var limits []frame.Limit
+	for _, frame := range frames {
+		limits = append(limits, frame.DoF()...)
+	}
+
 	return &solverFrame{
 		name:        solveFrame.Name() + "_" + goalFrame.Name(),
 		fss:         fss,
@@ -150,6 +157,7 @@ func newSolverFrame(
 		goalFrame:   goalFrame,
 		worldRooted: worldRooted,
 		origSeed:    origSeed,
+		limits:      limits,
 	}, nil
 }
 
@@ -239,14 +247,10 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 
 // DoF returns the summed DoF of all frames between the two solver frames.
 func (sf *solverFrame) DoF() []frame.Limit {
-	var limits []frame.Limit
-	for _, frame := range sf.frames {
-		limits = append(limits, frame.DoF()...)
-	}
-	return limits
+	return sf.limits
 }
 
-// mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
+// InputFromMap will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
 func (sf *solverFrame) InputFromMap(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
