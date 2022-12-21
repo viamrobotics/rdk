@@ -206,19 +206,22 @@ func (base *wheeledBase) spinWithtMovementSensor(ctx context.Context, angleDeg, 
 		}
 
 		orientation, _ := base.movementSensor[0].Orientation(ctx, nil)
-		startYaw := orientation.EulerAngles().Yaw
-		diffAngle := startYaw - angleDeg
+		currYaw := orientation.EulerAngles().Yaw
+		errAngle := currYaw - angleDeg
 
-		if math.Abs(diffAngle) < 5 {
+		if math.Abs(errAngle) < 5 {
 			spinning = false
 			base.Stop(ctx, nil)
 			return
 		}
 
-		currentSpeed := rpm
+		Kp := 1.2
+		lSpeed := degsPerSec + Kp*errAngle
+		rSpeed := degsPerSec + Kp*errAngle
+		// set motor powers based on speed
 
 		newO, _ := base.movementSensor[0].Orientation(ctx, nil)
-		newYaw := newO.EulerAngles().Yaw
+		currYaw = newO.EulerAngles().Yaw
 
 	}
 
