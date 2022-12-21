@@ -837,7 +837,6 @@ func DeleteCommand(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
 	filter, err := createDataFilter(c)
 	if err != nil {
 		return err
@@ -852,8 +851,7 @@ func DeleteCommand(c *cli.Context) error {
 		if err := client.DeleteBinaryData(filter); err != nil {
 			return err
 		}
-	}
-	if dataType == dataTypeTabular {
+	} else if dataType == dataTypeTabular {
 		if err := client.DeleteTabularData(filter); err != nil {
 			return err
 		}
