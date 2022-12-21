@@ -2,6 +2,8 @@ package config
 
 import (
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -258,24 +260,28 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 // ProcessConfigToProto converts ProcessConfig to proto equivalent.
 func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, error) {
 	return &pb.ProcessConfig{
-		Id:      process.ID,
-		Name:    process.Name,
-		Args:    process.Args,
-		Cwd:     process.CWD,
-		OneShot: process.OneShot,
-		Log:     process.Log,
+		Id:          process.ID,
+		Name:        process.Name,
+		Args:        process.Args,
+		Cwd:         process.CWD,
+		OneShot:     process.OneShot,
+		Log:         process.Log,
+		StopSignal:  int32(process.StopSignal),
+		StopTimeout: int64(process.StopTimeout),
 	}, nil
 }
 
 // ProcessConfigFromProto creates ProcessConfig from the proto equivalent.
 func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, error) {
 	return &pexec.ProcessConfig{
-		ID:      proto.Id,
-		Name:    proto.Name,
-		Args:    proto.Args,
-		CWD:     proto.Cwd,
-		OneShot: proto.OneShot,
-		Log:     proto.Log,
+		ID:          proto.Id,
+		Name:        proto.Name,
+		Args:        proto.Args,
+		CWD:         proto.Cwd,
+		OneShot:     proto.OneShot,
+		Log:         proto.Log,
+		StopSignal:  syscall.Signal(proto.StopSignal),
+		StopTimeout: time.Duration(proto.StopTimeout),
 	}, nil
 }
 
