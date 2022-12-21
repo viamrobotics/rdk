@@ -8,10 +8,10 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"io/ioutil"
 	"math"
 	"net"
 	"os"
-	"io/ioutil"
 	"strconv"
 	"strings"
 	"sync"
@@ -969,19 +969,19 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	logger := golog.NewTestLogger(t)
 
-	t.Run("Test online SLAM process with various parameters #1", func(t *testing.T) {
+	t.Run("Test online SLAM process with false delete_processed_data", func(t *testing.T) {
 		deleteProcessedData := false
-		mapRate  := 200
+		mapRate := 200
 		dataRateMS := 200
 
 		attrCfg := &builtin.AttrConfig{
-			Sensors:          []string{"good_color_camera"},
-			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-			DataDirectory:    name,
-			MapRateSec:       &mapRate,
-			DataRateMs:       dataRateMS,
-			InputFilePattern: "40:200:20",
-			Port:             "localhost:4445",
+			Sensors:             []string{"good_color_camera"},
+			ConfigParams:        map[string]string{"mode": "mono", "test_param": "viam"},
+			DataDirectory:       name,
+			MapRateSec:          &mapRate,
+			DataRateMs:          dataRateMS,
+			InputFilePattern:    "40:200:20",
+			Port:                "localhost:4445",
 			DeleteProcessedData: &deleteProcessedData,
 		}
 
@@ -1017,20 +1017,20 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
-	t.Run("Test online SLAM process with various parameters #2", func(t *testing.T) {
+	t.Run("Test online SLAM process with true delete_processed_data", func(t *testing.T) {
 
 		deleteProcessedData := true
-		mapRate  := 200
+		mapRate := 200
 		dataRateMS := 200
 
 		attrCfg := &builtin.AttrConfig{
-			Sensors:          []string{"good_color_camera", "good_depth_camera"},
-			ConfigParams:     map[string]string{"mode": "rgbd"},
-			DataDirectory:    name,
-			MapRateSec:       &mapRate,
-			DataRateMs:       dataRateMS,
-			InputFilePattern: "10:200:1",
-			Port:             "localhost:4409",
+			Sensors:             []string{"good_color_camera", "good_depth_camera"},
+			ConfigParams:        map[string]string{"mode": "rgbd"},
+			DataDirectory:       name,
+			MapRateSec:          &mapRate,
+			DataRateMs:          dataRateMS,
+			InputFilePattern:    "10:200:1",
+			Port:                "localhost:4409",
 			DeleteProcessedData: &deleteProcessedData,
 		}
 
@@ -1066,69 +1066,20 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
-	t.Run("Test offline SLAM process with various parameters #3", func(t *testing.T) {
-
-		deleteProcessedData := true
-		mapRate  := 1
-		dataRateMS := 0
-
-		attrCfg := &builtin.AttrConfig{
-			Sensors:          []string{},
-			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-			DataDirectory:    name,
-			MapRateSec:       &mapRate,
-			DataRateMs:       dataRateMS,
-			InputFilePattern: "10:200:1",
-			Port:             "localhost:4445",
-			DeleteProcessedData: &deleteProcessedData,
-		}
-
-		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		slamSvc := svc.(internal.Service)
-		processCfg := slamSvc.GetSLAMProcessConfig()
-		cmd := append([]string{processCfg.Name}, processCfg.Args...)
-
-		cmdResult := [][]string{
-			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-			{"-sensors="},
-			{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
-			{"-data_rate_ms=200"},
-			{"-map_rate_sec=1"},
-			{"-data_dir=" + name},
-			{"-input_file_pattern=10:200:1"},
-			{"-delete_processed_data=false"},
-			{"-port=localhost:4445"},
-			{"--aix-auto-update"},
-		}
-
-		for i, s := range cmd {
-			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
-				test.That(t, s, test.ShouldBeIn, cmdResult[i])
-			})
-		}
-
-		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	})
-
-	t.Run("Test offline SLAM process with various parameters #4", func(t *testing.T) {
+	t.Run("Test offline SLAM process with false delete_processed_data", func(t *testing.T) {
 
 		deleteProcessedData := false
-		mapRate  := 200
+		mapRate := 200
 		dataRateMS := 300
 
 		attrCfg := &builtin.AttrConfig{
-			Sensors:          []string{},
-			ConfigParams:     map[string]string{"mode": "2d"},
-			DataDirectory:    name,
-			MapRateSec:       &mapRate,
-			DataRateMs:       dataRateMS,
-			InputFilePattern: "10:200:1",
-			Port:             "localhost:4445",
+			Sensors:             []string{},
+			ConfigParams:        map[string]string{"mode": "2d"},
+			DataDirectory:       name,
+			MapRateSec:          &mapRate,
+			DataRateMs:          dataRateMS,
+			InputFilePattern:    "10:200:1",
+			Port:                "localhost:4445",
 			DeleteProcessedData: &deleteProcessedData,
 		}
 
@@ -1164,13 +1115,62 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
+	t.Run("Test offline SLAM process with true delete_processed_data", func(t *testing.T) {
+
+		deleteProcessedData := true
+		mapRate := 1
+		dataRateMS := 0
+
+		attrCfg := &builtin.AttrConfig{
+			Sensors:             []string{},
+			ConfigParams:        map[string]string{"mode": "mono", "test_param": "viam"},
+			DataDirectory:       name,
+			MapRateSec:          &mapRate,
+			DataRateMs:          dataRateMS,
+			InputFilePattern:    "10:200:1",
+			Port:                "localhost:4445",
+			DeleteProcessedData: &deleteProcessedData,
+		}
+
+		// Create slam service
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		slamSvc := svc.(internal.Service)
+		processCfg := slamSvc.GetSLAMProcessConfig()
+		cmd := append([]string{processCfg.Name}, processCfg.Args...)
+
+		cmdResult := [][]string{
+			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
+			{"-sensors="},
+			{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
+			{"-data_rate_ms=200"},
+			{"-map_rate_sec=1"},
+			{"-data_dir=" + name},
+			{"-input_file_pattern=10:200:1"},
+			{"-delete_processed_data=false"},
+			{"-port=localhost:4445"},
+			{"--aix-auto-update"},
+		}
+
+		for i, s := range cmd {
+			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
+				test.That(t, s, test.ShouldBeIn, cmdResult[i])
+			})
+		}
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
 	t.Run("Test online SLAM process with default parameters", func(t *testing.T) {
 
 		attrCfg := &builtin.AttrConfig{
-			Sensors:          []string{"good_lidar"},
-			ConfigParams:     map[string]string{"mode": "2d", "test_param": "viam"},
-			DataDirectory:    name,
-			Port:             "localhost:4445",
+			Sensors:       []string{"good_lidar"},
+			ConfigParams:  map[string]string{"mode": "2d", "test_param": "viam"},
+			DataDirectory: name,
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -1208,10 +1208,10 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	t.Run("Test offline SLAM process with default parameters", func(t *testing.T) {
 
 		attrCfg := &builtin.AttrConfig{
-			Sensors:          []string{},
-			ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-			DataDirectory:    name,
-			Port:             "localhost:4445",
+			Sensors:       []string{},
+			ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+			DataDirectory: name,
+			Port:          "localhost:4445",
 		}
 
 		// Create slam service
@@ -1378,7 +1378,7 @@ func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int
 	return numFiles
 }
 
-// Compares the number of files found in a specified data directory with the preivous number found and uses 
+// Compares the number of files found in a specified data directory with the preivous number found and uses
 // the online state and delete_processed_data value to evalaute this comparison.
 func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_processed_data, online bool) (int, error) {
 
