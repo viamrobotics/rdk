@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -112,14 +114,14 @@ func (ua *URArm) Close(ctx context.Context) error {
 
 	closeConn := func() {
 		if err := ua.dashboardConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			ua.logger.Errorw("error closing arm connection", "error", err)
+			ua.logger.Errorw("error closing arm's Dashboard connection", "error", err)
 		}
 		if err := ua.readRobotStateConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			ua.logger.Errorw("error closing arm connection", "error", err)
+			ua.logger.Errorw("error closing arm's State connection", "error", err)
 		}
 		if ua.connControl != nil {
 			if err := ua.connControl.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-				ua.logger.Errorw("error closing arm connection", "error", err)
+				ua.logger.Errorw("error closing arm's control connection", "error", err)
 			}
 		}
 	}
@@ -168,7 +170,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 	}
 	connDashboard, err := d.DialContext(ctx, "tcp", attrs.Host+":29999")
 	if err != nil {
-		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", attrs.Host, err)
+		return nil, fmt.Errorf("can't connect to ur arm's dashboard (%s): %w", attrs.Host, err)
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	newArm := &URArm{
@@ -191,9 +193,33 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 
 	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		readerWriter := bufio.NewReadWriter(bufio.NewReader(connDashboard), bufio.NewWriter(connDashboard))
-		if err := dashboardReader(cancelCtx, *readerWriter, newArm); err != nil {
-			logger.Errorw("dashboard failed", "error", err)
+		for {
+			readerWriter := bufio.NewReadWriter(bufio.NewReader(connDashboard), bufio.NewWriter(connDashboard))
+			err := dashboardReader(cancelCtx, *readerWriter, newArm)
+			if err != nil && (errors.Is(err, syscall.ECONNRESET) || os.IsTimeout(err)) {
+				newArm.mu.Lock()
+				newArm.inRemoteMode = false
+				newArm.mu.Unlock()
+				for {
+					if err := cancelCtx.Err(); err != nil {
+						return
+					}
+					logger.Debug("attempting to reconnect to ur arm dashboard")
+					connDashboard, err = d.DialContext(cancelCtx, "tcp", attrs.Host+":29999")
+					if err == nil {
+						newArm.mu.Lock()
+						newArm.dashboardConnection = connDashboard
+						newArm.mu.Unlock()
+						break
+					}
+					if !goutils.SelectContextOrWait(cancelCtx, 1*time.Second) {
+						return
+					}
+				}
+			} else if err != nil {
+				logger.Errorw("dashboard reader failed", "error", err)
+				return
+			}
 		}
 	}, newArm.activeBackgroundWorkers.Done)
 
@@ -201,17 +227,35 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 	var onDataOnce sync.Once
 	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if err := reader(cancelCtx, connReadRobotState, newArm, func() {
-			onDataOnce.Do(func() {
-				close(onData)
+		for {
+			err := reader(cancelCtx, connReadRobotState, newArm, func() {
+				onDataOnce.Do(func() {
+					close(onData)
+				})
 			})
-		}); err != nil {
-			logger.Errorw("reader failed", "error", err)
+			if err != nil && (errors.Is(err, syscall.ECONNRESET) || os.IsTimeout(err)) {
+				for {
+					if err := cancelCtx.Err(); err != nil {
+						return
+					}
+					logger.Debug("attempting to reconnect to ur arm 30011")
+					connReadRobotState, err = d.DialContext(cancelCtx, "tcp", attrs.Host+":30011")
+					if err == nil {
+						newArm.mu.Lock()
+						newArm.readRobotStateConnection = connReadRobotState
+						newArm.mu.Unlock()
+						break
+					}
+					if !goutils.SelectContextOrWait(cancelCtx, 1*time.Second) {
+						return
+					}
+				}
+			} else if err != nil {
+				logger.Errorw("reader failed", "error", err)
+				return
+			}
 		}
-	}, func() {
-		logger.Error("reader closing")
-		newArm.activeBackgroundWorkers.Done()
-	})
+	}, newArm.activeBackgroundWorkers.Done)
 
 	respondTimeout := 2 * time.Second
 	timer := time.NewTimer(respondTimeout)
@@ -295,7 +339,7 @@ func (ua *URArm) MoveToPosition(
 	extra map[string]interface{},
 ) error {
 	if !ua.inRemoteMode {
-		return errors.New("ur5 is in local mode switch to remote to control it")
+		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
@@ -318,7 +362,7 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 // Stop stops the arm with some deceleration.
 func (ua *URArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if !ua.inRemoteMode {
-		return errors.New("ur5 is in local mode switch to remote to control it")
+		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
 	_, done := ua.opMgr.New(ctx)
 	defer done()
@@ -336,7 +380,7 @@ func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
 // MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	if !ua.inRemoteMode {
-		return errors.New("ur5 is in local mode switch to remote to control it")
+		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
@@ -432,7 +476,7 @@ func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 // AddToLog TODO.
 func (ua *URArm) AddToLog(msg string) error {
 	if !ua.inRemoteMode {
-		return errors.New("ur5 is in local mode switch to remote to control it")
+		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
 	// TODO(erh): check for " in msg
 	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)
@@ -442,28 +486,31 @@ func (ua *URArm) AddToLog(msg string) error {
 
 func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *URArm) error {
 	// Discard first line which is hello from dashboard
-	_, _, err := conn.ReadLine()
-	if err != nil {
+	if err := ua.dashboardConnection.SetDeadline(time.Now().Add(1 * time.Second)); err != nil {
 		return err
 	}
-
+	if _, _, err := conn.ReadLine(); err != nil {
+		return err
+	}
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		_, err := conn.WriteString("is in remote control\n")
-		if err != nil {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-
-		err = conn.Flush()
-		if err != nil {
+		if err := ua.dashboardConnection.SetDeadline(time.Now().Add(1 * time.Second)); err != nil {
 			return err
 		}
-
+		if _, err := conn.WriteString("is in remote control\n"); err != nil {
+			return err
+		}
+		if err := ua.dashboardConnection.SetDeadline(time.Now().Add(1 * time.Second)); err != nil {
+			return err
+		}
+		if err := conn.Flush(); err != nil {
+			return err
+		}
+		if err := ua.dashboardConnection.SetDeadline(time.Now().Add(1 * time.Second)); err != nil {
+			return err
+		}
 		line, _, err := conn.ReadLine()
 		if err != nil {
 			return err
@@ -471,45 +518,46 @@ func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *URArm) erro
 
 		isRemote := strings.Contains(string(line), "true")
 		if isRemote != ua.inRemoteMode {
-			ua.mu.Lock()
-			if isRemote {
-				connect := func() (net.Conn, error) {
+			processControlEvent := func() error {
+				ua.mu.Lock()
+				defer ua.mu.Unlock()
+				if isRemote {
 					ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 					defer cancel()
 					var d net.Dialer
 					connControl, err := d.DialContext(ctx, "tcp", ua.host+":30001")
 					if err != nil {
-						return nil, errors.Wrapf(err, "while the arm is not in local mode couldn't to ur arm (%s)", ua.host)
+						return errors.Wrapf(err, "while the arm is not in local mode couldn't to ur arm (%s)", ua.host)
 					}
-					return connControl, nil
+					ua.connControl = connControl
+				} else if ua.connControl != nil {
+					if err := ua.connControl.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
+						return err
+					}
 				}
-
-				conn, err := connect()
-				if err != nil {
-					return err
-				}
-				ua.connControl = conn
-			} else if ua.connControl != nil {
-				if err := ua.connControl.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
-					return err
-				}
+				ua.inRemoteMode = isRemote
+				return nil
 			}
-			ua.inRemoteMode = isRemote
-			ua.mu.Unlock()
+			if err := processControlEvent(); err != nil {
+				return err
+			}
 		}
-		if !goutils.SelectContextOrWait(ctx, 1*time.Second) {
+		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
 		}
 	}
 }
 
-func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) error {
+func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) error {
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err := ctx.Err(); err != nil {
+			return err
 		}
+
+		if err := conn.SetReadDeadline(time.Now().Add(time.Millisecond * 1000)); err != nil {
+			return err
+		}
+
 		sizeBuf, err := goutils.ReadBytes(ctx, conn, 4)
 		if err != nil {
 			return err
