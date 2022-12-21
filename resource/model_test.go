@@ -214,7 +214,7 @@ func TestModelFromString(t *testing.T) {
 		{
 			"default model",
 			"modelB",
-			resource.NewDefaultModel("modelB")
+			resource.NewDefaultModel("modelB"),
 			"",
 			"",
 		},
