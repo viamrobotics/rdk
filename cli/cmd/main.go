@@ -822,8 +822,7 @@ func DataCommand(c *cli.Context) error {
 		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
-	}
-	if dataType == dataTypeTabular {
+	} else if dataType == dataTypeTabular {
 		if err := client.TabularData(c.String(dataFlagDestination), filter); err != nil {
 			return err
 		}
