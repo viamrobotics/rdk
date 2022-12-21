@@ -864,10 +864,6 @@ func DeleteCommand(c *cli.Context) error {
 func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	filter := &datapb.Filter{}
 
-	if c.String(dataFlagDataType) != dataTypeBinary && c.String(dataFlagDataType) != dataTypeTabular {
-		return nil, errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
-	}
-
 	if c.StringSlice(dataFlagOrgIDs) != nil {
 		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
 	}
