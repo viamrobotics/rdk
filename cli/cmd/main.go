@@ -792,22 +792,13 @@ func main() {
 	}
 }
 
-func validateDataType(c *cli.Context) (string, error) {
-	dataType := c.String(dataFlagDataType)
-	switch dataType {
-	case dataTypeBinary, dataTypeTabular:
-		return dataType, nil
-	default:
-		return "", errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
-	}
-}
-
 // DataCommand runs the data command for downloading data from the Viam cloud.
 func DataCommand(c *cli.Context) error {
-	dataType, err := validateDataType(c)
-	if err != nil {
-		return err
+	dataType := c.String(dataFlagDataType)
+	if dataType != dataTypeBinary && dataType != dataTypeTabular {
+		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
 	}
+
 	filter, err := createDataFilter(c)
 	if err != nil {
 		return err
@@ -832,9 +823,9 @@ func DataCommand(c *cli.Context) error {
 
 // DeleteCommand runs the command for deleting data from the Viam cloud.
 func DeleteCommand(c *cli.Context) error {
-	dataType, err := validateDataType(c)
-	if err != nil {
-		return err
+	dataType := c.String(dataFlagDataType)
+	if dataType != dataTypeBinary && dataType != dataTypeTabular {
+		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
 	}
 	filter, err := createDataFilter(c)
 	if err != nil {
