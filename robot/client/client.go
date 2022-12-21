@@ -92,6 +92,7 @@ var exemptFromConnectionCheck = map[string]bool{
 	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
 	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
 	"/proto.rpc.v1.AuthService/Authenticate":                     true,
+	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":           true,
 }
 
 func skipConnectionCheck(method string) bool {
