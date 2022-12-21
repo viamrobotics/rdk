@@ -68,3 +68,11 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
+
+func (c *client) IsMoving(ctx context.Context) (bool, error) {
+	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
+	if err != nil {
+		return false, err
+	}
+	return resp.IsMoving, nil
+}

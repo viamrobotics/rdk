@@ -304,15 +304,6 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm3, test.ShouldNotBeNil)
 
-	err = reconfArm1.Reconfigure(context.Background(), reconfArm3)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, reconfArm3))
-	test.That(t, actualArm3.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfArm3.Reconfigure(context.Background(), reconfArm1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm3, reconfArm1))
-
 	actualArm4 := &mock{Name: testArmName2}
 	reconfArm4, err := arm.WrapWithReconfigurable(actualArm4, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)

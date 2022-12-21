@@ -1,5 +1,5 @@
 {
-    "color_intrinsics": {
+    "color_intrinsic_parameters": {
         "height_px": 720,
         "width_px": 1280,
         "fx": 900.538000,
@@ -14,7 +14,7 @@
             "tp2": -0.000705919
         }
     },
-    "depth_intrinsics": {
+    "depth_intrinsic_parameters": {
         "height_px": 768,
         "width_px": 1024,
         "fx": 734.938,
@@ -29,7 +29,7 @@
             "tp2": 0.0
         }
     },
-    "extrinsics_depth_to_color": {
+    "depth_to_color_extrinsic_parameters": {
         "rotation_rads": [
             0.999958,
             -0.00838489,

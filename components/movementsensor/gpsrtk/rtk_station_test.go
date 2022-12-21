@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -84,7 +85,7 @@ func TestRTK(t *testing.T) {
 	// test NTRIPConnection Source
 	cfig := config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: resource.NewDefaultModel("rtk-station"),
 		Type:  "gps",
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "ntrip",
@@ -107,7 +108,7 @@ func TestRTK(t *testing.T) {
 	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: resource.NewDefaultModel("rtk-station"),
 		Type:  "gps",
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "serial",
@@ -127,7 +128,7 @@ func TestRTK(t *testing.T) {
 	// test I2C correction source
 	cfig = config.Component{
 		Name:       "rtk1",
-		Model:      "rtk-station",
+		Model:      resource.NewDefaultModel("rtk-station"),
 		Type:       "gps",
 		Attributes: config.AttributeMap{},
 		ConvertedAttributes: &StationConfig{
@@ -159,7 +160,7 @@ func TestRTK(t *testing.T) {
 	// test invalid source
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: resource.NewDefaultModel("rtk-station"),
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source":      "invalid-protocol",

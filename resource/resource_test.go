@@ -520,3 +520,151 @@ func TestRemoteResource(t *testing.T) {
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
 }
+
+func TestSubtypeFromString(t *testing.T) {
+	//nolint:dupl
+	for _, tc := range []struct {
+		TestName   string
+		StrSubtype string
+		Expected   resource.Subtype
+		Err        string
+		ErrJSON    string
+	}{
+		{
+			"valid",
+			"rdk:component:arm",
+			arm.Subtype,
+			"",
+			"",
+		},
+		{
+			"valid with special characters and numbers",
+			"acme_corp1:test-collection99:api_a2",
+			resource.Subtype{
+				Type:            resource.Type{Namespace: "acme_corp1", ResourceType: "test-collection99"},
+				ResourceSubtype: "api_a2",
+			},
+			"",
+			"",
+		},
+		{
+			"invalid with slash",
+			"acme/corp:test:subtypeA",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"invalid with caret",
+			"acme:test:subtype^A",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"missing field",
+			"acme:test",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"empty namespace",
+			":test:subtypeA",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"empty family",
+			"acme::subtypeA",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"empty name",
+			"acme:test::",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"extra field",
+			"acme:test:subtypeA:fail",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"mistaken resource name",
+			"acme:test:subtypeA/fail",
+			resource.Subtype{},
+			"not a valid subtype name",
+			"invalid character",
+		},
+		{
+			"valid nested json",
+			`{"namespace": "acme", "type": "test", "subtype": "subtypeB"}`,
+			resource.Subtype{
+				Type:            resource.Type{Namespace: "acme", ResourceType: "test"},
+				ResourceSubtype: "subtypeB",
+			},
+			"not a valid subtype name",
+			"",
+		},
+		{
+			"invalid nested json type",
+			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
+			resource.Subtype{},
+			"not a valid subtype name",
+			"not a valid type name",
+		},
+		{
+			"invalid nested json namespace",
+			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
+			resource.Subtype{},
+			"not a valid subtype name",
+			"not a valid type namespace",
+		},
+		{
+			"invalid nested json subtype",
+			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
+			resource.Subtype{},
+			"not a valid subtype name",
+			"not a valid subtype name",
+		},
+		{
+			"missing nested json field",
+			`{"namespace": "acme", "name": "subtype#B"}`,
+			resource.Subtype{},
+			"not a valid subtype name",
+			"field for resource missing",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := resource.NewSubtypeFromString(tc.StrSubtype)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, observed.Validate(), test.ShouldBeNil)
+				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+
+			fromJSON := &resource.Subtype{}
+			errJSON := fromJSON.UnmarshalJSON([]byte(tc.StrSubtype))
+			if tc.ErrJSON == "" {
+				test.That(t, errJSON, test.ShouldBeNil)
+				test.That(t, fromJSON.Validate(), test.ShouldBeNil)
+				test.That(t, fromJSON, test.ShouldResemble, &tc.Expected)
+				test.That(t, fromJSON.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, errJSON, test.ShouldNotBeNil)
+				test.That(t, errJSON.Error(), test.ShouldContainSubstring, tc.ErrJSON)
+			}
+		})
+	}
+}

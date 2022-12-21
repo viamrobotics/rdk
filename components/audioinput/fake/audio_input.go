@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var _ = audioinput.AudioInput(&audioInput{})
@@ -25,7 +26,7 @@ var _ = audioinput.AudioInput(&audioInput{})
 func init() {
 	registry.RegisterComponent(
 		audioinput.Subtype,
-		"fake",
+		resource.NewDefaultModel("fake"),
 		registry.Component{Constructor: func(
 			_ context.Context,
 			_ registry.Dependencies,

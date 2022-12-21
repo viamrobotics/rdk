@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -89,7 +90,7 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const stationModel = "rtk-station"
+var stationModel = resource.NewDefaultModel("rtk-station")
 
 func init() {
 	registry.RegisterComponent(
@@ -104,7 +105,7 @@ func init() {
 			return newRTKStation(ctx, deps, cfg, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, stationModel,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, stationModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr StationConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
