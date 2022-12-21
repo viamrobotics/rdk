@@ -313,7 +313,8 @@ func TestMotorABNoEncoder(t *testing.T) {
 	})
 
 	t.Run("motor no encoder ResetZeroPosition testing", func(t *testing.T) {
-		test.That(t, m.ResetZeroPosition(ctx, 5.0001, nil), test.ShouldBeError, errors.New("motor with name fake_motor does not support ResetZeroPosition"))
+		test.That(t, m.ResetZeroPosition(ctx, 5.0001, nil), test.ShouldBeError,
+			errors.New("motor with name fake_motor does not support ResetZeroPosition"))
 	})
 }
 
