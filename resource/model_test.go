@@ -212,6 +212,13 @@ func TestModelFromString(t *testing.T) {
 			"invalid character",
 		},
 		{
+			"default model",
+			"modelB",
+			resource.NewDefaultModel("modelB")
+			"",
+			"",
+		},
+		{
 			"valid nested json",
 			`{"namespace": "acme", "model_family": "test", "name": "modelB"}`,
 			resource.Model{
