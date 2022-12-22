@@ -321,7 +321,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 // GoTillStop always returns an error.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return errors.New("not supported")
+	return motor.NewGoTillStopUnsupportedError(m.Name)
 }
 
 // ResetZeroPosition resets the zero position.
@@ -336,7 +336,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 
 	err := m.Encoder.Reset(ctx, int64(offset*float64(m.TicksPerRotation)), extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name)
 	}
 
 	return nil
@@ -352,7 +352,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(ctx, 0.0)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name)
 		}
 	}
 	return nil

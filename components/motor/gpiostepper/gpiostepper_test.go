@@ -11,6 +11,7 @@ import (
 
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/config"
 )
 
 func Test1(t *testing.T) {
@@ -20,32 +21,35 @@ func Test1(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
 	mc := Config{}
+	c := config.Component{
+		Name: "fake_gpiostepper",
+	}
 
 	// Create motor with no board and default config
 	t.Run("gpiostepper initializing test with no board and default config", func(t *testing.T) {
-		_, err := newGPIOStepper(ctx, nil, mc, logger)
+		_, err := newGPIOStepper(ctx, nil, mc, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	// Create motor with board and default config
 	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
-		_, err := newGPIOStepper(ctx, b, mc, logger)
+		_, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	mc.Pins = PinConfig{Direction: "b"}
 
-	_, err := newGPIOStepper(ctx, b, mc, logger)
+	_, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.Pins.Step = "c"
 
-	_, err = newGPIOStepper(ctx, b, mc, logger)
+	_, err = newGPIOStepper(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
 
-	mm, err := newGPIOStepper(ctx, b, mc, logger)
+	mm, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	m := mm.(*gpioStepper)
