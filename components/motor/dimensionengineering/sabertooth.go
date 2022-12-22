@@ -3,7 +3,6 @@ package dimensionengineering
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -14,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
@@ -66,6 +66,9 @@ type Motor struct {
 
 	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
 	opMgr operation.SingleOperationManager
+
+	// Name of the motor
+	motorName string
 }
 
 // Config adds DimensionEngineering-specific config options.
@@ -126,7 +129,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
-			return NewMotor(ctx, conf, logger)
+			return NewMotor(ctx, conf, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -215,7 +218,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -256,6 +259,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
+		motorName:   name,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -383,7 +387,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 	c, err := newCommand(m.c.address, cmd, m.Channel, byte(int(rawSpeed)))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in SetPower from motor (%s)", m.motorName)
 	}
 	err = m.c.sendCmd(c)
 	return err
@@ -400,7 +404,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
 
 	if revolutions == 0 {
@@ -417,7 +421,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
 func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewGoToUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d", m.Channel, m.c.address))
 }
 
 // GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
@@ -427,7 +431,8 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewResetZeroPositionUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d",
+		m.Channel, m.c.address))
 }
 
 // Position reports the position in revolutions.
