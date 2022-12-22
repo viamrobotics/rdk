@@ -4,7 +4,6 @@ package universalrobots
 import (
 	"bufio"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -542,7 +541,7 @@ func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *URArm) erro
 				return err
 			}
 		}
-		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+		if !goutils.SelectContextOrWait(ctx, 1*time.Second) {
 			return ctx.Err()
 		}
 	}
