@@ -312,7 +312,7 @@ func setupListeners(ctx context.Context, statusBlob []byte,
 				case <-ctx.Done():
 					return
 				case <-timeout.C:
-					return
+					continue
 				}
 			}
 		}
