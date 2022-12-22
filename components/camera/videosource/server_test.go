@@ -108,6 +108,16 @@ func TestServerSource(t *testing.T) {
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, img, test.ShouldResemble, lazyPng)
 
+	// Requests for lazy JPEG can return lazy PNG
+	lazyJPEGCtx := gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypeJPEG))
+	img, release, err = camera.ReadImage(
+		lazyJPEGCtx,
+		cam,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer release()
+	test.That(t, img, test.ShouldResemble, lazyPng)
+
 	img, release, err = camera.ReadImage(
 		gostream.WithMIMETypeHint(context.Background(), utils.MimeTypePNG),
 		cam,
