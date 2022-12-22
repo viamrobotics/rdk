@@ -37,7 +37,8 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	"go.viam.com/rdk/services/slam/internal"
+	slamConfig "go.viam.com/rdk/services/slam/internal/config"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
@@ -561,6 +562,36 @@ func TestGeneralNew(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
+func TestArgumentInputs(t *testing.T) {
+
+	logger := golog.NewTestLogger(t)
+
+	t.Run("Testing delete_data_process evaluation", func(t *testing.T) {
+		// No delete_processed_data
+		deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, nil, true)
+		test.That(t, deleteProcessedData, test.ShouldBeFalse)
+
+		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, nil, false)
+		test.That(t, deleteProcessedData, test.ShouldBeTrue)
+
+		// False delete_processed_data
+		delete := false
+		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &delete, true)
+		test.That(t, deleteProcessedData, test.ShouldBeFalse)
+
+		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &delete, false)
+		test.That(t, deleteProcessedData, test.ShouldBeFalse)
+
+		// True delete_processed_data
+		delete = true
+		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &delete, true)
+		test.That(t, deleteProcessedData, test.ShouldBeFalse)
+
+		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &delete, false)
+		test.That(t, deleteProcessedData, test.ShouldBeTrue)
+	})
+}
+
 func TestCartographerNew(t *testing.T) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
@@ -769,7 +800,7 @@ func TestCartographerDataProcess(t *testing.T) {
 	grpcServer.Stop()
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-	slamSvc := svc.(internal.Service)
+	slamSvc := svc.(testhelper.Service)
 
 	t.Run("Cartographer Data Process with lidar in slam mode 2d", func(t *testing.T) {
 		goodCam := &inject.Camera{}
@@ -853,7 +884,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	grpcServer.Stop()
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-	slamSvc := svc.(internal.Service)
+	slamSvc := svc.(testhelper.Service)
 
 	t.Run("ORBSLAM3 Data Process with camera in slam mode mono", func(t *testing.T) {
 		goodCam := &inject.Camera{}
@@ -969,201 +1000,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	logger := golog.NewTestLogger(t)
 
-	t.Run("Test online SLAM process with false delete_processed_data", func(t *testing.T) {
-		deleteProcessedData := false
-		mapRate := 200
-		dataRateMS := 200
-
-		attrCfg := &builtin.AttrConfig{
-			Sensors:             []string{"good_color_camera"},
-			ConfigParams:        map[string]string{"mode": "mono", "test_param": "viam"},
-			DataDirectory:       name,
-			MapRateSec:          &mapRate,
-			DataRateMs:          dataRateMS,
-			InputFilePattern:    "40:200:20",
-			Port:                "localhost:4445",
-			DeleteProcessedData: &deleteProcessedData,
-		}
-
-		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		slamSvc := svc.(internal.Service)
-		processCfg := slamSvc.GetSLAMProcessConfig()
-		cmd := append([]string{processCfg.Name}, processCfg.Args...)
-
-		cmdResult := [][]string{
-			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-			{"-sensors=good_color_camera"},
-			{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
-			{"-data_rate_ms=200"},
-			{"-map_rate_sec=200"},
-			{"-data_dir=" + name},
-			{"-input_file_pattern=40:200:20"},
-			{"-delete_processed_data=false"},
-			{"-port=localhost:4445"},
-			{"--aix-auto-update"},
-		}
-
-		for i, s := range cmd {
-			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
-				test.That(t, s, test.ShouldBeIn, cmdResult[i])
-			})
-		}
-
-		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	})
-
-	t.Run("Test online SLAM process with true delete_processed_data", func(t *testing.T) {
-
-		deleteProcessedData := true
-		mapRate := 200
-		dataRateMS := 200
-
-		attrCfg := &builtin.AttrConfig{
-			Sensors:             []string{"good_color_camera", "good_depth_camera"},
-			ConfigParams:        map[string]string{"mode": "rgbd"},
-			DataDirectory:       name,
-			MapRateSec:          &mapRate,
-			DataRateMs:          dataRateMS,
-			InputFilePattern:    "10:200:1",
-			Port:                "localhost:4409",
-			DeleteProcessedData: &deleteProcessedData,
-		}
-
-		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		slamSvc := svc.(internal.Service)
-		processCfg := slamSvc.GetSLAMProcessConfig()
-		cmd := append([]string{processCfg.Name}, processCfg.Args...)
-
-		cmdResult := [][]string{
-			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-			{"-sensors=good_color_camera"},
-			{"-config_param={mode=rgbd}"},
-			{"-data_rate_ms=200"},
-			{"-map_rate_sec=200"},
-			{"-data_dir=" + name},
-			{"-input_file_pattern=10:200:1"},
-			{"-delete_processed_data=true"},
-			{"-port=localhost:4409"},
-			{"--aix-auto-update"},
-		}
-
-		for i, s := range cmd {
-			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
-				test.That(t, s, test.ShouldBeIn, cmdResult[i])
-			})
-		}
-
-		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	})
-
-	t.Run("Test offline SLAM process with false delete_processed_data", func(t *testing.T) {
-
-		deleteProcessedData := false
-		mapRate := 200
-		dataRateMS := 300
-
-		attrCfg := &builtin.AttrConfig{
-			Sensors:             []string{},
-			ConfigParams:        map[string]string{"mode": "2d"},
-			DataDirectory:       name,
-			MapRateSec:          &mapRate,
-			DataRateMs:          dataRateMS,
-			InputFilePattern:    "10:200:1",
-			Port:                "localhost:4445",
-			DeleteProcessedData: &deleteProcessedData,
-		}
-
-		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		slamSvc := svc.(internal.Service)
-		processCfg := slamSvc.GetSLAMProcessConfig()
-		cmd := append([]string{processCfg.Name}, processCfg.Args...)
-
-		cmdResult := [][]string{
-			{slam.SLAMLibraries["fake_cartographer"].BinaryLocation},
-			{"-sensors="},
-			{"-config_param={mode=2d}"},
-			{"-data_rate_ms=300"},
-			{"-map_rate_sec=200"},
-			{"-data_dir=" + name},
-			{"-input_file_pattern=10:200:1"},
-			{"-delete_processed_data=false"},
-			{"-port=localhost:4445"},
-			{"--aix-auto-update"},
-		}
-
-		for i, s := range cmd {
-			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
-				test.That(t, s, test.ShouldBeIn, cmdResult[i])
-			})
-		}
-
-		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	})
-
-	t.Run("Test offline SLAM process with true delete_processed_data", func(t *testing.T) {
-
-		deleteProcessedData := true
-		mapRate := 1
-		dataRateMS := 0
-
-		attrCfg := &builtin.AttrConfig{
-			Sensors:             []string{},
-			ConfigParams:        map[string]string{"mode": "mono", "test_param": "viam"},
-			DataDirectory:       name,
-			MapRateSec:          &mapRate,
-			DataRateMs:          dataRateMS,
-			InputFilePattern:    "10:200:1",
-			Port:                "localhost:4445",
-			DeleteProcessedData: &deleteProcessedData,
-		}
-
-		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		slamSvc := svc.(internal.Service)
-		processCfg := slamSvc.GetSLAMProcessConfig()
-		cmd := append([]string{processCfg.Name}, processCfg.Args...)
-
-		cmdResult := [][]string{
-			{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-			{"-sensors="},
-			{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
-			{"-data_rate_ms=200"},
-			{"-map_rate_sec=1"},
-			{"-data_dir=" + name},
-			{"-input_file_pattern=10:200:1"},
-			{"-delete_processed_data=false"},
-			{"-port=localhost:4445"},
-			{"--aix-auto-update"},
-		}
-
-		for i, s := range cmd {
-			t.Run(fmt.Sprintf("Test command argument %v at index %v", s, i), func(t *testing.T) {
-				test.That(t, s, test.ShouldBeIn, cmdResult[i])
-			})
-		}
-
-		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	})
-
 	t.Run("Test online SLAM process with default parameters", func(t *testing.T) {
 
 		attrCfg := &builtin.AttrConfig{
@@ -1178,7 +1014,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		slamSvc := svc.(internal.Service)
+		slamSvc := svc.(testhelper.Service)
 		processCfg := slamSvc.GetSLAMProcessConfig()
 		cmd := append([]string{processCfg.Name}, processCfg.Args...)
 
@@ -1219,7 +1055,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		slamSvc := svc.(internal.Service)
+		slamSvc := svc.(testhelper.Service)
 		processCfg := slamSvc.GetSLAMProcessConfig()
 		cmd := append([]string{processCfg.Name}, processCfg.Args...)
 
@@ -1271,7 +1107,7 @@ func TestSLAMProcessFail(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	slamSvc := svc.(internal.Service)
+	slamSvc := svc.(testhelper.Service)
 
 	t.Run("Run SLAM process that errors out due to invalid binary location", func(t *testing.T) {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())

@@ -14,7 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	"go.viam.com/rdk/services/slam/internal"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -158,7 +158,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	orbslam_hangs := false
 
 	// Wait for orbslam to finish processing images
-	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader := svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
 		start_time_sent_image := time.Now()
 		t.Logf("Find log line for image %v", i)
@@ -220,7 +220,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		lastFileName := files[len(files)-1].Name()
 		test.That(t, os.Remove(name+"/data/"+directoryName+lastFileName), test.ShouldBeNil)
 	}
-	prevNumFiles -=1
+	prevNumFiles -= 1
 
 	// Remove any maps
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
@@ -256,7 +256,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -339,7 +339,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)

@@ -13,7 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	"go.viam.com/rdk/services/slam/internal"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -43,7 +43,7 @@ func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
-func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
+func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	_, err := exec.LookPath("carto_grpc_server")
 	if err != nil {
 		t.Log("Skipping test because carto_grpc_server binary was not found")
@@ -80,7 +80,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
 	// Wait for cartographer to finish processing data
-	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader := svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
 		cartographerIntLidarReleasePointCloudChan <- 1
@@ -137,7 +137,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Wait for cartographer to finish processing data
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -192,7 +192,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -258,7 +258,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -304,5 +304,5 @@ func testCartographerDir(t *testing.T, path string, expectedMaps int) {
 }
 
 func TestCartographerIntegration2D(t *testing.T) {
-	integrationTestHelperCartographer(t, slam.Dim2d)
+	integrationtestHelperCartographer(t, slam.Dim2d)
 }

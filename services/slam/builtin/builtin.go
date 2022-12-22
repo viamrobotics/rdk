@@ -39,6 +39,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
+	slamConfig "go.viam.com/rdk/services/slam/internal/config"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -539,16 +540,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		mapRate = *svcConfig.MapRateSec
 	}
 
-	var deleteProcessedData bool
-	if svcConfig.DeleteProcessedData == nil {
-		deleteProcessedData = !offlineFlag
-	} else {
-		deleteProcessedData = *svcConfig.DeleteProcessedData
-		if offlineFlag && deleteProcessedData {
-			logger.Debug("a value of true cannot be given for delete_processed_data when in offline mode, setting to false")
-			deleteProcessedData = false
-		}
-	}
+	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, offlineFlag)
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
 	for _, cam := range cams {
