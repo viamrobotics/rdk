@@ -285,9 +285,15 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 			}
 			rr, ok := iface.(robot.Robot)
 			if !ok {
-				manager.logger.Errorw("remote robot doesn't implement the robot interface",
-					"remote", k,
-					"type", iface)
+				if _, ok := iface.(*resourcePlaceholder); !ok {
+					manager.logger.Debugw(
+						"remote does not implement robot interface and is not a resource placeholder",
+						"remote",
+						k.Name,
+						"type",
+						reflect.TypeOf(iface),
+					)
+				}
 				continue
 			}
 			manager.mergeResourceRPCSubtypesWithRemote(rr, types)
