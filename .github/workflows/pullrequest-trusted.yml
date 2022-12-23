@@ -19,9 +19,9 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' || 
       (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
-    secrets:
-      MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+    steps:
+      -name: one
+        run: exit 1
 
   slam_integration_test:
     if: |
@@ -30,12 +30,12 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
 
   appimage_test_passing:
-    name: All Tests Passing
+    name: Appimage tests passing
     needs: [test]
     runs-on: [x64, qemu-host]
     if: always()
     steps:
-      - name: Ignore Results for Appimage
+      - name: Check Test Results for Appimage
         if: |
           ${{ failure() }} &&
           !(contains(github.event.pull_request.labels.*.name, 'safe to test')) &&
