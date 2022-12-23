@@ -63,8 +63,9 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
-			"mode": reflect.ValueOf(mode).String(),
-			"v":    "1",
+			"mode":  reflect.ValueOf(mode).String(),
+			"v":     "1",
+			"debug": "true",
 		},
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
@@ -187,7 +188,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Release point cloud for service validation
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Create slam service using a real cartogapher binary
+	// Create slam service using a real cartographer binary
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 

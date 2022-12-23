@@ -1,4 +1,4 @@
-// Package config implements functions to assist with attribute evaluation in the slam service and i ntesting
+// Package config implements functions to assist with attribute evaluation in the slam service and in testing
 package config
 
 import (

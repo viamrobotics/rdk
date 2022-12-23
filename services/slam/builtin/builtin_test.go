@@ -1214,8 +1214,8 @@ func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int
 	return numFiles
 }
 
-// Compares the number of files found in a specified data directory with the preivous number found and uses
-// the online state and delete_processed_data value to evalaute this comparison.
+// Compares the number of files found in a specified data directory with the previous number found and uses
+// the online state and delete_processed_data value to evaluate this comparison.
 func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_processed_data, online bool) (int, error) {
 
 	files, err := ioutil.ReadDir(dir)
@@ -1231,7 +1231,7 @@ func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_pro
 		test.That(t, prev, test.ShouldBeLessThan, len(files))
 	}
 	if delete_processed_data && !online {
-		return 0, errors.New("the delete_processed_data value cannot be true when runing SLAM in offline mode")
+		return 0, errors.New("the delete_processed_data value cannot be true when running SLAM in offline mode")
 	}
 	if !delete_processed_data && !online {
 		test.That(t, prev, test.ShouldEqual, len(files))
