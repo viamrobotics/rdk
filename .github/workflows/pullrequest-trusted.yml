@@ -6,7 +6,7 @@ concurrency:
 
 on:
   workflow_dispatch:
-  pull_request:
+  pull_requestZ:
     branches: [ 'main' ]
     types: [ labeled ]
 
@@ -16,9 +16,10 @@ on:
 
 jobs:
   test:
+    runs-on: [x64, qemu-host]
     if: |
       github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+      (github.event_name == 'pull_requestZ' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
     steps:
       - name: one
         run: exit 1
@@ -26,7 +27,7 @@ jobs:
   slam_integration_test:
     if: |
       github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+      (github.event_name == 'pull_requestZ' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
     uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
 
   appimage_test_passing:
@@ -48,7 +49,7 @@ jobs:
     needs: appimage_test_passing
     if: |
       contains(github.event.pull_request.labels.*.name, 'appimage') && (github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test')))
+      (github.event_name == 'pull_requestZ' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test')))
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
