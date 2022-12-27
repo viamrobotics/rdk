@@ -70,7 +70,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 				return err
 			}
 			golog.Global().Debug(errors.Wrap(err, "Module config error, starting robot without remote: "+c.Modules[idx].Name))
-
 		}
 	}
 
