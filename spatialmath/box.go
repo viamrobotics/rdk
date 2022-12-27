@@ -457,7 +457,8 @@ func transformPointsToPose(points [][]float64, pose Pose) []r3.Vector {
 		vec := r3.Vector{
 			actual[0] + translateBy[0],
 			actual[1] + translateBy[1],
-			actual[2] + translateBy[2]}
+			actual[2] + translateBy[2],
+		}
 		myList = append(myList, vec)
 	}
 	return myList
