@@ -116,6 +116,7 @@ var exemptFromSession = map[string]bool{
 	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
 	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
 	"/proto.rpc.v1.AuthService/Authenticate":                         true,
+	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
 	"/viam.robot.v1.RobotService/ResourceNames":                      true,
 	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":                true,
 	"/viam.robot.v1.RobotService/StartSession":                       true,

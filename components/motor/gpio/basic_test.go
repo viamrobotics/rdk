@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/config"
 )
 
 const maxRPM = 100
@@ -22,10 +23,14 @@ func TestMotorABPWM(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
+	mc := config.Component{
+		Name: "abc",
+	}
+
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
 		m, err := NewMotor(b, Config{
 			Pins: PinConfig{A: "1", B: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000,
-		}, logger)
+		}, mc.Name, logger)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
@@ -33,7 +38,7 @@ func TestMotorABPWM(t *testing.T) {
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{A: "1", B: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
-	}, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B/PWM) Off testing", func(t *testing.T) {
@@ -133,8 +138,13 @@ func TestMotorDirPWM(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
+	mc := config.Component{
+		Name: "fake_motor",
+	}
+
 	t.Run("motor (DIR/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000}, logger)
+		m, err := NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000},
+			mc.Name, logger)
 
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
@@ -142,7 +152,7 @@ func TestMotorDirPWM(t *testing.T) {
 		_, err = NewMotor(
 			b,
 			Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
-			logger,
+			mc.Name, logger,
 		)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
@@ -150,7 +160,7 @@ func TestMotorDirPWM(t *testing.T) {
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
-	}, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (DIR/PWM) Off testing", func(t *testing.T) {
@@ -211,11 +221,14 @@ func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
+	mc := config.Component{
+		Name: "fake_motor",
+	}
 
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{A: "1", B: "2", EnablePinLow: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
-	}, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B) On testing", func(t *testing.T) {
@@ -281,15 +294,27 @@ func TestMotorABNoEncoder(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
+	mc := config.Component{
+		Name: "fake_motor",
+	}
 
 	m, err := NewMotor(b, Config{
 		Pins:    PinConfig{A: "1", B: "2", EnablePinLow: "3"},
 		PWMFreq: 4000,
-	}, logger)
+	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor no encoder GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
+	})
+
+	t.Run("motor no encoder GoTo testing", func(t *testing.T) {
+		test.That(t, m.GoTo(ctx, 50, 10, nil), test.ShouldBeError, errors.New("motor with name fake_motor does not support GoTo"))
+	})
+
+	t.Run("motor no encoder ResetZeroPosition testing", func(t *testing.T) {
+		test.That(t, m.ResetZeroPosition(ctx, 5.0001, nil), test.ShouldBeError,
+			errors.New("motor with name fake_motor does not support ResetZeroPosition"))
 	})
 }
 
