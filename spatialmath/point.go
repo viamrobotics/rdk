@@ -29,7 +29,7 @@ func NewPointCreator(offset Pose, label string) GeometryCreator {
 
 // NewGeometry instantiates a new point from a PointCreator class.
 func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
-	return &point{pose.Point(), pc.label}
+	return &point{Compose(pc.offset, pose).Point(), pc.label}
 }
 
 func (pc *pointCreator) Offset() Pose {
