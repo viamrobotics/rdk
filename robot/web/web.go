@@ -377,7 +377,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		defer utils.UncheckedErrorFunc(func() error { return os.Remove(addr) })
-		svc.logger.Debugw("module server listening at ", lis.Addr())
+		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
 		if err := svc.modServer.Serve(lis); err != nil {
 			svc.logger.Errorw("failed to serve module service", "error", err)

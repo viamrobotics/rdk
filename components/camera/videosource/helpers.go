@@ -18,10 +18,8 @@ import (
 
 // getMIMETypeFromData uses context to determine a MIME type requested by a parent
 // process and attempts to detect the MIME type of the data from its header.
-// If there was a MIME type requested that requires returning a LazyEncodedImage,
-// it ensures that it matches the one deduced from the data before
-// returning the requested MIME type. If no MIME type has been requested or
-// there is a mismatch, it returns the one detected by http.DetectContentType.
+// If no MIME type has been requested or there is a mismatch, it returns the one
+// detected by http.DetectContentType.
 func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
@@ -40,12 +38,6 @@ func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 				"attempted to decode raw rgba data, but data was not encoded with the expected header format")
 		}
 	} else if (actualMime != "") && (actualMime != detectedMimeType) {
-		if isLazy {
-			return "", errors.Errorf(
-				"mime type requested (%q) for lazy decode not returned (got %q)",
-				actualMime, detectedMimeType,
-			)
-		}
 		golog.Global().Debugf(
 			"mime type requested %s for decode was not detected format %s,"+
 				" using detected format", actualMime, detectedMimeType,
@@ -59,7 +51,7 @@ func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 			"no MIME type specified, defaulting to detected type %s", detectedMimeType)
 	}
 	if isLazy {
-		return requestedMime, nil
+		return utils.WithLazyMIMEType(detectedMimeType), nil
 	}
 	return detectedMimeType, nil
 }

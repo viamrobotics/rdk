@@ -213,94 +213,181 @@ func main() {
 			},
 			{
 				Name:  "data",
-				Usage: "download data from Viam cloud",
-				UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
-					dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-					dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
-					dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads),
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     dataFlagDestination,
-						Required: true,
-						Usage:    "output directory for downloaded data",
+				Usage: "work with data",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "export",
+						Usage: "download data from Viam cloud",
+						UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads),
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     dataFlagDestination,
+								Required: true,
+								Usage:    "output directory for downloaded data",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagDataType,
+								Required: true,
+								Usage:    "data type to be downloaded: either binary or tabular",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagOrgIDs,
+								Required: false,
+								Usage:    "orgs filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagLocationIDs,
+								Required: false,
+								Usage:    "locations filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagRobotID,
+								Required: false,
+								Usage:    "robot_id filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagPartID,
+								Required: false,
+								Usage:    "part_id filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagRobotName,
+								Required: false,
+								Usage:    "robot_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagPartName,
+								Required: false,
+								Usage:    "part_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentType,
+								Required: false,
+								Usage:    "component_type filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentModel,
+								Required: false,
+								Usage:    "component_model filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentName,
+								Required: false,
+								Usage:    "component_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagMethod,
+								Required: false,
+								Usage:    "method filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagMimeTypes,
+								Required: false,
+								Usage:    "mime_types filter",
+							},
+							&cli.UintFlag{
+								Name:     dataFlagParallelDownloads,
+								Required: false,
+								Usage:    "number of download requests to make in parallel, with a default value of 10",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagStart,
+								Required: false,
+								Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagEnd,
+								Required: false,
+								Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+							},
+						},
+						Action: DataCommand,
 					},
-					&cli.StringFlag{
-						Name:     dataFlagDataType,
-						Required: true,
-						Usage:    "data type to be downloaded: either binary or tabular",
-					},
-					&cli.StringSliceFlag{
-						Name:     dataFlagOrgIDs,
-						Required: false,
-						Usage:    "orgs filter",
-					},
-					&cli.StringSliceFlag{
-						Name:     dataFlagLocationIDs,
-						Required: false,
-						Usage:    "locations filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagRobotID,
-						Required: false,
-						Usage:    "robot_id filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagPartID,
-						Required: false,
-						Usage:    "part_id filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagRobotName,
-						Required: false,
-						Usage:    "robot_name filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagPartName,
-						Required: false,
-						Usage:    "part_name filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagComponentType,
-						Required: false,
-						Usage:    "component_type filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagComponentModel,
-						Required: false,
-						Usage:    "component_model filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagComponentName,
-						Required: false,
-						Usage:    "component_name filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagMethod,
-						Required: false,
-						Usage:    "method filter",
-					},
-					&cli.StringSliceFlag{
-						Name:     dataFlagMimeTypes,
-						Required: false,
-						Usage:    "mime_types filter",
-					},
-					&cli.UintFlag{
-						Name:     dataFlagParallelDownloads,
-						Required: false,
-						Usage:    "number of download requests to make in parallel, with a default value of 10",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagStart,
-						Required: false,
-						Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
-					},
-					&cli.StringFlag{
-						Name:     dataFlagEnd,
-						Required: false,
-						Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+					{
+						Name:  "delete",
+						Usage: "delete data from Viam cloud",
+						UsageText: fmt.Sprintf("viam data [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+							dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     dataFlagDataType,
+								Required: false,
+								Usage:    "data type to be deleted: either binary or tabular",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagOrgIDs,
+								Required: false,
+								Usage:    "orgs filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagLocationIDs,
+								Required: false,
+								Usage:    "locations filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagRobotID,
+								Required: false,
+								Usage:    "robot_id filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagPartID,
+								Required: false,
+								Usage:    "part_id filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagRobotName,
+								Required: false,
+								Usage:    "robot_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagPartName,
+								Required: false,
+								Usage:    "part_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentType,
+								Required: false,
+								Usage:    "component_type filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentModel,
+								Required: false,
+								Usage:    "component_model filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentName,
+								Required: false,
+								Usage:    "component_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagMethod,
+								Required: false,
+								Usage:    "method filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagMimeTypes,
+								Required: false,
+								Usage:    "mime_types filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagStart,
+								Required: false,
+								Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagEnd,
+								Required: false,
+								Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+							},
+						},
+						Action: DeleteCommand,
 					},
 				},
-				Action: DataCommand,
 			},
 			{
 				Name:  "robots",
@@ -707,11 +794,62 @@ func main() {
 
 // DataCommand runs the data command for downloading data from the Viam cloud.
 func DataCommand(c *cli.Context) error {
-	if c.String(dataFlagDataType) != dataTypeBinary && c.String(dataFlagDataType) != dataTypeTabular {
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+
+	client, err := rdkcli.NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	switch c.String(dataFlagDataType) {
+	case dataTypeBinary:
+		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
+			return err
+		}
+	case dataTypeTabular:
+		if err := client.TabularData(c.String(dataFlagDestination), filter); err != nil {
+			return err
+		}
+	default:
+		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
+	}
+	return nil
+}
+
+// DeleteCommand runs the command for deleting data from the Viam cloud.
+func DeleteCommand(c *cli.Context) error {
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+
+	client, err := rdkcli.NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	switch c.String(dataFlagDataType) {
+	case dataTypeBinary:
+		if err := client.DeleteBinaryData(filter); err != nil {
+			return err
+		}
+	case dataTypeTabular:
+		if err := client.DeleteTabularData(filter); err != nil {
+			return err
+		}
+	default:
 		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
 	}
 
+	return nil
+}
+
+func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	filter := &datapb.Filter{}
+
 	if c.StringSlice(dataFlagOrgIDs) != nil {
 		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
 	}
@@ -752,14 +890,14 @@ func DataCommand(c *cli.Context) error {
 	if c.String(dataFlagStart) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
 		if err != nil {
-			return errors.Wrap(err, "error parsing start flag")
+			return nil, errors.Wrap(err, "error parsing start flag")
 		}
 		start = timestamppb.New(t)
 	}
 	if c.String(dataFlagEnd) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
 		if err != nil {
-			return errors.Wrap(err, "error parsing end flag")
+			return nil, errors.Wrap(err, "error parsing end flag")
 		}
 		end = timestamppb.New(t)
 	}
@@ -769,25 +907,5 @@ func DataCommand(c *cli.Context) error {
 			End:   end,
 		}
 	}
-
-	client, err := rdkcli.NewAppClient(c)
-	if err != nil {
-		return err
-	}
-
-	dataType := c.String(dataFlagDataType)
-	switch dataType {
-	case dataTypeBinary:
-		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		if err := client.TabularData(c.String(dataFlagDestination), filter); err != nil {
-			return err
-		}
-	default:
-		return errors.Errorf("invalid data type %s", dataType)
-	}
-
-	return nil
+	return filter, nil
 }
