@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -121,12 +123,14 @@ var testService = Service{
 }
 
 var testProcessConfig = pexec.ProcessConfig{
-	ID:      "Some-id",
-	Name:    "Some-name",
-	Args:    []string{"arg1", "arg2"},
-	CWD:     "/home",
-	OneShot: true,
-	Log:     true,
+	ID:          "Some-id",
+	Name:        "Some-name",
+	Args:        []string{"arg1", "arg2"},
+	CWD:         "/home",
+	OneShot:     true,
+	Log:         true,
+	StopSignal:  syscall.SIGINT,
+	StopTimeout: time.Second,
 }
 
 var testNetworkConfig = NetworkConfig{
