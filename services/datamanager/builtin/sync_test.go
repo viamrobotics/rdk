@@ -127,10 +127,9 @@ func TestSyncEnabled(t *testing.T) {
 
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUpload(t *testing.T) {
-	datacapture.MaxFileSize = 600
-	// MaxFileSize of 600 => Should be 3 tabular readings per file/UR, because the SensorReadings are ~230 bytes each,
-	// and the we start writing to a new file once the existing file size is > MaxFileSize.
-	sensorDataPerUploadRequest := 3.0
+	datacapture.MaxFileSize = 500
+	// MaxFileSize of 500 => Should be 2 tabular readings per file/UR, because the SensorReadings are ~230 bytes each
+	sensorDataPerUploadRequest := 2.0
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
