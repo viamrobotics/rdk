@@ -354,6 +354,10 @@ func (r *rtkStation) LinearVelocity(ctx context.Context, extra map[string]interf
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
+func (r *rtkStation) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
+
 func (r *rtkStation) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }

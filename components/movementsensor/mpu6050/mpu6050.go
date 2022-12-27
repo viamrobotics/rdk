@@ -283,6 +283,10 @@ func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interfa
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
+func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
+
 func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }

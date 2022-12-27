@@ -85,8 +85,9 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitide (mm)
-	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // mm / sec
+	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) // (lat, long), altitide (mm)
+	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)     // mm / sec
+	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // radians / sec
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error)                      // [0->360)
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
@@ -162,6 +163,11 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 	}
 	readings["linear_velocity"] = vel
 
+	la, err := g.LinearAcceleration(ctx, extra)
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedLinearAcceleration) {
+		return nil, err
+	}
+	readings["linear_acceleration"] = la
 	avel, err := g.AngularVelocity(ctx, extra)
 	if err != nil && !errors.Is(err, ErrMethodUnimplementedAngularVelocity) {
 		return nil, err
@@ -230,6 +236,12 @@ func (r *reconfigurableMovementSensor) LinearVelocity(ctx context.Context, extra
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.LinearVelocity(ctx, extra)
+}
+
+func (r *reconfigurableMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.LinearAcceleration(ctx, extra)
 }
 
 func (r *reconfigurableMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
