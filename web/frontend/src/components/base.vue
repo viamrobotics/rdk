@@ -1,7 +1,8 @@
 <script setup lang="ts">
 
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Client, type ServiceError, BaseClient, commonApi } from '@viamrobotics/sdk';
+import { Client, BaseClient, commonApi, StreamClient } from '@viamrobotics/sdk';
+import type { ServiceError } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -192,12 +193,13 @@ const baseRun = async () => {
 };
 
 const viewPreviewCamera = (values: string) => {
+  const streams = new StreamClient(props.client);
   for (const [key] of baseStreamStates) {
     if (values.split(',').includes(key)) {
       try {
         // Only add stream if other components have not already
         if (!cameraStreamStates.get(key) && !baseStreamStates.get(key)) {
-          addStream(props.client, key);
+          streams.add(key);
         }
       } catch (error) {
         displayError(error as ServiceError);
@@ -207,7 +209,7 @@ const viewPreviewCamera = (values: string) => {
       try {
         // Only remove stream if other components are not using the stream
         if (!cameraStreamStates.get(key)) {
-          removeStream(props.client, key);
+          streams.remove(key);
         }
       } catch (error) {
         displayError(error as ServiceError);
