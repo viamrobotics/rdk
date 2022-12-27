@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// box density corresponding to how many points per mm
 const defaultBoxPointDensity = .5
 
 // BoxCreator implements the GeometryCreator interface for box structs.
