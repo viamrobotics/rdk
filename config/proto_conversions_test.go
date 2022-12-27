@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -121,12 +123,14 @@ var testService = Service{
 }
 
 var testProcessConfig = pexec.ProcessConfig{
-	ID:      "Some-id",
-	Name:    "Some-name",
-	Args:    []string{"arg1", "arg2"},
-	CWD:     "/home",
-	OneShot: true,
-	Log:     true,
+	ID:          "Some-id",
+	Name:        "Some-name",
+	Args:        []string{"arg1", "arg2"},
+	CWD:         "/home",
+	OneShot:     true,
+	Log:         true,
+	StopSignal:  syscall.SIGINT,
+	StopTimeout: time.Second,
 }
 
 var testNetworkConfig = NetworkConfig{
@@ -280,9 +284,10 @@ func TestComponentConfigToProto(t *testing.T) {
 
 func TestComponentTripletsFallback(t *testing.T) {
 	for _, tc := range []struct {
-		Name  string
-		Proto pb.ComponentConfig
-		Conf  Component
+		Name            string
+		Proto           pb.ComponentConfig
+		Conf            Component
+		ValidationError string
 	}{
 		{
 			Name: "basic component with internal API",
@@ -343,18 +348,45 @@ func TestComponentTripletsFallback(t *testing.T) {
 				Model:     resource.NewModel("acme", "test", "model"),
 			},
 		},
+		{
+			Name: "empty model",
+			Proto: pb.ComponentConfig{
+				Name: "foo",
+				Api:  "acme:component:gizmo",
+			},
+			Conf: Component{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.NewDefaultModel(""),
+			},
+			ValidationError: "name field for model missing",
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			out, err := ComponentConfigFromProto(&tc.Proto)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
 			_, err = tc.Conf.Validate("test")
-			test.That(t, err, test.ShouldBeNil)
+
+			if tc.ValidationError != "" {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.ValidationError)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			_, err = out.Validate("test")
+			if tc.ValidationError != "" {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.ValidationError)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+
 			test.That(t, out, test.ShouldResemble, &tc.Conf)
 			test.That(t, out.API.Namespace, test.ShouldEqual, out.Namespace)
 			test.That(t, out.API.ResourceSubtype, test.ShouldEqual, out.Type)
-			_, err = out.Validate("test")
-			test.That(t, err, test.ShouldBeNil)
 		})
 	}
 }
@@ -563,18 +595,60 @@ func TestServiceConfigToProto(t *testing.T) {
 				Model:     resource.NewModel("acme", "test", "model"),
 			},
 		},
+		{
+			Name: "empty model name",
+			Conf: Service{
+				Name:      "foo",
+				Namespace: "acme",
+				Type:      "gizmo",
+				Model:     resource.Model{},
+			},
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			proto, err := ServiceConfigToProto(&tc.Conf)
 			test.That(t, err, test.ShouldBeNil)
+
 			out, err := ServiceConfigFromProto(proto)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
+
 			test.That(t, out, test.ShouldResemble, &tc.Conf)
 			_, err = out.Validate("test")
 			test.That(t, err, test.ShouldBeNil)
 		})
 	}
+}
+
+func TestServiceConfigWithEmptyModelName(t *testing.T) {
+	servicesConfigJSON := `
+	{
+		"type": "base_remote_control",
+		"attributes": {},
+		"depends_on": [],
+		"name": "base_rc"
+	}`
+
+	var fromJSON Service
+	err := json.Unmarshal([]byte(servicesConfigJSON), &fromJSON)
+	test.That(t, err, test.ShouldBeNil)
+
+	// should have an empty model
+	test.That(t, fromJSON.Model, test.ShouldResemble, resource.Model{})
+
+	proto, err := ServiceConfigToProto(&fromJSON)
+	test.That(t, err, test.ShouldBeNil)
+
+	out, err := ServiceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	test.That(t, out.Model, test.ShouldResemble, fromJSON.Model)
+	test.That(t, out.Model.Validate().Error(), test.ShouldContainSubstring, "namespace field for model missing")
+
+	// will override the model family/namespace with the builtins.
+	_, err = out.Validate("...")
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestServiceTripletsFallback(t *testing.T) {

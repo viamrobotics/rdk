@@ -198,30 +198,28 @@ const baseRun = () => {
   }
 };
 
-const viewPreviewCamera = (name: string) => {
-  for (const [key, value] of baseStreamStates) {
-    // Only turn on if state is off
-    if (name.includes(key) && value === false) {
-      baseStreamStates.set(key, true);
+const viewPreviewCamera = (values: string) => {
+  for (const [key] of baseStreamStates) {
+    if (values.split(',').includes(key)) {
       try {
         // Only add stream if other components have not already
-        if (!cameraStreamStates.get(name)) {
+        if (!cameraStreamStates.get(key) && !baseStreamStates.get(key)) {
           addStream(props.client, key);
         }
       } catch (error) {
         displayError(error as ServiceError);
       }
-    // Only turn off if state is on
-    } else if (!name.includes(key) && value === true) {
-      baseStreamStates.set(key, false);
+      baseStreamStates.set(key, true);
+    } else if (baseStreamStates.get(key) === true) {
       try {
         // Only remove stream if other components are not using the stream
-        if (!cameraStreamStates.get(name)) {
+        if (!cameraStreamStates.get(key)) {
           removeStream(props.client, key);
         }
       } catch (error) {
         displayError(error as ServiceError);
       }
+      baseStreamStates.set(key, false);
     }
   }
 };
@@ -296,10 +294,10 @@ onUnmounted(() => {
             @toggle="(active: boolean) => { !active && (pressed.size > 0 || !stopped) && stop() }"
           />
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
-            <v-select
+            <v-multiselect
               v-model="selectCameras"
               class="mb-4"
-              variant="multiple"
+              clearable="false"
               placeholder="Select Cameras"
               aria-label="Select Cameras"
               :options="
