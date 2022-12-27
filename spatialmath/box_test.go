@@ -53,77 +53,74 @@ func TestBoxVertices(t *testing.T) {
 }
 
 func TestBoxPC(t *testing.T) {
-	offset1 := r3.Vector{0, 0, 0}
+	offset1 := r3.Vector{2, 2, 0}
 	dims1 := r3.Vector{2, 2, 2}
-	orien1 := &Quaternion{1, 1, 1, 0}
+	orien1 := &Quaternion{1, 1, 0, 0}
 	pose1 := NewPoseFromOrientation(offset1, orien1)
 	box1 := &box{pose1, [3]float64{0.5 * dims1.X, 0.5 * dims1.Y, 0.5 * dims1.Z}, 10, ""} // with abitrary radius bounding sphere
-	myMap1 := make(map[string]interface{})
-	myMap1["resolution"] = 1. // using custom point density
-	output1 := box1.ToPointCloud(myMap1)
+	customDensity := 1.
+	output1 := box1.ToPointCloud(customDensity)
 	checkAgainst1 := []r3.Vector{
-		{0, 1, 1},
-		{0, -1, -1},
-		{1, 0, 2},
-		{-1, 2, 0},
-		{-1, 0, -2},
-		{1, -2, 0},
-		{1, 1, 0},
-		{-1, 1, 2},
-		{-1, -1, 0},
-		{1, -1, -2},
-		{2, 0, 1},
-		{0, 2, -1},
-		{0, 0, 3},
-		{-2, 2, 1},
-		{-2, 0, -1},
-		{0, -2, 1},
-		{0, 0, -3},
-		{2, -2, -1},
-		{1, 0, -1},
-		{-1, 0, 1},
-		{2, -1, 0},
-		{0, 1, -2},
-		{0, -1, 2},
-		{-2, 1, 0},
-		{1, -1, 1},
-		{-1, 1, -1},
+		r3.Vector{4, 3, -2},
+		r3.Vector{4, 5, 2},
+		r3.Vector{4, 5, -3},
+		r3.Vector{4, 1, -1},
+		r3.Vector{4, 3, 3},
+		r3.Vector{4, 7, 1},
+		r3.Vector{5, 3, -2},
+		r3.Vector{3, 3, -2},
+		r3.Vector{3, 5, 2},
+		r3.Vector{5, 5, 2},
+		r3.Vector{5, 5, -3},
+		r3.Vector{5, 1, -1},
+		r3.Vector{3, 5, -3},
+		r3.Vector{3, 1, -1},
+		r3.Vector{3, 3, 3},
+		r3.Vector{3, 7, 1},
+		r3.Vector{5, 3, 3},
+		r3.Vector{5, 7, 1},
+		r3.Vector{5, 4, 0},
+		r3.Vector{3, 4, 0},
+		r3.Vector{5, 6, -1},
+		r3.Vector{5, 2, 1},
+		r3.Vector{3, 6, -1},
+		r3.Vector{3, 2, 1},
+		r3.Vector{4, 6, -1},
+		r3.Vector{4, 2, 1},
 	}
 	for i, v := range output1 {
 		test.That(t, R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
 	}
 
-	offset2 := r3.Vector{0, 0, 0}
+	offset2 := r3.Vector{2, 2, 2}
 	dims2 := r3.Vector{1, 1.5, 4}
 	orien2 := &Quaternion{1, 0, 1, 0}
 	pose2 := NewPoseFromOrientation(offset2, orien2)
 	box2 := &box{pose2, [3]float64{0.5 * dims2.X, 0.5 * dims2.Y, 0.5 * dims2.Z}, 10, ""} // with abitrary radius bounding sphere
-	myMap2 := make(map[string]interface{})
-	myMap2["resolution"] = 1. // using custom point density
-	output2 := box2.ToPointCloud(myMap2)
+	output2 := box2.ToPointCloud(customDensity)
 	checkAgainst2 := []r3.Vector{
-		{0, 0.75, 0},
-		{0, -0.75, 0},
-		{1, 0.75, 1},
-		{-1, 0.75, -1},
-		{-1, -0.75, -1},
-		{1, -0.75, 1},
-		{2, 0.75, 2},
-		{-2, 0.75, -2},
-		{-2, -0.75, -2},
-		{2, -0.75, 2},
-		{0.5, 0, -0.5},
-		{-0.5, 0, 0.5},
-		{1.5, 0, 0.5},
-		{-0.5, 0, -1.5},
-		{0.5, 0, 1.5},
-		{-1.5, 0, -0.5},
-		{2.5, 0, 1.5},
-		{-1.5, 0, -2.5},
-		{1.5, 0, 2.5},
-		{-2.5, 0, -1.5},
-		{2, 0, 2},
-		{-2, 0, -2},
+		r3.Vector{4, 4.75, 4},
+		r3.Vector{4, 3.25, 4},
+		r3.Vector{2, 4.75, 3},
+		r3.Vector{6, 4.75, 5},
+		r3.Vector{6, 3.25, 5},
+		r3.Vector{2, 3.25, 3},
+		r3.Vector{0, 4.75, 2},
+		r3.Vector{8, 4.75, 6},
+		r3.Vector{8, 3.25, 6},
+		r3.Vector{0, 3.25, 2},
+		r3.Vector{3.5, 4, 5},
+		r3.Vector{4.5, 4, 3},
+		r3.Vector{1.5, 4, 4},
+		r3.Vector{5.5, 4, 6},
+		r3.Vector{2.5, 4, 2},
+		r3.Vector{6.5, 4, 4},
+		r3.Vector{-0.5, 4, 3},
+		r3.Vector{7.5, 4, 7},
+		r3.Vector{0.5, 4, 1},
+		r3.Vector{8.5, 4, 5},
+		r3.Vector{0, 4, 2},
+		r3.Vector{8, 4, 6},
 	}
 	for i, v := range output2 {
 		test.That(t, R3VectorAlmostEqual(v, checkAgainst2[i], 1e-2), test.ShouldBeTrue)

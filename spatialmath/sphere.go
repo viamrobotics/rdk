@@ -11,6 +11,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// add comment explaning what this is
+const defaultTotalSpherePoints = 100
+
 // SphereCreator implements the GeometryCreator interface for sphere structs.
 type sphereCreator struct {
 	radius float64
@@ -31,12 +34,12 @@ func NewSphereCreator(radius float64, offset Pose, label string) (GeometryCreato
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphereCreator{radius, pointCreator{offset.Point(), label}, label}, nil
+	return &sphereCreator{radius, pointCreator{offset, label}, label}, nil
 }
 
 // NewGeometry instantiates a new sphere from a SphereCreator class.
 func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
-	return &sphere{Compose(NewPoseFromPoint(sc.offset), pose), sc.radius, sc.label}
+	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
 }
 
 // String returns a human readable string that represents the sphereCreator.
@@ -130,7 +133,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose) <= CollisionBuffer, nil
+		return sphereVsPointDistance(s, other.position) <= CollisionBuffer, nil
 	}
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
@@ -144,7 +147,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsSphereDistance(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose), nil
+		return sphereVsPointDistance(s, other.position), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
@@ -202,27 +205,27 @@ func sphereInBox(s *sphere, b *box) bool {
 }
 
 // ToPointCloud converts a sphere geometry into []r3.Vector.
-func (s *sphere) ToPointCloud(options map[string]interface{}) []r3.Vector {
+func (s *sphere) ToPointCloud(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
-	if options["resolution"] != nil {
-		iter = options["resolution"].(float64)
+	if resolution != 0. {
+		iter = resolution
 	} else {
-		iter = 100 // default spacing
+		iter = defaultTotalSpherePoints // default spacing
 	}
 	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
-	nums := iter * s.radius
-	phi := math.Pi * (3.0 - math.Sqrt(5.0))
-	var vecList []r3.Vector
+	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
+	nums := iter * s.radius * s.radius
+	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
+	var vecList [][]float64
 	for i := 0.; i < nums; i++ {
-		y := 1 - (i/(nums-1))*2
-		radius := math.Sqrt(1 - y*y)
-		theta := phi * i
+		y := 1 - (i/(nums-1))*2      // y goes from 1 to -1
+		radius := math.Sqrt(1 - y*y) // radius at y
+		theta := phi * i             // golden angle increment
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
-		myVec := r3.Vector{x, y * s.radius, z}
+		myVec := []float64{x, y * s.radius, z}
 		vecList = append(vecList, myVec)
 	}
-	myList := transformPointsToPose(vecList, s.Pose())
-	return myList
+	return transformPointsToPose(vecList, s.Pose())
 }

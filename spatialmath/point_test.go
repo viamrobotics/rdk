@@ -16,7 +16,7 @@ func TestNewPoint(t *testing.T) {
 	test.That(t, geometry, test.ShouldResemble, &point{offset.Point(), ""})
 
 	// test sphere created from GeometryCreator with offset
-	geometry = NewPointCreator(offset.Point(), "").NewGeometry(PoseInverse(offset))
+	geometry = NewPointCreator(offset, "").NewGeometry(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
