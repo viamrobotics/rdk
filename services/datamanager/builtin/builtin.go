@@ -156,9 +156,6 @@ func (svc *builtIn) Close(_ context.Context) error {
 	svc.cancelSyncScheduler()
 
 	svc.lock.Unlock()
-	if err := svc.logger.Sync(); err != nil {
-		return err
-	}
 	svc.backgroundWorkers.Wait()
 	return nil
 }
