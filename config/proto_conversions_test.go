@@ -180,11 +180,13 @@ var testModule = Module{
 	ExePath: "/tmp/test.mod",
 }
 
-var testInvalidModule = Module{}
-var testInvalidComponent = Component{}
-var testInvalidRemote = Remote{}
-var testInvalidProcessConfig = pexec.ProcessConfig{}
-var testInvalidService = Service{}
+var (
+	testInvalidModule        = Module{}
+	testInvalidComponent     = Component{}
+	testInvalidRemote        = Remote{}
+	testInvalidProcessConfig = pexec.ProcessConfig{}
+	testInvalidService       = Service{}
+)
 
 //nolint:thelper
 func validateModule(t *testing.T, actual, expected Module) {
