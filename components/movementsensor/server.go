@@ -69,6 +69,23 @@ func (s *subtypeServer) GetLinearVelocity(
 	}, nil
 }
 
+func (s *subtypeServer) GetLinearAcceleration(
+	ctx context.Context,
+	req *pb.GetLinearAccelerationRequest,
+) (*pb.GetLinearAccelerationResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	la, err := msDevice.LinearAcceleration(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetLinearAccelerationResponse{
+		LinearAcceleration: protoutils.ConvertVectorR3ToProto(la),
+	}, nil
+}
+
 func (s *subtypeServer) GetAngularVelocity(
 	ctx context.Context,
 	req *pb.GetAngularVelocityRequest,

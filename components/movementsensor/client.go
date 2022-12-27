@@ -70,6 +70,21 @@ func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{
 	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
+func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	resp, err := c.client.GetLinearAcceleration(ctx, &pb.GetLinearAccelerationRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return protoutils.ConvertVectorProtoToR3(resp.LinearAcceleration), nil
+}
+
 func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
