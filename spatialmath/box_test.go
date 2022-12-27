@@ -55,6 +55,7 @@ func TestBoxVertices(t *testing.T) {
 func TestBoxPC(t *testing.T) {
 	offset1 := r3.Vector{2, 2, 0}
 	dims1 := r3.Vector{2, 2, 2}
+	// do this from euler angles and not quaterions
 	orien1 := &Quaternion{1, 1, 0, 0}
 	pose1 := NewPoseFromOrientation(offset1, orien1)
 	box1 := &box{pose1, [3]float64{0.5 * dims1.X, 0.5 * dims1.Y, 0.5 * dims1.Z}, 10, ""} // with abitrary radius bounding sphere

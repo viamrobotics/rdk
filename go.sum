@@ -318,6 +318,8 @@ github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd/go.mod h1:CibiLte
 github.com/edaniels/zeroconf v1.0.2 h1:LldCQMSt/5Ss2tElkdIVdak78S4xt/6827PkV79sXC0=
 github.com/edaniels/zeroconf v1.0.2/go.mod h1:22UUi3EGu1VSKYpObTSRkMvN9ENVT20KgHJbDISznEk=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
+github.com/emre/golist v0.0.0-20131110135854-758ca839bda6 h1:41ZFYvYw2Q9nR18Yu3g84Ci+o8Rvuya+o3dSXGPjrzo=
+github.com/emre/golist v0.0.0-20131110135854-758ca839bda6/go.mod h1:lk3goCOVgTbd5r1iWQyQRBt4G5vYlWAwhFCQCMq0afs=
 github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4safvEdbitLhGGK48rN6g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

@@ -159,7 +159,7 @@ do_brew(){
 	# Install brew
 	brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
 
-	gem install license_finder --conservative
+	gem install license_finder --conservative --user-install
 
 	# Has to be after the install so the brew eval can run
 	source ~/.viamdevrc
