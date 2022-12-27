@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -17,10 +16,7 @@ func TestNewPoint(t *testing.T) {
 	test.That(t, geometry, test.ShouldResemble, &point{offset.Point(), ""})
 
 	// test point created from GeometryCreator with offset
-	fmt.Println(PoseInverse(offset).Point())
 	geometry = NewPointCreator(offset, "").NewGeometry(PoseInverse(offset))
-	fmt.Println(geometry.Pose().Point()) // this should be all zeros??
-	fmt.Println(NewZeroPose().Point())
 	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
