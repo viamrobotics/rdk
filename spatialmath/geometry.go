@@ -28,7 +28,7 @@ type Geometry interface {
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string
-	ToPointCloud(map[string]interface{}) []r3.Vector
+	ToPointCloud(float64) []r3.Vector
 }
 
 // GeometryType defines what geometry creator representations are known.
@@ -109,7 +109,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	case SphereType:
 		return NewSphereCreator(config.R, offset, config.Label)
 	case PointType:
-		return NewPointCreator(offset.Point(), config.Label), nil
+		return NewPointCreator(offset, config.Label), nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		if creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset, config.Label); err == nil {
@@ -146,7 +146,7 @@ func NewGeometryCreatorFromProto(geometry *commonpb.Geometry) (GeometryCreator, 
 	}
 	if sphere := geometry.GetSphere(); sphere != nil {
 		if sphere.RadiusMm == 0 {
-			return NewPointCreator(pose.Point(), geometry.Label), nil
+			return NewPointCreator(pose, geometry.Label), nil
 		}
 		return NewSphereCreator(sphere.RadiusMm, pose, geometry.Label)
 	}
