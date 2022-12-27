@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// sphere density corresponding to the total amount of points
+// sphere density corresponding to the total amount of points.
 const defaultTotalSpherePoints = 100
 
 // SphereCreator implements the GeometryCreator interface for sphere structs.

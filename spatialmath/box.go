@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// box density corresponding to how many points per mm
+// box density corresponding to how many points per mm.
 const defaultBoxPointDensity = .5
 
 // BoxCreator implements the GeometryCreator interface for box structs.
@@ -369,82 +369,53 @@ func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 		iter = defaultBoxPointDensity
 	}
 	var faces [][]float64
-	// TODO: the for loops below can be made concurrent if the ToPointCloud method is too slow
 	// create points on box faces with box centered at (0, 0, 0)
 
-	for i := 0.0; i <= b.halfSize[0]; i += iter {
-		for k := 0.0; k <= b.halfSize[2]; k += iter {
-			// front and back faces
-			p1 := []float64{i, b.halfSize[1], k}
-			p2 := []float64{i, b.halfSize[1], -k}
-			p3 := []float64{-i, b.halfSize[1], k}
-			p4 := []float64{-i, b.halfSize[1], -k}
-			p5 := []float64{-i, -b.halfSize[1], -k}
-			p6 := []float64{-i, -b.halfSize[1], k}
-			p7 := []float64{i, -b.halfSize[1], -k}
-			p8 := []float64{i, -b.halfSize[1], k}
-			//nolint:gocritic
-			if i == 0.0 && k == 0.0 {
-				faces = append(faces, p1, p5)
-			} else if i == 0.0 && k > 0.0 {
-				faces = append(faces, p1, p2, p7, p8)
-			} else if i > 0.0 && k == 0.0 {
-				faces = append(faces, p1, p3, p6, p7)
-			} else {
-				faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
+	fillFaces := func(fixedDimension int) {
+		starts := [3]float64{0.0, 0.0, 0.0}
+		starts[fixedDimension] = b.halfSize[fixedDimension]
+		for i := starts[0]; i <= b.halfSize[0]; i += iter {
+			for j := starts[1]; i <= b.halfSize[1]; i += iter {
+				for k := starts[2]; k <= b.halfSize[2]; k += iter {
+					p1 := []float64{i, j, k}
+					p2 := []float64{i, j, -k}
+					p3 := []float64{i, -j, k}
+					p4 := []float64{i, -j, -k}
+					p5 := []float64{-i, j, k}
+					p6 := []float64{-i, j, -k}
+					p7 := []float64{-i, -j, -k}
+					p8 := []float64{-i, -j, k}
+
+					switch {
+					case i == 0.0 && j == 0.0:
+						faces = append(faces, p1, p2)
+					case j == 0.0 && k == 0.0:
+						faces = append(faces, p1, p5)
+					case i == 0.0 && k == 0.0:
+						faces = append(faces, p1, p7)
+					case i == 0.0:
+						faces = append(faces, p1, p2, p3, p4)
+					case j == 0.0 && fixedDimension == 0:
+						faces = append(faces, p1, p2, p5, p6)
+					case k == 0.0:
+						faces = append(faces, p1, p3, p5, p8)
+					case i != 0.0 && j != 0.0 && k != 0.0:
+						faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
+					}
+				}
 			}
 		}
 	}
-	for j := 0.0; j < b.halfSize[1]; j += iter {
-		for k := 0.0; k <= b.halfSize[2]; k += iter {
-			// left and right faces
-			p1 := []float64{b.halfSize[0], j, k}
-			p2 := []float64{b.halfSize[0], j, -k}
-			p3 := []float64{-b.halfSize[0], j, k}
-			p4 := []float64{-b.halfSize[0], j, -k}
-			p5 := []float64{-b.halfSize[0], -j, -k}
-			p6 := []float64{-b.halfSize[0], -j, k}
-			p7 := []float64{b.halfSize[0], -j, -k}
-			p8 := []float64{b.halfSize[0], -j, k}
-			//nolint:gocritic
-			if j == 0.0 && k == 0.0 {
-				faces = append(faces, p1, p5)
-			} else if j == 0.0 && k > 0.0 {
-				faces = append(faces, p1, p2, p3, p4)
-			} else if j > 0.0 && k == 0.0 {
-				faces = append(faces, p1, p3, p6, p7)
-			} else {
-				faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
-			}
-		}
-	}
-	for i := 0.0; i < b.halfSize[0]; i += iter {
-		for j := 0.0; j < b.halfSize[1]; j += iter {
-			// top and bottom faces
-			p1 := []float64{i, j, b.halfSize[2]}
-			p2 := []float64{i, j, -b.halfSize[2]}
-			p3 := []float64{-i, j, b.halfSize[2]}
-			p4 := []float64{-i, j, -b.halfSize[2]}
-			p5 := []float64{-i, -j, -b.halfSize[2]}
-			p6 := []float64{-i, -j, b.halfSize[2]}
-			p7 := []float64{i, -j, -b.halfSize[2]}
-			p8 := []float64{i, -j, b.halfSize[2]}
-			//nolint:gocritic
-			if i == 0.0 && j == 0.0 {
-				faces = append(faces, p1, p5)
-			} else if i == 0.0 && j > 0.0 {
-				faces = append(faces, p1, p2, p7, p8)
-			} else if i > 0.0 && j == 0.0 {
-				faces = append(faces, p1, p3, p6, p7)
-			} else {
-				faces = append(faces, p1, p2, p3, p4, p5, p6, p7, p8)
-			}
-		}
+
+	// TODO: the for loop below can be made concurrent if the ToPointCloud method is too slow
+	for i := 0; i < 3; i++ {
+		fillFaces(i)
 	}
 	myList := transformPointsToPose(faces, b.Pose())
 	return myList
 }
 
+// transformPointsToPose multiples each point by the rotation matrix then adds the displacement.
 func transformPointsToPose(points [][]float64, pose Pose) []r3.Vector {
 	translateBy := []float64{pose.Point().X, pose.Point().Y, pose.Point().Z}
 	var myList []r3.Vector
