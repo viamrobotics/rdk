@@ -114,7 +114,6 @@ onMounted(() => {
   const req = new motorApi.GetPropertiesRequest();
   req.setName(props.name);
 
-  rcLogConditionally(req);
   props.client.motorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
