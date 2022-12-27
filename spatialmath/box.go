@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
+	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"gonum.org/v1/gonum/mat"
@@ -412,6 +414,17 @@ func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 		fillFaces(i)
 	}
 	myList := transformPointsToPose(faces, b.Pose())
+	lastList := golist.New()
+	for i := 0; i < len(myList); i++ {
+		pointsList := golist.New()
+		pointsList.Append(myList[i].X)
+		pointsList.Append(myList[i].Y)
+		pointsList.Append(myList[i].Z)
+		lastList.Append(pointsList)
+	}
+	f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
+	f.WriteString(lastList.String())
+	f.Close()
 	return myList
 }
 
@@ -422,14 +435,14 @@ func transformPointsToPose(points [][]float64, pose Pose) []r3.Vector {
 	rotMat := pose.Orientation().RotationMatrix().mat
 	myMat := mat.NewDense(3, 3, rotMat[:])
 	for i := 0; i < len(points); i++ {
-		blarg := mat.NewVecDense(3, points[i]) // todo rename
-		actual := make([]float64, 3)
-		c := mat.NewVecDense(3, actual)
-		c.MulVec(myMat, blarg)
+		pointMat := mat.NewVecDense(3, points[i])
+		result := make([]float64, 3)
+		placeHolder := mat.NewVecDense(3, result)
+		placeHolder.MulVec(myMat, pointMat)
 		vec := r3.Vector{
-			actual[0] + translateBy[0],
-			actual[1] + translateBy[1],
-			actual[2] + translateBy[2],
+			result[0] + translateBy[0],
+			result[1] + translateBy[1],
+			result[2] + translateBy[2],
 		}
 		myList = append(myList, vec)
 	}
