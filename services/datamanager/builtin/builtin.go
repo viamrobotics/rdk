@@ -494,8 +494,10 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-ticker.C:
 				svc.lock.Lock()
-				svc.syncer.SyncDirectory(svc.captureDir)
-				svc.syncAdditionalSyncPaths()
+				if svc.syncer != nil {
+					svc.syncer.SyncDirectory(svc.captureDir)
+					svc.syncAdditionalSyncPaths()
+				}
 				svc.lock.Unlock()
 			}
 		}
