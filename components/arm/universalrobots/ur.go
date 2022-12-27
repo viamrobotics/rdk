@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -526,7 +527,7 @@ func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *URArm) erro
 					var d net.Dialer
 					connControl, err := d.DialContext(ctx, "tcp", ua.host+":30001")
 					if err != nil {
-						return errors.Wrapf(err, "while the arm is not in local mode couldn't to ur arm (%s)", ua.host)
+						return errors.Wrapf(err, "while the arm is not in local mode couldn't connect to ur arm (%s)", ua.host)
 					}
 					ua.connControl = connControl
 				} else if ua.connControl != nil {
