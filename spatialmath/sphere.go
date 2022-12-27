@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// add comment explaning what this is
+// add comment explaning what this is.
 const defaultTotalSpherePoints = 100
 
 // SphereCreator implements the GeometryCreator interface for sphere structs.
