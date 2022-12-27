@@ -14,6 +14,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -497,15 +498,23 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 		return
 	}
 
-	//TODO: metadata checks fail because these don't get uploaded in a defined order. should prob use sets instead
-	//       of arrays. For now, just don't check metadata
+	// Sort both by time requested.
+	sort.Slice(act, func(i, j int) bool {
+		return act[i].GetMetadata().GetTimeRequested().Nanos < act[j].GetMetadata().GetTimeRequested().Nanos
+	})
+	sort.Slice(exp, func(i, j int) bool {
+		return exp[i].GetMetadata().GetTimeRequested().Nanos < exp[j].GetMetadata().GetTimeRequested().Nanos
+	})
+
 	test.That(t, len(act), test.ShouldEqual, len(exp))
 	if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 		for i := range act {
+			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
 			test.That(t, act[i].GetStruct(), test.ShouldResemble, exp[i].GetStruct())
 		}
 	} else {
 		for i := range act {
+			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
 			test.That(t, act[i].GetBinary(), test.ShouldResemble, exp[i].GetBinary())
 		}
 	}
