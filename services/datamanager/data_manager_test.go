@@ -66,7 +66,8 @@ func TestExtraOptions(t *testing.T) {
 
 	test.That(t, actualSvc1.extra, test.ShouldEqual, nil)
 
-	reconfSvc1.(datamanager.Service).Sync(context.Background(), map[string]interface{}{"foo": "bar"})
+	err = reconfSvc1.(datamanager.Service).Sync(context.Background(), map[string]interface{}{"foo": "bar"})
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualSvc1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
 
