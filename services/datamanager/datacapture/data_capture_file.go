@@ -4,8 +4,10 @@ package datacapture
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,11 +22,14 @@ import (
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
+// TODO: this is all way too complicated i think. Just keep track of read/write offsets
+
 // FileExt defines the file extension for Viam data capture files.
 const (
-	FileExt        = ".capture"
-	readImage      = "ReadImage"
-	nextPointCloud = "NextPointCloud"
+	InProgressFileExt = ".prog"
+	FileExt           = ".capture"
+	readImage         = "ReadImage"
+	nextPointCloud    = "NextPointCloud"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -37,6 +42,10 @@ type File struct {
 	writer   *bufio.Writer
 	size     int64
 	metadata *v1.DataCaptureMetadata
+
+	initialReadOffset int64
+	readOffset        int64
+	writeOffset       int64
 }
 
 // ReadFile creates a File struct from a passed os.File previously constructed using NewFile.
@@ -50,30 +59,34 @@ func ReadFile(f *os.File) (*File, error) {
 	}
 
 	md := &v1.DataCaptureMetadata{}
-	if _, err := pbutil.ReadDelimited(f, md); err != nil {
+	initOffset, err := pbutil.ReadDelimited(f, md)
+	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
 	ret := File{
-		path:     f.Name(),
-		lock:     &sync.Mutex{},
-		file:     f,
-		writer:   bufio.NewWriter(f),
-		size:     finfo.Size(),
-		metadata: md,
+		path:              f.Name(),
+		lock:              &sync.Mutex{},
+		file:              f,
+		writer:            bufio.NewWriter(f),
+		size:              finfo.Size(),
+		metadata:          md,
+		initialReadOffset: int64(initOffset),
+		readOffset:        int64(initOffset),
+		writeOffset:       int64(initOffset),
 	}
 
 	return &ret, nil
 }
 
 // NewFile creates a new File with the specified md in the specified directory.
-func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
+func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
 	// First create directories and the file in it.
-	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
+	fileDir := filepath.Join(dir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
-	fileName := filepath.Join(fileDir, getFileTimestampName()) + FileExt
+	fileName := filepath.Join(fileDir, getFileTimestampName()) + InProgressFileExt
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o700)
 	if err != nil {
@@ -86,11 +99,14 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 		return nil, err
 	}
 	return &File{
-		path:   f.Name(),
-		writer: bufio.NewWriter(f),
-		file:   f,
-		size:   int64(n),
-		lock:   &sync.Mutex{},
+		path:              f.Name(),
+		writer:            bufio.NewWriter(f),
+		file:              f,
+		size:              int64(n),
+		lock:              &sync.Mutex{},
+		initialReadOffset: int64(n),
+		readOffset:        int64(n),
+		writeOffset:       int64(n),
 	}, nil
 }
 
@@ -104,10 +120,19 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	r := v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f.file, &r); err != nil {
+	if err := f.writer.Flush(); err != nil {
 		return nil, err
 	}
+
+	if _, err := f.file.Seek(f.readOffset, 0); err != nil {
+		return nil, err
+	}
+	r := v1.SensorData{}
+	read, err := pbutil.ReadDelimited(f.file, &r)
+	if err != nil {
+		return nil, err
+	}
+	f.readOffset += int64(read)
 
 	return &r, nil
 }
@@ -117,19 +142,30 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
+		return err
+	}
 	n, err := pbutil.WriteDelimited(f.writer, data)
 	if err != nil {
 		return err
 	}
 	f.size += int64(n)
+	f.writeOffset += int64(n)
 	return nil
 }
 
-// Sync flushes any buffered writes to disk.
-func (f *File) Sync() error {
+// Flush flushes any buffered writes to disk.
+func (f *File) Flush() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.writer.Flush()
+}
+
+// Reset resets the read pointer of f.
+func (f *File) Reset() {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.readOffset = f.initialReadOffset
 }
 
 // Size returns the size of the file.
@@ -149,6 +185,13 @@ func (f *File) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.writer.Flush(); err != nil {
+		return err
+	}
+
+	// Rename file to indicate that it is done being written.
+	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
+	newName := withoutExt + FileExt
+	if err := os.Rename(f.file.Name(), newName); err != nil {
 		return err
 	}
 	return f.file.Close()
@@ -189,7 +232,7 @@ func BuildCaptureMetadata(compType resource.Subtype, compName string, compModel 
 
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
-	return filepath.Ext(f.Name()) == FileExt
+	return filepath.Ext(f.Name()) == FileExt || filepath.Ext(f.Name()) == InProgressFileExt
 }
 
 // Create a filename based on the current time.
@@ -239,4 +282,30 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 		return defaultFileExt
 	}
 	return defaultFileExt
+}
+
+// GetAllReadings returns all readings in the file at filePath.
+func GetAllReadings(filePath string) ([]*v1.SensorData, error) {
+	var readings []*v1.SensorData
+	//nolint:gosec
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	dcFile, err := ReadFile(f)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		next, err := dcFile.ReadNext()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		readings = append(readings, next)
+	}
+	return readings, nil
 }
