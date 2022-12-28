@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -67,33 +66,6 @@ var Subtype = resource.NewSubtype(
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
-}
-
-// FromRobot is a helper for getting the named data manager service from the given Robot.
-func FromRobot(r robot.Robot, name string) (Service, error) {
-	resource, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
-}
-
-// FindFirstName returns name of first data manager service found.
-func FindFirstName(r robot.Robot) string {
-	for _, val := range robot.NamesBySubtype(r, Subtype) {
-		return val
-	}
-	return ""
-}
-
-// FirstFromRobot returns the first data manager service in this robot.
-func FirstFromRobot(r robot.Robot) (Service, error) {
-	name := FindFirstName(r)
-	return FromRobot(r, name)
 }
 
 type reconfigurableDataManager struct {
