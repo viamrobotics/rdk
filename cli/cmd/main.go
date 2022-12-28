@@ -36,6 +36,8 @@ const (
 	dataFlagStart             = "start"
 	dataFlagEnd               = "end"
 	dataFlagParallelDownloads = "parallel"
+	dataFlagTags              = "tags"
+	dataFlagTaggedUntagged    = "tagged_untagged"
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -218,10 +220,10 @@ func main() {
 					{
 						Name:  "export",
 						Usage: "download data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
 							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
-							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads),
+							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads, dataFlagTaggedUntagged, dataFlagTags),
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     dataFlagDestination,
@@ -302,6 +304,16 @@ func main() {
 								Name:     dataFlagEnd,
 								Required: false,
 								Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagTaggedUntagged,
+								Required: false,
+								Usage:    "indicates filtering based on data with any tags or no tags (accepts tagged or untagged)",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagTags,
+								Required: false,
+								Usage:    "indicates filtering based on matching tags",
 							},
 						},
 						Action: DataCommand,
@@ -882,6 +894,28 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	}
 	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
+	}
+	if c.StringSlice(dataFlagTags) != nil && c.String(dataFlagTaggedUntagged) != "" {
+		return nil, errors.New("cannot filter based on matching and tagged or untagged")
+	}
+	if c.StringSlice(dataFlagTags) != nil {
+		filter.TagsFilter = &datapb.TagsFilter{
+			Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
+			Tags: c.StringSlice(dataFlagTags),
+		}
+	}
+	if c.String(dataFlagTaggedUntagged) != "" {
+		if c.String(dataFlagTaggedUntagged) == "tagged" {
+			filter.TagsFilter = &datapb.TagsFilter{
+				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+			}
+		} else if c.String(dataFlagTaggedUntagged) == "untagged" {
+			filter.TagsFilter = &datapb.TagsFilter{
+				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+			}
+		} else {
+			return nil, errors.New("must specify tagged or untagged")
+		}
 	}
 
 	var start *timestamppb.Timestamp
