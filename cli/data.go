@@ -191,13 +191,12 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 	}
 
 	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339)
-	fileName := timeRequested + "_"
-
-	originalFileName := datum.GetMetadata().GetFileName()
-	if originalFileName != "" {
-		fileName += strings.TrimSuffix(originalFileName, filepath.Ext(originalFileName))
+	var fileName string
+	if datum.GetMetadata().GetFileName() != "" {
+		// Can use file ext directly from metadata.
+		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
 	} else {
-		fileName += datum.GetMetadata().GetId()
+		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
 	}
 
 	//nolint:gosec
