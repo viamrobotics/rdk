@@ -20,7 +20,7 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        *datacapture.File
+	Target        *datacapture.Buffer
 	QueueSize     int
 	BufferSize    int
 	Logger        golog.Logger

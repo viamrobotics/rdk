@@ -3,9 +3,10 @@
 set -e
 SELF=$(realpath $0)
 source "$(dirname $SELF)/utils.sh"
+fn_name="get_version_tag"
 
-if get_version_tag > /dev/null
+if declare -F "$fn_name" > /dev/null
 then
-	echo -X \'go.viam.com/rdk/config.Version=$(get_version_tag)\'
+	echo $($fn_name)
 fi
 exit 0
