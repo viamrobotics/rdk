@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	cartoSleepMs = 100
+	cartoSleepMs = 1000
 )
 
 // Checks the cartographer position and map.
