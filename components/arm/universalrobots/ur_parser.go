@@ -133,7 +133,7 @@ type ForceModeData struct {
 	RobotDexterity float64
 }
 
-// AdditionalInfo TODO.
+// AdditionalInfo additional info from ur arm.
 type AdditionalInfo struct {
 	TpButtonState          byte
 	FreedriveButtonEnabled bool
