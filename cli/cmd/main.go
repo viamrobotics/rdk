@@ -905,15 +905,16 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 		}
 	}
 	if c.String(dataFlagTaggedUntagged) != "" {
-		if c.String(dataFlagTaggedUntagged) == "tagged" {
+		switch c.String(dataFlagTaggedUntagged) {
+		case "tagged":
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
 			}
-		} else if c.String(dataFlagTaggedUntagged) == "untagged" {
+		case "untagged":
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
 			}
-		} else {
+		default:
 			return nil, errors.New("must specify tagged or untagged")
 		}
 	}
