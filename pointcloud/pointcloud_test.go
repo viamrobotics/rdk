@@ -175,7 +175,7 @@ func TestPointCloudMatrix(t *testing.T) {
 func TestPointCloudFromVectors(t *testing.T) {
 	vecLst := []r3.Vector{{0, 0.75, 0}, {0, -0.75, 0}, {1, 0.75, 1}, {-1, 0.75, -1}}
 	color := &color.NRGBA{0, 0, 255, 255}
-	pc, err := pointCloudFromVectors(vecLst, *color)
+	pc, err := CloudFromVectors(vecLst, *color)
 	test.That(t, err, test.ShouldBeNil)
 	// make sure all points were added with the specified color
 	for _, v := range vecLst {
