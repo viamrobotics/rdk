@@ -385,7 +385,7 @@ func fillFaces(halfSize [3]float64, iter float64, fixedDimension int, orEquals1,
 	var facePoints []r3.Vector
 	// create points on box faces with box centered at (0, 0, 0)
 	starts := [3]float64{0.0, 0.0, 0.0}
-	// depending on which faces we want to fill, we must keep either i xor j xor k constant
+	// depending on which face we want to fill, one of i,j,k is kept constant
 	starts[fixedDimension] = halfSize[fixedDimension]
 	for i := starts[0]; lessThan(orEquals1, i, halfSize[0]); i += iter {
 		for j := starts[1]; lessThan(orEquals2, j, halfSize[1]); j += iter {
@@ -425,9 +425,8 @@ func fillFaces(halfSize [3]float64, iter float64, fixedDimension int, orEquals1,
 func lessThan(orEquals bool, v1, v2 float64) bool {
 	if orEquals {
 		return v1 <= v2
-	} else {
-		return v1 < v2
 	}
+	return v1 < v2
 }
 
 // transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
