@@ -67,7 +67,18 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
-	logger.Infof("Viam RDK Version: %s, Hash: %s", config.Version, config.GitRevision)
+	var versionFields []interface{}
+	if config.Version != "" {
+		versionFields = append(versionFields, "version", config.Version)
+	}
+	if config.GitRevision != "" {
+		versionFields = append(versionFields, "git_rev", config.GitRevision)
+	}
+	if len(versionFields) != 0 {
+		logger.Infow("Viam RDK", versionFields...)
+	} else {
+		logger.Info("Viam RDK built from source; version unknown")
+	}
 	if argsParsed.Version {
 		return
 	}
