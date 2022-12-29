@@ -371,10 +371,10 @@ func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 	// TODO: the fillFaces method calls can be made concurrent if the ToPointCloud method is too slow
 	// the boolean values which are passed into the fillFaces method allow for common edges to be
 	// ignored. This removes duplicate points on the box's surface
-	var facePoints [][]r3.Vector
-	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 0, true, false))
-	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 1, true, true))
-	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 2, false, false))
+	var facePoints []r3.Vector
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 0, true, false)...)
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 1, true, true)...)
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 2, false, false)...)
 
 	transformedVecs := transformPointsToPose(facePoints, b.Pose())
 	return transformedVecs
@@ -430,18 +430,16 @@ func lessThan(orEquals bool, v1, v2 float64) bool {
 }
 
 // transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
-func transformPointsToPose(facePoints [][]r3.Vector, pose Pose) []r3.Vector {
+func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	var transformedVectors []r3.Vector
-	for _, points := range facePoints {
-		for i := range points {
-			// create pose for a vector at origin from the desired orientation
-			originWithPose := NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation())
-			// create the desired pose for points[i]
-			pointPose := Compose(originWithPose, NewPoseFromPoint(points[i]))
-			// translate the vector to the desired position
-			transformedVec := Compose(NewPoseFromPoint(pose.Point()), pointPose).Point()
-			transformedVectors = append(transformedVectors, transformedVec)
-		}
+	for i := range facePoints {
+		// create pose for a vector at origin from the desired orientation
+		originWithPose := NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation())
+		// create the desired pose for points[i]
+		pointPose := Compose(originWithPose, NewPoseFromPoint(facePoints[i]))
+		// translate the vector to the desired position
+		transformedVec := Compose(NewPoseFromPoint(pose.Point()), pointPose).Point()
+		transformedVectors = append(transformedVectors, transformedVec)
 	}
 	return transformedVectors
 }
