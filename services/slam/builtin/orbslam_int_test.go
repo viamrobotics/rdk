@@ -14,7 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	"go.viam.com/rdk/services/slam/internal"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -104,6 +104,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 	createVocabularyFile(name)
+	prevNumFiles := 0
 
 	t.Log("Testing online mode")
 
@@ -125,6 +126,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	mapRate := 1
+	deleteProcessedData := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
@@ -140,7 +142,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		DataDirectory: name,
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
-		MapRateSec: &mapRate,
+		MapRateSec:          &mapRate,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release camera image(s) for service validation
@@ -153,8 +156,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	releaseImages(t, mode)
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs := false
+
 	// Wait for orbslam to finish processing images
-	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader := svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
 		start_time_sent_image := time.Now()
 		t.Logf("Find log line for image %v", i)
@@ -163,6 +167,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -215,6 +220,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		lastFileName := files[len(files)-1].Name()
 		test.That(t, os.Remove(name+"/data/"+directoryName+lastFileName), test.ShouldBeNil)
 	}
+	prevNumFiles -= 1
 
 	// Remove any maps
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
@@ -223,6 +229,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	t.Log("Testing offline mode")
 
 	mapRate = 1
+	deleteProcessedData = false
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -235,8 +242,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			"orb_n_min_th_fast": "7",
 			"debug":             "true",
 		},
-		DataDirectory: name,
-		MapRateSec:    &mapRate,
+		DataDirectory:       name,
+		MapRateSec:          &mapRate,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -245,13 +253,15 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
+
 	start_time_sent_image := time.Now()
 	// Wait for orbslam to finish processing images
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed image to SLAM") {
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 			start_time_sent_image = time.Now()
 		}
 		if strings.Contains(line, "Finished processing offline images") {
@@ -298,11 +308,13 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Remove existing images, but leave maps and config (so we keep the vocabulary file).
 	// Orbslam will use the most recent config.
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
 	mapRate = 1
+	deleteProcessedData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -315,8 +327,9 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			"orb_n_min_th_fast": "7",
 			"debug":             "true",
 		},
-		DataDirectory: name,
-		MapRateSec:    &mapRate,
+		DataDirectory:       name,
+		MapRateSec:          &mapRate,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release camera image(s) for service validation
@@ -326,7 +339,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -340,6 +353,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	releaseImages(t, mode)
 	// Check if orbslam hangs and needs to be shut down
 	orbslam_hangs = false
+
 	// Wait for orbslam to finish processing images
 	for i := 0; i < getNumOrbslamImages(mode)-2; i++ {
 		start_time_sent_image = time.Now()
@@ -349,6 +363,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -389,7 +404,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 func testOrbslamDir(t *testing.T, path string, expectedMaps int, expectedConfigs int) {
 	mapsInDir, err := ioutil.ReadDir(path + "/map/")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mapsInDir), test.ShouldBeBetweenOrEqual, expectedMaps, expectedMaps*2+1)
+	test.That(t, len(mapsInDir), test.ShouldBeGreaterThanOrEqualTo, expectedMaps)
 
 	configsInDir, err := ioutil.ReadDir(path + "/config/")
 	test.That(t, err, test.ShouldBeNil)

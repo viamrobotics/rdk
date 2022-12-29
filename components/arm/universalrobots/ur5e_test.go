@@ -1,20 +1,30 @@
 package universalrobots
 
 import (
+	"bufio"
 	"context"
+	"errors"
+	"fmt"
 	"math"
+	"net"
+	"os"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -235,4 +245,193 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) spatialmath.Pose 
 		r3.Vector{X: res.At(0, 3), Y: res.At(1, 3), Z: res.At(2, 3)}.Mul(1000),
 		&spatialmath.OrientationVectorDegrees{OX: poseOV.OX, OY: poseOV.OY, OZ: poseOV.OZ, Theta: utils.RadToDeg(poseOV.Theta)},
 	)
+}
+
+func selectChanOrTimeout(c <-chan struct{}, timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	select {
+	case <-timer.C:
+		return errors.New("timeout")
+	case <-c:
+		return nil
+	}
+}
+
+func setupListeners(ctx context.Context, statusBlob []byte,
+	remote *atomic.Bool,
+) (func(), chan struct{}, chan struct{}, error) {
+	listener29999, err := net.Listen("tcp", "localhost:29999")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	listener30001, err := net.Listen("tcp", "localhost:30001")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	listener30011, err := net.Listen("tcp", "localhost:30011")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	dashboardChan := make(chan struct{})
+	remoteConnChan := make(chan struct{})
+
+	goutils.PanicCapturingGo(func() {
+		for {
+			if ctx.Err() != nil {
+				break
+			}
+			conn, err := listener29999.Accept()
+			if err != nil {
+				break
+			}
+			ioReader := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+			if _, err = ioReader.WriteString("hello test dashboard\n"); err != nil {
+				break
+			}
+
+			if ioReader.Flush() != nil {
+				break
+			}
+			for {
+				_, _, err := ioReader.ReadLine()
+				if err != nil {
+					return
+				}
+				if _, err = ioReader.WriteString(fmt.Sprintf("%v\n", remote.Load())); err != nil {
+					break
+				}
+				if ioReader.Flush() != nil {
+					break
+				}
+				timeout := time.NewTimer(100 * time.Millisecond)
+				select {
+				case dashboardChan <- struct{}{}:
+					continue
+				case <-ctx.Done():
+					return
+				case <-timeout.C:
+					continue
+				}
+			}
+		}
+	})
+	goutils.PanicCapturingGo(func() {
+		for {
+			if ctx.Err() != nil {
+				break
+			}
+			if _, err := listener30001.Accept(); err != nil {
+				break
+			}
+			remoteConnChan <- struct{}{}
+		}
+	})
+	goutils.PanicCapturingGo(func() {
+		for {
+			if ctx.Err() != nil {
+				break
+			}
+			conn, err := listener30011.Accept()
+			if err != nil {
+				break
+			}
+			for {
+				if ctx.Err() != nil {
+					break
+				}
+				_, err = conn.Write(statusBlob)
+				if err != nil {
+					break
+				}
+				if !goutils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+					return
+				}
+			}
+		}
+	})
+
+	closer := func() {
+		listener30001.Close()
+		listener29999.Close()
+		listener30011.Close()
+	}
+	return closer, dashboardChan, remoteConnChan, nil
+}
+
+func TestArmReconnection(t *testing.T) {
+	var remote atomic.Bool
+
+	remote.Store(false)
+
+	statusBlob, err := os.ReadFile("armBlob")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger := golog.NewTestLogger(t)
+	parentCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx, childCancel := context.WithCancel(parentCtx)
+
+	closer, dashboardChan, remoteConnChan, err := setupListeners(ctx, statusBlob, &remote)
+
+	test.That(t, err, test.ShouldBeNil)
+	cfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.3,
+			Host:                "localhost",
+			ArmHostedKinematics: false,
+		},
+	}
+
+	injectRobot := &inject.Robot{}
+	arm, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
+
+	test.That(t, err, test.ShouldBeNil)
+	ua, ok := arm.(*URArm)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, ua.inRemoteMode, test.ShouldBeFalse)
+
+	remote.Store(true)
+
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+
+	test.That(t, ua.inRemoteMode, test.ShouldBeTrue)
+	test.That(t, selectChanOrTimeout(remoteConnChan, time.Millisecond*900), test.ShouldBeNil)
+
+	remote.Store(false)
+
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+
+	test.That(t, ua.inRemoteMode, test.ShouldBeFalse)
+	test.That(t, selectChanOrTimeout(remoteConnChan, time.Millisecond*900), test.ShouldNotBeNil)
+
+	closer()
+	childCancel()
+
+	test.That(t, goutils.SelectContextOrWait(parentCtx, time.Millisecond*500), test.ShouldBeTrue)
+
+	_ = selectChanOrTimeout(dashboardChan, time.Millisecond*200)
+
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*1), test.ShouldNotBeNil)
+	ctx, childCancel = context.WithCancel(parentCtx)
+
+	closer, dashboardChan, remoteConnChan, err = setupListeners(ctx, statusBlob, &remote)
+	test.That(t, err, test.ShouldBeNil)
+	remote.Store(true)
+
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+
+	test.That(t, ua.inRemoteMode, test.ShouldBeTrue)
+	test.That(t, selectChanOrTimeout(remoteConnChan, time.Millisecond*900), test.ShouldBeNil)
+
+	closer()
+	childCancel()
+	_ = ua.Close(ctx)
 }
