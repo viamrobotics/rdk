@@ -115,8 +115,8 @@ func (imu *wit) Orientation(ctx context.Context, extra map[string]interface{}) (
 	return &imu.orientation, imu.lastError
 }
 
-// GetAcceleration returns accelerometer acceleration in mm_per_sec_per_sec.
-func (imu *wit) GetAcceleration(ctx context.Context) (r3.Vector, error) {
+// LinearAcceleration returns linear acceleration in mm_per_sec_per_sec.
+func (imu *wit) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.acceleration, imu.lastError
@@ -153,7 +153,7 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 	}
 	readings["magnetometer"] = mag
 
-	acc, err := imu.GetAcceleration(ctx)
+	acc, err := imu.LinearAcceleration(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
