@@ -890,14 +890,19 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
 	if c.StringSlice(dataFlagTags) != nil {
+		tagsLen := len(c.StringSlice(dataFlagTags))
 		switch c.StringSlice(dataFlagTags)[0] {
 		case "tagged":
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+			if tagsLen == 1 {
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+				}
 			}
 		case "untagged":
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
+			if tagsLen == 1 {
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
+				}
 			}
 		default:
 			filter.TagsFilter = &datapb.TagsFilter{
