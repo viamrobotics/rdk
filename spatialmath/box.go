@@ -423,10 +423,9 @@ func fillFaces(halfSize [3]float64, iter float64, fixedDimension int, orEquals1,
 
 // lessThan checks if v1 <= v1 only if orEquals is true, otherwise we check if v1 < v2.
 func lessThan(orEquals bool, v1, v2 float64) bool {
-	switch {
-	case orEquals:
+	if orEquals {
 		return v1 <= v2
-	default:
+	} else {
 		return v1 < v2
 	}
 }
@@ -435,7 +434,7 @@ func lessThan(orEquals bool, v1, v2 float64) bool {
 func transformPointsToPose(facePoints [][]r3.Vector, pose Pose) []r3.Vector {
 	var transformedVectors []r3.Vector
 	for _, points := range facePoints {
-		for i := 0; i < len(points); i++ {
+		for i := range points {
 			// create pose for a vector at origin from the desired orientation
 			originWithPose := NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation())
 			// create the desired pose for points[i]
