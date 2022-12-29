@@ -3,8 +3,8 @@ package data
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -58,7 +58,7 @@ func TestNewCollector(t *testing.T) {
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
 		Logger:        golog.NewTestLogger(t),
-		Target:        &datacapture.File{},
+		Target:        datacapture.NewBuffer("dir", nil),
 	})
 
 	test.That(t, c2, test.ShouldNotBeNil)
@@ -81,6 +81,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		params         CollectorParams
 		wait           time.Duration
 		expectReadings int
+		expFiles       int
 	}{
 		{
 			name:     "Ticker based struct writer.",
@@ -95,6 +96,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			},
 			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
 			expectReadings: 2,
+			expFiles:       1,
 		},
 		{
 			name:     "Sleep based struct writer.",
@@ -109,6 +111,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			},
 			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
 			expectReadings: 2,
+			expFiles:       1,
 		},
 		{
 			name:     "Ticker based binary writer.",
@@ -123,6 +126,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			},
 			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
 			expectReadings: 2,
+			expFiles:       2,
 		},
 		{
 			name:     "Sleep based binary writer.",
@@ -137,34 +141,35 @@ func TestSuccessfulWrite(t *testing.T) {
 			},
 			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
 			expectReadings: 2,
+			expFiles:       2,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := os.TempDir()
+			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
-			target, err := datacapture.NewFile(tmpDir, &md)
-			test.That(t, err, test.ShouldBeNil)
+			target := datacapture.NewBuffer(tmpDir, &md)
+			test.That(t, target, test.ShouldNotBeNil)
 
 			tc.params.Target = target
 			c, err := NewCollector(tc.capturer, tc.params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
 
-			// Verify that it writes to the file at all.
+			// Verify that the data it wrote matches what we expect.
 			time.Sleep(tc.wait)
 			c.Close()
-			fileSize := target.Size()
-			test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
-
-			// Verify that the data it wrote matches what we expect.
-			validateReadings(t, target.GetPath(), tc.expectReadings)
-
-			// Next reading should fail; there should be at most max readings.
-			_, err = target.ReadNext()
-			test.That(t, err, test.ShouldEqual, io.EOF)
-			os.Remove(target.GetPath())
+			var actReadings []*v1.SensorData
+			files := getAllFiles(tmpDir)
+			for _, file := range files {
+				fileReadings, err := datacapture.GetAllReadings(filepath.Join(tmpDir, file.Name()))
+				test.That(t, err, test.ShouldBeNil)
+				actReadings = append(actReadings, fileReadings...)
+			}
+			test.That(t, len(actReadings), test.ShouldEqual, tc.expectReadings)
+			test.That(t, err, test.ShouldBeNil)
+			validateReadings(t, actReadings, tc.expectReadings)
 		})
 	}
 }
@@ -172,15 +177,15 @@ func TestSuccessfulWrite(t *testing.T) {
 func TestClose(t *testing.T) {
 	// Set up a collector.
 	l := golog.NewTestLogger(t)
-	tmpDir := os.TempDir()
+	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target1, _ := datacapture.NewFile(tmpDir, &md)
-	defer os.Remove(target1.GetPath())
+	target := datacapture.NewBuffer(tmpDir, &md)
+
 	params := CollectorParams{
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 15,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target1,
+		Target:        target,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
 		Logger:        l,
@@ -191,59 +196,23 @@ func TestClose(t *testing.T) {
 
 	// Close and measure fileSize.
 	c.Close()
-	fileSize := target1.Size()
+	files := getAllFiles(target.Directory)
+	test.That(t, len(files), test.ShouldEqual, 1)
+	fileSize1 := files[0].Size()
 
 	// Assert capture is no longer being called/file is no longer being written to.
 	time.Sleep(time.Millisecond * 25)
-	test.That(t, target1.Size(), test.ShouldEqual, fileSize)
-}
-
-func TestSetTarget(t *testing.T) {
-	l := golog.NewTestLogger(t)
-	tmpDir := os.TempDir()
-	md1 := v1.DataCaptureMetadata{
-		ComponentName: "someFirstThing",
-	}
-	md2 := v1.DataCaptureMetadata{
-		ComponentName: "someSecondThing",
-	}
-	target1, _ := datacapture.NewFile(tmpDir, &md1)
-	target2, _ := datacapture.NewFile(tmpDir, &md2)
-	defer os.Remove(target1.GetPath())
-	defer os.Remove(target2.GetPath())
-
-	params := CollectorParams{
-		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 15,
-		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target1,
-		QueueSize:     queueSize,
-		BufferSize:    bufferSize,
-		Logger:        l,
-	}
-	c, _ := NewCollector(dummyStructCapturer, params)
-	c.Collect()
-	time.Sleep(time.Millisecond * 30)
-
-	// Change target, verify that target1 was written to.
-	c.SetTarget(target2)
-	sizeTgt1 := target1.Size()
-	test.That(t, target1.Size(), test.ShouldBeGreaterThan, 0)
-
-	// Verify that tgt2 was written to, and that target1 was not written to after the target was changed.
-	time.Sleep(time.Millisecond * 30)
-	c.Close()
-	test.That(t, target1.Size(), test.ShouldEqual, sizeTgt1)
-	test.That(t, target2.Size(), test.ShouldBeGreaterThan, 0)
+	filesAfterWait := getAllFiles(target.Directory)
+	test.That(t, len(filesAfterWait), test.ShouldEqual, 1)
+	test.That(t, filesAfterWait[0].Size(), test.ShouldEqual, fileSize1)
 }
 
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
 func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
-	tmpDir := os.TempDir()
+	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target1, _ := datacapture.NewFile(tmpDir, &md)
-	defer os.Remove(target1.GetPath())
+	target := datacapture.NewBuffer(tmpDir, &md)
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
@@ -252,7 +221,7 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 10,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target1,
+		Target:        target,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
 		Logger:        logger,
@@ -270,21 +239,30 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
-func validateReadings(t *testing.T, filePath string, n int) {
+func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	t.Helper()
-	file, err := os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
-	f, err := datacapture.ReadFile(file)
-	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < n; i++ {
-		read, err := f.ReadNext()
-		if err != nil {
-			t.Fatalf("failed to read SensorData from file: %v", err)
-		}
+		read := act[i]
 		if read.GetStruct() != nil {
 			test.That(t, proto.Equal(dummyStructReadingProto, read.GetStruct()), test.ShouldBeTrue)
 		} else {
 			test.That(t, read.GetBinary(), test.ShouldResemble, dummyBytesReading)
 		}
 	}
+}
+
+//nolint
+func getAllFiles(dir string) []os.FileInfo {
+	var files []os.FileInfo
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		files = append(files, info)
+		return nil
+	})
+	return files
 }

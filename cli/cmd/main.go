@@ -218,7 +218,7 @@ func main() {
 					{
 						Name:  "export",
 						Usage: "download data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data export <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
 							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads),
@@ -309,7 +309,7 @@ func main() {
 					{
 						Name:  "delete",
 						Usage: "delete data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data delete [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
 							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),

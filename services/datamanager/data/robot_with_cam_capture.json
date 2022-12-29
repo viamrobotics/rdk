@@ -1,35 +1,35 @@
 {
-    "components": [
+  "components": [
+    {
+      "name": "c1",
+      "type": "camera",
+      "model": "fake",
+      "service_config": [
         {
-            "name": "c1",
-            "type": "camera",
-            "model": "fake",
-            "service_config": [
-                {
-                    "type": "data_manager",
-                    "attributes": {
-                        "capture_methods": [
-                            {
-                                "method": "ReadImage",
-                                "capture_frequency_hz": 100,
-                                "additional_params": {
-                                    "mime_type": "image/jpeg"
-                                }
-                            }
-                        ]
-                    }
+          "type": "data_manager",
+          "attributes": {
+            "capture_methods": [
+              {
+                "method": "ReadImage",
+                "capture_frequency_hz": 20,
+                "additional_params": {
+                  "mime_type": "image/png"
                 }
+              }
             ]
+          }
         }
-    ],
-    "services": [
-        {
-            "name": "data_manager1",
-            "type": "data_manager",
-            "model": "builtin",
-            "attributes": {
-                "capture_dir": "/tmp/capture"
-            }
-        }
-    ]
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "data_manager1",
+      "type": "data_manager",
+      "model": "builtin",
+      "attributes": {
+        "capture_dir": "/tmp/capture"
+      }
+    }
+  ]
 }

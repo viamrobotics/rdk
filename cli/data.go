@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -190,7 +191,13 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 	}
 
 	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339)
-	fileName := timeRequested + "_" + datum.GetMetadata().GetId()
+	var fileName string
+	if datum.GetMetadata().GetFileName() != "" {
+		// Can use file ext directly from metadata.
+		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
+	} else {
+		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
+	}
 
 	//nolint:gosec
 	jsonFile, err := os.Create(filepath.Join(dst, metadataDir, fileName+".json"))
