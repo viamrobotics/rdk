@@ -2,11 +2,10 @@
 
 import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import { CameraClient, Camera, Client, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { StreamClient, CameraClient, Camera, Client, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
-import { addStream, removeStream } from '../lib/stream';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
@@ -36,11 +35,12 @@ const initStreamState = () => {
 };
 
 const viewCamera = async (isOn: boolean) => {
+  const streams = new StreamClient(props.client);
   if (isOn) {
     try {
       // only add stream if not already active
       if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
-        await addStream(props.client, props.cameraName);
+        await streams.add(props.cameraName);
       }
     } catch (error) {
       displayError(error as ServiceError);
@@ -50,7 +50,7 @@ const viewCamera = async (isOn: boolean) => {
     try {
       // only remove camera stream if active and base stream is not active
       if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
-        await removeStream(props.client, props.cameraName);
+        await streams.remove(props.cameraName);
       }
     } catch (error) {
       displayError(error as ServiceError);

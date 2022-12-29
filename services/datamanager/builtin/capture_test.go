@@ -2,19 +2,21 @@ package builtin
 
 import (
 	"context"
-	"go.viam.com/rdk/config"
-	"go.viam.com/test"
 	"testing"
 	"time"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/test"
 )
 
 var (
 	// Robot config which specifies data manager service.
-	enabledTabularCollectorConfigPath  = "services/datamanager/data/fake_robot_with_data_manager.json"
-	disabledTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_disabled_collector.json"
-	enabledBinaryCollectorConfigPath   = "services/datamanager/data/robot_with_cam_capture.json"
-	remoteCollectorConfigPath          = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	emptyFileBytesSize                 = 30 // size of leading metadata message
+	enabledTabularCollectorConfigPath           = "services/datamanager/data/fake_robot_with_data_manager.json"
+	disabledTabularCollectorConfigPath          = "services/datamanager/data/fake_robot_with_disabled_collector.json"
+	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
+	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
+	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
+	emptyFileBytesSize                          = 30 // size of leading metadata message
 )
 
 func TestDataCaptureEnabled(t *testing.T) {

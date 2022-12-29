@@ -1,9 +1,9 @@
 <script setup lang="ts">
 
 import { ref } from 'vue';
+import { StreamClient } from '@viamrobotics/sdk';
 import type { Client, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
-import { addStream, removeStream } from '../lib/stream';
 
 interface Props {
   name: string
@@ -19,9 +19,10 @@ const toggleExpand = async () => {
 
   const isOn = audioInput.value;
 
+  const streams = new StreamClient(props.client);
   if (isOn) {
     try {
-      await addStream(props.client, props.name);
+      await streams.add(props.name);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -29,7 +30,7 @@ const toggleExpand = async () => {
   }
 
   try {
-    await removeStream(props.client, props.name);
+    await streams.remove(props.name);
   } catch (error) {
     displayError(error as ServiceError);
   }

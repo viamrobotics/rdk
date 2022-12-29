@@ -2,14 +2,6 @@ package builtin
 
 import (
 	"context"
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
-	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/services/datamanager/datacapture"
-	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
 	"io"
 	"math"
 	"os"
@@ -19,6 +11,15 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 )
 
 const (
@@ -144,6 +145,7 @@ func TestDataCaptureUpload(t *testing.T) {
 		scheduledSyncDisabled bool
 		serviceFailAt         int
 		numFails              int
+		emptyFile             bool
 	}{
 		{
 			name:     "Previously captured tabular data should be synced at start up.",
@@ -190,6 +192,10 @@ func TestDataCaptureUpload(t *testing.T) {
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			numFails: 2,
 		},
+		{
+			name:      "Files with no sensor data should not be synced.",
+			emptyFile: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -207,10 +213,14 @@ func TestDataCaptureUpload(t *testing.T) {
 			defer dmsvc.Close(context.Background())
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			var cfg *config.Config
-			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-				cfg = setupConfig(t, enabledTabularCollectorConfigPath)
+			if tc.emptyFile {
+				cfg = setupConfig(t, infrequentCaptureTabularCollectorConfigPath)
 			} else {
-				cfg = setupConfig(t, enabledBinaryCollectorConfigPath)
+				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
+					cfg = setupConfig(t, enabledTabularCollectorConfigPath)
+				} else {
+					cfg = setupConfig(t, enabledBinaryCollectorConfigPath)
+				}
 			}
 
 			// Set up service config with only capture enabled.
@@ -233,7 +243,11 @@ func TestDataCaptureUpload(t *testing.T) {
 			// Get all captured data.
 			capturedData, err := getCapturedData(tmpDir)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
+			if tc.emptyFile {
+				test.That(t, len(capturedData), test.ShouldEqual, 0)
+			} else {
+				test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
+			}
 
 			// Turn dmsvc back on with capture disabled.
 			newDMSvc := newTestDataManager(t)
