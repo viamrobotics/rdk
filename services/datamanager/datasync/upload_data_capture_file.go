@@ -18,6 +18,11 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		return err
 	}
 
+	// Do not attempt to upload a file without any sensor readings, which occurs when syncing more frequently than capturing.
+	if len(sensorData) == 0 {
+		return nil
+	}
+
 	ur := &v1.DataCaptureUploadRequest{
 		Metadata: &v1.UploadMetadata{
 			PartId:           partID,
