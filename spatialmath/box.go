@@ -4,12 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 
-	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -361,8 +358,6 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 
 // ToPointCloud converts a box geometry into a []r3.Vector.
 func (b *box) ToPointCloud(resolution float64) []r3.Vector {
-	b.pose.Orientation()
-
 	// check for user defined spacing
 	var iter float64
 	if resolution != 0. {
@@ -370,34 +365,35 @@ func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 	} else {
 		iter = defaultBoxPointDensity
 	}
-	var faces [][]float64
-	// create points on box faces with box centered at (0, 0, 0)
 
-	fillFaces := func(fixedDimension int) {
+	// create points on box faces with box centered at (0, 0, 0)
+	// TODO: add more detailed explanation
+	var faces []r3.Vector
+	fillFaces := func(fixedDimension int, check1, check2, check3 string) {
 		starts := [3]float64{0.0, 0.0, 0.0}
 		starts[fixedDimension] = b.halfSize[fixedDimension]
-		for i := starts[0]; i <= b.halfSize[0]; i += iter {
-			for j := starts[1]; i <= b.halfSize[1]; i += iter {
-				for k := starts[2]; k <= b.halfSize[2]; k += iter {
-					p1 := []float64{i, j, k}
-					p2 := []float64{i, j, -k}
-					p3 := []float64{i, -j, k}
-					p4 := []float64{i, -j, -k}
-					p5 := []float64{-i, j, k}
-					p6 := []float64{-i, j, -k}
-					p7 := []float64{-i, -j, -k}
-					p8 := []float64{-i, -j, k}
+		for i := starts[0]; compares(check1, i, b.halfSize[0]); i += iter {
+			for j := starts[1]; compares(check2, j, b.halfSize[1]); j += iter {
+				for k := starts[2]; compares(check3, k, b.halfSize[2]); k += iter {
+					p1 := r3.Vector{i, j, k}
+					p2 := r3.Vector{i, j, -k}
+					p3 := r3.Vector{i, -j, k}
+					p4 := r3.Vector{i, -j, -k}
+					p5 := r3.Vector{-i, j, k}
+					p6 := r3.Vector{-i, j, -k}
+					p7 := r3.Vector{-i, -j, -k}
+					p8 := r3.Vector{-i, -j, k}
 
 					switch {
 					case i == 0.0 && j == 0.0:
 						faces = append(faces, p1, p2)
 					case j == 0.0 && k == 0.0:
 						faces = append(faces, p1, p5)
-					case i == 0.0 && k == 0.0:
+					case i == 0.0 && k == 0.0: // edited now
 						faces = append(faces, p1, p7)
 					case i == 0.0:
 						faces = append(faces, p1, p2, p3, p4)
-					case j == 0.0 && fixedDimension == 0:
+					case j == 0.0:
 						faces = append(faces, p1, p2, p5, p6)
 					case k == 0.0:
 						faces = append(faces, p1, p3, p5, p8)
@@ -411,40 +407,39 @@ func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 
 	// TODO: the for loop below can be made concurrent if the ToPointCloud method is too slow
 	for i := 0; i < 3; i++ {
-		fillFaces(i)
+		// TODO: add more detailed explanation
+		switch {
+		case i == 0:
+			fillFaces(i, "<=", "<", "<=")
+		case i == 1:
+			fillFaces(i, "<=", "<=", "<=")
+		default:
+			fillFaces(i, "<", "<", "<=")
+		}
 	}
 	myList := transformPointsToPose(faces, b.Pose())
-	lastList := golist.New()
-	for i := 0; i < len(myList); i++ {
-		pointsList := golist.New()
-		pointsList.Append(myList[i].X)
-		pointsList.Append(myList[i].Y)
-		pointsList.Append(myList[i].Z)
-		lastList.Append(pointsList)
-	}
-	f, _ := os.Create("/Users/nick/Desktop/play/data.txt")
-	f.WriteString(lastList.String())
-	f.Close()
 	return myList
 }
 
+// TODO: add more detailed explanation.
+func compares(i string, v1, v2 float64) bool {
+	switch {
+	case i == "<":
+		return v1 < v2
+	default:
+		return v1 <= v2
+	}
+}
+
 // transformPointsToPose multiples each point by the rotation matrix then adds the displacement.
-func transformPointsToPose(points [][]float64, pose Pose) []r3.Vector {
-	translateBy := []float64{pose.Point().X, pose.Point().Y, pose.Point().Z}
+func transformPointsToPose(points []r3.Vector, pose Pose) []r3.Vector {
 	var myList []r3.Vector
-	rotMat := pose.Orientation().RotationMatrix().mat
-	myMat := mat.NewDense(3, 3, rotMat[:])
 	for i := 0; i < len(points); i++ {
-		pointMat := mat.NewVecDense(3, points[i])
-		result := make([]float64, 3)
-		placeHolder := mat.NewVecDense(3, result)
-		placeHolder.MulVec(myMat, pointMat)
-		vec := r3.Vector{
-			result[0] + translateBy[0],
-			result[1] + translateBy[1],
-			result[2] + translateBy[2],
-		}
-		myList = append(myList, vec)
+		myVec := Compose( // TODO add explanation
+			NewPoseFromPoint(pose.Point()), // explain why we do it like this in a paragraph above?
+			Compose(NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation()),
+				NewPoseFromPoint(points[i]))).Point()
+		myList = append(myList, myVec)
 	}
 	return myList
 }
