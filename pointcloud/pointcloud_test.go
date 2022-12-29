@@ -172,7 +172,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, mcv, test.ShouldResemble, mat.NewDense(1, 7, []float64{1, 2, 3, 123, 45, 67, 5}))
 }
 
-func TestPointCloudFromVectors(t *testing.T) {
+func TestCloudFromVectors(t *testing.T) {
 	vecLst := []r3.Vector{{0, 0.75, 0}, {0, -0.75, 0}, {1, 0.75, 1}, {-1, 0.75, -1}}
 	color := &color.NRGBA{0, 0, 255, 255}
 	pc, err := CloudFromVectors(vecLst, *color)
