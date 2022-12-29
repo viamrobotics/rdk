@@ -219,14 +219,14 @@ func (s *sphere) ToPointCloud(resolution float64) []r3.Vector {
 	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
 	nums := iter * s.radius * s.radius
 	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
-	var vecList [][]r3.Vector
+	var vecList []r3.Vector
 	for i := 0.; i < nums; i++ {
 		y := 1 - (i/(nums-1))*2      // y goes from 1 to -1
 		radius := math.Sqrt(1 - y*y) // radius at y
 		theta := phi * i             // golden angle increment
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
-		vec := []r3.Vector{{x, y * s.radius, z}}
+		vec := r3.Vector{x, y * s.radius, z}
 		vecList = append(vecList, vec)
 	}
 	return transformPointsToPose(vecList, s.Pose())
