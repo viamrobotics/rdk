@@ -13,7 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	"go.viam.com/rdk/services/slam/internal"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -43,7 +43,7 @@ func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
-func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
+func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	_, err := exec.LookPath("carto_grpc_server")
 	if err != nil {
 		t.Log("Skipping test because carto_grpc_server binary was not found")
@@ -53,18 +53,23 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
+	prevNumFiles := 0
+
 	t.Log("Testing online mode")
 
 	mapRate := 1
+	deleteProcessedData := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
-			"mode": reflect.ValueOf(mode).String(),
-			"v":    "1",
+			"mode":  reflect.ValueOf(mode).String(),
+			"v":     "1",
+			"debug": "true",
 		},
-		MapRateSec:    &mapRate,
-		DataDirectory: name,
+		MapRateSec:          &mapRate,
+		DataDirectory:       name,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release point cloud for service validation
@@ -76,7 +81,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
 	// Wait for cartographer to finish processing data
-	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader := svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
 		cartographerIntLidarReleasePointCloudChan <- 1
@@ -84,6 +89,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -107,6 +113,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 	lastFileName := files[len(files)-1].Name()
 	test.That(t, os.Remove(name+"/data/"+lastFileName), test.ShouldBeNil)
+	prevNumFiles -= 1
 
 	// Remove maps so that testing in offline mode will run in mapping mode,
 	// as opposed to updating mode.
@@ -121,8 +128,9 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			"mode": reflect.ValueOf(mode).String(),
 			"v":    "1",
 		},
-		MapRateSec:    &mapRate,
-		DataDirectory: name,
+		MapRateSec:          &mapRate,
+		DataDirectory:       name,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Create slam service using a real cartographer binary
@@ -130,10 +138,13 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Wait for cartographer to finish processing data
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Passed sensor data to SLAM") {
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+		}
 		if strings.Contains(line, "Finished optimizing final map") {
 			break
 		}
@@ -155,6 +166,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+	prevNumFiles = 0
 
 	// Count the initial number of maps in the map directory (should equal 1)
 	testCartographerDir(t, name, 1)
@@ -163,6 +175,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode in localization mode")
 
 	mapRate = 0
+	deleteProcessedData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -170,18 +183,19 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			"mode": reflect.ValueOf(mode).String(),
 			"v":    "1",
 		},
-		MapRateSec:    &mapRate,
-		DataDirectory: name,
+		MapRateSec:          &mapRate,
+		DataDirectory:       name,
+		DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release point cloud for service validation
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Create slam service using a real cartogapher binary
+	// Create slam service using a real cartographer binary
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -201,6 +215,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -222,6 +237,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
+	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
@@ -245,7 +261,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
-	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
+	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -265,6 +281,7 @@ func integrationTestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -290,5 +307,5 @@ func testCartographerDir(t *testing.T, path string, expectedMaps int) {
 }
 
 func TestCartographerIntegration2D(t *testing.T) {
-	integrationTestHelperCartographer(t, slam.Dim2d)
+	integrationtestHelperCartographer(t, slam.Dim2d)
 }
