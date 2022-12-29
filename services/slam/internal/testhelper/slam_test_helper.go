@@ -1,6 +1,6 @@
-// Package internal implements a slam service definition with additional exported functions for
+// Package testhelper implements a slam service definition with additional exported functions for
 // the purpose of testing
-package internal
+package testhelper
 
 import (
 	"bufio"
