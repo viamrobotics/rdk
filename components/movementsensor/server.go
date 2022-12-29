@@ -143,3 +143,20 @@ func (s *subtypeServer) GetAccuracy(
 	acc, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
 	return &pb.GetAccuracyResponse{AccuracyMm: acc}, err
 }
+
+func (s *subtypeServer) GetLinearAcceleration(
+	ctx context.Context,
+	req *pb.GetLinearAccelerationRequest,
+) (*pb.GetLinearAccelerationResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	la, err := msDevice.LinearAcceleration(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetLinearAccelerationResponse{
+		LinearAcceleration: protoutils.ConvertVectorR3ToProto(la),
+	}, nil
+}
