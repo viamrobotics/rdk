@@ -6,7 +6,6 @@ import type { ServiceError } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
-import { addStream, removeStream } from '../lib/stream';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
