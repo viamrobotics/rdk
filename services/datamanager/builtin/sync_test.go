@@ -193,7 +193,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			numFails: 2,
 		},
 		{
-			name:      "If syncing more often than capturing, empty sensor reading files should be deleted locally and not uploaded.",
+			name:      "Files with no sensor data should not be synced.",
 			emptyFile: true,
 		},
 	}
