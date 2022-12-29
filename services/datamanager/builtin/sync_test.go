@@ -303,10 +303,6 @@ func TestDataCaptureUpload(t *testing.T) {
 			}
 			failedURs := mockService.getFailedDCUploadRequests()
 
-			if tc.emptyFile {
-				test.That(t, len(successfulURs), test.ShouldEqual, 0)
-			}
-
 			// If the server was supposed to fail for some requests, verify that it did.
 			if tc.numFails != 0 || tc.serviceFailAt != 0 {
 				test.That(t, len(failedURs), test.ShouldBeGreaterThan, 0)
