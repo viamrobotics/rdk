@@ -46,8 +46,10 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 		}
 		cfg.Auth = *auth
 	}
-
-	disablePartialStart := *proto.DisablePartialStart
+	var disablePartialStart = false
+	if proto.DisablePartialStart != nil {
+		disablePartialStart = *proto.DisablePartialStart
+	}
 	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting modules config from proto")
