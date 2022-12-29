@@ -915,18 +915,19 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	debug := true
+	disablePartialStart := false
 
 	input := &pb.RobotConfig{
-		Cloud:      cloudConfig,
-		Remotes:    []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
-		Modules:    []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
-		Components: []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
-		Processes:  []*pb.ProcessConfig{processConfig, processInvalidConfig},
-		Services:   []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
-		Network:    networkConfig,
-		Auth:       authConfig,
-		Debug:      &debug,
-		// DisablePartialStart: false,
+		Cloud:               cloudConfig,
+		Remotes:             []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
+		Modules:             []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
+		Components:          []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
+		Processes:           []*pb.ProcessConfig{processConfig, processInvalidConfig},
+		Services:            []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
+		Network:             networkConfig,
+		Auth:                authConfig,
+		Debug:               &debug,
+		DisablePartialStart: &disablePartialStart,
 	}
 
 	out, err := FromProto(input)
@@ -975,18 +976,19 @@ func TestDisablePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	debug := true
+	disablePartialStart := true
 
 	input := &pb.RobotConfig{
-		Cloud:      cloudConfig,
-		Remotes:    []*pb.RemoteConfig{remoteConfig},
-		Modules:    []*pb.ModuleConfig{moduleConfig},
-		Components: []*pb.ComponentConfig{componentInvalidConfig},
-		Processes:  []*pb.ProcessConfig{processConfig},
-		Services:   []*pb.ServiceConfig{serviceConfig},
-		Network:    networkConfig,
-		Auth:       authConfig,
-		Debug:      &debug,
-		// DisablePartialStart: true
+		Cloud:               cloudConfig,
+		Remotes:             []*pb.RemoteConfig{remoteConfig},
+		Modules:             []*pb.ModuleConfig{moduleConfig},
+		Components:          []*pb.ComponentConfig{componentInvalidConfig},
+		Processes:           []*pb.ProcessConfig{processConfig},
+		Services:            []*pb.ServiceConfig{serviceConfig},
+		Network:             networkConfig,
+		Auth:                authConfig,
+		Debug:               &debug,
+		DisablePartialStart: &disablePartialStart,
 	}
 
 	out, err := FromProto(input)
