@@ -102,7 +102,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the data for the next run
 	closeOutSLAMService(t, "")
 
-	// Added sleep to ensure cartographer stops
+	// Sleep to ensure cartographer stops
 	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Delete the last .pcd file in the data directory, so that offline mode runs on the
@@ -152,13 +152,16 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	testCartographerPositionAndMap(t, svc)
 
+	// Sleep to ensure cartographer saves at least one map
+	time.Sleep(time.Second * time.Duration(*attrCfg.MapRateSec))
+
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
-	// Added sleep to ensure cartographer stops
+	// Sleep to ensure cartographer stops
 	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
@@ -166,7 +169,6 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	prevNumFiles = 0
 
 	// Count the initial number of maps in the map directory (should equal 1)
-
 	testCartographerDir(t, name, 1)
 
 	// Test online mode using the map generated in the offline test
@@ -230,7 +232,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
 
-	// Added sleep to ensure cartographer stops
+	// Sleep to ensure cartographer stops
 	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).

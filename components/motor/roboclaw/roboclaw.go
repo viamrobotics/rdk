@@ -119,12 +119,13 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 		return nil, err
 	}
 
-	return &roboclawMotor{conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
+	return &roboclawMotor{name: config.Name, conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
 }
 
 var _ = motor.LocalMotor(&roboclawMotor{})
 
 type roboclawMotor struct {
+	name string
 	conn *roboclaw.Roboclaw
 	conf *AttrConfig
 
@@ -252,5 +253,5 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 }
 
 func (m *roboclawMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
+	return motor.NewGoTillStopUnsupportedError(m.name)
 }
