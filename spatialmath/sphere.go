@@ -204,7 +204,9 @@ func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
 
-// ToPointCloud converts a sphere geometry into []r3.Vector.
+// ToPointCloud converts a sphere geometry into []r3.Vector. This method takes one argument which determines
+// how many points should like on the sphere's surface. If the argument is set to 0. we automatically
+// substitute the value with defaultTotalSpherePoints.
 func (s *sphere) ToPointCloud(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
@@ -217,15 +219,15 @@ func (s *sphere) ToPointCloud(resolution float64) []r3.Vector {
 	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
 	nums := iter * s.radius * s.radius
 	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
-	var vecList []r3.Vector
+	var vecList [][]r3.Vector
 	for i := 0.; i < nums; i++ {
 		y := 1 - (i/(nums-1))*2      // y goes from 1 to -1
 		radius := math.Sqrt(1 - y*y) // radius at y
 		theta := phi * i             // golden angle increment
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
-		myVec := r3.Vector{x, y * s.radius, z}
-		vecList = append(vecList, myVec)
+		vec := []r3.Vector{{x, y * s.radius, z}}
+		vecList = append(vecList, vec)
 	}
 	return transformPointsToPose(vecList, s.Pose())
 }
