@@ -54,7 +54,7 @@ func (cloud *basicPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.Vect
 	cloud.points.Iterate(numBatches, myBatch, fn)
 }
 
-// CloudFromVectors converts a list of r3.Vectors into a pointcloud with the specified color.
+// VectorsToPointCloud converts a list of r3.Vectors into a pointcloud with the specified color.
 func VectorsToPointCloud(vectors []r3.Vector, c color.NRGBA) (PointCloud, error) {
 	// initialize empty pointcloud
 	cloud := basicPointCloud{
