@@ -207,7 +207,7 @@ func sphereInBox(s *sphere, b *box) bool {
 // ToPointCloud converts a sphere geometry into []r3.Vector. This method takes one argument which determines
 // how many points should like on the sphere's surface. If the argument is set to 0. we automatically
 // substitute the value with defaultTotalSpherePoints.
-func (s *sphere) ToPointCloud(resolution float64) []r3.Vector {
+func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
 	if resolution != 0. {

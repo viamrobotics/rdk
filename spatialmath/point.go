@@ -164,6 +164,6 @@ func pointVsBoxDistance(b *box, pt r3.Vector) float64 {
 }
 
 // ToPointCloud converts a point geometry into a []r3.Vector.
-func (pt *point) ToPointCloud(resolution float64) []r3.Vector {
+func (pt *point) ToPoints(resolution float64) []r3.Vector {
 	return []r3.Vector{pt.position}
 }

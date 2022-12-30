@@ -48,7 +48,7 @@ func TestSpherePC(t *testing.T) {
 	label := ""
 	sphere := &sphere{NewPoseFromPoint(pt), radius, label}
 	customDensity := 4.
-	output := sphere.ToPointCloud(customDensity)
+	output := sphere.ToPoints(customDensity)
 	checkAgainst := []r3.Vector{
 		{-2, 0.5, -2},
 		{-2.736728522874529279107492, 0.291666666666666518636930, -1.325096323560166267085947},
