@@ -359,7 +359,7 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 // ToPointCloud converts a box geometry into a []r3.Vector. This method takes one argument which
 // determines how many points to place per square mm. If the argument is set to 0. we automatically
 // substitute the value with defaultBoxPointDensity.
-func (b *box) ToPointCloud(resolution float64) []r3.Vector {
+func (b *box) ToPoints(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
 	if resolution != 0. {

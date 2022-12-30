@@ -59,7 +59,7 @@ func TestBoxPC(t *testing.T) {
 	pose1 := NewPoseFromOrientation(offset1, eulerAngle1)
 	box1 := &box{pose1, [3]float64{0.5 * dims1.X, 0.5 * dims1.Y, 0.5 * dims1.Z}, 10, ""} // with abitrary radius bounding sphere
 	customDensity := 1.
-	output1 := box1.ToPointCloud(customDensity)
+	output1 := box1.ToPoints(customDensity)
 
 	checkAgainst1 := []r3.Vector{
 		{2.525321988817730733956068, 2.000000000000001332267630, -0.850903524534118327338206},
@@ -99,7 +99,7 @@ func TestBoxPC(t *testing.T) {
 	eulerAngle2 := &EulerAngles{0, 45, 0}
 	pose2 := NewPoseFromOrientation(offset2, eulerAngle2)
 	box2 := &box{pose2, [3]float64{0.5 * dims2.X, 0.5 * dims2.Y, 0.5 * dims2.Z}, 10, ""} // with abitrary radius bounding sphere
-	output2 := box2.ToPointCloud(customDensity)
+	output2 := box2.ToPoints(customDensity)
 
 	checkAgainst2 := []r3.Vector{
 		{2.262660994408865811067244, 2.000000000000000888178420, 1.574548237732941391442409},
