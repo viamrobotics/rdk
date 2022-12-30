@@ -6,6 +6,9 @@ on:
     secrets:
       REPO_READ_TOKEN:
         required: true
+  pull_request:
+    branches:
+      - main
 
 jobs:
   test_motion_integration:
