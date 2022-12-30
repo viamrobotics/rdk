@@ -357,8 +357,8 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 }
 
 // ToPointCloud converts a box geometry into a []r3.Vector. This method takes one argument which
-// determines how many points to place per square mm. If the argument is set to 0. we
-// automatically substitute the value with defaultBoxPointDensity.
+// determines how many points to place per square mm. If the argument is set to 0. we automatically
+// substitute the value with defaultBoxPointDensity.
 func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
@@ -368,9 +368,9 @@ func (b *box) ToPointCloud(resolution float64) []r3.Vector {
 		iter = defaultBoxPointDensity
 	}
 
+	// the boolean values which are passed into the fillFaces method allow for the edges of the
+	// box to only be iterated over once. This removes duplicate points.
 	// TODO: the fillFaces method calls can be made concurrent if the ToPointCloud method is too slow
-	// the boolean values which are passed into the fillFaces method allow for common edges to be
-	// ignored. This removes duplicate points on the box's surface
 	var facePoints []r3.Vector
 	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 0, true, false)...)
 	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 1, true, true)...)
