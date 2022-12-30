@@ -890,20 +890,13 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
 	if c.StringSlice(dataFlagTags) != nil {
-		if len(c.StringSlice(dataFlagTags)) == 1 {
-			if c.StringSlice(dataFlagTags)[0] == "tagged" {
-				filter.TagsFilter = &datapb.TagsFilter{
-					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
-				}
-			} else if c.StringSlice(dataFlagTags)[0] == "untagged" {
-				filter.TagsFilter = &datapb.TagsFilter{
-					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
-				}
-			} else {
-				filter.TagsFilter = &datapb.TagsFilter{
-					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
-					Tags: c.StringSlice(dataFlagTags),
-				}
+		if len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged" {
+			filter.TagsFilter = &datapb.TagsFilter{
+				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+			}
+		} else if len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged" {
+			filter.TagsFilter = &datapb.TagsFilter{
+				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
 			}
 		} else {
 			filter.TagsFilter = &datapb.TagsFilter{
