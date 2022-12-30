@@ -307,7 +307,8 @@ func main() {
 							&cli.StringSliceFlag{
 								Name:     dataFlagTags,
 								Required: false,
-								Usage:    "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+								Usage: "tags filter. " +
+									"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 							},
 						},
 						Action: DataCommand,
@@ -890,15 +891,16 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
 	if c.StringSlice(dataFlagTags) != nil {
-		if len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged" {
+		switch {
+		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
 			}
-		} else if len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged" {
+		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged":
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
 			}
-		} else {
+		default:
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
 				Tags: c.StringSlice(dataFlagTags),
