@@ -11,6 +11,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// sphere density corresponding to the total amount of points.
+const defaultTotalSpherePoints = 100
+
 // SphereCreator implements the GeometryCreator interface for sphere structs.
 type sphereCreator struct {
 	radius float64
@@ -57,7 +60,7 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 // ToProto converts the sphere to a Geometry proto message.
 func (sc *sphereCreator) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
-		Center: PoseToProtobuf(sc.offset),
+		Center: PoseToProtobuf(sc.Offset()),
 		GeometryType: &commonpb.Geometry_Sphere{
 			Sphere: &commonpb.Sphere{
 				RadiusMm: sc.radius,
@@ -130,7 +133,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()) <= CollisionBuffer, nil
+		return sphereVsPointDistance(s, other.position) <= CollisionBuffer, nil
 	}
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
@@ -144,7 +147,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsSphereDistance(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()), nil
+		return sphereVsPointDistance(s, other.position), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
@@ -199,4 +202,32 @@ func sphereInSphere(inner, outer *sphere) bool {
 // sphereInBox returns a bool describing if the given sphere is fully encompassed by the given box.
 func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
+}
+
+// ToPointCloud converts a sphere geometry into []r3.Vector. This method takes one argument which determines
+// how many points should like on the sphere's surface. If the argument is set to 0. we automatically
+// substitute the value with defaultTotalSpherePoints.
+func (s *sphere) ToPoints(resolution float64) []r3.Vector {
+	// check for user defined spacing
+	var iter float64
+	if resolution != 0. {
+		iter = resolution
+	} else {
+		iter = defaultTotalSpherePoints // default spacing
+	}
+	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
+	nums := iter * s.radius * s.radius
+	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
+	var vecList []r3.Vector
+	for i := 0.; i < nums; i++ {
+		y := 1 - (i/(nums-1))*2      // y goes from 1 to -1
+		radius := math.Sqrt(1 - y*y) // radius at y
+		theta := phi * i             // golden angle increment
+		x := (math.Cos(theta) * radius) * s.radius
+		z := (math.Sin(theta) * radius) * s.radius
+		vec := r3.Vector{x, y * s.radius, z}
+		vecList = append(vecList, vec)
+	}
+	return transformPointsToPose(vecList, s.Pose())
 }
