@@ -3,6 +3,9 @@ name: Motion Integration Test
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      REPO_READ_TOKEN:
+        required: true
 
 jobs:
   test_motion_integration:
@@ -13,6 +16,10 @@ jobs:
       options: --platform linux/amd64
     timeout-minutes: 30
     steps:
+    - name: Configure git for private repos
+      run: |
+        sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
+    
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
@@ -26,3 +33,13 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
+    - name: Check out code in motion-testing directory
+      uses: actions/checkout@v3
+      with:
+        repository: viamrobotics/motion-testing
+        ref: upgrade-rdk
+        path: motion-testing
+
+    - name: Run motion integration tests
+      run: |
+        sudo -u testbot bash -lc 'cd motion-testing && sudo go test ./... -v -run TestIntegration'
