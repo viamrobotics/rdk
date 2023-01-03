@@ -252,7 +252,16 @@ func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interf
 }
 
 func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+	adxl.mu.Lock()
+	defer adxl.mu.Unlock()
+	lastError := adxl.lastError
+	adxl.lastError = nil
+
+	if lastError != nil {
+		return r3.Vector{}, lastError
+	}
+
+	return adxl.linearAcceleration, nil
 }
 
 func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
