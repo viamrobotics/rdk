@@ -120,6 +120,9 @@ func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
 func (e *Encoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := encoder.ValidateIntegerOffset(offset); err != nil {
+		return err
+	}
 	offsetInt := int64(offset)
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offsetInt))
 	return err

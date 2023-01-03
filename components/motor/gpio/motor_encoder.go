@@ -340,8 +340,10 @@ func (m *EncodedMotor) rpmMonitor() {
 			continue
 		}
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
-
-		m.rpmMonitorPass(int64(pos), lastPos, now, lastTime, rpmDebug)
+		// TODO: we round down here for absolute encoders, but absolute encoders
+		// should have their own logic separate from incremental
+		roundedPos := int64(math.Floor(pos))
+		m.rpmMonitorPass(roundedPos, lastPos, now, lastTime, rpmDebug)
 
 		lastPos = int64(pos)
 		lastTime = now
