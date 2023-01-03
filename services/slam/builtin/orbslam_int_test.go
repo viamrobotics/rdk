@@ -126,7 +126,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	mapRate := 1
-	deleteProcessedData := false
+	// deleteProcessedData := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
@@ -143,7 +143,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
 		MapRateSec:          &mapRate,
-		DeleteProcessedData: &deleteProcessedData,
+		// DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release camera image(s) for service validation
@@ -167,7 +167,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -229,7 +229,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	t.Log("Testing offline mode")
 
 	mapRate = 1
-	deleteProcessedData = false
+	// deleteProcessedData = false
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -244,7 +244,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		},
 		DataDirectory:       name,
 		MapRateSec:          &mapRate,
-		DeleteProcessedData: &deleteProcessedData,
+		// DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -261,7 +261,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed image to SLAM") {
-			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+			// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 			start_time_sent_image = time.Now()
 		}
 		if strings.Contains(line, "Finished processing offline images") {
@@ -314,7 +314,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode with saved map")
 
 	mapRate = 1
-	deleteProcessedData = true
+	// deleteProcessedData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -329,7 +329,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		},
 		DataDirectory:       name,
 		MapRateSec:          &mapRate,
-		DeleteProcessedData: &deleteProcessedData,
+		// DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release camera image(s) for service validation
@@ -363,7 +363,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)

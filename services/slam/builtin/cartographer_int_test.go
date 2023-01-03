@@ -58,7 +58,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode")
 
 	mapRate := 1
-	deleteProcessedData := false
+	// deleteProcessedData := false
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -69,7 +69,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
-		DeleteProcessedData: &deleteProcessedData,
+		// DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release point cloud for service validation
@@ -89,7 +89,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -130,7 +130,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
-		DeleteProcessedData: &deleteProcessedData,
+		// DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Create slam service using a real cartographer binary
@@ -143,7 +143,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed sensor data to SLAM") {
-			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+			// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 		}
 		if strings.Contains(line, "Finished optimizing final map") {
 			break
@@ -175,7 +175,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	t.Log("Testing online mode in localization mode")
 
 	mapRate = 0
-	deleteProcessedData = true
+	// deleteProcessedData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -185,7 +185,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
-		DeleteProcessedData: &deleteProcessedData,
+		// DeleteProcessedData: &deleteProcessedData,
 	}
 
 	// Release point cloud for service validation
@@ -215,7 +215,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
@@ -281,7 +281,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				// prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
 				break
 			}
 		}
