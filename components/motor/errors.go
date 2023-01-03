@@ -25,3 +25,8 @@ func NewFeatureUnsupportedError(feature Feature, motorName string) error {
 func NewZeroRPMError() error {
 	return errors.New("Cannot move motor at 0 RPM")
 }
+
+// NewGoToUnsupportedError returns error when a motor is required to support GoTo feature.
+func NewGoToUnsupportedError(motorName string) error {
+	return errors.Errorf("motor with name %s does not support GoTo", motorName)
+}

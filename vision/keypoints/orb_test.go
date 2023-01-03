@@ -3,7 +3,6 @@ package keypoints
 import (
 	"image"
 	"image/draw"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -66,9 +65,7 @@ func TestComputeORBKeypoints(t *testing.T) {
 	test.That(t, len(descs), test.ShouldEqual, 58)
 	test.That(t, len(kps), test.ShouldEqual, 58)
 	// save the output image in a temp file
-	tempDir, err := os.MkdirTemp("", "compute_orb_keypoints")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 	logger.Infof("writing orb keypoint files to %s", tempDir)
 	keyImg := PlotKeypoints(imGray, kps)
 	test.That(t, keyImg, test.ShouldNotBeNil)
@@ -103,9 +100,7 @@ func TestMatchingWithRotation(t *testing.T) {
 	matchedLines := PlotMatchedLines(matchedOrbPts1, matchedOrbPts2, matchedKps1, matchedKps2, true)
 	test.That(t, matchedLines, test.ShouldNotBeNil)
 	// save the output image in a temp file
-	tempDir, err := os.MkdirTemp("", "match_rotated_points")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 	logger.Infof("writing orb keypoint files to %s", tempDir)
 	err = rimage.WriteImageToFile(tempDir+"/rotated_chess_orb.png", matchedLines)
 	test.That(t, err, test.ShouldBeNil)
