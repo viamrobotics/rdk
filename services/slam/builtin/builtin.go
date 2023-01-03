@@ -39,7 +39,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
-	slamConfig "go.viam.com/rdk/services/slam/internal/config"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -254,13 +253,13 @@ func runtimeServiceValidation(
 
 // AttrConfig describes how to configure the service.
 type AttrConfig struct {
-	Sensors             []string          `json:"sensors"`
-	ConfigParams        map[string]string `json:"config_params"`
-	DataRateMs          int               `json:"data_rate_msec"`
-	MapRateSec          *int              `json:"map_rate_sec"`
-	DataDirectory       string            `json:"data_dir"`
-	InputFilePattern    string            `json:"input_file_pattern"`
-	Port                string            `json:"port"`
+	Sensors          []string          `json:"sensors"`
+	ConfigParams     map[string]string `json:"config_params"`
+	DataRateMs       int               `json:"data_rate_msec"`
+	MapRateSec       *int              `json:"map_rate_sec"`
+	DataDirectory    string            `json:"data_dir"`
+	InputFilePattern string            `json:"input_file_pattern"`
+	Port             string            `json:"port"`
 	// DeleteProcessedData *bool             `json:"delete_processed_data"`
 }
 
@@ -507,7 +506,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
-	offlineFlag := (len(cams) == 0)
+	// offlineFlag := (len(cams) == 0)
 
 	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
 	if err != nil {
@@ -540,7 +539,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		mapRate = *svcConfig.MapRateSec
 	}
 
-	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, offlineFlag)
+	// deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, offlineFlag)
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
 	for _, cam := range cams {
@@ -551,14 +550,14 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	// SLAM Service Object
 	slamSvc := &builtIn{
-		cameraName:            cameraName,
-		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
-		slamMode:              slamMode,
-		slamProcess:           pexec.NewProcessManager(logger),
-		configParams:          svcConfig.ConfigParams,
-		dataDirectory:         svcConfig.DataDirectory,
-		inputFilePattern:      svcConfig.InputFilePattern,
-		deleteProcessedData:   deleteProcessedData,
+		cameraName:       cameraName,
+		slamLib:          slam.SLAMLibraries[string(config.Model.Name)],
+		slamMode:         slamMode,
+		slamProcess:      pexec.NewProcessManager(logger),
+		configParams:     svcConfig.ConfigParams,
+		dataDirectory:    svcConfig.DataDirectory,
+		inputFilePattern: svcConfig.InputFilePattern,
+		// deleteProcessedData:   deleteProcessedData,
 		port:                  port,
 		dataRateMs:            dataRate,
 		mapRateSec:            mapRate,
