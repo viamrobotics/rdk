@@ -136,7 +136,6 @@ func TestDataCaptureUpload(t *testing.T) {
 	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
 	captureTime := time.Millisecond * 300
-	syncTime := time.Millisecond * 100
 
 	tests := []struct {
 		name                  string
