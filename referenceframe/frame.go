@@ -173,7 +173,7 @@ type tailGeometryStaticFrame struct {
 
 func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if sf.geometryCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
+		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
 		return nil, NewIncorrectInputLengthError(len(input), 0)
@@ -184,13 +184,13 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	return NewGeometriesInFrame(sf.name, m), nil
 }
 
-// a noGeometryFrame is a frame wrapper which will always return nil for its geometry
+// noGeometryFrame is a frame wrapper which will always return nil for its geometry. Use this to remove the geometries from any frame.
 type noGeometryFrame struct {
 	Frame
 }
 
 func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return nil, nil
+	return NewGeometriesInFrame(nf.Name(), nil), nil
 }
 
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
@@ -260,7 +260,7 @@ func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if sf.geometryCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
+		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
 		return nil, NewIncorrectInputLengthError(len(input), 0)

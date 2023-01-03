@@ -488,7 +488,7 @@ func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Fr
 			modelFrame = &noGeometryFrame{modelFrame}
 		}
 	}
-	
+
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil
