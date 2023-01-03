@@ -7,13 +7,13 @@ import (
 
 // DetermineDeleteProcessedData will determine the value of the deleteProcessData attribute of slam builtin
 // based on the online/offline state and the delete_processed_data input parameter.
-func DetermineDeleteProcessedData(logger golog.Logger, deleteData *bool, offlineFlag bool) bool {
+func DetermineDeleteProcessedData(logger golog.Logger, deleteData *bool, useLiveData bool) bool {
 	var deleteProcessedData bool
 	if deleteData == nil {
-		deleteProcessedData = !offlineFlag
+		deleteProcessedData = useLiveData
 	} else {
 		deleteProcessedData = *deleteData
-		if offlineFlag && deleteProcessedData {
+		if !useLiveData && deleteProcessedData {
 			logger.Debug("a value of true cannot be given for delete_processed_data when in offline mode, setting to false")
 			deleteProcessedData = false
 		}
