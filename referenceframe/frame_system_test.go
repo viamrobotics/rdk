@@ -162,7 +162,7 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
 	test.That(t, originFrame.Name(), test.ShouldEqual, part.FrameConfig.name+"_origin")
 	test.That(t, originFrame.DoF(), test.ShouldHaveLength, 0)
-	
+
 	// Test geometries are not overwritten for non-zero DOF frames
 	lc = &LinkConfig{
 		ID:          "test",
@@ -181,8 +181,11 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	modelGeoms, err := modelFrame.Geometries(make([]Input, len(modelFrame.DoF())))
 	test.That(t, err, test.ShouldBeNil)
+	originGeoms, err := originFrame.Geometries(make([]Input, len(originFrame.DoF())))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(modelGeoms.Geometries()), test.ShouldBeGreaterThan, 1)
-	
+	test.That(t, len(originGeoms.Geometries()), test.ShouldEqual, 1)
+
 	// Test that zero-DOF geometries ARE overwritten
 	jsonData, err = os.ReadFile(rdkutils.ResolveFile("config/data/gripper_model.json"))
 	test.That(t, err, test.ShouldBeNil)
@@ -207,10 +210,13 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	modelGeoms, err = model.Geometries(make([]Input, len(model.DoF())))
 	test.That(t, err, test.ShouldBeNil)
-	
+	originGeoms, err = originFrame.Geometries(make([]Input, len(originFrame.DoF())))
+	test.That(t, err, test.ShouldBeNil)
+
 	// Orig model should have 1 geometry, but new model should be wrapped with zero
 	test.That(t, len(modelFrameGeoms.Geometries()), test.ShouldEqual, 0)
 	test.That(t, len(modelGeoms.Geometries()), test.ShouldEqual, 1)
+	test.That(t, len(originGeoms.Geometries()), test.ShouldEqual, 1)
 }
 
 func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
