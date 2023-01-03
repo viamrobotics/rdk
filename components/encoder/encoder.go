@@ -175,11 +175,11 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 
 // ValidateIntegerOffset returns an error if a non-integral value for offset
 // is passed to Reset for an incremental encoder (these encoders count based on
-// square-wave pulses and so cannot be supplied an offset that is not an integer)
+// square-wave pulses and so cannot be supplied an offset that is not an integer).
 func ValidateIntegerOffset(offset float64) error {
 	if offset != float64(int64(offset)) {
 		return errors.Errorf(
-			"incremental encoders can only reset with integer value offsets, value passed was %d",
+			"incremental encoders can only reset with integer value offsets, value passed was %f",
 			offset,
 		)
 	}
