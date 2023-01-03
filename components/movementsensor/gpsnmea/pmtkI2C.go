@@ -213,7 +213,7 @@ func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra ma
 func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: g.data.speed, Y: 0, Z: 0}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity not supported.
