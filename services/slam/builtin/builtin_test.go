@@ -56,6 +56,8 @@ var (
 	orbslamIntSynchronizeCamerasChan          chan int = make(chan int)
 	cartographerIntLidarReleasePointCloudChan chan int = make(chan int, 1)
 	validMapRate                                       = 200
+	useLiveData                                        = true
+	useOfflineData                                     = false
 )
 
 func getNumOrbslamImages(mode slam.Mode) int {
@@ -488,18 +490,25 @@ func TestGeneralNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "config_params[mode]"))
 	})
 
-	t.Run("New slam service with no data dir", func(t *testing.T) {
+	t.Run("New slam service with no data_dir", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		attrCfg := &builtin.AttrConfig{ConfigParams: map[string]string{"mode": "2d"}}
+		attrCfg := &builtin.AttrConfig{ConfigParams: map[string]string{"mode": "2d"}, UseLiveData: &useLiveData}
 		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
 		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "data_dir"))
 	})
 
 	t.Run("New slam service with no mode", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		attrCfg := &builtin.AttrConfig{DataDirectory: "test"}
+		attrCfg := &builtin.AttrConfig{DataDirectory: "test", UseLiveData: &useLiveData}
 		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
 		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "config_params[mode]"))
+	})
+
+	t.Run("New slam service with no use_live_data", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		attrCfg := &builtin.AttrConfig{DataDirectory: "test", ConfigParams: map[string]string{"mode": "2d"}}
+		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
+		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("path", "use_live_data"))
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {
@@ -508,6 +517,7 @@ func TestGeneralNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			Port:          "localhost:4445",
+			UseLiveData:   &useOfflineData,
 		}
 
 		// Create slam service
@@ -526,6 +536,7 @@ func TestGeneralNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -542,6 +553,7 @@ func TestGeneralNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
+			UseLiveData:   &useLiveData,
 		}
 
 		slam.SLAMLibraries["test"] = slam.LibraryMetadata{
@@ -605,6 +617,7 @@ func TestCartographerNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -624,6 +637,7 @@ func TestCartographerNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -640,6 +654,7 @@ func TestCartographerNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -665,6 +680,7 @@ func TestORBSLAMNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -684,6 +700,7 @@ func TestORBSLAMNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -700,6 +717,7 @@ func TestORBSLAMNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -716,6 +734,7 @@ func TestORBSLAMNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -734,6 +753,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -750,6 +770,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -766,6 +787,7 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -789,6 +811,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		DataDirectory: name,
 		DataRateMs:    validDataRateMS,
 		Port:          "localhost:4445",
+		UseLiveData:   &useLiveData,
 	}
 
 	// Create slam service
@@ -873,6 +896,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		DataDirectory: name,
 		DataRateMs:    validDataRateMS,
 		Port:          "localhost:4445",
+		UseLiveData:   &useLiveData,
 	}
 
 	// Create slam service
@@ -964,6 +988,7 @@ func TestGetMapAndPosition(t *testing.T) {
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
+		UseLiveData:      &useLiveData,
 	}
 
 	// Create slam service
@@ -1007,6 +1032,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d", "test_param": "viam"},
 			DataDirectory: name,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 
 		// Create slam service
@@ -1027,6 +1053,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_dir=" + name},
 			{"-input_file_pattern="},
 			{"-delete_processed_data=true"},
+			{"-use_live_data=true"},
 			{"-port=localhost:4445"},
 			{"--aix-auto-update"},
 		}
@@ -1048,6 +1075,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
 			DataDirectory: name,
 			Port:          "localhost:4445",
+			UseLiveData:   &useOfflineData,
 		}
 
 		// Create slam service
@@ -1068,6 +1096,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_dir=" + name},
 			{"-input_file_pattern="},
 			{"-delete_processed_data=false"},
+			{"-use_live_data=false"},
 			{"-port=localhost:4445"},
 			{"--aix-auto-update"},
 		}
@@ -1099,6 +1128,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
+		UseLiveData:      &useLiveData,
 	}
 
 	// Create slam service
@@ -1150,6 +1180,7 @@ func TestGRPCConnection(t *testing.T) {
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:-1",
+		UseLiveData:      &useLiveData,
 	}
 
 	// Create slam service
