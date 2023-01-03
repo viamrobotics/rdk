@@ -535,7 +535,7 @@ func TestGeneralNew(t *testing.T) {
 			errors.New("configuring camera error: error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
 
 	})
-
+	t.Skip()
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_camera"},

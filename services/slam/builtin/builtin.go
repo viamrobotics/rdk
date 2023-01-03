@@ -261,7 +261,7 @@ type AttrConfig struct {
 	DataDirectory       string            `json:"data_dir"`
 	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
-	DeleteProcessedData *bool             `json:"delete_processed_data"`
+	// DeleteProcessedData *bool             `json:"delete_processed_data"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -711,7 +711,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
-	args = append(args, "-delete_processed_data="+strconv.FormatBool(slamSvc.deleteProcessedData))
+	// args = append(args, "-delete_processed_data="+strconv.FormatBool(slamSvc.deleteProcessedData))
 	args = append(args, "-port="+slamSvc.port)
 	args = append(args, "--aix-auto-update")
 
