@@ -19,15 +19,16 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var am5ModelName = resource.NewDefaultModel("AS5048A")
-
 const i2cConn = "I2C"
-
-var supportedConnections = utils.NewStringSet(i2cConn)
-
 const transitionEpsilon = 90
 
+var am5ModelName = resource.NewDefaultModel("AS5048A")
 var scalingFactor = 360.0 / math.Pow(2, 14)
+var supportedConnections = utils.NewStringSet(i2cConn)
+
+// the wait time necessary to operate the position updating
+// loop at 50 Hz
+var waitTimeNano = (1.0 / 50.0) * 1000000000.0
 
 func init() {
 	registry.RegisterComponent(
@@ -40,7 +41,7 @@ func init() {
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return NewAS5048AEncoder(ctx, deps, config, logger)
+				return newAS5048AEncoder(ctx, deps, config, logger)
 			},
 		},
 	)
@@ -72,7 +73,7 @@ func (conf *AS5048AConfig) Validate(path string) ([]string, error) {
 
 	connType := conf.ConnectionType
 	if len(connType) == 0 {
-		// default to I2C until SPI support is implemented
+		// TODO: stop defaulting to I2C when SPI support is implemented
 		conf.ConnectionType = i2cConn
 		// return nil, errors.New("must specify connection type")
 	}
@@ -127,6 +128,48 @@ type AS5048A struct {
 	generic.Unimplemented
 }
 
+func newAS5048AEncoder(
+	ctx context.Context, deps registry.Dependencies,
+	cfg config.Component, logger *zap.SugaredLogger,
+) (*AS5048A, error) {
+	attr, ok := cfg.ConvertedAttributes.(*AS5048AConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
+	cancelCtx, cancel := context.WithCancel(ctx)
+	res := &AS5048A{
+		connectionType: attr.ConnectionType,
+		cancelCtx:      cancelCtx,
+		cancel:         cancel,
+		logger:         logger,
+	}
+	brd, err := board.FromDependencies(deps, attr.BoardName)
+	if err != nil {
+		return nil, err
+	}
+	localBoard, ok := brd.(board.LocalBoard)
+	if !ok {
+		return nil, errors.Errorf(
+			"board with name %s does not implement the LocalBoard interface", attr.BoardName,
+		)
+	}
+	if res.connectionType == i2cConn {
+		i2c, exists := localBoard.I2CByName(attr.I2CBus)
+		if !exists {
+			return nil, errors.Errorf("unable to find I2C bus: %s", attr.I2CBus)
+		}
+		i2cHandle, err := i2c.OpenHandle(byte(attr.I2CAddr))
+		if err != nil {
+			return nil, err
+		}
+		res.i2cHandle = i2cHandle
+	}
+	if err := res.startPositionLoop(ctx); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (enc *AS5048A) startPositionLoop(ctx context.Context) error {
 	if err := enc.Reset(ctx, 0.0, map[string]interface{}{}); err != nil {
 		return err
@@ -140,8 +183,6 @@ func (enc *AS5048A) startPositionLoop(ctx context.Context) error {
 			if err := enc.updatePosition(ctx); err != nil {
 				enc.logger.Errorf("error in position loop: %s", err.Error())
 			}
-			// operate loop at 50 Hz
-			waitTimeNano := (1.0 / 50.0) * 1000000000.0
 			time.Sleep(time.Duration(waitTimeNano))
 		}
 	}, enc.activeBackgroundWorkers.Done)
@@ -250,47 +291,4 @@ func (enc *AS5048A) Reset(
 func (enc *AS5048A) Close() {
 	enc.cancel()
 	enc.activeBackgroundWorkers.Wait()
-}
-
-// NewAS5048AEncoder returns a new instance of an AS5048A encoder.
-func NewAS5048AEncoder(
-	ctx context.Context, deps registry.Dependencies,
-	cfg config.Component, logger *zap.SugaredLogger,
-) (*AS5048A, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AS5048AConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
-	}
-	cancelCtx, cancel := context.WithCancel(ctx)
-	res := &AS5048A{
-		connectionType: attr.ConnectionType,
-		cancelCtx:      cancelCtx,
-		cancel:         cancel,
-		logger:         logger,
-	}
-	brd, err := board.FromDependencies(deps, attr.BoardName)
-	if err != nil {
-		return nil, err
-	}
-	localBoard, ok := brd.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf(
-			"board with name %s does not implement the LocalBoard interface", attr.BoardName,
-		)
-	}
-	if res.connectionType == i2cConn {
-		i2c, exists := localBoard.I2CByName(attr.I2CBus)
-		if !exists {
-			return nil, errors.Errorf("unable to find I2C bus: %s", attr.I2CBus)
-		}
-		i2cHandle, err := i2c.OpenHandle(byte(attr.I2CAddr))
-		if err != nil {
-			return nil, err
-		}
-		res.i2cHandle = i2cHandle
-	}
-	if err := res.startPositionLoop(ctx); err != nil {
-		return nil, err
-	}
-	return res, nil
 }
