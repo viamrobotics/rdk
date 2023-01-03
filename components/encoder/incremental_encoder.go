@@ -239,6 +239,9 @@ func (e *IncrementalEncoder) TicksCount(ctx context.Context, extra map[string]in
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
 func (e *IncrementalEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := ValidateIntegerOffset(offset); err != nil {
+		return err
+	}
 	offsetInt := int64(offset)
 	atomic.StoreInt64(&e.position, offsetInt)
 	atomic.StoreInt64(&e.pRaw, (offsetInt<<1)|atomic.LoadInt64(&e.pRaw)&0x1)

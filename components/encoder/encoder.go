@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -170,4 +171,17 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 		return reconfigurable, nil
 	}
 	return &reconfigurableEncoder{name: name, actual: m}, nil
+}
+
+// ValidateIntegerOffset returns an error if a non-integral value for offset
+// is passed to Reset for an incremental encoder (these encoders count based on
+// square-wave pulses and so cannot be supplied an offset that is not an integer)
+func ValidateIntegerOffset(offset float64) error {
+	if offset != float64(int64(offset)) {
+		return errors.Errorf(
+			"incremental encoders can only reset with integer value offsets, value passed was %d",
+			offset,
+		)
+	}
+	return nil
 }

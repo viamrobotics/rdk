@@ -103,6 +103,9 @@ func (e *Encoder) Start(cancelCtx context.Context) {
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
 func (e *Encoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := encoder.ValidateIntegerOffset(offset); err != nil {
+		return err
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = int64(offset)
