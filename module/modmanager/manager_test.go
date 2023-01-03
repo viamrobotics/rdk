@@ -2,7 +2,6 @@ package modmanager
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -38,9 +37,7 @@ func TestModManagerFunctions(t *testing.T) {
 		return logger
 	}
 
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
+	parentAddr := t.TempDir()
 	parentAddr += "/parent.sock"
 
 	myRobot.ModuleAddressFunc = func() (string, error) {

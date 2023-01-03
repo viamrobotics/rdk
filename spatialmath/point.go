@@ -17,8 +17,8 @@ type pointCreator struct {
 
 // point is a collision geometry that represents a single point in 3D space that occupies no geometry.
 type point struct {
-	pose  Pose
-	label string
+	position r3.Vector
+	label    string
 }
 
 // NewPointCreator instantiates a PointCreator class, which allows instantiating point geometries given only a pose which is applied
@@ -29,7 +29,7 @@ func NewPointCreator(offset Pose, label string) GeometryCreator {
 
 // NewGeometry instantiates a new point from a PointCreator class.
 func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
-	return &point{Compose(pc.offset, pose), pc.label}
+	return &point{Compose(pc.offset, pose).Point(), pc.label}
 }
 
 func (pc *pointCreator) Offset() Pose {
@@ -65,7 +65,7 @@ func (pc *pointCreator) ToProtobuf() *commonpb.Geometry {
 
 // NewPoint instantiates a new point Geometry.
 func NewPoint(pt r3.Vector, label string) Geometry {
-	return &point{NewPoseFromPoint(pt), label}
+	return &point{pt, label}
 }
 
 // Label returns the labels of this point.
@@ -78,12 +78,12 @@ func (pt *point) Label() string {
 
 // Pose returns the pose of the point.
 func (pt *point) Pose() Pose {
-	return pt.pose
+	return NewPoseFromPoint(pt.position)
 }
 
-// Vertices returns the vertices defining the point.
+// Vertices returns the vertex defining the point.
 func (pt *point) Vertices() []r3.Vector {
-	return []r3.Vector{pt.pose.Point()}
+	return []r3.Vector{pt.position}
 }
 
 // AlmostEqual compares the point with another geometry and checks if they are equivalent.
@@ -92,18 +92,18 @@ func (pt *point) AlmostEqual(g Geometry) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(pt.pose, other.pose)
+	return PoseAlmostEqual(NewPoseFromPoint(pt.position), NewPoseFromPoint(other.position))
 }
 
 // Transform premultiplies the point pose with a transform, allowing the point to be moved in space.
 func (pt *point) Transform(toPremultiply Pose) Geometry {
-	return &point{Compose(toPremultiply, pt.pose), pt.label}
+	return &point{Compose(toPremultiply, NewPoseFromPoint(pt.position)).Point(), pt.label}
 }
 
 // ToProto converts the point to a Geometry proto message.
 func (pt *point) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
-		Center: PoseToProtobuf(pt.pose),
+		Center: PoseToProtobuf(NewPoseFromPoint(pt.position)),
 		GeometryType: &commonpb.Geometry_Sphere{
 			Sphere: &commonpb.Sphere{
 				RadiusMm: 0,
@@ -116,10 +116,10 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
 func (pt *point) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return pointVsBoxCollision(other, pt.pose.Point()), nil
+		return pointVsBoxCollision(other, pt.position), nil
 	}
 	if other, ok := g.(*sphere); ok {
-		return sphereVsPointDistance(other, pt.pose.Point()) <= 0, nil
+		return sphereVsPointDistance(other, pt.position) <= 0, nil
 	}
 	if other, ok := g.(*point); ok {
 		return pt.AlmostEqual(other), nil
@@ -130,13 +130,13 @@ func (pt *point) CollidesWith(g Geometry) (bool, error) {
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
 func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*box); ok {
-		return pointVsBoxDistance(other, pt.pose.Point()), nil
+		return pointVsBoxDistance(other, pt.position), nil
 	}
 	if other, ok := g.(*sphere); ok {
-		return sphereVsPointDistance(other, pt.pose.Point()), nil
+		return sphereVsPointDistance(other, pt.position), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pt.pose.Point().Sub(other.pose.Point()).Norm(), nil
+		return pt.position.Sub(other.position).Norm(), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
 }
@@ -161,4 +161,9 @@ func pointVsBoxDistance(b *box, pt r3.Vector) float64 {
 		return distance
 	}
 	return -b.penetrationDepth(pt)
+}
+
+// ToPointCloud converts a point geometry into a []r3.Vector.
+func (pt *point) ToPoints(resolution float64) []r3.Vector {
+	return []r3.Vector{pt.position}
 }

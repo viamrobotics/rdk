@@ -28,6 +28,7 @@ type Geometry interface {
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string
+	ToPoints(float64) []r3.Vector
 }
 
 // GeometryType defines what geometry creator representations are known.

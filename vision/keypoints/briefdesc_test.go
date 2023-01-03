@@ -1,7 +1,6 @@
 package keypoints
 
 import (
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -14,9 +13,7 @@ func TestGenerateSamplePairs(t *testing.T) {
 	patchSize := 250
 	descSize := 128
 	offset := (patchSize / 2) - 1
-	tempDir, err := os.MkdirTemp("", "brief_sampling")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 	logger.Infof("writing sample points to %s", tempDir)
 	// create plotter
 	plotTmpImage := func(fileName string, sp *SamplePairs) {

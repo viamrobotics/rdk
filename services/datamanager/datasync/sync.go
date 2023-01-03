@@ -23,14 +23,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-/**
-TODO: We still have the possibility of duplicated data being uploaded if the server sends an ACK (and has thus persisted
-      the data), but the client doesn't receive the ACK before shutting down/erroring/etc. In this case the client will
-      think the data hasn't been persisted, and will reupload it.
-      I think this is solvable, but it may be difficult. As an interim, we can limit the total amount of duplicate data
-      risked by lowering the ACK size (since the amount of duplicate data possible == the size of one ACK).
-*/
-
 const (
 	appAddress = "app.viam.com:443"
 )

@@ -171,3 +171,16 @@ func TestPointCloudMatrix(t *testing.T) {
 	})
 	test.That(t, mcv, test.ShouldResemble, mat.NewDense(1, 7, []float64{1, 2, 3, 123, 45, 67, 5}))
 }
+
+func TestVectorsToPointCloud(t *testing.T) {
+	vecLst := []r3.Vector{{0, 0.75, 0}, {0, -0.75, 0}, {1, 0.75, 1}, {-1, 0.75, -1}}
+	color := &color.NRGBA{0, 0, 255, 255}
+	pc, err := VectorsToPointCloud(vecLst, *color)
+	test.That(t, err, test.ShouldBeNil)
+	// make sure all points were added with the specified color
+	for _, v := range vecLst {
+		data, boolVal := pc.At(v.X, v.Y, v.Z)
+		test.That(t, boolVal, test.ShouldBeTrue)
+		test.That(t, data.Color(), test.ShouldResemble, color)
+	}
+}

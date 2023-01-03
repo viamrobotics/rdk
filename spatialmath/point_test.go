@@ -11,11 +11,11 @@ import (
 func TestNewPoint(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
-	// test sphere created from NewBox method
+	// test point created from NewBox method
 	geometry := NewPoint(offset.Point(), "")
-	test.That(t, geometry, test.ShouldResemble, &point{NewPoseFromPoint(offset.Point()), ""})
+	test.That(t, geometry, test.ShouldResemble, &point{offset.Point(), ""})
 
-	// test sphere created from GeometryCreator with offset
+	// test point created from GeometryCreator with offset
 	geometry = NewPointCreator(offset, "").NewGeometry(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }

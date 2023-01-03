@@ -11,6 +11,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// box density corresponding to how many points per square mm.
+const defaultBoxPointDensity = .5
+
 // BoxCreator implements the GeometryCreator interface for box structs.
 type boxCreator struct {
 	halfSize        r3.Vector
@@ -167,7 +170,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxCollision(b, other.pose.Point()), nil
+		return pointVsBoxCollision(b, other.position), nil
 	}
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
@@ -180,7 +183,7 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsBoxDistance(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxDistance(b, other.pose.Point()), nil
+		return pointVsBoxDistance(b, other.position), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
@@ -351,4 +354,92 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
 	}
 	return sum
+}
+
+// ToPointCloud converts a box geometry into a []r3.Vector. This method takes one argument which
+// determines how many points to place per square mm. If the argument is set to 0. we automatically
+// substitute the value with defaultBoxPointDensity.
+func (b *box) ToPoints(resolution float64) []r3.Vector {
+	// check for user defined spacing
+	var iter float64
+	if resolution != 0. {
+		iter = resolution
+	} else {
+		iter = defaultBoxPointDensity
+	}
+
+	// the boolean values which are passed into the fillFaces method allow for the edges of the
+	// box to only be iterated over once. This removes duplicate points.
+	// TODO: the fillFaces method calls can be made concurrent if the ToPointCloud method is too slow
+	var facePoints []r3.Vector
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 0, true, false)...)
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 1, true, true)...)
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 2, false, false)...)
+
+	transformedVecs := transformPointsToPose(facePoints, b.Pose())
+	return transformedVecs
+}
+
+// fillFaces returns a list of vectors which lie on the surface of the box.
+func fillFaces(halfSize [3]float64, iter float64, fixedDimension int, orEquals1, orEquals2 bool) []r3.Vector {
+	var facePoints []r3.Vector
+	// create points on box faces with box centered at (0, 0, 0)
+	starts := [3]float64{0.0, 0.0, 0.0}
+	// depending on which face we want to fill, one of i,j,k is kept constant
+	starts[fixedDimension] = halfSize[fixedDimension]
+	for i := starts[0]; lessThan(orEquals1, i, halfSize[0]); i += iter {
+		for j := starts[1]; lessThan(orEquals2, j, halfSize[1]); j += iter {
+			for k := starts[2]; k <= halfSize[2]; k += iter {
+				p1 := r3.Vector{i, j, k}
+				p2 := r3.Vector{i, j, -k}
+				p3 := r3.Vector{i, -j, k}
+				p4 := r3.Vector{i, -j, -k}
+				p5 := r3.Vector{-i, j, k}
+				p6 := r3.Vector{-i, j, -k}
+				p7 := r3.Vector{-i, -j, -k}
+				p8 := r3.Vector{-i, -j, k}
+
+				switch {
+				case i == 0.0 && j == 0.0:
+					facePoints = append(facePoints, p1, p2)
+				case j == 0.0 && k == 0.0:
+					facePoints = append(facePoints, p1, p5)
+				case i == 0.0 && k == 0.0:
+					facePoints = append(facePoints, p1, p7)
+				case i == 0.0:
+					facePoints = append(facePoints, p1, p2, p3, p4)
+				case j == 0.0:
+					facePoints = append(facePoints, p1, p2, p5, p6)
+				case k == 0.0:
+					facePoints = append(facePoints, p1, p3, p5, p8)
+				default:
+					facePoints = append(facePoints, p1, p2, p3, p4, p5, p6, p7, p8)
+				}
+			}
+		}
+	}
+	return facePoints
+}
+
+// lessThan checks if v1 <= v1 only if orEquals is true, otherwise we check if v1 < v2.
+func lessThan(orEquals bool, v1, v2 float64) bool {
+	if orEquals {
+		return v1 <= v2
+	}
+	return v1 < v2
+}
+
+// transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
+func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
+	var transformedVectors []r3.Vector
+	for i := range facePoints {
+		// create pose for a vector at origin from the desired orientation
+		originWithPose := NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation())
+		// create the desired pose for points[i]
+		pointPose := Compose(originWithPose, NewPoseFromPoint(facePoints[i]))
+		// translate the vector to the desired position
+		transformedVec := Compose(NewPoseFromPoint(pose.Point()), pointPose).Point()
+		transformedVectors = append(transformedVectors, transformedVec)
+	}
+	return transformedVectors
 }

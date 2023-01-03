@@ -180,10 +180,11 @@ func TestClose(t *testing.T) {
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
 	target := datacapture.NewBuffer(tmpDir, &md)
+	sleepCaptureCutoff = time.Millisecond * 10
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 15,
+		Interval:      time.Millisecond * 5,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
 		QueueSize:     queueSize,
@@ -216,10 +217,11 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
+	sleepCaptureCutoff = time.Millisecond * 10
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 10,
+		Interval:      time.Millisecond * 5,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
 		QueueSize:     queueSize,
