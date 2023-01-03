@@ -139,7 +139,10 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 		return transform.NewNoIntrinsicsError("Distortion parameters do not exist")
 	}
 	// create orbslam struct to generate yaml file with
-	orbslam, err := slamSvc.orbCamMaker(&transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams})
+	orbslam, err := slamSvc.orbCamMaker(&transform.PinholeCameraModel{
+		PinholeCameraIntrinsics: props.IntrinsicParams,
+		Distortion:              props.DistortionParams},
+	)
 	if err != nil {
 		return err
 	}

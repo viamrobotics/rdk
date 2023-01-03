@@ -190,7 +190,6 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.L
 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
-
 func runtimeServiceValidation(
 	ctx context.Context,
 	cams []camera.Camera,
