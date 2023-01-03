@@ -197,7 +197,7 @@ func runtimeServiceValidation(
 	camStreams []gostream.VideoStream,
 	slamSvc *builtIn,
 ) error {
-	if len(cams) == 0 {
+	if !slamSvc.useLiveData {
 		return nil
 	}
 
@@ -256,9 +256,10 @@ func runtimeServiceValidation(
 type AttrConfig struct {
 	Sensors             []string          `json:"sensors"`
 	ConfigParams        map[string]string `json:"config_params"`
+	DataDirectory       string            `json:"data_dir"`
+	UseLiveData         *bool             `json:"use_live_data"`
 	DataRateMs          int               `json:"data_rate_msec"`
 	MapRateSec          *int              `json:"map_rate_sec"`
-	DataDirectory       string            `json:"data_dir"`
 	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
@@ -273,6 +274,10 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 
 	if config.DataDirectory == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "data_dir")
+	}
+
+	if config.UseLiveData == nil {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "use_live_data")
 	}
 
 	deps := config.Sensors
@@ -293,6 +298,7 @@ type builtIn struct {
 	dataDirectory       string
 	inputFilePattern    string
 	deleteProcessedData bool
+	useLiveData         bool
 
 	port       string
 	dataRateMs int
@@ -507,7 +513,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
-	offlineFlag := (len(cams) == 0)
 
 	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
 	if err != nil {
@@ -540,7 +545,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		mapRate = *svcConfig.MapRateSec
 	}
 
-	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, offlineFlag)
+	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, *svcConfig.UseLiveData)
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
 	for _, cam := range cams {
@@ -557,6 +562,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
+		useLiveData:           *svcConfig.UseLiveData,
 		inputFilePattern:      svcConfig.InputFilePattern,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
@@ -638,7 +644,7 @@ func (slamSvc *builtIn) StartDataProcess(
 	camStreams []gostream.VideoStream,
 	c chan int,
 ) {
-	if len(cams) == 0 {
+	if !slamSvc.useLiveData {
 		return
 	}
 
@@ -712,6 +718,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-delete_processed_data="+strconv.FormatBool(slamSvc.deleteProcessedData))
+	args = append(args, "-use_live_data="+strconv.FormatBool(slamSvc.useLiveData))
 	args = append(args, "-port="+slamSvc.port)
 	args = append(args, "--aix-auto-update")
 
