@@ -24,7 +24,8 @@ type box struct {
 
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
-	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
+	// Negative dimensions not allowed. Zero dimensions are allowed for bounding boxes, etc.
+	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
 	halfSize := dims.Mul(0.5)

@@ -104,8 +104,11 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewPoint(offset.Point(), config.Label), nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
-		if creator, err := NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label); err == nil {
-			return creator, nil
+		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}
+		if boxDims.Norm() > 0 {
+			if creator, err := NewBox(offset, boxDims, config.Label); err == nil {
+				return creator, nil
+			}
 		}
 		if creator, err := NewSphere(config.R, offset, config.Label); err == nil {
 			return creator, nil
