@@ -81,7 +81,6 @@ const refresh = async () => {
     });
   }
 
-
   if (properties?.compassHeadingSupported) {
     const req = new movementsensorApi.GetCompassHeadingRequest();
     req.setName(props.name);
