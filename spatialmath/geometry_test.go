@@ -54,7 +54,7 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, gc.NewGeometry(pose).AlmostEqual(newVc.NewGeometry(pose)), test.ShouldBeTrue)
+			test.That(t, gc.Transform(pose).AlmostEqual(newVc.Transform(pose)), test.ShouldBeTrue)
 			test.That(t, config.Label, test.ShouldEqual, testCase.name)
 		})
 	}
