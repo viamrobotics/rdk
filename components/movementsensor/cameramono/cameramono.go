@@ -290,11 +290,10 @@ func (co *cameramono) AngularVelocity(ctx context.Context, extra map[string]inte
 // Properties gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		PositionSupported:           true,
-		OrientationSupported:        true,
-		AngularVelocitySupported:    true,
-		LinearVelocitySupported:     true,
-		LinearAccelerationSupported: true,
+		PositionSupported:        true,
+		OrientationSupported:     true,
+		AngularVelocitySupported: true,
+		LinearVelocitySupported:  true,
 	}, nil
 }
 

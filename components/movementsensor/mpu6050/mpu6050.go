@@ -329,7 +329,8 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 
 func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
+		AngularVelocitySupported:    true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 
