@@ -236,6 +236,14 @@ func TestBoxVsBoxCollision(t *testing.T) {
 			},
 			-2,
 		},
+		{
+			"zero geometry box",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{20, 20, 20}, ""),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{0, 0, 0}, ""),
+			},
+			-8,
+		},
 	}
 	testGeometryCollision(t, cases)
 }
