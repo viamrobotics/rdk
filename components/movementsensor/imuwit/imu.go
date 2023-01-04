@@ -153,12 +153,6 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 	}
 	readings["magnetometer"] = mag
 
-	acc, err := imu.LinearAcceleration(ctx, extra)
-	if err != nil {
-		return nil, err
-	}
-	readings["acceleration"] = acc
-
 	return readings, err
 }
 
