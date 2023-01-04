@@ -243,9 +243,8 @@ func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context, extra map[s
 // Properties what can I do!
 func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		LinearVelocitySupported:     true,
-		PositionSupported:           true,
-		LinearAccelerationSupported: true,
+		LinearVelocitySupported: true,
+		PositionSupported:       true,
 	}, g.lastError
 }
 
