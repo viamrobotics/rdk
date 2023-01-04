@@ -5,12 +5,12 @@ package imuwit
 import (
 	"bufio"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -209,18 +209,37 @@ func NewWit(
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
 		defer i.activeBackgroundWorkers.Done()
-
+		timer := time.NewTicker(time.Duration(100 * float64(time.Millisecond)))
+		defer timer.Stop()
 		for {
+			select {
+			case <-ctx.Done():
+				// i.logger.Debug("imu context cancelled")
+				return
+			default:
+				// i.logger.Debug("default")
+			}
+			select {
+			case <-ctx.Done():
+				// i.logger.Debug("done context cancelled")
+				return
+			case <-timer.C:
+				// i.logger.Debug("I am in timer case")
+			}
+
 			if ctx.Err() != nil {
 				return
 			}
 
 			line, err := portReader.ReadString('U')
+			if err != nil {
+				i.logger.Errorf("err in line %#v", err)
+			}
 
 			// Randomly sample logging until we have better log level control
 			//nolint:gosec
 			if rand.Intn(100) < 3 {
-				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+				// logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
 
 			func() {
@@ -232,7 +251,7 @@ func NewWit(
 					logger.Error(i.lastError)
 				} else {
 					if len(line) != 11 {
-						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
+						// logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
 						i.numBadReadings++
 						return
 					}
