@@ -152,8 +152,8 @@ type RTKMovementSensor struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 	// Lock the mutex whenever you interact with lastError, ntripClient, or ntripStatus.
-	mu                      sync.Mutex
-	lastError               error
+	mu        sync.Mutex
+	lastError error
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string
