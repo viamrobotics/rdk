@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	i2cConn           = "I2C"
+	i2cConn           = "i2c"
 	transitionEpsilon = 90
 )
 
