@@ -90,3 +90,9 @@ func (g *reconfigurableGizmo) Name() resource.Name {
 	defer g.mu.RUnlock()
 	return g.name
 }
+
+func (g *reconfigurableGizmo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.DoCommand(ctx, cmd)
+}

@@ -69,6 +69,7 @@ type Gizmo interface {
 	DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error)
 	DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error)
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
+	generic.Generic
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.

@@ -125,6 +125,12 @@ func TestComplexModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		motorR := res.(motor.Motor)
 
+		// Test generic echo
+		testCmd := map[string]interface{}{"foo": "bar"}
+		ret, err := mybase.DoCommand(context.Background(), testCmd)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ret, test.ShouldResemble, testCmd)
+
 		// Stopped to begin with
 		moving, speed, err := motorL.IsPowered(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)

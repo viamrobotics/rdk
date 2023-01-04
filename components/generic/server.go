@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the SensorService from sensor.proto.
+// subtypeServer implements the generic.Generic service.
 type subtypeServer struct {
 	pb.UnimplementedGenericServiceServer
 	s subtype.Service

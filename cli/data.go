@@ -190,7 +190,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, i
 		return err
 	}
 
-	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339)
+	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	var fileName string
 	if datum.GetMetadata().GetFileName() != "" {
 		// Can use file ext directly from metadata.

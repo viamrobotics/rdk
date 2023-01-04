@@ -66,7 +66,10 @@ func (c *Config) Ensure(fromCloud bool) error {
 
 	for idx := 0; idx < len(c.Modules); idx++ {
 		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			return err
+			if c.DisablePartialStart {
+				return err
+			}
+			golog.Global().Debug(errors.Wrap(err, "Module config error, starting robot without remote: "+c.Modules[idx].Name))
 		}
 	}
 
