@@ -426,11 +426,9 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 
 	scanner := rtcm3.NewScanner(r)
 
-	g.ntripStatus = func() bool {
-		g.mu.Lock()
-		defer g.mu.Unlock()
-		return true
-	}()
+	g.mu.Lock()
+	g.ntripStatus = true
+	g.mu.Unlock()
 
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself.
@@ -452,11 +450,10 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.ntripStatus = func() bool {
-				g.mu.Lock()
-				defer g.mu.Unlock()
-				return false
-			}()
+			g.mu.Lock()
+			g.ntripStatus = false
+			g.mu.Unlock()
+
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
@@ -485,11 +482,9 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 				}
 
 				scanner = rtcm3.NewScanner(r)
-				g.ntripStatus = func() bool {
-					g.mu.Lock()
-					defer g.mu.Unlock()
-					return true
-				}()
+				g.mu.Lock()
+				g.ntripStatus = true
+				g.mu.Unlock()
 				continue
 			}
 		}
@@ -544,11 +539,9 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 	r := io.TeeReader(g.ntripClient.Stream, w)
 	scanner := rtcm3.NewScanner(r)
 
-	g.ntripStatus = func() bool {
-		g.mu.Lock()
-		defer g.mu.Unlock()
-		return true
-	}()
+	g.mu.Lock()
+	g.ntripStatus = true
+	g.mu.Unlock()
 
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself.
@@ -561,11 +554,10 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.ntripStatus = func() bool {
-				g.mu.Lock()
-				defer g.mu.Unlock()
-				return false
-			}()
+			g.mu.Lock()
+			g.ntripStatus = false
+			g.mu.Unlock()
+
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
@@ -576,11 +568,9 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 
 				r = io.TeeReader(g.ntripClient.Stream, w)
 				scanner = rtcm3.NewScanner(r)
-				g.ntripStatus = func() bool {
-					g.mu.Lock()
-					defer g.mu.Unlock()
-					return true
-				}()
+				g.mu.Lock()
+				g.ntripStatus = true
+				g.mu.Unlock()
 				continue
 			}
 		}
