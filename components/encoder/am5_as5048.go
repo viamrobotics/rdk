@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	modelName            = resource.NewDefaultModel("AS5048")
+	modelName            = resource.NewDefaultModel("AM5-AS5048")
 	scalingFactor        = 360.0 / math.Pow(2, 14)
 	supportedConnections = utils.NewStringSet(i2cConn)
 )
