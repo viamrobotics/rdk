@@ -2,6 +2,8 @@
 package config
 
 import (
+	"errors"
+
 	"github.com/edaniels/golog"
 )
 
@@ -19,4 +21,17 @@ func DetermineDeleteProcessedData(logger golog.Logger, deleteData *bool, useLive
 		}
 	}
 	return deleteProcessedData
+}
+
+// DetermineUseLiveData will determine the value of the useLiveData attribute of slam builtin
+// based on the use_live_data input parameter and sensor list.
+func DetermineUseLiveData(logger golog.Logger, liveData *bool, sensors []string) (bool, error) {
+	if liveData == nil {
+		return false, errors.New("use_live_data is a required input parameter")
+	}
+	useLiveData := *liveData
+	if useLiveData && len(sensors) == 0 {
+		return false, errors.New("a value of true cannot be given for use_live_data when no cameras are given")
+	}
+	return useLiveData, nil
 }
