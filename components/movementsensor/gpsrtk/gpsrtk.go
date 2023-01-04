@@ -260,6 +260,8 @@ func (g *RTKMovementSensor) setLastError(err error) {
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
 func (g *RTKMovementSensor) Start(ctx context.Context) error {
+	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
+	// correction data goes wrong. Could anything worse than uncorrected data occur?
 	if err := g.nmeamovementsensor.Start(ctx); err != nil {
 		return err
 	}
