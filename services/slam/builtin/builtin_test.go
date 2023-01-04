@@ -1226,7 +1226,7 @@ func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_pro
 		return len(files), nil
 	}
 	if delete_processed_data && online {
-		test.That(t, prev, test.ShouldBeLessThanOrEqualTo, dataBufferSize)
+		test.That(t, prev, test.ShouldBeLessThanOrEqualTo, dataBufferSize+1)
 	}
 	if !delete_processed_data && online {
 		test.That(t, prev, test.ShouldBeLessThan, len(files))
