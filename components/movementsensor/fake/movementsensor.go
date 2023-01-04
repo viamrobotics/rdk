@@ -98,11 +98,12 @@ func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interfac
 // Properties returns the properties of a fake movementsensor.
 func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		LinearVelocitySupported:  true,
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
-		PositionSupported:        true,
-		CompassHeadingSupported:  true,
+		LinearVelocitySupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		PositionSupported:           true,
+		CompassHeadingSupported:     true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 

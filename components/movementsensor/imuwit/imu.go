@@ -164,8 +164,9 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 
 func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 
