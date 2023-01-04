@@ -544,7 +544,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		mapRate = *svcConfig.MapRateSec
 	}
 
-	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, *svcConfig.UseLiveData)
+	useLiveData, err := slamConfig.DetermineUseLiveData(logger, svcConfig.UseLiveData, svcConfig.Sensors)
+	if err != nil {
+		return nil, err
+	}
+	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, useLiveData)
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
 	for _, cam := range cams {
@@ -561,7 +565,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
-		useLiveData:           *svcConfig.UseLiveData,
+		useLiveData:           useLiveData,
 		inputFilePattern:      svcConfig.InputFilePattern,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
