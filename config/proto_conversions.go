@@ -46,7 +46,7 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 		}
 		cfg.Auth = *auth
 	}
-	var disablePartialStart = false
+	disablePartialStart := false
 	if proto.DisablePartialStart != nil {
 		disablePartialStart = *proto.DisablePartialStart
 	}
