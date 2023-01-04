@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+CMD="make build lint"
+echo "Verifying no uncommitted changes after \"$CMD\""
+
+`$CMD`
+
+GEN_DIFF=$(git diff --name-only --diff-filter=M)
+
+if [ -n "$GEN_DIFF" ]; then
+    echo "\"$CMD\" resulted in changes not staged for commit in git:" 1>&2
+    echo "$GEN_DIFF"
+    exit 1
+fi
