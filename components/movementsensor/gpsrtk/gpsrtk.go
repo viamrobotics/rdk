@@ -243,7 +243,7 @@ func newRTKMovementSensor(
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
 	g.addr = byte(attr.I2cAddr)
 
-	if err := g.Start(ctx); err != nil {
+	if err := g.Start(); err != nil {
 		return nil, err
 	}
 	g.mu.Lock()
@@ -259,10 +259,10 @@ func (g *RTKMovementSensor) setLastError(err error) {
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
-func (g *RTKMovementSensor) Start(ctx context.Context) error {
+func (g *RTKMovementSensor) Start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
-	if err := g.nmeamovementsensor.Start(ctx); err != nil {
+	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		return err
 	}
 
@@ -270,7 +270,7 @@ func (g *RTKMovementSensor) Start(ctx context.Context) error {
 	case serialStr:
 		utils.PanicCapturingGo(g.ReceiveAndWriteSerial)
 	case i2cStr:
-		utils.PanicCapturingGo(func() { g.ReceiveAndWriteI2C(ctx) })
+		utils.PanicCapturingGo(func() { g.ReceiveAndWriteI2C(g.cancelCtx) })
 	}
 
 	g.mu.Lock()
