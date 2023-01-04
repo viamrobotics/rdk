@@ -18,10 +18,6 @@ import (
 	"go.viam.com/utils"
 )
 
-const (
-	cartoSleepMs = 100
-)
-
 // Checks the cartographer position and map.
 func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	t.Helper()
@@ -102,9 +98,6 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the data for the next run
 	closeOutSLAMService(t, "")
 
-	// Sleep to ensure cartographer stops
-	time.Sleep(time.Millisecond * cartoSleepMs)
-
 	// Delete the last .pcd file in the data directory, so that offline mode runs on the
 	// same data as online mode. (Online mode will not read the last .pcd file, since it
 	// always processes the second-most-recent .pcd file, in case the most-recent .pcd
@@ -160,9 +153,6 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
-
-	// Sleep to ensure cartographer stops
-	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
@@ -231,9 +221,6 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
 	closeOutSLAMService(t, "")
-
-	// Sleep to ensure cartographer stops
-	time.Sleep(time.Millisecond * cartoSleepMs)
 
 	// Remove existing pointclouds, but leave maps and config (so we keep the lua files).
 	test.That(t, resetFolder(name+"/data"), test.ShouldBeNil)
