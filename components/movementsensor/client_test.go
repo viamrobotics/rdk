@@ -158,10 +158,9 @@ func TestClient(t *testing.T) {
 		test.That(t, acc1, test.ShouldResemble, acc)
 		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
-		la, err := gps1Client.LinearAcceleration(context.Background(), map[string]interface{}{"foo": "bar"})
-		logger.Info(err)
+		la1, err := gps1Client.LinearAcceleration(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, la, test.ShouldResemble, la)
+		test.That(t, la1, test.ShouldNotResemble, la)
 		test.That(t, injectMovementSensor.LinearAccelerationExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		rs1, err := gps1Client.Readings(context.Background(), make(map[string]interface{}))

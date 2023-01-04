@@ -264,7 +264,7 @@ var (
 	ang     = spatialmath.AngularVelocity{5.5, 1.2, 2.3}
 	orie    = &spatialmath.EulerAngles{5.6, 1.3, 2.4}
 	compass = 123.
-	la      = r3.Vector{0, 0, 0}
+	la      = r3.Vector{1.1, 5.6, 0}
 )
 
 type mock struct {
