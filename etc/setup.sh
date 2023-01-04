@@ -197,6 +197,12 @@ do_brew(){
 }
 
 # Main install routine
+
+echo "Installing git hooks"
+
+ROOT_DIR=`git rev-parse --show-toplevel`
+cp -R $ROOT_DIR/etc/git/hooks/* $ROOT_DIR/.git/hooks
+
 if [ "$(uname)" == "Linux" ]; then
 	if [ "$(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)" == "bullseye" ]; then
 		do_bullseye

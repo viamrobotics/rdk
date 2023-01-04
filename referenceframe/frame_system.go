@@ -477,6 +477,18 @@ func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Fr
 	if !ok {
 		return nil, nil, errors.New("failed to cast originFrame to a static frame")
 	}
+	// If the user has specified a geometry, and the model is a zero DOF frame (e.g. a gripper), we want to overwrite the geometry
+	// with the user-supplied one without changing the model transform
+	if len(modelFrame.DoF()) == 0 {
+		offsetGeom, err := staticOriginFrame.Geometries([]Input{})
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(offsetGeom.Geometries()) > 0 {
+			modelFrame = &noGeometryFrame{modelFrame}
+		}
+	}
+
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil

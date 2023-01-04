@@ -116,13 +116,15 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	var errAll error
 	geometryMap := make(map[string]spatialmath.Geometry)
 	for _, frame := range frames {
-		geometry, err := frame.Geometries([]Input{})
-		if geometry == nil {
+		geometriesInFrame, err := frame.Geometries([]Input{})
+		if geometriesInFrame == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		geometryMap[m.name+":"+frame.Name()] = geometry.Geometries()[frame.Name()].Transform(frame.transform)
+		for geomName, geom := range geometriesInFrame.Geometries() {
+			geometryMap[m.name+":"+geomName] = geom.Transform(frame.transform)
+		}
 	}
 	return NewGeometriesInFrame(m.name, geometryMap), errAll
 }

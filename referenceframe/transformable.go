@@ -205,6 +205,9 @@ func (gF *GeometriesInFrame) Parent() string {
 
 // Geometries returns the geometries observed.
 func (gF *GeometriesInFrame) Geometries() map[string]spatialmath.Geometry {
+	if gF.geometries == nil {
+		return make(map[string]spatialmath.Geometry)
+	}
 	return gF.geometries
 }
 

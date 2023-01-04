@@ -23,6 +23,7 @@ Viam provides an open source robot architecture that provides robotics functiona
 
 * Install `make`.
 * Run `make setup` to install dev environment requirements.
+  * This also installs some client side git hooks.
 
 ### Build and Run
 * Build: `make server`. Then run `./bin/<your architecture>/server [parameters]`
@@ -59,6 +60,18 @@ The API is defined with Protocol Buffers/gRPC which can be found at https://gith
 * Run `make build` and commit resulting frontend artifacts.
 * Use imperative mood for commits (see [Git Documentation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136)).
 * Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+
+### Committing
+
+* Follow git's guidance on commit messages:
+> Describe your changes in imperative mood, e.g. "make xyzzy do frotz"
+> instead of "[This patch] makes xyzzy do frotz" or "[I] changed xyzzy
+> to do frotz", as if you are giving orders to the codebase to change
+> its behavior.  Try to make sure your explanation can be understood
+> without external resources. Instead of giving a URL to a mailing list
+> archive, summarize the relevant points of the discussion.
+* Each commit has a linting pre-commit hook run if `make setup` was used. It can be skipped with `git commit --no-verify`.
+
 
 ### Frontend
 
