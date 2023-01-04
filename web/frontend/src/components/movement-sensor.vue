@@ -1,15 +1,19 @@
 <script setup lang="ts">
+
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, movementSensorApi as movementsensorApi } from '@viamrobotics/sdk';
 import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+
 interface Props {
   name: string
   client: Client
 }
+
 const props = defineProps<Props>();
+
 let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
 let angularVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
 let linearVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
@@ -17,84 +21,108 @@ let compassHeading = $ref<number | undefined>();
 let coordinate = $ref<commonApi.GeoPoint.AsObject | undefined>();
 let altitudeMm = $ref<number | undefined>();
 let properties = $ref<movementsensorApi.GetPropertiesResponse.AsObject | undefined>();
+
 let refreshId = -1;
+
 const refresh = async () => {
   properties = await new Promise((resolve) => {
     const req = new movementsensorApi.GetPropertiesRequest();
     req.setName(props.name);
+
     rcLogConditionally(req);
     props.client.movementSensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
+
       resolve(resp!.toObject());
     });
   });
+
   if (properties?.orientationSupported) {
     const req = new movementsensorApi.GetOrientationRequest();
     req.setName(props.name);
+
     rcLogConditionally(req);
     props.client.movementSensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
+
       orientation = resp!.toObject().orientation;
     });
   }
+
   if (properties?.angularVelocitySupported) {
     const req = new movementsensorApi.GetAngularVelocityRequest();
     req.setName(props.name);
+
     rcLogConditionally(req);
     props.client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
+
       angularVelocity = resp!.toObject().angularVelocity;
     });
   }
+
   if (properties?.linearVelocitySupported) {
     const req = new movementsensorApi.GetLinearVelocityRequest();
     req.setName(props.name);
+
     rcLogConditionally(req);
     props.client.movementSensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
+
       linearVelocity = resp!.toObject().linearVelocity;
     });
   }
+
+
   if (properties?.compassHeadingSupported) {
     const req = new movementsensorApi.GetCompassHeadingRequest();
     req.setName(props.name);
+
     rcLogConditionally(req);
     props.client.movementSensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
+
       compassHeading = resp!.toObject().value;
     });
   }
+
   if (properties?.positionSupported) {
     const req = new movementsensorApi.GetPositionRequest();
     req.setName(props.name);
+
     rcLogConditionally(req);
     props.client.movementSensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
+
       const temp = resp!.toObject();
       coordinate = temp.coordinate;
       altitudeMm = temp.altitudeMm;
     });
   }
+
   refreshId = window.setTimeout(refresh, 500);
 };
+
 onMounted(() => {
   refreshId = window.setTimeout(refresh, 500);
 });
+
 onUnmounted(() => {
   clearTimeout(refreshId);
 });
+
 </script>
 
 <template>
