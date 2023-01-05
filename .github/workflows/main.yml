@@ -23,7 +23,7 @@ jobs:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   slam_integration_test:
-    uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
+    uses: jeremyhyde-viam/rdk/.github/workflows/slam-integration-test.yml@RSDK-1626_SLAMIntegrationTestNotice
 
   appimage:
     needs: test
