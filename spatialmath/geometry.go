@@ -99,7 +99,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	case BoxType:
 		return NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label)
 	case SphereType:
-		return NewSphere(config.R, offset, config.Label)
+		return NewSphere(offset, config.R, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case UnknownType:
@@ -110,7 +110,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 				return creator, nil
 			}
 		}
-		if creator, err := NewSphere(config.R, offset, config.Label); err == nil {
+		if creator, err := NewSphere(offset, config.R, config.Label); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified
@@ -128,7 +128,7 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 		if sphere.RadiusMm == 0 {
 			return NewPoint(pose.Point(), geometry.Label), nil
 		}
-		return NewSphere(sphere.RadiusMm, pose, geometry.Label)
+		return NewSphere(pose, sphere.RadiusMm, geometry.Label)
 	}
 	return nil, ErrGeometryTypeUnsupported
 }
