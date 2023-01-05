@@ -2,11 +2,11 @@
 package config
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 )
 
+// SLAMConfigError returns an error specific to a failure in SLAM config.
 func SLAMConfigError(configError string) error {
 	return errors.Errorf("SLAM Service configuration error: %s", configError)
 }
