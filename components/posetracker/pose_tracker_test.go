@@ -144,7 +144,7 @@ func (m *mock) Poses(ctx context.Context, bodyNames []string, extra map[string]i
 	m.extra = extra
 	return posetracker.BodyToPoseInFrame{
 		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
-		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
+		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPose(
 			r3.Vector{X: 2, Y: 4, Z: 6},
 			&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 		)),
@@ -178,7 +178,7 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 
 	expectedPoses := posetracker.BodyToPoseInFrame{
 		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
-		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
+		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPose(
 			r3.Vector{X: 2, Y: 4, Z: 6},
 			&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 		)),
@@ -202,7 +202,7 @@ func TestReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, receivedReadings["body1"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()))
-	test.That(t, receivedReadings["body2"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
+	test.That(t, receivedReadings["body2"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewPose(
 		r3.Vector{X: 2, Y: 4, Z: 6},
 		&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 	)))

@@ -977,7 +977,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
-	pose := spatial.NewPoseFromOrientation(r3.Vector{X: 1, Y: 2, Z: 3},
+	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3},
 		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 

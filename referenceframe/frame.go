@@ -414,7 +414,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
-	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
+	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.

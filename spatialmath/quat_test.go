@@ -96,7 +96,7 @@ func TestDHConversion(t *testing.T) {
 	// Test conversion of a DH param to a dual quaternion
 	dhParam := []float64{-0.425, 0.1333, math.Pi / 2}
 	dq1 := newDualQuaternionFromDH(dhParam[0], dhParam[1], dhParam[2])
-	dq2 := newDualQuaternionFromPose(NewPoseFromOrientation(
+	dq2 := newDualQuaternionFromPose(NewPose(
 		r3.Vector{X: -0.425, Y: 0, Z: 0.1333},
 		&OrientationVectorDegrees{OY: -1, Theta: 90},
 	))
