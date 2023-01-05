@@ -59,6 +59,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	mapRate := 1
 	deleteProcessedData := false
+	useLiveData := true
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -70,6 +71,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release point cloud for service validation
@@ -122,6 +124,8 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Test offline mode using the data generated in the online test
 	t.Log("\n=== Testing offline mode ===\n")
 
+	useLiveData = false
+
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
@@ -131,6 +135,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Create slam service using a real cartographer binary
@@ -176,6 +181,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	mapRate = 0
 	deleteProcessedData = true
+	useLiveData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -186,6 +192,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release point cloud for service validation
@@ -252,6 +259,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:    &mapRate,
 		DataDirectory: name,
+		UseLiveData:   &useLiveData,
 	}
 
 	// Release point cloud for service validation
