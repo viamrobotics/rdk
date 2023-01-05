@@ -64,6 +64,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
+	useLiveData := true
 	dataRateMs := 200
 	attrCfgGood := &builtin.AttrConfig{
 		Sensors: []string{"good_color_camera"},
@@ -78,6 +79,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
 		Port:          "localhost:4445",
+		UseLiveData:   &useLiveData,
 	}
 	attrCfgGoodHighDataRateMs := &builtin.AttrConfig{
 		Sensors: []string{"good_color_camera"},
@@ -92,6 +94,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		DataDirectory: name,
 		DataRateMs:    10000,
 		Port:          "localhost:4445",
+		UseLiveData:   &useLiveData,
 	}
 	attrCfgBadCam := &builtin.AttrConfig{
 		Sensors: []string{"bad_camera_intrinsics"},
@@ -106,6 +109,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		DataDirectory: name,
 		DataRateMs:    dataRateMs,
 		Port:          "localhost:4445",
+		UseLiveData:   &useLiveData,
 	}
 	var fakeMap string
 	var fakeMapTimestamp string
@@ -221,6 +225,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    dataRateMs,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 		// Create slam service
 		logger := golog.NewTestLogger(t)
@@ -240,6 +245,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			DataDirectory: name,
 			DataRateMs:    dataRateMs,
 			Port:          "localhost:4445",
+			UseLiveData:   &useLiveData,
 		}
 		_, err = createSLAMService(t, attrCfgBadParam2, "fake_orbslamv3", logger, false, false)
 
