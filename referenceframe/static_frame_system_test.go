@@ -97,7 +97,7 @@ func TestSimpleFrameTranslation(t *testing.T) {
 func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
-	framePose := spatial.NewPoseFromOrientation(r3.Vector{0., 3., 0.}, &spatial.R4AA{math.Pi, 0., 0., 1.})
+	framePose := spatial.NewPose(r3.Vector{0., 3., 0.}, &spatial.R4AA{math.Pi, 0., 0., 1.})
 	f1, err := NewStaticFrame("frame", framePose)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.World())
@@ -105,7 +105,7 @@ func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 
 	// define the point coordinates and transform between them both ways
 	poseWorld := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{1, 3, 0}))
-	poseFrame := NewPoseInFrame("frame", spatial.NewPoseFromOrientation(r3.Vector{-1., 0, 0}, &spatial.R4AA{math.Pi, 0., 0., 1.}))
+	poseFrame := NewPoseInFrame("frame", spatial.NewPose(r3.Vector{-1., 0, 0}, &spatial.R4AA{math.Pi, 0., 0., 1.}))
 	testTransformPoint(t, fs, map[string][]Input{}, poseWorld, poseFrame)
 	testTransformPoint(t, fs, map[string][]Input{}, poseFrame, poseWorld)
 }
@@ -190,7 +190,7 @@ func TestFrameTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
-	frame2Pose := spatial.NewPoseFromOrientation(r3.Vector{5., 1., 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
+	frame2Pose := spatial.NewPose(r3.Vector{5., 1., 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
 	f2, err := NewStaticFrame("frame2", frame2Pose)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f2, fs.World())
@@ -198,7 +198,7 @@ func TestFrameTransform(t *testing.T) {
 
 	// do the transformation
 	poseStart := NewPoseInFrame("frame1", spatial.NewPoseFromPoint(r3.Vector{5, 0, 0}))
-	poseEnd := NewPoseInFrame("frame2", spatial.NewPoseFromOrientation(r3.Vector{6, 0, 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.}))
+	poseEnd := NewPoseInFrame("frame2", spatial.NewPose(r3.Vector{6, 0, 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.}))
 	testTransformPoint(t, fs, map[string][]Input{}, poseStart, poseEnd)
 }
 
@@ -235,7 +235,7 @@ func TestGeomtriesTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
-	frame2Pose := spatial.NewPoseFromOrientation(r3.Vector{5., 1., 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
+	frame2Pose := spatial.NewPose(r3.Vector{5., 1., 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
 	f2, err := NewStaticFrame("frame2", frame2Pose)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f2, fs.World())
@@ -273,13 +273,13 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
-	frame1, err := NewStaticFrame("frame1", spatial.NewPoseFromOrientation(r3.Vector{-1., 2., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
+	frame1, err := NewStaticFrame("frame1", spatial.NewPose(r3.Vector{-1., 2., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
 	frame2, err := NewStaticFrame("frame2",
-		spatial.NewPoseFromOrientation(r3.Vector{2. * math.Sqrt(2), 0., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
+		spatial.NewPose(r3.Vector{2. * math.Sqrt(2), 0., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame2, fs.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -291,7 +291,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 	// test out transform between frames
 	// frame3 - pure rotation around y 90 degrees
-	frame3, err := NewStaticFrame("frame3", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
+	frame3, err := NewStaticFrame("frame3", spatial.NewPoseFromOrientation(&spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -317,19 +317,19 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
-	frame1, err := NewStaticFrame("frame1", spatial.NewPoseFromOrientation(r3.Vector{-1., 2., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
+	frame1, err := NewStaticFrame("frame1", spatial.NewPose(r3.Vector{-1., 2., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
 	frame2, err := NewStaticFrame("frame2",
-		spatial.NewPoseFromOrientation(r3.Vector{2. * math.Sqrt(2), 0., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
+		spatial.NewPose(r3.Vector{2. * math.Sqrt(2), 0., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame2, fs.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// frame3 - pure rotation around y 90 degrees
-	frame3, err := NewStaticFrame("frame3", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
+	frame3, err := NewStaticFrame("frame3", spatial.NewPoseFromOrientation(&spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame3, fs.World())
 	test.That(t, err, test.ShouldBeNil)

@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewPoint(t *testing.T) {
-	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
+	offset := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
 	// test point created from NewBox method
 	geometry := NewPoint(offset.Point(), "")
