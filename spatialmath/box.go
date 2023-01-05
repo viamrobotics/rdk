@@ -434,7 +434,7 @@ func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	var transformedVectors []r3.Vector
 	for i := range facePoints {
 		// create pose for a vector at origin from the desired orientation
-		originWithPose := NewPoseFromOrientation(r3.Vector{0, 0, 0}, pose.Orientation())
+		originWithPose := NewPoseFromOrientation(pose.Orientation())
 		// create the desired pose for points[i]
 		pointPose := Compose(originWithPose, NewPoseFromPoint(facePoints[i]))
 		// translate the vector to the desired position

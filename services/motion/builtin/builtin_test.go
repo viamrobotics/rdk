@@ -49,7 +49,7 @@ func TestMoveFailures(t *testing.T) {
 	})
 
 	t.Run("fail on disconnected supplemental frames in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromOrientation(
+		testPose := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
@@ -86,7 +86,7 @@ func TestMove1(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromOrientation(
+		testPose := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
@@ -183,7 +183,7 @@ func TestMoveSingleComponent(t *testing.T) {
 	ms = setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		testPose := spatialmath.NewPoseFromOrientation(
+		testPose := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
@@ -192,7 +192,7 @@ func TestMoveSingleComponent(t *testing.T) {
 		}
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 
-		poseToGrab := spatialmath.NewPoseFromOrientation(
+		poseToGrab := spatialmath.NewPose(
 			r3.Vector{X: -20., Y: 0., Z: -800.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 1., RY: 0., RZ: 0.},
 		)
@@ -250,10 +250,7 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	testPose := spatialmath.NewPoseFromOrientation(
-		r3.Vector{X: 0., Y: 0., Z: 0.},
-		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
-	)
+	testPose := spatialmath.NewPoseFromOrientation(&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.})
 	transforms := []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame", nil),
 		referenceframe.NewLinkInFrame("testFrame", testPose, "testFrame2", nil),

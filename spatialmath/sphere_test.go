@@ -14,7 +14,7 @@ func makeTestSphere(point r3.Vector, radius float64, label string) Geometry {
 }
 
 func TestNewSphere(t *testing.T) {
-	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
+	offset := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
 	// test sphere created from NewBox method
 	geometry, err := NewSphere(offset.Point(), 1, "")
