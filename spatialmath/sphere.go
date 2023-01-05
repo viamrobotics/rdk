@@ -22,7 +22,7 @@ type sphere struct {
 }
 
 // NewSphere instantiates a new sphere Geometry.
-func NewSphere(radius float64, offset Pose, label string) (Geometry, error) {
+func NewSphere(offset Pose, radius float64, label string) (Geometry, error) {
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}

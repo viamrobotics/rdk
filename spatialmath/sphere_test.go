@@ -9,7 +9,7 @@ import (
 )
 
 func makeTestSphere(point r3.Vector, radius float64, label string) Geometry {
-	sphere, _ := NewSphere(radius, NewPoseFromPoint(point), label)
+	sphere, _ := NewSphere(NewPoseFromPoint(point), radius, label)
 	return sphere
 }
 
@@ -17,14 +17,14 @@ func TestNewSphere(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
 	// test sphere created from NewSphere method
-	geometry, err := NewSphere(1, offset, "")
+	geometry, err := NewSphere(offset, 1, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, geometry, test.ShouldResemble, &sphere{pose: offset, radius: 1})
-	_, err = NewSphere(-1, offset, "")
+	_, err = NewSphere(offset, -1, "")
 	test.That(t, err.Error(), test.ShouldContainSubstring, newBadGeometryDimensionsError(&sphere{}).Error())
 
-	// test sphere created from GeometryCreator with offset
-	gc, err := NewSphere(1, offset, "")
+	// test sphere created from initial sphere with offset
+	gc, err := NewSphere(offset, 1, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometry = gc.Transform(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
