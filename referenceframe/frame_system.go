@@ -57,6 +57,9 @@ type FrameSystem interface {
 
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+
+	// TODO: add explanation of this function
+	ConvertFrameSystem(system FrameSystem) FrameSystem
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -306,6 +309,16 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	}
 
 	return newFS, nil
+}
+
+// ConvertFrameSystemtakes in a framesystem and returns a framesystem where all elements have parent world
+func (sfs *simpleFrameSystem) ConvertFrameSystem(system FrameSystem) FrameSystem {
+	// sfs.getFrameToWorldTransform()
+	// inputs := StartPositions(system)
+	// for _, component := range system {
+
+	// }
+	return system
 }
 
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
