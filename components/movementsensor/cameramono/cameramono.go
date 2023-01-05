@@ -278,6 +278,10 @@ func (co *cameramono) LinearVelocity(ctx context.Context, extra map[string]inter
 	return co.result.linVel, nil
 }
 
+func (co *cameramono) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
+
 // AngularVelocity gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return co.result.angVel, nil

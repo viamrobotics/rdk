@@ -283,6 +283,19 @@ func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interfa
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
+func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]interface{}) (r3.Vector, error) {
+	mpu.mu.Lock()
+	defer mpu.mu.Unlock()
+
+	lastError := mpu.lastError
+	mpu.lastError = nil
+
+	if lastError != nil {
+		return r3.Vector{}, lastError
+	}
+	return mpu.linearAcceleration, nil
+}
+
 func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
@@ -316,7 +329,8 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 
 func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
+		AngularVelocitySupported:    true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 

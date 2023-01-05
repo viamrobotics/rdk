@@ -63,7 +63,7 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 }
 
 type MyBase struct {
-	generic.Unimplemented
+	generic.Echo
 	left    motor.Motor
 	right   motor.Motor
 	logger  golog.Logger

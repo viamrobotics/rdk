@@ -180,6 +180,14 @@ var testModule = Module{
 	ExePath: "/tmp/test.mod",
 }
 
+var (
+	testInvalidModule        = Module{}
+	testInvalidComponent     = Component{}
+	testInvalidRemote        = Remote{}
+	testInvalidProcessConfig = pexec.ProcessConfig{}
+	testInvalidService       = Service{}
+)
+
 //nolint:thelper
 func validateModule(t *testing.T, actual, expected Module) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
@@ -864,4 +872,126 @@ func TestFromProto(t *testing.T) {
 	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
+}
+
+func TestPartialStart(t *testing.T) {
+	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig, err := RemoteConfigToProto(&testRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	moduleConfig, err := ModuleConfigToProto(&testModule)
+	test.That(t, err, test.ShouldBeNil)
+
+	componentConfig, err := ComponentConfigToProto(&testComponent)
+	test.That(t, err, test.ShouldBeNil)
+
+	processConfig, err := ProcessConfigToProto(&testProcessConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	serviceConfig, err := ServiceConfigToProto(&testService)
+	test.That(t, err, test.ShouldBeNil)
+
+	networkConfig, err := NetworkConfigToProto(&testNetworkConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	authConfig, err := AuthConfigToProto(&testAuthConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteInvalidConfig, err := RemoteConfigToProto(&testInvalidRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	moduleInvalidConfig, err := ModuleConfigToProto(&testInvalidModule)
+	test.That(t, err, test.ShouldBeNil)
+
+	componentInvalidConfig, err := ComponentConfigToProto(&testInvalidComponent)
+	test.That(t, err, test.ShouldBeNil)
+
+	processInvalidConfig, err := ProcessConfigToProto(&testInvalidProcessConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	serviceInvalidConfig, err := ServiceConfigToProto(&testInvalidService)
+	test.That(t, err, test.ShouldBeNil)
+
+	debug := true
+	disablePartialStart := false
+
+	input := &pb.RobotConfig{
+		Cloud:               cloudConfig,
+		Remotes:             []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
+		Modules:             []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
+		Components:          []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
+		Processes:           []*pb.ProcessConfig{processConfig, processInvalidConfig},
+		Services:            []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
+		Network:             networkConfig,
+		Auth:                authConfig,
+		Debug:               &debug,
+		DisablePartialStart: &disablePartialStart,
+	}
+
+	out, err := FromProto(input)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out.Cloud, test.ShouldResemble, testCloudConfig)
+	validateRemote(t, out.Remotes[0], testRemote)
+	test.That(t, out.Remotes[1].Name, test.ShouldEqual, "")
+	validateModule(t, out.Modules[0], testModule)
+	test.That(t, out.Modules[1], test.ShouldResemble, testInvalidModule)
+	validateComponent(t, out.Components[0], testComponent)
+	// there should only be one valid component in our list
+	test.That(t, len(out.Components), test.ShouldEqual, 1)
+	test.That(t, out.Processes[0], test.ShouldResemble, testProcessConfig)
+	test.That(t, out.Processes[1], test.ShouldResemble, testInvalidProcessConfig)
+	validateService(t, out.Services[0], testService)
+	test.That(t, out.Services[1], test.ShouldResemble, testInvalidService)
+	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
+	validateAuthConfig(t, out.Auth, testAuthConfig)
+	test.That(t, out.Debug, test.ShouldEqual, debug)
+}
+
+func TestDisablePartialStart(t *testing.T) {
+	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig, err := RemoteConfigToProto(&testRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	moduleConfig, err := ModuleConfigToProto(&testModule)
+	test.That(t, err, test.ShouldBeNil)
+
+	componentInvalidConfig, err := ComponentConfigToProto(&testInvalidComponent)
+	test.That(t, err, test.ShouldBeNil)
+
+	processConfig, err := ProcessConfigToProto(&testProcessConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	serviceConfig, err := ServiceConfigToProto(&testService)
+	test.That(t, err, test.ShouldBeNil)
+
+	networkConfig, err := NetworkConfigToProto(&testNetworkConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	authConfig, err := AuthConfigToProto(&testAuthConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	debug := true
+	disablePartialStart := true
+
+	input := &pb.RobotConfig{
+		Cloud:               cloudConfig,
+		Remotes:             []*pb.RemoteConfig{remoteConfig},
+		Modules:             []*pb.ModuleConfig{moduleConfig},
+		Components:          []*pb.ComponentConfig{componentInvalidConfig},
+		Processes:           []*pb.ProcessConfig{processConfig},
+		Services:            []*pb.ServiceConfig{serviceConfig},
+		Network:             networkConfig,
+		Auth:                authConfig,
+		Debug:               &debug,
+		DisablePartialStart: &disablePartialStart,
+	}
+
+	out, err := FromProto(input)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, out, test.ShouldBeNil)
 }
