@@ -209,6 +209,13 @@ func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
 }
 
+// LinearAcceleration returns the current linear acceleration of the MovementSensor.
+func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
+
 // AngularVelocity not supported.
 func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 	ctx context.Context,
