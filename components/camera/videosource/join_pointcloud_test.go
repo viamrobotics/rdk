@@ -334,7 +334,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(
 				"cam3",
-				spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o1),
+				spatialmath.NewPose(r3.Vector{-60, 0, -10}, o1),
 				"cam4",
 				nil,
 			),
@@ -342,7 +342,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(
 				"cam4",
-				spatialmath.NewPoseFromOrientation(r3.Vector{-60, 0, -10}, o2),
+				spatialmath.NewPose(r3.Vector{-60, 0, -10}, o2),
 				"cam5",
 				nil,
 			),

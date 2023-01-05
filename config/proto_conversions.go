@@ -1,9 +1,11 @@
 package config
 
 import (
+	"reflect"
 	"strings"
 	"syscall"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
@@ -44,28 +46,31 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 		}
 		cfg.Auth = *auth
 	}
-
-	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto)
+	disablePartialStart := false
+	if proto.DisablePartialStart != nil {
+		disablePartialStart = *proto.DisablePartialStart
+	}
+	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting modules config from proto")
 	}
 
-	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto)
+	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto, disablePartialStart)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting components config from proto")
 	}
 
-	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto)
+	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto, disablePartialStart)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting remotes config from proto")
 	}
 
-	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto)
+	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto, disablePartialStart)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting processes config from proto")
 	}
 
-	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto)
+	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto, disablePartialStart)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting services config from proto")
 	}
@@ -795,14 +800,18 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 	return n, nil
 }
 
-func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
-	out := make([]RT, len(protoList))
-	for i, proto := range protoList {
+func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error), disablePartialStart bool) ([]RT, error) {
+	out := make([]RT, 0, len(protoList))
+	for _, proto := range protoList {
 		rdk, err := toRDK(proto)
 		if err != nil {
-			return nil, err
+			golog.Global().Debug(errors.Wrap(err, "Error converting from proto to config for type: "+reflect.TypeOf(proto).String()))
+			if disablePartialStart {
+				return nil, err
+			}
+		} else {
+			out = append(out, *rdk)
 		}
-		out[i] = *rdk
 	}
 	return out, nil
 }

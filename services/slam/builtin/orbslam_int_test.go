@@ -105,7 +105,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	createVocabularyFile(name)
 	prevNumFiles := 0
 
-	t.Log("Testing online mode")
+	t.Log("\n=== Testing online mode ===\n")
 
 	var sensors []string
 	var expectedMapsOnline, expectedMapsOffline, expectedMapsApriori int
@@ -222,7 +222,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
 
 	// Test offline mode using the config and data generated in the online test
-	t.Log("Testing offline mode")
+	t.Log("\n=== Testing offline mode ===\n")
 
 	mapRate = 1
 	deleteProcessedData = false
@@ -304,7 +304,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
-	t.Log("Testing online mode with saved map")
+	t.Log("\n=== Testing online mode with saved map ===\n")
 
 	mapRate = 1
 	deleteProcessedData = true

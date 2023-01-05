@@ -47,6 +47,7 @@ import (
 const (
 	validDataRateMS            = 200
 	numCartographerPointClouds = 15
+	dataBufferSize             = 4
 )
 
 var (
@@ -976,7 +977,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
-	pose := spatial.NewPoseFromOrientation(r3.Vector{X: 1, Y: 2, Z: 3},
+	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3},
 		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
@@ -1225,7 +1226,7 @@ func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_pro
 		return len(files), nil
 	}
 	if delete_processed_data && online {
-		test.That(t, prev, test.ShouldEqual, len(files))
+		test.That(t, prev, test.ShouldBeLessThanOrEqualTo, dataBufferSize+1)
 	}
 	if !delete_processed_data && online {
 		test.That(t, prev, test.ShouldBeLessThan, len(files))

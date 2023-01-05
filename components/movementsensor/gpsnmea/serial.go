@@ -172,6 +172,13 @@ func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map
 	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, nil
 }
 
+// LinearAcceleration linear acceleration.
+func (g *SerialNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
+
 // AngularVelocity angularvelocity.
 func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()

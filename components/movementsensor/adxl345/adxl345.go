@@ -251,6 +251,19 @@ func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interf
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
+func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	adxl.mu.Lock()
+	defer adxl.mu.Unlock()
+	lastError := adxl.lastError
+	adxl.lastError = nil
+
+	if lastError != nil {
+		return r3.Vector{}, lastError
+	}
+
+	return adxl.linearAcceleration, nil
+}
+
 func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
@@ -280,7 +293,9 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	// We don't implement any of the MovementSensor interface yet, though hopefully
 	// LinearAcceleration will be added to the interface soon.
-	return &movementsensor.Properties{}, nil
+	return &movementsensor.Properties{
+		LinearAccelerationSupported: true,
+	}, nil
 }
 
 // Puts the chip into standby mode.

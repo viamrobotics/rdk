@@ -282,7 +282,7 @@ func (vn *vectornav) AngularVelocity(ctx context.Context, extra map[string]inter
 	return vn.angularVelocity, nil
 }
 
-func (vn *vectornav) GetAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (vn *vectornav) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.acceleration, nil
@@ -320,8 +320,9 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 
 func (vn *vectornav) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 
