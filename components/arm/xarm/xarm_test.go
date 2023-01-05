@@ -34,7 +34,7 @@ func TestWriteViam(t *testing.T) {
 
 	markerOriginFrame, err := frame.NewStaticFrame(
 		"marker_origin",
-		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}),
+		spatial.NewPoseFromOrientation(&spatial.OrientationVectorDegrees{OY: -1, OZ: 1}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
@@ -46,7 +46,7 @@ func TestWriteViam(t *testing.T) {
 
 	eraserOriginFrame, err := frame.NewStaticFrame(
 		"eraser_origin",
-		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}),
+		spatial.NewPoseFromOrientation(&spatial.OrientationVectorDegrees{OY: 1, OZ: 1}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	eraserFrame, err := frame.NewStaticFrame("eraser", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))

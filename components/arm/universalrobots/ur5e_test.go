@@ -115,7 +115,7 @@ func TestKin1(t *testing.T) {
 		r3.Vector{X: 97.11, Y: -203.73, Z: -394.65},
 	)
 
-	testUR5eInverseKinematics(t, spatialmath.NewPoseFromOrientation(
+	testUR5eInverseKinematics(t, spatialmath.NewPose(
 		r3.Vector{X: -202.31, Y: -577.75, Z: 318.58},
 		&spatialmath.OrientationVectorDegrees{Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
 	))
@@ -241,7 +241,7 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) spatialmath.Pose 
 	test.That(t, poseOV.OY, test.ShouldAlmostEqual, ov.OY, .01)
 	test.That(t, poseOV.OZ, test.ShouldAlmostEqual, ov.OZ, .01)
 
-	return spatialmath.NewPoseFromOrientation(
+	return spatialmath.NewPose(
 		r3.Vector{X: res.At(0, 3), Y: res.At(1, 3), Z: res.At(2, 3)}.Mul(1000),
 		&spatialmath.OrientationVectorDegrees{OX: poseOV.OX, OY: poseOV.OY, OZ: poseOV.OZ, Theta: utils.RadToDeg(poseOV.Theta)},
 	)

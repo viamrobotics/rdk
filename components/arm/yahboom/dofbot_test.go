@@ -29,7 +29,7 @@ func TestDofBotIK(t *testing.T) {
 	model, err := Model("test")
 	test.That(t, err, test.ShouldBeNil)
 
-	goal := spatialmath.NewPoseFromOrientation(
+	goal := spatialmath.NewPose(
 		r3.Vector{X: 206.59, Y: -1.57, Z: 253.05},
 		&spatialmath.OrientationVectorDegrees{Theta: -180, OX: -.53, OY: 0, OZ: .85},
 	)

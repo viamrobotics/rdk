@@ -43,22 +43,30 @@ func NewZeroPose() Pose {
 	return newDualQuaternion()
 }
 
-// NewPoseFromOrientation takes in a position and orientation and returns a Pose.
-func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
+// NewPose takes in a position and orientation and returns a Pose.
+func NewPose(p r3.Vector, o Orientation) Pose {
 	if o == nil {
-		return NewPoseFromPoint(point)
+		return NewPoseFromPoint(p)
 	}
 	q := newDualQuaternion()
 	q.Real = o.Quaternion()
-	q.SetTranslation(point)
+	q.SetTranslation(p)
 	return q
 }
 
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
-// It will have the same orientation as the frame it is in.
+// It will have the same orientation as the frame it is in reference to.
 func NewPoseFromPoint(point r3.Vector) Pose {
 	q := newDualQuaternion()
 	q.SetTranslation(point)
+	return q
+}
+
+// NewPoseFromOrientation takes in an orientation and returns a Pose.
+// It will have the same position as the frame it is in reference to.
+func NewPoseFromOrientation(o Orientation) Pose {
+	q := newDualQuaternion()
+	q.Real = o.Quaternion()
 	return q
 }
 
