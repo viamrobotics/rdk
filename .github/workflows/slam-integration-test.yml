@@ -1,4 +1,4 @@
-name: SLAM Integration Test
+name: (non-blocking for PR merges) SLAM Integration Test
 
 on:
   workflow_dispatch:
