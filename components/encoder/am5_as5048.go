@@ -265,6 +265,9 @@ func (enc *AS5048) Reset(
 ) error {
 	enc.mu.Lock()
 	defer enc.mu.Unlock()
+	// NOTE (GV): potential improvement could be writing the offset position
+	// to the zero register of the encoder rather than keeping track
+	// on the struct
 	enc.positionOffset = offset
 	enc.position = 0.0 + offset
 	currentMSB, err := enc.i2cHandle.ReadByteData(ctx, byte(0xFE))
