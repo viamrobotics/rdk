@@ -51,7 +51,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	prevNumFiles := 0
 
-	t.Log("Testing online mode")
+	t.Log("\n=== Testing online mode ===\n")
 
 	mapRate := 1
 	deleteProcessedData := false
@@ -113,7 +113,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
 
 	// Test offline mode using the data generated in the online test
-	t.Log("Testing offline mode")
+	t.Log("\n=== Testing offline mode ===\n")
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -162,7 +162,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	testCartographerDir(t, name, 1)
 
 	// Test online mode using the map generated in the offline test
-	t.Log("Testing online mode in localization mode")
+	t.Log("\n=== Testing online mode in localization mode ===\n")
 
 	mapRate = 0
 	deleteProcessedData = true
@@ -227,7 +227,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
-	t.Log("Testing online mode with saved map")
+	t.Log("\n=== Testing online mode with saved map ===\n")
 
 	mapRate = 1
 

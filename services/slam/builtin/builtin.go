@@ -421,7 +421,7 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
 			return pInFrame, nil
 		}
-		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
+		newPose := spatialmath.NewPose(pInFrame.Pose().Point(),
 			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
 		pInFrame = referenceframe.NewPoseInFrame(pInFrame.Parent(), newPose)
 	}

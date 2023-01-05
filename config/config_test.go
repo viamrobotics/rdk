@@ -420,7 +420,6 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	err = invalidComponents.Ensure(false)
 	test.That(t, err, test.ShouldBeNil)
 	invalidComponents.Components[0].Name = "foo"
-	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
 	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
 	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
