@@ -567,6 +567,14 @@ func (g *RTKMovementSensor) LinearVelocity(ctx context.Context, extra map[string
 	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
 }
 
+// LinearAcceleration passthrough.
+func (g *RTKMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	if g.lastError != nil {
+		return r3.Vector{}, g.lastError
+	}
+	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
+}
+
 // AngularVelocity passthrough.
 func (g *RTKMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	if g.lastError != nil {

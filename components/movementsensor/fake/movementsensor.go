@@ -60,6 +60,11 @@ func (f *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]in
 	return r3.Vector{Y: 5.4}, nil
 }
 
+// LinearAcceleration gets the linear acceleration of a fake movementsensor.
+func (f *MovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{X: 2.2, Y: 4.5, Z: 2}, nil
+}
+
 // AngularVelocity gets the angular velocity of a fake movementsensor.
 func (f *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{Z: 1}, nil
@@ -93,11 +98,12 @@ func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interfac
 // Properties returns the properties of a fake movementsensor.
 func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		LinearVelocitySupported:  true,
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
-		PositionSupported:        true,
-		CompassHeadingSupported:  true,
+		LinearVelocitySupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		PositionSupported:           true,
+		CompassHeadingSupported:     true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 
