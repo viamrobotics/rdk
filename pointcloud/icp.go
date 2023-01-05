@@ -61,7 +61,7 @@ func RegisterPointCloudICP(pcSrc PointCloud, target *KDTree, guess spatialmath.P
 		point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
 		orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
 
-		pose := spatialmath.NewPoseFromOrientation(point, &orient)
+		pose := spatialmath.NewPose(point, &orient)
 		// compute the error
 		distChan := make(chan float64, numThreads)
 		var optWg sync.WaitGroup
@@ -147,7 +147,7 @@ func RegisterPointCloudICP(pcSrc PointCloud, target *KDTree, guess spatialmath.P
 	// create the new pose
 	point := r3.Vector{X: x[0], Y: x[1], Z: x[2]}
 	orient := spatialmath.EulerAngles{Roll: x[3], Pitch: x[4], Yaw: x[5]}
-	pose := spatialmath.NewPoseFromOrientation(point, &orient)
+	pose := spatialmath.NewPose(point, &orient)
 
 	// transform the pointcloud
 	registeredPointCloud := NewWithPrealloc(pcSrc.Size())

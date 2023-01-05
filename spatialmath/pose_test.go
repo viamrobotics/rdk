@@ -19,12 +19,12 @@ func TestBasicPoseConstruction(t *testing.T) {
 	ov := &OrientationVector{math.Pi / 2, 0, 1, 0}
 	ov.Normalize()
 
-	p = NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
+	p = NewPose(r3.Vector{1, 2, 3}, ov)
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 
 	aa := QuatToR4AA(ov.ToQuat())
-	p = NewPoseFromOrientation(r3.Vector{1, 2, 3}, &R4AA{aa.Theta, aa.RX, aa.RY, aa.RZ})
+	p = NewPose(r3.Vector{1, 2, 3}, &R4AA{aa.Theta, aa.RX, aa.RY, aa.RZ})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
 
@@ -32,17 +32,17 @@ func TestBasicPoseConstruction(t *testing.T) {
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
 
-	p1 := NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
+	p1 := NewPose(r3.Vector{1, 2, 3}, ov)
 	p2 := NewPoseFromPoint(r3.Vector{1, 2, 3})
 	pComp := Compose(p1, p2)
 	ptCompare(t, pComp.Point(), r3.Vector{0, 5, 5})
 
-	p2 = NewPoseFromOrientation(r3.Vector{2, 3, 4}, ov)
+	p2 = NewPose(r3.Vector{2, 3, 4}, ov)
 	delta := PoseDelta(p1, p2)
 	ptCompare(t, delta.Point(), r3.Vector{1.0, 1.0, 1.0})
 	ovCompare(t, delta.Orientation().OrientationVectorRadians(), NewOrientationVector())
 
-	p = NewPoseFromOrientation(r3.Vector{0, 0, 0}, &R4AA{0, 4, 5, 6})
+	p = NewPoseFromOrientation(&R4AA{0, 4, 5, 6})
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
 }
 
@@ -59,7 +59,7 @@ func TestDualQuatTransform(t *testing.T) {
 	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
 	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
-	trAA := NewPoseFromOrientation(r3.Vector{4., 2., 6.}, &R4AA{math.Pi, 1, 0, 0}) // same transformation from axis angle
+	trAA := NewPose(r3.Vector{4., 2., 6.}, &R4AA{math.Pi, 1, 0, 0}) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
 	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Real)
 	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Imag)
@@ -91,8 +91,8 @@ func TestPoseInterpolation(t *testing.T) {
 
 	ov := &OrientationVector{math.Pi / 2, 0, 0, -1}
 	ov.Normalize()
-	p1 = NewPoseFromOrientation(r3.Vector{100, 100, 200}, ov)
-	p2 = NewPoseFromOrientation(r3.Vector{100, 200, 200}, ov)
+	p1 = NewPose(r3.Vector{100, 100, 200}, ov)
+	p2 = NewPose(r3.Vector{100, 200, 200}, ov)
 	intP = Interpolate(p1, p2, 0.1)
 	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
 }
@@ -108,7 +108,7 @@ func TestLidarPose(t *testing.T) {
 	// lidar sees a point 400mm away
 	dist := 400.
 
-	pose1 := NewPoseFromOrientation(r3.Vector{0, 0, 0}, ea)
+	pose1 := NewPoseFromOrientation(ea)
 	pose2 := NewPoseFromPoint(r3.Vector{0, 0, dist})
 	seenPoint := Compose(pose1, pose2).Point()
 
@@ -129,8 +129,8 @@ func TestPoseAlmostEqual(t *testing.T) {
 
 var (
 	ov  = &OrientationVector{math.Pi / 2, 0, 0, -1}
-	p1b = NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
-	p2b = NewPoseFromOrientation(r3.Vector{2, 3, 4}, ov)
+	p1b = NewPose(r3.Vector{1, 2, 3}, ov)
+	p2b = NewPose(r3.Vector{2, 3, 4}, ov)
 )
 
 func BenchmarkDeltaPose(b *testing.B) {

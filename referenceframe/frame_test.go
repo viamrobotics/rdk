@@ -20,7 +20,7 @@ import (
 
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
-	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
+	expPose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
 	frame, err := NewStaticFrame("test", expPose)
 	test.That(t, err, test.ShouldBeNil)
 	// get expected transform back
@@ -87,7 +87,7 @@ func TestRevoluteFrame(t *testing.T) {
 	axis := r3.Vector{1, 0, 0}                                                                // axis of rotation is x axis
 	frame := &rotationalFrame{&baseFrame{"test", []Limit{{-math.Pi / 2, math.Pi / 2}}}, axis} // limits between -90 and 90 degrees
 	// expected output
-	expPose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{math.Pi / 4, 1, 0, 0}) // 45 degrees
+	expPose := spatial.NewPoseFromOrientation(&spatial.R4AA{math.Pi / 4, 1, 0, 0}) // 45 degrees
 	// get expected transform back
 	input := frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{45}})
 	pose, err := frame.Transform(input)
@@ -180,7 +180,7 @@ func TestGeometries(t *testing.T) {
 }
 
 func TestSerializationStatic(t *testing.T) {
-	f, err := NewStaticFrame("foo", spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 4, 5, 6}))
+	f, err := NewStaticFrame("foo", spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 4, 5, 6}))
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()
@@ -267,7 +267,7 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
 	test.That(t, err, test.ShouldBeNil)
-	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
+	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
 	expFrame, err := NewStaticFrameWithGeometry("", pose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	sFrameif, err := frame.ParseConfig()

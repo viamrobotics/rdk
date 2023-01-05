@@ -227,7 +227,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, part, test.ShouldBeNil)
 	})
 	t.Run("converts to frame system part", func(t *testing.T) {
-		testPose := spatial.NewPoseFromOrientation(r3.Vector{X: 1., Y: 2., Z: 3.}, &spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0})
+		testPose := spatial.NewPose(r3.Vector{X: 1., Y: 2., Z: 3.}, &spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 1, RZ: 0})
 		transform := NewLinkInFrame("parent", testPose, "child", nil)
 		part, err := LinkInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
