@@ -211,7 +211,7 @@ func (enc *AS5048) readPosition(ctx context.Context) (float64, error) {
 	return convertBytesToAngle(msB, lsB), nil
 }
 
-func convertBytesToAngle(msB byte, lsB byte) float64 {
+func convertBytesToAngle(msB, lsB byte) float64 {
 	// obtain the 14-bit resolution position, which represents a
 	// portion of a full rotation. We then scale appropriately
 	// by (360 / 2^14) to get degrees
