@@ -22,7 +22,7 @@ jobs:
 
   slam_integration_test:
     if: github.event.label.name == 'safe to test'
-    uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
+    uses: jeremyhyde-viam/rdk/.github/workflows/slam-integration-test.yml@RSDK-1630_SLAMUsabilityDocUpdate
 
   # This lets people add an "appimage" tag to have appimages built for the PR
   appimage:
