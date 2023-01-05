@@ -2,10 +2,14 @@
 package config
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 )
+
+func SLAMConfigError(configError string) error {
+	return errors.Errorf("SLAM Service configuration error: %s", configError)
+}
 
 // DetermineDeleteProcessedData will determine the value of the deleteProcessData attribute of slam builtin
 // based on the online/offline state and the delete_processed_data input parameter.
@@ -27,11 +31,11 @@ func DetermineDeleteProcessedData(logger golog.Logger, deleteData *bool, useLive
 // based on the use_live_data input parameter and sensor list.
 func DetermineUseLiveData(logger golog.Logger, liveData *bool, sensors []string) (bool, error) {
 	if liveData == nil {
-		return false, errors.New("use_live_data is a required input parameter")
+		return false, SLAMConfigError("use_live_data is a required input parameter")
 	}
 	useLiveData := *liveData
 	if useLiveData && len(sensors) == 0 {
-		return false, errors.New("a value of true cannot be given for use_live_data when no cameras are given")
+		return false, SLAMConfigError("sensors field cannot be empty when use_live_data is set to true")
 	}
 	return useLiveData, nil
 }
