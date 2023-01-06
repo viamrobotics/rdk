@@ -3,12 +3,15 @@ package referenceframe
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -57,9 +60,6 @@ type FrameSystem interface {
 
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
-
-	// TODO: add explanation of this function
-	ConvertFrameSystem(system FrameSystem) FrameSystem
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -185,7 +185,9 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
+	fmt.Println("we are transforming now")
 	src := object.Parent()
+	fmt.Println("src: ", src)
 	if src == dst {
 		return object, nil
 	}
@@ -196,6 +198,7 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if !sfs.frameExists(dst) {
 		return nil, NewFrameMissingError(dst)
 	}
+	// fmt.Println("we get here")
 
 	var tfParent *PoseInFrame
 	var err error
@@ -212,6 +215,7 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("we are now going to return from a transformation")
 	return object.Transform(tfParent), nil
 }
 
@@ -311,14 +315,47 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// ConvertFrameSystemtakes in a framesystem and returns a framesystem where all elements have parent world
-func (sfs *simpleFrameSystem) ConvertFrameSystem(system FrameSystem) FrameSystem {
-	// sfs.getFrameToWorldTransform()
-	// inputs := StartPositions(system)
-	// for _, component := range system {
+// ConvertFrameSystemtakes in a framesystem and returns a map where all elements are the point representation
+// of their geometry type with respect to the world.
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string][]r3.Vector, error) {
+	vectorMap := make(map[string][]r3.Vector)
+	for _, name := range system.FrameNames() {
+		currentFrame := system.Frame(name)
+		parent, err := system.Parent(currentFrame)
+		if err != nil {
+			return nil, err
+		}
 
-	// }
-	return system
+		geosInFrame, _ := currentFrame.Geometries(inputs[name])
+		if parent.Name() != "world" {
+			transformed, _ := system.Transform(inputs, geosInFrame, World)
+			transformedGeo := transformed.(*GeometriesInFrame)
+			var aggregatePoints []r3.Vector
+			for _, g := range transformedGeo.Geometries() {
+				aggregatePoints = append(aggregatePoints, g.ToPoints(1.)...)
+			}
+
+			parentFrame := system.Frame(parent.Name())
+			parentDOF := len(parentFrame.DoF())
+			parentInput := make([]Input, parentDOF)
+			parentFrameGeoms, err := parentFrame.Geometries(parentInput)
+			if err != nil {
+				return nil, err
+			}
+			parentGeoMap := parentFrameGeoms.geometries
+			parentGeo := parentGeoMap[parent.Name()] // is this the right way to do it?
+			translatedGeo := spatialmath.TransformPointsToPose(aggregatePoints, parentGeo.Pose())
+			vectorMap[name] = translatedGeo
+		} else {
+			var aggregate []r3.Vector
+			for _, g := range geosInFrame.Geometries() {
+				aggregate = append(aggregate, g.ToPoints(1.)...)
+			}
+			vectorMap[name] = aggregate
+		}
+	}
+
+	return vectorMap, nil
 }
 
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
