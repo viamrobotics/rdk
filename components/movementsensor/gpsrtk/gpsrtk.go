@@ -133,7 +133,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKStation(ctx, deps, cfg, logger)
+			return newRTKMovementSensor(ctx, deps, cfg, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, roverModel,
