@@ -92,5 +92,6 @@ func assertBoard(resource interface{}) (Board, error) {
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
 	}
+
 	return board, nil
 }
