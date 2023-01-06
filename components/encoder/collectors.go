@@ -37,7 +37,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
-		return Ticks{Ticks: v}, nil
+		return Ticks{Ticks: int64(v)}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

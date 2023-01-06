@@ -8,27 +8,19 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
-// GeometryCreator provides a common way to instantiate Geometries.
-type GeometryCreator interface {
-	NewGeometry(Pose) Geometry
-	Offset() Pose
-	ToProtobuf() *commonpb.Geometry
-	String() string
-	json.Marshaler
-}
-
 // Geometry is an entry point with which to access all types of collision geometries.
 type Geometry interface {
 	Pose() Pose
-	Vertices() []r3.Vector
 	AlmostEqual(Geometry) bool
 	Transform(Pose) Geometry
 	ToProtobuf() *commonpb.Geometry
 	CollidesWith(Geometry) (bool, error)
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
-	Label() string
+	Label() string  // Label is the name of the geometry
+	String() string // String is a string representation of the geometry data structure
 	ToPoints(float64) []r3.Vector
+	json.Marshaler
 }
 
 // GeometryType defines what geometry creator representations are known.
@@ -63,26 +55,26 @@ type GeometryConfig struct {
 }
 
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.
-func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
+func NewGeometryConfig(gc Geometry) (*GeometryConfig, error) {
 	config := &GeometryConfig{}
 	switch gcType := gc.(type) {
-	case *boxCreator:
+	case *box:
 		config.Type = BoxType
-		config.X = gc.(*boxCreator).halfSize.X * 2
-		config.Y = gc.(*boxCreator).halfSize.Y * 2
-		config.Z = gc.(*boxCreator).halfSize.Z * 2
-		config.Label = gc.(*boxCreator).label
-	case *sphereCreator:
+		config.X = gc.(*box).halfSize[0] * 2
+		config.Y = gc.(*box).halfSize[1] * 2
+		config.Z = gc.(*box).halfSize[2] * 2
+		config.Label = gc.(*box).label
+	case *sphere:
 		config.Type = SphereType
-		config.R = gc.(*sphereCreator).radius
-		config.Label = gc.(*sphereCreator).label
-	case *pointCreator:
+		config.R = gc.(*sphere).radius
+		config.Label = gc.(*sphere).label
+	case *point:
 		config.Type = PointType
-		config.Label = gc.(*pointCreator).label
+		config.Label = gc.(*point).label
 	default:
 		return nil, fmt.Errorf("%w %s", ErrGeometryTypeUnsupported, fmt.Sprintf("%T", gcType))
 	}
-	offset := gc.Offset()
+	offset := gc.Pose()
 	o := offset.Orientation()
 	config.TranslationOffset = Compose(NewPoseFromOrientation(OrientationInverse(o)), offset).Point()
 	orientationConfig, err := NewOrientationConfig(o)
@@ -94,7 +86,7 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 }
 
 // ParseConfig converts a GeometryConfig into the correct GeometryCreator type, as specified in its Type field.
-func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
+func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	// determine offset to use
 	orientation, err := config.OrientationOffset.ParseConfig()
 	if err != nil {
@@ -105,17 +97,20 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	// build GeometryCreator depending on specified type
 	switch config.Type {
 	case BoxType:
-		return NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset, config.Label)
+		return NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label)
 	case SphereType:
-		return NewSphereCreator(config.R, offset, config.Label)
+		return NewSphere(offset, config.R, config.Label)
 	case PointType:
-		return NewPointCreator(offset, config.Label), nil
+		return NewPoint(offset.Point(), config.Label), nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
-		if creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset, config.Label); err == nil {
-			return creator, nil
+		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}
+		if boxDims.Norm() > 0 {
+			if creator, err := NewBox(offset, boxDims, config.Label); err == nil {
+				return creator, nil
+			}
 		}
-		if creator, err := NewSphereCreator(config.R, offset, config.Label); err == nil {
+		if creator, err := NewSphere(offset, config.R, config.Label); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified
@@ -133,22 +128,7 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 		if sphere.RadiusMm == 0 {
 			return NewPoint(pose.Point(), geometry.Label), nil
 		}
-		return NewSphere(pose.Point(), sphere.RadiusMm, geometry.Label)
-	}
-	return nil, ErrGeometryTypeUnsupported
-}
-
-// NewGeometryCreatorFromProto instantiates a new GeometryCreator from a protobuf Geometry message.
-func NewGeometryCreatorFromProto(geometry *commonpb.Geometry) (GeometryCreator, error) {
-	pose := NewPoseFromProtobuf(geometry.Center)
-	if box := geometry.GetBox().GetDimsMm(); box != nil {
-		return NewBoxCreator(r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, pose, geometry.Label)
-	}
-	if sphere := geometry.GetSphere(); sphere != nil {
-		if sphere.RadiusMm == 0 {
-			return NewPointCreator(pose, geometry.Label), nil
-		}
-		return NewSphereCreator(sphere.RadiusMm, pose, geometry.Label)
+		return NewSphere(pose, sphere.RadiusMm, geometry.Label)
 	}
 	return nil, ErrGeometryTypeUnsupported
 }

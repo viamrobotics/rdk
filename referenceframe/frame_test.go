@@ -137,10 +137,10 @@ func TestMobile2DFrame(t *testing.T) {
 }
 
 func TestGeometries(t *testing.T) {
-	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose(), "")
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
-	expectedBox := bc.NewGeometry(pose)
+	expectedBox := bc.Transform(pose)
 
 	// test creating a new translational frame with a geometry
 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
@@ -164,7 +164,7 @@ func TestGeometries(t *testing.T) {
 	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 
 	// test creating a new static frame with a geometry
-	expectedBox = bc.NewGeometry(spatial.NewZeroPose())
+	expectedBox = bc.Transform(spatial.NewZeroPose())
 	sf, err := NewStaticFrameWithGeometry("", pose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
@@ -265,7 +265,7 @@ func TestFrame(t *testing.T) {
 	frame := LinkConfig{}
 	err = json.Unmarshal(testMap["test"], &frame)
 	test.That(t, err, test.ShouldBeNil)
-	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
+	bc, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), r3.Vector{1, 2, 3}, "")
 	test.That(t, err, test.ShouldBeNil)
 	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1})
 	expFrame, err := NewStaticFrameWithGeometry("", pose, bc)

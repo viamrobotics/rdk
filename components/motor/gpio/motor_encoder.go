@@ -208,7 +208,7 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 		return 0, err
 	}
 
-	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
+	return ticks / float64(m.cfg.TicksPerRotation), nil
 }
 
 // DirectionMoving returns the direction we are currently mpving in, with 1 representing
@@ -308,10 +308,11 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPos, err := m.encoder.TicksCount(m.cancelCtx, nil)
+	lastPosFl, err := m.encoder.TicksCount(m.cancelCtx, nil)
 	if err != nil {
 		panic(err)
 	}
+	lastPos := int64(lastPosFl)
 	lastTime := time.Now().UnixNano()
 
 	rpmSleep, rpmDebug := getRPMSleepDebug()
@@ -339,10 +340,12 @@ func (m *EncodedMotor) rpmMonitor() {
 			continue
 		}
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
+		// TODO: we round down here for absolute encoders, but absolute encoders
+		// should have their own logic separate from incremental
+		roundedPos := int64(math.Floor(pos))
+		m.rpmMonitorPass(roundedPos, lastPos, now, lastTime, rpmDebug)
 
-		m.rpmMonitorPass(pos, lastPos, now, lastTime, rpmDebug)
-
-		lastPos = pos
+		lastPos = int64(pos)
 		lastTime = now
 	}
 }
@@ -530,7 +533,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	if err != nil {
 		return err
 	}
-	m.state.setPoint = pos + d*numTicks*m.flip
+	m.state.setPoint = int64(pos) + d*numTicks*m.flip
 
 	_, rpmDebug := getRPMSleepDebug()
 	if rpmDebug {
@@ -675,5 +678,5 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return m.encoder.Reset(ctx, int64(offset*float64(m.cfg.TicksPerRotation)), extra)
+	return m.encoder.Reset(ctx, offset*float64(m.cfg.TicksPerRotation), extra)
 }

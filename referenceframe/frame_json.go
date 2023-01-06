@@ -54,8 +54,8 @@ func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if frame.geometryCreator != nil {
-		geom, err = spatial.NewGeometryConfig(frame.geometryCreator)
+	if frame.geometry != nil {
+		geom, err = spatial.NewGeometryConfig(frame.geometry)
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +74,7 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	var geom spatial.GeometryCreator
+	var geom spatial.Geometry
 	if cfg.Geometry != nil {
 		geom, err = cfg.Geometry.ParseConfig()
 		if err != nil {
