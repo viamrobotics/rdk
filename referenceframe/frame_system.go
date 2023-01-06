@@ -195,7 +195,6 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if !sfs.frameExists(dst) {
 		return nil, NewFrameMissingError(dst)
 	}
-	// fmt.Println("we get here")
 
 	var tfParent *PoseInFrame
 	var err error
