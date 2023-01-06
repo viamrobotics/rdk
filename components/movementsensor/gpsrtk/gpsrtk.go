@@ -141,7 +141,7 @@ func init() {
 			var attr StationConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
-		&StationConfig{})
+		&AttrConfig{})
 }
 
 // A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
@@ -174,6 +174,11 @@ func newRTKMovementSensor(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
+
+	if cfg.Model != roverModel {
+		return nil, fmt.Errorf("wrong constructor for %s", roverModel.String())
+	}
+
 	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)

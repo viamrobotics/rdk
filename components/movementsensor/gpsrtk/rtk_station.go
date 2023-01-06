@@ -148,6 +148,10 @@ func newRTKStation(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
+	if cfg.Model != stationModel {
+		return nil, fmt.Errorf("wrong constructor for %s", stationModel.String())
+	}
+
 	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
