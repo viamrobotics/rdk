@@ -174,7 +174,6 @@ func newRTKMovementSensor(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-
 	if cfg.Model != roverModel {
 		return nil, fmt.Errorf("wrong constructor for %s", roverModel.String())
 	}
