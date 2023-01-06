@@ -104,7 +104,7 @@ func fixOvIncrement(goal, seed spatialmath.Pose) spatialmath.Pose {
 	}
 	goalOrientation.Theta += adj
 
-	return spatialmath.NewPoseFromOrientation(goalPt, goalOrientation)
+	return spatialmath.NewPose(goalPt, goalOrientation)
 }
 
 func stepsToNodes(steps [][]referenceframe.Input) []node {

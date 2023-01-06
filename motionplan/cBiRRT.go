@@ -23,6 +23,13 @@ const (
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
+
+	// Maximum number of iterations that constrainNear will run before exiting nil.
+	// Typically it will solve in the first five iterations, or not at all.
+	maxNearIter = 20
+
+	// Maximum number of iterations that constrainedExtend will run before exiting.
+	maxExtendIter = 5000
 )
 
 type cbirrtOptions struct {
@@ -255,7 +262,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// 2) the request is cancelled/times out
 	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
 	// 4) further iterations change our best node by close-to-zero amounts
-	for i := 0; true; i++ {
+	for i := 0; i < maxExtendIter; i++ {
 		select {
 		case <-ctx.Done():
 			mchan <- oldNear
@@ -311,66 +318,72 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance
 // function has been specified, this will use that.
+// This function will return either a valid configuration that meets constraints, or nil.
 func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	randseed *rand.Rand,
 	seedInputs,
 	target []referenceframe.Input,
 ) []referenceframe.Input {
-	select {
-	case <-ctx.Done():
-		return nil
-	default:
-	}
+	for i := 0; i < maxNearIter; i++ {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 
-	seedPos, err := mp.frame.Transform(seedInputs)
-	if err != nil {
-		return nil
-	}
-	goalPos, err := mp.frame.Transform(target)
-	if err != nil {
-		return nil
-	}
-	// Check if constraints need to be met
-	ok, _ := mp.planOpts.CheckConstraintPath(&ConstraintInput{
-		seedPos,
-		goalPos,
-		seedInputs,
-		target,
-		mp.frame,
-	}, mp.planOpts.Resolution)
-	if ok {
-		return target
-	}
-	solutionGen := make(chan []referenceframe.Input, 1)
-	// Spawn the IK solver to generate solutions until done
-	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, mp.planOpts.pathDist, randseed.Int())
-	// We should have zero or one solutions
-	var solved []referenceframe.Input
-	select {
-	case solved = <-solutionGen:
-	default:
-	}
-	close(solutionGen)
-	if err != nil {
-		return nil
-	}
+		seedPos, err := mp.frame.Transform(seedInputs)
+		if err != nil {
+			return nil
+		}
+		goalPos, err := mp.frame.Transform(target)
+		if err != nil {
+			return nil
+		}
+		// Check if constraints need to be met
+		ok, _ := mp.planOpts.CheckConstraintPath(&ConstraintInput{
+			seedPos,
+			goalPos,
+			seedInputs,
+			target,
+			mp.frame,
+		}, mp.planOpts.Resolution)
+		if ok {
+			return target
+		}
+		solutionGen := make(chan []referenceframe.Input, 1)
+		// Spawn the IK solver to generate solutions until done
+		err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, mp.planOpts.pathDist, randseed.Int())
+		// We should have zero or one solutions
+		var solved []referenceframe.Input
+		select {
+		case solved = <-solutionGen:
+		default:
+		}
+		close(solutionGen)
+		if err != nil {
+			return nil
+		}
 
-	ok, failpos := mp.planOpts.CheckConstraintPath(
-		&ConstraintInput{StartInput: seedInputs, EndInput: solved, Frame: mp.frame},
-		mp.planOpts.Resolution,
-	)
-	if !ok {
+		ok, failpos := mp.planOpts.CheckConstraintPath(
+			&ConstraintInput{StartInput: seedInputs, EndInput: solved, Frame: mp.frame},
+			mp.planOpts.Resolution,
+		)
+		if ok {
+			return solved
+		}
 		if failpos != nil {
 			_, dist := mp.planOpts.DistanceFunc(&ConstraintInput{StartInput: target, EndInput: failpos.EndInput})
 			if dist > mp.algOpts.JointSolveDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-				return mp.constrainNear(ctx, randseed, failpos.StartInput, failpos.EndInput)
+				seedInputs = failpos.StartInput
+				target = failpos.EndInput
 			}
+		} else {
+			return nil
 		}
-		return nil
 	}
-	return solved
+	return nil
 }
 
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between

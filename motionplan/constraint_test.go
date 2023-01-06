@@ -190,11 +190,11 @@ func TestCollisionConstraint(t *testing.T) {
 	}
 
 	// define external obstacles
-	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacles := make(map[string]spatial.Geometry)
-	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())
-	obstacles["obstacle2"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+	obstacles["obstacle1"] = bc.Transform(spatial.NewZeroPose())
+	obstacles["obstacle2"] = bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
 
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
@@ -216,11 +216,11 @@ var bt bool
 func BenchmarkCollisionConstraint(b *testing.B) {
 	// define external obstacles
 	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
 	obstacles := make(map[string]spatial.Geometry)
-	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())
-	obstacles["obstacle2"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+	obstacles["obstacle1"] = bc.Transform(spatial.NewZeroPose())
+	obstacles["obstacle2"] = bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
 
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")

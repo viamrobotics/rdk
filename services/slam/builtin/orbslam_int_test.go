@@ -106,7 +106,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	createVocabularyFile(name)
 	prevNumFiles := 0
 
-	t.Log("Testing online mode")
+	t.Log("\n=== Testing online mode ===\n")
 
 	var sensors []string
 	var expectedMapsOnline, expectedMapsOffline, expectedMapsApriori int
@@ -127,6 +127,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	mapRate := 1
 	deleteProcessedData := false
+	useLiveData := true
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
@@ -144,6 +145,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		// we want to save maps because the same yaml config gets used for the next run.
 		MapRateSec:          &mapRate,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release camera image(s) for service validation
@@ -226,10 +228,11 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
 
 	// Test offline mode using the config and data generated in the online test
-	t.Log("Testing offline mode")
+	t.Log("\n=== Testing offline mode ===\n")
 
 	mapRate = 1
 	deleteProcessedData = false
+	useLiveData = false
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -245,6 +248,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		DataDirectory:       name,
 		MapRateSec:          &mapRate,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -311,10 +315,11 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
-	t.Log("Testing online mode with saved map")
+	t.Log("\n=== Testing online mode with saved map ===\n")
 
 	mapRate = 1
 	deleteProcessedData = true
+	useLiveData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -330,6 +335,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		DataDirectory:       name,
 		MapRateSec:          &mapRate,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release camera image(s) for service validation

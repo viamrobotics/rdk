@@ -28,7 +28,8 @@ func TestGeometrySerialization(t *testing.T) {
 			GeometryConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "box"},
 			true,
 		},
-		{"box bad dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
+		{"bounding box dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: 1, Label: "bounding box dims"}, true},
+		{"box bad dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: -1}, false},
 		{"infer box", GeometryConfig{X: 1, Y: 1, Z: 1, Label: "infer box"}, true},
 		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "sphere"}, true},
 		{"sphere bad dims", GeometryConfig{Type: "sphere", R: -1}, false},
@@ -54,7 +55,7 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, gc.NewGeometry(pose).AlmostEqual(newVc.NewGeometry(pose)), test.ShouldBeTrue)
+			test.That(t, gc.Transform(pose).AlmostEqual(newVc.Transform(pose)), test.ShouldBeTrue)
 			test.That(t, config.Label, test.ShouldEqual, testCase.name)
 		})
 	}
@@ -234,6 +235,14 @@ func TestBoxVsBoxCollision(t *testing.T) {
 				makeTestBox(NewZeroOrientation(), r3.Vector{20, 20, 20}, r3.Vector{24, 26, 28}, ""),
 			},
 			-2,
+		},
+		{
+			"zero geometry box",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{20, 20, 20}, ""),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{0, 0, 0}, ""),
+			},
+			-8,
 		},
 	}
 	testGeometryCollision(t, cases)

@@ -55,10 +55,11 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	prevNumFiles := 0
 
-	t.Log("Testing online mode")
+	t.Log("\n=== Testing online mode ===\n")
 
 	mapRate := 1
 	deleteProcessedData := false
+	useLiveData := true
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -70,6 +71,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release point cloud for service validation
@@ -120,7 +122,9 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
 
 	// Test offline mode using the data generated in the online test
-	t.Log("Testing offline mode")
+	t.Log("\n=== Testing offline mode ===\n")
+
+	useLiveData = false
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -131,6 +135,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Create slam service using a real cartographer binary
@@ -172,10 +177,11 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	testCartographerDir(t, name, 1)
 
 	// Test online mode using the map generated in the offline test
-	t.Log("Testing online mode in localization mode")
+	t.Log("\n=== Testing online mode in localization mode ===\n")
 
 	mapRate = 0
 	deleteProcessedData = true
+	useLiveData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
@@ -186,6 +192,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		MapRateSec:          &mapRate,
 		DataDirectory:       name,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release point cloud for service validation
@@ -240,7 +247,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	prevNumFiles = 0
 
 	// Test online mode using the map generated in the offline test
-	t.Log("Testing online mode with saved map")
+	t.Log("\n=== Testing online mode with saved map ===\n")
 
 	mapRate = 1
 
@@ -252,6 +259,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		},
 		MapRateSec:    &mapRate,
 		DataDirectory: name,
+		UseLiveData:   &useLiveData,
 	}
 
 	// Release point cloud for service validation
