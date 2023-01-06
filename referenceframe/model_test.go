@@ -87,7 +87,7 @@ func TestIncorrectInputs(t *testing.T) {
 func TestModelGeometries(t *testing.T) {
 	// build a test model
 	offset := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
-	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, offset, "")
+	bc, err := spatial.NewBox(offset, r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 	// m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/model_test.json"), "")
 	frame1, err := NewStaticFrameWithGeometry("link1", offset, bc)

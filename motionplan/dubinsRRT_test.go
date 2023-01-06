@@ -13,7 +13,7 @@ import (
 
 func TestDubinsRRT(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose(), "")
+	robotGeometry, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
 	test.That(t, err, test.ShouldEqual, nil)
 	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
 

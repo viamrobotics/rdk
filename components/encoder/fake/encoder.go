@@ -66,10 +66,10 @@ type Encoder struct {
 }
 
 // TicksCount returns the current position in terms of ticks.
-func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.position, nil
+	return float64(e.position), nil
 }
 
 // Start starts a background thread to run the encoder.
@@ -102,10 +102,13 @@ func (e *Encoder) Start(cancelCtx context.Context) {
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *Encoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := encoder.ValidateIntegerOffset(offset); err != nil {
+		return err
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = offset
+	e.position = int64(offset)
 	return nil
 }
 

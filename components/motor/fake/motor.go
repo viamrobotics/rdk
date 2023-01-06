@@ -156,7 +156,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 		return 0, errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	return float64(ticks) / float64(m.TicksPerRotation), nil
+	return ticks / float64(m.TicksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
@@ -334,7 +334,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.Reset(ctx, int64(offset*float64(m.TicksPerRotation)), extra)
+	err := m.Encoder.Reset(ctx, offset*float64(m.TicksPerRotation), extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name)
 	}

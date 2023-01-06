@@ -241,7 +241,7 @@ func TestGeomtriesTransform(t *testing.T) {
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	objectFromFrame1 := spatial.NewPoseFromPoint(r3.Vector{5, 0, 0})
-	gc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, objectFromFrame1, "")
+	gc, err := spatial.NewBox(objectFromFrame1, r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 	// it shouldn't matter where the transformation of the frame associated with the object is if we are just looking at its geometry
 	object, err := NewStaticFrameWithGeometry("object", spatial.NewPoseFromPoint(r3.Vector{1000, 1000, 1000}), gc)

@@ -121,7 +121,7 @@ func TestPlanningWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{200, 200, 200}, spatialmath.NewPoseFromPoint(r3.Vector{Z: 75}), "")
+	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 75}), r3.Vector{200, 200, 200}, "")
 	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatialmath.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripper, ur5e)
@@ -162,7 +162,7 @@ func TestPlanningWithGripper(t *testing.T) {
 func simple2DMap() (*planConfig, error) {
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
-	physicalGeometry, err := spatialmath.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatialmath.NewZeroPose(), "")
+	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	fs.AddFrame(urCamera, modelUR5e)
 
 	// Add static frame for the gripper
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{200, 200, 200}, spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), "")
+	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), r3.Vector{200, 200, 200}, "")
 	xArmVgripper, err := frame.NewStaticFrameWithGeometry("xArmVgripper", spatialmath.NewPoseFromPoint(r3.Vector{Z: 200}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(xArmVgripper, modelXarm)

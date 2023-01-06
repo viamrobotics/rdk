@@ -14,13 +14,6 @@ import (
 // box density corresponding to how many points per square mm.
 const defaultBoxPointDensity = .5
 
-// BoxCreator implements the GeometryCreator interface for box structs.
-type boxCreator struct {
-	halfSize        r3.Vector
-	boundingSphereR float64
-	pointCreator
-}
-
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
 	pose            Pose
@@ -29,60 +22,9 @@ type box struct {
 	label           string
 }
 
-// NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
-// at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBoxCreator(dims r3.Vector, offset Pose, label string) (GeometryCreator, error) {
-	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, newBadGeometryDimensionsError(&box{})
-	}
-	halfSize := dims.Mul(0.5)
-	return &boxCreator{
-		halfSize:        halfSize,
-		boundingSphereR: halfSize.Norm(),
-		pointCreator:    pointCreator{offset, label},
-	}, nil
-}
-
-// NewGeometry instantiates a new box from a BoxCreator class.
-func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
-	return &box{
-		pose:            Compose(bc.offset, pose),
-		halfSize:        [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z},
-		boundingSphereR: bc.halfSize.Norm(),
-		label:           bc.label,
-	}
-}
-
-// String returns a human readable string that represents the boxCreator.
-func (bc *boxCreator) String() string {
-	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*bc.halfSize.X, 2*bc.halfSize.Y, 2*bc.halfSize.Z)
-}
-
-func (bc *boxCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(bc)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(config)
-}
-
-// ToProtobuf converts the box to a Geometry proto message.
-func (bc *boxCreator) ToProtobuf() *commonpb.Geometry {
-	return &commonpb.Geometry{
-		Center: PoseToProtobuf(bc.offset),
-		GeometryType: &commonpb.Geometry_Box{
-			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
-				X: 2 * bc.halfSize.X,
-				Y: 2 * bc.halfSize.Y,
-				Z: 2 * bc.halfSize.Z,
-			}},
-		},
-		Label: bc.label,
-	}
-}
-
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
+	// Negative dimensions not allowed. Zero dimensions are allowed for bounding boxes, etc.
 	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
@@ -93,6 +35,19 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 		boundingSphereR: halfSize.Norm(),
 		label:           label,
 	}, nil
+}
+
+// String returns a human readable string that represents the box.
+func (b *box) String() string {
+	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
+}
+
+func (b *box) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(b)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(config)
 }
 
 // Label returns the label of this box.
@@ -108,18 +63,18 @@ func (b *box) Pose() Pose {
 	return b.pose
 }
 
-// Vertices returns the vertices defining the box.
-func (b *box) Vertices() []r3.Vector {
-	vertices := make([]r3.Vector, 8)
+// vertices returns the vertices defining the box.
+func (b *box) vertices() []r3.Vector {
+	vert := make([]r3.Vector, 8)
 	for i, x := range []float64{1, -1} {
 		for j, y := range []float64{1, -1} {
 			for k, z := range []float64{1, -1} {
 				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize[0], Y: y * b.halfSize[1], Z: z * b.halfSize[2]})
-				vertices[4*i+2*j+k] = Compose(b.pose, offset).Point()
+				vert[4*i+2*j+k] = Compose(b.pose, offset).Point()
 			}
 		}
 	}
-	return vertices
+	return vert
 }
 
 // AlmostEqual compares the box with another geometry and checks if they are equivalent.
@@ -170,7 +125,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxCollision(b, other.position), nil
+		return pointVsBoxCollision(other.position, b), nil
 	}
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
@@ -183,7 +138,7 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsBoxDistance(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxDistance(b, other.position), nil
+		return pointVsBoxDistance(other.position, b), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
@@ -321,8 +276,8 @@ func boxVsBoxDistance(a, b *box) float64 {
 
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
 func boxInBox(inner, outer *box) bool {
-	for _, vertex := range inner.Vertices() {
-		if !pointVsBoxCollision(outer, vertex) {
+	for _, vertex := range inner.vertices() {
+		if !pointVsBoxCollision(vertex, outer) {
 			return false
 		}
 	}
@@ -331,7 +286,7 @@ func boxInBox(inner, outer *box) bool {
 
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
 func boxInSphere(b *box, s *sphere) bool {
-	for _, vertex := range b.Vertices() {
+	for _, vertex := range b.vertices() {
 		if sphereVsPointDistance(s, vertex) > CollisionBuffer {
 			return false
 		}
