@@ -54,21 +54,26 @@ func TestApplyOffset(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	correctCount := 0
 	transPc.Iterate(0, 0, func(p r3.Vector, d Data) bool { // check if all points transformed as expected
-		t.Logf("p: %v, d: %v", p, d)
 		r, g, b := d.RGB255()
 		if r == 255 {
 			correctPoint := spatialmath.NewPoint(r3.Vector{1, 99, 0}, "")
-			test.That(t, correctPoint.AlmostEqual(spatialmath.NewPoint(p, "")), test.ShouldBeTrue)
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
 			correctCount++
 		}
 		if g == 255 {
 			correctPoint := spatialmath.NewPoint(r3.Vector{1, 100, 0}, "")
-			test.That(t, correctPoint.AlmostEqual(spatialmath.NewPoint(p, "")), test.ShouldBeTrue)
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
 			correctCount++
 		}
 		if b == 255 {
 			correctPoint := spatialmath.NewPoint(r3.Vector{1, 100, 1}, "")
-			test.That(t, correctPoint.AlmostEqual(spatialmath.NewPoint(p, "")), test.ShouldBeTrue)
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
 			correctCount++
 		}
 		return true
@@ -83,17 +88,23 @@ func TestApplyOffset(t *testing.T) {
 		r, g, b := d.RGB255()
 		if r == 255 {
 			correctPoint := spatialmath.NewPoint(r3.Vector{0, 100, 0}, "")
-			test.That(t, correctPoint.AlmostEqual(spatialmath.NewPoint(p, "")), test.ShouldBeTrue)
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
 			correctCount++
 		}
 		if g == 255 {
 			correctPoint := spatialmath.NewPoint(r3.Vector{-1, 100, 0}, "")
-			test.That(t, correctPoint.AlmostEqual(spatialmath.NewPoint(p, "")), test.ShouldBeTrue)
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
 			correctCount++
 		}
 		if b == 255 {
 			correctPoint := spatialmath.NewPoint(r3.Vector{-1, 100, 1}, "")
-			test.That(t, correctPoint.AlmostEqual(spatialmath.NewPoint(p, "")), test.ShouldBeTrue)
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
 			correctCount++
 		}
 		return true
