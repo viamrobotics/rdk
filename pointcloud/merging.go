@@ -21,6 +21,16 @@ import (
 // CloudAndOffsetFunc is a function that returns a PointCloud with a pose that represents an offset to be applied to every point.
 type CloudAndOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
 
+// ApplyOffset takes a point cloud and an offset pose and applies the offset to each of the points in the source point cloud.
+func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, logger golog.Logger) (PointCloud, error) {
+	// create the function that return the pointcloud and the transform to the destination frame
+	cloudFunc := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
+		return srcpc, pose, nil
+	}
+	srcFunc := []CloudAndOffsetFunc{cloudFunc}
+	return MergePointClouds(ctx, srcFunc, logger) // MergePointClouds can also be used on one point cloud.
+}
+
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
 func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logger golog.Logger) (PointCloud, error) {
 	if len(cloudFuncs) == 0 {

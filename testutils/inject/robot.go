@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -46,9 +47,10 @@ type Robot struct {
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
-	StatusFunc        func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
-	ModuleAddressFunc func() (string, error)
-	ModuleManagerFunc func() modmaninterface.ModuleManager
+	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
+	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	ModuleAddressFunc       func() (string, error)
+	ModuleManagerFunc       func() modmaninterface.ModuleManager
 
 	ops     *operation.Manager
 	SessMgr session.Manager
@@ -243,7 +245,18 @@ func (r *Robot) TransformPose(
 	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
 }
 
-// Status calls the injected Status or the real one.
+// TransformPointCloud calls the injected TransformPointCloud or the real version.
+func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.TransformPointCloudFunc == nil {
+		return r.LocalRobot.TransformPointCloud(ctx, srcpc, srcName, dstName)
+	}
+	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
+}
+
+// Status call the injected Status or the real one.
 func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
