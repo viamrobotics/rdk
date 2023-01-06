@@ -328,7 +328,6 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 		if err != nil {
 			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
 		}
-		logger.Debug(cam)
 		proj, err := cam.Projector(ctx)
 		if err != nil {
 			if len(svcConfig.Sensors) == 1 {
@@ -344,11 +343,27 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 			if !ok {
 				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
 			}
+
 			err = intrinsics.CheckValid()
 			if err != nil {
 				return "", nil, err
 			}
+
+			props, err := cam.Properties(ctx)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "error getting props %v for slam service")
+			}
+
+			distortion, ok := props.DistortionParams.(*transform.BrownConrady)
+			if !ok {
+				return "", nil, errors.New("error getting distortion_parameters for slam service")
+			}
+
+			if distortion == nil {
+				return "", nil, errors.New("camera distortion_parameters are not provided")
+			}
 		}
+
 		cams = append(cams, cam)
 
 		// If there is a second camera, it is expected to be depth.
