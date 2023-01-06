@@ -10,7 +10,6 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -310,7 +309,7 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// ConvertFrameSystemtakes in a framesystem and returns a map where all elements are the point representation
+// FrameSystemToPCD in a framesystem and returns a map where all elements are the point representation
 // of their geometry type with respect to the world.
 func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
@@ -321,9 +320,15 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 			return nil, err
 		}
 
-		geosInFrame, _ := currentFrame.Geometries(inputs[name])
+		geosInFrame, err := currentFrame.Geometries(inputs[name])
+		if err != nil {
+			return nil, err
+		}
 		if parent.Name() != "world" {
-			transformed, _ := system.Transform(inputs, geosInFrame, World)
+			transformed, err := system.Transform(inputs, geosInFrame, World)
+			if err != nil {
+				return nil, err
+			}
 			transformedGeo := transformed.(*GeometriesInFrame)
 			var aggregatePoints []r3.Vector
 			for _, g := range transformedGeo.Geometries() {
@@ -339,7 +344,7 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 			}
 			parentGeoMap := parentFrameGeoms.geometries
 			parentGeo := parentGeoMap[parent.Name()] // is this the right way to do it?
-			translatedGeo := spatialmath.TransformPointsToPose(aggregatePoints, parentGeo.Pose())
+			translatedGeo := spatial.TransformPointsToPose(aggregatePoints, parentGeo.Pose())
 			vectorMap[name] = translatedGeo
 		} else {
 			var aggregate []r3.Vector
