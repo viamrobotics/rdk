@@ -39,7 +39,6 @@ func setupInjectRobotWithGPS() *inject.Robot {
 			return &rtkStation{}, nil
 		default:
 			return nil, gutils.NewResourceNotFoundError(name)
-
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -47,6 +46,7 @@ func setupInjectRobotWithGPS() *inject.Robot {
 	}
 	return r
 }
+
 func TestModelTypeCreators(t *testing.T) {
 	r := setupInjectRobotWithGPS()
 	gps1, err := movementsensor.FromRobot(r, testRoverName)
@@ -54,6 +54,7 @@ func TestModelTypeCreators(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gps2, err := movementsensor.FromRobot(r, testStationName)
 	test.That(t, gps2, test.ShouldResemble, &rtkStation{})
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestValidateRTK(t *testing.T) {
