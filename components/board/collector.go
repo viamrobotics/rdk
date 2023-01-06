@@ -12,34 +12,33 @@ type method int64
 
 const (
 	analogs method = iota
-	gpio
+	gpios
 )
 
 func (m method) String() string {
 	if m == analogs {
 		return "Analogs"
 	}
-	if m == gpio {
-		return "Gpio"
+	if m == gpios {
+		return "Gpios"
 	}
 	return "Unknown"
 }
 
-type Analogs struct {
-	Readings []Analog
+type analogRecords struct {
+	Readings []analogRecord
 }
 
-type Analog struct {
+type analogRecord struct {
 	AnalogName  string
 	AnalogValue int
 }
 
-type GPIOs struct {
-	Readings []GPIO
+type gpioRecords struct {
+	Readings []gpioRecord
 }
 
-// Position wraps the returned set angle (degrees) value.
-type GPIO struct {
+type gpioRecord struct {
 	GPIOName  string
 	GPIOValue bool
 }
@@ -51,17 +50,17 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var readings []Analog
+		var readings []analogRecord
 		for k := range arg {
 			if reader, ok := board.AnalogReaderByName(k); ok {
 				value, err := reader.Read(ctx, nil)
 				if err != nil {
 					return nil, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
 				}
-				readings = append(readings, Analog{AnalogName: k, AnalogValue: value})
+				readings = append(readings, analogRecord{AnalogName: k, AnalogValue: value})
 			}
 		}
-		return Analogs{Readings: readings}, nil
+		return analogRecords{Readings: readings}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -73,17 +72,17 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var readings []GPIO
+		var readings []gpioRecord
 		for k := range arg {
 			if gpio, err := board.GPIOPinByName(k); err == nil {
 				value, err := gpio.Get(ctx, nil)
 				if err != nil {
-					return nil, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
+					return nil, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
 				}
-				readings = append(readings, GPIO{GPIOName: k, GPIOValue: value})
+				readings = append(readings, gpioRecord{GPIOName: k, GPIOValue: value})
 			}
 		}
-		return GPIOs{Readings: readings}, nil
+		return gpioRecords{Readings: readings}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

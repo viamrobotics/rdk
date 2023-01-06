@@ -63,7 +63,7 @@ func init() {
 	}, newAnalogCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,
-		MethodName: gpio.String(),
+		MethodName: gpios.String(),
 	}, newGPIOCollector)
 }
 
