@@ -75,7 +75,7 @@ func TestApplyOffset(t *testing.T) {
 	})
 	test.That(t, correctCount, test.ShouldEqual, 3)
 	// apply a translation and rotation
-	transrotPose := spatialmath.NewPoseFromOrientation(r3.Vector{0, 99, 0}, &spatialmath.R4AA{math.Pi / 2., 0., 0., 1.})
+	transrotPose := spatialmath.NewPose(r3.Vector{0, 99, 0}, &spatialmath.R4AA{math.Pi / 2., 0., 0., 1.})
 	transrotPc, err := ApplyOffset(context.Background(), pc1, transrotPose, logger)
 	test.That(t, err, test.ShouldBeNil)
 	correctCount = 0
