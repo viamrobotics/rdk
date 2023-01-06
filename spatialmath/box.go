@@ -376,7 +376,7 @@ func (b *box) ToPoints(resolution float64) []r3.Vector {
 	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 1, true, true)...)
 	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 2, false, false)...)
 
-	transformedVecs := transformPointsToPose(facePoints, b.Pose())
+	transformedVecs := TransformPointsToPose(facePoints, b.Pose())
 	return transformedVecs
 }
 
@@ -429,8 +429,8 @@ func lessThan(orEquals bool, v1, v2 float64) bool {
 	return v1 < v2
 }
 
-// transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
-func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
+// TransformPointsToPose gives vectors the proper orientation then translates them to the desired position.
+func TransformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	var transformedVectors []r3.Vector
 	for i := range facePoints {
 		// create pose for a vector at origin from the desired orientation
