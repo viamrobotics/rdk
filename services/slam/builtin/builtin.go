@@ -328,6 +328,7 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 		if err != nil {
 			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
 		}
+		logger.Debug(cam)
 		proj, err := cam.Projector(ctx)
 		if err != nil {
 			if len(svcConfig.Sensors) == 1 {
