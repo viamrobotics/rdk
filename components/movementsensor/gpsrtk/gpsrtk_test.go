@@ -31,6 +31,7 @@ const (
 
 func setupInjectRobotWithGPS() *inject.Robot {
 	r := &inject.Robot{}
+
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case movementsensor.Named(testRoverName):

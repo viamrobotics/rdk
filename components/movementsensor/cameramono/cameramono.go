@@ -165,6 +165,7 @@ func newCameraMono(
 			trackedOrient: spatialmath.NewOrientationVector(),
 		},
 	}
+
 	co.stream = gostream.NewEmbeddedVideoStream(cam)
 	co.lastErr = co.backgroundWorker(co.stream, conf.MotionConfig)
 
@@ -182,6 +183,8 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 			return
 		}
 		for {
+			co.mu.RLock()
+			defer co.mu.RUnlock()
 			eT := time.Now()
 			eImg, _, err := stream.Next(co.cancelCtx)
 			if err != nil {
@@ -291,6 +294,8 @@ func (co *cameramono) LinearAcceleration(ctx context.Context, extra map[string]i
 
 // AngularVelocity gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	return co.result.angVel, nil
 }
 
@@ -329,7 +334,7 @@ func (co *cameramono) Accuracy(ctx context.Context, extra map[string]interface{}
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
-// COmpassHeadings gets the position of the moving object calculated by visual odometry.
+// CompassHeadings gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	co.mu.RLock()
 	defer co.mu.RUnlock()
