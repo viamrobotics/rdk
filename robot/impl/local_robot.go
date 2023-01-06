@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/module/modmanager"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -740,6 +741,19 @@ func (r *localRobot) TransformPose(
 	}
 
 	return framesystem.TransformPose(ctx, pose, dst, additionalTransforms)
+}
+
+// TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
+// Do not move the robot between the generation of the initial pointcloud and the receipt
+// of the transformed pointcloud because that will make the transformations inaccurate.
+func (r *localRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
+	framesystem, err := r.fsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return framesystem.TransformPointCloud(ctx, srcpc, srcName, dstName)
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
