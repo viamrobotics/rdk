@@ -28,7 +28,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 
 	actualBoard := newBoard(testBoardName)
 	deps[board.Named(testBoardName)] = actualBoard
-
 	return deps
 }
 
