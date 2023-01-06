@@ -464,7 +464,7 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 	}
 
 	if proto.GetGeometry() != nil {
-		geom, err := spatial.NewGeometryCreatorFromProto(proto.GetGeometry())
+		geom, err := spatial.NewGeometryFromProto(proto.GetGeometry())
 		if err != nil {
 			return nil, err
 		}

@@ -122,7 +122,7 @@ func TestKin1(t *testing.T) {
 }
 
 func TestUseURHostedKinematics(t *testing.T) {
-	sphere, err := spatialmath.NewSphere(r3.Vector{}, 1, "")
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacles := make(map[string]spatialmath.Geometry)
 	obstacles["sphere"] = sphere
