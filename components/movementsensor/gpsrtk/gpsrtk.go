@@ -31,6 +31,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// ErrRoverValidation contains the model substring for the available correction source types.
 var ErrRoverValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", roverModel.Name)
 
 // AttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.

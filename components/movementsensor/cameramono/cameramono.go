@@ -183,8 +183,6 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 			return
 		}
 		for {
-			co.mu.RLock()
-			defer co.mu.RUnlock()
 			eT := time.Now()
 			eImg, _, err := stream.Next(co.cancelCtx)
 			if err != nil {
@@ -240,6 +238,9 @@ func (co *cameramono) extractMovementFromOdometer(
 	if err != nil {
 		return nil, err
 	}
+
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().LeftMatMul(*rotMat)
 	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(co.motion))
 	co.result.linVel = calculateLinVel(motion, dt)
