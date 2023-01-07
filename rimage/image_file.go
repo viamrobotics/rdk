@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -31,9 +32,18 @@ import (
 // https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
 var RGBABitmapMagicNumber = []byte("RGBA")
 
+// DepthMapMagicNumber represents the magic number for our custom header
+// for raw DEPTH data.
+var DepthMapMagicNumber = []byte("DEPTHMAP")
+
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
 const RawRGBAHeaderLength = 12
+
+// RawDepthHeaderLength is the length of our custom header for raw depth map
+// data in bytes. Header contains 8 bytes worth of magic number, followed by 8 bytes
+// for width and another 8bytes for height .
+const RawDepthHeaderLength = 24
 
 func init() {
 	// Here we register the custom format above so that we can simply use image.Decode
@@ -71,12 +81,48 @@ func init() {
 			}, nil
 		},
 	)
-}
+
+	// Here we register our format for depth images so that we can use
+	// image.Decode as long as we have the appropriate header
+	image.RegisterFormat("vnd.viam.dep", string(DepthMapMagicNumber),
+		func(r io.Reader) (image.Image, error) {
+			f := r.(*bufio.Reader)
+			dm, err := ReadDepthMap(f)
+			if err != nil {
+				return nil, err
+			}
+			return dm, nil
+		},
+		func(r io.Reader) (image.Config, error) {
+			// We cannot read the height and width from bytes b/c we don't know (yet)
+			// how the depth map is encoded, so send it to decode and then grab it.
+			// Using Gray 16 as underlying color model for depth
+			f := r.(*bufio.Reader)
+			firstBytes, err := _readNext(r)
+			if err != nil || firstBytes != MagicNumIntViamType {
+				return image.Config{}, err
+			}
+			rawWidth, err := _readNext(f)
+			if err != nil {
+				return image.Config{}, err
+			}
+			rawHeight, err := _readNext(f)
+			if err != nil {
+				return image.Config{}, err
+			}
+			return image.Config{
+				ColorModel: color.Gray16Model,
+				Width:      int(rawWidth),
+				Height:     int(rawHeight),
+			}, nil
+		},
+	)
+} // end of init
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".dat.gz") || strings.HasSuffix(path, ".dat"):
+	case strings.HasSuffix(path, ".dat.gz"), strings.HasSuffix(path, ".dat"):
 		return ParseRawDepthMap(path)
 	default:
 		//nolint:gosec
@@ -240,6 +286,12 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	var buf bytes.Buffer
 	bounds := img.Bounds()
 	switch actualOutMIME {
+	case ut.MimeTypeRawDepth:
+		buf.Write(DepthMapMagicNumber)
+		// WriteRawDepthMapTo encodes the height and width
+		if _, err := WriteRawDepthMapTo(img.(*DepthMap), &buf); err != nil {
+			return nil, err
+		}
 	case ut.MimeTypeRawRGBA:
 		// Here we create a custom header to prepend to Raw RGBA data. Credit to
 		// Ben Zotto for inventing this formulation
