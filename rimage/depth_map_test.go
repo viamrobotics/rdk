@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
 )
 
 func TestRawDepthMap(t *testing.T) {
@@ -29,7 +30,7 @@ func TestRawDepthMap(t *testing.T) {
 	_, err = WriteRawDepthMapTo(m, &buf)
 	test.That(t, err, test.ShouldBeNil)
 
-	m, err = ReadRawDepthMap(bufio.NewReader(&buf))
+	m, err = ReadDepthMap(bufio.NewReader(&buf))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
 	test.That(t, m.Height(), test.ShouldEqual, 720)
@@ -330,4 +331,37 @@ func TestDepthColorModel(t *testing.T) {
 	convGray = dm.ColorModel().Convert(rgba8)
 	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
+}
+
+func TestDepthMapEncoding(t *testing.T) {
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/fakeDM.vnd.viam.dep"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test values at points of DepthMap
+	// This example DepthMap (fakeDM) was made such that Depth(x,y) = x*y
+	test.That(t, m.Width(), test.ShouldEqual, 20)
+	test.That(t, m.Height(), test.ShouldEqual, 10)
+	testPt1 := m.GetDepth(13, 3)
+	test.That(t, testPt1, test.ShouldEqual, 39)
+	testPt2 := m.GetDepth(10, 6)
+	test.That(t, testPt2, test.ShouldEqual, 60)
+
+	// Save DepthMap BYTES to a file
+	buf := bytes.Buffer{}
+	err = m.WriteToBuf(&buf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, buf.Bytes(), test.ShouldNotBeNil)
+	outDir := testutils.TempDirT(t, "", "rimage")
+	saveTo := outDir + "/grayboard_bytes.vnd.viam.dep"
+	err = WriteRawDepthMapToFile(m, saveTo)
+	test.That(t, err, test.ShouldBeNil)
+
+	newM, err := NewDepthMapFromFile(context.Background(), saveTo)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newM.Bounds().Dx(), test.ShouldEqual, 20)
+	test.That(t, newM.Bounds().Dy(), test.ShouldEqual, 10)
+	testPtA := newM.GetDepth(13, 3)
+	test.That(t, testPtA, test.ShouldEqual, 39)
+	testPtB := newM.GetDepth(10, 6)
+	test.That(t, testPtB, test.ShouldEqual, 60)
 }
