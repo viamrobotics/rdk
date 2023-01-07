@@ -50,6 +50,7 @@ const (
 	timeMode  = "time"
 )
 
+// ErrStationValidation contains the model substring for the available correction source types.
 var ErrStationValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", stationModel.Name)
 
 // Validate ensures all parts of the config are valid.
@@ -110,7 +111,7 @@ func init() {
 		&StationConfig{})
 }
 
-type RtkStation struct {
+type rtkStation struct {
 	generic.Unimplemented
 	logger              golog.Logger
 	correction          correctionSource
@@ -145,7 +146,6 @@ func newRTKStation(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-
 	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
@@ -153,7 +153,7 @@ func newRTKStation(
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	r := &RtkStation{
+	r := &rtkStation{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
@@ -240,7 +240,7 @@ func newRTKStation(
 	return r, r.lastError
 }
 
-func (r *RtkStation) setLastError(err error) {
+func (r *rtkStation) setLastError(err error) {
 	r.errMu.Lock()
 	defer r.errMu.Unlock()
 
@@ -248,7 +248,7 @@ func (r *RtkStation) setLastError(err error) {
 }
 
 // Start starts reading from the correction source and sends corrections to the child movementsensor's.
-func (r *RtkStation) Start(ctx context.Context) {
+func (r *rtkStation) Start(ctx context.Context) {
 	r.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer r.activeBackgroundWorkers.Done()
@@ -321,7 +321,7 @@ func (r *RtkStation) Start(ctx context.Context) {
 }
 
 // Close shuts down the rtkStation.
-func (r *RtkStation) Close() error {
+func (r *rtkStation) Close() error {
 	r.logger.Debug("Closing RTK Station")
 	// close correction source
 	err := r.correction.Close()
@@ -344,38 +344,38 @@ func (r *RtkStation) Close() error {
 	return r.lastError
 }
 
-func (r *RtkStation) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (r *rtkStation) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	return &geo.Point{}, 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (r *RtkStation) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (r *rtkStation) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (r *RtkStation) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (r *rtkStation) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
-func (r *RtkStation) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (r *rtkStation) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-func (r *RtkStation) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (r *rtkStation) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-func (r *RtkStation) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (r *rtkStation) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (r *RtkStation) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (r *rtkStation) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{}, movementsensor.ErrMethodUnimplementedReadings
 }
 
-func (r *RtkStation) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (r *rtkStation) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
-func (r *RtkStation) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (r *rtkStation) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{}, r.lastError
 }

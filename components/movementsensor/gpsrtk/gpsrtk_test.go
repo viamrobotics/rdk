@@ -37,7 +37,7 @@ func setupInjectRobotWithGPS() *inject.Robot {
 		case movementsensor.Named(testRoverName):
 			return &RTKMovementSensor{}, nil
 		case movementsensor.Named(testStationName):
-			return &RtkStation{}, nil
+			return &rtkStation{}, nil
 		default:
 			return nil, gutils.NewResourceNotFoundError(name)
 		}
@@ -54,7 +54,7 @@ func TestModelTypeCreators(t *testing.T) {
 	test.That(t, gps1, test.ShouldResemble, &RTKMovementSensor{})
 	test.That(t, err, test.ShouldBeNil)
 	gps2, err := movementsensor.FromRobot(r, testStationName)
-	test.That(t, gps2, test.ShouldResemble, &RtkStation{})
+	test.That(t, gps2, test.ShouldResemble, &rtkStation{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -174,13 +174,13 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"ntrip_baud":                115200,
 				"ntrip_send_nmea":           true,
 				"ntrip_connect_attempts":    10,
-				"correction_input_protocol": "I2C",
+				"correction_input_protocol": "i2c",
 				"path":                      path,
 				"board":                     testBoardName,
 				"bus":                       testBusName,
 			},
 			ConvertedAttributes: &AttrConfig{
-				CorrectionSource: "I2C",
+				CorrectionSource: "i2c",
 				Board:            testBoardName,
 				I2CAttrConfig: &I2CAttrConfig{
 					I2CBus:      testBusName,
