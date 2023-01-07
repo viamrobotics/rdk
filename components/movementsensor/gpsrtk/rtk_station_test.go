@@ -184,7 +184,7 @@ func TestClose(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	r := io.NopCloser(strings.NewReader("hello world"))
 	n := &ntripCorrectionSource{
 		cancelCtx:        cancelCtx,
@@ -198,7 +198,7 @@ func TestClose(t *testing.T) {
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g = RtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	s := &serialCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
@@ -210,7 +210,7 @@ func TestClose(t *testing.T) {
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g = RtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	i := &i2cCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,

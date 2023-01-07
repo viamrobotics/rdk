@@ -31,6 +31,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var ErrRoverValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", roverModel.Name)
+
 // AttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type AttrConfig struct {
 	CorrectionSource string `json:"correction_source"`
@@ -86,7 +88,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	case "":
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	default:
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+		return nil, ErrRoverValidation
 	}
 }
 
@@ -138,7 +140,7 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, roverModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr StationConfig
+			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&AttrConfig{})
@@ -174,16 +176,10 @@ func newRTKMovementSensor(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	if cfg.Model != roverModel {
-		return nil, fmt.Errorf("wrong constructor for %s", roverModel.String())
-	}
-
 	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
-
-	logger.Debug("Returning n")
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
