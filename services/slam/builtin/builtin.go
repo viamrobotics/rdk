@@ -262,6 +262,7 @@ type AttrConfig struct {
 	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
+	Dev                 bool              `json:"dev"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -302,6 +303,8 @@ type builtIn struct {
 	port       string
 	dataRateMs int
 	mapRateSec int
+
+	dev bool
 
 	camStreams []gostream.VideoStream
 
@@ -400,20 +403,36 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.GetPositionRequest{Name: name, Extra: ext}
 
-	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting SLAM position")
+	var pInFrame *referenceframe.PoseInFrame
+	var returnedExt map[string]interface{}
+
+	if slamSvc.dev {
+		req := &pb.GetPositionNewRequest{Name: name}
+
+		resp, err := slamSvc.clientAlgo.GetPositionNew(ctx, req)
+		if err != nil {
+			return nil, errors.Wrap(err, "error getting SLAM position")
+		}
+
+		pInFrame = referenceframe.NewPoseInFrame(resp.GetComponentReference(), spatialmath.NewPoseFromProtobuf(resp.GetPose()))
+		returnedExt = resp.Extra.AsMap()
+
+	} else {
+		req := &pb.GetPositionRequest{Name: name, Extra: ext}
+
+		resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
+		if err != nil {
+			return nil, errors.Wrap(err, "error getting SLAM position")
+		}
+
+		pInFrame = referenceframe.ProtobufToPoseInFrame(resp.Pose)
+		returnedExt = resp.Extra.AsMap()
 	}
-
-	pInFrame := referenceframe.ProtobufToPoseInFrame(resp.Pose)
 
 	// TODO DATA-531: https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-531
 	// Remove extraction and conversion of quaternion from the extra field in the response once the Rust
 	// spatial math library is available and the desired math can be implemented on the orbSLAM side
-	returnedExt := resp.Extra.AsMap()
-
 	if val, ok := returnedExt["quat"]; ok {
 		q := val.(map[string]interface{})
 
@@ -457,6 +476,36 @@ func (slamSvc *builtIn) GetMap(
 	if err != nil {
 		return "", nil, nil, err
 	}
+	reqPCMap := &pb.GetPointCloudMapRequest{
+		Name: name,
+	}
+
+	var imData image.Image
+	var vObj *vision.Object
+
+	if slamSvc.dev {
+		resp, err := slamSvc.clientAlgo.GetPointCloudMap(ctx, reqPCMap)
+
+		if err != nil {
+			return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
+		}
+		pointcloudData := resp.GetPointCloudPcd()
+		if pointcloudData == nil {
+			return "", nil, nil, errors.New("get map read pointcloud unavailable")
+		}
+		pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData))
+		if err != nil {
+			return "", nil, nil, errors.Wrap(err, "get map read pointcloud failed")
+		}
+
+		vObj, err = vision.NewObject(pc)
+		if err != nil {
+			return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")
+		}
+
+		return rdkutils.MimeTypePCD, imData, vObj, nil
+	}
+
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
@@ -465,10 +514,8 @@ func (slamSvc *builtIn) GetMap(
 		Extra:              ext,
 	}
 
-	var imData image.Image
-	var vObj *vision.Object
-
 	resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
+
 	if err != nil {
 		return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
 	}
@@ -575,6 +622,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		cancelFunc:            cancelFunc,
 		logger:                logger,
 		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
+		dev:                   svcConfig.Dev,
 	}
 
 	var success bool
