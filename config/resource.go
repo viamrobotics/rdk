@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -135,6 +136,13 @@ func (config *Component) Validate(path string) ([]string, error) {
 
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	matched, err := regexp.MatchString(`^\w+$`, config.Name)
+	if !matched {
+		return nil, errors.Errorf("name %q is not fully alphanumeric", config.Name)
+	}
+	if err != nil {
+		return nil, err
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
