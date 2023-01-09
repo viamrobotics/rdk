@@ -319,8 +319,11 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 		if err != nil {
 			return nil, err
 		}
-
-		geosInFrame, err := currentFrame.Geometries(inputs[name])
+		currentInput := inputs[name]
+		if currentInput == nil {
+			currentInput = make([]Input, len(currentFrame.DoF()))
+		}
+		geosInFrame, err := currentFrame.Geometries(currentInput)
 		if err != nil {
 			return nil, err
 		}
