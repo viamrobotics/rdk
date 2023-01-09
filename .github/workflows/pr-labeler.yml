@@ -2,7 +2,7 @@ name: PR Test Label Manager
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ DATA-859-motion-integration-tests ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
