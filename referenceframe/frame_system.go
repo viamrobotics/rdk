@@ -335,17 +335,6 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 				aggregatePoints = append(aggregatePoints, g.ToPoints(1.)...)
 			}
 
-			// parentFrame := system.Frame(parent.Name())
-			// parentDOF := len(parentFrame.DoF())
-			// parentInput := make([]Input, parentDOF)
-			// parentFrameGeoms, err := parentFrame.Geometries(parentInput)
-			// if err != nil {
-			// 	return nil, err
-			// }
-			// parentGeoMap := parentFrameGeoms.geometries
-			// parentGeo := parentGeoMap[parent.Name()] // is this the right way to do it?
-			// translatedGeo := spatial.TransformPointsToPose(aggregatePoints, parentGeo.Pose())
-			// vectorMap[name] = translatedGeo
 			vectorMap[name] = aggregatePoints
 		} else {
 			var aggregate []r3.Vector
