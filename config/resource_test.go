@@ -470,6 +470,24 @@ func TestServiceValidate(t *testing.T) {
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
+	t.Run("config invalid name", func(t *testing.T) {
+		validConfig := config.Service{
+			Name: "frame 1",
+			Type: "frame_system",
+		}
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		validConfig.Name = "frame-1"
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		validConfig.Name = "frame.1"
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+	})
 
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
@@ -568,7 +586,7 @@ func TestServiceValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {

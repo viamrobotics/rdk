@@ -405,6 +405,13 @@ func (config *Service) Validate(path string) ([]string, error) {
 		golog.Global().Debugw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultServiceName
 	}
+	matched, err := regexp.MatchString(`^\w+$`, config.Name)
+	if !matched {
+		return nil, errors.Errorf("name %q is not fully alphanumeric", config.Name)
+	}
+	if err != nil {
+		return nil, err
+	}
 	if config.Model.Name == "" {
 		golog.Global().Debugw("no model given; using default")
 		config.Model = resource.DefaultServiceModel
