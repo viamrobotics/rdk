@@ -384,7 +384,7 @@ func lessThan(orEquals bool, v1, v2 float64) bool {
 	return v1 < v2
 }
 
-// TransformPointsToPose gives vectors the proper orientation then translates them to the desired position.
+// transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
 func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	var transformedVectors []r3.Vector
 	for i := range facePoints {
