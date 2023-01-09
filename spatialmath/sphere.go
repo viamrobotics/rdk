@@ -189,5 +189,5 @@ func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 		vec := r3.Vector{x, y * s.radius, z}
 		vecList = append(vecList, vec)
 	}
-	return TransformPointsToPose(vecList, s.Pose())
+	return transformPointsToPose(vecList, s.Pose())
 }
