@@ -11,8 +11,8 @@ on:
       - main
 
 jobs:
-  test_motion_integration:
-    name:  Test Motion Integration
+  benchmark_motion:
+    name:  Motion Benchmark
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
@@ -43,6 +43,6 @@ jobs:
         ref: upgrade-rdk
         path: motion-testing
 
-    - name: Run motion integration tests
+    - name: Run motion benchmark
       run: |
         sudo -u testbot bash -lc 'cd motion-testing && sudo go test ./... -v -run TestIntegration'
