@@ -40,11 +40,11 @@ type servoConfig struct {
 	Frequency *uint `json:"frequency_hz,omitempty"`
 	// Resolution resolution of the PWM driver (eg number of ticks for a full period) if left or 0
 	// the driver will attempt to estimate the resolution
-	Resolution *uint `json:"pwm_resolution"`
+	Resolution *uint `json:"pwm_resolution,omitempty"`
 	// MinWidthUS override the safe minimum width in us this affect PWM calculation
-	MinWidthUS *uint `json:"min_width_us"`
+	MinWidthUS *uint `json:"min_width_us,omitempty"`
 	// MaxWidthUS Override the safe maximum width in us this affect PWM calculation
-	MaxWidthUS *uint `json:"max_width_us"`
+	MaxWidthUS *uint `json:"max_width_us,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
