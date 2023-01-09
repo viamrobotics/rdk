@@ -7,14 +7,12 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/emre/golist"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -241,101 +239,137 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 }
 
 func TestFrameSystemToPCD(t *testing.T) {
+	// simplest test
 	fs := NewEmptySimpleFrameSystem("test")
 	// ------
 	name0 := "frame0"
 	pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
 	dims0 := r3.Vector{2, 2, 2}
-	// offset0 := spatial.NewPoseFromPoint(r3.Vector{-20, -20, -20})
-	geomCreator0, _ := spatialmath.NewBox(pose0, dims0, "box0")
-	// geomCreator0, _ := spatial.NewBoxCreator(dims0, offset0, "box0")
-	frame0, _ := NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
+	geomCreator0, err := spatial.NewBox(pose0, dims0, "box0")
+	test.That(t, err, test.ShouldBeNil)
+	frame0, err := NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(frame0, fs.World())
 	// -----
 	name1 := "frame1"
 	pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
 	dims1 := r3.Vector{2, 2, 2}
-	// offset1 := spatial.NewPoseFromPoint(r3.Vector{10, 10, 10})
-	geomCreator1, _ := spatial.NewBox(pose1, dims1, "box1")
-	// geomCreator1, _ := spatial.NewBoxCreator(dims1, offset1, "box1")
-	frame1, _ := NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
+	geomCreator1, err := spatial.NewBox(pose1, dims1, "box1")
+	test.That(t, err, test.ShouldBeNil)
+	frame1, err := NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(frame1, frame0)
 
-	// ---------------------------------------------
-	// logger := golog.NewTestLogger(t)
-	// jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
-	// test.That(t, err, test.ShouldBeNil)
-	// model, err := UnmarshalModelJSON(jsonData, "")
-	// orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
-	// test.That(t, err, test.ShouldBeNil)
-
-	// lc := &LinkConfig{
-	// 	ID:          "test",
-	// 	Parent:      "world",
-	// 	Translation: r3.Vector{1, 2, 3},
-	// 	Orientation: orientConf,
-	// }
-	// lif, err := lc.ParseConfig()
-	// test.That(t, err, test.ShouldBeNil)
-	// // fully specified part
-	// part := &FrameSystemPart{
-	// 	FrameConfig: lif,
-	// 	ModelFrame:  model,
-	// }
-	// frameA1, _, _ := CreateFramesFromPart(part, logger)
-	// fs.AddFrame(frameA1, fs.World())
-
 	inputs := make(map[string][]Input)
-	// inputs["test"] = make([]Input, 6)
-	// inputs["test_origin"] = make([]Input, 0)
 	inputs["frame0"] = make([]Input, 0)
 	inputs["frame1"] = make([]Input, 0)
-
-	outMap, _ := FrameSystemToPCD(fs, inputs)
-	// check1 := outMap["test"]
-	// check2 := outMap["test_origin"]
-	check1 := outMap["frame0"]
-	check2 := outMap["frame1"]
-	// check3 := outMap["test"]
-
-	// colorss1 := color.NRGBA{255, 0, 0, 255}
-	// colorss2 := color.NRGBA{0, 255, 0, 255}
-	// // colorss3 := color.NRGBA{0, 0, 255, 255}
-	// var cluster []pointcloud.PointCloud
-	// pc1, _ := pointcloud.VectorsToPointCloud(check1, colorss1)
-	// pc2, _ := pointcloud.VectorsToPointCloud(check2, colorss2)
-	// // pc3, _ := pointcloud.VectorsToPointCloud(check3, colorss3)
-	// cluster = append(cluster, pc1)
-	// cluster = append(cluster, pc2)
-	// // cluster = append(cluster, pc3)
-	// merged, _ := pointcloud.MergePointCloudsWithColor(cluster)
-	// // write to .PCD file
-	// fileName := "wrld.pcd"
-	// file, _ := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
-	// os.Truncate("wrld.pcd", 0)
-	// pointcloud.ToPCD(merged, file, 0)
-
-	lastList := golist.New()
-	for i := 0; i < len(check1); i++ {
-		pointsList := golist.New()
-		pointsList.Append(check1[i].X)
-		pointsList.Append(check1[i].Y)
-		pointsList.Append(check1[i].Z)
-		lastList.Append(pointsList)
+	outMap, err := FrameSystemToPCD(fs, inputs)
+	test.That(t, err, test.ShouldBeNil)
+	//nolint:dupl
+	checkAgainst0 := []r3.Vector{
+		{-3, -4, -4},
+		{-5, -4, -4},
+		{-3, -4, -3},
+		{-3, -4, -5},
+		{-5, -4, -3},
+		{-5, -4, -5},
+		{-4, -3, -4},
+		{-4, -5, -4},
+		{-4, -3, -3},
+		{-4, -3, -5},
+		{-4, -5, -3},
+		{-4, -5, -5},
+		{-3, -3, -4},
+		{-3, -5, -4},
+		{-5, -3, -4},
+		{-5, -5, -4},
+		{-3, -3, -3},
+		{-3, -3, -5},
+		{-3, -5, -3},
+		{-3, -5, -5},
+		{-5, -3, -3},
+		{-5, -3, -5},
+		{-5, -5, -5},
+		{-5, -5, -3},
+		{-4, -4, -3},
+		{-4, -4, -5},
 	}
-	f, _ := os.Create("/Users/nick/Desktop/play/wrld1.txt")
-	f.WriteString(lastList.String())
-	f.Close()
-
-	lastList = golist.New()
-	for i := 0; i < len(check2); i++ {
-		pointsList := golist.New()
-		pointsList.Append(check2[i].X)
-		pointsList.Append(check2[i].Y)
-		pointsList.Append(check2[i].Z)
-		lastList.Append(pointsList)
+	//nolint:dupl
+	checkAgainst1 := []r3.Vector{
+		{-1, -2, -2},
+		{-3, -2, -2},
+		{-1, -2, -1},
+		{-1, -2, -3},
+		{-3, -2, -1},
+		{-3, -2, -3},
+		{-2, -1, -2},
+		{-2, -3, -2},
+		{-2, -1, -1},
+		{-2, -1, -3},
+		{-2, -3, -1},
+		{-2, -3, -3},
+		{-1, -1, -2},
+		{-1, -3, -2},
+		{-3, -1, -2},
+		{-3, -3, -2},
+		{-1, -1, -1},
+		{-1, -1, -3},
+		{-1, -3, -1},
+		{-1, -3, -3},
+		{-3, -1, -1},
+		{-3, -1, -3},
+		{-3, -3, -3},
+		{-3, -3, -1},
+		{-2, -2, -1},
+		{-2, -2, -3},
 	}
-	f, _ = os.Create("/Users/nick/Desktop/play/wrld2.txt")
-	f.WriteString(lastList.String())
-	f.Close()
+
+	for i, v := range outMap["frame0"] {
+		test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst0[i], 1e-2), test.ShouldBeTrue)
+	}
+	for i, v := range outMap["frame1"] {
+		test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
+	}
+
+	// --------------------------------------------
+	// here we are testing an arm with a block attached to the end effector
+	fs = NewEmptySimpleFrameSystem("test")
+	logger := golog.NewTestLogger(t)
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := UnmarshalModelJSON(jsonData, "")
+	test.That(t, err, test.ShouldBeNil)
+	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
+	test.That(t, err, test.ShouldBeNil)
+
+	lc := &LinkConfig{
+		ID:          "test",
+		Parent:      "world",
+		Translation: r3.Vector{1, 2, 3},
+		Orientation: orientConf,
+	}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	// fully specified part
+	part := &FrameSystemPart{
+		FrameConfig: lif,
+		ModelFrame:  model,
+	}
+	armFrame, _, err := CreateFramesFromPart(part, logger)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(armFrame, fs.World())
+	blockName := "block"
+	blockPose := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	blockdims := r3.Vector{20, 20, 20}
+	blockGeomCreator, err := spatial.NewBox(blockPose, blockdims, "box1")
+	test.That(t, err, test.ShouldBeNil)
+	blockFrame, err := NewStaticFrameWithGeometry(blockName, pose1, blockGeomCreator)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(blockFrame, armFrame)
+
+	inputs = make(map[string][]Input)
+	inputs["test"] = make([]Input, 6)
+	inputs["block"] = make([]Input, 0)
+	_, err = FrameSystemToPCD(fs, inputs)
+	test.That(t, err, test.ShouldBeNil)
 }
