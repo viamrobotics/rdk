@@ -137,7 +137,7 @@ func (config *Component) Validate(path string) ([]string, error) {
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	matched, err := regexp.MatchString(`^\w+$`, config.Name)
+	matched, err := regexp.MatchString(`^[a-zA-Z][-\w]*$`, config.Name)
 	if !matched {
 		return nil, errors.Errorf("name %q is not fully alphanumeric", config.Name)
 	}
@@ -405,7 +405,7 @@ func (config *Service) Validate(path string) ([]string, error) {
 		golog.Global().Debugw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultServiceName
 	}
-	matched, err := regexp.MatchString(`^\w+$`, config.Name)
+	matched, err := regexp.MatchString(`^[a-zA-Z][-\w]*$`, config.Name)
 	if !matched {
 		return nil, errors.Errorf("name %q is not fully alphanumeric", config.Name)
 	}

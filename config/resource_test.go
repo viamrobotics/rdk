@@ -30,7 +30,7 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	})
 
-	t.Run("config name invalid", func(t *testing.T) {
+	t.Run("config invalid name", func(t *testing.T) {
 		validConfig := config.Component{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "foo arm",
@@ -41,12 +41,12 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
-		validConfig.Name = "foo-arm"
+		validConfig.Name = "foo.arm"
 		deps, err = validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
-		validConfig.Name = "foo.arm"
+		validConfig.Name = "9"
 		deps, err = validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -60,6 +60,10 @@ func TestComponentValidate(t *testing.T) {
 			Model:     fakeModel,
 		}
 		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		validConfig.Name = "A"
+		deps, err = validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -469,6 +473,10 @@ func TestServiceValidate(t *testing.T) {
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
+		validConfig.Name = "A"
+		deps, err = validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("config invalid name", func(t *testing.T) {
 		validConfig := config.Service{
@@ -479,11 +487,11 @@ func TestServiceValidate(t *testing.T) {
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
-		validConfig.Name = "frame-1"
+		validConfig.Name = "frame.1"
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
-		validConfig.Name = "frame.1"
+		validConfig.Name = "3"
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
