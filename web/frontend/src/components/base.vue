@@ -2,13 +2,6 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted, onUnmounted } from 'vue';
-/*
-//import { Client, BaseClient, commonApi, StreamClient } from '@viamrobotics/sdk';
-//import type { ServiceError } from '@viamrobotics/sdk';
-//import { filterResources } from '../lib/resource';
-//import { displayError } from '../lib/error';
-//import KeyboardInput, { type Keys } from './keyboard-input.vue';
-*/
 import { Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
