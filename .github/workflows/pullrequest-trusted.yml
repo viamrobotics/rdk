@@ -6,8 +6,7 @@ concurrency:
 
 on:
   workflow_dispatch:
-  # pull_request_target:
-  pull_request:
+  pull_request_target:
     branches: [ 'DATA-859-motion-integration-tests' ]
     types: [ labeled ]
 
