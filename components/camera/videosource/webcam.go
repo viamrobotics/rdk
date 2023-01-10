@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -224,7 +223,7 @@ func findCamera(
 		}
 	}
 
-	return camera.WrapWithReconfigurable(cam, camera.Named(model))
+	return camera.WrapWithReconfigurable(cam, camera.Named(model.String()))
 }
 
 // getLabelFromCameraOrPath returns the path from the camera or an empty string if a path is not found.
