@@ -204,6 +204,24 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
 			deps[camera.Named(sensor)] = cam
+		case "missing_distortion_parameters_camera":
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+					}),
+				), nil
+			}
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return projA, nil
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: nil}, nil
+			}
+			deps[camera.Named(sensor)] = cam
 		case "good_color_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
@@ -753,6 +771,27 @@ func TestORBSLAMNew(t *testing.T) {
 		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
+	})
+
+	t.Run("New orbslamv3 service that errors due to missing distortion_parameters not being provided in config", func(t *testing.T) {
+		attrCfg := &builtin.AttrConfig{
+			Sensors:       []string{"missing_distortion_parameters_camera"},
+			ConfigParams:  map[string]string{"mode": "mono"},
+			DataDirectory: name,
+			DataRateMs:    validDataRateMS,
+			Port:          "localhost:4445",
+			UseLiveData:   &_true,
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		expectedError := errors.New("configuring camera error: error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported").Error()
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
