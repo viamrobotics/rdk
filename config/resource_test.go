@@ -30,6 +30,28 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	})
 
+	t.Run("config invalid name", func(t *testing.T) {
+		validConfig := config.Component{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "foo arm",
+			Type:      "arm",
+			Model:     fakeModel,
+		}
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		validConfig.Name = "foo.arm"
+		deps, err = validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		validConfig.Name = "9"
+		deps, err = validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+	})
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Component{
 			Namespace: resource.ResourceNamespaceRDK,
@@ -38,6 +60,10 @@ func TestComponentValidate(t *testing.T) {
 			Model:     fakeModel,
 		}
 		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		validConfig.Name = "A"
+		deps, err = validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -107,7 +133,7 @@ func TestComponentValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
@@ -447,6 +473,28 @@ func TestServiceValidate(t *testing.T) {
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
+		validConfig.Name = "A"
+		deps, err = validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("config invalid name", func(t *testing.T) {
+		validConfig := config.Service{
+			Name: "frame 1",
+			Type: "frame_system",
+		}
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		validConfig.Name = "frame.1"
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		validConfig.Name = "3"
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 
 	t.Run("ConvertedAttributes", func(t *testing.T) {
@@ -546,7 +594,7 @@ func TestServiceValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
