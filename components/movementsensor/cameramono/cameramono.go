@@ -272,7 +272,6 @@ func (co *cameramono) Close() {
 	co.activeBackgroundWorkers.Wait()
 	err := co.stream.Close(co.cancelCtx)
 	co.setLastError(err)
-
 }
 
 // Position gets the position of the moving object calculated by visual odometry.
