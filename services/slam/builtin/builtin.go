@@ -355,12 +355,8 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 			}
 
 			brownConrady, ok := props.DistortionParams.(*transform.BrownConrady)
-			if !ok {
-				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported 1")
-			}
-
-			if brownConrady == nil {
-				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported 2")
+			if !ok || brownConrady == nil {
+				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported")
 			}
 		}
 
