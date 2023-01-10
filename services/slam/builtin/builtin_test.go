@@ -222,6 +222,24 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: nil}, nil
 			}
 			deps[camera.Named(sensor)] = cam
+		case "missing_camera_properties":
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+					}),
+				), nil
+			}
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return projA, nil
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{}, errors.New("somehow couldn't get properties")
+			}
+			deps[camera.Named(sensor)] = cam
 		case "good_color_camera":
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
@@ -756,23 +774,6 @@ func TestORBSLAMNew(t *testing.T) {
 			errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(attrCfg.Sensors)).Error())
 	})
 
-	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
-		attrCfg := &builtin.AttrConfig{
-			Sensors:       []string{"good_depth_camera", "good_color_camera"},
-			ConfigParams:  map[string]string{"mode": "rgbd"},
-			DataDirectory: name,
-			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
-			UseLiveData:   &_true,
-		}
-
-		// Create slam service
-		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
-	})
-
 	t.Run("New orbslamv3 service that errors due to missing distortion_parameters not being provided in config", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"missing_distortion_parameters_camera"},
@@ -792,6 +793,44 @@ func TestORBSLAMNew(t *testing.T) {
 
 		grpcServer.Stop()
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("New orbslamv3 service that errors due to not being able to get camera properties", func(t *testing.T) {
+		attrCfg := &builtin.AttrConfig{
+			Sensors:       []string{"missing_camera_properties"},
+			ConfigParams:  map[string]string{"mode": "mono"},
+			DataDirectory: name,
+			DataRateMs:    validDataRateMS,
+			Port:          "localhost:4445",
+			UseLiveData:   &_true,
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		grpcServer := setupTestGRPCServer(attrCfg.Port)
+		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
+		expectedError := errors.New("configuring camera error: error getting camera properties for slam service: somehow couldn't get properties").Error()
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
+
+		grpcServer.Stop()
+		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
+		attrCfg := &builtin.AttrConfig{
+			Sensors:       []string{"good_depth_camera", "good_color_camera"},
+			ConfigParams:  map[string]string{"mode": "rgbd"},
+			DataDirectory: name,
+			DataRateMs:    validDataRateMS,
+			Port:          "localhost:4445",
+			UseLiveData:   &_true,
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
