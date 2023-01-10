@@ -489,6 +489,21 @@ func (slamSvc *builtIn) GetMap(
 			return "", nil, nil, errors.Wrap(err, "get map read pointcloud failed")
 		}
 
+		// -------
+		pInFrame, err := slamSvc.Position(ctx, name, extra)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		p := pInFrame.Pose()
+		ppRM := transform.NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		im, _, err := ppRM.PointCloudToRGBD(pc)
+		err = rimage.WriteImageToFile("/home/pi/test_image_ppRM.png", im)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		// -------
+
 		vObj, err = vision.NewObject(pc)
 		if err != nil {
 			return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")

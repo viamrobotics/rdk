@@ -6,10 +6,12 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ParallelProjection to pointclouds are done in a naive way that don't take any camera parameters into account.
@@ -95,5 +97,148 @@ func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*ri
 
 // ImagePointTo3DPoint takes the 2D pixel point and assumes that it represents the X,Y coordinate in mm as well.
 func (pp *ParallelProjection) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
-	return r3.Vector{float64(pt.X), float64(pt.Y), float64(d)}, nil
+	return r3.Vector{X: float64(pt.X), Y: float64(pt.Y), Z: float64(d)}, nil
+}
+
+// ParallelProjectionOntoXZWithRobotMarker allows the projection of a marker onto the 2D pointcloud
+// projection. Currently used by slam to display a map and robot
+type ParallelProjectionOntoXZWithRobotMarker struct {
+	robotPose *spatialmath.Pose
+}
+
+var (
+	sigmaLevel    = 7
+	imageHeight   = 300
+	imageWidth    = 480
+	missThreshold = 0.44
+	hitThreshold  = 0.53
+	voxelSize     = 1
+)
+
+// PointCloudToRGBD assumes the x,y coordinates are the same as the x,y pixels.
+func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud pointcloud.PointCloud,
+) (*rimage.Image, *rimage.DepthMap, error) {
+
+	meta := cloud.MetaData()
+
+	// Calculate max and min range to be represented by the produced image using the mean and standard
+	// deviation of the X and Z coordinates
+	var X, Z []float64
+	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
+		X = append(X, pt.X)
+		Z = append(Z, pt.Z)
+		return true
+	})
+
+	meanX, stdevX, err := calculateMeanAndStandardDeviation(X)
+	if err != nil {
+		return nil, nil, err
+	}
+	meanZ, stdevZ, err := calculateMeanAndStandardDeviation(Z)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// TODO: add overflow check
+	maxX := math.Max(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
+	minX := math.Min(meanX-float64(sigmaLevel)*stdevX, meta.MinX)
+	maxZ := math.Max(meanZ+float64(sigmaLevel)*stdevZ, meta.MaxZ)
+	minZ := math.Min(meanZ+float64(sigmaLevel)*stdevZ, meta.MinZ)
+
+	// Change max and min values to ensure the robot marker is in the image
+	var robotMarker spatialmath.Pose
+	if ppRM.robotPose != nil {
+		robotMarker = *ppRM.robotPose
+		maxX = math.Max(maxX, robotMarker.Point().X)
+		minX = math.Min(minX, robotMarker.Point().X)
+		maxZ = math.Max(maxZ, robotMarker.Point().Z)
+		minZ = math.Min(minZ, robotMarker.Point().Z)
+	}
+
+	// Calculate scale factor
+	widthScaleFactor := float64(imageWidth) / (maxX - minX)
+	heightScaleFactor := float64(imageHeight) / (maxZ - minZ)
+
+	color := rimage.NewImage(imageWidth, imageHeight)
+	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
+		j := (pt.X - meta.MinX) * widthScaleFactor
+		i := (pt.Z - meta.MinZ) * heightScaleFactor
+		x, y := int(math.Round(j)), int(math.Round(i))
+
+		// if point has a value and is inside the RGB image bounds, add it to the images
+		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil && data.HasValue() {
+			r, g, b := getProbabilityColorFromValue(data.Value())
+			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
+			addVoxelToImage(color, image.Point{x, y}, rimage.NewColor(r, g, b), voxelSize)
+		}
+		return true
+	})
+
+	// Add robot marker to image
+	robotMarkerPoint := image.Point{
+		X: int(math.Round(robotMarker.Point().X * widthScaleFactor)),
+		Y: int(math.Round(robotMarker.Point().Z * heightScaleFactor)),
+	}
+	robotMarkerColor := rimage.NewColor(255, 0, 0)
+
+	addVoxelToImage(color, robotMarkerPoint, robotMarkerColor, voxelSize)
+
+	return color, nil, nil
+}
+
+// RGBDToPointCloud calls its equivalent in ParallelProjection
+func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
+	img *rimage.Image,
+	dm *rimage.DepthMap,
+	crop ...image.Rectangle,
+) (pointcloud.PointCloud, error) {
+	pp := ParallelProjection{}
+	return pp.RGBDToPointCloud(img, dm, crop...)
+}
+
+// ImagePointTo3DPoint calls its equivalent in ParallelProjection
+func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
+	pp := ParallelProjection{}
+	return pp.ImagePointTo3DPoint(pt, d)
+}
+
+// getProbabilityColorFromValue returns the r, g, b color values based on the the probability value and defined thresholds
+func getProbabilityColorFromValue(v int) (uint8, uint8, uint8) {
+	var r, g, b uint8
+
+	prob := float64(v) / 100.
+
+	if prob < missThreshold {
+		b = uint8(255 * (prob / missThreshold))
+	}
+	if prob < missThreshold {
+		b = uint8(255 * ((prob - hitThreshold) / (1 - hitThreshold)))
+	}
+	return r, g, b
+}
+
+func calculateMeanAndStandardDeviation(data []float64) (float64, float64, error) {
+	mean, err := stats.Mean(data)
+	if err != nil {
+		return 0, 0, err
+	}
+	stdev, err := stats.StandardDeviation(data)
+	if err != nil {
+		return 0, 0, err
+	}
+	return mean, stdev, nil
+}
+
+func addVoxelToImage(im *rimage.Image, p image.Point, color rimage.Color, vSize int) {
+	for _, i := range []int{-vSize / 2, vSize / 2} {
+		for _, j := range []int{-vSize / 2, vSize / 2} {
+			if p.X+i < 0 || p.X+i >= imageWidth || p.Y+j < 0 || p.Y+j >= imageHeight {
+				im.Set(p, color)
+			}
+		}
+	}
+}
+
+func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXZWithRobotMarker {
+	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}
 }
