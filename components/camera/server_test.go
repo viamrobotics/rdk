@@ -192,7 +192,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawDepth)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
 		imageReleasedMu.Lock()

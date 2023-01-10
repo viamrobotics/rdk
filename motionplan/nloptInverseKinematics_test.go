@@ -27,7 +27,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	_, err = solveTest(context.Background(), ik, pos, seed)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos = spatialmath.NewPoseFromOrientation(
+	pos = spatialmath.NewPose(
 		r3.Vector{X: -46, Y: -23, Z: 372},
 		&spatialmath.OrientationVectorDegrees{Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28},
 	)
