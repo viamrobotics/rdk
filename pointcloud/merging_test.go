@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"context"
 	"image/color"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -36,6 +37,79 @@ func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
 		return pc3, pose3, nil
 	}
 	return []CloudAndOffsetFunc{func1, func2, func3}
+}
+
+func TestApplyOffset(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	pc1 := NewWithPrealloc(3)
+	err := pc1.Set(NewVector(1, 0, 0), NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = pc1.Set(NewVector(1, 1, 0), NewColoredData(color.NRGBA{0, 255, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = pc1.Set(NewVector(1, 1, 1), NewColoredData(color.NRGBA{0, 0, 255, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	// apply a simple translation
+	transPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 99, 0})
+	transPc, err := ApplyOffset(context.Background(), pc1, transPose, logger)
+	test.That(t, err, test.ShouldBeNil)
+	correctCount := 0
+	transPc.Iterate(0, 0, func(p r3.Vector, d Data) bool { // check if all points transformed as expected
+		r, g, b := d.RGB255()
+		if r == 255 {
+			correctPoint := spatialmath.NewPoint(r3.Vector{1, 99, 0}, "")
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
+			correctCount++
+		}
+		if g == 255 {
+			correctPoint := spatialmath.NewPoint(r3.Vector{1, 100, 0}, "")
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
+			correctCount++
+		}
+		if b == 255 {
+			correctPoint := spatialmath.NewPoint(r3.Vector{1, 100, 1}, "")
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
+			correctCount++
+		}
+		return true
+	})
+	test.That(t, correctCount, test.ShouldEqual, 3)
+	// apply a translation and rotation
+	transrotPose := spatialmath.NewPose(r3.Vector{0, 99, 0}, &spatialmath.R4AA{math.Pi / 2., 0., 0., 1.})
+	transrotPc, err := ApplyOffset(context.Background(), pc1, transrotPose, logger)
+	test.That(t, err, test.ShouldBeNil)
+	correctCount = 0
+	transrotPc.Iterate(0, 0, func(p r3.Vector, d Data) bool { // check if all points transformed as expected
+		r, g, b := d.RGB255()
+		if r == 255 {
+			correctPoint := spatialmath.NewPoint(r3.Vector{0, 100, 0}, "")
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
+			correctCount++
+		}
+		if g == 255 {
+			correctPoint := spatialmath.NewPoint(r3.Vector{-1, 100, 0}, "")
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
+			correctCount++
+		}
+		if b == 255 {
+			correctPoint := spatialmath.NewPoint(r3.Vector{-1, 100, 1}, "")
+			test.That(t, correctPoint.Pose().Point().X, test.ShouldAlmostEqual, p.X)
+			test.That(t, correctPoint.Pose().Point().Y, test.ShouldAlmostEqual, p.Y)
+			test.That(t, correctPoint.Pose().Point().Z, test.ShouldAlmostEqual, p.Z)
+			correctCount++
+		}
+		return true
+	})
+	test.That(t, correctCount, test.ShouldEqual, 3)
 }
 
 func TestMergePoints1(t *testing.T) {

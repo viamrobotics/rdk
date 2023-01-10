@@ -9,12 +9,12 @@ import (
 )
 
 func makeTestBox(o Orientation, point, dims r3.Vector, label string) Geometry {
-	box, _ := NewBox(NewPoseFromOrientation(point, o), dims, label)
+	box, _ := NewBox(NewPose(point, o), dims, label)
 	return box
 }
 
 func TestNewBox(t *testing.T) {
-	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
+	offset := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
 	// test box created from NewBox method
 	geometry, err := NewBox(offset, r3.Vector{1, 1, 1}, "")
@@ -24,9 +24,9 @@ func TestNewBox(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, newBadGeometryDimensionsError(&box{}).Error())
 
 	// test box created from GeometryCreator with offset
-	gc, err := NewBoxCreator(r3.Vector{1, 1, 1}, offset, "")
+	gc, err := NewBox(offset, r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	geometry = gc.NewGeometry(PoseInverse(offset))
+	geometry = gc.Transform(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
@@ -40,8 +40,10 @@ func TestBoxAlmostEqual(t *testing.T) {
 
 func TestBoxVertices(t *testing.T) {
 	offset := r3.Vector{2, 2, 2}
-	box := makeTestBox(NewZeroOrientation(), offset, r3.Vector{2, 2, 2}, "")
-	vertices := box.Vertices()
+	boxGeom := makeTestBox(NewZeroOrientation(), offset, r3.Vector{2, 2, 2}, "")
+	box, ok := boxGeom.(*box)
+	test.That(t, ok, test.ShouldBeTrue)
+	vertices := box.vertices()
 	test.That(t, R3VectorAlmostEqual(vertices[0], r3.Vector{1, 1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
 	test.That(t, R3VectorAlmostEqual(vertices[1], r3.Vector{1, 1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
 	test.That(t, R3VectorAlmostEqual(vertices[2], r3.Vector{1, -1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
@@ -56,7 +58,7 @@ func TestBoxPC(t *testing.T) {
 	offset1 := r3.Vector{2, 2, 0}
 	dims1 := r3.Vector{2, 2, 2}
 	eulerAngle1 := &EulerAngles{45, 45, 0}
-	pose1 := NewPoseFromOrientation(offset1, eulerAngle1)
+	pose1 := NewPose(offset1, eulerAngle1)
 	box1 := &box{pose1, [3]float64{0.5 * dims1.X, 0.5 * dims1.Y, 0.5 * dims1.Z}, 10, ""} // with abitrary radius bounding sphere
 	customDensity := 1.
 	output1 := box1.ToPoints(customDensity)
@@ -97,7 +99,7 @@ func TestBoxPC(t *testing.T) {
 	offset2 := r3.Vector{2, 2, 2}
 	dims2 := r3.Vector{1, 1.5, 4}
 	eulerAngle2 := &EulerAngles{0, 45, 0}
-	pose2 := NewPoseFromOrientation(offset2, eulerAngle2)
+	pose2 := NewPose(offset2, eulerAngle2)
 	box2 := &box{pose2, [3]float64{0.5 * dims2.X, 0.5 * dims2.Y, 0.5 * dims2.Z}, 10, ""} // with abitrary radius bounding sphere
 	output2 := box2.ToPoints(customDensity)
 

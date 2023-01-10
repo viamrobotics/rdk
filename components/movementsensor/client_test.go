@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	heading := 202.
 	props := &movementsensor.Properties{LinearVelocitySupported: true}
 	acc := map[string]float32{"x": 1.1}
-	rs := []interface{}{loc, alt, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
+	rs := []interface{}{loc, alt, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, r3.Vector{0, 0, 0}, heading, ori}
 
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -51,6 +51,9 @@ func TestClient(t *testing.T) {
 	}
 	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 		return r3.Vector{0, speed, 0}, nil
+	}
+	injectMovementSensor.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		return r3.Vector{0, 0, 0}, nil
 	}
 	injectMovementSensor.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{0, 0, ang}, nil
@@ -70,6 +73,9 @@ func TestClient(t *testing.T) {
 	}
 	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get linear velocity")
+	}
+	injectMovementSensor2.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		return r3.Vector{}, errors.New("can't get linear acceleration")
 	}
 	injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{}, errors.New("can't get angular velocity")
@@ -152,6 +158,11 @@ func TestClient(t *testing.T) {
 		test.That(t, acc1, test.ShouldResemble, acc)
 		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
+		la1, err := gps1Client.LinearAcceleration(context.Background(), map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, la1, test.ShouldNotResemble, la)
+		test.That(t, injectMovementSensor.LinearAccelerationExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
 		rs1, err := gps1Client.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(rs1), test.ShouldEqual, len(rs))
@@ -175,6 +186,10 @@ func TestClient(t *testing.T) {
 		_, err = gps2Client.LinearVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear velocity")
+
+		_, err = gps2Client.LinearAcceleration(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear acceleration")
 
 		_, err = gps2Client.AngularVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)

@@ -26,11 +26,11 @@ type PoseInFrame struct {
 // LinkInFrame is a PoseInFrame plus a Geometry.
 type LinkInFrame struct {
 	*PoseInFrame
-	geometry spatialmath.GeometryCreator
+	geometry spatialmath.Geometry
 }
 
-// Geometry returns the GeometryCreator of the LinkInFrame.
-func (lF *LinkInFrame) Geometry() spatialmath.GeometryCreator {
+// Geometry returns the Geometry of the LinkInFrame.
+func (lF *LinkInFrame) Geometry() spatialmath.Geometry {
 	return lF.geometry
 }
 
@@ -91,7 +91,7 @@ func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
 }
 
 // NewLinkInFrame generates a new LinkInFrame.
-func NewLinkInFrame(frame string, pose spatialmath.Pose, name string, geometry spatialmath.GeometryCreator) *LinkInFrame {
+func NewLinkInFrame(frame string, pose spatialmath.Pose, name string, geometry spatialmath.Geometry) *LinkInFrame {
 	return &LinkInFrame{
 		PoseInFrame: &PoseInFrame{
 			parent: frame,
@@ -154,9 +154,9 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 	}
 	poseMsg := poseInObserverFrame.GetPose()
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
-	var geometry spatialmath.GeometryCreator
+	var geometry spatialmath.Geometry
 	if proto.PhysicalObject != nil {
-		geometry, err = spatialmath.NewGeometryCreatorFromProto(proto.PhysicalObject)
+		geometry, err = spatialmath.NewGeometryFromProto(proto.PhysicalObject)
 		if err != nil {
 			return nil, err
 		}

@@ -265,7 +265,7 @@ func pointFrom(yaw, pitch, distance float64) r3.Vector {
 	ea.Yaw = yaw
 	ea.Pitch = pitch
 
-	pose1 := spatialmath.NewPoseFromOrientation(r3.Vector{0, 0, 0}, ea)
+	pose1 := spatialmath.NewPoseFromOrientation(ea)
 	pose2 := spatialmath.NewPoseFromPoint(r3.Vector{distance, 0, 0})
 	p := spatialmath.Compose(pose1, pose2).Point()
 

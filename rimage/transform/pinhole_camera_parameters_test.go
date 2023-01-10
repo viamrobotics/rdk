@@ -79,7 +79,7 @@ func TestTransformPointToPoint(t *testing.T) {
 	// Rotation in the (z,x) plane of 90 degrees
 	rot, err := spatialmath.NewRotationMatrix([]float64{0, 0, 1, 0, 1, 0, -1, 0, 0})
 	test.That(t, err, test.ShouldBeNil)
-	dcie.ExtrinsicD2C = spatialmath.NewPoseFromOrientation(t2, rot)
+	dcie.ExtrinsicD2C = spatialmath.NewPose(t2, rot)
 	x4, y4, z4 := dcie.TransformPointToPoint(x1, y1, z1)
 	test.That(t, x4, test.ShouldAlmostEqual, 1.)
 	test.That(t, y4, test.ShouldAlmostEqual, 2.)

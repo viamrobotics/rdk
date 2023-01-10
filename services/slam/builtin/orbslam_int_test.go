@@ -127,6 +127,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	mapRate := 1
 	deleteProcessedData := false
+	useLiveData := true
 
 	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
@@ -144,6 +145,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		// we want to save maps because the same yaml config gets used for the next run.
 		MapRateSec:          &mapRate,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release camera image(s) for service validation
@@ -230,6 +232,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	mapRate = 1
 	deleteProcessedData = false
+	useLiveData = false
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -245,6 +248,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		DataDirectory:       name,
 		MapRateSec:          &mapRate,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -315,6 +319,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 
 	mapRate = 1
 	deleteProcessedData = true
+	useLiveData = true
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
@@ -330,6 +335,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		DataDirectory:       name,
 		MapRateSec:          &mapRate,
 		DeleteProcessedData: &deleteProcessedData,
+		UseLiveData:         &useLiveData,
 	}
 
 	// Release camera image(s) for service validation

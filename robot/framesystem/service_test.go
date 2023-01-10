@@ -41,7 +41,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close(context.Background())
 
 	// use fake registrations to have a FrameSystem return
-	testPose := spatialmath.NewPoseFromOrientation(
+	testPose := spatialmath.NewPose(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
@@ -200,7 +200,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
-	testPose := spatialmath.NewPoseFromOrientation(
+	testPose := spatialmath.NewPose(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
@@ -301,7 +301,7 @@ func TestServiceWithRemote(t *testing.T) {
 	}
 
 	// make local robot
-	testPose := spatialmath.NewPoseFromOrientation(
+	testPose := spatialmath.NewPose(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)

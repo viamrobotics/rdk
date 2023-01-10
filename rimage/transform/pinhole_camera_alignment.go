@@ -64,7 +64,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	if err != nil {
 		return nil, err
 	}
-	pose := spatialmath.NewPoseFromOrientation(r3.Vector{temp.T[0], temp.T[1], temp.T[2]}, orientation)
+	pose := spatialmath.NewPose(r3.Vector{temp.T[0], temp.T[1], temp.T[2]}, orientation)
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	intrinsics.ColorCamera = intrinExtrin.ColorCamera
 	intrinsics.DepthCamera = intrinExtrin.DepthCamera
