@@ -194,54 +194,141 @@ func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediad
 	}
 }
 
-// findCamera finds a video device and returns a camera with that video device as the source.
-func findCamera(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
+// findCamera finds a video device and returns a reconfigurable camera with that video device as the source.
+func findCamera(
+	ctx context.Context,
+	attrs *WebcamAttrs,
+	label string,
+	logger golog.Logger,
+) (resource.Reconfigurable, error) {
+	var cam camera.Camera
+	var err error
+
 	debug := attrs.Debug
 	constraints := makeConstraints(attrs, debug, logger)
-	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
+	if label != "" {
+		cam, err = tryWebcamOpen(ctx, attrs, label, false, constraints, logger)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot open webcam")
+		}
+	} else {
+		source, err := gostream.GetAnyVideoSource(constraints, logger)
+		if err != nil {
+			return nil, errors.Wrap(err, "found no webcams")
+		}
+		cam, err = makeCameraFromSource(ctx, source, attrs)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot make webcam from source")
+		}
 	}
 
-	source, err := gostream.GetAnyVideoSource(constraints, logger)
+	return camera.WrapWithReconfigurable(cam, camera.Named(model.String()))
+}
+
+// getLabelFromCameraOrPath returns the path from the camera or an empty string if a path is not found.
+func getLabelFromCamera(cam camera.Camera, logger golog.Logger) string {
+	src, err := camera.SourceFromCamera(cam)
 	if err != nil {
-		return nil, errors.Wrap(err, "found no webcams")
+		logger.Errorw("cannot get source from camera", "error", err)
+		return ""
 	}
-	return makeCameraFromSource(ctx, source, attrs)
+
+	labels, err := gostream.LabelsFromMediaSource[image.Image, prop.Video](src)
+	if err != nil || len(labels) == 0 {
+		logger.Errorw("could not get labels from media source", "error", err)
+		return ""
+	}
+
+	return labels[0]
+}
+
+// isConnected returns true if the reconfigurable camera is connected, otherwise false.
+func isConnected(reconfCam resource.Reconfigurable) (bool, error) {
+	actualCam := utils.UnwrapProxy(reconfCam).(camera.Camera)
+	src, err := camera.SourceFromCamera(actualCam)
+	if err != nil {
+		return true, errors.Wrap(err, "cannot get source from camera")
+	}
+	props, err := gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)
+	if err != nil {
+		return true, errors.Wrap(err, "cannot get properties from media source")
+	}
+	// github.com/pion/mediadevices connects to the OS to get the props for a driver. On disconnect props will be empty.
+	return len(props) != 0, nil
+}
+
+// reconfigureCamera creates a new camera and reconfigures the given reconfigurable camera.
+func reconfigureCamera(
+	ctx context.Context,
+	oldCam resource.Reconfigurable,
+	attrs *WebcamAttrs,
+	label string,
+	logger golog.Logger,
+) (err error) {
+	goutils.UncheckedError(goutils.TryClose(ctx, oldCam))
+	logger.Debugw("camera disconnected", "label", label)
+
+	newCam, err := findCamera(ctx, attrs, label, logger)
+	defer func() {
+		if err != nil {
+			goutils.UncheckedError(goutils.TryClose(ctx, newCam))
+		}
+	}()
+	if err != nil {
+		return errors.Wrap(err, "cannot make camera")
+	}
+
+	if err = oldCam.Reconfigure(ctx, newCam); err != nil {
+		return errors.Wrap(err, "cannot reconfigure camera")
+	}
+	return
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
 func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
-	cam, err := findCamera(ctx, attrs, logger)
+	cam, err := findCamera(ctx, attrs, attrs.Path, logger)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not find video source for camera")
+		return nil, errors.Wrap(err, "cannot find video source for camera")
 	}
 
-	goutils.PanicCapturingGo(func() {
-		src, err := camera.SourceFromCamera(cam)
-		if err != nil {
-			logger.Debugw("cannot get source from camera", "error", err)
-			return
-		}
+	label := attrs.Path
+	if label == "" {
+		label = getLabelFromCamera(utils.UnwrapProxy(cam).(camera.Camera), logger)
+	}
 
-		defer func() {
-			logger.Debug("closing camera")
-			goutils.UncheckedError(cam.Close(ctx))
-		}()
+	const wait = 500 * time.Millisecond
+	camWg := CameraWaitGroup{cam: cam.(camera.Camera)}
+	camWg.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		defer goutils.UncheckedError(goutils.TryClose(ctx, cam))
 		for {
-			if goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
-				// mediadevices connects to the OS to get the properties for a driver. If the OS no longer knows
-				// about a specific driver then properties will be empty, and we can safely assume the driver no
-				// longer exists and should be closed.
-				if len(gostream.PropertiesFromMediaSource[image.Image, prop.Video](src)) == 0 {
-					return
-				}
-			} else {
+			if !goutils.SelectContextOrWait(ctx, wait) {
 				return
 			}
-		}
-	})
 
-	return cam, nil
+			ok, err := isConnected(cam)
+			if err != nil {
+				logger.Debugw("cannot determine camera status", "error", err)
+				continue
+			}
+
+			if !ok {
+				for {
+					if !goutils.SelectContextOrWait(ctx, wait) {
+						return
+					}
+					if err := reconfigureCamera(ctx, cam, attrs, label, logger); err != nil {
+						logger.Debugw("cannot reconfigure camera", "label", label, "error", err)
+						continue
+					}
+					logger.Debugw("camera connected", "label", label)
+					break
+				}
+			}
+		}
+	}, camWg.activeBackgroundWorkers.Done)
+
+	return &camWg, nil
 }
 
 // tryWebcamOpen uses getNamedVideoSource to try and find a video device (gostream.MediaSource).
