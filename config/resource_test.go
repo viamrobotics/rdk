@@ -40,17 +40,17 @@ func TestComponentValidate(t *testing.T) {
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 		validConfig.Name = "foo.arm"
 		deps, err = validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 		validConfig.Name = "9"
 		deps, err = validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Component{
@@ -133,7 +133,7 @@ func TestComponentValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
@@ -486,15 +486,15 @@ func TestServiceValidate(t *testing.T) {
 		deps, err := validConfig.Validate("path")
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 		validConfig.Name = "frame.1"
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 		validConfig.Name = "3"
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 
 	t.Run("ConvertedAttributes", func(t *testing.T) {
@@ -594,7 +594,7 @@ func TestServiceValidate(t *testing.T) {
 		}
 		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not fully alphanumeric")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
 	})
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
