@@ -94,13 +94,11 @@ func init() {
 			return dm, nil
 		},
 		func(r io.Reader) (image.Config, error) {
-			// We cannot read the height and width from bytes b/c we don't know (yet)
-			// how the depth map is encoded, so send it to decode and then grab it.
 			// Using Gray 16 as underlying color model for depth
 			f := r.(*bufio.Reader)
 			firstBytes, err := _readNext(r)
 			if err != nil || firstBytes != MagicNumIntViamType {
-				return image.Config{}, err
+				return image.Config{}, errors.Wrap(err, "first image bytes do not match expected magic number")
 			}
 			rawWidth, err := _readNext(f)
 			if err != nil {
