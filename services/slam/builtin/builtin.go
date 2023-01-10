@@ -354,9 +354,13 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 				return "", nil, errors.Wrap(err, "error getting camera properties for slam service")
 			}
 
-			_, ok = props.DistortionParams.(*transform.BrownConrady)
+			brownConrady, ok := props.DistortionParams.(*transform.BrownConrady)
 			if !ok {
-				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported")
+				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported 1")
+			}
+
+			if brownConrady == nil {
+				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported 2")
 			}
 		}
 
