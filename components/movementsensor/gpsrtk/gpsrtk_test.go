@@ -222,7 +222,7 @@ func TestReadingsRTK(t *testing.T) {
 		logger:     logger,
 	}
 
-	g.nmeamovementsensor = &fake.Fake{
+	g.nmeamovementsensor = &fake.MovementSensor{
 		CancelCtx: cancelCtx,
 		Logger:    logger,
 	}
@@ -255,7 +255,7 @@ func TestCloseRTK(t *testing.T) {
 		logger:      logger,
 		ntripClient: &NtripInfo{},
 	}
-	g.nmeamovementsensor = &fake.Fake{}
+	g.nmeamovementsensor = &fake.MovementSensor{}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)

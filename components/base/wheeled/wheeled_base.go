@@ -200,7 +200,8 @@ func (base *wheeledBase) createModelFrame(baseName string, widthMM int) (referen
 }
 
 func (base *wheeledBase) Spin(
-	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
+) error {
 	revs, wheelrpm := base.spinMath(angleDeg, degsPerSec)
 	var errors error
 
