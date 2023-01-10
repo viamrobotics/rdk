@@ -119,6 +119,7 @@ type cameramono struct {
 	result                  result
 	stream                  gostream.VideoStream
 	mu                      sync.RWMutex
+	errMu                   sync.RWMutex
 	lastErr                 error
 }
 
@@ -167,9 +168,18 @@ func newCameraMono(
 	}
 
 	co.stream = gostream.NewEmbeddedVideoStream(cam)
-	co.lastErr = co.backgroundWorker(co.stream, conf.MotionConfig)
+
+	err = co.backgroundWorker(co.stream, conf.MotionConfig)
+	co.setLastError(err)
 
 	return co, co.lastErr
+}
+
+func (co *cameramono) setLastError(err error) {
+	co.errMu.Lock()
+	defer co.errMu.Unlock()
+
+	co.lastErr = err
 }
 
 func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometry.MotionEstimationConfig) error {
@@ -179,14 +189,14 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 		sT := time.Now()
 		sImg, _, err := stream.Next(co.cancelCtx)
 		if err != nil && errors.Is(err, context.Canceled) {
-			co.lastErr = err
+			co.setLastError(err)
 			return
 		}
 		for {
 			eT := time.Now()
 			eImg, _, err := stream.Next(co.cancelCtx)
 			if err != nil {
-				co.lastErr = err
+				co.setLastError(err)
 				return
 			}
 
@@ -195,7 +205,7 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 			if moreThanZero {
 				co.motion, err = co.extractMovementFromOdometer(rimage.ConvertImage(sImg), rimage.ConvertImage(eImg), dt, cfg)
 				if err != nil {
-					co.lastErr = err
+					co.setLastError(err)
 					co.logger.Error(err)
 					continue
 				}
@@ -260,7 +270,9 @@ func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 func (co *cameramono) Close() {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
-	co.lastErr = co.stream.Close(co.cancelCtx)
+	err := co.stream.Close(co.cancelCtx)
+	co.setLastError(err)
+
 }
 
 // Position gets the position of the moving object calculated by visual odometry.
