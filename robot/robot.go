@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -73,6 +74,11 @@ type Robot interface {
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
+
+	// TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
+	// Do not move the robot between the generation of the initial pointcloud and the receipt
+	// of the transformed pointcloud because that will make the transformations inaccurate.
+	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
 	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)

@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -192,8 +193,13 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	var cloudRestartCheckerActive chan struct{}
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
+		if cloudRestartCheckerActive != nil {
+			<-cloudRestartCheckerActive
+		}
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
@@ -217,9 +223,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	if processedConfig.Cloud != nil {
+		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
+			defer close(cloudRestartCheckerActive)
 			restartCheck, err := newRestartChecker(ctx, cfg.Cloud, s.logger)
 			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				s.logger.Panicw("error creating restart checker", "error", err)
 				cancel()
 				return
@@ -259,6 +270,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {
+		cancel()
 		return err
 	}
 	defer func() {
@@ -268,6 +280,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.logger)
 	if err != nil {
+		cancel()
 		return err
 	}
 	defer func() {

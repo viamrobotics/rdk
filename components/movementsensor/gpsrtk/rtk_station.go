@@ -44,22 +44,18 @@ type StationConfig struct {
 }
 
 const (
-	i2cStr    = "I2C"
+	i2cStr    = "i2c"
 	serialStr = "serial"
 	ntripStr  = "ntrip"
 	timeMode  = "time"
 )
 
+// ErrStationValidation contains the model substring for the available correction source types.
+var ErrStationValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", stationModel.Name)
+
 // Validate ensures all parts of the config are valid.
 func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.CorrectionSource == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
-	}
-
-	if cfg.CorrectionSource != serialStr && cfg.CorrectionSource != ntripStr && cfg.CorrectionSource != i2cStr {
-		return nil, errors.New("only serial, I2C, and ntrip are supported correction sources")
-	}
 
 	// not ntrip, using serial or i2c for correction source
 	if cfg.SurveyIn == timeMode {
@@ -84,8 +80,10 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 		if cfg.SerialAttrConfig.SerialCorrectionPath == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")
 		}
-	default:
+	case "":
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+	default:
+		return nil, ErrStationValidation
 	}
 	return deps, nil
 }
