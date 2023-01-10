@@ -1,11 +1,12 @@
 <script setup lang="ts">
 
+import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Client, BaseClient, commonApi, StreamClient } from '@viamrobotics/sdk';
-import type { ServiceError } from '@viamrobotics/sdk';
+import { Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
+import { rcLogConditionally } from '../lib/log';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
@@ -76,18 +77,15 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
-const stop = async () => {
-  const bc = new BaseClient(props.client, props.name);
+const stop = () => {
   stopped = true;
-  try {
-    await bc.stop();
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
+  const req = new baseApi.StopRequest();
+  req.setName(props.name);
+  rcLogConditionally(req);
+  props.client.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
-const digestInput = async () => {
-  const bc = new BaseClient(props.client, props.name);
+const digestInput = () => {
   let linearValue = 0;
   let angularValue = 0;
 
@@ -117,14 +115,19 @@ const digestInput = async () => {
   linear.setY(linearValue);
   angular.setZ(angularValue);
 
-  try {
-    await bc.setPower(linear, angular);
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
-  if (pressed.size <= 0) {
-    stop();
-  }
+  const req = new baseApi.SetPowerRequest();
+  req.setName(props.name);
+  req.setLinear(linear);
+  req.setAngular(angular);
+
+  rcLogConditionally(req);
+  props.client.baseService.setPower(req, new grpc.Metadata(), (error) => {
+    displayError(error);
+
+    if (pressed.size <= 0) {
+      stop();
+    }
+  });
 };
 
 const handleKeyDown = (key: Keys) => {
@@ -143,41 +146,44 @@ const handleKeyUp = (key: Keys) => {
   }
 };
 
-const handleBaseStraight = async (name: string, event: {
+const handleBaseStraight = (name: string, event: {
   distance: number
   speed: number
   direction: number
   movementType: MovementTypes
 }) => {
-  const bc = new BaseClient(props.client, name);
   if (event.movementType === 'Continuous') {
     const linear = new commonApi.Vector3();
-    const angular = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
-    try {
-      await bc.setVelocity(linear, angular);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  } else {
+    const req = new baseApi.SetVelocityRequest();
+    req.setName(name);
+    req.setLinear(linear);
+    req.setAngular(new commonApi.Vector3());
 
-    try {
-      await bc.moveStraight(event.distance, event.speed * event.direction);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
+    rcLogConditionally(req);
+    props.client.baseService.setVelocity(req, new grpc.Metadata(), displayError);
+  } else {
+    const req = new baseApi.MoveStraightRequest();
+    req.setName(name);
+    req.setMmPerSec(event.speed * event.direction);
+    req.setDistanceMm(event.distance);
+
+    rcLogConditionally(req);
+    props.client.baseService.moveStraight(req, new grpc.Metadata(), displayError);
   }
 };
 
-const baseRun = async () => {
-  const bc = new BaseClient(props.client, props.name);
+const baseRun = () => {
   if (movementMode.value === 'Spin') {
-    try {
-      await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
+
+    const req = new baseApi.SpinRequest();
+    req.setName(props.name);
+    req.setAngleDeg(angle.value * (spinType.value === 'Clockwise' ? -1 : 1));
+    req.setDegsPerSec(spinSpeed.value);
+
+    rcLogConditionally(req);
+    props.client.baseService.spin(req, new grpc.Metadata(), displayError);
 
   } else if (movementMode.value === 'Straight') {
 
