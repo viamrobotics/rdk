@@ -25,20 +25,24 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-type analogRecords struct {
-	Readings []analogRecord
+// AnalogRecords a collection of AnalogRecord.
+type AnalogRecords struct {
+	Readings []AnalogRecord
 }
 
-type analogRecord struct {
+// AnalogRecord a single analog reading.
+type AnalogRecord struct {
 	AnalogName  string
 	AnalogValue int
 }
 
-type gpioRecords struct {
-	Readings []gpioRecord
+// GpioRecords a collection of GpioRecord.
+type GpioRecords struct {
+	Readings []GpioRecord
 }
 
-type gpioRecord struct {
+// GpioRecord a signle gpio reading.
+type GpioRecord struct {
 	GPIOName  string
 	GPIOValue bool
 }
@@ -50,17 +54,17 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var readings []analogRecord
+		var readings []AnalogRecord
 		for k := range arg {
 			if reader, ok := board.AnalogReaderByName(k); ok {
 				value, err := reader.Read(ctx, nil)
 				if err != nil {
 					return nil, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
 				}
-				readings = append(readings, analogRecord{AnalogName: k, AnalogValue: value})
+				readings = append(readings, AnalogRecord{AnalogName: k, AnalogValue: value})
 			}
 		}
-		return analogRecords{Readings: readings}, nil
+		return AnalogRecords{Readings: readings}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -72,17 +76,17 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var readings []gpioRecord
+		var readings []GpioRecord
 		for k := range arg {
 			if gpio, err := board.GPIOPinByName(k); err == nil {
 				value, err := gpio.Get(ctx, nil)
 				if err != nil {
 					return nil, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
 				}
-				readings = append(readings, gpioRecord{GPIOName: k, GPIOValue: value})
+				readings = append(readings, GpioRecord{GPIOName: k, GPIOValue: value})
 			}
 		}
-		return gpioRecords{Readings: readings}, nil
+		return GpioRecords{Readings: readings}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
