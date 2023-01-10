@@ -118,7 +118,6 @@ type cameramono struct {
 	logger                  golog.Logger
 	result                  result
 	stream                  gostream.VideoStream
-	mu                      sync.RWMutex
 	lastErr                 error
 }
 
@@ -261,15 +260,11 @@ func (co *cameramono) Close() {
 
 // Position gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	co.mu.RLock()
-	defer co.mu.RUnlock()
 	return geo.NewPoint(co.result.trackedPos.X, co.result.trackedPos.Y), co.result.trackedPos.Z, nil
 }
 
 // Oritentation gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	co.mu.RLock()
-	defer co.mu.RUnlock()
 	return co.result.trackedOrient, nil
 }
 
@@ -280,8 +275,6 @@ func (co *cameramono) Readings(ctx context.Context, extra map[string]interface{}
 
 // LinearVelocity gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	co.mu.RLock()
-	defer co.mu.RUnlock()
 	return co.result.linVel, nil
 }
 
@@ -331,7 +324,5 @@ func (co *cameramono) Accuracy(ctx context.Context, extra map[string]interface{}
 
 // COmpassHeadings gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	co.mu.RLock()
-	defer co.mu.RUnlock()
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
