@@ -28,6 +28,11 @@ const (
 	Rebuild
 )
 
+// validNameRegex is the pattern that matches to a valid Resource name.
+// The name must begin with a letter i.e. [a-zA-Z],
+// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
+var validNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
+
 // ComponentUpdate interface that a component can optionally implement.
 // This interface helps the reconfiguration process.
 type ComponentUpdate interface {
@@ -137,12 +142,8 @@ func (config *Component) Validate(path string) ([]string, error) {
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	matched, err := regexp.MatchString(`^[a-zA-Z][-\w]*$`, config.Name)
-	if !matched {
-		return nil, errors.Errorf("name %q is not fully alphanumeric", config.Name)
-	}
-	if err != nil {
-		return nil, err
+	if !validNameRegex.MatchString(config.Name) {
+		return nil, errors.Errorf("name %q must only contain letters, numbers, dashes, and underscores", config.Name)
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
@@ -405,12 +406,8 @@ func (config *Service) Validate(path string) ([]string, error) {
 		golog.Global().Debugw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultServiceName
 	}
-	matched, err := regexp.MatchString(`^[a-zA-Z][-\w]*$`, config.Name)
-	if !matched {
-		return nil, errors.Errorf("name %q is not fully alphanumeric", config.Name)
-	}
-	if err != nil {
-		return nil, err
+	if !validNameRegex.MatchString(config.Name) {
+		return nil, errors.Errorf("name %q must only contain letters, numbers, dashes, and underscores", config.Name)
 	}
 	if config.Model.Name == "" {
 		golog.Global().Debugw("no model given; using default")
