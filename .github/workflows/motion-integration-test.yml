@@ -39,11 +39,17 @@ jobs:
     - name: Run motion benchmark on old version of RDK
       run: |
         cd motion-testing
+        echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestIntegration'
 
     - name: Run motion benchmark on new version of RDK
       run: |
         cd motion-testing
+        echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestIntegration'
