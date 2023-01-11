@@ -236,13 +236,9 @@ func calculateMeanAndStandardDeviation(data []float64) (float64, float64, error)
 }
 
 func addVoxelToImage(im *rimage.Image, p image.Point, color rimage.Color, vSize int) {
-	fmt.Printf("i bounds: %v | %v\n", int(-vSize/2), int(vSize/2))
 	for i := int(-vSize / 2); i <= int(vSize/2); i++ {
-		//fmt.Printf("------ %v\n", i)
 		for j := int(-vSize / 2); j <= int(vSize/2); j++ {
 			if p.X+i >= 0 && p.X+i < imageWidth && p.Y+j >= 0 && p.Y+j < imageHeight {
-
-				fmt.Printf("x: %v | y: %v bounds: %v | %v \n", p.X+i, p.Y+j, imageWidth, imageHeight)
 				im.Set(image.Point{p.X + i, p.Y + j}, color)
 			}
 		}
