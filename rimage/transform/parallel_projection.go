@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -120,6 +121,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 ) (*rimage.Image, *rimage.DepthMap, error) {
 
 	meta := cloud.MetaData()
+	fmt.Printf("SIZE OF POINTCLOUD: %v", cloud.Size())
 
 	// Calculate max and min range to be represented by the produced image using the mean and standard
 	// deviation of the X and Z coordinates
@@ -160,16 +162,20 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	heightScaleFactor := float64(imageHeight) / (maxZ - minZ)
 
 	color := rimage.NewImage(imageWidth, imageHeight)
+
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := (pt.X - meta.MinX) * widthScaleFactor
 		i := (pt.Z - meta.MinZ) * heightScaleFactor
 		x, y := int(math.Round(j)), int(math.Round(i))
 
 		// if point has a value and is inside the RGB image bounds, add it to the images
-		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil && data.HasValue() {
-			r, g, b := getProbabilityColorFromValue(data.Value())
-			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
-			addVoxelToImage(color, image.Point{x, y}, rimage.NewColor(r, g, b), voxelSize)
+		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil {
+			if data.HasValue() {
+				r, g, b := getProbabilityColorFromValue(data.Value())
+				addVoxelToImage(color, image.Point{x, y}, rimage.NewColor(r, g, b), voxelSize)
+			} else {
+				addVoxelToImage(color, image.Point{x, y}, rimage.NewColor(255, 255, 255), voxelSize)
+			}
 		}
 		return true
 	})
