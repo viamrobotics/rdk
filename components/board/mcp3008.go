@@ -31,7 +31,9 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 	if err != nil {
 		return 0, err
 	}
-	val := (int(rx[1]) << 8) | int(rx[2]) // reassemble 10 bit value
+	// Reassemble the 10-bit value. Do not include bits before the final 10, because they contain
+	// garbage and might be non-zero.
+	val := 0x03FF & ((int(rx[1]) << 8) | int(rx[2]))
 
 	return val, nil
 }

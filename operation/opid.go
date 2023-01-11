@@ -9,6 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
+
+	"go.viam.com/rdk/session"
 )
 
 type opidKeyType string
@@ -17,12 +19,14 @@ const opidKey = opidKeyType("opid")
 
 var methodPrefixesToFilter = [...]string{
 	"/proto.rpc.webrtc.v1.SignalingService",
-	"/proto.api.robot.v1.RobotService/StreamStatus",
+	"/viam.robot.v1.RobotService/StreamStatus",
+	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
 }
 
 // Operation is an operation happening on the server.
 type Operation struct {
 	ID        uuid.UUID
+	SessionID uuid.UUID
 	Method    string
 	Arguments interface{}
 	Started   time.Time
@@ -131,12 +135,20 @@ func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string,
 		}
 	}
 
+	o := m.Find(id)
+	if o != nil {
+		m.logger.Warnw("attempt to create duplicate operation", "id", id.String(), "method", method)
+	}
+
 	op := &Operation{
 		ID:        id,
 		Method:    method,
 		Arguments: args,
 		Started:   time.Now(),
 		myManager: m,
+	}
+	if sess, ok := session.FromContext(ctx); ok {
+		op.SessionID = sess.ID()
 	}
 	ctx = context.WithValue(ctx, opidKey, op)
 	ctx, op.cancel = context.WithCancel(ctx)

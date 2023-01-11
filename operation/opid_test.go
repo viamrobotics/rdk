@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/session"
 )
 
 func TestBasic(t *testing.T) {
@@ -54,15 +57,35 @@ func TestBasic(t *testing.T) {
 	func() {
 		ctx4, cleanup4 := h.Create(ctx, "/proto.rpc.webrtc.v1.SignalingService/Answer", nil)
 		defer cleanup4()
-		ctx5, cleanup5 := h.Create(ctx, "/proto.api.robot.v1.RobotService/StreamStatus", nil)
+		ctx5, cleanup5 := h.Create(ctx, "/viam.robot.v1.RobotService/StreamStatus", nil)
 		defer cleanup5()
 
 		test.That(t, ctx4.Value(opidKey), test.ShouldBeNil)
 		test.That(t, ctx5.Value(opidKey), test.ShouldBeNil)
 
-		ctx6, cleanup6 := h.Create(ctx, "/proto.api.robot.v1.RobotService/", nil)
+		ctx6, cleanup6 := h.Create(ctx, "/viam.robot.v1.RobotService/", nil)
 		defer cleanup6()
 		o6 := Get(ctx6)
 		test.That(t, len(o6.myManager.ops), test.ShouldEqual, 1)
 	}()
+}
+
+func TestCreateWithSession(t *testing.T) {
+	ctx := context.Background()
+
+	logger := golog.NewTestLogger(t)
+	manager := NewManager(logger)
+
+	op1Ctx, cleanup := manager.Create(ctx, "foo", nil)
+	op1 := Get(op1Ctx)
+	test.That(t, op1.SessionID, test.ShouldEqual, uuid.Nil)
+	cleanup()
+
+	sess1 := session.New("someone", nil, 0, nil)
+	sess1Ctx := session.ToContext(ctx, sess1)
+
+	op2Ctx, cleanup := manager.Create(sess1Ctx, "foo", nil)
+	op2 := Get(op2Ctx)
+	test.That(t, op2.SessionID, test.ShouldEqual, sess1.ID())
+	cleanup()
 }

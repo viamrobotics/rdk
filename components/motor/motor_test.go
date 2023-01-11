@@ -116,14 +116,14 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: true}
+	status := &pb.Status{IsPowered: true, Position: 7.7, IsMoving: true}
 	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{"is_powered": true, "position_reporting": true, "position": 7.7, "is_moving": true},
+		map[string]interface{}{"is_powered": true, "position": 7.7, "is_moving": true},
 	)
 
 	convMap := &pb.Status{}
@@ -150,14 +150,14 @@ func TestCreateStatus(t *testing.T) {
 	_, err := motor.CreateStatus(context.Background(), "not a motor")
 	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedLocalInterfaceError("string"))
 
-	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: true}
+	status := &pb.Status{IsPowered: true, Position: 7.7, IsMoving: true}
 
 	injectMotor := &inject.LocalMotor{}
 	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 		return status.IsPowered, 1.0, nil
 	}
 	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
+		return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 	}
 	injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return status.Position, nil
@@ -182,7 +182,7 @@ func TestCreateStatus(t *testing.T) {
 			return false, nil
 		}
 
-		status2 := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: false}
+		status2 := &pb.Status{IsPowered: true, Position: 7.7, IsMoving: false}
 		status1, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status2)
@@ -204,7 +204,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status1, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, &pb.Status{IsPowered: true, PositionReporting: false})
+		test.That(t, status1, test.ShouldResemble, &pb.Status{IsPowered: true})
 	})
 
 	t.Run("fail on Properties", func(t *testing.T) {
@@ -479,6 +479,7 @@ type mock struct {
 	featuresCount int
 	stopCount     int
 	poweredCount  int
+	isMovingCount int
 	reconfCount   int
 	extra         map[string]interface{}
 }
@@ -531,6 +532,11 @@ func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (boo
 	return isPowered, mockPowerPct, nil
 }
 
+func (m *mock) IsMoving(ctx context.Context) (bool, error) {
+	m.isMovingCount++
+	return isMoving, nil
+}
+
 func (m *mock) Close() { m.reconfCount++ }
 
 func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -542,15 +548,9 @@ type mockLocal struct {
 	Name string
 
 	goTillStopCount int
-	isMovingCount   int
 }
 
 func (m *mockLocal) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	m.goTillStopCount++
 	return nil
-}
-
-func (m *mockLocal) IsMoving(ctx context.Context) (bool, error) {
-	m.isMovingCount++
-	return isMoving, nil
 }

@@ -20,7 +20,7 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        *datacapture.File
+	Target        *datacapture.Buffer
 	QueueSize     int
 	BufferSize    int
 	Logger        golog.Logger
@@ -42,7 +42,7 @@ func (p CollectorParams) Validate() error {
 
 // MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {
-	Subtype    resource.SubtypeName
+	Subtype    resource.Subtype
 	MethodName string
 }
 

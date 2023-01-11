@@ -21,7 +21,7 @@ import (
 func RobotFrameSystem(
 	ctx context.Context,
 	r robot.Robot,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (referenceframe.FrameSystem, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
 	defer span.End()
@@ -47,7 +47,7 @@ func NewFrameSystemFromParts(
 	if len(parts) != 0 {
 		hasWorld := false
 		for _, part := range parts {
-			if part.FrameConfig.Parent == referenceframe.World {
+			if part.FrameConfig.Parent() == referenceframe.World {
 				hasWorld = true
 				break
 			}
@@ -71,20 +71,20 @@ func NewFrameSystemFromParts(
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	for _, part := range sortedParts {
 		// rename everything with prefixes
-		part.Name = prefix + part.Name
+		part.FrameConfig.SetName(prefix + part.FrameConfig.Name())
 		// prefixing for the world frame is only necessary in the case
 		// of merging multiple frame systems together, so we leave that
 		// reponsibility to the corresponding merge function
-		if part.FrameConfig.Parent != referenceframe.World {
-			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
+		if part.FrameConfig.Parent() != referenceframe.World {
+			part.FrameConfig.SetParent(prefix + part.FrameConfig.Parent())
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
+		modelFrame, staticOffsetFrame, err := referenceframe.CreateFramesFromPart(part, logger)
 		if err != nil {
 			return nil, err
 		}
 		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent))
+		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent()))
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func NewFrameSystemFromParts(
 // Renaming of the remote parts does not happen in this function.
 func combineParts(
 	localParts framesystemparts.Parts,
-	offsetParts map[string]*config.FrameSystemPart,
+	offsetParts map[string]*referenceframe.FrameSystemPart,
 	remoteParts map[string]framesystemparts.Parts,
 ) framesystemparts.Parts {
 	allParts := framesystemparts.Parts{}

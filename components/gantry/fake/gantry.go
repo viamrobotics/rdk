@@ -13,10 +13,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, "fake", registry.Component{
+	registry.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewGantry(config.Name), nil
 		},

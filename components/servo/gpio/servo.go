@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -39,11 +40,11 @@ type servoConfig struct {
 	Frequency *uint `json:"frequency_hz,omitempty"`
 	// Resolution resolution of the PWM driver (eg number of ticks for a full period) if left or 0
 	// the driver will attempt to estimate the resolution
-	Resolution *uint `json:"pwm_resolution"`
+	Resolution *uint `json:"pwm_resolution,omitempty"`
 	// MinWidthUS override the safe minimum width in us this affect PWM calculation
-	MinWidthUS *uint `json:"min_width_us"`
+	MinWidthUS *uint `json:"min_width_us,omitempty"`
 	// MaxWidthUS Override the safe maximum width in us this affect PWM calculation
-	MaxWidthUS *uint `json:"max_width_us"`
+	MaxWidthUS *uint `json:"max_width_us,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -82,14 +83,14 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const model = "gpio"
+var model = resource.NewDefaultModel("gpio")
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, model,
 		registry.Component{
 			Constructor: newGPIOServo,
 		})
-	config.RegisterComponentAttributeMapConverter(servo.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(servo.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr servoConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)

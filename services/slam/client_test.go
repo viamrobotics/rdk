@@ -40,7 +40,7 @@ func TestClientWorkingService(t *testing.T) {
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
 	pcSucc := &vision.Object{}
@@ -96,7 +96,7 @@ func TestClientWorkingService(t *testing.T) {
 		extra := map[string]interface{}{"foo": "Position"}
 		pInFrame, err := workingSLAMClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get map
@@ -134,7 +134,7 @@ func TestClientWorkingService(t *testing.T) {
 		extra := map[string]interface{}{"foo": "Position"}
 		pInFrame, err := workingDialedClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get map
@@ -160,7 +160,7 @@ func TestClientWorkingService(t *testing.T) {
 		extra := map[string]interface{}{"foo": "Position"}
 		p, err := workingDialedClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, p.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, p.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -174,7 +174,7 @@ func TestClientFailingService(t *testing.T) {
 	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	pFail := referenceframe.NewPoseInFrame("frame", pose)
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()

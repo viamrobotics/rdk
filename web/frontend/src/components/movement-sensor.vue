@@ -3,8 +3,9 @@
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, movementSensorApi as movementsensorApi } from '@viamrobotics/sdk';
-import type { commonApi } from '@viamrobotics/sdk';
+import type{ commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string
@@ -16,6 +17,7 @@ const props = defineProps<Props>();
 let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
 let angularVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
 let linearVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
+let linearAcceleration = $ref<commonApi.Vector3.AsObject | undefined>();
 let compassHeading = $ref<number | undefined>();
 let coordinate = $ref<commonApi.GeoPoint.AsObject | undefined>();
 let altitudeMm = $ref<number | undefined>();
@@ -27,6 +29,8 @@ const refresh = async () => {
   properties = await new Promise((resolve) => {
     const req = new movementsensorApi.GetPropertiesRequest();
     req.setName(props.name);
+
+    rcLogConditionally(req);
     props.client.movementSensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -40,6 +44,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetOrientationRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -53,6 +58,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetAngularVelocityRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -62,10 +68,25 @@ const refresh = async () => {
     });
   }
 
+  if (properties?.linearAccelerationSupported) {
+    const req = new movementsensorApi.GetLinearAccelerationRequest();
+    req.setName(props.name);
+
+    rcLogConditionally(req);
+    props.client.movementSensorService.getLinearAcceleration(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      linearAcceleration = resp!.toObject().linearAcceleration;
+    });
+  }
+
   if (properties?.linearVelocitySupported) {
     const req = new movementsensorApi.GetLinearVelocityRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -79,6 +100,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetCompassHeadingRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -92,6 +114,7 @@ const refresh = async () => {
     const req = new movementsensorApi.GetPositionRequest();
     req.setName(props.name);
 
+    rcLogConditionally(req);
     props.client.movementSensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
@@ -276,6 +299,41 @@ onUnmounted(() => {
               </th>
               <td class="border border-black p-2">
                 {{ linearVelocity?.z.toFixed(2) }}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div
+          v-if="properties.linearAccelerationSupported"
+          class="overflow-auto"
+        >
+          <h3 class="mb-1">
+            Linear Acceleration (mm/second^2)
+          </h3>
+          <table class="w-full border border-t-0 border-black p-4">
+            <tr>
+              <th class="border border-black p-2">
+                X
+              </th>
+              <td class="border border-black p-2">
+                {{ linearAcceleration?.x.toFixed(2) }}
+              </td>
+            </tr>
+            <tr>
+              <th class="border border-black p-2">
+                Y
+              </th>
+              <td class="border border-black p-2">
+                {{ linearAcceleration?.y.toFixed(2) }}
+              </td>
+            </tr>
+            <tr>
+              <th class="border border-black p-2">
+                Z
+              </th>
+              <td class="border border-black p-2">
+                {{ linearAcceleration?.z.toFixed(2) }}
               </td>
             </tr>
           </table>

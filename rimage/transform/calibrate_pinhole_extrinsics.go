@@ -20,8 +20,8 @@ import (
 type ExtrinsicCalibrationConfig struct {
 	ColorPoints     []r2.Point              `json:"color_points"`
 	DepthPoints     []r3.Vector             `json:"depth_points"`
-	ColorIntrinsics PinholeCameraIntrinsics `json:"color_intrinsics"`
-	DepthIntrinsics PinholeCameraIntrinsics `json:"depth_intrinsics"`
+	ColorIntrinsics PinholeCameraIntrinsics `json:"color_intrinsic_parameters"`
+	DepthIntrinsics PinholeCameraIntrinsics `json:"depth_intrinsic_parameters"`
 }
 
 // RunPinholeExtrinsicCalibration will solve the optimization problem to find the rigid pose
@@ -56,7 +56,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	translation := r3.Vector{res.X[3], res.X[4], res.X[5]}
 	logger.Debugf("translation: %v", translation)
 	logger.Debugf("rotation: %v", rotation.RotationMatrix())
-	pose := spatialmath.NewPoseFromOrientation(translation, rotation)
+	pose := spatialmath.NewPose(translation, rotation)
 	if err != nil {
 		return pose, fmt.Errorf("%+v: %w", res.Status, err)
 	}

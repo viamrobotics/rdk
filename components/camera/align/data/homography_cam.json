@@ -1,0 +1,45 @@
+{
+    "components": [
+        {
+            "name": "homography_cam",
+            "type": "camera",
+            "model": "align_color_depth_homography",
+            "attributes": {
+                "debug": false,
+                "color_camera_name": "color",
+                "depth_camera_name": "depth",
+                "output_image_type": "depth",
+                "intrinsic_parameters": {
+                    "height_px": 768,
+                    "width_px": 1024,
+                    "fx": 821.32642889,
+                    "fy": 821.68607359,
+                    "ppx": 494.95941428,
+                    "ppy": 370.70529534
+                },
+                "distortion_parameters": {
+                        "rk1": 0.11297234,
+                        "rk2": -0.21375332,
+                        "rk3": -0.01584774,
+                        "tp1": -0.00302002,
+                        "tp2": 0.19969297
+                },
+                "homography": {
+                    "transform": [
+                        0.232700501,
+                        -0.00833535395,
+                        -36.1894025,
+                        -0.00190671303,
+                        0.235303232,
+                        8.38582614,
+                        -0.0000639101664,
+                        -0.0000464582754,
+                        1.00000000
+                    ],
+                    "depth_to_color": false,
+                    "rotate_depth": -90
+                }
+            }
+        }
+    ]
+}

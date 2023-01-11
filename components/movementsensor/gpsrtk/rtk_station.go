@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -43,22 +44,18 @@ type StationConfig struct {
 }
 
 const (
-	i2cStr    = "I2C"
+	i2cStr    = "i2c"
 	serialStr = "serial"
 	ntripStr  = "ntrip"
 	timeMode  = "time"
 )
 
+// ErrStationValidation contains the model substring for the available correction source types.
+var ErrStationValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", stationModel.Name)
+
 // Validate ensures all parts of the config are valid.
 func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.CorrectionSource == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
-	}
-
-	if cfg.CorrectionSource != serialStr && cfg.CorrectionSource != ntripStr && cfg.CorrectionSource != i2cStr {
-		return nil, errors.New("only serial, I2C, and ntrip are supported correction sources")
-	}
 
 	// not ntrip, using serial or i2c for correction source
 	if cfg.SurveyIn == timeMode {
@@ -83,13 +80,15 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 		if cfg.SerialAttrConfig.SerialCorrectionPath == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")
 		}
-	default:
+	case "":
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+	default:
+		return nil, ErrStationValidation
 	}
 	return deps, nil
 }
 
-const stationModel = "rtk-station"
+var stationModel = resource.NewDefaultModel("rtk-station")
 
 func init() {
 	registry.RegisterComponent(
@@ -104,7 +103,7 @@ func init() {
 			return newRTKStation(ctx, deps, cfg, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, stationModel,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, stationModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr StationConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -351,6 +350,10 @@ func (r *rtkStation) Position(ctx context.Context, extra map[string]interface{})
 
 func (r *rtkStation) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
+}
+
+func (r *rtkStation) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 func (r *rtkStation) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {

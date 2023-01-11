@@ -4,154 +4,85 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
-	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // ModelConfig represents all supported fields in a kinematics JSON file.
 type ModelConfig struct {
-	Name         string           `json:"name"`
-	KinParamType string           `json:"kinematic_param_type"`
-	Links        []JSONLink       `json:"links"`
-	Joints       []JSONJoint      `json:"joints"`
-	DHParams     []JSONDHParam    `json:"dhParams"`
-	RawFrames    []FrameMapConfig `json:"frames"`
-}
-
-// JSONLink is a struct which details the JSON used in a ModelJSON link element.
-type JSONLink struct {
-	ID          string                    `json:"id"`
-	Parent      string                    `json:"parent"`
-	Translation spatial.TranslationConfig `json:"translation"`
-	Orientation spatial.OrientationConfig `json:"orientation"`
-	Geometry    spatial.GeometryConfig    `json:"geometry"`
-}
-
-// JSONJoint is a struct which details the JSON used in a ModelJSON joint element.
-type JSONJoint struct {
-	ID     string             `json:"id"`
-	Type   string             `json:"type"`
-	Parent string             `json:"parent"`
-	Axis   spatial.AxisConfig `json:"axis"`
-	Max    float64            `json:"max"` // in mm or degs
-	Min    float64            `json:"min"` // in mm or degs
-}
-
-// JSONDHParam is a struct which details the JSON used to describe DH parameters.
-type JSONDHParam struct {
-	ID       string                 `json:"id"`
-	Parent   string                 `json:"parent"`
-	A        float64                `json:"a"`
-	D        float64                `json:"d"`
-	Alpha    float64                `json:"alpha"`
-	Max      float64                `json:"max"` // in mm or degs
-	Min      float64                `json:"min"` // in mm or degs
-	Geometry spatial.GeometryConfig `json:"geometry"`
+	Name         string          `json:"name"`
+	KinParamType string          `json:"kinematic_param_type,omitempty"`
+	Links        []LinkConfig    `json:"links,omitempty"`
+	Joints       []JointConfig   `json:"joints,omitempty"`
+	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
-func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
+func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	var err error
 	if modelName == "" {
-		modelName = config.Name
+		modelName = cfg.Name
 	}
 
 	model := NewSimpleModel(modelName)
+	model.modelConfig = cfg
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
-	switch config.KinParamType {
+	switch cfg.KinParamType {
 	case "SVA", "":
-		for _, link := range config.Links {
+		for _, link := range cfg.Links {
 			if link.ID == World {
 				return nil, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
-		for _, joint := range config.Joints {
+		for _, joint := range cfg.Joints {
 			if joint.ID == World {
 				return nil, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
-		for _, link := range config.Links {
-			parentMap[link.ID] = link.Parent
-			orientation, err := link.Orientation.ParseConfig()
+		for _, link := range cfg.Links {
+			lif, err := link.ParseConfig()
 			if err != nil {
 				return nil, err
 			}
-			pose := spatial.NewPoseFromOrientation(link.Translation.ParseConfig(), orientation)
-			geometryCreator, err := link.Geometry.ParseConfig()
-			if err == nil {
-				transforms[link.ID], err = NewStaticFrameWithGeometry(link.ID, pose, geometryCreator)
-			} else {
-				transforms[link.ID], err = NewStaticFrame(link.ID, pose)
-			}
+			parentMap[link.ID] = link.Parent
+			transforms[link.ID], err = lif.ToStaticFrame(link.ID)
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
-		for _, joint := range config.Joints {
+		for _, joint := range cfg.Joints {
 			parentMap[joint.ID] = joint.Parent
-			switch joint.Type {
-			case RevoluteJoint:
-				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
-					Limit{Min: utils.DegToRad(joint.Min), Max: utils.DegToRad(joint.Max)})
-			case PrismaticJoint:
-				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
-					Limit{Min: joint.Min, Max: joint.Max})
-			default:
-				return nil, NewUnsupportedJointTypeError(joint.Type)
-			}
+			transforms[joint.ID], err = joint.ToFrame()
 			if err != nil {
 				return nil, err
 			}
 		}
 
 	case "DH":
-		for _, dh := range config.DHParams {
+		for _, dh := range cfg.DHParams {
+			rFrame, lFrame, err := dh.ToDHFrames()
+			if err != nil {
+				return nil, err
+			}
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
-			transforms[jointID], err = NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
-				Limit{Min: utils.DegToRad(dh.Min), Max: utils.DegToRad(dh.Max)})
-			if err != nil {
-				return nil, err
-			}
+			transforms[jointID] = rFrame
 
 			// Link part of DH param
 			linkID := dh.ID
-			pose := spatial.NewPoseFromDH(dh.A, dh.D, utils.DegToRad(dh.Alpha))
 			parentMap[linkID] = jointID
-			geometryCreator, err := dh.Geometry.ParseConfig()
-			if err == nil {
-				transforms[dh.ID], err = NewStaticFrameWithGeometry(dh.ID, pose, geometryCreator)
-			} else {
-				transforms[dh.ID], err = NewStaticFrame(dh.ID, pose)
-			}
-			if err != nil {
-				return nil, err
-			}
+			transforms[dh.ID] = lFrame
 		}
-
-	case "frames":
-		for _, x := range config.RawFrames {
-			f, err := x.ParseConfig()
-			if err != nil {
-				return nil, err
-			}
-			model.OrdTransforms = append(model.OrdTransforms, f)
-		}
-		return model, nil
 
 	default:
-		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", config.KinParamType)
+		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
 	}
 
 	// Determine which transforms have no children

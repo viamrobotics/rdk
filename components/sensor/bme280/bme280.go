@@ -18,11 +18,13 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var modelname = resource.NewDefaultModel("bme280")
+
 const (
-	modelname      = "bme280"
 	defaultI2Caddr = 0x77
 
 	// When mode is set to 0, sensors are off.
@@ -117,7 +119,7 @@ func init() {
 			return newSensor(ctx, deps, config.Name, attr, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

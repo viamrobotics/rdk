@@ -28,7 +28,13 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, conf, test.ShouldResemble, &config.Config{
 		ConfigFilePath: "somepath",
 		Network: config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080", BindAddressDefaultSet: true},
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress:           "localhost:8080",
+				BindAddressDefaultSet: true,
+				Sessions: config.SessionsConfig{
+					HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+				},
+			},
 		},
 	})
 
@@ -44,7 +50,7 @@ func TestFromReaderValidate(t *testing.T) {
 
 	conf, err = config.FromReader(context.Background(),
 		"somepath",
-		strings.NewReader(`{"components": [{"name": "foo", "type": "arm"}]}`),
+		strings.NewReader(`{"components": [{"name": "foo", "type": "arm", "model": "foo"}]}`),
 		logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &config.Config{
@@ -53,15 +59,24 @@ func TestFromReaderValidate(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
+				API:       arm.Subtype,
+				Model:     resource.NewDefaultModel("foo"),
 				Type:      arm.SubtypeName,
 			},
 		},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:8080", BindAddressDefaultSet: true}},
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+			BindAddress:           "localhost:8080",
+			BindAddressDefaultSet: true,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
+			},
+		}},
 	})
 
 	badComponentMapConverter := func() {
-		config.RegisterComponentAttributeMapConverter(resource.SubtypeName("somecomponent"),
-			"somemodel",
+		config.RegisterComponentAttributeMapConverter(
+			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "somecomponent"),
+			resource.NewDefaultModel("somemodel"),
 			func(attributes config.AttributeMap) (interface{}, error) {
 				return &conf, nil
 			}, nil)
@@ -69,9 +84,13 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, badComponentMapConverter, test.ShouldPanic)
 
 	badServiceMapConverter := func() {
-		config.RegisterServiceAttributeMapConverter(config.ServiceType("someservice"), func(attributes config.AttributeMap) (interface{}, error) {
-			return &conf, nil
-		}, nil)
+		config.RegisterServiceAttributeMapConverter(
+			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeService, "someservice"),
+			resource.DefaultServiceModel,
+			func(attributes config.AttributeMap) (interface{}, error) {
+				return &conf, nil
+			}, nil,
+		)
 	}
 	test.That(t, badServiceMapConverter, test.ShouldPanic)
 }

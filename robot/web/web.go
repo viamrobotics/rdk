@@ -12,9 +12,11 @@ import (
 	"net/http/pprof"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/Masterminds/sprig"
@@ -22,25 +24,27 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/jwks"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	"go.viam.com/utils/rpc/oauth"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -133,7 +137,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data.WebRTCEnabled = true
 	}
 
-	if app.options.Managed && len(app.options.Auth.Handlers) == 1 {
+	if app.options.Managed && hasManagedAuthHandlers(app.options.Auth.Handlers) {
 		data.BakedAuth = map[string]interface{}{
 			"authEntity": app.options.BakedAuthEntity,
 			"creds":      app.options.BakedAuthCreds,
@@ -148,6 +152,30 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.logger.Debugf("couldn't execute web page: %s", err)
 	}
+}
+
+// Two known auth handlers (LocationSecret, WebOauth).
+func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
+	hasLocationSecretHandler := false
+	hasWebOAuthHandler := false
+	for _, h := range handlers {
+		if h.Type == rutils.CredentialsTypeRobotLocationSecret {
+			hasLocationSecretHandler = true
+		}
+
+		if h.Type == oauth.CredentialsTypeOAuthWeb {
+			hasWebOAuthHandler = true
+		}
+	}
+
+	// TODO(APP-1086): During rollout of weboauth feature we need to support the app returning only the 1 location secret.
+	if len(handlers) == 1 && hasLocationSecretHandler {
+		return true
+	} else if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+		return true
+	}
+
+	return false
 }
 
 // allVideoSourcesToDisplay returns every possible video source that could be viewed from
@@ -189,6 +217,18 @@ type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
+	// Stop stops the main web service (but leaves module server socket running.)
+	Stop()
+
+	// StartModule starts the module server socket.
+	StartModule(context.Context) error
+
+	// Returns the address and port the web service listens on.
+	Address() string
+
+	// Returns the unix socket path the module server listens on.
+	ModuleAddress() string
+
 	// Close closes the web server
 	Close() error
 }
@@ -222,9 +262,12 @@ type webService struct {
 	mu           sync.Mutex
 	r            robot.Robot
 	rpcServer    rpc.Server
+	modServer    rpc.Server
 	streamServer *StreamServer
 	services     map[resource.Subtype]subtype.Service
 	opts         options
+	addr         string
+	modAddr      string
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -276,6 +319,73 @@ func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Confi
 	return RunWeb(ctx, r, o, logger)
 }
 
+// Address returns the address the service is listening on.
+func (svc *webService) Address() string {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return svc.addr
+}
+
+// ModuleAddress returns the unix socket path the module server is listening on.
+func (svc *webService) ModuleAddress() string {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return svc.modAddr
+}
+
+// StartModule starts the grpc module server.
+func (svc *webService) StartModule(ctx context.Context) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	if svc.modServer != nil {
+		return errors.New("module service already started")
+	}
+	oldMask := syscall.Umask(0o077)
+	dir, err := os.MkdirTemp("", "viam-module-*")
+	if err != nil {
+		return errors.WithMessage(err, "module startup failed")
+	}
+	addr := dir + "/parent.sock"
+	svc.modAddr = addr
+	lis, err := net.Listen("unix", addr)
+	syscall.Umask(oldMask)
+	if err != nil {
+		return errors.WithMessage(err, "failed to listen")
+	}
+
+	var (
+		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
+		streamInterceptors []googlegrpc.StreamServerInterceptor
+	)
+	opManager := svc.r.OperationManager()
+	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
+	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+	// TODO(PRODUCT-343): Add session manager interceptors
+
+	svc.modServer = module.NewServer(unaryInterceptors, streamInterceptors)
+	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
+		return err
+	}
+	if err := svc.initResources(); err != nil {
+		return err
+	}
+	if err := svc.initSubtypeServices(ctx, true); err != nil {
+		return err
+	}
+
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+		defer utils.UncheckedErrorFunc(func() error { return os.Remove(addr) })
+		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
+		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
+		if err := svc.modServer.Serve(lis); err != nil {
+			svc.logger.Errorw("failed to serve module service", "error", err)
+		}
+	})
+	return nil
+}
+
 // Update updates the web service when the robot has changed. Not Reconfigure because
 // this should happen at a different point in the lifecycle.
 func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
@@ -314,7 +424,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 			}
 			svc.services[s] = subtypeSvc
 		} else {
-			if err := subtypeSvc.Replace(v); err != nil {
+			if err := subtypeSvc.ReplaceAll(v); err != nil {
 				return err
 			}
 		}
@@ -323,16 +433,30 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 	return nil
 }
 
-// Close closes a webService via calls to its Cancel func.
-func (svc *webService) Close() error {
+// Stop stops the main web service prior to actually closing (it leaves the module server running.)
+func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
+}
+
+// Close closes a webService via calls to its Cancel func.
+func (svc *webService) Close() error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	var err error
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
+	}
+	if svc.modServer != nil {
+		err = svc.modServer.Stop()
+	}
 	svc.activeBackgroundWorkers.Wait()
-	return nil
+	return err
 }
 
 func (svc *webService) streamInitialized() bool {
@@ -472,7 +596,9 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 			Cooldown:  5 * time.Second,
 		}
 		if err := streamFunc(opts); err != nil {
-			svc.logger.Errorw("error streaming", "error", err)
+			if utils.FilterOutError(err, context.Canceled) != nil {
+				svc.logger.Errorw("error streaming", "error", err)
+			}
 		}
 	})
 	<-waitCh
@@ -540,9 +666,9 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
 
-	listenerAddr := listenerTCPAddr.String()
+	svc.addr = listenerTCPAddr.String()
 	if options.FQDN == "" {
-		options.FQDN, err = rpc.InstanceNameFromAddress(listenerAddr)
+		options.FQDN, err = rpc.InstanceNameFromAddress(svc.addr)
 		if err != nil {
 			return err
 		}
@@ -559,7 +685,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	}
 
 	if options.SignalingAddress == "" {
-		options.SignalingAddress = listenerAddr
+		options.SignalingAddress = svc.addr
 	}
 
 	if err := svc.rpcServer.RegisterServiceServer(
@@ -575,7 +701,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initSubtypeServices(ctx); err != nil {
+	if err := svc.initSubtypeServices(ctx, false); err != nil {
 		return err
 	}
 
@@ -648,10 +774,10 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	} else {
 		scheme = "http"
 	}
-	if strings.HasPrefix(listenerAddr, "[::]") {
-		listenerAddr = fmt.Sprintf("0.0.0.0:%d", listenerTCPAddr.Port)
+	if strings.HasPrefix(svc.addr, "[::]") {
+		svc.addr = fmt.Sprintf("0.0.0.0:%d", listenerTCPAddr.Port)
 	}
-	listenerURL := fmt.Sprintf("%s://%s", scheme, listenerAddr)
+	listenerURL := fmt.Sprintf("%s://%s", scheme, svc.addr)
 	var urlFields []interface{}
 	if options.LocalFQDN == "" {
 		urlFields = append(urlFields, "url", listenerURL)
@@ -694,21 +820,20 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
 		}),
 	}
+	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
 	if options.Debug {
-		rpcOpts = append(rpcOpts,
-			rpc.WithDebug(),
-			rpc.WithUnaryServerInterceptor(func(
-				ctx context.Context,
-				req interface{},
-				info *googlegrpc.UnaryServerInfo,
-				handler googlegrpc.UnaryHandler,
-			) (interface{}, error) {
-				ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
-				defer span.End()
+		rpcOpts = append(rpcOpts, rpc.WithDebug())
+		unaryInterceptors = append(unaryInterceptors, func(
+			ctx context.Context,
+			req interface{},
+			info *googlegrpc.UnaryServerInfo,
+			handler googlegrpc.UnaryHandler,
+		) (interface{}, error) {
+			ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
+			defer span.End()
 
-				return handler(ctx, req)
-			}),
-		)
+			return handler(ctx, req)
+		})
 	}
 
 	if options.Network.TLSConfig != nil {
@@ -721,16 +846,30 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
 
+	var streamInterceptors []googlegrpc.StreamServerInterceptor
+
 	opManager := svc.r.OperationManager()
-	rpcOpts = append(
-		rpcOpts,
-		rpc.WithUnaryServerInterceptor(opManager.UnaryServerInterceptor),
-		rpc.WithStreamServerInterceptor(opManager.StreamServerInterceptor),
-	)
+	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
+	if sessManagerInts.UnaryServerInterceptor != nil {
+		unaryInterceptors = append(unaryInterceptors, sessManagerInts.UnaryServerInterceptor)
+	}
+	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
+
+	if sessManagerInts.StreamServerInterceptor != nil {
+		streamInterceptors = append(streamInterceptors, sessManagerInts.StreamServerInterceptor)
+	}
+	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 
 	rpcOpts = append(
 		rpcOpts,
 		rpc.WithUnknownServiceHandler(svc.foreignServiceHandler),
+	)
+
+	unaryInterceptor := grpc_middleware.ChainUnaryServer(unaryInterceptors...)
+	streamInterceptor := grpc_middleware.ChainStreamServer(streamInterceptors...)
+	rpcOpts = append(rpcOpts,
+		rpc.WithUnaryServerInterceptor(unaryInterceptor),
+		rpc.WithStreamServerInterceptor(streamInterceptor),
 	)
 
 	return rpcOpts, nil
@@ -804,6 +943,19 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					handler.Type,
 					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
+			case oauth.CredentialsTypeOAuthWeb:
+				webOauthOptions := oauth.WebOAuthOptions{
+					AllowedAudiences: handler.WebOAuthConfig.AllowedAudiences,
+					KeyProvider:      jwks.NewStaticJWKKeyProvider(handler.WebOAuthConfig.ValidatedKeySet),
+					EntityVerifier: func(ctx context.Context, entity string) (interface{}, error) {
+						// For webauth handlers we assume some user subject/entity. For consistency with the app
+						// pass the entity as the email to the custom entity info set in the context.
+						return map[string]interface{}{"email": entity}, nil
+					},
+					Logger: svc.logger,
+				}
+
+				rpcOpts = append(rpcOpts, oauth.WithWebOAuthTokenAuthHandler(webOauthOptions))
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
 			}
@@ -832,13 +984,10 @@ func (svc *webService) initResources() error {
 }
 
 // Register every subtype resource grpc service here.
-func (svc *webService) initSubtypeServices(ctx context.Context) error {
+func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error {
 	// TODO: only register necessary services (#272)
 	subtypeConstructors := registry.RegisteredResourceSubtypes()
 	for s, rs := range subtypeConstructors {
-		if rs.RegisterRPCService == nil {
-			continue
-		}
 		subtypeSvc, ok := svc.services[s]
 		if !ok {
 			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
@@ -848,11 +997,17 @@ func (svc *webService) initSubtypeServices(ctx context.Context) error {
 			subtypeSvc = newSvc
 			svc.services[s] = newSvc
 		}
-		if err := rs.RegisterRPCService(ctx, svc.rpcServer, subtypeSvc); err != nil {
-			return err
+
+		if rs.RegisterRPCService != nil {
+			server := svc.rpcServer
+			if mod {
+				server = svc.modServer
+			}
+			if err := rs.RegisterRPCService(ctx, server, subtypeSvc); err != nil {
+				return err
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -917,34 +1072,14 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	return mux, nil
 }
 
-var unimplErr = status.Error(codes.Unimplemented, codes.Unimplemented.String())
-
 func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
-		return unimplErr
+		return grpc.UnimplementedError
 	}
-	methodParts := strings.Split(method, "/")
-	if len(methodParts) != 3 {
-		return unimplErr
-	}
-	protoSvc := methodParts[1]
-	protoMethod := methodParts[2]
-
-	var foundType *resource.RPCSubtype
-	for _, resSubtype := range svc.r.ResourceRPCSubtypes() {
-		if resSubtype.Desc.GetFullyQualifiedName() == protoSvc {
-			subtypeCopy := resSubtype
-			foundType = &subtypeCopy
-			break
-		}
-	}
-	if foundType == nil {
-		return unimplErr
-	}
-	methodDesc := foundType.Desc.FindMethodByName(protoMethod)
-	if methodDesc == nil {
-		return unimplErr
+	subType, methodDesc, err := robot.TypeAndMethodDescFromMethod(svc.r, method)
+	if err != nil {
+		return err
 	}
 
 	firstMsg := dynamic.NewMessage(methodDesc.GetInputType())
@@ -953,17 +1088,9 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return err
 	}
 
-	// we assume a convention that there will be a field called name that will be the resource
-	// name and a string.
-	name, ok := firstMsg.GetFieldByName("name").(string)
-	if !ok || name == "" {
-		return fmt.Errorf("unable to route foreign message due to invalid name field %v", name)
-	}
-
-	fqName := resource.NameFromSubtype(foundType.Subtype, name)
-
-	resource, err := svc.r.ResourceByName(fqName)
+	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.Subtype)
 	if err != nil {
+		svc.logger.Errorw("unable to route foreign message", "error", err)
 		return err
 	}
 
@@ -974,7 +1101,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	foreignRes, ok := resource.(*grpc.ForeignResource)
 	if !ok {
 		svc.logger.Errorf("expected resource to be a foreign RPC resource but was %T", foreignRes)
-		return unimplErr
+		return grpc.UnimplementedError
 	}
 
 	foreignClient := foreignRes.NewStub()
