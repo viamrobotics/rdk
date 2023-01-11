@@ -67,7 +67,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named cameras's typed resource name.
+// Named is a helper for getting the named camera's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -356,7 +356,6 @@ func (c *reconfigurableCamera) Stream(
 	stream := &reconfigurableCameraStream{
 		c:           c,
 		errHandlers: errHandlers,
-		cancelCtx:   c.cancelCtx,
 	}
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
@@ -372,7 +371,6 @@ type reconfigurableCameraStream struct {
 	c           *reconfigurableCamera
 	errHandlers []gostream.ErrorHandler
 	stream      gostream.VideoStream
-	cancelCtx   context.Context
 }
 
 func (cs *reconfigurableCameraStream) init(ctx context.Context) error {
@@ -385,7 +383,7 @@ func (cs *reconfigurableCameraStream) Next(ctx context.Context) (image.Image, fu
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	if cs.stream == nil || cs.cancelCtx.Err() != nil {
+	if cs.stream == nil || cs.c.cancelCtx.Err() != nil {
 		if err := func() error {
 			cs.c.mu.Lock()
 			defer cs.c.mu.Unlock()
@@ -438,15 +436,12 @@ func (c *reconfigurableCamera) DoCommand(ctx context.Context, cmd map[string]int
 }
 
 // Reconfigure reconfigures the resource.
-func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resource.Reconfigurable) error {
+func (c *reconfigurableCamera) Reconfigure(_ context.Context, newCamera resource.Reconfigurable) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	actual, ok := newCamera.(*reconfigurableCamera)
 	if !ok {
 		return utils.NewUnexpectedTypeError(c, newCamera)
-	}
-	if err := viamutils.TryClose(ctx, c.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
 	}
 	c.cancel()
 	// reset
