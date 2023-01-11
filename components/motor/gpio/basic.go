@@ -17,7 +17,7 @@ import (
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc Config, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -40,6 +40,7 @@ func NewMotor(b board.Board, mc Config, logger golog.Logger) (motor.Motor, error
 		maxRPM:      mc.MaxRPM,
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
+		motorName:   name,
 	}
 
 	if mc.Pins.A != "" {
@@ -103,6 +104,7 @@ type Motor struct {
 	powerPct                 float64
 	maxRPM                   float64
 	dirFlip                  bool
+	motorName                string
 
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
@@ -263,7 +265,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
 
 	if revolutions == 0 {
@@ -295,15 +297,15 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewGoToUnsupportedError(m.motorName)
 }
 
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
+	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
 }
 
 // GoTillStop is not supported.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
+	return motor.NewGoTillStopUnsupportedError(m.motorName)
 }

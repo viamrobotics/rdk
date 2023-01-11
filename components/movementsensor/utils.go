@@ -66,4 +66,6 @@ var (
 	ErrMethodUnimplementedReadings = errors.New("Readings Unimplemented")
 	// ErrMethodUnimplementedProperties returns error if the Properties method is unimplemented.
 	ErrMethodUnimplementedProperties = errors.New("Properties Unimplemented")
+	// ErrMethodUnimplementedLinearAcceleration returns error if Linear Acceleration is unimplemented.
+	ErrMethodUnimplementedLinearAcceleration = errors.New("linear acceleration unimplemented")
 )

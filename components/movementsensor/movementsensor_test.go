@@ -226,12 +226,13 @@ func TestReadings(t *testing.T) {
 
 	readings1, err := movementsensor.Readings(context.Background(), actualMovementSensor1, make(map[string]interface{}))
 	allReadings := map[string]interface{}{
-		"altitide":         alt,
-		"angular_velocity": ang,
-		"compass":          compass,
-		"linear_velocity":  speed,
-		"orientation":      orie,
-		"position":         loc,
+		"altitide":            alt,
+		"angular_velocity":    ang,
+		"compass":             compass,
+		"linear_velocity":     speed,
+		"orientation":         orie,
+		"position":            loc,
+		"linear_acceleration": la,
 	}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
@@ -263,6 +264,7 @@ var (
 	ang     = spatialmath.AngularVelocity{5.5, 1.2, 2.3}
 	orie    = &spatialmath.EulerAngles{5.6, 1.3, 2.4}
 	compass = 123.
+	la      = r3.Vector{1.1, 5.6, 0}
 )
 
 type mock struct {
@@ -285,6 +287,10 @@ func (m *mock) Position(ctx context.Context, extra map[string]interface{}) (*geo
 func (m *mock) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	m.velocityCount++
 	return speed, nil
+}
+
+func (m *mock) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return la, nil
 }
 
 func (m *mock) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {

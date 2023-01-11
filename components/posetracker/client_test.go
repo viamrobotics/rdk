@@ -40,8 +40,8 @@ func TestClient(t *testing.T) {
 	workingPT := &inject.PoseTracker{}
 	failingPT := &inject.PoseTracker{}
 
-	pose := spatialmath.NewPoseFromOrientation(r3.Vector{X: 2, Y: 4, Z: 6}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
-	pose2 := spatialmath.NewPoseFromOrientation(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
+	pose := spatialmath.NewPose(r3.Vector{X: 2, Y: 4, Z: 6}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
+	pose2 := spatialmath.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
 	zeroPose := spatialmath.NewZeroPose()
 	allBodiesToPoseInFrames := posetracker.BodyToPoseInFrame{
 		zeroPoseBody:     referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 		poseInFrame, ok := receivedPoseInFrames[bodyName]
 		test.That(t, ok, test.ShouldBeTrue)
 		expectedPoseInFrame := allBodiesToPoseInFrames[bodyName]
-		test.That(t, poseInFrame.FrameName(), test.ShouldEqual, expectedPoseInFrame.FrameName())
+		test.That(t, poseInFrame.Parent(), test.ShouldEqual, expectedPoseInFrame.Parent())
 		poseEqualToExpected := spatialmath.PoseAlmostEqual(poseInFrame.Pose(), expectedPoseInFrame.Pose())
 		test.That(t, poseEqualToExpected, test.ShouldBeTrue)
 	}

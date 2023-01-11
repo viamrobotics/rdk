@@ -73,6 +73,11 @@ func TestPointCloudBasic(t *testing.T) {
 	err = pc.Set(pBad, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "z component")
+
+	meta := pc.MetaData()
+	test.That(t, meta.totalX, test.ShouldEqual, meta.TotalX())
+	test.That(t, meta.totalY, test.ShouldEqual, meta.TotalY())
+	test.That(t, meta.totalZ, test.ShouldEqual, meta.TotalZ())
 }
 
 func TestPointCloudCentroid(t *testing.T) {
@@ -165,4 +170,17 @@ func TestPointCloudMatrix(t *testing.T) {
 		CloudMatrixColZ, CloudMatrixColR, CloudMatrixColG, CloudMatrixColB, CloudMatrixColV,
 	})
 	test.That(t, mcv, test.ShouldResemble, mat.NewDense(1, 7, []float64{1, 2, 3, 123, 45, 67, 5}))
+}
+
+func TestVectorsToPointCloud(t *testing.T) {
+	vecLst := []r3.Vector{{0, 0.75, 0}, {0, -0.75, 0}, {1, 0.75, 1}, {-1, 0.75, -1}}
+	color := &color.NRGBA{0, 0, 255, 255}
+	pc, err := VectorsToPointCloud(vecLst, *color)
+	test.That(t, err, test.ShouldBeNil)
+	// make sure all points were added with the specified color
+	for _, v := range vecLst {
+		data, boolVal := pc.At(v.X, v.Y, v.Z)
+		test.That(t, boolVal, test.ShouldBeTrue)
+		test.That(t, data.Color(), test.ShouldResemble, color)
+	}
 }

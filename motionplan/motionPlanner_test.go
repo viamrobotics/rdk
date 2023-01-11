@@ -121,7 +121,7 @@ func TestPlanningWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{200, 200, 200}, spatialmath.NewPoseFromPoint(r3.Vector{Z: 75}), "")
+	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 75}), r3.Vector{200, 200, 200}, "")
 	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatialmath.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripper, ur5e)
@@ -162,7 +162,7 @@ func TestPlanningWithGripper(t *testing.T) {
 func simple2DMap() (*planConfig, error) {
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
-	physicalGeometry, err := spatialmath.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatialmath.NewZeroPose(), "")
+	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	fs.AddFrame(urCamera, modelUR5e)
 
 	// Add static frame for the gripper
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{200, 200, 200}, spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), "")
+	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), r3.Vector{200, 200, 200}, "")
 	xArmVgripper, err := frame.NewStaticFrameWithGeometry("xArmVgripper", spatialmath.NewPoseFromPoint(r3.Vector{Z: 200}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(xArmVgripper, modelXarm)
@@ -309,7 +309,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	test.That(t, spatialmath.PoseAlmostCoincident(transformPoint.(*frame.PoseInFrame).Pose(), pointXarmGripper), test.ShouldBeTrue)
 
 	// Set a goal such that the gantry and arm must both be used to solve
-	goal1 := spatialmath.NewPoseFromOrientation(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	newPos, err := PlanMotion(
 		context.Background(),
 		logger.Sugar(),
@@ -330,7 +330,7 @@ func TestMultiArmSolve(t *testing.T) {
 	fs := makeTestFS(t)
 	positions := frame.StartPositions(fs)
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-	goal2 := spatialmath.NewPoseFromOrientation(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	newPos, err := PlanMotion(
 		context.Background(),
 		logger.Sugar(),
@@ -397,7 +397,7 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, sFrames, frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	goal := spatialmath.NewPoseFromOrientation(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
+	goal := spatialmath.NewPose(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition := sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 
 	// linearly plan with the gripper
@@ -427,7 +427,7 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err = newSolverFrame(fs, sFrames, frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	goal = spatialmath.NewPoseFromOrientation(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
+	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)

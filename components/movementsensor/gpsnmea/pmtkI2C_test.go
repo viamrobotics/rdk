@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -49,7 +50,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "gps-nmea",
+		Model: resource.NewDefaultModel("gps-nmea"),
 		Type:  movementsensor.SubtypeName,
 	}
 
@@ -64,7 +65,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	cfig = config.Component{
 		Name:  "movementsensor2",
-		Model: "gps-nmea",
+		Model: resource.NewDefaultModel("gps-nmea"),
 		Type:  movementsensor.SubtypeName,
 		ConvertedAttributes: &AttrConfig{
 			ConnectionType: "I2C",

@@ -18,13 +18,13 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	modelName     = "fake"
-	defaultMaxRpm = 100
-)
+var model = resource.NewDefaultModel("fake")
+
+const defaultMaxRpm = 100
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -106,10 +106,10 @@ func init() {
 			return m, nil
 		},
 	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
+	registry.RegisterComponent(motor.Subtype, model, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
-		modelName,
+		motor.Subtype,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -156,7 +156,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 		return 0, errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	return float64(ticks) / float64(m.TicksPerRotation), nil
+	return ticks / float64(m.TicksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
@@ -321,7 +321,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 // GoTillStop always returns an error.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return errors.New("not supported")
+	return motor.NewGoTillStopUnsupportedError(m.Name)
 }
 
 // ResetZeroPosition resets the zero position.
@@ -334,9 +334,9 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.Reset(ctx, int64(offset*float64(m.TicksPerRotation)), extra)
+	err := m.Encoder.Reset(ctx, offset*float64(m.TicksPerRotation), extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name)
 	}
 
 	return nil
@@ -352,7 +352,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(ctx, 0.0)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name)
 		}
 	}
 	return nil

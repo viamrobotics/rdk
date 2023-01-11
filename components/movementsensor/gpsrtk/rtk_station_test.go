@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -27,7 +28,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 
 	actualBoard := newBoard(testBoardName)
 	deps[board.Named(testBoardName)] = actualBoard
-
 	return deps
 }
 
@@ -49,7 +49,7 @@ func TestValidate(t *testing.T) {
 
 	fakecfg.CorrectionSource = "notvalid"
 	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeError, "only serial, I2C, and ntrip are supported correction sources")
+	test.That(t, err, test.ShouldBeError, ErrStationValidation)
 
 	// ntrip
 	fakecfg.CorrectionSource = "ntrip"
@@ -71,7 +71,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// I2C
-	fakecfg.CorrectionSource = "I2C"
+	fakecfg.CorrectionSource = "i2c"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "board"))
 }
@@ -84,7 +84,7 @@ func TestRTK(t *testing.T) {
 	// test NTRIPConnection Source
 	cfig := config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: resource.NewDefaultModel("rtk-station"),
 		Type:  "gps",
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "ntrip",
@@ -107,7 +107,7 @@ func TestRTK(t *testing.T) {
 	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: resource.NewDefaultModel("rtk-station"),
 		Type:  "gps",
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "serial",
@@ -127,11 +127,11 @@ func TestRTK(t *testing.T) {
 	// test I2C correction source
 	cfig = config.Component{
 		Name:       "rtk1",
-		Model:      "rtk-station",
+		Model:      resource.NewDefaultModel("rtk-station"),
 		Type:       "gps",
 		Attributes: config.AttributeMap{},
 		ConvertedAttributes: &StationConfig{
-			CorrectionSource: "I2C",
+			CorrectionSource: "i2c",
 			Board:            testBoardName,
 			SurveyIn:         "",
 			I2CAttrConfig: &I2CAttrConfig{
@@ -159,7 +159,7 @@ func TestRTK(t *testing.T) {
 	// test invalid source
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: resource.NewDefaultModel("rtk-station"),
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source":      "invalid-protocol",

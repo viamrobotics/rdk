@@ -5,6 +5,7 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { Client, commonApi, genericApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
+import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   resources: commonApi.ResourceName.AsObject[];
@@ -29,7 +30,7 @@ const doCommand = (name: string, command: string) => {
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
   executing.value = true;
-
+  rcLogConditionally(request);
   props.client.genericService.doCommand(request, (error, response) => {
     if (error) {
       toast.error(`Error executing command on ${name}: ${error}`);

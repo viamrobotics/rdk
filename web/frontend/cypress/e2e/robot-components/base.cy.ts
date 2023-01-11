@@ -10,7 +10,7 @@ describe('base', () => {
     cy.get('[aria-label="Keyboard Enabled"]').should('exist').click();
 
     // Select camera
-    cy.get('[aria-label="Select Cameras"]').find('[aria-disabled="false"]').click().type('test_camera{enter}{esc}');
+    cy.get('[aria-label="Select Cameras"]').find('[placeholder="Select Cameras"]').click().type('test_camera{enter}{esc}');
     cy.get('[data-stream-preview="test_camera"').find('video');
 
     // Confirm that camera component can open stream that is active already

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -130,13 +131,14 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		parentMap[jointElem.Child.Link] = jointElem.Name
 
 		// Set up the child link mentioned in this joint; fill out the details in the link parsing section later
-		childLink := JSONLink{ID: jointElem.Child.Link, Parent: jointElem.Name}
+
+		childLink := LinkConfig{ID: jointElem.Child.Link, Parent: jointElem.Name}
 
 		switch jointElem.Type {
 		case ContinuousJoint, RevoluteJoint, PrismaticJoint:
 			// Parse important details about each joint, including axes and limits
 			jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
-			thisJoint := JSONJoint{
+			thisJoint := JointConfig{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,
@@ -165,19 +167,19 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
 
 			// Note the conversion from meters to mm
-			childLink.Translation = spatial.TranslationConfig{
+			childLink.Translation = r3.Vector{
 				metersToMM(childXYZ[0]),
 				metersToMM(childXYZ[1]),
 				metersToMM(childXYZ[2]),
 			}
-			childLink.Orientation = *childOrient
+			childLink.Orientation = childOrient
 
 			if err != nil {
 				return nil, err
 			}
 		case FixedJoint:
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
-			thisLink := JSONLink{ID: jointElem.Name, Parent: jointElem.Parent.Link}
+			thisLink := LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
 			linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
 			linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
@@ -185,12 +187,12 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
 
 			// Note the conversion from meters to mm
-			thisLink.Translation = spatial.TranslationConfig{
+			thisLink.Translation = r3.Vector{
 				metersToMM(linkXYZ[0]),
 				metersToMM(linkXYZ[1]),
 				metersToMM(linkXYZ[2]),
 			}
-			thisLink.Orientation = *linkOrient
+			thisLink.Orientation = linkOrient
 
 			if err != nil {
 				return nil, err
@@ -219,7 +221,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 				if err != nil {
 					return nil, err
 				}
-				mc.Links[idx].Geometry = geoCfg
+				mc.Links[idx].Geometry = &geoCfg
 				break
 			}
 		}
@@ -227,22 +229,21 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
 		// Most likely, this is a link normally whose parent is the World
 		if _, ok := parentMap[linkElem.Name]; !ok {
-			thisLink := JSONLink{ID: linkElem.Name, Parent: World}
-			thisLink.Translation = spatial.TranslationConfig{0.0, 0.0, 0.0}
-			thisLink.Orientation = spatial.OrientationConfig{} // Orientation is guaranteed to be zero for this
+			thisLink := LinkConfig{ID: linkElem.Name, Parent: World}
+			thisLink.Translation = r3.Vector{0.0, 0.0, 0.0}
+			thisLink.Orientation = &spatial.OrientationConfig{} // Orientation is guaranteed to be zero for this
 
 			if hasCollision {
 				geoCfg, err := createConfigFromCollision(linkElem)
 				if err != nil {
 					return nil, err
 				}
-				thisLink.Geometry = geoCfg
+				thisLink.Geometry = &geoCfg
 			}
 
 			mc.Links = append(mc.Links, thisLink)
 		}
 	}
-
 	return mc, nil
 }
 
@@ -271,7 +272,7 @@ func createConfigFromCollision(link URDFLink) (spatial.GeometryConfig, error) {
 
 	// Offset for the geometry origin from the reference link origin
 	geomXYZ := convStringAttrToFloats(link.Collision[0].Origin.XYZ)
-	geomTx := spatial.TranslationConfig{geomXYZ[0], geomXYZ[1], geomXYZ[2]}
+	geomTx := r3.Vector{geomXYZ[0], geomXYZ[1], geomXYZ[2]}
 	geomRPY := convStringAttrToFloats(link.Collision[0].Origin.RPY)
 	geomEA := spatial.EulerAngles{
 		Roll:  utils.RadToDeg(geomRPY[0]),

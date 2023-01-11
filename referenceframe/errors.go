@@ -8,6 +8,15 @@ var ErrCircularReference = errors.New("infinite loop finding path from end effec
 // ErrEmptyStringFrameName denotes an error when a frame with a name "" is specified.
 var ErrEmptyStringFrameName = errors.New("frame with name \"\" cannot be used")
 
+// ErrNilPoseInFrame denotes an error when a pose in frame is nil.
+var ErrNilPoseInFrame = errors.New("pose in frame was nil")
+
+// ErrNilPose denotes an error when a pose is nil.
+var ErrNilPose = errors.New("pose was nil")
+
+// ErrMarshalingHighDOFFrame describes the error when attempting to marshal a frame with multiple degrees of freedom.
+var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, use a Model instead")
+
 // NewParentFrameMissingError returns an error indicating that the parent frame is nil.
 func NewParentFrameMissingError() error {
 	return errors.New("parent frame is nil")

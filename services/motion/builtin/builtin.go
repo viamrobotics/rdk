@@ -22,12 +22,12 @@ import (
 )
 
 func init() {
-	registry.RegisterService(motion.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Service{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
-	resource.AddDefaultService(motion.Named(resource.DefaultModelName))
+	resource.AddDefaultService(motion.Named(resource.DefaultServiceName))
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -55,7 +55,7 @@ func (ms *builtIn) Move(
 	logger := ms.r.Logger()
 
 	// get goal frame
-	goalFrameName := destination.FrameName()
+	goalFrameName := destination.Parent()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
@@ -139,8 +139,8 @@ func (ms *builtIn) MoveSingleComponent(
 
 	// get destination pose in frame of movable component
 	goalPose := destination.Pose()
-	if destination.FrameName() != componentName.ShortName() {
-		logger.Debugf("goal given in frame of %q", destination.FrameName())
+	if destination.Parent() != componentName.ShortName() {
+		logger.Debugf("goal given in frame of %q", destination.Parent())
 
 		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 		if err != nil {
@@ -162,7 +162,6 @@ func (ms *builtIn) MoveSingleComponent(
 		goalPose = goalPoseInFrame.Pose()
 		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
-
 	err := movableArm.MoveToPosition(ctx, goalPose, worldState, extra)
 	if err == nil {
 		return true, nil
@@ -174,7 +173,7 @@ func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
-	supplementalTransforms []*referenceframe.PoseInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {

@@ -14,17 +14,17 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelname = "ultrasonic"
-)
+var modelname = resource.NewDefaultModel("ultrasonic")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	TriggerPin    string `json:"trigger_pin"`
 	EchoInterrupt string `json:"echo_interrupt_pin"`
 	Board         string `json:"board"`
+	TimeoutMs     uint   `json:"timeout_ms,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -56,7 +56,7 @@ func init() {
 			return newSensor(ctx, deps, config.Name, config.ConvertedAttributes.(*AttrConfig))
 		}})
 
-	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -89,6 +89,13 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
 	}
+
+	if config.TimeoutMs > 0 {
+		s.timeoutMs = config.TimeoutMs
+	} else {
+		// default to 1 sec
+		s.timeoutMs = 1000
+	}
 	s.intChan = make(chan bool)
 	s.echoInterrupt.AddCallback(s.intChan)
 	return s, nil
@@ -101,6 +108,7 @@ type Sensor struct {
 	echoInterrupt board.DigitalInterrupt
 	triggerPin    board.GPIOPin
 	intChan       chan bool
+	timeoutMs     uint
 	generic.Unimplemented
 }
 
@@ -120,7 +128,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		timeB = time.Now()
 	case <-ctx.Done():
 		return nil, errors.New("ultrasonic: context canceled")
-	case <-time.After(time.Second * 1):
+	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
 		return nil, errors.New("ultrasonic timeout")
 	}
 	select {
@@ -128,7 +136,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		timeA = time.Now()
 	case <-ctx.Done():
 		return nil, errors.New("ultrasonic: context canceled")
-	case <-time.After(time.Second * 1):
+	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
 		return nil, errors.New("ultrasonic timeout")
 	}
 	dist := timeA.Sub(timeB).Seconds() * 340 / 2

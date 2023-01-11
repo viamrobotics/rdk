@@ -11,10 +11,11 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-const modelname = "fake"
+var modelname = resource.NewDefaultModel("fake")
 
 // AttrConfig is used for converting fake movementsensor attributes.
 type AttrConfig struct {
@@ -34,7 +35,7 @@ func init() {
 			return movementsensor.MovementSensor(&MovementSensor{}), nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -57,6 +58,11 @@ func (f *MovementSensor) Position(ctx context.Context, extra map[string]interfac
 // LinearVelocity gets the linear velocity of a fake movementsensor.
 func (f *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{Y: 5.4}, nil
+}
+
+// LinearAcceleration gets the linear acceleration of a fake movementsensor.
+func (f *MovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	return r3.Vector{X: 2.2, Y: 4.5, Z: 2}, nil
 }
 
 // AngularVelocity gets the angular velocity of a fake movementsensor.
@@ -92,11 +98,12 @@ func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interfac
 // Properties returns the properties of a fake movementsensor.
 func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		LinearVelocitySupported:  true,
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
-		PositionSupported:        true,
-		CompassHeadingSupported:  true,
+		LinearVelocitySupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		PositionSupported:           true,
+		CompassHeadingSupported:     true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 

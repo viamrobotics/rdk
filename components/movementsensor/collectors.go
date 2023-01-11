@@ -22,7 +22,7 @@ type lowLevelCollector func(ctx context.Context, ms MovementSensor) (interface{}
 
 func registerCollector(name string, f lowLevelCollector) {
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: name,
 	}, func(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 		ms, err := assertMovementSensor(resource)

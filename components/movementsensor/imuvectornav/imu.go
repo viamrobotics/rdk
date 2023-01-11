@@ -18,11 +18,12 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu-vectornav"
+var model = resource.NewDefaultModel("imu-vectornav")
 
 // AttrConfig is used for converting a vectornav IMU MovementSensor config attributes.
 type AttrConfig struct {
@@ -65,7 +66,7 @@ func init() {
 			return NewVectorNav(ctx, deps, cfg, logger)
 		},
 	})
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -281,7 +282,7 @@ func (vn *vectornav) AngularVelocity(ctx context.Context, extra map[string]inter
 	return vn.angularVelocity, nil
 }
 
-func (vn *vectornav) GetAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (vn *vectornav) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.acceleration, nil
@@ -319,8 +320,9 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 
 func (vn *vectornav) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 

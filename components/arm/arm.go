@@ -46,11 +46,11 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: endPosition.String(),
 	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    SubtypeName,
+		Subtype:    Subtype,
 		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
 }
@@ -99,13 +99,12 @@ type Arm interface {
 	generic.Generic
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
+	resource.MovingCheckable
 }
 
 // A LocalArm represents an Arm that can report whether it is moving or not.
 type LocalArm interface {
 	Arm
-
-	resource.MovingCheckable
 }
 
 var (
@@ -121,17 +120,17 @@ var (
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Arm)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Arm)(nil), actual)
 }
 
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((LocalArm)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*LocalArm)(nil), actual)
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name, actual interface{}) error {
-	return utils.DependencyTypeError(name, (Arm)(nil), actual)
+func DependencyTypeError(name string, actual interface{}) error {
+	return utils.DependencyTypeError(name, (*Arm)(nil), actual)
 }
 
 // FromDependencies is a helper for getting the named arm from a collection of
@@ -168,7 +167,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the arm.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	arm, ok := resource.(LocalArm)
+	arm, ok := resource.(Arm)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
@@ -266,6 +265,12 @@ func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
+}
+
+func (r *reconfigurableArm) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
 }
 
 func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {

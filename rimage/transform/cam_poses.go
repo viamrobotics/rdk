@@ -41,7 +41,7 @@ func (cp *CamPose) Pose() (spatialmath.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewPoseFromOrientation(translation, rotation), err
+	return spatialmath.NewPose(translation, rotation), err
 }
 
 // adjustPoseSign adjusts the sign of a pose.

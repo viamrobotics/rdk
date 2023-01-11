@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -147,6 +146,14 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
 
+func (c *client) IsMoving(ctx context.Context) (bool, error) {
+	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
+	if err != nil {
+		return false, err
+	}
+	return resp.IsMoving, nil
+}
+
 func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) referenceframe.Model {
 	resp, err := r.FrameSystemConfig(ctx, &robotpb.FrameSystemConfigRequest{})
 	if err != nil {
@@ -154,8 +161,8 @@ func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) re
 	}
 	cfgs := resp.GetFrameSystemConfigs()
 	for _, cfg := range cfgs {
-		if cfg.GetName() == name {
-			if part, err := config.ProtobufToFrameSystemPart(cfg); err == nil {
+		if cfg.GetFrame().GetReferenceFrame() == name {
+			if part, err := referenceframe.ProtobufToFrameSystemPart(cfg); err == nil {
 				return part.ModelFrame
 			}
 			return nil

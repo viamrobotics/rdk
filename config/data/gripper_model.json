@@ -1,0 +1,42 @@
+{
+    "name": "test",
+    "links": [
+        {
+            "parent": "world",
+            "translation": {
+                "x": 1,
+                "y": 2,
+                "z": 3
+            },
+            "orientation": {
+                "type": "ov_degrees",
+                "value": {
+                    "th": 85,
+                    "x": 0,
+                    "y": 0,
+                    "z": 1
+                }
+            },
+            "geometry": {
+                "type": "box",
+                "x": 1,
+                "y": 2,
+                "z": 3,
+                "translation": {
+                    "x": 4,
+                    "y": 5,
+                    "z": 6
+                },
+                "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                        "w": 1,
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    }
+                }
+            }
+        }
+    ]
+}

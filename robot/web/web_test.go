@@ -2,10 +2,13 @@ package web_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
@@ -13,11 +16,15 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
+	oauthutils "go.viam.com/utils/rpc/oauth/testutils"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -27,13 +34,17 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
-	mycomppb "go.viam.com/rdk/examples/mycomponent/proto/api/component/mycomponent/v1"
+	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -71,6 +82,59 @@ func TestWebStart(t *testing.T) {
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestModule(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+
+	svc := web.New(ctx, injectRobot, logger)
+
+	err := svc.StartModule(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	arm1 := arm.NewClientFromConn(context.Background(), conn1, arm1String, logger)
+	arm1Position, err := arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm1Position, test.ShouldResemble, pos)
+
+	err = svc.StartModule(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
+
+	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn2, err := rgrpc.Dial(context.Background(), svc.Address(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	arm2 := arm.NewClientFromConn(context.Background(), conn2, arm1String, logger)
+
+	arm2Position, err := arm2.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm2Position, test.ShouldResemble, pos)
+
+	svc.Stop()
+	time.Sleep(time.Second)
+
+	_, err = arm2.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = utils.TryClose(context.Background(), svc)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	test.That(t, conn1.Close(), test.ShouldBeNil)
+	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
 
 func TestWebStartOptions(t *testing.T) {
@@ -120,12 +184,22 @@ func TestWebWithAuth(t *testing.T) {
 		t.Run(tc.Case, func(t *testing.T) {
 			svc := web.New(ctx, injectRobot, logger)
 
+			keyset := jwk.NewSet()
+			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
+			test.That(t, err, test.ShouldBeNil)
+			publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
+			test.That(t, err, test.ShouldBeNil)
+			publicKeyForWebAuth.Set("alg", "RS256")
+			publicKeyForWebAuth.Set(jwk.KeyIDKey, "key-id-1")
+			test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
+
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
 			locationSecrets := []string{"locsosecret", "locsec2"}
+			expectedAudiences := []string{"https://app.viam.dev/"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -139,13 +213,21 @@ func TestWebWithAuth(t *testing.T) {
 						"secrets": locationSecrets,
 					},
 				},
+				{
+					Type:   oauth.CredentialsTypeOAuthWeb,
+					Config: config.AttributeMap{},
+					WebOAuthConfig: &config.WebOAuthConfig{
+						AllowedAudiences: expectedAudiences,
+						ValidatedKeySet:  keyset,
+					},
+				},
 			}
 			if tc.Managed {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
 
-			err := svc.Start(ctx, options)
+			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = rgrpc.Dial(context.Background(), addr, logger)
@@ -175,6 +257,7 @@ func TestWebWithAuth(t *testing.T) {
 				if entityName == "" {
 					entityName = options.LocalFQDN
 				}
+
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
@@ -225,6 +308,17 @@ func TestWebWithAuth(t *testing.T) {
 
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
+
+				t.Run("can connect with web-oauth", func(t *testing.T) {
+					accessToken, err := oauthutils.SignWebAuthAccessToken(privKeyForWebAuth, entityName, expectedAudiences[0], "iss", "key-id-1")
+					test.That(t, err, test.ShouldBeNil)
+					conn, err = rgrpc.Dial(context.Background(), addr, logger,
+						rpc.WithAllowInsecureWithCredentialsDowngrade(),
+						rpc.WithStaticAuthenticationMaterial(accessToken),
+					)
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, conn.Close(), test.ShouldBeNil)
+				})
 			} else {
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
@@ -686,6 +780,9 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context, at []*referenceframe.LinkInFrame) (framesystemparts.Parts, error) {
+		return nil, nil
+	}
 
 	return context.Background(), injectRobot
 }
@@ -703,8 +800,8 @@ func TestForeignResource(t *testing.T) {
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	myCompClient := mycomppb.NewMyComponentServiceClient(conn)
-	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	myCompClient := gizmopb.NewGizmoServiceClient(conn)
+	_, err = myCompClient.DoOne(ctx, &gizmopb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldNotBeNil)
 	errStatus, ok := status.FromError(err)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -714,7 +811,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	remoteServer := grpc.NewServer()
-	mycomppb.RegisterMyComponentServiceServer(remoteServer, &myCompServer{})
+	gizmopb.RegisterGizmoServiceServer(remoteServer, &myCompServer{})
 
 	listenerR, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -733,7 +830,7 @@ func TestForeignResource(t *testing.T) {
 
 	foreignRes := rgrpc.NewForeignResource(resName, remoteConn)
 
-	svcDesc, err := grpcreflect.LoadServiceDescriptor(&mycomppb.MyComponentService_ServiceDesc)
+	svcDesc, err := grpcreflect.LoadServiceDescriptor(&gizmopb.GizmoService_ServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
@@ -758,7 +855,7 @@ func TestForeignResource(t *testing.T) {
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	myCompClient = mycomppb.NewMyComponentServiceClient(conn)
+	myCompClient = gizmopb.NewGizmoServiceClient(conn)
 
 	injectRobot.Mu.Lock()
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
@@ -766,7 +863,7 @@ func TestForeignResource(t *testing.T) {
 	}
 	injectRobot.Mu.Unlock()
 
-	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	_, err = myCompClient.DoOne(ctx, &gizmopb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldNotBeNil)
 	errStatus, ok = status.FromError(err)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -783,7 +880,7 @@ func TestForeignResource(t *testing.T) {
 	}
 	injectRobot.Mu.Unlock()
 
-	resp, err := myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	resp, err := myCompClient.DoOne(ctx, &gizmopb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ret1, test.ShouldBeTrue)
 
@@ -793,14 +890,32 @@ func TestForeignResource(t *testing.T) {
 }
 
 type myCompServer struct {
-	mycomppb.UnimplementedMyComponentServiceServer
+	gizmopb.UnimplementedGizmoServiceServer
 }
 
-func (s *myCompServer) DoOne(ctx context.Context, req *mycomppb.DoOneRequest) (*mycomppb.DoOneResponse, error) {
-	return &mycomppb.DoOneResponse{Ret1: req.Arg1 == "hello"}, nil
+func (s *myCompServer) DoOne(ctx context.Context, req *gizmopb.DoOneRequest) (*gizmopb.DoOneResponse, error) {
+	return &gizmopb.DoOneResponse{Ret1: req.Arg1 == "hello"}, nil
 }
 
 func TestRawClientOperation(t *testing.T) {
+	// Need an unfiltered streaming call to test interceptors
+	echoSubType := resource.NewSubtype(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeComponent,
+		resource.SubtypeName("echo"),
+	)
+	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&echopb.TestEchoService_ServiceDesc,
+				&echoServer{},
+				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+			)
+		},
+		RPCServiceDesc: &echopb.TestEchoService_ServiceDesc,
+	})
+
 	logger := golog.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
@@ -814,11 +929,20 @@ func TestRawClientOperation(t *testing.T) {
 		return []robot.Status{}, nil
 	}
 
-	checkOpID := func(md metadata.MD) {
+	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+
+	checkOpID := func(md metadata.MD, expected bool) {
 		t.Helper()
-		test.That(t, md["opid"], test.ShouldHaveLength, 1)
-		_, err = uuid.Parse(md["opid"][0])
-		test.That(t, err, test.ShouldBeNil)
+		if expected {
+			test.That(t, md["opid"], test.ShouldHaveLength, 1)
+			_, err = uuid.Parse(md["opid"][0])
+			test.That(t, err, test.ShouldBeNil)
+		} else {
+			// StreamStatus is in operations' list of filtered methods, so expect no opID.
+			test.That(t, md["opid"], test.ShouldHaveLength, 0)
+		}
 	}
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
@@ -828,32 +952,47 @@ func TestRawClientOperation(t *testing.T) {
 	var hdr metadata.MD
 	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(hdr)
+	checkOpID(hdr, true)
 
 	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	md, err := streamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md)
+	checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
+	// test with a simple echo proto as well
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	client = robotpb.NewRobotServiceClient(conn)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
 
 	hdr = metadata.MD{}
 	trailers := metadata.MD{} // won't do anything but helps test goutils
-	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(hdr)
+	checkOpID(hdr, true)
 
-	streamClient, err = client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
+	echoStreamClient, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	md, err = streamClient.Header()
+	md, err = echoStreamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md)
+	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+}
+
+type echoServer struct {
+	echopb.UnimplementedTestEchoServiceServer
+}
+
+func (srv *echoServer) EchoMultiple(
+	req *echopb.EchoMultipleRequest,
+	server echopb.TestEchoService_EchoMultipleServer,
+) error {
+	return server.Send(&echopb.EchoMultipleResponse{})
+}
+
+func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
+	return &echopb.EchoResponse{}, nil
 }

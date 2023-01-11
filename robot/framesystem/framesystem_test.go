@@ -42,21 +42,35 @@ func TestEmptyConfigFrameService(t *testing.T) {
 
 func TestNewFrameSystemFromParts(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	fsConfigs := []*config.FrameSystemPart{
+
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	l1 := &referenceframe.LinkConfig{
+		ID:          "frame1",
+		Parent:      referenceframe.World,
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: o1Cfg,
+		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	}
+	lif1, err := l1.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	l2 := &referenceframe.LinkConfig{
+		ID:          "frame2",
+		Parent:      "frame1",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+	}
+	lif2, err := l2.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	fsConfigs := []*referenceframe.FrameSystemPart{
 		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
-				Parent:      referenceframe.World,
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-			},
+			FrameConfig: lif1,
 		},
 		{
-			Name: "frame2",
-			FrameConfig: &config.Frame{
-				Parent:      "frame1",
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			},
+			FrameConfig: lif2,
 		},
 	}
 	frameSys, err := framesystem.NewFrameSystemFromParts("", "", fsConfigs, logger)
@@ -83,13 +97,22 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 
 func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	badFSConfigs := []*config.FrameSystemPart{
+
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	l1 := &referenceframe.LinkConfig{
+		ID:          "frame1",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: o1Cfg,
+	}
+	lif1, err := l1.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	badFSConfigs := []*referenceframe.FrameSystemPart{
 		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-			},
+			FrameConfig: lif1,
 		},
 	}
 	fs, err := framesystem.NewFrameSystemFromParts("", "", badFSConfigs, logger)

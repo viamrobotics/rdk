@@ -2,11 +2,10 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Client, type ServiceError, baseApi, commonApi } from '@viamrobotics/sdk';
+import { Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
-import { addStream, removeStream } from '../lib/stream';
 import { rcLogConditionally } from '../lib/log';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
@@ -39,7 +38,7 @@ const direction = ref<Directions>('Forwards');
 const spinType = ref<SpinTypes>('Clockwise');
 const increment = ref(1000);
 // straight mm/s
-const speed = ref(200);
+const speed = ref(300);
 // deg/s
 const spinSpeed = ref(90);
 const angle = ref(0);
@@ -82,6 +81,7 @@ const stop = () => {
   stopped = true;
   const req = new baseApi.StopRequest();
   req.setName(props.name);
+  rcLogConditionally(req);
   props.client.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
@@ -197,30 +197,29 @@ const baseRun = () => {
   }
 };
 
-const viewPreviewCamera = (name: string) => {
-  for (const [key, value] of baseStreamStates) {
-    // Only turn on if state is off
-    if (name.includes(key) && value === false) {
-      baseStreamStates.set(key, true);
+const viewPreviewCamera = (values: string) => {
+  const streams = new StreamClient(props.client);
+  for (const [key] of baseStreamStates) {
+    if (values.split(',').includes(key)) {
       try {
         // Only add stream if other components have not already
-        if (!cameraStreamStates.get(name)) {
-          addStream(props.client, key);
+        if (!cameraStreamStates.get(key) && !baseStreamStates.get(key)) {
+          streams.add(key);
         }
       } catch (error) {
         displayError(error as ServiceError);
       }
-    // Only turn off if state is on
-    } else if (!name.includes(key) && value === true) {
-      baseStreamStates.set(key, false);
+      baseStreamStates.set(key, true);
+    } else if (baseStreamStates.get(key) === true) {
       try {
         // Only remove stream if other components are not using the stream
-        if (!cameraStreamStates.get(name)) {
-          removeStream(props.client, key);
+        if (!cameraStreamStates.get(key)) {
+          streams.remove(key);
         }
       } catch (error) {
         displayError(error as ServiceError);
       }
+      baseStreamStates.set(key, false);
     }
   }
 };
@@ -295,10 +294,10 @@ onUnmounted(() => {
             @toggle="(active: boolean) => { !active && (pressed.size > 0 || !stopped) && stop() }"
           />
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
-            <v-select
+            <v-multiselect
               v-model="selectCameras"
               class="mb-4"
-              variant="multiple"
+              clearable="false"
               placeholder="Select Cameras"
               aria-label="Select Cameras"
               :options="

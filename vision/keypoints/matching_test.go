@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/draw"
 	"math"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -42,8 +41,7 @@ func TestRangeInt(t *testing.T) {
 
 func TestMatchDescriptors(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	tempDir, err := os.MkdirTemp("", "matching_keypoints")
-	test.That(t, err, test.ShouldBeNil)
+	tempDir := t.TempDir()
 
 	logger.Infof("writing sample points to %s", tempDir)
 	// load config

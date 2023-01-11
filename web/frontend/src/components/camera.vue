@@ -1,13 +1,11 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import { Client, cameraApi, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { StreamClient, CameraClient, Camera, Client, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
-import { addStream, removeStream } from '../lib/stream';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
@@ -37,11 +35,12 @@ const initStreamState = () => {
 };
 
 const viewCamera = async (isOn: boolean) => {
+  const streams = new StreamClient(props.client);
   if (isOn) {
     try {
       // only add stream if not already active
       if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
-        await addStream(props.client, props.cameraName);
+        await streams.add(props.cameraName);
       }
     } catch (error) {
       displayError(error as ServiceError);
@@ -51,7 +50,7 @@ const viewCamera = async (isOn: boolean) => {
     try {
       // only remove camera stream if active and base stream is not active
       if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
-        await removeStream(props.client, props.cameraName);
+        await streams.remove(props.cameraName);
       }
     } catch (error) {
       displayError(error as ServiceError);
@@ -65,17 +64,12 @@ const toggleExpand = () => {
   viewCamera(camera);
 };
 
-const renderPCD = () => {
-  const request = new cameraApi.GetPointCloudRequest();
-  request.setName(props.cameraName);
-  request.setMimeType('pointcloud/pcd');
-  props.client.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting point cloud: ${error}`);
-      return;
-    }
-    pointcloud = response!.getPointCloud_asU8();
-  });
+const renderPCD = async () => {
+  try {
+    pointcloud = await new CameraClient(props.client, props.cameraName).getPointCloud();
+  } catch (error) {
+    toast.error(`Error getting point cloud: ${error}`);
+  }
 };
 
 const togglePCDExpand = () => {
@@ -101,19 +95,16 @@ const refreshCamera = () => {
   emit('clear-interval');
 };
 
-const exportScreenshot = (cameraName: string) => {
-  const req = new cameraApi.RenderFrameRequest();
-  req.setName(cameraName);
-  req.setMimeType('image/jpeg');
+const exportScreenshot = async (cameraName: string) => {
+  let blob;
+  try {
+    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 
-  props.client.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-
-    const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-    window.open(URL.createObjectURL(blob), '_blank');
-  });
+  window.open(URL.createObjectURL(blob), '_blank');
 };
 
 onMounted(() => {

@@ -85,6 +85,21 @@ func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface
 	return spatialmath.AngularVelocity(protoutils.ConvertVectorProtoToR3(resp.AngularVelocity)), nil
 }
 
+func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	resp, err := c.client.GetLinearAcceleration(ctx, &pb.GetLinearAccelerationRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return protoutils.ConvertVectorProtoToR3(resp.LinearAcceleration), nil
+}
+
 func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {

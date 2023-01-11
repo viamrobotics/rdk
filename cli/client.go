@@ -688,7 +688,9 @@ func (c *AppClient) StartRobotPartShell(
 		return err
 	}
 
-	fmt.Fprintln(c.c.App.Writer, "establishing connection...")
+	if debug {
+		fmt.Fprintln(c.c.App.Writer, "establishing connection...")
+	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
 		fmt.Fprintln(c.c.App.ErrWriter, err)
@@ -767,11 +769,6 @@ func (c *AppClient) StartRobotPartShell(
 
 			n, err := os.Stdin.Read(data[:])
 			if err != nil {
-				close(input)
-				return
-			}
-			if n == 1 && data[0] == 4 {
-				// EOT -> EOF
 				close(input)
 				return
 			}

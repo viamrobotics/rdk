@@ -27,14 +27,17 @@ func TestComponentRegistry(t *testing.T) {
 	rf := func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	modelName := "x"
+	modelName := resource.Model{Name: "x"}
 	test.That(t, func() { RegisterComponent(acme.Subtype, modelName, Component{}) }, test.ShouldPanic)
 	RegisterComponent(acme.Subtype, modelName, Component{Constructor: rf})
 
 	creator := ComponentLookup(acme.Subtype, modelName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ComponentLookup(acme.Subtype, "z"), test.ShouldBeNil)
+	test.That(t, ComponentLookup(acme.Subtype, resource.Model{Name: "z"}), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, rf)
+
+	DeregisterComponent(acme.Subtype, modelName)
+	test.That(t, ComponentLookup(acme.Subtype, modelName), test.ShouldBeNil)
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {
@@ -94,14 +97,17 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 			RegisterRPCService: sf, RPCClient: rcf,
 		})
 	}, test.ShouldPanic)
+
+	DeregisterResourceSubtype(subtype3)
+	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
 }
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
 	df := func(ctx context.Context) (interface{}, error) { return []discovery.Discovery{}, nil }
-	invalidSubtypeQuery := discovery.NewQuery(resource.SubtypeName("some subtype"), "some model")
+	invalidSubtypeQuery := discovery.NewQuery(resource.Subtype{ResourceSubtype: "some subtype"}, resource.Model{Name: "some model"})
 	test.That(t, func() { RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
 
-	validSubtypeQuery := discovery.NewQuery(acme.ResourceSubtype, "some model")
+	validSubtypeQuery := discovery.NewQuery(acme.Subtype, resource.Model{Name: "some model"})
 	_, ok := DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -115,23 +121,26 @@ func TestServiceRegistry(t *testing.T) {
 	rf := func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	modelName := resource.DefaultModelName
+	modelName := resource.DefaultServiceModel
 	test.That(t, func() { RegisterService(testService.Subtype, modelName, Service{}) }, test.ShouldPanic)
 	RegisterService(testService.Subtype, modelName, Service{Constructor: rf})
 
 	creator := ServiceLookup(testService.Subtype, modelName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ServiceLookup(testService.Subtype, "z"), test.ShouldBeNil)
+	test.That(t, ServiceLookup(testService.Subtype, resource.NewDefaultModel("z")), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, rf)
+
+	DeregisterService(testService.Subtype, modelName)
+	test.That(t, ServiceLookup(testService.Subtype, modelName), test.ShouldBeNil)
 }
 
 func TestFindValidServiceModels(t *testing.T) {
 	rf := func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	RegisterService(testService.Subtype, "testModel1", Service{Constructor: rf})
-	RegisterService(testService.Subtype, "testModel2", Service{Constructor: rf})
+	RegisterService(testService.Subtype, resource.NewDefaultModel("testModel1"), Service{Constructor: rf})
+	RegisterService(testService.Subtype, resource.NewDefaultModel("testModel2"), Service{Constructor: rf})
 	modelList := FindValidServiceModels(testService)
-	test.That(t, modelList, test.ShouldContain, "testModel1")
-	test.That(t, modelList, test.ShouldContain, "testModel2")
+	test.That(t, modelList, test.ShouldContain, resource.NewDefaultModel("testModel1"))
+	test.That(t, modelList, test.ShouldContain, resource.NewDefaultModel("testModel2"))
 }

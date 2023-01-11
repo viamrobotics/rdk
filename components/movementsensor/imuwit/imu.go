@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"sync"
@@ -15,17 +16,21 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu-wit"
+var model = resource.NewDefaultModel("imu-wit")
+
+var baudRateList = [...]int{115200, 9600}
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
@@ -35,9 +40,23 @@ type AttrConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
+	isValid := false
+
+	// Validating serial path
 	if cfg.Port == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
+
+	// Validating baud rate
+	for _, val := range baudRateList {
+		if val == cfg.BaudRate {
+			isValid = true
+		}
+	}
+	if !isValid {
+		return utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+	}
+
 	return nil
 }
 
@@ -53,7 +72,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -71,6 +90,7 @@ type wit struct {
 
 	mu sync.Mutex
 
+	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
@@ -95,8 +115,8 @@ func (imu *wit) Orientation(ctx context.Context, extra map[string]interface{}) (
 	return &imu.orientation, imu.lastError
 }
 
-// GetAcceleration returns accelerometer acceleration in mm_per_sec_per_sec.
-func (imu *wit) GetAcceleration(ctx context.Context) (r3.Vector, error) {
+// LinearAcceleration returns linear acceleration in mm_per_sec_per_sec.
+func (imu *wit) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.acceleration, imu.lastError
@@ -133,19 +153,14 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 	}
 	readings["magnetometer"] = mag
 
-	acc, err := imu.GetAcceleration(ctx)
-	if err != nil {
-		return nil, err
-	}
-	readings["acceleration"] = acc
-
 	return readings, err
 }
 
 func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
-		OrientationSupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 
@@ -180,6 +195,7 @@ func NewWit(
 	if err != nil {
 		return nil, err
 	}
+	i.port = port
 
 	portReader := bufio.NewReader(port)
 
@@ -282,9 +298,19 @@ func (imu *wit) parseWIT(line string) error {
 	return nil
 }
 
-func (imu *wit) Close() {
+// Close shuts down wit and closes imu.port.
+func (imu *wit) Close() error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
+
+	if imu.port != nil {
+		if err := imu.port.Close(); err != nil {
+			return err
+		}
+		imu.port = nil
+	}
+
 	imu.logger.Debug("Closed wit motion imu")
+	return imu.lastError
 }

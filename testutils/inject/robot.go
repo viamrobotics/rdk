@@ -4,18 +4,24 @@ package inject
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/session"
 )
 
 // Robot is an injected robot.
@@ -34,17 +40,20 @@ type Robot struct {
 	CloseFunc               func(ctx context.Context) error
 	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	RefreshFunc             func(ctx context.Context) error
-	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error)
+	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPoseFunc       func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
-		additionalTransforms []*referenceframe.PoseInFrame,
+		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
-	StatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
+	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	ModuleAddressFunc       func() (string, error)
+	ModuleManagerFunc       func() modmaninterface.ModuleManager
 
 	ops     *operation.Manager
-	opsLock sync.Mutex
+	SessMgr session.Manager
 }
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
@@ -129,13 +138,22 @@ func (r *Robot) ProcessManager() pexec.ProcessManager {
 func (r *Robot) OperationManager() *operation.Manager {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	r.opsLock.Lock()
-	defer r.opsLock.Unlock()
 
 	if r.ops == nil {
 		r.ops = operation.NewManager(r.Logger())
 	}
 	return r.ops
+}
+
+// SessionManager calls the injected SessionManager or the real version.
+func (r *Robot) SessionManager() session.Manager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+
+	if r.SessMgr == nil {
+		return noopSessionManager{}
+	}
+	return r.SessMgr
 }
 
 // Config calls the injected Config or the real version.
@@ -191,7 +209,7 @@ func (r *Robot) Refresh(ctx context.Context) error {
 	return r.RefreshFunc(ctx)
 }
 
-// DiscoverComponents call the injected DiscoverComponents or the real one.
+// DiscoverComponents calls the injected DiscoverComponents or the real one.
 func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -202,7 +220,7 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) 
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
-func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.PoseInFrame) (framesystemparts.Parts, error) {
+func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.FrameSystemConfigFunc == nil {
@@ -217,7 +235,7 @@ func (r *Robot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.PoseInFrame,
+	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
@@ -225,6 +243,17 @@ func (r *Robot) TransformPose(
 		return r.LocalRobot.TransformPose(ctx, pose, dst, additionalTransforms)
 	}
 	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
+}
+
+// TransformPointCloud calls the injected TransformPointCloud or the real version.
+func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.TransformPointCloudFunc == nil {
+		return r.LocalRobot.TransformPointCloud(ctx, srcpc, srcName, dstName)
+	}
+	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
 }
 
 // Status call the injected Status or the real one.
@@ -235,4 +264,48 @@ func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]ro
 		return r.LocalRobot.Status(ctx, resourceNames)
 	}
 	return r.StatusFunc(ctx, resourceNames)
+}
+
+// ModuleAddress calls the injected ModuleAddress or the real one.
+func (r *Robot) ModuleAddress() (string, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleAddressFunc == nil {
+		return r.LocalRobot.ModuleAddress()
+	}
+	return r.ModuleAddressFunc()
+}
+
+// ModuleManager calls the injected ModuleManager or the real one.
+func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleManagerFunc == nil {
+		return r.LocalRobot.ModuleManager()
+	}
+	return r.ModuleManagerFunc()
+}
+
+type noopSessionManager struct{}
+
+func (m noopSessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+	return session.New(ownerID, peerConnInfo, time.Minute, nil), nil
+}
+
+func (m noopSessionManager) All() []*session.Session {
+	return nil
+}
+
+func (m noopSessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+	return nil, session.ErrNoSession
+}
+
+func (m noopSessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {
+}
+
+func (m noopSessionManager) Close() {
+}
+
+func (m noopSessionManager) ServerInterceptors() session.ServerInterceptors {
+	return session.ServerInterceptors{}
 }

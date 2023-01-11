@@ -30,7 +30,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &gpio.Config{
 							Pins: gpio.PinConfig{
@@ -45,7 +45,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -64,7 +64,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &gpio.Config{
 							Pins: gpio.PinConfig{
@@ -78,7 +78,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -97,7 +97,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &gpio.Config{
 							Pins: gpio.PinConfig{
@@ -110,7 +110,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -129,7 +129,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &gpio.Config{
 							Pins: gpio.PinConfig{
@@ -144,7 +144,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -214,7 +214,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: "arduino",
+				Model: model,
 				Type:  motor.SubtypeName,
 				ConvertedAttributes: &gpio.Config{
 					Pins: gpio.PinConfig{
@@ -228,7 +228,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 			},
 			{
 				Name:  "e1",
-				Model: "arduino",
+				Model: model,
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
@@ -274,7 +274,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: "arduino",
+				Model: model,
 				Type:  motor.SubtypeName,
 				ConvertedAttributes: &gpio.Config{
 					Pins: gpio.PinConfig{
@@ -287,7 +287,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 			},
 			{
 				Name:  "e1",
-				Model: "arduino",
+				Model: model,
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
@@ -333,7 +333,7 @@ func TestArduinoMotorAB(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: "arduino",
+				Model: model,
 				Type:  motor.SubtypeName,
 				ConvertedAttributes: &gpio.Config{
 					Pins: gpio.PinConfig{
@@ -346,7 +346,7 @@ func TestArduinoMotorAB(t *testing.T) {
 			},
 			{
 				Name:  "e1",
-				Model: "arduino",
+				Model: model,
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{

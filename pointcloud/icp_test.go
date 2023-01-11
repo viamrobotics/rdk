@@ -37,7 +37,7 @@ func TestICPRegistration(t *testing.T) {
 	sourceCloud, err := pointCloudFromArtifact(t, "pointcloud/bun045.pcd")
 	test.That(t, err, test.ShouldBeNil)
 
-	guess := spatialmath.NewPoseFromOrientation(
+	guess := spatialmath.NewPose(
 		r3.Vector{-60, 0, -10},
 		&spatialmath.EulerAngles{
 			Roll:  0,

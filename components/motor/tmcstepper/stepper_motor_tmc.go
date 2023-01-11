@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // PinConfig defines the mapping of where motor are wired.
@@ -42,6 +43,8 @@ type TMC5072Config struct {
 	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
+var modelname = resource.NewDefaultModel("TMC5072")
+
 // Validate ensures all parts of the config are valid.
 func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
@@ -64,20 +67,16 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-const (
-	modelname = "TMC5072"
-)
-
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), logger)
+			return NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf TMC5072Config
@@ -107,6 +106,7 @@ type Motor struct {
 	logger      golog.Logger
 	opMgr       operation.SingleOperationManager
 	powerPct    float64
+	motorName   string
 }
 
 // TMC5072 Values.
@@ -151,7 +151,9 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, name string,
+	logger golog.Logger,
+) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, errors.Errorf("%q is not a board", c.BoardName)
@@ -190,6 +192,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
 		logger:      logger,
+		motorName:   name,
 	}
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
@@ -389,7 +392,7 @@ func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "error in Position from motor (%s)", m.motorName)
 	}
 	return float64(rawPos) / float64(m.stepsPerRev), nil
 }
@@ -437,7 +440,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[str
 
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
 
 	var d int64 = 1
@@ -485,7 +488,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 		m.writeReg(ctx, xTarget, int32(positionRevolutions)),
 	)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -498,6 +501,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 // IsPowered returns true if the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
+	if err != nil {
+		return on, m.powerPct, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+	}
 	return on, m.powerPct, err
 }
 
@@ -505,7 +511,7 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 func (m *Motor) IsStopped(ctx context.Context) (bool, error) {
 	stat, err := m.readReg(ctx, rampStat)
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "error in IsStopped from motor (%s)", m.motorName)
 	}
 	// Look for vzero flag
 	return stat&0x400 == 0x400, nil
@@ -642,9 +648,9 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	on, _, err := m.IsPowered(ctx, extra)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
 	} else if on {
-		return errors.New("can't zero while moving")
+		return errors.Errorf("can't zero motor (%s) while moving", m.motorName)
 	}
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modeHold),

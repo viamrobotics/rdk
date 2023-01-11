@@ -2,8 +2,11 @@ package config_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -11,11 +14,14 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/rpc/oauth"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
@@ -39,8 +45,10 @@ func TestConfigRobot(t *testing.T) {
 
 	// test that gripper geometry is being added correctly
 	component := cfg.FindComponent("pieceGripper")
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
-	test.That(t, component.Frame.Geometry, test.ShouldResemble, bc)
+	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}), r3.Vector{1, 2, 3}, "")
+	newBc, err := component.Frame.Geometry.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newBc, test.ShouldResemble, bc)
 }
 
 func TestConfig3(t *testing.T) {
@@ -50,7 +58,8 @@ func TestConfig3(t *testing.T) {
 		Y string
 	}
 
-	config.RegisterComponentAttributeConverter("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
+	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "foo")
+	config.RegisterComponentAttributeConverter(subtype, resource.NewDefaultModel("eliot"), "bar", func(sub interface{}) (interface{}, error) {
 		t := &temp{}
 		err := mapstructure.Decode(sub, t)
 		return t, err
@@ -104,6 +113,11 @@ func TestConfig3(t *testing.T) {
 		},
 		BoardName: "board1",
 	})
+
+	test.That(t, cfg.Network.Sessions.HeartbeatWindow, test.ShouldEqual, 5*time.Second)
+	test.That(t, cfg.Remotes, test.ShouldHaveLength, 1)
+	test.That(t, cfg.Remotes[0].ConnectionCheckInterval, test.ShouldEqual, 12*time.Second)
+	test.That(t, cfg.Remotes[0].ReconnectInterval, test.ShouldEqual, 3*time.Second)
 }
 
 func TestCreateCloudRequest(t *testing.T) {
@@ -184,16 +198,37 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidComponents.Components[0].Name = "foo"
+	invalidComponents.Components[0] = config.Component{
+		Name:      "foo",
+		Namespace: "rdk",
+		Type:      "base",
+		Model:     fakeModel,
+	}
+
 	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
-	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
-	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
-	c3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
-	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1", Type: "base", Model: resource.NewDefaultModel("c1")}
+	c2 := config.Component{
+		Namespace: resource.ResourceNamespaceRDK, Name: "c2", Type: "base", Model: resource.NewDefaultModel("c2"),
+		DependsOn: []string{"c1"},
+	}
+	c3 := config.Component{
+		Namespace: resource.ResourceNamespaceRDK, Name: "c3", Type: "base", Model: resource.NewDefaultModel("c3"),
+		DependsOn: []string{"c1", "c2"},
+	}
+	c4 := config.Component{
+		Namespace: resource.ResourceNamespaceRDK, Name: "c4", Type: "base", Model: resource.NewDefaultModel("c4"),
+		DependsOn: []string{"c1", "c3"},
+	}
+	c5 := config.Component{
+		Namespace: resource.ResourceNamespaceRDK, Name: "c5", Type: "base", Model: resource.NewDefaultModel("c5"),
+		DependsOn: []string{"c2", "c4"},
+	}
+	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Type: "base", Name: "c6", Model: resource.NewDefaultModel("c6")}
+	c7 := config.Component{
+		Namespace: resource.ResourceNamespaceRDK, Name: "c7", Type: "base", Model: resource.NewDefaultModel("c7"),
+		DependsOn: []string{"c6", "c4"},
+	}
 	components := config.Config{
 		DisablePartialStart: true,
 		Components:          []config.Component{c7, c6, c5, c3, c4, c1, c2},
@@ -239,6 +274,24 @@ func TestConfigEnsure(t *testing.T) {
 
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = ""
+	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+
+	test.That(t, invalidNetwork.Network.Sessions.HeartbeatWindow, test.ShouldNotBeNil)
+	test.That(t, invalidNetwork.Network.Sessions.HeartbeatWindow, test.ShouldEqual, config.DefaultSessionHeartbeatWindow)
+
+	invalidNetwork.Network.Sessions.HeartbeatWindow = time.Millisecond
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
+
+	invalidNetwork.Network.Sessions.HeartbeatWindow = 2 * time.Minute
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
+
+	invalidNetwork.Network.Sessions.HeartbeatWindow = 10 * time.Millisecond
 	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
 
 	invalidNetwork.Network.BindAddress = "woop"
@@ -367,7 +420,6 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	err = invalidComponents.Ensure(false)
 	test.That(t, err, test.ShouldBeNil)
 	invalidComponents.Components[0].Name = "foo"
-	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
 	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
 	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
@@ -708,4 +760,204 @@ ph2C/7IgjA==
 		_, err := config.ProcessConfig(cfg, &config.TLSConfig{})
 		test.That(t, err, test.ShouldBeError, errors.New("tls: failed to find any PEM data in certificate input"))
 	})
+}
+
+func TestAuthConfigEnsure(t *testing.T) {
+	t.Run("unknown handler", func(t *testing.T) {
+		config := config.Config{
+			Auth: config.AuthConfig{
+				Handlers: []config.AuthHandlerConfig{
+					{
+						Type:   "some-type",
+						Config: config.AttributeMap{"key": "abc123"},
+					},
+				},
+			},
+		}
+
+		err := config.Ensure(true)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how to handle auth for \"some-type\"")
+	})
+
+	t.Run("api-key handler", func(t *testing.T) {
+		config := config.Config{
+			Auth: config.AuthConfig{
+				Handlers: []config.AuthHandlerConfig{
+					{
+						Type:   rpc.CredentialsTypeAPIKey,
+						Config: config.AttributeMap{"key": "abc123"},
+					},
+				},
+			},
+		}
+
+		err := config.Ensure(true)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("web-oauth handler with config specified", func(t *testing.T) {
+		config := config.Config{
+			Auth: config.AuthConfig{
+				Handlers: []config.AuthHandlerConfig{
+					{
+						Type:   oauth.CredentialsTypeOAuthWeb,
+						Config: config.AttributeMap{"key": "abc123"},
+					},
+				},
+			},
+		}
+
+		err := config.Ensure(true)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "config should be empty (use web_oauth_config)")
+	})
+
+	t.Run("web-oauth handler with missing WebOAuthConfig", func(t *testing.T) {
+		config := config.Config{
+			Auth: config.AuthConfig{
+				Handlers: []config.AuthHandlerConfig{
+					{
+						Type:   oauth.CredentialsTypeOAuthWeb,
+						Config: config.AttributeMap{},
+					},
+				},
+			},
+		}
+
+		err := config.Ensure(true)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "web_oauth_config is required for type")
+	})
+
+	t.Run("web-oauth handler with invalid keyset", func(t *testing.T) {
+		config := config.Config{
+			Auth: config.AuthConfig{
+				Handlers: []config.AuthHandlerConfig{
+					{
+						Type:   oauth.CredentialsTypeOAuthWeb,
+						Config: config.AttributeMap{},
+						WebOAuthConfig: &config.WebOAuthConfig{
+							AllowedAudiences: []string{"aud1"},
+						},
+					},
+				},
+			},
+		}
+
+		err := config.Ensure(true)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to parse jwks")
+	})
+
+	t.Run("web-oauth handler valid config", func(t *testing.T) {
+		algTypes := map[string]bool{
+			"RS256": true,
+			"RS384": true,
+			"RS512": true,
+		}
+
+		for alg := range algTypes {
+			keyset := jwk.NewSet()
+			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 256)
+			test.That(t, err, test.ShouldBeNil)
+			publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
+			test.That(t, err, test.ShouldBeNil)
+			publicKeyForWebAuth.Set("alg", alg)
+			publicKeyForWebAuth.Set(jwk.KeyIDKey, "key-id-1")
+			test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
+
+			config := config.Config{
+				Auth: config.AuthConfig{
+					Handlers: []config.AuthHandlerConfig{
+						{
+							Type:   oauth.CredentialsTypeOAuthWeb,
+							Config: config.AttributeMap{},
+							WebOAuthConfig: &config.WebOAuthConfig{
+								AllowedAudiences: []string{"aud1"},
+								JSONKeySet:       keysetToAttributeMap(t, keyset),
+							},
+						},
+					},
+				},
+			}
+
+			err = config.Ensure(true)
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, config.Auth.Handlers[0].WebOAuthConfig.ValidatedKeySet, test.ShouldNotBeNil)
+			_, ok := config.Auth.Handlers[0].WebOAuthConfig.ValidatedKeySet.LookupKeyID("key-id-1")
+			test.That(t, ok, test.ShouldBeTrue)
+		}
+	})
+
+	t.Run("web-oauth invalid alg type", func(t *testing.T) {
+		badTypes := []string{"invalid", "", "nil"} // nil is a special case and is not set.
+		for _, badType := range badTypes {
+			t.Run(fmt.Sprintf(" with %s", badType), func(t *testing.T) {
+				keyset := jwk.NewSet()
+				privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 256)
+				test.That(t, err, test.ShouldBeNil)
+				publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
+				test.That(t, err, test.ShouldBeNil)
+
+				if badType != "nil" {
+					publicKeyForWebAuth.Set("alg", badType)
+				}
+
+				publicKeyForWebAuth.Set(jwk.KeyIDKey, "key-id-1")
+				test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
+
+				config := config.Config{
+					Auth: config.AuthConfig{
+						Handlers: []config.AuthHandlerConfig{
+							{
+								Type:   oauth.CredentialsTypeOAuthWeb,
+								Config: config.AttributeMap{},
+								WebOAuthConfig: &config.WebOAuthConfig{
+									AllowedAudiences: []string{"aud1"},
+									JSONKeySet:       keysetToAttributeMap(t, keyset),
+								},
+							},
+						},
+					},
+				}
+
+				err = config.Ensure(true)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid alg")
+			})
+		}
+	})
+
+	t.Run("web-oauth handler no keys", func(t *testing.T) {
+		config := config.Config{
+			Auth: config.AuthConfig{
+				Handlers: []config.AuthHandlerConfig{
+					{
+						Type:   oauth.CredentialsTypeOAuthWeb,
+						Config: config.AttributeMap{},
+						WebOAuthConfig: &config.WebOAuthConfig{
+							AllowedAudiences: []string{"aud1"},
+							JSONKeySet:       keysetToAttributeMap(t, jwk.NewSet()),
+						},
+					},
+				},
+			},
+		}
+
+		err := config.Ensure(true)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must contain at least 1 key")
+	})
+}
+
+func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) config.AttributeMap {
+	t.Helper()
+
+	// hack around marshaling the KeySet into pb.Struct. Passing interface directly
+	// does not work.
+	jwksAsJSON, err := json.Marshal(keyset)
+	test.That(t, err, test.ShouldBeNil)
+
+	jwksAsInterface := config.AttributeMap{}
+	err = json.Unmarshal(jwksAsJSON, &jwksAsInterface)
+	test.That(t, err, test.ShouldBeNil)
+
+	return jwksAsInterface
 }

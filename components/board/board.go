@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -25,12 +26,12 @@ import (
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Board)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((*Board)(nil), actual)
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name, actual interface{}) error {
-	return utils.DependencyTypeError(name, (Board)(nil), actual)
+func DependencyTypeError(name string, actual interface{}) error {
+	return utils.DependencyTypeError(name, (*Board)(nil), actual)
 }
 
 func init() {
@@ -56,6 +57,14 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    Subtype,
+		MethodName: analogs.String(),
+	}, newAnalogCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    Subtype,
+		MethodName: gpios.String(),
+	}, newGPIOCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "board".

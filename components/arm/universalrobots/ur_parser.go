@@ -133,6 +133,14 @@ type ForceModeData struct {
 	RobotDexterity float64
 }
 
+// AdditionalInfo additional info from ur arm.
+type AdditionalInfo struct {
+	TpButtonState          byte
+	FreedriveButtonEnabled bool
+	IOEnabledFreedrive     bool
+	Reserved               byte
+}
+
 // RobotState TODO.
 type RobotState struct {
 	RobotModeData
@@ -142,6 +150,7 @@ type RobotState struct {
 	CartesianInfo
 	Kinematics []KinematicInfo
 	ForceModeData
+	AdditionalInfo
 	creationTime time.Time
 }
 
@@ -206,7 +215,9 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 				return state, err
 			}
 		case 8:
-			// Additional Info, skipping, don't think we need
+			if err := binary.Read(buffer, binary.BigEndian, &state.AdditionalInfo); err != nil && !errors.Is(err, io.EOF) {
+				return state, err
+			}
 		case 9:
 			// Calibration data, skipping, don't think we need
 		case 10:
