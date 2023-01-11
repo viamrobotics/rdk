@@ -142,10 +142,10 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	}
 
 	// TODO: add overflow check
-	maxX := math.Max(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
-	minX := math.Min(meanX-float64(sigmaLevel)*stdevX, meta.MinX)
-	maxZ := math.Max(meanZ+float64(sigmaLevel)*stdevZ, meta.MaxZ)
-	minZ := math.Min(meanZ+float64(sigmaLevel)*stdevZ, meta.MinZ)
+	maxX := math.Min(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
+	minX := math.Max(meanX-float64(sigmaLevel)*stdevX, meta.MinX)
+	maxZ := math.Min(meanZ+float64(sigmaLevel)*stdevZ, meta.MaxZ)
+	minZ := math.Max(meanZ+float64(sigmaLevel)*stdevZ, meta.MinZ)
 
 	// Change max and min values to ensure the robot marker is in the image
 	var robotMarker spatialmath.Pose
@@ -182,8 +182,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 
 	// Add robot marker to image
 	robotMarkerPoint := image.Point{
-		X: int(math.Round(robotMarker.Point().X * widthScaleFactor)),
-		Y: int(math.Round(robotMarker.Point().Z * heightScaleFactor)),
+		X: int(math.Round((robotMarker.Point().X - meta.MinX) * widthScaleFactor)),
+		Y: int(math.Round((robotMarker.Point().Z - meta.MinZ) * heightScaleFactor)),
 	}
 	robotMarkerColor := rimage.NewColor(255, 0, 0)
 
