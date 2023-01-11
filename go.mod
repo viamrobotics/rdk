@@ -19,7 +19,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20221007145811-7db9cb8e37f8
-	github.com/edaniels/gostream v0.0.0-20221205212507-0f3bbdcc651b
+	github.com/edaniels/gostream v0.0.0-20230110151222-0786fc09b473
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -74,7 +74,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.35
+	go.viam.com/api v0.1.43
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.1.6-0.20221221182443-100057239d4e

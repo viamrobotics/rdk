@@ -69,7 +69,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Debug(errors.Wrap(err, "Module config error, starting robot without remote: "+c.Modules[idx].Name))
+			golog.Global().Debug(errors.Wrap(err, "Module config error, starting robot without module: "+c.Modules[idx].Name))
 		}
 	}
 

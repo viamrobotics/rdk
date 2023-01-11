@@ -16,6 +16,9 @@ const (
 	// MimeTypeRawRGBALazy is a lazy MimeTypeRawRGBA.
 	MimeTypeRawRGBALazy = MimeTypeRawRGBA + "+" + MimeTypeSuffixLazy
 
+	// MimeTypeRawDepth is for depth images.
+	MimeTypeRawDepth = "image/vnd.viam.dep"
+
 	// MimeTypeJPEG is regular jpgs.
 	MimeTypeJPEG = "image/jpeg"
 
