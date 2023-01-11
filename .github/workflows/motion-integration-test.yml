@@ -38,4 +38,4 @@ jobs:
 
     - name: Run motion benchmark
       run: |
-        sudo -u testbot bash -lc 'cd motion-testing && ./compile.shcd && sudo go test ./... -v -run TestIntegration'
+        sudo -u testbot bash -lc 'cd motion-testing && ./compile.sh && sudo go test ./... -v -run TestIntegration'
