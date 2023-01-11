@@ -479,9 +479,6 @@ func (slamSvc *builtIn) GetMap(
 	if err != nil {
 		return "", nil, nil, err
 	}
-	reqPCMap := &pb.GetPointCloudMapRequest{
-		Name: name,
-	}
 
 	var imData image.Image
 	var vObj *vision.Object
@@ -490,6 +487,10 @@ func (slamSvc *builtIn) GetMap(
 	// the map will be removed and GetMap will be changed to GetPointCloudMap
 	if slamSvc.dev {
 		slamSvc.logger.Debug("IN DEV MODE (map request)")
+
+		reqPCMap := &pb.GetPointCloudMapRequest{
+			Name: name,
+		}
 
 		if mimeType != rdkutils.MimeTypePCD {
 			return "", nil, nil, errors.New("non-pcd return type is impossible in while in dev mode")
@@ -514,46 +515,48 @@ func (slamSvc *builtIn) GetMap(
 			return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")
 		}
 
-		return rdkutils.MimeTypePCD, imData, vObj, nil
-	}
+		mimeType = rdkutils.MimeTypePCD
+	} else {
 
-	req := &pb.GetMapRequest{
-		Name:               name,
-		MimeType:           mimeType,
-		CameraPosition:     cameraPosition,
-		IncludeRobotMarker: include,
-		Extra:              ext,
-	}
+		req := &pb.GetMapRequest{
+			Name:               name,
+			MimeType:           mimeType,
+			CameraPosition:     cameraPosition,
+			IncludeRobotMarker: include,
+			Extra:              ext,
+		}
 
-	resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
+		resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
 
-	if err != nil {
-		return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
-	}
-
-	switch mimeType {
-	case rdkutils.MimeTypeJPEG:
-		imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
 		if err != nil {
-			return "", nil, nil, errors.Wrap(err, "get map decode image failed")
-		}
-	case rdkutils.MimeTypePCD:
-		pointcloudData := resp.GetPointCloud()
-		if pointcloudData == nil {
-			return "", nil, nil, errors.New("get map read pointcloud unavailable")
-		}
-		pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData.PointCloud))
-		if err != nil {
-			return "", nil, nil, errors.Wrap(err, "get map read pointcloud failed")
+			return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
 		}
 
-		vObj, err = vision.NewObject(pc)
-		if err != nil {
-			return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")
+		switch mimeType {
+		case rdkutils.MimeTypeJPEG:
+			imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
+			if err != nil {
+				return "", nil, nil, errors.Wrap(err, "get map decode image failed")
+			}
+		case rdkutils.MimeTypePCD:
+			pointcloudData := resp.GetPointCloud()
+			if pointcloudData == nil {
+				return "", nil, nil, errors.New("get map read pointcloud unavailable")
+			}
+			pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData.PointCloud))
+			if err != nil {
+				return "", nil, nil, errors.Wrap(err, "get map read pointcloud failed")
+			}
+
+			vObj, err = vision.NewObject(pc)
+			if err != nil {
+				return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")
+			}
 		}
+		mimeType = resp.MimeType
 	}
 
-	return resp.MimeType, imData, vObj, nil
+	return mimeType, imData, vObj, nil
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
