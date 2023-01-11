@@ -343,11 +343,23 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 			if !ok {
 				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
 			}
+
 			err = intrinsics.CheckValid()
 			if err != nil {
 				return "", nil, err
 			}
+
+			props, err := cam.Properties(ctx)
+			if err != nil {
+				return "", nil, errors.Wrap(err, "error getting camera properties for slam service")
+			}
+
+			brownConrady, ok := props.DistortionParams.(*transform.BrownConrady)
+			if !ok || brownConrady == nil {
+				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported")
+			}
 		}
+
 		cams = append(cams, cam)
 
 		// If there is a second camera, it is expected to be depth.
