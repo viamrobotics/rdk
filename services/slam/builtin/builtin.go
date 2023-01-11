@@ -262,6 +262,7 @@ type AttrConfig struct {
 	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
+	Dev                 bool              `json:"dev"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -302,6 +303,8 @@ type builtIn struct {
 	port       string
 	dataRateMs int
 	mapRateSec int
+
+	dev bool
 
 	camStreams []gostream.VideoStream
 
@@ -412,20 +415,39 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.GetPositionRequest{Name: name, Extra: ext}
 
-	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting SLAM position")
+	var pInFrame *referenceframe.PoseInFrame
+	var returnedExt map[string]interface{}
+
+	// TODO: Once RSDK-1053 (https://viam.atlassian.net/browse/RSDK-1066) is complete the original code before extracting position
+	// from GetPosition will be removed and the GetPositionNew -> GetPosition
+	if slamSvc.dev {
+		slamSvc.logger.Debug("IN DEV MODE (position request)")
+		req := &pb.GetPositionNewRequest{Name: name}
+
+		resp, err := slamSvc.clientAlgo.GetPositionNew(ctx, req)
+		if err != nil {
+			return nil, errors.Wrap(err, "error getting SLAM position")
+		}
+
+		pInFrame = referenceframe.NewPoseInFrame(resp.GetComponentReference(), spatialmath.NewPoseFromProtobuf(resp.GetPose()))
+		returnedExt = resp.Extra.AsMap()
+
+	} else {
+		req := &pb.GetPositionRequest{Name: name, Extra: ext}
+
+		resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
+		if err != nil {
+			return nil, errors.Wrap(err, "error getting SLAM position")
+		}
+
+		pInFrame = referenceframe.ProtobufToPoseInFrame(resp.Pose)
+		returnedExt = resp.Extra.AsMap()
 	}
-
-	pInFrame := referenceframe.ProtobufToPoseInFrame(resp.Pose)
 
 	// TODO DATA-531: https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-531
 	// Remove extraction and conversion of quaternion from the extra field in the response once the Rust
 	// spatial math library is available and the desired math can be implemented on the orbSLAM side
-	returnedExt := resp.Extra.AsMap()
-
 	if val, ok := returnedExt["quat"]; ok {
 		q := val.(map[string]interface{})
 
@@ -469,34 +491,33 @@ func (slamSvc *builtIn) GetMap(
 	if err != nil {
 		return "", nil, nil, err
 	}
-	req := &pb.GetMapRequest{
-		Name:               name,
-		MimeType:           mimeType,
-		CameraPosition:     cameraPosition,
-		IncludeRobotMarker: include,
-		Extra:              ext,
-	}
 
 	var imData image.Image
 	var vObj *vision.Object
 
-	resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
-	if err != nil {
-		return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
-	}
+	// TODO: Once RSDK-1053 (https://viam.atlassian.net/browse/RSDK-1066) is complete the original code that extracts
+	// the map will be removed and GetMap will be changed to GetPointCloudMap
+	if slamSvc.dev {
+		slamSvc.logger.Debug("IN DEV MODE (map request)")
 
-	switch mimeType {
-	case rdkutils.MimeTypeJPEG:
-		imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
-		if err != nil {
-			return "", nil, nil, errors.Wrap(err, "get map decode image failed")
+		reqPCMap := &pb.GetPointCloudMapRequest{
+			Name: name,
 		}
-	case rdkutils.MimeTypePCD:
-		pointcloudData := resp.GetPointCloud()
+
+		if mimeType != rdkutils.MimeTypePCD {
+			return "", nil, nil, errors.New("non-pcd return type is impossible in while in dev mode")
+		}
+
+		resp, err := slamSvc.clientAlgo.GetPointCloudMap(ctx, reqPCMap)
+
+		if err != nil {
+			return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
+		}
+		pointcloudData := resp.GetPointCloudPcd()
 		if pointcloudData == nil {
 			return "", nil, nil, errors.New("get map read pointcloud unavailable")
 		}
-		pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData.PointCloud))
+		pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData))
 		if err != nil {
 			return "", nil, nil, errors.Wrap(err, "get map read pointcloud failed")
 		}
@@ -505,9 +526,49 @@ func (slamSvc *builtIn) GetMap(
 		if err != nil {
 			return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")
 		}
+
+		mimeType = rdkutils.MimeTypePCD
+	} else {
+
+		req := &pb.GetMapRequest{
+			Name:               name,
+			MimeType:           mimeType,
+			CameraPosition:     cameraPosition,
+			IncludeRobotMarker: include,
+			Extra:              ext,
+		}
+
+		resp, err := slamSvc.clientAlgo.GetMap(ctx, req)
+
+		if err != nil {
+			return "", imData, vObj, errors.Errorf("error getting SLAM map (%v) : %v", mimeType, err)
+		}
+
+		switch mimeType {
+		case rdkutils.MimeTypeJPEG:
+			imData, err = jpeg.Decode(bytes.NewReader(resp.GetImage()))
+			if err != nil {
+				return "", nil, nil, errors.Wrap(err, "get map decode image failed")
+			}
+		case rdkutils.MimeTypePCD:
+			pointcloudData := resp.GetPointCloud()
+			if pointcloudData == nil {
+				return "", nil, nil, errors.New("get map read pointcloud unavailable")
+			}
+			pc, err := pc.ReadPCD(bytes.NewReader(pointcloudData.PointCloud))
+			if err != nil {
+				return "", nil, nil, errors.Wrap(err, "get map read pointcloud failed")
+			}
+
+			vObj, err = vision.NewObject(pc)
+			if err != nil {
+				return "", nil, nil, errors.Wrap(err, "get map creating vision object failed")
+			}
+		}
+		mimeType = resp.MimeType
 	}
 
-	return resp.MimeType, imData, vObj, nil
+	return mimeType, imData, vObj, nil
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
@@ -587,6 +648,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		cancelFunc:            cancelFunc,
 		logger:                logger,
 		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
+		dev:                   svcConfig.Dev,
 	}
 
 	var success bool
