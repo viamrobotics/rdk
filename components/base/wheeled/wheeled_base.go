@@ -207,7 +207,6 @@ func (base *wheeledBase) createModelFrame(baseName string, widthMM int) (referen
 func (base *wheeledBase) Spin(
 	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
 ) error {
-
 	switch {
 	case base.orientationSensor != nil && base.orienationSupported:
 		base.logger.Debug("spinning with movement sensor")
@@ -333,7 +332,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
-// nolint: unused
+//nolint: unused
 func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -346,7 +345,7 @@ func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower 
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		errors.Wrap(err, "error in runInParallel in setPowerAll")
+		err = errors.Wrap(err, "error in runInParallel in setPowerAll")
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
@@ -366,7 +365,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		errors.Wrap(err, "error in runInParallel in runAll")
+		err = errors.Wrap(err, "error in runInParallel in runAll")
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
