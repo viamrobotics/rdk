@@ -407,6 +407,8 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 	var pInFrame *referenceframe.PoseInFrame
 	var returnedExt map[string]interface{}
 
+	// TODO: Once RSDK-1053 (https://viam.atlassian.net/browse/RSDK-1066) is complete the original code before extracting position
+	// from GetPosition will be removed and the GetPositionNew -> GetPosition
 	if slamSvc.dev {
 		slamSvc.logger.Debug("IN DEV MODE (position request)")
 		req := &pb.GetPositionNewRequest{Name: name}
@@ -418,9 +420,6 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 
 		pInFrame = referenceframe.NewPoseInFrame(resp.GetComponentReference(), spatialmath.NewPoseFromProtobuf(resp.GetPose()))
 		returnedExt = resp.Extra.AsMap()
-
-		// TODO: Once RSDK-1053 (https://viam.atlassian.net/browse/RSDK-1066) is complete the original code before extracting position
-		// from GetPosition will be removed and the GetPositionNew -> GetPosition
 
 	} else {
 		req := &pb.GetPositionRequest{Name: name, Extra: ext}
@@ -487,8 +486,14 @@ func (slamSvc *builtIn) GetMap(
 	var imData image.Image
 	var vObj *vision.Object
 
+	// TODO: Once RSDK-1053 (https://viam.atlassian.net/browse/RSDK-1066) is complete the original code that extracts
+	// the map will be removed and GetMap will be changed to GetPointCloudMap
 	if slamSvc.dev {
 		slamSvc.logger.Debug("IN DEV MODE (map request)")
+
+		if mimeType != rdkutils.MimeTypePCD {
+			return "", nil, nil, errors.New("non-pcd return type is impossible in while in dev mode")
+		}
 
 		resp, err := slamSvc.clientAlgo.GetPointCloudMap(ctx, reqPCMap)
 
@@ -510,9 +515,6 @@ func (slamSvc *builtIn) GetMap(
 		}
 
 		return rdkutils.MimeTypePCD, imData, vObj, nil
-
-		// TODO: Once RSDK-1053 (https://viam.atlassian.net/browse/RSDK-1066) is complete the original code that extracts
-		// the map will be removed and GetMap will be changed to GetPointCloudMap
 	}
 
 	req := &pb.GetMapRequest{
