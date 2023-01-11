@@ -113,7 +113,7 @@ var (
 	imageWidth    = 480
 	missThreshold = 0.44
 	hitThreshold  = 0.53
-	voxelSize     = 1
+	voxelSize     = 2
 )
 
 // PointCloudToRGBD assumes the x,y coordinates are the same as the x,y pixels.
@@ -236,10 +236,14 @@ func calculateMeanAndStandardDeviation(data []float64) (float64, float64, error)
 }
 
 func addVoxelToImage(im *rimage.Image, p image.Point, color rimage.Color, vSize int) {
-	for _, i := range []int{-vSize / 2, vSize / 2} {
-		for _, j := range []int{-vSize / 2, vSize / 2} {
-			if p.X+i < 0 || p.X+i >= imageWidth || p.Y+j < 0 || p.Y+j >= imageHeight {
-				im.Set(p, color)
+	fmt.Printf("i bounds: %v | %v\n", int(-vSize/2), int(vSize/2))
+	for i := int(-vSize / 2); i <= int(vSize/2); i++ {
+		//fmt.Printf("------ %v\n", i)
+		for j := int(-vSize / 2); j <= int(vSize/2); j++ {
+			if p.X+i >= 0 && p.X+i < imageWidth && p.Y+j >= 0 && p.Y+j < imageHeight {
+
+				fmt.Printf("x: %v | y: %v bounds: %v | %v \n", p.X+i, p.Y+j, imageWidth, imageHeight)
+				im.Set(image.Point{p.X + i, p.Y + j}, color)
 			}
 		}
 	}
