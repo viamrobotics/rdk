@@ -118,6 +118,8 @@ type cameramono struct {
 	logger                  golog.Logger
 	result                  result
 	stream                  gostream.VideoStream
+	mu                      sync.RWMutex
+	errMu                   sync.RWMutex
 	lastErr                 error
 }
 
@@ -164,10 +166,20 @@ func newCameraMono(
 			trackedOrient: spatialmath.NewOrientationVector(),
 		},
 	}
+
 	co.stream = gostream.NewEmbeddedVideoStream(cam)
-	co.lastErr = co.backgroundWorker(co.stream, conf.MotionConfig)
+
+	err = co.backgroundWorker(co.stream, conf.MotionConfig)
+	co.setLastError(err)
 
 	return co, co.lastErr
+}
+
+func (co *cameramono) setLastError(err error) {
+	co.errMu.Lock()
+	defer co.errMu.Unlock()
+
+	co.lastErr = err
 }
 
 func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometry.MotionEstimationConfig) error {
@@ -177,14 +189,14 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 		sT := time.Now()
 		sImg, _, err := stream.Next(co.cancelCtx)
 		if err != nil && errors.Is(err, context.Canceled) {
-			co.lastErr = err
+			co.setLastError(err)
 			return
 		}
 		for {
 			eT := time.Now()
 			eImg, _, err := stream.Next(co.cancelCtx)
 			if err != nil {
-				co.lastErr = err
+				co.setLastError(err)
 				return
 			}
 
@@ -193,7 +205,7 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 			if moreThanZero {
 				co.motion, err = co.extractMovementFromOdometer(rimage.ConvertImage(sImg), rimage.ConvertImage(eImg), dt, cfg)
 				if err != nil {
-					co.lastErr = err
+					co.setLastError(err)
 					co.logger.Error(err)
 					continue
 				}
@@ -236,6 +248,9 @@ func (co *cameramono) extractMovementFromOdometer(
 	if err != nil {
 		return nil, err
 	}
+
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().LeftMatMul(*rotMat)
 	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(co.motion))
 	co.result.linVel = calculateLinVel(motion, dt)
@@ -255,16 +270,21 @@ func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 func (co *cameramono) Close() {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
-	co.lastErr = co.stream.Close(co.cancelCtx)
+	err := co.stream.Close(co.cancelCtx)
+	co.setLastError(err)
 }
 
 // Position gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	return geo.NewPoint(co.result.trackedPos.X, co.result.trackedPos.Y), co.result.trackedPos.Z, nil
 }
 
 // Oritentation gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	return co.result.trackedOrient, nil
 }
 
@@ -275,6 +295,8 @@ func (co *cameramono) Readings(ctx context.Context, extra map[string]interface{}
 
 // LinearVelocity gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	return co.result.linVel, nil
 }
 
@@ -284,6 +306,8 @@ func (co *cameramono) LinearAcceleration(ctx context.Context, extra map[string]i
 
 // AngularVelocity gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	return co.result.angVel, nil
 }
 
@@ -322,7 +346,9 @@ func (co *cameramono) Accuracy(ctx context.Context, extra map[string]interface{}
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
-// COmpassHeadings gets the position of the moving object calculated by visual odometry.
+// CompassHeadings gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	co.mu.RLock()
+	defer co.mu.RUnlock()
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
