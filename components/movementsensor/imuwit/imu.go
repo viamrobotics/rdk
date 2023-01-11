@@ -200,7 +200,14 @@ func NewWit(
 
 	portReader := bufio.NewReader(port)
 
+	i.startUpdateLoop(ctx, port, portReader, logger)
+
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
+
+	return &i, nil
+}
+
+func (i *wit) startUpdateLoop(ctx context.Context, port io.ReadWriteCloser, portReader *bufio.Reader, logger golog.Logger) {
 	i.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
@@ -225,7 +232,7 @@ func NewWit(
 
 			line, err := portReader.ReadString('U')
 			if err != nil {
-				i.logger.Errorf("err in line %#v", err)
+				i.logger.Errorf("error reading line from port %#v", err)
 			}
 
 			// Randomly sample logging until we have better log level control
@@ -243,7 +250,7 @@ func NewWit(
 					logger.Error(i.lastError)
 				} else {
 					if len(line) != 11 {
-						// logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
+						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
 						i.numBadReadings++
 						return
 					}
@@ -252,7 +259,7 @@ func NewWit(
 			}()
 		}
 	})
-	return &i, nil
+
 }
 
 func scale(a, b byte, r float64) float64 {
