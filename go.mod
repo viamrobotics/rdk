@@ -378,3 +378,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
+
+replace periph.io/x/host/v3 => github.com/viamrobotics/periphio_host/v3 v3.0.0-20230111172100-897eea2b4261
