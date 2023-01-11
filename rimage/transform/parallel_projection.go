@@ -83,7 +83,7 @@ func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*ri
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := pt.X - meta.MinX
 		i := pt.Y - meta.MinY
-		x, y := int(math.Round(j)), int(math.Round(i))
+		x, y := int(math.Round(i)), int(math.Round(j))
 		z := int(pt.Z)
 		// if point has color and is inside the RGB image bounds, add it to the images
 		if x >= 0 && x < width && y >= 0 && y < height && data != nil && data.HasColor() {
@@ -109,11 +109,11 @@ type ParallelProjectionOntoXZWithRobotMarker struct {
 
 var (
 	sigmaLevel    = 7
-	imageHeight   = 300
-	imageWidth    = 480
+	imageHeight   = 1080
+	imageWidth    = 1080
 	missThreshold = 0.44
 	hitThreshold  = 0.53
-	voxelSize     = 2
+	voxelSize     = 1
 )
 
 // PointCloudToRGBD assumes the x,y coordinates are the same as the x,y pixels.
@@ -145,7 +145,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	maxX := math.Min(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
 	minX := math.Max(meanX-float64(sigmaLevel)*stdevX, meta.MinX)
 	maxZ := math.Min(meanZ+float64(sigmaLevel)*stdevZ, meta.MaxZ)
-	minZ := math.Max(meanZ+float64(sigmaLevel)*stdevZ, meta.MinZ)
+	minZ := math.Max(meanZ-float64(sigmaLevel)*stdevZ, meta.MinZ)
 
 	// Change max and min values to ensure the robot marker is in the image
 	var robotMarker spatialmath.Pose
@@ -187,7 +187,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	}
 	robotMarkerColor := rimage.NewColor(255, 0, 0)
 
-	addVoxelToImage(color, robotMarkerPoint, robotMarkerColor, voxelSize)
+	addVoxelToImage(color, robotMarkerPoint, robotMarkerColor, voxelSize*5)
 
 	return color, nil, nil
 }
