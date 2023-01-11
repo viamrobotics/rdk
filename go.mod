@@ -90,7 +90,7 @@ require (
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/gotestsum v1.8.2
-	periph.io/x/conn/v3 v3.6.10
+	periph.io/x/conn/v3 v3.7.0
 	periph.io/x/host/v3 v3.7.2
 )
 
@@ -222,7 +222,7 @@ require (
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/jonboulle/clockwork v0.2.2 // indirect
+	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/kisielk/errcheck v1.6.2 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
