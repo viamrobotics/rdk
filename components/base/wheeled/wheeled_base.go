@@ -207,63 +207,16 @@ func (base *wheeledBase) createModelFrame(baseName string, widthMM int) (referen
 func (base *wheeledBase) Spin(
 	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
 ) error {
-	revs, wheelrpm := base.spinMath(angleDeg, degsPerSec)
 
 	switch {
 	case base.orientationSensor != nil && base.orienationSupported:
 		base.logger.Debug("spinning with movement sensor")
+		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
 
-		startYaw, err := getCurrentYaw(ctx, base.movementSensor[0], extra)
-		if err != nil {
-			base.logger.Errorf("error: %#v", err)
-			return err
-		}
-		targetYaw := startYaw + angleDeg
-		currYaw := startYaw
-		base.activeBackgroundWorkers.Add(1)
-		utils.ManagedGo(func() {
-			for {
-				select {
-				case <-ctx.Done():
-					base.logger.Debugf("second cancelled context hit %#v", ctx.Err())
-					return
-				default:
-				}
-				errAngle := targetYaw - currYaw
-				errAngle = calculatedDomainLimitedAngleError(targetYaw, currYaw)
-				timeLeft := (angleDeg - currYaw) / degsPerSec // magic number
-				// runAll calls GoFor, which has a necessary terminating condition of rotations reached
-				// the base starts and stop with incremental revolutions
-				revIncrement := math.Abs(revs * timeLeft / 10) // figure out magic number
-				// poll the sensor for the current error in angle
-				if math.Abs(errAngle) < 5 {
-					base.logger.Debug("less than five degrees away from target, stopping")
-					if err := base.Stop(ctx, nil); err != nil {
-						base.logger.Debugf("error is base stop %#v", err)
-						return
-					}
-					break
-				}
-				base.logger.Debugf("errorAngle:%.2f", errAngle)
-				if err := base.runAll(ctx, -wheelrpm, revIncrement, wheelrpm, revIncrement); err != nil {
-					base.logger.Errorf("error: %#v", err)
-					return
-				}
-				// update yaw angle
-				newYaw, err := getCurrentYaw(ctx, base.movementSensor[0], extra)
-				if err != nil {
-					base.logger.Errorf("error: %#v", err)
-					return
-				}
-				currYaw = newYaw
-				base.logger.Debugf("updating currentYaw:%.2f", currYaw)
-			}
-		}, base.activeBackgroundWorkers.Done)
 	default:
 		base.logger.Debug("spinning without movement sensors")
 		return base.spinWithoutMovementSensor(ctx, angleDeg, degsPerSec)
 	}
-	return nil
 }
 
 func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
@@ -273,6 +226,58 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 		return 0, err
 	}
 	return rdkutils.RadToDeg(orientation.EulerAngles().Yaw), nil
+}
+
+func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	revs, wheelrpm := base.spinMath(angleDeg, degsPerSec)
+
+	startYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra)
+	if err != nil {
+		base.logger.Errorf("error: %#v", err)
+		return err
+	}
+	targetYaw := startYaw + angleDeg
+	currYaw := startYaw
+	base.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				base.logger.Debugf("second cancelled context hit %#v", ctx.Err())
+				return
+			default:
+			}
+			errAngle := targetYaw - currYaw
+			errAngle = calculatedDomainLimitedAngleError(targetYaw, currYaw)
+			timeLeft := (angleDeg - currYaw) / degsPerSec // magic number
+			// runAll calls GoFor, which has a necessary terminating condition of rotations reached
+			// the base starts and stop with incremental revolutions
+			revIncrement := math.Abs(revs * timeLeft / 10) // figure out magic number
+			// poll the sensor for the current error in angle
+			if math.Abs(errAngle) < 5 {
+				base.logger.Debug("less than five degrees away from target, stopping")
+				if err := base.Stop(ctx, nil); err != nil {
+					base.logger.Debugf("error is base stop %#v", err)
+					return
+				}
+				break
+			}
+			base.logger.Debugf("errorAngle:%.2f", errAngle)
+			if err := base.runAll(ctx, -wheelrpm, revIncrement, wheelrpm, revIncrement); err != nil {
+				base.logger.Errorf("error: %#v", err)
+				return
+			}
+			// update yaw angle
+			newYaw, err := getCurrentYaw(ctx, base.movementSensor[0], extra)
+			if err != nil {
+				base.logger.Errorf("error: %#v", err)
+				return
+			}
+			currYaw = newYaw
+			base.logger.Debugf("updating currentYaw:%.2f", currYaw)
+		}
+	}, base.activeBackgroundWorkers.Done)
+	return nil
 }
 
 func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg, degsPerSec float64) error {
@@ -328,7 +333,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
-//nolint: unused
+// nolint: unused
 func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -341,6 +346,7 @@ func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower 
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+		errors.Wrap(err, "error in runInParallel in setPowerAll")
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
@@ -360,7 +366,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		base.logger.Debug("error in run in parallel %#v:", err)
+		errors.Wrap(err, "error in runInParallel in runAll")
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
