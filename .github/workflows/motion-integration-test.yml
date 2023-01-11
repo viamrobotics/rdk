@@ -36,7 +36,7 @@ jobs:
         ref: upgrade-rdk
         path: motion-testing
 
-    - name: Run motion quality tests on old version of RDK
+    - name: Run motion quality tests on main branch
       run: |
         cd motion-testing
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
@@ -44,8 +44,9 @@ jobs:
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestIntegration'
 
-    - name: Run motion quality tests on new version of RDK
+    - name: Run motion quality tests on PR branch
       run: |
+        cd motion-testing
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
