@@ -5,6 +5,7 @@ package imuwit
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
@@ -209,17 +210,13 @@ func NewWit(
 		for {
 			select {
 			case <-ctx.Done():
-				// i.logger.Debug("imu context cancelled")
 				return
 			default:
-				// i.logger.Debug("default")
 			}
 			select {
 			case <-ctx.Done():
-				// i.logger.Debug("done context cancelled")
 				return
 			case <-timer.C:
-				// i.logger.Debug("I am in timer case")
 			}
 
 			if ctx.Err() != nil {
@@ -234,7 +231,7 @@ func NewWit(
 			// Randomly sample logging until we have better log level control
 			//nolint:gosec
 			if rand.Intn(100) < 3 {
-				// logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
 
 			func() {

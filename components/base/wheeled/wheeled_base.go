@@ -79,7 +79,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
+			return createWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), config.Name, logger)
 		},
 	}
 
@@ -112,21 +112,20 @@ type wheeledBase struct {
 	model  referenceframe.Model
 
 	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
-	cancelFunc              func()
 }
 
 // createWheeledBase returns a new wheeled base defined by the given config.
 func createWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config *Config,
+	cfg *Config,
+	baseName string,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
 	base := &wheeledBase{
-		widthMm:              config.WidthMM,
-		wheelCircumferenceMm: config.WheelCircumferenceMM,
-		spinSlipFactor:       config.SpinSlipFactor,
+		widthMm:              cfg.WidthMM,
+		wheelCircumferenceMm: cfg.WheelCircumferenceMM,
+		spinSlipFactor:       cfg.SpinSlipFactor,
 		logger:               logger,
 	}
 
@@ -134,40 +133,40 @@ func createWheeledBase(
 		base.spinSlipFactor = 1
 	}
 
-	for _, name := range config.Left {
+	for _, name := range cfg.Left {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
 		}
 		positionReporting, err := m.Properties(ctx, nil)
-		if positionReporting["PositonReporting"] {
+		if positionReporting["PositonReporting"] && err == nil {
 			base.logger.Debugf("have encoders on motor %#v", m)
 		}
 		base.logger.Debug("no encoders found on left motors")
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range config.Right {
+	for _, name := range cfg.Right {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
 		}
 		positionReporting, err := m.Properties(ctx, nil)
-		if positionReporting["PositonReporting"] {
+		if positionReporting["PositonReporting"] && err == nil {
 			base.logger.Debugf("have encoders on motor %#v", m)
 		}
 		base.logger.Debug("no encoders found on right motors")
 		base.right = append(base.right, m)
 	}
 
-	for _, msName := range config.MovementSensor {
+	for _, msName := range cfg.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
 		}
 		base.movementSensor = append(base.movementSensor, ms)
 		props, err := ms.Properties(ctx, nil)
-		if props.OrientationSupported {
+		if props.OrientationSupported && err == nil {
 			base.orienationSupported = props.OrientationSupported
 			base.orientationSensor = ms
 		}
@@ -175,6 +174,12 @@ func createWheeledBase(
 
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)
+
+	var err error
+	base.model, err = base.createModelFrame(baseName, cfg.WidthMM)
+	if err != nil {
+		logger.Error("error creating base model, check that a name for the base and width are provided in the configuration")
+	}
 
 	return base, nil
 }
@@ -203,11 +208,11 @@ func (base *wheeledBase) Spin(
 	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
 ) error {
 	revs, wheelrpm := base.spinMath(angleDeg, degsPerSec)
-	var errors error
 
 	switch {
 	case base.orientationSensor != nil && base.orienationSupported:
 		base.logger.Debug("spinning with movement sensor")
+
 		startYaw, err := getCurrentYaw(ctx, base.movementSensor[0], extra)
 		if err != nil {
 			base.logger.Errorf("error: %#v", err)
@@ -215,43 +220,45 @@ func (base *wheeledBase) Spin(
 		}
 		targetYaw := startYaw + angleDeg
 		currYaw := startYaw
-		for {
-			select {
-			case <-ctx.Done():
-				base.logger.Debugf("second cancelled context hit %#v", ctx.Err())
-				return nil
-			default:
-			}
-			errAngle := targetYaw - currYaw
-			timeLeft := (angleDeg - currYaw) / degsPerSec // magic number
-			// runAll calls GoFor, which has a necessary terminating condition of rotations reached
-			// the base starts and stop with incremental revolutions
-			revIncrement := math.Abs(revs * timeLeft / 10) // figure out magic number
-			// poll the sensor for the current error in angle
-			if math.Abs(errAngle) < 5 {
-				base.logger.Debug("less than five degrees away from target, stopping")
-				if err := base.Stop(ctx, nil); err != nil {
-					base.logger.Debugf("error is base stop %#v", err)
-					return err
+		base.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(func() {
+			for {
+				select {
+				case <-ctx.Done():
+					base.logger.Debugf("second cancelled context hit %#v", ctx.Err())
+					return
+				default:
 				}
-				break
+				errAngle := targetYaw - currYaw
+				errAngle = calculatedDomainLimitedAngleError(targetYaw, currYaw)
+				timeLeft := (angleDeg - currYaw) / degsPerSec // magic number
+				// runAll calls GoFor, which has a necessary terminating condition of rotations reached
+				// the base starts and stop with incremental revolutions
+				revIncrement := math.Abs(revs * timeLeft / 10) // figure out magic number
+				// poll the sensor for the current error in angle
+				if math.Abs(errAngle) < 5 {
+					base.logger.Debug("less than five degrees away from target, stopping")
+					if err := base.Stop(ctx, nil); err != nil {
+						base.logger.Debugf("error is base stop %#v", err)
+						return
+					}
+					break
+				}
+				base.logger.Debugf("errorAngle:%.2f", errAngle)
+				if err := base.runAll(ctx, -wheelrpm, revIncrement, wheelrpm, revIncrement); err != nil {
+					base.logger.Errorf("error: %#v", err)
+					return
+				}
+				// update yaw angle
+				newYaw, err := getCurrentYaw(ctx, base.movementSensor[0], extra)
+				if err != nil {
+					base.logger.Errorf("error: %#v", err)
+					return
+				}
+				currYaw = newYaw
+				base.logger.Debugf("updating currentYaw:%.2f", currYaw)
 			}
-			base.logger.Debugf("errorAngle:%.2f", errAngle)
-			if err := base.runAll(ctx, wheelrpm, revIncrement, -wheelrpm, revIncrement); err != nil {
-				base.logger.Errorf("error: %#v", err)
-				errors = multierr.Combine(errors, err)
-				return err
-			}
-			// update yaw angle
-			newYaw, err := getCurrentYaw(ctx, base.movementSensor[0], extra)
-			if err != nil {
-				base.logger.Errorf("error: %#v", err)
-				errors = multierr.Combine(errors, err)
-				return err
-			}
-			currYaw = newYaw
-			base.logger.Debugf("updating currentYaw:%.2f", currYaw)
-		}
+		}, base.activeBackgroundWorkers.Done)
 	default:
 		base.logger.Debug("spinning without movement sensors")
 		return base.spinWithoutMovementSensor(ctx, angleDeg, degsPerSec)
@@ -280,7 +287,12 @@ func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
-	return base.runAll(ctx, rpm, revolutions, -rpm, revolutions)
+	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
+}
+
+func calculatedDomainLimitedAngleError(heading, bearing float64) float64 {
+	calucaltedAngle := math.Mod((heading-bearing+540), 360) - 180
+	return calucaltedAngle
 }
 
 // returns rpm, revolutions for a spin motion.
@@ -313,9 +325,10 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	// Straight math
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
 
-	return base.runAll(ctx, rpm, rotations, rpm, rotations)
+	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
+//nolint: unused
 func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -335,11 +348,9 @@ func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower 
 
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
-	// base.logger.Debugf(
-	// 	"running all with leftRPM:%.2f , leftRotations:%.2f rightRPM:%.2f, rightRotiations: %.2f",
-	// 	leftRPM, leftRotations, rightRPM, rightRotations,
-	// )
 
+	// a right handed frame system is maintained if positive angle yields positive rightRPM and negative leftPRM
+	// in this function, assuming the motors are configured to have positive power drive the base forwards
 	for _, m := range base.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
@@ -348,7 +359,6 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
-	// base.logger.Debug("running in parallel")
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
 		base.logger.Debug("error in run in parallel %#v:", err)
 		return multierr.Combine(err, base.Stop(ctx, nil))
