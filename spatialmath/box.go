@@ -387,13 +387,14 @@ func lessThan(orEquals bool, v1, v2 float64) bool {
 // transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
 func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	var transformedVectors []r3.Vector
+	// create pose for a vector at origin from the desired orientation
+	originWithPose := NewPoseFromOrientation(pose.Orientation())
+	// point at specified offset with (0,0,0,1) axis angles
+	identityPose := NewPoseFromPoint(pose.Point())
+	// point at specified offset with desired orientation
+	offsetBy := Compose(identityPose, originWithPose)
 	for i := range facePoints {
-		// create pose for a vector at origin from the desired orientation
-		originWithPose := NewPoseFromOrientation(pose.Orientation())
-		// create the desired pose for points[i]
-		pointPose := Compose(originWithPose, NewPoseFromPoint(facePoints[i]))
-		// translate the vector to the desired position
-		transformedVec := Compose(NewPoseFromPoint(pose.Point()), pointPose).Point()
+		transformedVec := Compose(offsetBy, NewPoseFromPoint(facePoints[i])).Point()
 		transformedVectors = append(transformedVectors, transformedVec)
 	}
 	return transformedVectors
