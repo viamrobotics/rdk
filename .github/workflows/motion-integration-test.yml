@@ -29,7 +29,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
-    - name: Check out code in motion-testing directory
+    - name: Check out code in motion-testing repository
       uses: actions/checkout@v3
       with:
         repository: viamrobotics/motion-testing
@@ -42,7 +42,7 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}"
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}"
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
-        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestIntegration'
+        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault'
 
     - name: Check results.csv
       run: |
@@ -56,7 +56,7 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.head.sha }}"
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.head.ref }}"
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
-        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestIntegration'
+        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault'
         
     - name: Check results.csv
       run: |
