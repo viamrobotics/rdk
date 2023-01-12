@@ -112,38 +112,37 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex gap-2">
+  <div
+    ref="root"
+  >
     <v-switch
       :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
       class="pr-4"
       :value="isActive ? 'on' : 'off'"
-      @input="toggleKeyboard($event.target.value === 'on')"
+      @input="toggleKeyboard($event.detail.value)"
     />
-  </div>
-  <div
-    ref="root"
-    class="flex gap-2"
-  >
-    <div
-      v-for="(lineKeys, index) in keysLayout"
-      :key="index"
-      class="my-1 flex flex-col self-end gap-2"
-    >
-      <button
-        v-for="key in lineKeys"
-        :key="key"
-        class="flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none"
-        :class="{
-          'bg-gray-200 text-gray-800': pressedKeys[key],
-          'bg-white': !pressedKeys[key],
-        }"
-        @pointerdown="handlePointerDown(key)"
-        @pointerup="handlePointerUp(key)"
-        @pointerleave="handlePointerUp(key)"
+    <div class="flex gap-2">
+      <div
+        v-for="(lineKeys, index) in keysLayout"
+        :key="index"
+        class="my-1 flex flex-col self-end gap-2"
       >
-        {{ key.toUpperCase() }}
-        <Icon :path="keyIcons[key]" />
-      </button>
+        <button
+          v-for="key in lineKeys"
+          :key="key"
+          class="flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none"
+          :class="{
+            'bg-gray-200 text-gray-800': pressedKeys[key],
+            'bg-white': !pressedKeys[key],
+          }"
+          @pointerdown="handlePointerDown(key)"
+          @pointerup="handlePointerUp(key)"
+          @pointerleave="handlePointerUp(key)"
+        >
+          {{ key.toUpperCase() }}
+          <Icon :path="keyIcons[key]" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
