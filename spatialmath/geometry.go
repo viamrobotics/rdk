@@ -33,6 +33,9 @@ const (
 	SphereType      = GeometryType("sphere")
 	PointType       = GeometryType("point")
 	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
+
+	// Point density corresponding to how many points per square mm.
+	defaultPointDensity = .5
 )
 
 // GeometryConfig specifies the format of geometries specified through the configuration file.
@@ -46,6 +49,9 @@ type GeometryConfig struct {
 
 	// parameter used for defining a sphere's radius'
 	R float64 `json:"r"`
+
+	// parameter used for defining a capsule's length
+	L float64 `json:"l"`
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
