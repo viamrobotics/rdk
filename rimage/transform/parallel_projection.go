@@ -82,7 +82,7 @@ func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*ri
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := pt.X - meta.MinX
 		i := pt.Y - meta.MinY
-		x, y := int(math.Round(i)), int(math.Round(j))
+		x, y := int(math.Round(j)), int(math.Round(i))
 		z := int(pt.Z)
 		// if point has color and is inside the RGB image bounds, add it to the images
 		if x >= 0 && x < width && y >= 0 && y < height && data != nil && data.HasColor() {
@@ -164,7 +164,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := (pt.X - meta.MinX) * widthScaleFactor
 		i := (pt.Z - meta.MinZ) * heightScaleFactor
-		x, y := int(math.Round(j)), int(math.Round(i))
+		x, y := int(math.Round(i)), int(math.Round(j))
 
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// a default color of white is used.
