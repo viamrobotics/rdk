@@ -59,12 +59,26 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		test.That(t, unusedImage, test.ShouldBeNil)
 	})
 
-	t.Run("Project a single point pointcloud", func(t *testing.T) {
+	t.Run("Project a single point pointcloud with no data", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
 		pointcloud := pc.New()
 		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewBasicData())
+
+		im, unusedImage, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
+		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
+		test.That(t, unusedImage, test.ShouldBeNil)
+	})
+
+	t.Run("Project a single point pointcloud with data", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		pointcloud := pc.New()
+		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(1))
 
 		im, unusedImage, err := ppRM.PointCloudToRGBD(pointcloud)
 		test.That(t, err, test.ShouldBeNil)
