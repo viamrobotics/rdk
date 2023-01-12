@@ -1,5 +1,5 @@
 // Package gpiostepper implements a GPIO based stepper motor.
-package uln2003
+package uln
 
 import (
 	"context"
