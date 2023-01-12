@@ -3,6 +3,8 @@ package ultrasonic
 
 import (
 	"context"
+	"math"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -18,6 +20,8 @@ import (
 )
 
 var modelname = resource.NewDefaultModel("ultrasonic")
+
+const updateLoopkHz = 40.0
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -66,6 +70,9 @@ func init() {
 func newSensor(ctx context.Context, deps registry.Dependencies, name string, config *AttrConfig) (sensor.Sensor, error) {
 	golog.Global().Debug("building ultrasonic sensor")
 	s := &Sensor{Name: name, config: config}
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	s.cancelCtx = cancelCtx
+	s.cancelFunc = cancelFunc
 
 	res, ok := deps[board.Named(config.Board)]
 	if !ok {
@@ -86,9 +93,6 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 	}
 	s.echoInterrupt = i
 	s.triggerPin = g
-	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
-		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
-	}
 
 	if config.TimeoutMs > 0 {
 		s.timeoutMs = config.TimeoutMs
@@ -96,8 +100,16 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 		// default to 1 sec
 		s.timeoutMs = 1000
 	}
+
 	s.intChan = make(chan bool)
+	s.readingChan = make(chan bool)
+	s.errChan = make(chan error)
+	s.distanceChan = make(chan float64)
 	s.echoInterrupt.AddCallback(s.intChan)
+	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
+		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
+	}
+	s.startUpdateLoop(ctx)
 	return s, nil
 }
 
@@ -109,42 +121,122 @@ type Sensor struct {
 	triggerPin    board.GPIOPin
 	intChan       chan bool
 	timeoutMs     uint
+	readingChan   chan bool
+	distanceChan  chan float64
+	errChan       chan error
+	cancelCtx     context.Context
+	cancelFunc    func()
+	mu            sync.Mutex
+	// toggle this property to be able to lock/unlock
+	// the mutex in sendDistance
+	isReading               bool
+	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
 }
 
-// Readings returns the calculated distance.
-func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
-		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to high")
-	}
+func (s *Sensor) namedError(err error) error {
+	return errors.Wrapf(
+		err, "Error in ultrasonic sensor with name %s", s.Name,
+	)
+}
 
-	rdkutils.SelectContextOrWait(ctx, time.Microsecond*20)
-	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
-		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to low")
+func (s *Sensor) startUpdateLoop(ctx context.Context) {
+	s.activeBackgroundWorkers.Add(1)
+	rdkutils.ManagedGo(
+		func() {
+			defer s.echoInterrupt.RemoveCallback(s.intChan)
+			for {
+				select {
+				case <-s.cancelCtx.Done():
+					return
+				// we must consume any signals from the interrupt that occur
+				// outside of a call to readings, otherwise we will potentially
+				// block callback code for *all* interrupts (see the implementation
+				// of pigpioInterruptCallback in components/board/pi/impl/board.go)
+				case <-s.intChan:
+				case <-s.readingChan:
+					// a call to Readings has occurred so we request a distance
+					// reading from the sensor and send it to the distance channel
+					if err := s.sendDistance(ctx); err != nil {
+						s.errChan <- err
+					}
+				default:
+					// operate the update loop at a frequency determined by
+					// updateLoopkHz
+					waitTimeNano := (1.0 / updateLoopkHz) * 1000000000.0
+					time.Sleep(time.Duration(waitTimeNano))
+				}
+			}
+		},
+		s.activeBackgroundWorkers.Done,
+	)
+}
+
+func (s *Sensor) sendDistance(ctx context.Context) error {
+	s.mu.Lock()
+	defer func() {
+		s.isReading = false
+		s.mu.Unlock()
+	}()
+	s.isReading = true
+
+	// we send a high and a low to the trigger pin 10 microseconds
+	// apart to signal the sensor to begin sending the sonic pulse
+	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
+		return s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to high"))
 	}
+	rdkutils.SelectContextOrWait(ctx, time.Microsecond*10)
+	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
+		return s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to low"))
+	}
+	// the first signal from the interrupt indicates that the sonic
+	// pulse has been sent
 	var timeA, timeB time.Time
 	select {
 	case <-s.intChan:
 		timeB = time.Now()
-	case <-ctx.Done():
-		return nil, errors.New("ultrasonic: context canceled")
+	case <-s.cancelCtx.Done():
+		return errors.New("ultrasonic: context canceled")
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return nil, errors.New("ultrasonic timeout")
+		return errors.New("ultrasonic timeout 1")
 	}
+	// the second signal from the interrupt indicates that the echo has
+	// been received
 	select {
 	case <-s.intChan:
 		timeA = time.Now()
-	case <-ctx.Done():
-		return nil, errors.New("ultrasonic: context canceled")
+	case <-s.cancelCtx.Done():
+		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return nil, errors.New("ultrasonic timeout")
+		return s.namedError(errors.New("ultrasonic timeout 2"))
 	}
-	dist := timeA.Sub(timeB).Seconds() * 340 / 2
-	return map[string]interface{}{"distance": dist}, nil
+	// we calculate the distance to the nearest object based
+	// on the time interval between the sound and its echo
+	// and the speed of sound (343 m/s)
+	distMeters := timeA.Sub(timeB).Seconds() * 343.0 / 2.0
+	distMillis := math.Round((distMeters*1000.0)*1000.0) / 1000.0
+	s.distanceChan <- distMillis
+	return nil
+}
+
+// Readings returns the calculated distance.
+func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	s.readingChan <- true
+	select {
+	case <-ctx.Done():
+		return nil, s.namedError(errors.New("ultrasonic: context canceled"))
+	case dist := <-s.distanceChan:
+		return map[string]interface{}{"distance": dist}, nil
+	case err := <-s.errChan:
+		return nil, err
+	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
+		return nil, s.namedError(errors.New("timeout waiting for sendDistance"))
+	}
 }
 
 // Close remove interrupt callback of ultrasonic sensor.
 func (s *Sensor) Close() error {
-	s.echoInterrupt.RemoveCallback(s.intChan)
+	s.cancelFunc()
+	s.activeBackgroundWorkers.Wait()
 	return nil
 }
