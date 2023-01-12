@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -9,7 +10,6 @@ import (
 	"go.viam.com/utils/artifact"
 
 	pc "go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -47,15 +47,43 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 }
 
 func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
-	p := spatialmath.NewPose(r3.Vector{0, 0, 0}, spatialmath.NewOrientationVector())
-	ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+	t.Run("Project empty an pointcloud", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
-	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
-	test.That(t, err, test.ShouldBeNil)
+		pointcloud := pc.New()
 
-	im, _, err := ppRM.PointCloudToRGBD(startPC)
-	test.That(t, err, test.ShouldBeNil)
+		im, unusedImage, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "calculation of the mean during pcd projection failed")
+		test.That(t, im, test.ShouldBeNil)
+		test.That(t, unusedImage, test.ShouldBeNil)
+	})
 
-	err = rimage.WriteImageToFile("test_image_ppRM.png", im)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Project a single point pointcloud", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		pointcloud := pc.New()
+		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewBasicData())
+
+		im, unusedImage, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
+		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
+		test.That(t, unusedImage, test.ShouldBeNil)
+	})
+
+	t.Run("Project an imported pointcloud", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+		test.That(t, err, test.ShouldBeNil)
+
+		im, unusedImage, err := ppRM.PointCloudToRGBD(startPC)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
+		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
+		test.That(t, unusedImage, test.ShouldBeNil)
+	})
 }

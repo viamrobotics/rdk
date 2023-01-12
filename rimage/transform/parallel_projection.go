@@ -107,21 +107,21 @@ type ParallelProjectionOntoXZWithRobotMarker struct {
 }
 
 var (
-	sigmaLevel    = 7
-	imageHeight   = 1080
-	imageWidth    = 1080
-	missThreshold = 0.44
-	hitThreshold  = 0.53
-	voxelSize     = 1
+	sigmaLevel       = 7
+	imageHeight      = 1080
+	imageWidth       = 1080
+	missThreshold    = 0.44
+	hitThreshold     = 0.53
+	voxelSize        = 1
+	robotMarkerRatio = 5
 )
 
-// PointCloudToRGBD assumes the x,y coordinates are the same as the x,y pixels.
+// PointCloudToRGBD creates an image of a pointcloud in the XZ plane, scaling the points to a standard image
+// size. It also adds a red marker to the map to represent the location fo the robot.
 func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud pointcloud.PointCloud,
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	meta := cloud.MetaData()
 
-	// Calculate max and min range to be represented by the produced image using the mean and standard
-	// deviation of the X and Z coordinates
 	var X, Z []float64
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		X = append(X, pt.X)
@@ -129,6 +129,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		return true
 	})
 
+	// Calculate max and min range to be represented by the produced image and cropping it based  on the mean
+	// and standard deviation of the X and Z coordinates
 	meanX, stdevX, err := calculateMeanAndStandardDeviation(X)
 	if err != nil {
 		return nil, nil, err
@@ -157,35 +159,36 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	widthScaleFactor := float64(imageWidth) / (maxX - minX)
 	heightScaleFactor := float64(imageHeight) / (maxZ - minZ)
 
+	// Add points to a new image
 	color := rimage.NewImage(imageWidth, imageHeight)
-
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := (pt.X - meta.MinX) * widthScaleFactor
 		i := (pt.Z - meta.MinZ) * heightScaleFactor
 		x, y := int(math.Round(j)), int(math.Round(i))
 
-		// Adds point to images using the value to define the color. If no value is available,
+		// Adds a point to an image using the value to define the color. If no value is available,
 		// a default color of white is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil {
+			var c rimage.Color
 			if data.HasValue() {
-				r, g, b := getProbabilityColorFromValue(data.Value())
-				addVoxelToImage(color, image.Point{x, y}, rimage.NewColor(r, g, b), voxelSize)
+				c = getProbabilityColorFromValue(data.Value())
 			} else {
-				addVoxelToImage(color, image.Point{x, y}, rimage.NewColor(255, 255, 255), voxelSize)
+				c = rimage.NewColor(255, 255, 255)
 			}
+			addPointToImage(color, image.Point{x, y}, c, voxelSize)
 		}
 		return true
 	})
 
 	// Add robot marker to image
-	robotMarkerPoint := image.Point{
-		X: int(math.Round((robotMarker.Point().X - meta.MinX) * widthScaleFactor)),
-		Y: int(math.Round((robotMarker.Point().Z - meta.MinZ) * heightScaleFactor)),
+	if ppRM.robotPose != nil {
+		robotMarkerPoint := image.Point{
+			X: int(math.Round((robotMarker.Point().X - meta.MinX) * widthScaleFactor)),
+			Y: int(math.Round((robotMarker.Point().Z - meta.MinZ) * heightScaleFactor)),
+		}
+		robotMarkerColor := rimage.NewColor(255, 0, 0)
+		addPointToImage(color, robotMarkerPoint, robotMarkerColor, voxelSize*robotMarkerRatio)
 	}
-	robotMarkerColor := rimage.NewColor(255, 0, 0)
-
-	addVoxelToImage(color, robotMarkerPoint, robotMarkerColor, voxelSize*10)
-
 	return color, nil, nil
 }
 
@@ -205,20 +208,25 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 	return pp.ImagePointTo3DPoint(pt, d)
 }
 
-// getProbabilityColorFromValue returns the r, g, b color values based on the the probability value and defined thresholds
+// getProbabilityColorFromValue returns the RGB color values based on the the probability value and defined thresholds
 // TODO (RSDK-1074): once probability values are available this function should be changed to produced desired images.
-func getProbabilityColorFromValue(v int) (uint8, uint8, uint8) {
+func getProbabilityColorFromValue(v int) rimage.Color {
 	var r, g, b uint8
 
 	prob := float64(v) / 100.
 
-	if prob < missThreshold {
+	switch {
+	case prob < missThreshold && prob >= 0:
 		b = uint8(255 * (prob / missThreshold))
+	case prob > hitThreshold && prob <= 0:
+		g = uint8(255 * ((prob - hitThreshold) / (1 - hitThreshold)))
+	default:
+		r = 255
+		b = 255
+		g = 255
 	}
-	if prob < missThreshold {
-		b = uint8(255 * ((prob - hitThreshold) / (1 - hitThreshold)))
-	}
-	return r, g, b
+
+	return rimage.NewColor(r, g, b)
 }
 
 // Calculates the mean and standard deviation on the provided data.
@@ -234,8 +242,8 @@ func calculateMeanAndStandardDeviation(data []float64) (float64, float64, error)
 	return mean, stdev, nil
 }
 
-// Adds points to image to provided image.
-func addVoxelToImage(im *rimage.Image, p image.Point, color rimage.Color, vSize int) {
+// Adds point, or voxel, to image to the provided image.
+func addPointToImage(im *rimage.Image, p image.Point, color rimage.Color, vSize int) {
 	for i := -vSize; i <= vSize; i++ {
 		for j := -vSize; j <= vSize; j++ {
 			if p.X+i >= 0 && p.X+i < imageWidth && p.Y+j >= 0 && p.Y+j < imageHeight {
