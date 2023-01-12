@@ -28,7 +28,7 @@ const pressedKeys = $ref({
 
 let isActive = $ref(false);
 
-const keysLayout = [['w'], ['a', 's', 'd']] as const;
+const keysLayout = [['a'], ['w', 's',], ['d']] as const;
 
 const normalizeKey = (key: string): Keys | null => {
   return ({
@@ -112,22 +112,22 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <div class="flex gap-2">
+    <v-switch
+      :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
+      class="pr-4"
+      :value="isActive ? 'on' : 'off'"
+      @input="toggleKeyboard($event.target.value === 'on')"
+    />
+  </div>
   <div
     ref="root"
-    class="h-23 flex w-full flex-col items-center"
+    class="flex gap-2"
   >
-    <div class="flex w-48 gap-2 pb-4">
-      <v-switch
-        :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
-        class="pr-4"
-        :value="isActive ? 'on' : 'off'"
-        @input="toggleKeyboard($event.target.value === 'on')"
-      />
-    </div>
     <div
       v-for="(lineKeys, index) in keysLayout"
       :key="index"
-      class="my-1 flex flex-row justify-center gap-2"
+      class="my-1 flex flex-col self-end gap-2"
     >
       <button
         v-for="key in lineKeys"
