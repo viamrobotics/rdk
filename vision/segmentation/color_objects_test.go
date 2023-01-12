@@ -23,11 +23,11 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
-	c := &videosource.StaticSource{img, dm, &params.ColorCamera}
+	c := &videosource.StaticSource{ColorImg: img, DepthImg: dm, Proj: &params.ColorCamera}
 	cam, err := camera.NewFromReader(
 		context.Background(),
 		c,
-		&transform.PinholeCameraModel{&params.ColorCamera, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: &params.ColorCamera},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)

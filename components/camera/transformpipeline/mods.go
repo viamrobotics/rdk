@@ -27,16 +27,19 @@ type rotateSource struct {
 // newRotateTransform creates a new rotation transform.
 func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream camera.ImageType,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	var cameraModel *transform.PinholeCameraModel
+	var cameraModel transform.PinholeCameraModel
 	if cameraSrc, ok := source.(camera.Camera); ok {
 		props, err := cameraSrc.Properties(ctx)
 		if err != nil {
 			return nil, camera.UnspecifiedStream, err
 		}
-		cameraModel = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+		cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+		if props.DistortionParams != nil {
+			cameraModel.Distortion = props.DistortionParams
+		}
 	}
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
-	cam, err := camera.NewFromReader(ctx, reader, cameraModel, stream)
+	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
 	return cam, stream, err
 }
 

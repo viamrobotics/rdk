@@ -371,11 +371,15 @@ func makeCameraFromSource(ctx context.Context,
 	if source == nil {
 		return nil, errors.New("media source not found")
 	}
-
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = attrs.CameraParameters
+	if attrs.DistortionParameters != nil {
+		cameraModel.Distortion = attrs.DistortionParameters
+	}
 	return camera.NewFromSource(
 		ctx,
 		source,
-		&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
+		&cameraModel,
 		camera.ColorStream,
 	)
 }
