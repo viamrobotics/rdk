@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -47,21 +46,28 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 }
 
 func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
+	t.Run("Project a pointcloud with a null robot marker", func(t *testing.T) {
+		_, err := NewParallelProjectionOntoXZWithRobotMarker(nil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "error null pointer given for robot position")
+	})
+
 	t.Run("Project empty an pointcloud", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
-		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		ppRM, err := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		test.That(t, err, test.ShouldBeNil)
 
 		pointcloud := pc.New()
 
 		im, unusedImage, err := ppRM.PointCloudToRGBD(pointcloud)
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "calculation of the mean during pcd projection failed")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "calculation of the mean during pcd projection failed")
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, unusedImage, test.ShouldBeNil)
 	})
 
 	t.Run("Project a single point pointcloud with no data", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
-		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		ppRM, err := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		test.That(t, err, test.ShouldBeNil)
 
 		pointcloud := pc.New()
 		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewBasicData())
@@ -75,7 +81,8 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 
 	t.Run("Project a single point pointcloud with data", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
-		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		ppRM, err := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		test.That(t, err, test.ShouldBeNil)
 
 		pointcloud := pc.New()
 		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(1))
@@ -89,7 +96,8 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 
 	t.Run("Project an imported pointcloud", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
-		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		ppRM, err := NewParallelProjectionOntoXZWithRobotMarker(&p)
+		test.That(t, err, test.ShouldBeNil)
 
 		startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 		test.That(t, err, test.ShouldBeNil)
