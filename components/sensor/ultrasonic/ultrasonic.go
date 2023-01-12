@@ -196,9 +196,9 @@ func (s *Sensor) sendDistance(ctx context.Context) error {
 	case <-s.intChan:
 		timeB = time.Now()
 	case <-s.cancelCtx.Done():
-		return errors.New("ultrasonic: context canceled")
+		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return errors.New("ultrasonic timeout 1")
+		return s.namedError(errors.New("timed out waiting for signal that sound pulse was emitted"))
 	}
 	// the second signal from the interrupt indicates that the echo has
 	// been received
@@ -208,7 +208,7 @@ func (s *Sensor) sendDistance(ctx context.Context) error {
 	case <-s.cancelCtx.Done():
 		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return s.namedError(errors.New("ultrasonic timeout 2"))
+		return s.namedError(errors.New("timed out waiting for signal that echo was recieved"))
 	}
 	// we calculate the distance to the nearest object based
 	// on the time interval between the sound and its echo
