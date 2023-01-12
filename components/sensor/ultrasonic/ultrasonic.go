@@ -136,7 +136,7 @@ type Sensor struct {
 
 func (s *Sensor) namedError(err error) error {
 	return errors.Wrapf(
-		err, "Error in ultrasonic sensor with name %s", s.Name,
+		err, "Error in ultrasonic sensor with name %s: ", s.Name,
 	)
 }
 
