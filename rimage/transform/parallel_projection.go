@@ -101,7 +101,7 @@ func (pp *ParallelProjection) ImagePointTo3DPoint(pt image.Point, d rimage.Depth
 }
 
 // ParallelProjectionOntoXZWithRobotMarker allows the creation of a 2D projection of a pointcloud and robot
-// position onto the XZ plane
+// position onto the XZ plane.
 type ParallelProjectionOntoXZWithRobotMarker struct {
 	robotPose *spatialmath.Pose
 }
