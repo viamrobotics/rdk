@@ -341,7 +341,7 @@ func TestNewCamera(t *testing.T) {
 	cam2, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{intrinsics1, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics1},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -355,7 +355,7 @@ func TestNewCamera(t *testing.T) {
 	cam3, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{cam2props.IntrinsicParams, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: cam2props.IntrinsicParams},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -367,7 +367,7 @@ func TestNewCamera(t *testing.T) {
 	cam4, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{intrinsics2, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics2},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -384,7 +384,7 @@ func TestNewCamera(t *testing.T) {
 	cam5, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{props.IntrinsicParams, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -447,7 +447,7 @@ func TestCameraWithProjector(t *testing.T) {
 	cam, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{params1, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: params1},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -466,7 +466,7 @@ func TestCameraWithProjector(t *testing.T) {
 	cam2, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc2,
-		&transform.PinholeCameraModel{props.IntrinsicParams, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)

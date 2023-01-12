@@ -118,10 +118,15 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.ImageType(cfg.Stream),
 	}
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = cfg.CameraParameters
+	if cfg.DistortionParameters != nil {
+		cameraModel.Distortion = cfg.DistortionParameters
+	}
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,
-		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		&cameraModel,
 		videoSrc.Stream,
 	)
 }
@@ -254,10 +259,15 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		stream:     camera.ImageType(cfg.Stream),
 		Intrinsics: cfg.CameraParameters,
 	}
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = cfg.CameraParameters
+	if cfg.DistortionParameters != nil {
+		cameraModel.Distortion = cfg.DistortionParameters
+	}
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,
-		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		&cameraModel,
 		videoSrc.stream,
 	)
 }
