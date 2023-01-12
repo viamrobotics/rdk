@@ -135,7 +135,13 @@ func NewFromReader(
 			if err != nil {
 				return nil, NewPropertiesError("source camera")
 			}
-			actualSystem = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+			actualSystem = &cameraModel
 		}
 	}
 	return &videoSource{
@@ -172,7 +178,12 @@ func NewFromSource(
 			if err != nil {
 				return nil, NewPropertiesError("source camera")
 			}
-			actualSystem = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+			actualSystem = &cameraModel
 		}
 	}
 	return &videoSource{
@@ -254,7 +265,11 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	}
 	result.ImageType = vs.imageType
 	result.IntrinsicParams = vs.system.PinholeCameraIntrinsics
-	result.DistortionParams = vs.system.Distortion
+
+	if vs.system.Distortion != nil {
+		result.DistortionParams = vs.system.Distortion
+	}
+
 	return result, nil
 }
 
