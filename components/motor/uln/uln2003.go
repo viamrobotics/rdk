@@ -27,14 +27,14 @@ var model = resource.NewDefaultModel("uln2003")
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
-	In1           string `json:"In1"`
-	In2           string `json:"In2"`
-	In3           string `json:"In3"`
-	In4           string `json:"In4"`
-	Step          string `json:"step"`
-	Direction     string `json:"dir"`
-	EnablePinHigh string `json:"en_high,omitempty"`
-	EnablePinLow  string `json:"en_low,omitempty"`
+	In1 string `json:"In1"`
+	In2 string `json:"In2"`
+	In3 string `json:"In3"`
+	In4 string `json:"In4"`
+	// Step          string `json:"step"`
+	// Direction     string `json:"dir"`
+	// EnablePinHigh string `json:"en_high,omitempty"`
+	// EnablePinLow  string `json:"en_low,omitempty"`
 }
 
 // Config describes the configuration of a motor.
@@ -108,34 +108,34 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 		motorName:        name,
 	}
 
-	if mc.Pins.EnablePinHigh != "" {
-		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
-		if err != nil {
-			return nil, err
-		}
-		m.enablePinHigh = enablePinHigh
-	}
-	if mc.Pins.EnablePinLow != "" {
-		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
-		if err != nil {
-			return nil, err
-		}
-		m.enablePinLow = enablePinLow
-	}
-	if mc.Pins.Step != "" {
-		stepPin, err := b.GPIOPinByName(mc.Pins.Step)
-		if err != nil {
-			return nil, err
-		}
-		m.stepPin = stepPin
-	}
-	if mc.Pins.Direction != "" {
-		directionPin, err := b.GPIOPinByName(mc.Pins.Direction)
-		if err != nil {
-			return nil, err
-		}
-		m.dirPin = directionPin
-	}
+	// if mc.Pins.EnablePinHigh != "" {
+	// 	enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	m.enablePinHigh = enablePinHigh
+	// }
+	// if mc.Pins.EnablePinLow != "" {
+	// 	enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	m.enablePinLow = enablePinLow
+	// }
+	// if mc.Pins.Step != "" {
+	// 	stepPin, err := b.GPIOPinByName(mc.Pins.Step)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	m.stepPin = stepPin
+	// }
+	// if mc.Pins.Direction != "" {
+	// 	directionPin, err := b.GPIOPinByName(mc.Pins.Direction)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	m.dirPin = directionPin
+	// }
 
 	if mc.Pins.In1 != "" {
 		in1, err := b.GPIOPinByName(mc.Pins.In1)
