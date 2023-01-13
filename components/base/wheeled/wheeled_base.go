@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -107,12 +106,9 @@ type wheeledBase struct {
 	orienationSupported bool
 	orientationSensor   movementsensor.MovementSensor
 
-	opMgr                   operation.SingleOperationManager
-	logger                  golog.Logger
-	model                   referenceframe.Model
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
+	model  referenceframe.Model
 }
 
 // createWheeledBase returns a new wheeled base defined by the given config.
@@ -175,8 +171,6 @@ func createWheeledBase(
 
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)
-
-	// base.cancelCtx, base.cancelFunc = context.WithCancel(context.Background())
 
 	var err error
 	base.model, err = base.createModelFrame(baseName, cfg.WidthMM)
@@ -260,12 +254,6 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
 			return err
 		}
-		// update yaw angle
-		newYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra)
-		if err != nil {
-			continue
-		}
-		currYaw = newYaw
 	}
 	return nil
 }
@@ -285,9 +273,10 @@ func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
-// nolint:unused
 // TODO: should be used as part of RSDK-1698, to deal with imus that
-// return values between -180 to 180 and 0-360 (probably using our filters)
+// return values between -180 to 180 and 0-360 (probably using our filters).
+//
+//nolint:unused
 func calculatedDomainLimitedAngleError(heading, bearing float64) float64 {
 	calucaltedAngle := math.Mod((heading-bearing+540), 360) - 180
 	return calucaltedAngle
