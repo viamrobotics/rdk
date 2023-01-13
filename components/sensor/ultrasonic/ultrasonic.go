@@ -21,8 +21,6 @@ import (
 
 var modelname = resource.NewDefaultModel("ultrasonic")
 
-const updateLoopkHz = 40.0
-
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	TriggerPin    string `json:"trigger_pin"`
@@ -114,21 +112,18 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 
 // Sensor ultrasonic sensor.
 type Sensor struct {
-	Name          string
-	config        *AttrConfig
-	echoInterrupt board.DigitalInterrupt
-	triggerPin    board.GPIOPin
-	intChan       chan bool
-	timeoutMs     uint
-	readingChan   chan bool
-	distanceChan  chan float64
-	errChan       chan error
-	cancelCtx     context.Context
-	cancelFunc    func()
-	mu            sync.Mutex
-	// toggle this property to be able to lock/unlock
-	// the mutex in measureDistance
-	isReading               bool
+	mu                      sync.Mutex
+	Name                    string
+	config                  *AttrConfig
+	echoInterrupt           board.DigitalInterrupt
+	triggerPin              board.GPIOPin
+	intChan                 chan bool
+	timeoutMs               uint
+	readingChan             chan bool
+	distanceChan            chan float64
+	errChan                 chan error
+	cancelCtx               context.Context
+	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
 }
@@ -149,22 +144,17 @@ func (s *Sensor) startUpdateLoop(ctx context.Context) {
 				select {
 				case <-s.cancelCtx.Done():
 					return
-				// we must consume any signals from the interrupt that occur
-				// outside of a call to readings, otherwise we will potentially
-				// block callback code for *all* interrupts (see the implementation
-				// of pigpioInterruptCallback in components/board/pi/impl/board.go)
-				case <-s.intChan:
 				case <-s.readingChan:
 					// a call to Readings has occurred so we request a distance
 					// reading from the sensor and send it to the distance channel
 					if err := s.measureDistance(ctx); err != nil {
 						s.errChan <- err
 					}
-				default:
-					// operate the update loop at a frequency determined by
-					// updateLoopkHz
-					waitTimeNano := (1.0 / updateLoopkHz) * 1000000000.0
-					time.Sleep(time.Duration(waitTimeNano))
+				// we must consume any signals from the interrupt that occur
+				// outside of a call to readings, otherwise we will potentially
+				// block callback code for *all* interrupts (see the implementation
+				// of pigpioInterruptCallback in components/board/pi/impl/board.go)
+				case <-s.intChan:
 				}
 			}
 		},
@@ -174,11 +164,7 @@ func (s *Sensor) startUpdateLoop(ctx context.Context) {
 
 func (s *Sensor) measureDistance(ctx context.Context) error {
 	s.mu.Lock()
-	defer func() {
-		s.isReading = false
-		s.mu.Unlock()
-	}()
-	s.isReading = true
+	defer s.mu.Unlock()
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse
