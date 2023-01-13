@@ -202,7 +202,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	return im, nil, nil
 }
 
-// RGBDToPointCloud calls its equivalent in ParallelProjection.
+// RGBDToPointCloud is unimplemented and will produce an error.
 func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
 	img *rimage.Image,
 	dm *rimage.DepthMap,
@@ -211,7 +211,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
 	return nil, errors.New("converting a RGB image to Pointcloud is current unimplemented for this projection")
 }
 
-// ImagePointTo3DPoint calls its equivalent in ParallelProjection.
+// ImagePointTo3DPoint is unimplemented and will produce an error.
 func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
 	return r3.Vector{}, errors.New("converting an image point to a 3D point is current unimplemented for this projection")
 }
