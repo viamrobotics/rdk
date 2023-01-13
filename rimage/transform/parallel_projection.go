@@ -239,7 +239,7 @@ func getProbabilityColorFromValue(v int) rimage.Color {
 }
 
 // NewParallelProjectionOntoXZWithRobotMarker creates a new ParallelProjectionOntoXZWithRobotMarker with the given
-// robot pose.
+// robot pose, if.
 func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXZWithRobotMarker {
 	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}
 }

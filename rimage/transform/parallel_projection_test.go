@@ -47,7 +47,6 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 }
 
 func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
-
 	t.Run("Project an empty pointcloud", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
