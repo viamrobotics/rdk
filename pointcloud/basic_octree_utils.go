@@ -1,7 +1,6 @@
 package pointcloud
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -12,17 +11,17 @@ import (
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
-		nodeType: LeafNodeEmpty,
+		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
 	}
 	return octNode
 }
 
 // Creates a new InternalNode with specified children nodes.
-func newInternalNode(tree []*basicOctree) basicOctreeNode {
+func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: tree,
-		nodeType: InternalNode,
+		nodeType: internalNode,
 		point:    PointAndData{},
 	}
 	return octNode
@@ -32,7 +31,7 @@ func newInternalNode(tree []*basicOctree) basicOctreeNode {
 func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
-		nodeType: LeafNodeFilled,
+		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
 	}
 	return octNode
@@ -40,15 +39,15 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
 // node. Note: splitIntoOctants should only be called when an octree is a LeafNodeFilled.
-func (octree *basicOctree) splitIntoOctants() error {
+func (octree *BasicOctree) splitIntoOctants() error {
 	switch octree.node.nodeType {
-	case InternalNode:
+	case internalNode:
 		return errors.New("error attempted to split internal node")
-	case LeafNodeEmpty:
+	case leafNodeEmpty:
 		return errors.New("error attempted to split empty leaf node")
-	case LeafNodeFilled:
+	case leafNodeFilled:
 
-		children := []*basicOctree{}
+		children := []*BasicOctree{}
 		newSideLength := octree.sideLength / 2
 		for _, i := range []float64{-1.0, 1.0} {
 			for _, j := range []float64{-1.0, 1.0} {
@@ -61,7 +60,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 					newCenter := octree.center.Add(centerOffset)
 
 					// Create a new basic octree child
-					child := &basicOctree{
+					child := &BasicOctree{
 						center:     newCenter,
 						sideLength: newSideLength,
 						size:       0,
@@ -85,7 +84,7 @@ func (octree *basicOctree) splitIntoOctants() error {
 }
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
-func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
+func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
 	return ((math.Abs(octree.center.X-p.X) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Y-p.Y) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
@@ -94,7 +93,7 @@ func (octree *basicOctree) checkPointPlacement(p r3.Vector) bool {
 // helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
 // If the maximum recursion depth is reached before a valid node is found for the point it will return
 // an error.
-func (octree *basicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) error {
+func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) error {
 	if recursionDepth >= maxRecursionDepth {
 		return errors.New("error max allowable recursion depth reached")
 	}
@@ -107,7 +106,7 @@ func (octree *basicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) er
 	}
 
 	switch octree.node.nodeType {
-	case InternalNode:
+	case internalNode:
 		for _, childNode := range octree.node.children {
 			if childNode.checkPointPlacement(p) {
 				err := childNode.helperSet(p, d, recursionDepth+1)
@@ -121,7 +120,7 @@ func (octree *basicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) er
 		}
 		return errors.New("error invalid internal node detected, please check your tree")
 
-	case LeafNodeFilled:
+	case leafNodeFilled:
 		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
 			// Update data in point
 			octree.node.point.D = d
@@ -133,7 +132,7 @@ func (octree *basicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) er
 		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
 		return octree.helperSet(p, d, recursionDepth+1)
 
-	case LeafNodeEmpty:
+	case leafNodeEmpty:
 		// Update metadata
 		octree.meta.Merge(p, d)
 		octree.size++
@@ -147,10 +146,10 @@ func (octree *basicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) er
 // the result of the specified boolean function. Batching is done using the calculated upper and
 // lower bounds and the tracking of the index, this allows for only a subset of the basic octree
 // to be searched through. If the applied function ever returns false, the iteration will end.
-func (octree *basicOctree) helperIterate(lowerBound, upperBound, idx int, fn func(p r3.Vector, d Data) bool) bool {
+func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn func(p r3.Vector, d Data) bool) bool {
 	ok := true
 	switch octree.node.nodeType {
-	case InternalNode:
+	case internalNode:
 		for _, child := range octree.node.children {
 			numPoints := child.size
 
@@ -162,16 +161,17 @@ func (octree *basicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 			idx += numPoints
 		}
 
-	case LeafNodeFilled:
+	case leafNodeFilled:
 		ok = fn(octree.node.point.P, octree.node.point.D)
 
-	case LeafNodeEmpty:
+	case leafNodeEmpty:
 	}
 
 	return ok
 }
 
-func PointCloudToBasicOctree(cloud PointCloud) (*basicOctree, error) {
+// ConvertPointCloudToBasicOctree converts a pointcloud into a octree pointcloud representation.
+func ConvertPointCloudToBasicOctree(cloud PointCloud) (PointCloud, error) {
 	center := r3.Vector{
 		X: cloud.MetaData().MinX + (cloud.MetaData().MaxX-cloud.MetaData().MinX)/2,
 		Y: cloud.MetaData().MinY + (cloud.MetaData().MaxY-cloud.MetaData().MinY)/2,
@@ -182,9 +182,9 @@ func PointCloudToBasicOctree(cloud PointCloud) (*basicOctree, error) {
 		math.Max((cloud.MetaData().MaxY-cloud.MetaData().MinY),
 			(cloud.MetaData().MaxZ-cloud.MetaData().MinZ))) * 1.01
 
-	basicOctPC, err := NewOctree(center, side)
+	basicOctPC, err := NewBasicOctree(center, side)
 	if err != nil {
-		return &basicOctree{}, err
+		return &BasicOctree{}, err
 	}
 
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -194,9 +194,5 @@ func PointCloudToBasicOctree(cloud PointCloud) (*basicOctree, error) {
 		return true
 	})
 
-	basicOct, ok := (basicOctPC).(*basicOctree)
-	if !ok {
-		return &basicOctree{}, fmt.Errorf("pointcloud %v is not a octree Tree", cloud)
-	}
-	return basicOct, nil
+	return basicOctPC, nil
 }

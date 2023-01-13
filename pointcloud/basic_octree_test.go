@@ -12,18 +12,18 @@ import (
 )
 
 // Helper function for generating a new empty octree.
-func createNewOctree(center r3.Vector, side float64) (*basicOctree, error) {
-	octree, err := NewOctree(center, side)
+func createNewOctree(center r3.Vector, side float64) (*BasicOctree, error) {
+	octree, err := NewBasicOctree(center, side)
 	if err != nil {
 		return nil, err
 	}
 
-	basicOct := octree.(*basicOctree)
+	basicOct := octree.(*BasicOctree)
 	return basicOct, err
 }
 
 // Helper function that adds a list of points to a given basic octree.
-func addPoints(basicOct *basicOctree, pointsAndData []PointAndData) error {
+func addPoints(basicOct *BasicOctree, pointsAndData []PointAndData) error {
 	for _, pd := range pointsAndData {
 		if err := basicOct.Set(pd.P, pd.D); err != nil {
 			return err
@@ -33,7 +33,7 @@ func addPoints(basicOct *basicOctree, pointsAndData []PointAndData) error {
 }
 
 // Helper function that checks that all valid points from the given list have been added to the basic octree.
-func checkPoints(t *testing.T, basicOct *basicOctree, pointsAndData []PointAndData) {
+func checkPoints(t *testing.T, basicOct *BasicOctree, pointsAndData []PointAndData) {
 	t.Helper()
 
 	for _, point := range pointsAndData {
@@ -43,8 +43,8 @@ func checkPoints(t *testing.T, basicOct *basicOctree, pointsAndData []PointAndDa
 	}
 }
 
-// Helper function that makes and returns a PointCloud from an artifact path.
-func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (PointCloud, error) { //pcType PCType, numPoints int) (PointCloud, error) {
+// Helper function that makes and returns a PointCloud from an artifact path consisting of the first numPoints points.
+func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (PointCloud, error) {
 	t.Helper()
 	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
 	if err != nil {
@@ -76,8 +76,8 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 	return shortenedPC, nil
 }
 
-// Helper function that makes and returns a octree from an artifact path.
-func makOctreeFromArtifact(t *testing.T, artifactPath string, numPoints int) (*basicOctree, error) {
+// Helper function that makes and returns a octree from an artifact path consisting of the first numPoints points.
+func makOctreeFromArtifact(t *testing.T, artifactPath string, numPoints int) (*BasicOctree, error) {
 	t.Helper()
 
 	pc, err := makePointCloudFromArtifact(t, artifactPath, numPoints)
@@ -85,12 +85,21 @@ func makOctreeFromArtifact(t *testing.T, artifactPath string, numPoints int) (*b
 		return nil, err
 	}
 
-	return PointCloudToBasicOctree(pc)
+	basicOctPC, err := ConvertPointCloudToBasicOctree(pc)
+	if err != nil {
+		return nil, err
+	}
+
+	basicOct, ok := (basicOctPC).(*BasicOctree)
+	if !ok {
+		return nil, errors.Errorf("pointcloud %v is not a basic octree", basicOctPC)
+	}
+
+	return basicOct, nil
 }
 
 // Test the creation of new basic octrees.
 func TestBasicOctreeNew(t *testing.T) {
-
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	sideInvalid := 0.0
 	_, err := createNewOctree(center, sideInvalid)
@@ -117,7 +126,6 @@ func TestBasicOctreeNew(t *testing.T) {
 
 // Test the Set()function which adds points and associated data to an octree.
 func TestBasicOctreeSet(t *testing.T) {
-
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
@@ -145,7 +153,7 @@ func TestBasicOctreeSet(t *testing.T) {
 
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
+		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 2)
 
 		validateBasicOctree(t, basicOct, center, side)
@@ -163,7 +171,7 @@ func TestBasicOctreeSet(t *testing.T) {
 
 		err = basicOct.Set(r3.Vector{X: -.4, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.node.nodeType, test.ShouldResemble, InternalNode)
+		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 3)
 
 		validateBasicOctree(t, basicOct, center, side)
@@ -215,7 +223,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newInternalNode([]*basicOctree{})
+		basicOct.node = newInternalNode([]*BasicOctree{})
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
@@ -224,7 +232,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newInternalNode([]*basicOctree{})
+		basicOct.node = newInternalNode([]*BasicOctree{})
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
@@ -259,7 +267,6 @@ func TestBasicOctreeSet(t *testing.T) {
 
 // Test the At() function for basic octrees which returns the data at a specific location should it exist.
 func TestBasicOctreeAt(t *testing.T) {
-
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
@@ -331,7 +338,6 @@ func TestBasicOctreeAt(t *testing.T) {
 // Test the Iterate() function, which will apply a specified function to every point in a basic octree until
 // the function returns a false value.
 func TestBasicOctreeIterate(t *testing.T) {
-
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
@@ -594,9 +600,8 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	validateBasicOctree(t, basicOct, center, side)
 }
 
-// Test the functionalities involved with converting a pointcloud into a basic octree.
+// Test the functionalities involved with converting a pcd into a basic octree.
 func TestReadBasicOctreeFromPCD(t *testing.T) {
-
 	artifactPath := "pointcloud/test.pcd"
 
 	startBasicOct, err := makOctreeFromArtifact(t, artifactPath, 100)
@@ -608,17 +613,7 @@ func TestReadBasicOctreeFromPCD(t *testing.T) {
 	test.That(t, startPC.Size(), test.ShouldEqual, startBasicOct.Size())
 	test.That(t, startPC.MetaData(), test.ShouldResemble, startBasicOct.MetaData())
 
-	center := r3.Vector{
-		X: startPC.MetaData().MinX + (startPC.MetaData().MaxX-startPC.MetaData().MinX)/2,
-		Y: startPC.MetaData().MinY + (startPC.MetaData().MaxY-startPC.MetaData().MinY)/2,
-		Z: startPC.MetaData().MinZ + (startPC.MetaData().MaxZ-startPC.MetaData().MinZ)/2,
-	}
-
-	side := math.Max((startPC.MetaData().MaxX-startPC.MetaData().MinX),
-		math.Max((startPC.MetaData().MaxY-startPC.MetaData().MinY),
-			(startPC.MetaData().MaxZ-startPC.MetaData().MinZ))) * 1.01
-
-	// Check all points from the pointcloud have been properly added to the new basic octree
+	// Check all points from the pcd have been properly added to the new basic octree
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		dOct, ok := startBasicOct.At(p.X, p.Y, p.Z)
 		test.That(t, ok, test.ShouldBeTrue)
@@ -626,5 +621,5 @@ func TestReadBasicOctreeFromPCD(t *testing.T) {
 		return true
 	})
 
-	validateBasicOctree(t, startBasicOct, center, side)
+	validateBasicOctree(t, startBasicOct, startBasicOct.center, startBasicOct.sideLength)
 }
