@@ -1,8 +1,7 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -79,17 +78,24 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
-const stop = () => {
+const stop = async () => {
+  const bc = new BaseClient(props.client, props.name);
   stopped = true;
   const req = new baseApi.StopRequest();
   req.setName(props.name);
   rcLogConditionally(req);
-  props.client.baseService.stop(req, new grpc.Metadata(), displayError);
+  try {
+    return await bc.stop();
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const digestInput = () => {
+const digestInput = async () => {
   let linearValue = 0;
   let angularValue = 0;
+  const bc = new BaseClient(props.client, props.name);
 
   for (const item of pressed) {
     switch (item) {
@@ -121,15 +127,17 @@ const digestInput = () => {
   req.setName(props.name);
   req.setLinear(linear);
   req.setAngular(angular);
-
   rcLogConditionally(req);
-  props.client.baseService.setPower(req, new grpc.Metadata(), (error) => {
-    displayError(error);
-
+  try {
+    const response = await bc.setPower(linear, angular);
     if (pressed.size <= 0) {
       stop();
     }
-  });
+    return response;
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
 const handleKeyDown = (key: Keys) => {
@@ -148,55 +156,69 @@ const handleKeyUp = (key: Keys) => {
   }
 };
 
-const handleBaseStraight = (name: string, event: {
+const handleBaseStraight = async (name: string, event: {
   distance: number
   speed: number
   direction: number
   movementType: MovementTypes
 }) => {
+  const bc = new BaseClient(props.client, name);
   if (event.movementType === 'Continuous') {
     const linear = new commonApi.Vector3();
+    const angular = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
     const req = new baseApi.SetVelocityRequest();
     req.setName(name);
     req.setLinear(linear);
-    req.setAngular(new commonApi.Vector3());
-
+    req.setAngular(angular);
     rcLogConditionally(req);
-    props.client.baseService.setVelocity(req, new grpc.Metadata(), displayError);
+    try {
+      return await bc.setVelocity(linear, angular);
+    } catch (error) {
+      displayError(error as ServiceError);
+      return;
+    }
   } else {
     const req = new baseApi.MoveStraightRequest();
     req.setName(name);
     req.setMmPerSec(event.speed * event.direction);
     req.setDistanceMm(event.distance);
-
     rcLogConditionally(req);
-    props.client.baseService.moveStraight(req, new grpc.Metadata(), displayError);
+    try {
+      return await bc.moveStraight(event.distance, event.speed * event.direction);
+    } catch (error) {
+      displayError(error as ServiceError);
+      return;
+    }
   }
 };
 
-const baseRun = () => {
+const baseRun = async () => {
+  const bc = new BaseClient(props.client, props.name);
   if (movementMode.value === 'Spin') {
 
     const req = new baseApi.SpinRequest();
     req.setName(props.name);
     req.setAngleDeg(angle.value * (spinType.value === 'Clockwise' ? -1 : 1));
     req.setDegsPerSec(spinSpeed.value);
-
     rcLogConditionally(req);
-    props.client.baseService.spin(req, new grpc.Metadata(), displayError);
 
+    try {
+      return await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
+    } catch (error) {
+      displayError(error as ServiceError);
+      return;
+    }
   } else if (movementMode.value === 'Straight') {
-
     handleBaseStraight(props.name, {
       movementType: movementType.value,
       direction: direction.value === 'Forwards' ? 1 : -1,
       speed: speed.value,
       distance: increment.value,
     });
-
   }
+  return;
 };
 
 const viewPreviewCamera = (values: string) => {
@@ -210,6 +232,7 @@ const viewPreviewCamera = (values: string) => {
         }
       } catch (error) {
         displayError(error as ServiceError);
+        return;
       }
       baseStreamStates.set(key, true);
     } else if (baseStreamStates.get(key) === true) {
@@ -220,6 +243,7 @@ const viewPreviewCamera = (values: string) => {
         }
       } catch (error) {
         displayError(error as ServiceError);
+        return;
       }
       baseStreamStates.set(key, false);
     }

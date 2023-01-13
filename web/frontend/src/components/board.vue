@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { Client, boardApi } from '@viamrobotics/sdk';
+import { Client, boardApi, BoardClient, ServiceError } from '@viamrobotics/sdk';
 
 interface Props {
   name: string
@@ -43,68 +43,87 @@ const getGPIO = () => {
   });
 };
 
-const setGPIO = () => {
+const setGPIO = async () => {
+  const bc = new BoardClient(props.client, props.name);
   const req = new boardApi.SetGPIORequest();
   req.setName(props.name);
   req.setPin(setPin);
   req.setHigh(setLevel === 'high');
-
   rcLogConditionally(req);
-  props.client.boardService.setGPIO(req, new grpc.Metadata(), displayError);
+
+  try {
+    return await bc.setGPIO(setPin, setLevel === 'high');
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const getPWM = () => {
+const getPWM = async () => {
+  const bc = new BoardClient(props.client, props.name);
   const req = new boardApi.PWMRequest();
   req.setName(props.name);
   req.setPin(getPin);
-
   rcLogConditionally(req);
-  props.client.boardService.pWM(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+  try {
+    const response = await bc.pWM(getPin);
     const { dutyCyclePct } = response!.toObject();
-
     getPinMessage = `Pin ${getPin}'s duty cycle is ${dutyCyclePct * 100}%.`;
-  });
+    return response;
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const setPWM = () => {
+const setPWM = async () => {
+  const bc = new BoardClient(props.client, props.name);
   const req = new boardApi.SetPWMRequest();
   req.setName(props.name);
   req.setPin(setPin);
   req.setDutyCyclePct(Number.parseFloat(pwm) / 100);
-
   rcLogConditionally(req);
-  props.client.boardService.setPWM(req, new grpc.Metadata(), displayError);
+  try {
+    return await bc.setPWM(setPin, Number.parseFloat(pwm) / 100);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const getPWMFrequency = () => {
+const getPWMFrequency = async () => {
+  const bc = new BoardClient(props.client, props.name);
   const req = new boardApi.PWMFrequencyRequest();
   req.setName(props.name);
   req.setPin(getPin);
 
   rcLogConditionally(req);
-  props.client.boardService.pWMFrequency(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+  try {
+    const response = await bc.pWMFrequency(getPin);
     const { frequencyHz } = response!.toObject();
-
     getPinMessage = `Pin ${getPin}'s frequency is ${frequencyHz}Hz.`;
-  });
+    return response;
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const setPWMFrequency = () => {
+const setPWMFrequency = async () => {
+  const bc = new BoardClient(props.client, props.name);
+
   const req = new boardApi.SetPWMFrequencyRequest();
   req.setName(props.name);
   req.setPin(setPin);
   req.setFrequencyHz(Number.parseFloat(pwmFrequency));
 
   rcLogConditionally(req);
-  props.client.boardService.setPWMFrequency(req, new grpc.Metadata(), displayError);
+  try {
+    return await bc.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
 </script>
