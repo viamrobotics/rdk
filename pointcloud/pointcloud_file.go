@@ -494,13 +494,23 @@ func ReadPCDToKDTree(inRaw io.Reader) (*KDTree, error) {
 	return kd, nil
 }
 
-// ReadPCDToKDTree reads a PCD file into a KD Tree pointcloud.
-func ReadPCDToOctree(inRaw io.Reader) (*basicOctree, error) {
+// ReadPCDToBasicOctree reads a PCD file into a basic octree.
+func ReadPCDToBasicOctree(inRaw io.Reader) (*BasicOctree, error) {
 	pc, err := ReadPCD(inRaw)
 	if err != nil {
 		return nil, err
 	}
-	return PointCloudToBasicOctree(pc)
+
+	basicOctPC, err := ConvertPointCloudToBasicOctree(pc)
+	if err != nil {
+		return nil, err
+	}
+
+	basicOct, ok := (basicOctPC).(*BasicOctree)
+	if !ok {
+		return nil, errors.Errorf("pointcloud %v is not a basic octree", basicOctPC)
+	}
+	return basicOct, nil
 }
 
 func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
