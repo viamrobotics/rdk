@@ -106,18 +106,19 @@ type ParallelProjectionOntoXZWithRobotMarker struct {
 	robotPose *spatialmath.Pose
 }
 
-var (
+const (
 	sigmaLevel       = 7
 	imageHeight      = 1080
 	imageWidth       = 1080
 	missThreshold    = 0.44
 	hitThreshold     = 0.53
-	voxelSize        = 1
+	voxelRadius      = 1
 	robotMarkerRatio = 5
 )
 
 // PointCloudToRGBD creates an image of a pointcloud in the XZ plane, scaling the points to a standard image
-// size. It will also add a red marker to the map to represent the location of the robot.
+// size. It will also add a red marker to the map to represent the location of the robot. The returned depthMap
+// is unused and so will always be nil.
 func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud pointcloud.PointCloud,
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	meta := cloud.MetaData()
@@ -131,13 +132,22 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 
 	// Calculate max and min range to be represented in the output image and, if needed, cropping it based on
 	// the mean and standard deviation of the X and Z coordinates
-	meanX, stdevX, err := calculateMeanAndStandardDeviation(X)
+	meanX, err := stats.Mean(X)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "calculation of the X-coord's mean during pcd projection failed")
 	}
-	meanZ, stdevZ, err := calculateMeanAndStandardDeviation(Z)
+	stdevX, err := stats.StandardDeviation(X)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "calculation of the X-coord's stdev during pcd projection failed")
+	}
+
+	meanZ, err := stats.Mean(Z)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "calculation of the Z-coord's mean during pcd projection failed")
+	}
+	stdevZ, err := stats.StandardDeviation(Z)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "calculation of the Z-coord's stdev during pcd projection failed")
 	}
 
 	maxX := math.Min(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
@@ -160,11 +170,11 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	heightScaleFactor := float64(imageHeight) / (maxZ - minZ)
 
 	// Add points in the pointcloud to a new image
-	color := rimage.NewImage(imageWidth, imageHeight)
+	im := rimage.NewImage(imageWidth, imageHeight)
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
-		j := (pt.X - meta.MinX) * widthScaleFactor
-		i := (pt.Z - meta.MinZ) * heightScaleFactor
-		x, y := int(math.Round(i)), int(math.Round(j))
+		j := (pt.X - minX) * widthScaleFactor
+		i := (pt.Z - minZ) * heightScaleFactor
+		x, y := int(math.Round(j)), int(math.Round(i))
 
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
@@ -175,22 +185,21 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 			} else {
 				c = rimage.NewColor(255, 255, 255)
 			}
-			addPointToImage(color, image.Point{x, y}, c, voxelSize)
+			im.Circle(image.Point{x, y}, voxelRadius, c)
 		}
 		return true
 	})
 
 	// Add a red robot marker to the image
-	// TODO: Represent the orientation of the robot in its marker
 	if ppRM.robotPose != nil {
 		robotMarkerPoint := image.Point{
-			X: int(math.Round((robotMarker.Point().X - meta.MinX) * widthScaleFactor)),
-			Y: int(math.Round((robotMarker.Point().Z - meta.MinZ) * heightScaleFactor)),
+			X: int(math.Round((robotMarker.Point().X - minX) * widthScaleFactor)),
+			Y: int(math.Round((robotMarker.Point().Z - minZ) * heightScaleFactor)),
 		}
 		robotMarkerColor := rimage.NewColor(255, 0, 0)
-		addPointToImage(color, robotMarkerPoint, robotMarkerColor, voxelSize*robotMarkerRatio)
+		im.Circle(robotMarkerPoint, voxelRadius, robotMarkerColor)
 	}
-	return color, nil, nil
+	return im, nil, nil
 }
 
 // RGBDToPointCloud calls its equivalent in ParallelProjection.
@@ -199,19 +208,17 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
 	dm *rimage.DepthMap,
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
-	pp := ParallelProjection{}
-	return pp.RGBDToPointCloud(img, dm, crop...)
+	return nil, errors.New("converting a RGB image to Pointcloud is current unimplemented for this projection")
 }
 
 // ImagePointTo3DPoint calls its equivalent in ParallelProjection.
 func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
-	pp := ParallelProjection{}
-	return pp.ImagePointTo3DPoint(pt, d)
+	return r3.Vector{}, errors.New("converting an image point to a 3D point is current unimplemented for this projection")
 }
 
 // getProbabilityColorFromValue returns an RGB color value based on the the probability value and defined hit and miss
 // thresholds
-// TODO (RSDK-1074): once probability values are available this function should be changed to produced desired images.
+// TODO (RSDK-1705): Once probability values are available this function should be changed to produced desired images.
 func getProbabilityColorFromValue(v int) rimage.Color {
 	var r, g, b uint8
 
@@ -220,7 +227,7 @@ func getProbabilityColorFromValue(v int) rimage.Color {
 	switch {
 	case prob < missThreshold && prob >= 0:
 		b = uint8(255 * (prob / missThreshold))
-	case prob > hitThreshold && prob <= 0:
+	case prob > hitThreshold && prob <= 1:
 		g = uint8(255 * ((prob - hitThreshold) / (1 - hitThreshold)))
 	default:
 		r = 255
@@ -231,35 +238,8 @@ func getProbabilityColorFromValue(v int) rimage.Color {
 	return rimage.NewColor(r, g, b)
 }
 
-// Calculates the mean and standard deviation of the provided data.
-func calculateMeanAndStandardDeviation(data []float64) (float64, float64, error) {
-	mean, err := stats.Mean(data)
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "calculation of the mean during pcd projection failed")
-	}
-	stdev, err := stats.StandardDeviation(data)
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "calculation of the stdev during pcd projection failed")
-	}
-	return mean, stdev, nil
-}
-
-// Adds  the point, or voxel, to the provided image.
-func addPointToImage(im *rimage.Image, p image.Point, color rimage.Color, vSize int) {
-	for i := -vSize; i <= vSize; i++ {
-		for j := -vSize; j <= vSize; j++ {
-			if p.X+i >= 0 && p.X+i < imageWidth && p.Y+j >= 0 && p.Y+j < imageHeight {
-				im.Set(image.Point{p.X + i, p.Y + j}, color)
-			}
-		}
-	}
-}
-
 // NewParallelProjectionOntoXZWithRobotMarker creates a new ParallelProjectionOntoXZWithRobotMarker with the given
 // robot pose.
-func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) (ParallelProjectionOntoXZWithRobotMarker, error) {
-	if rp == nil {
-		return ParallelProjectionOntoXZWithRobotMarker{}, errors.New("error null pointer given for robot position")
-	}
-	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}, nil
+func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXZWithRobotMarker {
+	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}
 }
