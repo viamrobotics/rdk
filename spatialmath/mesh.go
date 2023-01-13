@@ -63,9 +63,38 @@ func (t *triangle) closestPointToCoplanarPoint(pt r3.Vector) (r3.Vector) {
 	return refPt
 }
 
-// closestPointToPoint takes a point, and returns the closest point on the triangle to the given point
-// This is significantly slower than closestPointToCoplanarPoint
+// closestPointToPoint takes a point, and returns the closest point on the triangle to the given point, as well as whether the point
+// is on the edge of the triangle.
+// This is slower than closestPointToCoplanarPoint
 func (t *triangle) closestPointToPoint(point r3.Vector) r3.Vector {
+	closestPtInside, inside := t.closestInsidePoint(point)
+	if inside {
+		return closestPtInside
+	}
+
+	// If the closest point is outside the triangle, it must be on an edge, so we
+	// check each triangle edge for a closest point to the point pt.
+	closestPt := ClosestPointSegmentPoint(t.p0, t.p1, point)
+	bestDist := point.Sub(closestPt).Norm2()
+
+	newPt := ClosestPointSegmentPoint(t.p1, t.p2, point)
+	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
+		closestPt = newPt
+		bestDist = newDist
+	}
+	
+	newPt = ClosestPointSegmentPoint(t.p2, t.p0, point)
+	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
+		return newPt
+	}
+	return closestPt
+}
+
+// closestInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
+// Otherwise it will return the query point.
+// To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
+// must be <= 90 degrees
+func (t *triangle) closestInsidePoint(point r3.Vector) (r3.Vector, bool) {
 	// Parametrize the triangle s.t. a point inside the triangle is
 	// Q = p0 + u * e0 + v * e1, when 0 <= u <= 1, 0 <= v <= 1, and
 	// 0 <= u + v <= 1. Let e0 = (p1 - p0) and e1 = (p2 - p0).
@@ -82,28 +111,5 @@ func (t *triangle) closestPointToPoint(point r3.Vector) r3.Vector {
 	u := (c * e0.Dot(d) - b * e1.Dot(d)) / det
 	v := (-b * e0.Dot(d) + a * e1.Dot(d)) / det
 	inside := (0 <= u) && (u <= 1) && (0 <= v) && (v <= 1) && (u + v <= 1)
-	closestPtInside := t.p0.Add(e0.Mul(u)).Add(e1.Mul(v))
-	d0 := closestPtInside.Sub(point).Norm2()
-
-	// If the closest point is outside the triangle, it must be on an edge, so we
-	// check each triangle edge for a closest point to the point pt.
-	closestPt := ClosestPointSegmentPoint(t.p0, t.p1, point)
-	bestDist := point.Sub(closestPt).Norm2()
-	
-	if inside && d0 < bestDist {
-		closestPt = closestPtInside
-		bestDist = d0
-	}
-
-	newPt := ClosestPointSegmentPoint(t.p1, t.p2, point)
-	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
-		closestPt = newPt
-		bestDist = newDist
-	}
-	
-	newPt = ClosestPointSegmentPoint(t.p2, t.p0, point)
-	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
-		return newPt
-	}
-	return closestPt
+	return t.p0.Add(e0.Mul(u)).Add(e1.Mul(v)), inside
 }

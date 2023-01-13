@@ -4,6 +4,8 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+const FloatEpsilon = 1e-6
+
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
 // Copyright 2021 The Brax Authors, which is licensed under the Apache License Version 2.0 (the “License”).
 // You may obtain a copy of the license at http://www.apache.org/licenses/LICENSE-2.0.
@@ -82,7 +84,19 @@ func PlaneNormal(p0, p1, p2 r3.Vector) r3.Vector {
 // closestSegmentTrianglePoints takes a line segment and a triangle, and returns the point on each closest to the other.
 func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *triangle) (bestSegPt, bestTriPt r3.Vector) {
 	// The closest triangle point is either on the edge or within the triangle.
-	// First check triangle edges for the closest point.
+	
+	// First, handle the case where the closest triangle point is inside the
+	// triangle. Either the line segment intersects the triangle or a segment
+	// endpoint is closest to a point inside the triangle.
+	// If the line overlaps the triangle and is parallel to the triangle plane,
+	// the chosen triangle point is arbitrary.
+	segPt, _ := closestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
+	triPt, inside := t.closestInsidePoint(segPt)
+	if inside {
+		return segPt, triPt
+	}
+	
+	// If not inside, check triangle edges for the closest point.
 	bestSegPt, bestTriPt = ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p1)
 	bestDist := bestSegPt.Sub(bestTriPt).Norm2()
 	if bestDist == 0 {
@@ -104,20 +118,7 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *triangle) (bestSegPt, b
 		return segPt3, triPt3
 	}
 	if d3 < bestDist {
-		bestSegPt, bestTriPt = segPt3, triPt3
-		bestDist = d3
-	}
-	
-	// Next, handle the case where the closest triangle point is inside the
-	// triangle. Either the line segment intersects the triangle or a segment
-	// endpoint is closest to a point inside the triangle.
-	// If the line overlaps the triangle and is parallel to the triangle plane,
-	// the chosen triangle point is arbitrary.
-	segPt4, _ := closestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
-	triPt4 := t.closestPointToPoint(segPt4)
-	d4 := segPt4.Sub(triPt4).Norm2()
-	if d4 < bestDist {
-		return segPt4, triPt4
+		return segPt3, triPt3
 	}
 	
 	return bestSegPt, bestTriPt

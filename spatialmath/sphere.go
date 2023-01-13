@@ -195,11 +195,16 @@ func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
 	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
+	iterInt := int(iter)
 	var vecList []r3.Vector
-	for i := 0.; i < iter; i++ {
-		y := 1 - (i/(iter-1))*2      // y goes from 1 to -1
+	for i := 0; i < iterInt; i++ {
+		y := 1 - (float64(i)/float64(iterInt-1))*2      // y goes from 1 to -1
 		radius := math.Sqrt(1 - y*y) // radius at y
-		theta := phi * i             // golden angle increment
+		// Account for floating point error
+		if y * y > 1 {
+			radius = 0
+		}
+		theta := phi * float64(i)             // golden angle increment
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
 		vec := r3.Vector{x, y * s.radius, z}

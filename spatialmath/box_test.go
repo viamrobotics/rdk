@@ -8,8 +8,8 @@ import (
 	"go.viam.com/test"
 )
 
-func makeTestBox(o Orientation, point, dims r3.Vector, label string) Geometry {
-	box, _ := NewBox(NewPose(point, o), dims, label)
+func makeTestBox(o Orientation, pt, dims r3.Vector, label string) Geometry {
+	box, _ := NewBox(NewPose(pt, o), dims, label)
 	return box
 }
 

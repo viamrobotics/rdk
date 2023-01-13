@@ -37,11 +37,11 @@ func NewCapsule(offset Pose, radius float64, length float64, label string) (Geom
 	if radius < 0 {
 		return nil, newBadGeometryDimensionsError(&capsule{})
 	}
-	if length == radius * 2 {
+	if length == radius * 2 || length == 0 {
 		return NewSphere(offset, radius, label)
 	}
 	if length < radius * 2 {
-		return nil, newBadGeometryDimensionsError(&capsule{})
+		return nil, newBadCapsuleLengthError(length, radius)
 	}
 	return precalcCapsule(offset, radius, length, label), nil
 }
@@ -108,15 +108,16 @@ func (c *capsule) Transform(toPremultiply Pose) Geometry {
 
 // ToProto converts the capsule to a Geometry proto message.
 func (c *capsule) ToProtobuf() *commonpb.Geometry {
-	return &commonpb.Geometry{}
-		//~ Center: PoseToProtobuf(c.pose),
-		//~ GeometryType: &commonpb.Geometry_Capsule{
-			//~ Capsule: &commonpb.Capsule{
-				//~ RadiusMm: c.radius,
-			//~ },
-		//~ },
-		//~ Label: c.label,
-	//~ }
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(c.pose),
+		GeometryType: &commonpb.Geometry_Capsule{
+			Capsule: &commonpb.Capsule{
+				RadiusMm: c.radius,
+				LengthMm: c.length,
+			},
+		},
+		Label: c.label,
+	}
 }
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
@@ -211,22 +212,33 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 }
 
 func capsuleVsPointDistance(c *capsule, other r3.Vector) float64 {
-	return DistToLineSegment(c.segA, c.segB, other) + c.radius
+	return DistToLineSegment(c.segA, c.segB, other) - c.radius
 }
 
 func capsuleVsSphereDistance(c *capsule, other *sphere) float64 {
-	return DistToLineSegment(c.segA, c.segB, other.pose.Point()) + c.radius + other.radius
+	return DistToLineSegment(c.segA, c.segB, other.pose.Point()) - (c.radius + other.radius)
 }
 
 func capsuleVsCapsuleDistance(c, other *capsule) float64 {
-	return SegmentDistanceToSegment(c.segA, c.segB, other.segA, other.segB)
+	return SegmentDistanceToSegment(c.segA, c.segB, other.segA, other.segB) - (c.radius + other.radius)
 }
 
 func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 	// Capsules are not polyhedrons, so separating axis test is not ideal here
-	return capsuleVsMeshDistance(c, other.toMesh())
+	meshDist := capsuleVsMeshDistance(c, other.toMesh())
+	if capsuleInBox(c, other) {
+		return meshDist * -1
+	}
+	// Account for full-diameter cylinder penetrations
+	// Check approx float equality
+	if meshDist + c.radius < FloatEpsilon {
+		return -other.penetrationDepth(ClosestPointSegmentPoint(c.segA, c.segB, other.pose.Point())) - c.radius
+	}
+	return meshDist
 }
 
+// IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
+// to the closest triangle in the mesh.
 func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
 	lowDist := math.Inf(1)
 	for _, t := range other.triangles {

@@ -15,6 +15,8 @@ type Geometry interface {
 	Transform(Pose) Geometry
 	ToProtobuf() *commonpb.Geometry
 	CollidesWith(Geometry) (bool, error)
+	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
+	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string  // Label is the name of the geometry
@@ -31,6 +33,7 @@ const (
 	UnknownType     = GeometryType("")
 	BoxType         = GeometryType("box")
 	SphereType      = GeometryType("sphere")
+	CapsuleType     = GeometryType("capsule")
 	PointType       = GeometryType("point")
 	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
 
@@ -106,6 +109,8 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label)
 	case SphereType:
 		return NewSphere(offset, config.R, config.Label)
+	case CapsuleType:
+		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case UnknownType:
@@ -116,7 +121,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 				return creator, nil
 			}
 		}
-		if creator, err := NewSphere(offset, config.R, config.Label); err == nil {
+		if creator, err := NewCapsule(offset, config.R, config.L, config.Label); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified

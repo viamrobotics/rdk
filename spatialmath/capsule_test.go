@@ -2,12 +2,17 @@ package spatialmath
 
 import (
 	"math/rand"
-	"fmt"
 	"testing"
+	"fmt"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
+	//~ "go.viam.com/test"
 )
+
+func makeTestCapsule(o Orientation, pt r3.Vector, radius, length float64, label string) Geometry {
+	c, _ := NewCapsule(NewPose(pt, o), radius, length, label)
+	return c
+}
 
 var dist = 0.
 var pt = r3.Vector{}
@@ -65,41 +70,16 @@ func BenchmarkTriangleDist2(b *testing.B) {
 	}
 }
 
-func TestTriangleDistsEqual(t *testing.T) {
+func TestTriangleDists(t *testing.T) {
 	
 	p0 := r3.Vector{0,0,0}
-	p1 := r3.Vector{1,0,0}
-	p2 := r3.Vector{0,1,0}
-	s1 := r3.Vector{0.2,0.2,1}
-	s2 := r3.Vector{0.3,0.3,2}
+	p1 := r3.Vector{3,0,0}
+	p2 := r3.Vector{0,3,0}
+	test1 := r3.Vector{-1,-1,0}
 	
 	tri := newTriangle(p0, p1, p2)
-	
-	segPt, coplanar := closestPointsSegmentPlane(s1, s2, tri.p0, tri.normal)
-	pt1 := tri.closestPointToPoint(segPt)
-	pt2 := tri.closestPointToCoplanarPoint(coplanar)
-	
-	fmt.Println("seg, co", segPt, coplanar)
-	fmt.Println("p1, p2", pt1, pt2)
-	fmt.Println("eq",  R3VectorAlmostEqual(pt1, pt2, 1e-4))
-	test.That(t, R3VectorAlmostEqual(pt1, pt2, 1e-4), test.ShouldBeTrue)
-	
-
-	//~ r := rand.New(rand.NewSource(1))
-	//~ for n := 0; n < 10000; n++ {
-		//~ p0 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
-		//~ p1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
-		//~ p2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
-		//~ s1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
-		//~ s2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
-		
-		//~ tri := newTriangle(p0, p1, p2)
-		
-		//~ segPt, coplanar := closestPointsSegmentPlane(s1, s2, tri.p0, tri.normal)
-		//~ pt1 := tri.closestPointToPoint(segPt)
-		//~ pt2 := tri.closestPointToCoplanarPoint(coplanar)
-		//~ fmt.Println(n)
-		//~ fmt.Println(segPt, coplanar)
-		//~ test.That(t, R3VectorAlmostEqual(pt1, pt2, 1e-4), test.ShouldBeTrue)
-	//~ }
+	//~ close1 := tri.closestPointToPoint(test1)
+	close2, inside := tri.closestInsidePoint(test1)
+	//~ test.That(t, R3VectorAlmostEqual(close1, p0, 1e-4), test.ShouldBeTrue)
+	fmt.Println(close2, inside)
 }
