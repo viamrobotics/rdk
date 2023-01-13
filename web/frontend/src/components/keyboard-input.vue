@@ -28,7 +28,7 @@ const pressedKeys = $ref({
 
 let isActive = $ref(false);
 
-const keysLayout = [['a'], ['w', 's',], ['d']] as const;
+const keysLayout = [['a'], ['w', 's'], ['d']] as const;
 
 const normalizeKey = (key: string): Keys | null => {
   return ({

@@ -94,19 +94,19 @@ const digestInput = () => {
   for (const item of pressed) {
     switch (item) {
       case Keymap.FORWARD: {
-        linearValue += Number(.01 * power);
+        linearValue += Number(0.01 * power);
         break;
       }
       case Keymap.BACKWARD: {
-        linearValue -= Number(.01 * power);
+        linearValue -= Number(0.01 * power);
         break;
       }
       case Keymap.LEFT: {
-        angularValue += Number(.01 * power);
+        angularValue += Number(0.01 * power);
         break;
       }
       case Keymap.RIGHT: {
-        angularValue -= Number(.01 * power);
+        angularValue -= Number(0.01 * power);
         break;
       }
     }
