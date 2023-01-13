@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"image"
 	"os"
 	"testing"
 
@@ -73,20 +74,29 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 
-	t.Run("Project a single point pointcloud with data", func(t *testing.T) {
+	t.Run("Project a single point pointcloud with data with image pixel checks", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
 		pointcloud := pc.New()
-		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(1))
+		d := pc.NewValueData(200)
+		pointcloud.Set(r3.Vector{X: 10, Y: 10, Z: 10}, d)
 
 		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
 		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
-		c := im.GetXY(0, 0)
-		test.That(t, c, test.ShouldResemble, rimage.NewColor(255, 0, 0))
+
+		robotMarkerExpectedPos := image.Point{X: 0, Y: 0}
+		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, robotMarkerExpectedPos.Y)
+		expectedRobotMarkerColor := rimage.NewColor(255, 0, 0)
+		test.That(t, colorAtPos, test.ShouldResemble, expectedRobotMarkerColor)
+
+		pointExpectedPos := image.Point{X: imageHeight - 1, Y: imageWidth - 1}
+		colorAtPoint := im.GetXY(pointExpectedPos.X, pointExpectedPos.Y)
+		expectedPointColor := getProbabilityColorFromValue(d.Value())
+		test.That(t, colorAtPoint, test.ShouldResemble, expectedPointColor)
 	})
 
 	t.Run("Project an imported pointcloud", func(t *testing.T) {
