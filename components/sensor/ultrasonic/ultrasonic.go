@@ -105,7 +105,6 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 	s.readingChan = make(chan bool)
 	s.errChan = make(chan error)
 	s.distanceChan = make(chan float64)
-	s.echoInterrupt.AddCallback(s.intChan)
 	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
 	}
@@ -128,7 +127,7 @@ type Sensor struct {
 	cancelFunc    func()
 	mu            sync.Mutex
 	// toggle this property to be able to lock/unlock
-	// the mutex in sendDistance
+	// the mutex in measureDistance
 	isReading               bool
 	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
@@ -144,6 +143,7 @@ func (s *Sensor) startUpdateLoop(ctx context.Context) {
 	s.activeBackgroundWorkers.Add(1)
 	rdkutils.ManagedGo(
 		func() {
+			s.echoInterrupt.AddCallback(s.intChan)
 			defer s.echoInterrupt.RemoveCallback(s.intChan)
 			for {
 				select {
@@ -157,7 +157,7 @@ func (s *Sensor) startUpdateLoop(ctx context.Context) {
 				case <-s.readingChan:
 					// a call to Readings has occurred so we request a distance
 					// reading from the sensor and send it to the distance channel
-					if err := s.sendDistance(ctx); err != nil {
+					if err := s.measureDistance(ctx); err != nil {
 						s.errChan <- err
 					}
 				default:
@@ -172,7 +172,7 @@ func (s *Sensor) startUpdateLoop(ctx context.Context) {
 	)
 }
 
-func (s *Sensor) sendDistance(ctx context.Context) error {
+func (s *Sensor) measureDistance(ctx context.Context) error {
 	s.mu.Lock()
 	defer func() {
 		s.isReading = false
@@ -214,8 +214,8 @@ func (s *Sensor) sendDistance(ctx context.Context) error {
 	// on the time interval between the sound and its echo
 	// and the speed of sound (343 m/s)
 	distMeters := timeA.Sub(timeB).Seconds() * 343.0 / 2.0
-	distMillis := math.Round((distMeters*1000.0)*1000.0) / 1000.0
-	s.distanceChan <- distMillis
+	distMilli := math.Round((distMeters*1000.0)*1000.0) / 1000.0
+	s.distanceChan <- distMilli
 	return nil
 }
 
@@ -230,7 +230,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	case err := <-s.errChan:
 		return nil, err
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return nil, s.namedError(errors.New("timeout waiting for sendDistance"))
+		return nil, s.namedError(errors.New("timeout waiting for measureDistance"))
 	}
 }
 
