@@ -208,7 +208,7 @@ func (s *Sensor) sendDistance(ctx context.Context) error {
 	case <-s.cancelCtx.Done():
 		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return s.namedError(errors.New("timed out waiting for signal that echo was recieved"))
+		return s.namedError(errors.New("timed out waiting for signal that echo was received"))
 	}
 	// we calculate the distance to the nearest object based
 	// on the time interval between the sound and its echo
