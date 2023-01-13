@@ -32,8 +32,6 @@ var model = resource.NewDefaultModel("imu-wit")
 
 var baudRateList = [...]int{115200, 9600}
 
-const pollTime = 50
-
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
 	Port     string `json:"serial_path"`
@@ -201,12 +199,12 @@ func NewWit(
 
 	portReader := bufio.NewReader(port)
 
-	i.startUpdateLoop(ctx, port, portReader, logger)
+	i.startUpdateLoop(ctx, portReader, logger)
 
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, port io.ReadWriteCloser, portReader *bufio.Reader, logger golog.Logger) {
+func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
 	var cancelCtx context.Context
 	cancelCtx, imu.cancelFunc = context.WithCancel(ctx)
 	waitCh := make(chan struct{})
@@ -246,7 +244,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, port io.ReadWriteCloser, po
 				}
 
 				if ctx.Err() != nil {
-					imu.logger.Debug("returning from for loop with error")
 					return
 				}
 			}()
