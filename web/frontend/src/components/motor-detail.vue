@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, motorApi } from '@viamrobotics/sdk';
+import { Client, motorApi, MotorClient, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
@@ -60,34 +60,52 @@ const setDirection = (value: string) => {
   }
 };
 
-const setPower = () => {
+const setPower = async () => {
   const powerPct = (power * direction) / 100;
   const req = new motorApi.SetPowerRequest();
   req.setName(props.name);
   req.setPowerPct(powerPct);
-
   rcLogConditionally(req);
-  props.client.motorService.setPower(req, new grpc.Metadata(), displayError);
+
+  const mc = new MotorClient(props.client, props.name);
+  try {
+    return await mc.setPower(powerPct);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const goFor = () => {
+const goFor = async () => {
   const req = new motorApi.GoForRequest();
   req.setName(props.name);
   req.setRpm(rpm * direction);
   req.setRevolutions(revolutions);
-
   rcLogConditionally(req);
-  props.client.motorService.goFor(req, new grpc.Metadata(), displayError);
+
+  const mc = new MotorClient(props.client, props.name);
+  try {
+    return await mc.goFor(rpm * direction, revolutions);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
-const goTo = () => {
+const goTo = async () => {
   const req = new motorApi.GoToRequest();
   req.setName(props.name);
   req.setRpm(rpm);
   req.setPositionRevolutions(position);
-
   rcLogConditionally(req);
-  props.client.motorService.goTo(req, new grpc.Metadata(), displayError);
+
+  const mc = new MotorClient(props.client, props.name);
+  try {
+    return await mc.goTo(rpm, position);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
 const motorRun = () => {
@@ -102,14 +120,21 @@ const motorRun = () => {
       return goTo();
     }
   }
+  return null;
 };
 
-const motorStop = () => {
+const motorStop = async () => {
+  const mc = new MotorClient(props.client, props.name);
   const req = new motorApi.StopRequest();
   req.setName(props.name);
-
   rcLogConditionally(req);
-  props.client.motorService.stop(req, new grpc.Metadata(), displayError);
+
+  try {
+    return await mc.motorStop();
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 };
 
 onMounted(() => {
