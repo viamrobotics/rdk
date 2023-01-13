@@ -11,7 +11,6 @@ import (
 	"math"
 	"math/rand"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -32,6 +31,8 @@ import (
 var model = resource.NewDefaultModel("imu-wit")
 
 var baudRateList = [...]int{115200, 9600}
+
+const pollTime = 50
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
@@ -202,35 +203,23 @@ func NewWit(
 
 	i.startUpdateLoop(ctx, port, portReader, logger)
 
-	ctx, i.cancelFunc = context.WithCancel(context.Background())
-	i.startUpdateLoop(ctx, port, portReader, logger)
-
 	return &i, nil
 }
 
 func (imu *wit) startUpdateLoop(ctx context.Context, port io.ReadWriteCloser, portReader *bufio.Reader, logger golog.Logger) {
+	var cancelCtx context.Context
+	cancelCtx, imu.cancelFunc = context.WithCancel(ctx)
+	waitCh := make(chan struct{})
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(port.Close)
 		defer imu.activeBackgroundWorkers.Done()
-		timer := time.NewTicker(time.Duration(100 * float64(time.Millisecond)))
-		defer timer.Stop()
+		close(waitCh)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-cancelCtx.Done():
 				return
 			default:
 			}
-			select {
-			case <-ctx.Done():
-				return
-			case <-timer.C:
-			}
-
-			if ctx.Err() != nil {
-				return
-			}
-
 			line, err := portReader.ReadString('U')
 			if err != nil {
 				imu.logger.Errorf("error reading line from port %#v", err)
@@ -241,7 +230,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, port io.ReadWriteCloser, po
 			if rand.Intn(100) < 3 {
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
-
 			func() {
 				imu.mu.Lock()
 				defer imu.mu.Unlock()
@@ -253,13 +241,18 @@ func (imu *wit) startUpdateLoop(ctx context.Context, port io.ReadWriteCloser, po
 					if len(line) != 11 {
 						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
 						imu.numBadReadings++
-						return
 					}
 					imu.lastError = imu.parseWIT(line)
+				}
+
+				if ctx.Err() != nil {
+					imu.logger.Debug("returning from for loop with error")
+					return
 				}
 			}()
 		}
 	})
+	<-waitCh
 }
 
 func scale(a, b byte, r float64) float64 {
