@@ -57,6 +57,8 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
+	// Prefer to switch back to periph.io's version when they support the Jetson Orin board.
+	github.com/penguinland/host/v3 v3.0.0-20230113163253-fffa71c7a7f8
 	github.com/pion/mediadevices v0.3.12
 	github.com/pion/webrtc/v3 v3.1.50
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
@@ -91,7 +93,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/gotestsum v1.8.2
 	periph.io/x/conn/v3 v3.7.0
-	periph.io/x/host/v3 v3.7.2
 )
 
 require (
@@ -368,6 +369,7 @@ require (
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20220706161116-678bad134442 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
+	periph.io/x/host/v3 v3.8.0 // indirect
 )
 
 require (
@@ -378,5 +380,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
-
-replace periph.io/x/host/v3 => github.com/viamrobotics/periphio_host/v3 v3.0.0-20230111172100-897eea2b4261
