@@ -208,7 +208,7 @@ func (b *box) toMesh() *mesh {
 	m := &mesh{pose: b.pose}
 	triangles := make([]*triangle, 0, 12)
 	verts := b.vertices()
-	
+
 	// Lists of adjacent face corners not including the opposing ones
 	// TODO(pl): Do this in a way that doesn't require a bunch of magic numbers or duplicated code
 	tPairs := [][]r3.Vector{
@@ -231,7 +231,7 @@ func (b *box) toMesh() *mesh {
 
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
-// Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance
+// Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
 func boxVsBoxCollision(a, b *box) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 

@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Always use at least this many points to describe a sphere
+// Always use at least this many points to describe a sphere.
 const defaultMinSpherePoints = 10.
 
 // sphere is a collision geometry that represents a sphere, it has a pose and a radius that fully define it.
@@ -185,9 +185,9 @@ func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 	var iter float64
 	area := 4. * math.Pi * s.radius * s.radius
 	if resolution != 0. {
-		iter = area*resolution
+		iter = area * resolution
 	} else {
-		iter = area/defaultPointDensity // default spacing
+		iter = area / defaultPointDensity // default spacing
 	}
 	if iter < defaultMinSpherePoints {
 		iter = defaultMinSpherePoints
@@ -198,13 +198,13 @@ func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 	iterInt := int(iter)
 	var vecList []r3.Vector
 	for i := 0; i < iterInt; i++ {
-		y := 1 - (float64(i)/float64(iterInt-1))*2      // y goes from 1 to -1
-		radius := math.Sqrt(1 - y*y) // radius at y
+		y := 1 - (float64(i)/float64(iterInt-1))*2 // y goes from 1 to -1
+		radius := math.Sqrt(1 - y*y)               // radius at y
 		// Account for floating point error
-		if y * y > 1 {
+		if y*y > 1 {
 			radius = 0
 		}
-		theta := phi * float64(i)             // golden angle increment
+		theta := phi * float64(i) // golden angle increment
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
 		vec := r3.Vector{x, y * s.radius, z}

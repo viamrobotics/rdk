@@ -12,11 +12,15 @@ import (
 )
 
 // capsule is a collision geometry that represents a capsule, it has a pose and a radius that fully define it.
-//    __________________
-//   /                  \
+//
+//	 __________________
+//	/                  \
+//
 // x|  |--------------|  |x
-//   \__________________/
-// Length is the distance between the x's, or internal segment length + 2*radius
+//
+//	\__________________/
+//
+// Length is the distance between the x's, or internal segment length + 2*radius.
 type capsule struct {
 	// this is the pose of one end of the capsule. The full capsule extends `length` mm outwards in the direction of
 	// the pose's orientation
@@ -24,42 +28,39 @@ type capsule struct {
 	radius float64
 	length float64 // total length of the capsule, tip to tip
 	label  string
-	
+
 	// These values are generated at geometry creation time and should not be altered by hand
 	// They are stoed here because they are useful and expensive to calculate
 	segA r3.Vector // Proximal endpoint of capsule line segment. First point from `pose` to be surrounded by `radius` of capsule
 	segB r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
-	normal r3.Vector // Precomputed unit vector colinear with capsule line segment
 }
 
 // NewCapsule instantiates a new capsule Geometry.
-func NewCapsule(offset Pose, radius float64, length float64, label string) (Geometry, error) {
+func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, error) {
 	if radius < 0 {
 		return nil, newBadGeometryDimensionsError(&capsule{})
 	}
-	if length == radius * 2 || length == 0 {
+	if length == radius*2 || length == 0 {
 		return NewSphere(offset, radius, label)
 	}
-	if length < radius * 2 {
+	if length < radius*2 {
 		return nil, newBadCapsuleLengthError(length, radius)
 	}
 	return precalcCapsule(offset, radius, length, label), nil
 }
 
-// Will precalculate the linear endpoints for a capsule
-func precalcCapsule(offset Pose, radius float64, length float64, label string) Geometry {
-	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0,0,radius})).Point()
-	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0,0,radius + length})).Point()
-	normal := segB.Sub(segA).Normalize()
-	
+// Will precalculate the linear endpoints for a capsule.
+func precalcCapsule(offset Pose, radius, length float64, label string) Geometry {
+	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, radius})).Point()
+	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length - radius})).Point()
+
 	return &capsule{
-		pose: offset,
+		pose:   offset,
 		radius: radius,
 		length: length,
-		label: label,
-		segA: segA,
-		segB: segB,
-		normal: normal,
+		label:  label,
+		segA:   segA,
+		segB:   segB,
 	}
 }
 
@@ -122,6 +123,9 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
 func (c *capsule) CollidesWith(g Geometry) (bool, error) {
+	if other, ok := g.(*box); ok {
+		return capsuleVsBoxCollision(c, other), nil
+	}
 	dist, err := c.DistanceFrom(g)
 	if err != nil {
 		return true, err
@@ -171,11 +175,11 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	if resolution == 0. {
 		resolution = defaultPointDensity
 	}
-	iter := area*resolution
+	iter := area * resolution
 	if iter < defaultMinSpherePoints {
 		iter = defaultMinSpherePoints
 	}
-	
+
 	// First points are placed on the hemisphere endcaps
 	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
@@ -195,19 +199,19 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 		vec := r3.Vector{x, y * c.radius, z}
 		vecList = append(vecList, vec)
 	}
-	
+
 	// Now distribute points along the cylindrical shaft
-	totalShaftPts := (c.radius * c.length)*resolution
-	ptsPerRing := totalShaftPts/(c.length*resolution)
-	ringCnt := math.Floor(totalShaftPts/ptsPerRing)
-	zInc := c.length/(ringCnt + 1)
+	totalShaftPts := (c.radius * c.length) * resolution
+	ptsPerRing := totalShaftPts / (c.length * resolution)
+	ringCnt := math.Floor(totalShaftPts / ptsPerRing)
+	zInc := c.length / (ringCnt + 1)
 	for ring := 1.; ring <= ringCnt; ring++ {
 		for ringPt := 0.; ringPt < ptsPerRing; ringPt++ {
-			theta := 2. * math.Pi * (ringPt/ptsPerRing)
+			theta := 2. * math.Pi * (ringPt / ptsPerRing)
 			vecList = append(vecList, r3.Vector{math.Cos(theta) * c.radius, math.Sin(theta) * c.radius, zInc * ring})
 		}
 	}
-	
+
 	return transformPointsToPose(vecList, c.Pose())
 }
 
@@ -224,15 +228,15 @@ func capsuleVsCapsuleDistance(c, other *capsule) float64 {
 }
 
 func capsuleVsBoxDistance(c *capsule, other *box) float64 {
-	// Capsules are not polyhedrons, so separating axis test is not ideal here
+	// Capsules are not polyhedrons, so separating axis test is not ideal here.
 	meshDist := capsuleVsMeshDistance(c, other.toMesh())
 	if capsuleInBox(c, other) {
 		return meshDist * -1
 	}
-	// Account for full-diameter cylinder penetrations
-	// Check approx float equality
-	if meshDist + c.radius < FloatEpsilon {
-		return -other.penetrationDepth(ClosestPointSegmentPoint(c.segA, c.segB, other.pose.Point())) - c.radius
+	// If capsule spine intersects a triangle, we approximate (overestimate) penetration depth
+	// TODO(pl): if penetration depth is in use, this should probably be improved
+	if meshDist+c.radius < floatEpsilon {
+		return DistToLineSegment(c.segA, c.segB, other.pose.Point()) - (c.radius + other.boundingSphereR)
 	}
 	return meshDist
 }
@@ -256,20 +260,69 @@ func capsuleVsTriangleDistance(c *capsule, other *triangle) float64 {
 	return capPt.Sub(triPt).Norm() - c.radius
 }
 
+func capsuleVsBoxCollision(c *capsule, other *box) bool {
+	// TODO(pl): Large amounts of capsule collision code were adopted from `brax`
+	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/colliders.py
+	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/geometry.py
+	// Brax converts boxes to meshes composed of 12 triangles and does collision detection on those.
+	// We support doing so but it appears that separating axis test is superior so that is what is used here.
+	// The two methods should be fully characterized.
+	return capsuleBoxSeparatingAxis(c, other)
+}
+
 // capsuleInCapsule returns a bool describing if the inner capsule is fully encompassed by the outer capsule.
 func capsuleInCapsule(inner, outer *capsule) bool {
-	return inner.segA.Sub(outer.segA).Norm() + inner.radius <= outer.radius &&
-			inner.segB.Sub(outer.segA).Norm() + inner.radius <= outer.radius &&
-			inner.segB.Sub(outer.segB).Norm() + inner.radius <= outer.radius &&
-			inner.segB.Sub(outer.segB).Norm() + inner.radius <= outer.radius
+	return inner.segA.Sub(outer.segA).Norm()+inner.radius <= outer.radius &&
+		inner.segB.Sub(outer.segA).Norm()+inner.radius <= outer.radius &&
+		inner.segB.Sub(outer.segB).Norm()+inner.radius <= outer.radius &&
+		inner.segB.Sub(outer.segB).Norm()+inner.radius <= outer.radius
 }
 
 // capsuleInBox returns a bool describing if the given capsule is fully encompassed by the given box.
 func capsuleInBox(c *capsule, b *box) bool {
-	return -pointVsBoxDistance(c.segA, b) >= c.radius && -pointVsBoxDistance(c.segB, b) >= c.radius
+	return pointVsBoxDistance(c.segA, b) <= -c.radius && pointVsBoxDistance(c.segB, b) <= -c.radius
 }
 
 // capsuleInSphere returns a bool describing if the given capsule is fully encompassed by the given sphere.
 func capsuleInSphere(c *capsule, s *sphere) bool {
-	return c.segA.Sub(s.pose.Point()).Norm() + c.radius <= s.radius && c.segB.Sub(s.pose.Point()).Norm() + c.radius <= s.radius
+	return c.segA.Sub(s.pose.Point()).Norm()+c.radius <= s.radius && c.segB.Sub(s.pose.Point()).Norm()+c.radius <= s.radius
+}
+
+func capsuleBoxSeparatingAxis(a *capsule, b *box) bool {
+	capCenter := a.segA.Add(a.segB).Mul(0.5)
+	centerDist := b.pose.Point().Sub(capCenter)
+
+	// check if there is a distance between bounding spheres to potentially exit early
+	if centerDist.Norm()-((a.length/2)+b.boundingSphereR) > CollisionBuffer {
+		return false
+	}
+	rmA := a.pose.Orientation().RotationMatrix()
+	rmB := b.pose.Orientation().RotationMatrix()
+
+	segLen := (a.length - 2*a.radius) / 2
+	capVec := rmA.Row(2).Mul(segLen)
+
+	for i := 0; i < 3; i++ {
+		if separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+a.radius {
+			return false
+		}
+		if separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+a.radius {
+			return false
+		}
+		for j := 0; j < 3; j++ {
+			if separatingAxisTest1D(centerDist, rmA.Row(i).Cross(rmB.Row(j)), capVec, b.halfSize, rmB) > CollisionBuffer+a.radius {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func separatingAxisTest1D(positionDelta, plane, capVec r3.Vector, halfSizeB [3]float64, rmB *RotationMatrix) float64 {
+	sum := math.Abs(positionDelta.Dot(plane))
+	for i := 0; i < 3; i++ {
+		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
+	}
+	sum -= math.Abs(capVec.Dot(plane))
+	return sum
 }

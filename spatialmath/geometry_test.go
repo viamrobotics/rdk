@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -553,7 +554,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"separated face closest",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1 + 1e-3}, 1, 4, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1 + 1e-3}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			1e-3,
@@ -561,7 +562,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"separated edge closest",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0,0,2,2}, r3.Vector{0, 2, 2}, 1, 4, ""),
+				makeTestCapsule(&OrientationVector{0, 0, 2, 2}, r3.Vector{0, 2, 2}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			math.Sqrt2,
@@ -569,7 +570,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"separated vertex closest",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0,2,2,2}, r3.Vector{2, 2, 2}, 1, 4, ""),
+				makeTestCapsule(&OrientationVector{0, 2, 2, 2}, r3.Vector{2, 2, 2}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			math.Sqrt(3),
@@ -577,7 +578,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"face tangent",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1}, 1, 4, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			0,
@@ -585,7 +586,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"edge tangent to capsule cylinder",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0,0,-2,2}, r3.Vector{0, 3, 0}, math.Sqrt2/2, 6, ""),
+				makeTestCapsule(&OrientationVector{0, 0, -2, 2}, r3.Vector{0, 3, 0}, math.Sqrt2/2, 6),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			0,
@@ -593,18 +594,18 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"center line segment inside",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0.3, 0.3, -0.75}, 1, 4, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0.3, 0.3, -0.75}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
-			-1.7,
+			-2.23961, // TODO(pl): this will change if capsule-box penetration depth is improved
 		},
 		{
 			"inscribed",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0,0,0}, 1, 40, ""),
-				makeTestBox(NewZeroOrientation(), r3.Vector{0,0,1}, r3.Vector{2, 2, 2}, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 40),
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 1}, r3.Vector{2, 2, 2}, ""),
 			},
-			-2,
+			-math.Sqrt(3) - 1, // TODO(pl): this will change if capsule-box penetration depth is improved
 		},
 	}
 	testGeometryCollision(t, cases)
@@ -615,51 +616,270 @@ func TestCapsuleVsCapsuleCollision(t *testing.T) {
 		{
 			"separated ends closest",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{1e-3, 0, 0}, 1, 4, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{-2, 0, 0}, 1, 4, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{1e-3, 0, 0}, 1, 4),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{-2, 0, 0}, 1, 4),
 			},
 			1e-3,
 		},
 		{
 			"separated cylinders closest",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0,0,0,-1}, r3.Vector{0, 0, -1e-3}, 1, 4, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 4, ""),
+				makeTestCapsule(&OrientationVector{0, 0, 0, -1}, r3.Vector{0, 0, -1e-3}, 1, 4),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 4),
 			},
 			1e-3,
 		},
 		{
 			"separated cylinder closest to end",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0,1,1,0}, r3.Vector{-4,-4,-1}, 1, 10, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0,0,1e-3}, 1, 4, ""),
+				makeTestCapsule(&OrientationVector{0, 1, 1, 0}, r3.Vector{-4, -4, -1}, 1, 10),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1e-3}, 1, 4),
 			},
 			1e-3,
 		},
 		{
 			"parallel cylinders touching",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{1, 0, 0}, 1, 4, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{-1, 0, 0}, 1, 4, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{1, 0, 0}, 1, 4),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{-1, 0, 0}, 1, 4),
 			},
 			0,
 		},
 		{
 			"orthogonal cylinders touching",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 6, ""),
-				makeTestCapsule(&OrientationVector{0,1,0,0}, r3.Vector{-3, 2, 3}, 1, 6, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 6),
+				makeTestCapsule(&OrientationVector{0, 1, 0, 0}, r3.Vector{-3, 2, 3}, 1, 6),
 			},
 			0,
 		},
 		{
+			"orthogonal cylinders slightly colliding",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 6),
+				makeTestCapsule(&OrientationVector{0, 1, 0, 0}, r3.Vector{-3, 1.8, 3}, 1, 6),
+			},
+			-0.2,
+		},
+		{
 			"inscribed",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0,1, 1}, 2, 40, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0,0,0}, 4, 40, ""),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 1, 1}, 2, 40),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 4, 40),
 			},
 			-5,
 		},
 	}
 	testGeometryCollision(t, cases)
+}
+
+func TestCapsuleVsBoxEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3}, 1, 4.75),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{16, 16, 16}, ""),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3.5}, 1, 4.75),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{16, 16, 16}, ""),
+			},
+			0.25,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestCapsuleVsSphereEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, -3}, 1, 6.75),
+				makeTestSphere(r3.Vector{}, 4, ""),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3}, 1, 6.75),
+				makeTestSphere(r3.Vector{}, 3.5, ""),
+			},
+			0.5,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestCapsuleVsCapsuleEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3}, 1, 3),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{}, 4, 10),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{3, 0, 0}, 1, 3),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{}, 3.5, 8),
+			},
+			0.5,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestCapsuleVsPointEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"coincident",
+			[2]Geometry{makeTestCapsule(NewZeroOrientation(), r3.Vector{}, 1, 2), NewPoint(r3.Vector{}, "")},
+			1,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+// Benchmarks
+
+// Globals needed to prevent compiler optimizations from sabotaging benchmarks.
+var dist = 0.
+
+var (
+	collides = false
+	pt       = r3.Vector{}
+)
+
+func BenchmarkLineDist1(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	for n := 0; n < b.N; n++ {
+		p1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p3 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		dist = DistToLineSegment(p1, p2, p3)
+	}
+}
+
+func BenchmarkLineDist2(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	for n := 0; n < b.N; n++ {
+		p1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p3 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		pt = ClosestPointSegmentPoint(p1, p2, p3)
+		dist = pt.Sub(p3).Norm()
+	}
+}
+
+//nolint:dupl
+func BenchmarkTriangleDist(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	for n := 0; n < b.N; n++ {
+		p0 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		s1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		s2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+
+		tri := newTriangle(p0, p1, p2)
+
+		segPt4, _ := closestPointsSegmentPlane(s1, s2, tri.p0, tri.normal)
+		pt = tri.closestPointToPoint(segPt4)
+	}
+}
+
+//nolint:dupl
+func BenchmarkTriangleCoplanarDist(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	for n := 0; n < b.N; n++ {
+		p0 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		p2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		s1 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+		s2 := r3.Vector{r.Float64(), r.Float64(), r.Float64()}
+
+		tri := newTriangle(p0, p1, p2)
+
+		_, coplanar := closestPointsSegmentPlane(s1, s2, tri.p0, tri.normal)
+		pt = tri.closestPointToCoplanarPoint(coplanar)
+	}
+}
+
+// Benchmarks collision checking two capsules.
+func BenchmarkCollisionCheckCapsuleCapsule(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	rad1 := r.Float64()
+	rad2 := r.Float64()
+	c1, _ := NewCapsule(
+		NewPose(r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+			&OrientationVector{r.Float64(), r.Float64(), r.Float64(), r.Float64()},
+		),
+		rad1,
+		rad1*2+r.Float64()*10,
+		"",
+	)
+	c2, _ := NewCapsule(
+		NewPose(r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+			&OrientationVector{r.Float64(), r.Float64(), r.Float64(), r.Float64()},
+		),
+		rad2,
+		rad2*2+r.Float64()*10,
+		"",
+	)
+	for n := 0; n < b.N; n++ {
+		collides = capsuleVsCapsuleDistance(c1.(*capsule), c2.(*capsule)) < CollisionBuffer
+	}
+}
+
+// Benchmarks collision checking two boxes.
+func BenchmarkCollisionCheckBoxBox(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	b1 := makeTestBox(
+		&OrientationVector{r.Float64(), r.Float64(), r.Float64(), r.Float64()},
+		r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+		r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+		"",
+	)
+	b2 := makeTestBox(
+		&OrientationVector{r.Float64(), r.Float64(), r.Float64(), r.Float64()},
+		r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+		r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+		"",
+	)
+	for n := 0; n < b.N; n++ {
+		collides = boxVsBoxCollision(b1.(*box), b2.(*box))
+	}
+}
+
+// Benchmarks collision checking betweek a box and a capsule.
+func BenchmarkCollisionCheckCapsuleBox(b *testing.B) {
+	r := rand.New(rand.NewSource(1))
+	rad1 := r.Float64()
+	c1, _ := NewCapsule(
+		NewPose(r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+			&OrientationVector{r.Float64(), r.Float64(), r.Float64(), r.Float64()},
+		),
+		rad1,
+		rad1*2+r.Float64()*10,
+		"",
+	)
+	b1 := makeTestBox(
+		&OrientationVector{r.Float64(), r.Float64(), r.Float64(), r.Float64()},
+		r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+		r3.Vector{r.Float64(), r.Float64(), r.Float64()},
+		"",
+	)
+	for n := 0; n < b.N; n++ {
+		collides = capsuleVsBoxCollision(c1.(*capsule), b1.(*box))
+	}
 }

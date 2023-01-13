@@ -10,7 +10,7 @@ import (
 
 // mesh is a collision geometry that represents a set of triangles that represent a mesh.
 type mesh struct {
-	pose Pose
+	pose      Pose
 	triangles []*triangle
 }
 
@@ -18,43 +18,43 @@ type triangle struct {
 	p0 r3.Vector
 	p1 r3.Vector
 	p2 r3.Vector
-	
+
 	normal r3.Vector
 }
 
 func newTriangle(p0, p1, p2 r3.Vector) *triangle {
 	return &triangle{
-		p0: p0,
-		p1: p1,
-		p2: p2,
+		p0:     p0,
+		p1:     p1,
+		p2:     p2,
 		normal: PlaneNormal(p0, p1, p2),
 	}
 }
 
 // closestPointToCoplanarPoint takes a point, and returns the closest point on the triangle to the given point
-// The given point *MUST* be coplanar with the triangle
-func (t *triangle) closestPointToCoplanarPoint(pt r3.Vector) (r3.Vector) {
-	// Determine whether point is inside all triangle edges: 
+// The given point *MUST* be coplanar with the triangle.
+func (t *triangle) closestPointToCoplanarPoint(pt r3.Vector) r3.Vector {
+	// Determine whether point is inside all triangle edges:
 	c0 := pt.Sub(t.p0).Cross(t.p1.Sub(t.p0))
 	c1 := pt.Sub(t.p1).Cross(t.p2.Sub(t.p1))
 	c2 := pt.Sub(t.p2).Cross(t.p0.Sub(t.p2))
 	inside := c0.Dot(t.normal) <= 0 && c1.Dot(t.normal) <= 0 && c2.Dot(t.normal) <= 0
-	 
-	if(inside){
+
+	if inside {
 		return pt
 	}
-	
+
 	// Edge 1:
 	refPt := ClosestPointSegmentPoint(t.p0, t.p1, pt)
 	bestDist := pt.Sub(refPt).Norm2()
-	
+
 	// Edge 2:
 	point2 := ClosestPointSegmentPoint(t.p1, t.p2, pt)
-	if distsq := pt.Sub(point2).Norm2(); distsq < bestDist{
+	if distsq := pt.Sub(point2).Norm2(); distsq < bestDist {
 		refPt = point2
 		bestDist = distsq
 	}
-	
+
 	// Edge 3:
 	point3 := ClosestPointSegmentPoint(t.p2, t.p0, pt)
 	if distsq := pt.Sub(point3).Norm2(); distsq < bestDist {
@@ -65,7 +65,7 @@ func (t *triangle) closestPointToCoplanarPoint(pt r3.Vector) (r3.Vector) {
 
 // closestPointToPoint takes a point, and returns the closest point on the triangle to the given point, as well as whether the point
 // is on the edge of the triangle.
-// This is slower than closestPointToCoplanarPoint
+// This is slower than closestPointToCoplanarPoint.
 func (t *triangle) closestPointToPoint(point r3.Vector) r3.Vector {
 	closestPtInside, inside := t.closestInsidePoint(point)
 	if inside {
@@ -82,7 +82,7 @@ func (t *triangle) closestPointToPoint(point r3.Vector) r3.Vector {
 		closestPt = newPt
 		bestDist = newDist
 	}
-	
+
 	newPt = ClosestPointSegmentPoint(t.p2, t.p0, point)
 	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
 		return newPt
@@ -93,7 +93,7 @@ func (t *triangle) closestPointToPoint(point r3.Vector) r3.Vector {
 // closestInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
 // Otherwise it will return the query point.
 // To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
-// must be <= 90 degrees
+// must be <= 90 degrees.
 func (t *triangle) closestInsidePoint(point r3.Vector) (r3.Vector, bool) {
 	// Parametrize the triangle s.t. a point inside the triangle is
 	// Q = p0 + u * e0 + v * e1, when 0 <= u <= 1, 0 <= v <= 1, and
@@ -107,9 +107,9 @@ func (t *triangle) closestInsidePoint(point r3.Vector) (r3.Vector, bool) {
 	d := point.Sub(t.p0)
 	// The determinant is 0 only if the angle between e1 and e0 is 0
 	// (i.e. the triangle has overlapping lines).
-	det := (a * c - b * b)
-	u := (c * e0.Dot(d) - b * e1.Dot(d)) / det
-	v := (-b * e0.Dot(d) + a * e1.Dot(d)) / det
-	inside := (0 <= u) && (u <= 1) && (0 <= v) && (v <= 1) && (u + v <= 1)
+	det := (a*c - b*b)
+	u := (c*e0.Dot(d) - b*e1.Dot(d)) / det
+	v := (-b*e0.Dot(d) + a*e1.Dot(d)) / det
+	inside := (0 <= u) && (u <= 1) && (0 <= v) && (v <= 1) && (u+v <= 1)
 	return t.p0.Add(e0.Mul(u)).Add(e1.Mul(v)), inside
 }
