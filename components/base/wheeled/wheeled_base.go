@@ -335,7 +335,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
-//nolint: unused
+// nolint: unused
 func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
