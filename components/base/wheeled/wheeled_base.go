@@ -335,7 +335,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
-//nolint: unused
+// nolint: unused
 func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -357,7 +357,7 @@ func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower 
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
-	// a right handed frame system is maintained if positive angle yields positive rightRPM and negative leftPRM
+	// a right handed frame system is maintained if positive angle yields positive leftRPM and negative rightRPM
 	// in this function, assuming the motors are configured to have positive power drive the base forwards
 	for _, m := range base.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
