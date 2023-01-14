@@ -280,7 +280,7 @@ func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg
 // return values between -180 to 180 and 0-360 (probably components using our sensor filters).
 // corresponding tests only use
 //
-//nolint:unused
+
 func calculatedDomainLimitedAngleError(target, current float64) float64 {
 	angle := target + current
 	// reduce the angle
@@ -335,7 +335,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
-// nolint: unused
+//nolint: unused
 func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
 	fs := []rdkutils.SimpleFunc{}
 

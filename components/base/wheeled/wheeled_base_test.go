@@ -379,5 +379,4 @@ func TestAngleCalculations(t *testing.T) {
 			test.That(t, calculated, test.ShouldAlmostEqual, tc.Expected)
 		})
 	}
-
 }
