@@ -65,10 +65,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 
 	deps = append(deps, config.Left...)
 	deps = append(deps, config.Right...)
-
-	if len(config.MovementSensor) != 0 {
-		deps = append(deps, config.MovementSensor...)
-	}
+	deps = append(deps, config.MovementSensor...)
 
 	return deps, nil
 }
@@ -228,7 +225,13 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
 
-	targetYaw := angleDeg
+	currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
+	if err != nil {
+		base.logger.Errorf("error: %#v", err)
+		return err
+	}
+
+	targetYaw := calculatedDomainLimitedAngleError(angleDeg, currYaw)
 	for {
 		base.logger.Info(ctx.Err())
 		select {
@@ -236,7 +239,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 			return nil
 		default:
 		}
-		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra)
+		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
 		if err != nil {
 			base.logger.Errorf("error: %#v", err)
 			continue
@@ -274,12 +277,29 @@ func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg
 }
 
 // TODO: should be used as part of RSDK-1698, to deal with imus that
-// return values between -180 to 180 and 0-360 (probably using our filters).
+// return values between -180 to 180 and 0-360 (probably components using our sensor filters).
+// corresponding tests only use
 //
 //nolint:unused
-func calculatedDomainLimitedAngleError(heading, bearing float64) float64 {
-	calucaltedAngle := math.Mod((heading-bearing+540), 360) - 180
-	return calucaltedAngle
+func calculatedDomainLimitedAngleError(target, current float64) float64 {
+	angle := target + current
+	// reduce the angle
+	angle = math.Mod(angle, 360)
+
+	// force it to be the positive remainder, so that 0 <= angle < 360
+	angle = math.Mod(angle+360, 360)
+
+	// force into the minimum absolute value residue class, so that -180 < angle <= 180
+	if angle > 180 {
+		angle -= 360
+	}
+
+	// handle case of IMUs not reporting 180 degrees
+	if math.Abs(angle) == 180 {
+		angle -= 0.1
+	}
+
+	return angle
 }
 
 // returns rpm, revolutions for a spin motion.
