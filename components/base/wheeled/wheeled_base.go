@@ -335,25 +335,6 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
 }
 
-//nolint: unused
-func (base *wheeledBase) setPowerAll(ctx context.Context, leftPower, rightPower float64) error {
-	fs := []rdkutils.SimpleFunc{}
-
-	for _, m := range base.left {
-		fs = append(fs, func(ctx context.Context) error { return m.SetPower(ctx, leftPower, nil) })
-	}
-
-	for _, m := range base.right {
-		fs = append(fs, func(ctx context.Context) error { return m.SetPower(ctx, rightPower, nil) })
-	}
-
-	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		err = errors.Wrap(err, "error in runInParallel in setPowerAll")
-		return multierr.Combine(err, base.Stop(ctx, nil))
-	}
-	return nil
-}
-
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
