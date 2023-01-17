@@ -130,7 +130,7 @@ onUnmounted(() => {
         <button
           v-for="key in lineKeys"
           :key="key"
-          class="flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none"
+          class="flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none uppercase"
           :class="{
             'bg-gray-200 text-gray-800': pressedKeys[key],
             'bg-white': !pressedKeys[key],
@@ -139,7 +139,7 @@ onUnmounted(() => {
           @pointerup="handlePointerUp(key)"
           @pointerleave="handlePointerUp(key)"
         >
-          {{ key.toUpperCase() }}
+          {{ key }}
           <Icon :path="keyIcons[key]" />
         </button>
       </div>
