@@ -23,6 +23,18 @@ type depthToPretty struct {
 	cameraModel    *transform.PinholeCameraModel
 }
 
+func propsFromVideoSource(ctx context.Context, source gostream.VideoSource) (camera.Properties, error) {
+	var camProps camera.Properties
+	if cameraSrc, ok := source.(camera.Camera); ok {
+		props, err := cameraSrc.Properties(ctx)
+		if err != nil {
+			return camProps, err
+		}
+		camProps = props
+	}
+	return camProps, nil
+}
+
 func newDepthToPrettyTransform(
 	ctx context.Context,
 	source gostream.VideoSource,
@@ -32,17 +44,11 @@ func newDepthToPrettyTransform(
 		return nil, camera.UnspecifiedStream,
 			errors.Errorf("source has stream type %s, depth_to_pretty only supports depth stream inputs", stream)
 	}
-	var cameraModel transform.PinholeCameraModel
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return nil, camera.UnspecifiedStream, err
-		}
-		cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-		if props.DistortionParams != nil {
-			cameraModel.Distortion = props.DistortionParams
-		}
+	props, err := propsFromVideoSource(ctx, source)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
+	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
 	depthStream := gostream.NewEmbeddedVideoStream(source)
 	reader := &depthToPretty{
 		originalStream: depthStream,
@@ -114,17 +120,12 @@ func newOverlayTransform(
 	if !ok {
 		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
-	var cameraModel transform.PinholeCameraModel
-	if cameraSrc, ok := src.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return nil, camera.UnspecifiedStream, err
-		}
-		cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-		if props.DistortionParams != nil {
-			cameraModel.Distortion = props.DistortionParams
-		}
+
+	props, err := propsFromVideoSource(ctx, src)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
+	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
 	if attrs.IntrinsicParams != nil && attrs.IntrinsicParams.Height > 0. &&
 		attrs.IntrinsicParams.Width > 0. && attrs.IntrinsicParams.Fx > 0. && attrs.IntrinsicParams.Fy > 0. {
 		cameraModel.PinholeCameraIntrinsics = attrs.IntrinsicParams

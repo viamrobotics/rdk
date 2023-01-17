@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	rdkutils "go.viam.com/rdk/utils"
@@ -43,17 +42,12 @@ func newDetectionsTransform(
 	if !ok {
 		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
-	var cameraModel transform.PinholeCameraModel
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return nil, camera.UnspecifiedStream, err
-		}
-		cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-		if props.DistortionParams != nil {
-			cameraModel.Distortion = props.DistortionParams
-		}
+
+	props, err := propsFromVideoSource(ctx, source)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
+	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
 	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),

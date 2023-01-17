@@ -146,11 +146,7 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.Camera, at
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	var cameraModel transform.PinholeCameraModel
-	cameraModel.PinholeCameraIntrinsics = attrs.CameraParameters
-	if attrs.DistortionParameters != nil {
-		cameraModel.Distortion = attrs.DistortionParameters
-	}
+	cameraModel := camera.NewPinholdCameraModel(attrs.CameraParameters, attrs.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,

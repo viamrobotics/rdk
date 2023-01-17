@@ -109,11 +109,7 @@ func newTransformPipeline(
 		streamType = newStreamType
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
-	var cameraModel transform.PinholeCameraModel
-	cameraModel.PinholeCameraIntrinsics = cfg.CameraParameters
-	if cfg.DistortionParameters != nil {
-		cameraModel.Distortion = cfg.DistortionParameters
-	}
+	cameraModel := camera.NewPinholdCameraModel(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters},
