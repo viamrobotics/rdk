@@ -13,12 +13,10 @@ import (
 
 // capsule is a collision geometry that represents a capsule, it has a pose and a radius that fully define it.
 //
-//	 __________________
-//	/                  \
-//
+//....__________________
+//.../                  \
 // x|  |--------------|  |x
-//
-//	\__________________/
+//...\__________________/
 //
 // Length is the distance between the x's, or internal segment length + 2*radius.
 type capsule struct {
