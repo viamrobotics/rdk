@@ -171,6 +171,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	scaleFactor := math.Min(widthScaleFactor, heightScaleFactor)
 
 	// Add points in the pointcloud to a new image
+	var iterateErr error
 	im := rimage.NewImage(imageWidth, imageHeight)
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := (pt.X - minX) * scaleFactor
@@ -180,11 +181,19 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil {
-			voxelColor := getProbabilityColorFromValue(data)
+			voxelColor, err := getProbabilityColorFromValue(data)
+			if err != nil {
+				iterateErr = err
+				return false
+			}
 			im.Circle(image.Point{x, y}, voxelRadius, voxelColor)
 		}
 		return true
 	})
+
+	if iterateErr != nil {
+		return nil, nil, iterateErr
+	}
 
 	// Add a red robot marker to the image
 	if ppRM.robotPose != nil {
@@ -215,19 +224,24 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 // getProbabilityColorFromValue returns an RGB color value based on the probability value and defined hit and miss
 // thresholds
 // TODO (RSDK-1705): Once probability values are available this function should be changed to produced desired images.
-func getProbabilityColorFromValue(d pointcloud.Data) rimage.Color {
+func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 	var r, g, b uint8
 
 	if !d.HasValue() {
-		return rimage.NewColor(255, 255, 255)
+		return rimage.NewColor(255, 255, 255), nil
+	}
+
+	if d.Value() > 100 || d.Value() < 0 {
+		return rimage.NewColor(0, 0, 0), errors.Errorf(`error parallel projection with robot marker received a value of %v from 
+		the pointcloud which is outside the range (0 - 100) representing probabilities`, d.Value())
 	}
 
 	prob := float64(d.Value()) / 100.
 
 	switch {
-	case prob < missThreshold && prob >= 0:
+	case prob < missThreshold:
 		b = uint8(255 * (prob / missThreshold))
-	case prob > hitThreshold && prob <= 1:
+	case prob > hitThreshold:
 		g = uint8(255 * ((prob - hitThreshold) / (1 - hitThreshold)))
 	default:
 		r = 255
@@ -235,7 +249,7 @@ func getProbabilityColorFromValue(d pointcloud.Data) rimage.Color {
 		g = 255
 	}
 
-	return rimage.NewColor(r, g, b)
+	return rimage.NewColor(r, g, b), nil
 }
 
 // NewParallelProjectionOntoXZWithRobotMarker creates a new ParallelProjectionOntoXZWithRobotMarker with the given
