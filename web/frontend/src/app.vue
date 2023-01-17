@@ -87,8 +87,9 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
+// TODO: Refactor. This must be in sync the refresh frequency in camera.vue, make it so it doesn't.
 const selectedMap = {
-  Live: 'live',
+  Live: 'Live',
   'Manual Refresh': 0,
   'Every 30 Seconds': 30,
   'Every 10 Seconds': 10,
@@ -624,10 +625,9 @@ const viewFrame = async (cameraName: string) => {
     `[data-stream="${cameraName}"]`
   );
   for (const streamContainer of streamContainers) {
-    streamContainer.querySelector('video')?.remove();
-    streamContainer.querySelector('img')?.remove();
     const image = new Image();
     image.src = URL.createObjectURL(blob);
+    streamContainer.querySelector('img')?.remove();
     streamContainer.append(image);
   }
 };
@@ -647,6 +647,8 @@ const viewCameraFrame = (cameraName: string, time: string) => {
   if (time === 'Manual Refresh') {
     viewFrame(cameraName);
   } else {
+    // Load a frame immediately and schedule a refresh at selected intervals
+    viewFrame(cameraName);
     cameraFrameIntervalId = window.setInterval(() => {
       viewFrame(cameraName);
     }, Number(selectedInterval) * 1000);
