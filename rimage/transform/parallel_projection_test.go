@@ -74,12 +74,25 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 
+	t.Run("Project a single point pointcloud with out of range data", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		pointcloud := pc.New()
+		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(200))
+
+		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "error parallel projection with robot marker received a value of")
+		test.That(t, im, test.ShouldBeNil)
+		test.That(t, unusedDepthMap, test.ShouldBeNil)
+	})
+
 	t.Run("Project a single point pointcloud with data with image pixel checks", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
 		pointcloud := pc.New()
-		d := pc.NewValueData(200)
+		d := pc.NewBasicData()
 		pointcloud.Set(r3.Vector{X: 10, Y: 10, Z: 10}, d)
 
 		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
@@ -95,7 +108,8 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 
 		pointExpectedPos := image.Point{X: imageHeight - 1, Y: imageWidth - 1}
 		colorAtPoint := im.GetXY(pointExpectedPos.X, pointExpectedPos.Y)
-		expectedPointColor := getProbabilityColorFromValue(d)
+		expectedPointColor, err := getProbabilityColorFromValue(d)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, colorAtPoint, test.ShouldResemble, expectedPointColor)
 	})
 
