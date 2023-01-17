@@ -388,7 +388,7 @@ func (c *AppClient) ListRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 	if err := c.selectLocation(locStr); err != nil {
 		return nil, err
 	}
-	resp, err := c.client.FindRobots(c.c.Context, &apppb.FindRobotsRequest{
+	resp, err := c.client.ListRobots(c.c.Context, &apppb.ListRobotsRequest{
 		LocationId: c.selectedLoc.Id,
 	})
 	if err != nil {
