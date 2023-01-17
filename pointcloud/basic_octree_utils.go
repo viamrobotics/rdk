@@ -171,6 +171,7 @@ func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 }
 
 // ConvertPointCloudToBasicOctree converts a pointcloud into a octree pointcloud representation.
+// TBD, add test case
 func ConvertPointCloudToBasicOctree(cloud PointCloud) (PointCloud, error) {
 	center := r3.Vector{
 		X: cloud.MetaData().MinX + (cloud.MetaData().MaxX-cloud.MetaData().MinX)/2,
