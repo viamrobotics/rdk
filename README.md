@@ -91,7 +91,7 @@ We run [LicenseFinder](https://github.com/pivotal/LicenseFinder) in CI to verify
 If you add a 3rd-party library to this project, please run `make license` to verify that it can be used.
 
 ## License
-Copyright 2021-2022 Viam Inc.
+Copyright 2021-2022 Viam Inc.E
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
 
