@@ -232,8 +232,8 @@ func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 	}
 
 	if d.Value() > 100 || d.Value() < 0 {
-		return rimage.NewColor(0, 0, 0), errors.Errorf(`error parallel projection with robot marker received a value of %v from 
-		the pointcloud which is outside the range (0 - 100) representing probabilities`, d.Value())
+		return rimage.NewColor(0, 0, 0),
+			errors.Errorf("error received a value of %v which is outside the range (0 - 100) representing probabilities", d.Value())
 	}
 
 	prob := float64(d.Value()) / 100.
