@@ -179,11 +179,11 @@ func ConvertPointCloudToBasicOctree(cloud PointCloud) (PointCloud, error) {
 		Z: cloud.MetaData().MinZ + (cloud.MetaData().MaxZ-cloud.MetaData().MinZ)/2,
 	}
 
-	side := math.Max((cloud.MetaData().MaxX-cloud.MetaData().MinX),
+	maxSideLength := math.Max((cloud.MetaData().MaxX - cloud.MetaData().MinX),
 		math.Max((cloud.MetaData().MaxY-cloud.MetaData().MinY),
-			(cloud.MetaData().MaxZ-cloud.MetaData().MinZ))) * 1.01
+			(cloud.MetaData().MaxZ-cloud.MetaData().MinZ)))
 
-	basicOctPC, err := NewBasicOctree(center, side)
+	basicOctPC, err := NewBasicOctree(center, maxSideLength)
 	if err != nil {
 		return nil, err
 	}
