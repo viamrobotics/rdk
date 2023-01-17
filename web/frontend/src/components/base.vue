@@ -45,6 +45,8 @@ const angle = ref(0);
 
 const selectCameras = ref('');
 
+const power = $ref(50);
+
 const pressed = new Set<Keys>();
 let stopped = true;
 
@@ -92,19 +94,19 @@ const digestInput = () => {
   for (const item of pressed) {
     switch (item) {
       case Keymap.FORWARD: {
-        linearValue += 1;
+        linearValue += Number(0.01 * power);
         break;
       }
       case Keymap.BACKWARD: {
-        linearValue -= 1;
+        linearValue -= Number(0.01 * power);
         break;
       }
       case Keymap.LEFT: {
-        angularValue += 1;
+        angularValue += Number(0.01 * power);
         break;
       }
       case Keymap.RIGHT: {
-        angularValue -= 1;
+        angularValue -= Number(0.01 * power);
         break;
       }
     }
@@ -286,13 +288,25 @@ onUnmounted(() => {
         v-if="selectedItem === 'Keyboard'"
         class="h-auto p-4"
       >
-        <div class="grid grid-cols-1 sm:grid-cols-2">
-          <KeyboardInput
-            class="mb-2"
-            @keydown="handleKeyDown"
-            @keyup="handleKeyUp"
-            @toggle="(active: boolean) => { !active && (pressed.size > 0 || !stopped) && stop() }"
-          />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          <div class="flex flex-col gap-4">
+            <KeyboardInput
+              @keydown="handleKeyDown"
+              @keyup="handleKeyUp"
+              @toggle="(active: boolean) => { !active && (pressed.size > 0 || !stopped) && stop() }"
+            />
+            <v-slider
+              id="power"
+              class="pt-2 w-full max-w-xs"
+              :min="0"
+              :max="100"
+              :step="1"
+              suffix="%"
+              label="Power %"
+              :value="power"
+              @input="power = $event.detail.value"
+            />
+          </div>
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-multiselect
               v-model="selectCameras"
