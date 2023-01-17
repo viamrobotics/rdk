@@ -184,15 +184,17 @@ func ConvertPointCloudToBasicOctree(cloud PointCloud) (PointCloud, error) {
 
 	basicOctPC, err := NewBasicOctree(center, side)
 	if err != nil {
-		return &BasicOctree{}, err
+		return nil, err
 	}
 
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		if err := basicOctPC.Set(p, d); err != nil {
-			return false
-		}
-		return true
+		err = basicOctPC.Set(p, d)
+		return err == nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	return basicOctPC, nil
 }
