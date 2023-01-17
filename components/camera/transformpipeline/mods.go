@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -27,17 +26,11 @@ type rotateSource struct {
 // newRotateTransform creates a new rotation transform.
 func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream camera.ImageType,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	var cameraModel transform.PinholeCameraModel
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return nil, camera.UnspecifiedStream, err
-		}
-		cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-		if props.DistortionParams != nil {
-			cameraModel.Distortion = props.DistortionParams
-		}
+	props, err := propsFromVideoSource(ctx, source)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
+	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
 	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
 	return cam, stream, err

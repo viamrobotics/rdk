@@ -136,11 +136,7 @@ func NewFromReader(
 				return nil, NewPropertiesError("source camera")
 			}
 
-			var cameraModel transform.PinholeCameraModel
-			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-			if props.DistortionParams != nil {
-				cameraModel.Distortion = props.DistortionParams
-			}
+			cameraModel := NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
 			actualSystem = &cameraModel
 		}
 	}
@@ -151,6 +147,22 @@ func NewFromReader(
 		actualSource: reader,
 		imageType:    imageType,
 	}, nil
+}
+
+// NewPinholdCameraModel creates a transform.PinholeCameraModel from
+// a *transform.PinholeCameraIntrinsics and a transform.Distorter.
+// If transform.Distorter is `nil`, transform.PinholeCameraModel.Distortion
+// is not set & remains nil, to prevent https://go.dev/doc/faq#nil_error.
+func NewPinholdCameraModel(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
+	distortion transform.Distorter,
+) transform.PinholeCameraModel {
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = pinholeCameraIntrinsics
+
+	if distortion != nil {
+		cameraModel.Distortion = distortion
+	}
+	return cameraModel
 }
 
 // NewPropertiesError returns an error specific to a failure in Properties.
@@ -178,11 +190,7 @@ func NewFromSource(
 			if err != nil {
 				return nil, NewPropertiesError("source camera")
 			}
-			var cameraModel transform.PinholeCameraModel
-			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-			if props.DistortionParams != nil {
-				cameraModel.Distortion = props.DistortionParams
-			}
+			cameraModel := NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
 			actualSystem = &cameraModel
 		}
 	}

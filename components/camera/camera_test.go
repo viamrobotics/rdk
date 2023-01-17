@@ -313,6 +313,35 @@ func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.Po
 	return nil, nil
 }
 
+func TestNewPinholdCameraModel(t *testing.T) {
+	intrinsics := &transform.PinholeCameraIntrinsics{
+		Width:  10,
+		Height: 10,
+		Fx:     1.0,
+		Fy:     2.0,
+		Ppx:    3.0,
+		Ppy:    4.0,
+	}
+	distortion := &transform.NoDistortion{}
+
+	expected1 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion}
+	pinholeCameraModel1 := camera.NewPinholdCameraModel(intrinsics, distortion)
+	test.That(t, pinholeCameraModel1, test.ShouldResemble, expected1)
+
+	expected2 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics}
+	pinholeCameraModel2 := camera.NewPinholdCameraModel(intrinsics, nil)
+	test.That(t, pinholeCameraModel2, test.ShouldResemble, expected2)
+
+	expected3 := transform.PinholeCameraModel{Distortion: distortion}
+	pinholeCameraModel3 := camera.NewPinholdCameraModel(nil, distortion)
+	test.That(t, pinholeCameraModel3, test.ShouldResemble, expected3)
+
+	expected4 := transform.PinholeCameraModel{}
+	pinholeCameraModel4 := camera.NewPinholdCameraModel(nil, nil)
+	test.That(t, pinholeCameraModel4, test.ShouldResemble, expected4)
+	test.That(t, pinholeCameraModel4.Distortion, test.ShouldBeNil)
+}
+
 func TestNewCamera(t *testing.T) {
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}
