@@ -66,6 +66,5 @@ func TestGPSModels(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrStationValidation.Error())
 
 		r.Close(ctx)
-
 	})
 }
