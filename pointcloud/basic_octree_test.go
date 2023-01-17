@@ -572,11 +572,11 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 		Z: startPC.MetaData().MinZ + (startPC.MetaData().MaxZ-startPC.MetaData().MinZ)/2,
 	}
 
-	side := math.Max((startPC.MetaData().MaxX-startPC.MetaData().MinX),
+	maxSideLength := math.Max((startPC.MetaData().MaxX - startPC.MetaData().MinX),
 		math.Max((startPC.MetaData().MaxY-startPC.MetaData().MinY),
-			(startPC.MetaData().MaxZ-startPC.MetaData().MinZ))) * 1.01
+			(startPC.MetaData().MaxZ-startPC.MetaData().MinZ)))
 
-	basicOct, err := createNewOctree(center, side)
+	basicOct, err := createNewOctree(center, maxSideLength)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -597,7 +597,7 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 		return true
 	})
 
-	validateBasicOctree(t, basicOct, center, side)
+	validateBasicOctree(t, basicOct, center, maxSideLength)
 }
 
 // Test the functionalities involved with converting a pcd into a basic octree.
