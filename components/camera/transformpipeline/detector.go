@@ -47,7 +47,7 @@ func newDetectionsTransform(
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
+	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
 	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),

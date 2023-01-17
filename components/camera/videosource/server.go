@@ -118,7 +118,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.ImageType(cfg.Stream),
 	}
-	cameraModel := camera.NewPinholdCameraModel(cfg.CameraParameters, cfg.DistortionParameters)
+	cameraModel := camera.NewPinholeCameraModel(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,
@@ -255,7 +255,7 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		stream:     camera.ImageType(cfg.Stream),
 		Intrinsics: cfg.CameraParameters,
 	}
-	cameraModel := camera.NewPinholdCameraModel(cfg.CameraParameters, cfg.DistortionParameters)
+	cameraModel := camera.NewPinholeCameraModel(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,
