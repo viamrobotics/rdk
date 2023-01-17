@@ -11,12 +11,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// SphereCreator implements the GeometryCreator interface for sphere structs.
-type sphereCreator struct {
-	radius float64
-	pointCreator
-	label string
-}
+// sphere density corresponding to the total amount of points.
+const defaultTotalSpherePoints = 100
 
 // sphere is a collision geometry that represents a sphere, it has a pose and a radius that fully define it.
 type sphere struct {
@@ -25,54 +21,27 @@ type sphere struct {
 	label  string
 }
 
-// NewSphereCreator instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
-// at the specified offset from the pose. These spheres have a radius specified by the radius argument.
-func NewSphereCreator(radius float64, offset Pose, label string) (GeometryCreator, error) {
+// NewSphere instantiates a new sphere Geometry.
+func NewSphere(offset Pose, radius float64, label string) (Geometry, error) {
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphereCreator{radius, pointCreator{offset, label}, label}, nil
+	return &sphere{offset, radius, label}, nil
 }
 
-// NewGeometry instantiates a new sphere from a SphereCreator class.
-func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
-	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
-}
-
-// String returns a human readable string that represents the sphereCreator.
-func (sc *sphereCreator) String() string {
-	return fmt.Sprintf("Type: Sphere, Radius: %.0f", sc.radius)
-}
-
-func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(sc)
+func (s *sphere) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(s)
 	if err != nil {
 		return nil, err
 	}
 	config.Type = "sphere"
-	config.R = sc.radius
+	config.R = s.radius
 	return json.Marshal(config)
 }
 
-// ToProto converts the sphere to a Geometry proto message.
-func (sc *sphereCreator) ToProtobuf() *commonpb.Geometry {
-	return &commonpb.Geometry{
-		Center: PoseToProtobuf(sc.offset),
-		GeometryType: &commonpb.Geometry_Sphere{
-			Sphere: &commonpb.Sphere{
-				RadiusMm: sc.radius,
-			},
-		},
-		Label: sc.label,
-	}
-}
-
-// NewSphere instantiates a new sphere Geometry.
-func NewSphere(pt r3.Vector, radius float64, label string) (Geometry, error) {
-	if radius < 0 {
-		return nil, newBadGeometryDimensionsError(&sphere{})
-	}
-	return &sphere{NewPoseFromPoint(pt), radius, label}, nil
+// String returns a human readable string that represents the sphereCreator.
+func (s *sphere) String() string {
+	return fmt.Sprintf("Type: Sphere, Radius: %.0f", s.radius)
 }
 
 // Label returns the label of this sphere.
@@ -86,12 +55,6 @@ func (s *sphere) Label() string {
 // Pose returns the pose of the sphere.
 func (s *sphere) Pose() Pose {
 	return s.pose
-}
-
-// Vertices returns the point defining the center of the sphere (because it would take an infinite number of points to accurately define a
-// the bounding geometry of a sphere, the center point returned in this function along with the known radius should be used).
-func (s *sphere) Vertices() []r3.Vector {
-	return []r3.Vector{s.pose.Point()}
 }
 
 // AlmostEqual compares the sphere with another geometry and checks if they are equivalent.
@@ -130,7 +93,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()) <= CollisionBuffer, nil
+		return sphereVsPointDistance(s, other.position) <= CollisionBuffer, nil
 	}
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
@@ -144,7 +107,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsSphereDistance(s, other), nil
 	}
 	if other, ok := g.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()), nil
+		return sphereVsPointDistance(s, other.position), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
@@ -188,7 +151,7 @@ func sphereVsBoxCollision(s *sphere, b *box) bool {
 // represents the penetration depth for the two geometries, which are in collision.  If the returned float is positive it represents the
 // separation distance for the two geometries, which are not in collision.
 func sphereVsBoxDistance(s *sphere, b *box) float64 {
-	return pointVsBoxDistance(b, s.pose.Point()) - s.radius
+	return pointVsBoxDistance(s.pose.Point(), b) - s.radius
 }
 
 // sphereInSphere returns a bool describing if the inner sphere is fully encompassed by the outer sphere.
@@ -198,5 +161,33 @@ func sphereInSphere(inner, outer *sphere) bool {
 
 // sphereInBox returns a bool describing if the given sphere is fully encompassed by the given box.
 func sphereInBox(s *sphere, b *box) bool {
-	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
+	return -pointVsBoxDistance(s.pose.Point(), b) >= s.radius
+}
+
+// ToPointCloud converts a sphere geometry into []r3.Vector. This method takes one argument which determines
+// how many points should like on the sphere's surface. If the argument is set to 0. we automatically
+// substitute the value with defaultTotalSpherePoints.
+func (s *sphere) ToPoints(resolution float64) []r3.Vector {
+	// check for user defined spacing
+	var iter float64
+	if resolution != 0. {
+		iter = resolution
+	} else {
+		iter = defaultTotalSpherePoints // default spacing
+	}
+	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
+	nums := iter * s.radius * s.radius
+	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
+	var vecList []r3.Vector
+	for i := 0.; i < nums; i++ {
+		y := 1 - (i/(nums-1))*2      // y goes from 1 to -1
+		radius := math.Sqrt(1 - y*y) // radius at y
+		theta := phi * i             // golden angle increment
+		x := (math.Cos(theta) * radius) * s.radius
+		z := (math.Sin(theta) * radius) * s.radius
+		vec := r3.Vector{x, y * s.radius, z}
+		vecList = append(vecList, vec)
+	}
+	return transformPointsToPose(vecList, s.Pose())
 }

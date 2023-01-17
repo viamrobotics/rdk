@@ -153,14 +153,16 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 }
 
 // TicksCount returns the current position.
-func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
-	return atomic.LoadInt64(&e.position), nil
+func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	res := atomic.LoadInt64(&e.position)
+	return float64(res), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
-	atomic.StoreInt64(&e.position, offset)
+func (e *SingleEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	offsetInt := int64(offset)
+	atomic.StoreInt64(&e.position, offsetInt)
 	return nil
 }
 

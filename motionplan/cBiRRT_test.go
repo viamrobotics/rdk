@@ -40,7 +40,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 
-	pos := spatialmath.NewPoseFromOrientation(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
+	pos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 	corners := map[node]bool{}
 
 	solutions, err := mp.getSolutions(ctx, pos, home7)

@@ -141,6 +141,12 @@ func TestModuleFunctions(t *testing.T) {
 		ret, err = gClient.DoOne(ctx, "")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret, test.ShouldBeTrue)
+
+		// Test generic echo
+		testCmd := map[string]interface{}{"foo": "bar"}
+		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retCmd, test.ShouldResemble, testCmd)
 	})
 
 	t.Run("ReconfigureResource", func(t *testing.T) {
@@ -158,6 +164,12 @@ func TestModuleFunctions(t *testing.T) {
 		ret, err = gClient.DoOne(ctx, "")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret, test.ShouldBeFalse)
+
+		// Test generic echo
+		testCmd := map[string]interface{}{"foo": "bar"}
+		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retCmd, test.ShouldResemble, testCmd)
 	})
 
 	t.Run("RemoveResource", func(t *testing.T) {
@@ -167,6 +179,12 @@ func TestModuleFunctions(t *testing.T) {
 		_, err := gClient.DoOne(ctx, "test")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no Gizmo with name (gizmo1)")
+
+		// Test generic echo
+		testCmd := map[string]interface{}{"foo": "bar"}
+		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
+		test.That(t, retCmd, test.ShouldBeNil)
 	})
 
 	err = utils.TryClose(ctx, gClient)

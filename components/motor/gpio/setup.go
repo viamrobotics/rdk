@@ -71,11 +71,10 @@ func init() {
 				return nil, err
 			}
 
-			m, err := NewMotor(actualBoard, *motorConfig, logger)
+			m, err := NewMotor(actualBoard, *motorConfig, config.Name, logger)
 			if err != nil {
 				return nil, err
 			}
-
 			if motorConfig.Encoder != "" {
 				e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 				if err != nil {

@@ -40,7 +40,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
-	expect := spatial.NewPoseFromOrientation(
+	expect := spatial.NewPose(
 		r3.Vector{X: 300, Y: 0, Z: 360.25},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0},
 	)
@@ -53,7 +53,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
-	expect = spatial.NewPoseFromOrientation(
+	expect = spatial.NewPose(
 		r3.Vector{X: 365, Y: 0, Z: 360.25},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0},
 	)
@@ -70,7 +70,7 @@ func TestForwardKinematics(t *testing.T) {
 	newPos := []float64{45, -45, 0, 0, 0, 0}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
-	expect = spatial.NewPoseFromOrientation(
+	expect = spatial.NewPose(
 		r3.Vector{X: 57.5, Y: 57.5, Z: 545.1208197765168},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0.5, OY: 0.5, OZ: 0.707},
 	)
@@ -79,7 +79,7 @@ func TestForwardKinematics(t *testing.T) {
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
-	expect = spatial.NewPoseFromOrientation(
+	expect = spatial.NewPose(
 		r3.Vector{X: 258.0935, Y: -258.0935, Z: 360.25},
 		&spatial.OrientationVectorDegrees{Theta: utils.RadToDeg(0.7854), OX: 0.707, OY: -0.707, OZ: 0},
 	)
@@ -283,7 +283,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
-	pos := spatial.NewPoseFromOrientation(
+	pos := spatial.NewPose(
 		r3.Vector{X: -46, Y: -133, Z: 372},
 		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
 	)
@@ -291,7 +291,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
-	pos = spatial.NewPoseFromOrientation(
+	pos = spatial.NewPose(
 		r3.Vector{X: -66, Y: -133, Z: 372},
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)

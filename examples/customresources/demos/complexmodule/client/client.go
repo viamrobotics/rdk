@@ -134,6 +134,14 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	logger.Info("generic echo")
+	testCmd := map[string]interface{}{"foo": "bar"}
+	ret, err := mybase.DoCommand(context.Background(), testCmd)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	logger.Infof("sent: %v recieved: %v", testCmd, ret)
+
 	logger.Info("move forward")
 	err = mybase.SetPower(context.Background(), r3.Vector{Y: 1}, r3.Vector{}, nil)
 	if err != nil {

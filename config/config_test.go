@@ -45,7 +45,7 @@ func TestConfigRobot(t *testing.T) {
 
 	// test that gripper geometry is being added correctly
 	component := cfg.FindComponent("pieceGripper")
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
+	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}), r3.Vector{1, 2, 3}, "")
 	newBc, err := component.Frame.Geometry.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newBc, test.ShouldResemble, bc)
@@ -420,7 +420,6 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	err = invalidComponents.Ensure(false)
 	test.That(t, err, test.ShouldBeNil)
 	invalidComponents.Components[0].Name = "foo"
-	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
 	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
 	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}

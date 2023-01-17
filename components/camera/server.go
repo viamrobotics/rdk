@@ -72,7 +72,7 @@ func (s *subtypeServer) GetImage(
 		case ColorStream, UnspecifiedStream:
 			req.MimeType = utils.MimeTypeJPEG
 		case DepthStream:
-			req.MimeType = utils.MimeTypePNG
+			req.MimeType = utils.MimeTypeRawDepth
 		default:
 			req.MimeType = utils.MimeTypeJPEG
 		}
