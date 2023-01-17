@@ -171,7 +171,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	scaleFactor := math.Min(widthScaleFactor, heightScaleFactor)
 
 	// Add points in the pointcloud to a new image
-	var iterateErr error
+	var voxelColor rimage.Color
 	im := rimage.NewImage(imageWidth, imageHeight)
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		j := (pt.X - minX) * scaleFactor
@@ -181,9 +181,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil {
-			voxelColor, err := getProbabilityColorFromValue(data)
+			voxelColor, err = getProbabilityColorFromValue(data)
 			if err != nil {
-				iterateErr = err
 				return false
 			}
 			im.Circle(image.Point{x, y}, voxelRadius, voxelColor)
@@ -191,8 +190,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		return true
 	})
 
-	if iterateErr != nil {
-		return nil, nil, iterateErr
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Add a red robot marker to the image
