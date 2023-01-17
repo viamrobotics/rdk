@@ -5,12 +5,12 @@ import (
 	"context"
 	"errors"
 	"image"
-	"image/jpeg"
 	"image/png"
 	"sync"
 	"testing"
 
 	"github.com/edaniels/gostream"
+	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 
@@ -45,15 +45,17 @@ func TestServer(t *testing.T) {
 	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	var imgBufJpeg bytes.Buffer
-	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
+
+	test.That(t, libjpeg.Encode(&imgBufJpeg, img, &libjpeg.EncoderOptions{Quality: 75}), test.ShouldBeNil)
 
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
-	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
+	imgJpeg, err := libjpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()), &libjpeg.DecoderOptions{})
+
 	test.That(t, err, test.ShouldBeNil)
 
 	var projA transform.Projector

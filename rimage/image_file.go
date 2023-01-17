@@ -7,12 +7,13 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"image/jpeg"
 	"image/png"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
@@ -130,7 +131,14 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	case ".png":
 		return png.Encode(f, img)
 	case ".jpg", ".jpeg":
-		return jpeg.Encode(f, img, nil)
+		switch v := img.(type) {
+		case *Image:
+			imgRGBA := image.NewRGBA(img.Bounds())
+			ConvertToRGBA(imgRGBA, v)
+			return libjpeg.Encode(f, imgRGBA, &libjpeg.EncoderOptions{Quality: 90})
+		default:
+			return libjpeg.Encode(f, img, &libjpeg.EncoderOptions{Quality: 90})
+		}
 	case ".ppm":
 		return ppm.Encode(f, img)
 	case ".qoi":
@@ -201,8 +209,7 @@ func SaveImage(pic image.Image, loc string) error {
 	}()
 
 	// Specify the quality, between 0-100
-	opt := jpeg.Options{Quality: 90}
-	err = jpeg.Encode(f, pic, &opt)
+	err = libjpeg.Encode(f, pic, &libjpeg.EncoderOptions{Quality: 90})
 	if err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
@@ -218,11 +225,26 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 	if returnLazy {
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
-	img, _, err := image.Decode(bytes.NewReader(imgBytes))
-	if err != nil {
-		return nil, err
+	switch mimeType {
+	case "":
+		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return img, nil
+	case ut.MimeTypeJPEG:
+		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return img, nil
+	default:
+		img, _, err := image.Decode(bytes.NewReader(imgBytes))
+		if err != nil {
+			return nil, err
+		}
+		return img, nil
 	}
-	return img, nil
 }
 
 // EncodeImage takes an image and mimeType as input and encodes it into a
@@ -236,7 +258,6 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	if lazy, ok := img.(*LazyEncodedImage); ok && lazy.MIMEType() == actualOutMIME {
 		return lazy.imgBytes, nil
 	}
-
 	var buf bytes.Buffer
 	bounds := img.Bounds()
 	switch actualOutMIME {
@@ -259,8 +280,17 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	case ut.MimeTypeJPEG:
-		if err := jpeg.Encode(&buf, img, nil); err != nil {
-			return nil, err
+		switch v := img.(type) {
+		case *Image:
+			imgRGBA := image.NewRGBA(bounds)
+			ConvertToRGBA(imgRGBA, v)
+			if err := libjpeg.Encode(&buf, imgRGBA, &libjpeg.EncoderOptions{Quality: 75}); err != nil {
+				return nil, err
+			}
+		default:
+			if err := libjpeg.Encode(&buf, img, &libjpeg.EncoderOptions{Quality: 75}); err != nil {
+				return nil, err
+			}
 		}
 	case ut.MimeTypeQOI:
 		if err := qoi.Encode(&buf, img); err != nil {
@@ -296,6 +326,17 @@ func fastConvertRGBA(dst *Image, src *image.RGBA) {
 			} else {
 				dst.SetXY(x, y, NewColorFromColor(color.RGBA{r, g, b, a}))
 			}
+		}
+	}
+}
+
+func ConvertToRGBA(dst *image.RGBA, src *Image) {
+	for y := 0; y < src.height; y++ {
+		for x := 0; x < src.width; x++ {
+			c := src.At(x, y)
+			r, g, b, a := c.RGBA()
+			cRGBA := color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
+			dst.SetRGBA(x, y, cRGBA)
 		}
 	}
 }

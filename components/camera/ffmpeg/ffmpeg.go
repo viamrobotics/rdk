@@ -4,7 +4,6 @@ package ffmpeg
 import (
 	"context"
 	"image"
-	"image/jpeg"
 	"io"
 	"os/exec"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
@@ -145,7 +145,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 			if cancelableCtx.Err() != nil {
 				return
 			}
-			img, err := jpeg.Decode(in)
+			img, err := libjpeg.Decode(in, &libjpeg.DecoderOptions{})
 			if err != nil {
 				continue
 			}
