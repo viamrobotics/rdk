@@ -17,7 +17,6 @@ import {
   ServiceError,
   commonApi,
   robotApi,
-  RobotClient,
   sensorsApi,
 } from '@viamrobotics/sdk';
 
@@ -56,7 +55,6 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from './lib/fixers';
-import { rcLogConditionally } from './lib/log';
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -247,7 +245,7 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
   }
 };
 
-const restartStatusStream = async () => {
+const restartStatusStream = () => {
   if (statusStream) {
     statusStream.cancel();
     statusStream = null;
@@ -272,84 +270,106 @@ const restartStatusStream = async () => {
   const streamReq = new robotApi.StreamStatusRequest();
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
-  rcLogConditionally(streamReq);
 
-  const rc = new RobotClient(client, '');
-  try {
-    const response = await rc.streamStatus(names, new Duration().setNanos(500_000_000));
+  statusStream = client.robotService.streamStatus(streamReq);
+
+  statusStream.on('data', (response) => {
     updateStatus(response.getStatusList());
     lastStatusTS = Date.now();
-  } catch (error) {
-    displayError(error as ServiceError);
+  });
+  statusStream.on('status', (newStatus) => {
+    if (!ConnectionClosedError.isError(newStatus.details)) {
+      console.error('error streaming robot status', newStatus);
+    }
     statusStream = null;
-  }
+  });
+  statusStream.on('end', () => {
+    console.error('done streaming robot status');
+    statusStream = null;
+  });
 };
 
 // query metadata service every 0.5s
-const queryMetadata = async () => {
-  let resourcesChanged = false;
-  let shouldRestartStatusStream = !(resourcesOnce && statusStream);
-  const rc = new RobotClient(client, '');
-  try {
-    rcLogConditionally(new robotApi.ResourceNamesRequest());
-    const response = await rc.resourceNames();
-    const { resourcesList } = response.toObject();
-    const differences = new Set(resources.map((name) => resourceNameToString(name)));
-    const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
+const queryMetadata = () => {
+  return new Promise((resolve, reject) => {
+    let resourcesChanged = false;
+    let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-    for (const elem of resourceSet) {
-      if (differences.has(elem)) {
-        differences.delete(elem);
-      } else {
-        differences.add(elem);
+    client.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
       }
-    }
 
-    if (differences.size > 0) {
-      resourcesChanged = true;
+      if (!resp) {
+        reject(new Error('An unexpected issue occured.'));
+        return;
+      }
 
-      // restart status stream if resource difference includes a resource we care about
-      for (const elem of differences) {
-        const resource = stringToResourceName(elem);
-        if (
-          resource.namespace === 'rdk' &&
-          resource.type === 'component' &&
-          relevantSubtypesForStatus.includes(resource.subtype!)
-        ) {
-          shouldRestartStatusStream = true;
-          break;
+      const { resourcesList } = resp.toObject();
+
+      const differences = new Set(resources.map((name) => resourceNameToString(name)));
+      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
+
+      for (const elem of resourceSet) {
+        if (differences.has(elem)) {
+          differences.delete(elem);
+        } else {
+          differences.add(elem);
         }
       }
-    }
 
-    resources = resourcesList;
-    resourcesOnce = true;
-    if (resourcesChanged === true) {
-      querySensors();
-    }
-    if (shouldRestartStatusStream === true) {
-      restartStatusStream();
-    }
-    return resources;
-  } catch (error) {
-    displayError(error as ServiceError);
-    return;
-  }
+      if (differences.size > 0) {
+        resourcesChanged = true;
+
+        // restart status stream if resource difference includes a resource we care about
+        for (const elem of differences) {
+          const resource = stringToResourceName(elem);
+          if (
+            resource.namespace === 'rdk' &&
+            resource.type === 'component' &&
+            relevantSubtypesForStatus.includes(resource.subtype!)
+          ) {
+            shouldRestartStatusStream = true;
+            break;
+          }
+        }
+      }
+
+      resources = resourcesList;
+      resourcesOnce = true;
+      if (resourcesChanged === true) {
+        querySensors();
+      }
+      if (shouldRestartStatusStream === true) {
+        restartStatusStream();
+      }
+      resolve(resources);
+    });
+  });
 };
 
-const fetchCurrentOps = async () => {
-  rcLogConditionally(new robotApi.GetOperationsRequest());
-  const now = Date.now();
-  const rc = new RobotClient(client, '');
-  try {
-    const response = await rc.getOperations();
-    appConnectionManager.rtt = Math.max(Date.now() - now, 0);
-    const list = response.toObject().operationsList;
-    return list;
-  } catch (error) {
-    displayError(error as ServiceError);
-    return [];
-  }
+const fetchCurrentOps = () => {
+  return new Promise<robotApi.Operation.AsObject[]>((resolve, reject) => {
+    const req = new robotApi.GetOperationsRequest();
+
+    const now = Date.now();
+    client.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      appConnectionManager.rtt = Math.max(Date.now() - now, 0);
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occurred.'));
+        return;
+      }
+
+      const list = resp.toObject().operationsList;
+      resolve(list);
+    });
+  });
 };
 
 const loadCurrentOps = async () => {
@@ -376,26 +396,34 @@ const loadCurrentOps = async () => {
 };
 
 let sessionsSupported = $ref<boolean>(true);
-const fetchCurrentSessions = async () => {
+const fetchCurrentSessions = () => {
   if (!sessionsSupported) {
     return [];
   }
-  rcLogConditionally(new robotApi.GetSessionsRequest());
-  const rc = new RobotClient(client, '');
-  try {
-    const response = await rc.getSessions();
-    const list = response.toObject().sessionsList;
-    list.sort((sess1, sess2) => {
-      return sess1.id < sess2.id ? -1 : 1;
+  return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
+    const req = new robotApi.GetSessionsRequest();
+
+    client.robotService.getSessions(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        if ((err as ServiceError).code === grpc.Code.Unimplemented) {
+          sessionsSupported = false;
+        }
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occurred.'));
+        return;
+      }
+
+      const list = resp.toObject().sessionsList;
+      list.sort((sess1, sess2) => {
+        return sess1.id < sess2.id ? -1 : 1;
+      });
+      resolve(list);
     });
-    return list;
-  } catch (error) {
-    displayError(error as ServiceError);
-    if ((error as ServiceError).code === grpc.Code.Unimplemented) {
-      sessionsSupported = false;
-    }
-    return [];
-  }
+  });
 };
 
 const isWebRtcEnabled = () => {
