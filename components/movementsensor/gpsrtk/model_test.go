@@ -68,6 +68,5 @@ func TestGPSModels(t *testing.T) {
 
 		err = r.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
-
 	})
 }
