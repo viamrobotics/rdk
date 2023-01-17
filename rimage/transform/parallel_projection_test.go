@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"fmt"
 	"image"
 	"os"
 	"testing"
@@ -82,7 +83,8 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(200))
 
 		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "error parallel projection with robot marker received a value of")
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("error received a value of %v which is outside the range (0 - 100) representing probabilities", 200))
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
