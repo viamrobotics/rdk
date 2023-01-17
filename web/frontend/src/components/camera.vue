@@ -1,24 +1,30 @@
 <script setup lang="ts">
-
 import { ref, onMounted } from 'vue';
 import { displayError } from '../lib/error';
-import { StreamClient, CameraClient, Camera, Client, commonApi, ServiceError } from '@viamrobotics/sdk';
+import {
+  StreamClient,
+  CameraClient,
+  Camera,
+  Client,
+  commonApi,
+  ServiceError,
+} from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
-  cameraName: string
+  cameraName: string;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
 }
 
 interface Emits {
-  (event: 'download-raw-data'): void
-  (event: 'clear-interval'): void
-  (event: 'selected-camera-view', value: string): void
-  (event: 'refresh-camera', value: string): void
+  (event: 'download-raw-data'): void;
+  (event: 'clear-interval'): void;
+  (event: 'selected-camera-view', value: string): void;
+  (event: 'refresh-camera', value: string): void;
 }
 
 const props = defineProps<Props>();
@@ -28,10 +34,20 @@ let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();
 let camera = $ref(false);
 
-const selectedValue = ref('live');
+const selectedValue = ref('Live');
 
 const initStreamState = () => {
   cameraStreamStates.set(props.cameraName, false);
+};
+
+const clearStreamContainer = (camName: string) => {
+  const streamContainers = document.querySelectorAll(
+    `[data-stream="${camName}"]`
+  );
+  for (const streamContainer of streamContainers) {
+    streamContainer.querySelector('video')?.remove();
+    streamContainer.querySelector('img')?.remove();
+  }
 };
 
 const viewCamera = async (isOn: boolean) => {
@@ -39,7 +55,10 @@ const viewCamera = async (isOn: boolean) => {
   if (isOn) {
     try {
       // only add stream if not already active
-      if (!baseStreamStates.get(props.cameraName) && !cameraStreamStates.get(props.cameraName)) {
+      if (
+        !baseStreamStates.get(props.cameraName) &&
+        !cameraStreamStates.get(props.cameraName)
+      ) {
         await streams.add(props.cameraName);
       }
     } catch (error) {
@@ -49,7 +68,10 @@ const viewCamera = async (isOn: boolean) => {
   } else {
     try {
       // only remove camera stream if active and base stream is not active
-      if (!baseStreamStates.get(props.cameraName) && cameraStreamStates.get(props.cameraName)) {
+      if (
+        !baseStreamStates.get(props.cameraName) &&
+        cameraStreamStates.get(props.cameraName)
+      ) {
         await streams.remove(props.cameraName);
       }
     } catch (error) {
@@ -57,11 +79,6 @@ const viewCamera = async (isOn: boolean) => {
     }
     cameraStreamStates.set(props.cameraName, false);
   }
-};
-
-const toggleExpand = () => {
-  camera = !camera;
-  viewCamera(camera);
 };
 
 const renderPCD = async () => {
@@ -80,14 +97,28 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  if (selectedValue.value !== 'live') {
+  emit('clear-interval');
+  clearStreamContainer(props.cameraName);
+
+  if (selectedValue.value !== 'Live') {
     viewCamera(false);
     emit('selected-camera-view', selectedValue.value);
     return;
   }
 
-  emit('clear-interval');
   viewCamera(true);
+};
+
+const toggleExpand = () => {
+  camera = !camera;
+
+  emit('clear-interval');
+  clearStreamContainer(props.cameraName);
+  if (camera) {
+    selectCameraView();
+  } else {
+    viewCamera(false);
+  }
 };
 
 const refreshCamera = () => {
@@ -98,7 +129,9 @@ const refreshCamera = () => {
 const exportScreenshot = async (cameraName: string) => {
   let blob;
   try {
-    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
+    blob = await new CameraClient(props.client, cameraName).renderFrame(
+      Camera.MimeType.JPEG
+    );
   } catch (error) {
     displayError(error as ServiceError);
     return;
@@ -128,7 +161,11 @@ onMounted(() => {
             <v-switch
               id="camera"
               :label="camera ? 'Hide Camera' : 'View Camera'"
-              :aria-label="camera ? `Hide Camera: ${$props.cameraName}` : `View Camera: ${$props.cameraName}`"
+              :aria-label="
+                camera
+                  ? `Hide Camera: ${$props.cameraName}`
+                  : `View Camera: ${$props.cameraName}`
+              "
               :value="camera ? 'on' : 'off'"
               @input="toggleExpand"
             />
@@ -142,6 +179,7 @@ onMounted(() => {
               >
                 <div class="">
                   <div class="relative">
+                    <!-- Valid options must be kept in sync with the selectedMap in app.vue -->
                     <v-select
                       v-model="selectedValue"
                       label="Refresh frequency"
@@ -153,7 +191,7 @@ onMounted(() => {
                 </div>
                 <div class="self-end">
                   <v-button
-                    v-if="(camera && selectedValue === 'Manual Refresh')"
+                    v-if="camera && selectedValue === 'Manual Refresh'"
                     icon="refresh"
                     label="Refresh"
                     @click="refreshCamera"
@@ -173,7 +211,7 @@ onMounted(() => {
           <div
             :aria-label="`${cameraName} stream`"
             :data-stream="cameraName"
-            :class="{ 'hidden': !camera }"
+            :class="{ hidden: !camera }"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>
@@ -184,7 +222,9 @@ onMounted(() => {
               :value="pcdExpanded ? 'on' : 'off'"
               @input="togglePCDExpand"
             />
-            <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
+            <InfoButton
+              :info-rows="['When turned on, point cloud will be recalculated']"
+            />
           </div>
 
           <PCD
