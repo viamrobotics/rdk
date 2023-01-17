@@ -168,24 +168,20 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	// Calculate the scale factors
 	widthScaleFactor := float64(imageWidth-1) / (maxX - minX)
 	heightScaleFactor := float64(imageHeight-1) / (maxZ - minZ)
+	scaleFactor := math.Min(widthScaleFactor, heightScaleFactor)
 
 	// Add points in the pointcloud to a new image
 	im := rimage.NewImage(imageWidth, imageHeight)
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
-		j := (pt.X - minX) * widthScaleFactor
-		i := (pt.Z - minZ) * heightScaleFactor
+		j := (pt.X - minX) * scaleFactor
+		i := (pt.Z - minZ) * scaleFactor
 		x, y := int(math.Round(j)), int(math.Round(i))
 
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil {
-			var c rimage.Color
-			if data.HasValue() {
-				c = getProbabilityColorFromValue(data.Value())
-			} else {
-				c = rimage.NewColor(255, 255, 255)
-			}
-			im.Circle(image.Point{x, y}, voxelRadius, c)
+			voxelColor := getProbabilityColorFromValue(data)
+			im.Circle(image.Point{x, y}, voxelRadius, voxelColor)
 		}
 		return true
 	})
@@ -193,8 +189,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	// Add a red robot marker to the image
 	if ppRM.robotPose != nil {
 		robotMarkerPoint := image.Point{
-			X: int(math.Round((robotMarker.Point().X - minX) * widthScaleFactor)),
-			Y: int(math.Round((robotMarker.Point().Z - minZ) * heightScaleFactor)),
+			X: int(math.Round((robotMarker.Point().X - minX) * scaleFactor)),
+			Y: int(math.Round((robotMarker.Point().Z - minZ) * scaleFactor)),
 		}
 		robotMarkerColor := rimage.NewColor(255, 0, 0)
 		im.Circle(robotMarkerPoint, voxelRadius, robotMarkerColor)
@@ -208,21 +204,25 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
 	dm *rimage.DepthMap,
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
-	return nil, errors.New("converting a RGB image to Pointcloud is current unimplemented for this projection")
+	return nil, errors.New("converting a RGB image to Pointcloud is currently unimplemented for this projection")
 }
 
 // ImagePointTo3DPoint is unimplemented and will produce an error.
 func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
-	return r3.Vector{}, errors.New("converting an image point to a 3D point is current unimplemented for this projection")
+	return r3.Vector{}, errors.New("converting an image point to a 3D point is currently unimplemented for this projection")
 }
 
-// getProbabilityColorFromValue returns an RGB color value based on the the probability value and defined hit and miss
+// getProbabilityColorFromValue returns an RGB color value based on the probability value and defined hit and miss
 // thresholds
 // TODO (RSDK-1705): Once probability values are available this function should be changed to produced desired images.
-func getProbabilityColorFromValue(v int) rimage.Color {
+func getProbabilityColorFromValue(d pointcloud.Data) rimage.Color {
 	var r, g, b uint8
 
-	prob := float64(v) / 100.
+	if !d.HasValue() {
+		return rimage.NewColor(255, 255, 255)
+	}
+
+	prob := float64(d.Value()) / 100.
 
 	switch {
 	case prob < missThreshold && prob >= 0:
