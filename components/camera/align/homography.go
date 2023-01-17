@@ -135,7 +135,7 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.Camera, at
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	cameraModel := camera.NewPinholdCameraModel(attrs.CameraParameters, attrs.DistortionParameters)
+	cameraModel := camera.NewPinholeCameraModel(attrs.CameraParameters, attrs.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,

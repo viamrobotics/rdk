@@ -30,7 +30,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
+	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
 	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
 	return cam, stream, err

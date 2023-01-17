@@ -41,7 +41,7 @@ func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholdCameraModel(props.IntrinsicParams, props.DistortionParams)
+	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(attrs.HiThresh, attrs.LoThresh, true)
 	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
 	cam, err := camera.NewFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream)
