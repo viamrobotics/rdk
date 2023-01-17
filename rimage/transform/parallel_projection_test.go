@@ -74,7 +74,7 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 
-	t.Run("Project a single point pointcloud with out of range data", func(t *testing.T) {
+	t.Run("Project a point with out of range data", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
