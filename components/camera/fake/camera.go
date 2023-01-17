@@ -17,23 +17,49 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
+
+var model = resource.NewDefaultModel("fake")
 
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		resource.NewDefaultModel("fake"),
+		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			res := config.Attributes.String("resolution")
-			resModel, err := fakeModel(res)
-			cam := &Camera{Name: config.Name, Model: fakeModel}
-			return camera.NewFromReader(ctx, cam, fakeModel, camera.ColorStream)
+			attrs, ok := cfg.ConvertedAttributes.(*Attrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
+			}
+			resModel, err := fakeModel(attrs.Resolution)
+			if err != nil {
+				return nil, err
+			}
+			cam := &Camera{Name: cfg.Name, Model: resModel, Resolution: attrs.Resolution}
+			return camera.NewFromReader(ctx, cam, resModel, camera.ColorStream)
 		}})
+	config.RegisterComponentAttributeMapConverter(
+		camera.Subtype,
+		model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Attrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*Attrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			return result, nil
+		},
+		&Attrs{},
+	)
 }
 
 var fakeIntrinsicsHigh = &transform.PinholeCameraIntrinsics{
@@ -96,6 +122,11 @@ func fakeModel(res string) (*transform.PinholeCameraModel, error) {
 	}
 }
 
+// Attrs are the attributes of the fake camera config
+type Attrs struct {
+	Resolution string `json:"resolution"`
+}
+
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
 	generic.Echo
@@ -106,20 +137,53 @@ type Camera struct {
 
 // Read always returns the same image of a chess board.
 func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
+	img, err := c.getColorImage()
 	return img, func() {}, err
 }
 
 // NextPointCloud always returns a pointcloud of the chess board.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
+	img, err := c.getColorImage()
 	if err != nil {
 		return nil, err
 	}
-	dm, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board2_gray.png"))
+	dm, err := c.getDepthImage(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return c.Model.RGBDToPointCloud(img, dm)
+}
+
+// getColorImage always returns the same color image of a chess board.
+func (c *Camera) getColorImage() (*rimage.Image, error) {
+	switch c.Resolution {
+	case "high", "hi", "":
+		img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
+		return img, err
+	case "medium", "med":
+		img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2_med.png"))
+		return img, err
+	case "low", "lo":
+		img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2_low.png"))
+		return img, err
+	default:
+		return nil, errors.Errorf(`do not know resolution %q, only "high", "medium", or "low" are available`, c.Resolution)
+	}
+}
+
+// getDepthImage always returns the same depth image of a chess board.
+func (c *Camera) getDepthImage(ctx context.Context) (*rimage.DepthMap, error) {
+	switch c.Resolution {
+	case "high", "hi", "":
+		img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_gray.png"))
+		return img, err
+	case "medium", "med":
+		img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_med_gray.png"))
+		return img, err
+	case "low", "lo":
+		img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_low_gray.png"))
+		return img, err
+	default:
+		return nil, errors.Errorf(`do not know resolution %q, only "high", "medium", or "low" are available`, c.Resolution)
+	}
 }
