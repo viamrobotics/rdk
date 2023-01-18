@@ -15,6 +15,7 @@ type SLAMService struct {
 	PositionFunc func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error)
 	GetMapFunc   func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool, extra map[string]interface{}) (string, image.Image, *vision.Object, error)
+	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Position calls the injected PositionFunc or the real version.
@@ -39,4 +40,12 @@ func (slamSvc *SLAMService) GetMap(
 		return slamSvc.Service.GetMap(ctx, name, mimeType, cp, include, extra)
 	}
 	return slamSvc.GetMapFunc(ctx, name, mimeType, cp, include, extra)
+}
+
+// DoCommand calls the injected DoCommand or the real version.
+func (slamSvc *SLAMService) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if slamSvc.DoFunc == nil {
+		return slamSvc.Service.DoCommand(ctx, cmd)
+	}
+	return slamSvc.DoFunc(ctx, cmd)
 }

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
@@ -128,4 +129,8 @@ func (c *client) GetMap(
 	}
 
 	return mimeType, imageData, vObject, nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
