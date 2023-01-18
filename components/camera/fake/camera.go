@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/artifact"
+	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -21,6 +22,12 @@ import (
 )
 
 var model = resource.NewDefaultModel("fake")
+
+const (
+	high   = "high"
+	medium = "medium"
+	low    = "low"
+)
 
 func init() {
 	registry.RegisterComponent(
@@ -70,6 +77,7 @@ var fakeIntrinsicsHigh = &transform.PinholeCameraIntrinsics{
 	Ppx:    494.95941428,
 	Ppy:    370.70529534,
 }
+
 var fakeDistortionHigh = &transform.BrownConrady{
 	RadialK1:     0.11297234,
 	RadialK2:     -0.21375332,
@@ -81,8 +89,8 @@ var fakeDistortionHigh = &transform.BrownConrady{
 var fakeIntrinsicsMed = &transform.PinholeCameraIntrinsics{
 	Width:  512,
 	Height: 384,
-	Fx:     410.66321445,
-	Fy:     410.84303680,
+	Fx:     410.663214445,
+	Fy:     410.843036795,
 	Ppx:    247.47970714,
 	Ppy:    185.35264767,
 }
@@ -111,18 +119,18 @@ var fakeModelLow = &transform.PinholeCameraModel{
 
 func fakeModel(res string) (*transform.PinholeCameraModel, error) {
 	switch res {
-	case "high", "hi", "":
+	case high, "":
 		return fakeModelHigh, nil
-	case "medium", "med":
+	case medium:
 		return fakeModelMed, nil
-	case "low", "lo":
+	case low:
 		return fakeModelLow, nil
 	default:
 		return nil, errors.Errorf(`do not know resolution %q, only "high", "medium", or "low" are available`, res)
 	}
 }
 
-// Attrs are the attributes of the fake camera config
+// Attrs are the attributes of the fake camera config.
 type Attrs struct {
 	Resolution string `json:"resolution"`
 }
@@ -157,13 +165,13 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 // getColorImage always returns the same color image of a chess board.
 func (c *Camera) getColorImage() (*rimage.Image, error) {
 	switch c.Resolution {
-	case "high", "hi", "":
+	case high, "":
 		img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 		return img, err
-	case "medium", "med":
+	case medium:
 		img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2_med.png"))
 		return img, err
-	case "low", "lo":
+	case low:
 		img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2_low.png"))
 		return img, err
 	default:
@@ -173,17 +181,35 @@ func (c *Camera) getColorImage() (*rimage.Image, error) {
 
 // getDepthImage always returns the same depth image of a chess board.
 func (c *Camera) getDepthImage(ctx context.Context) (*rimage.DepthMap, error) {
+	img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_gray.png"))
+	if err != nil {
+		return nil, err
+	}
 	switch c.Resolution {
-	case "high", "hi", "":
-		img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_gray.png"))
-		return img, err
-	case "medium", "med":
-		img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_med_gray.png"))
-		return img, err
-	case "low", "lo":
-		img, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_low_gray.png"))
-		return img, err
+	case high, "":
+		return img, nil
+	case medium:
+		dm, err := c.resizeDepthImage(ctx, img, 640, 360)
+		return dm, err
+	case low:
+		dm, err := c.resizeDepthImage(ctx, img, 320, 180)
+		return dm, err
 	default:
 		return nil, errors.Errorf(`do not know resolution %q, only "high", "medium", or "low" are available`, c.Resolution)
 	}
+}
+
+func (c *Camera) resizeDepthImage(ctx context.Context, dm *rimage.DepthMap, width, height int,
+) (*rimage.DepthMap, error) {
+	dm2, err := rimage.ConvertImageToGray16(dm)
+	if err != nil {
+		return nil, err
+	}
+	dst := image.NewGray16(image.Rect(0, 0, width, height))
+	draw.NearestNeighbor.Scale(dst, dst.Bounds(), dm2, dm.Bounds(), draw.Over, nil)
+	dmFinal, err := rimage.ConvertImageToDepthMap(ctx, dst)
+	if err != nil {
+		return nil, err
+	}
+	return dmFinal, nil
 }
