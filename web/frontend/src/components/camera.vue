@@ -21,11 +21,17 @@ interface Props {
 }
 
 interface Emits {
-  (event: 'download-raw-data'): void;
   (event: 'clear-interval'): void;
-  (event: 'selected-camera-view', value: string): void;
-  (event: 'refresh-camera', value: string): void;
+  (event: 'selected-camera-view', value: number): void;
 }
+
+const selectedMap = {
+  Live: -1,
+  'Manual Refresh': 0,
+  'Every 30 Seconds': 30,
+  'Every 10 Seconds': 10,
+  'Every Second': 1,
+} as const;
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
@@ -101,8 +107,9 @@ const selectCameraView = () => {
   clearStreamContainer(props.cameraName);
 
   if (selectedValue.value !== 'Live') {
+    const selectedInterval: number = selectedMap[selectedValue.value as keyof typeof selectedMap];
     viewCamera(false);
-    emit('selected-camera-view', selectedValue.value);
+    emit('selected-camera-view', selectedInterval);
     return;
   }
 
@@ -122,7 +129,7 @@ const toggleExpand = () => {
 };
 
 const refreshCamera = () => {
-  emit('selected-camera-view', selectedValue.value);
+  emit('selected-camera-view', selectedMap[selectedValue.value as keyof typeof selectedMap]);
   emit('clear-interval');
 };
 
@@ -179,12 +186,11 @@ onMounted(() => {
               >
                 <div class="">
                   <div class="relative">
-                    <!-- Valid options must be kept in sync with the selectedMap in app.vue -->
                     <v-select
                       v-model="selectedValue"
                       label="Refresh frequency"
                       aria-label="Default select example"
-                      options="Manual Refresh, Every 30 Seconds, Every 10 Seconds, Every Second, Live"
+                      :options="Object.keys(selectedMap).join(',')"
                       @input="selectCameraView"
                     />
                   </div>

@@ -87,15 +87,6 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
-// TODO: This must be kept in sync with the refresh frequency select in camera.vue. Fix that.
-const selectedMap = {
-  Live: 'Live',
-  'Manual Refresh': 0,
-  'Every 30 Seconds': 30,
-  'Every 10 Seconds': 10,
-  'Every Second': 1,
-} as const;
-
 const rtcConfig = {
   iceServers: [
     {
@@ -636,22 +627,19 @@ const clearFrameInterval = () => {
   window.clearInterval(cameraFrameIntervalId);
 };
 
-const viewCameraFrame = (cameraName: string, time: string) => {
+const viewCameraFrame = (cameraName: string, time: number) => {
   clearFrameInterval();
-  const selectedInterval = selectedMap[time as keyof typeof selectedMap];
 
-  if (time === 'Live') {
+  // Live
+  if (time === -1) {
     return;
   }
 
-  if (time === 'Manual Refresh') {
-    viewFrame(cameraName);
-  } else {
-    // Load a frame immediately and schedule a refresh at selected intervals
-    viewFrame(cameraName);
+  viewFrame(cameraName);
+  if (time > 0) {
     cameraFrameIntervalId = window.setInterval(() => {
       viewFrame(cameraName);
-    }, Number(selectedInterval) * 1000);
+    }, Number(time) * 1000);
   }
 };
 
