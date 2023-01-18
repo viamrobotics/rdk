@@ -1,15 +1,12 @@
-name: Motion Quality Tests
+name: Motion Benchmarks
 
 on:
   workflow_dispatch:
   workflow_call:
-  pull_request:
-    branches:
-      - main
 
 jobs:
-  test_motion_quality:
-    name:  Motion Quality Tests
+  motion_benchmarks:
+    name:  Motion Benchmarks
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
@@ -48,8 +45,8 @@ jobs:
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="${{ github.event.pull_request.head.ref }}"'
         
-    - name: Check results.csv
+    - name: Print comparison
       run: |
-        cd motion-testing        
+        cd motion-testing
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestScores --baselineDir="${{ github.event.pull_request.base.ref }}" --modifiedDir="${{ github.event.pull_request.head.ref }}"'
         cat results/comparison.md

@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ DATA-859-motion-integration-tests ]
+    branches: [ main ]
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -19,12 +19,6 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
-
-  motion_integration_test:
-    if: |
-      github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
-    uses: viamrobotics/rdk/.github/workflows/motion-integration-test.yml@DATA-859-motion-integration-tests
 
   slam_integration_test:
     if: github.event.label.name == 'safe to test'
