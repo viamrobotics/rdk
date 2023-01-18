@@ -18,4 +18,4 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' || 
       (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
-    uses: viamrobotics/rdk/.github/workflows/motion-integration-test.yml@DATA-859-motion-integration-tests
+    uses: viamrobotics/rdk/.github/workflows/motion-benchmarks.yml@DATA-859-motion-integration-tests
