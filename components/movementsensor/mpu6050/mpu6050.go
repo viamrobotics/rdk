@@ -3,7 +3,6 @@ package mpu6050
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
