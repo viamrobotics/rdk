@@ -137,13 +137,13 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 	// 	m.dirPin = directionPin
 	// }
 
-	if mc.Pins.In1 != "" {
-		in1, err := b.GPIOPinByName(mc.Pins.In1)
-		if err != nil {
-			return nil, err
-		}
-		m.In1 = in1
-	}
+	// if mc.Pins.In1 != "" {
+	// 	in1, err := b.GPIOPinByName(mc.Pins.In1)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	m.In1 = in1
+	// }
 
 	if err := m.Validate(); err != nil {
 		return nil, err
