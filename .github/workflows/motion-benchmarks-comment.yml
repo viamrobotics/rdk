@@ -1,8 +1,8 @@
-name: 'Comment on PR'
+name: 'Motion Benchmark Comment on PR'
 
 on:
   workflow_run:
-    workflows: ["Pull Request Update"]
+    workflows: ["Motion Pull Request Update"]
     types:
       - completed
 
@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 5
     if: ${{ github.event.workflow_run.event == 'pull_request_target' && github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Download Code Coverage
+      - name: Download Motion Benchmarks
         uses: dawidd6/action-download-artifact@v2
         with:
           run_id: ${{ github.event.workflow_run.id }}
@@ -30,15 +30,5 @@ jobs:
         with:
           number: ${{ env.PR_NUMBER }}
           recreate: true
-          path: code-coverage-results.md
+          path: motion-benchmarks.md
 
-      - name: Add AppImage Links
-        if: ${{ env.APPIMAGE }}
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          number: ${{ env.PR_NUMBER }}
-          recreate: true
-          message: |
-            AppImages ready!
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64.AppImage>
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64.AppImage>
