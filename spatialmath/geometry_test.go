@@ -553,7 +553,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"separated face closest",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1 + 1e-3}, 1, 4),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3 + 1e-3}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			1e-3,
@@ -561,7 +561,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"separated edge closest",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0, 0, 2, 2}, r3.Vector{0, 2, 2}, 1, 4),
+				makeTestCapsule(&OrientationVector{0, 0, 1, 1}, r3.Vector{0, 4, 4}, 1, 4*math.Sqrt2),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			math.Sqrt2,
@@ -569,7 +569,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"separated vertex closest",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0, 2, 2, 2}, r3.Vector{2, 2, 2}, 1, 4),
+				makeTestCapsule(&OrientationVector{0, 2, 2, 2}, r3.Vector{4, 4, 4}, 1, 4*math.Sqrt(3)),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			math.Sqrt(3),
@@ -577,7 +577,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 		{
 			"face tangent",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1}, 1, 4),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3}, 1, 4),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}, ""),
 			},
 			0,
@@ -609,7 +609,7 @@ func TestCapsuleVsBoxCollision(t *testing.T) {
 	}
 
 	adjust := func(n float64) float64 {
-		return n * (math.Abs(n) - 1e-3)
+		return n * (2 + math.Abs(n) - 1e-3)
 	}
 
 	for _, norm := range boxNormals {
@@ -641,16 +641,16 @@ func TestCapsuleVsCapsuleCollision(t *testing.T) {
 		{
 			"separated cylinders closest",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0, 0, 0, -1}, r3.Vector{0, 0, -1e-3}, 1, 4),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 4),
+				makeTestCapsule(&OrientationVector{0, 0, 0, -1}, r3.Vector{0, 0, -2 - 1e-3}, 1, 4),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 2}, 1, 4),
 			},
 			1e-3,
 		},
 		{
 			"separated cylinder closest to end",
 			[2]Geometry{
-				makeTestCapsule(&OrientationVector{0, 1, 1, 0}, r3.Vector{-4, -4, -1}, 1, 10),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1e-3}, 1, 4),
+				makeTestCapsule(&OrientationVector{0, 1, 1, 0}, r3.Vector{0, 0, -1}, 1, 10),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 2 + 1e-3}, 1, 4),
 			},
 			1e-3,
 		},
@@ -666,7 +666,7 @@ func TestCapsuleVsCapsuleCollision(t *testing.T) {
 			"orthogonal cylinders touching",
 			[2]Geometry{
 				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 6),
-				makeTestCapsule(&OrientationVector{0, 1, 0, 0}, r3.Vector{-3, 2, 3}, 1, 6),
+				makeTestCapsule(&OrientationVector{0, 1, 0, 0}, r3.Vector{0, 2, 0}, 1, 6),
 			},
 			0,
 		},
@@ -674,7 +674,7 @@ func TestCapsuleVsCapsuleCollision(t *testing.T) {
 			"orthogonal cylinders slightly colliding",
 			[2]Geometry{
 				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 1, 6),
-				makeTestCapsule(&OrientationVector{0, 1, 0, 0}, r3.Vector{-3, 1.8, 3}, 1, 6),
+				makeTestCapsule(&OrientationVector{0, 1, 0, 0}, r3.Vector{0, 1.8, 0}, 1, 6),
 			},
 			-0.2,
 		},
@@ -703,7 +703,7 @@ func TestCapsuleVsBoxEncompassed(t *testing.T) {
 		{
 			"not encompassed",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 3.5}, 1, 4.75),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 5.875}, 1, 4.75),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{16, 16, 16}, ""),
 			},
 			0.25,
@@ -712,7 +712,7 @@ func TestCapsuleVsBoxEncompassed(t *testing.T) {
 			"encompassed box",
 			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{4, 4, 4}, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, -5}, 4, 10),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0}, 4, 10),
 			},
 			0,
 		},
@@ -733,7 +733,7 @@ func TestCapsuleVsSphereEncompassed(t *testing.T) {
 		{
 			"encompassed",
 			[2]Geometry{
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, -3}, 1, 6.75),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0.1}, 1, 6.75),
 				makeTestSphere(r3.Vector{}, 4, ""),
 			},
 			0,
@@ -750,7 +750,7 @@ func TestCapsuleVsSphereEncompassed(t *testing.T) {
 			"encompassed sphere",
 			[2]Geometry{
 				makeTestSphere(r3.Vector{}, 2, ""),
-				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, -3}, 2.5, 9.75),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 1.5}, 2.5, 9.75),
 			},
 			0,
 		},

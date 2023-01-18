@@ -13,10 +13,10 @@ import (
 
 // capsule is a collision geometry that represents a capsule, it has a pose and a radius that fully define it.
 //
-// ....__________________
-// .../                  \
-// .x|  |--------------|  |x
-// ...\__________________/
+// ....___________________
+// .../                   \
+// .x|  |-------O-------|  |x
+// ...\___________________/
 //
 // Length is the distance between the x's, or internal segment length + 2*radius.
 type capsule struct {
@@ -49,8 +49,8 @@ func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, er
 
 // Will precalculate the linear endpoints for a capsule.
 func precalcCapsule(offset Pose, radius, length float64, label string) Geometry {
-	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, radius})).Point()
-	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length - radius})).Point()
+	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, -length/2 + radius})).Point()
+	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length/2 - radius})).Point()
 
 	return &capsule{
 		pose:   offset,
@@ -268,10 +268,8 @@ func capsuleVsBoxCollision(c *capsule, other *box) bool {
 
 // capsuleInCapsule returns a bool describing if the inner capsule is fully encompassed by the outer capsule.
 func capsuleInCapsule(inner, outer *capsule) bool {
-	return inner.segA.Sub(outer.segA).Norm()+inner.radius <= outer.radius &&
-		inner.segB.Sub(outer.segA).Norm()+inner.radius <= outer.radius &&
-		inner.segB.Sub(outer.segB).Norm()+inner.radius <= outer.radius &&
-		inner.segB.Sub(outer.segB).Norm()+inner.radius <= outer.radius
+	return capsuleVsPointDistance(outer, inner.segA) < -inner.radius &&
+		capsuleVsPointDistance(outer, inner.segB) < -inner.radius
 }
 
 // capsuleInBox returns a bool describing if the given capsule is fully encompassed by the given box.

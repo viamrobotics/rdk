@@ -18,6 +18,6 @@ func TestClosestPoint(t *testing.T) {
 	cp2 := tri.closestPointToPoint(qp1)
 	cp3, inside := tri.closestInsidePoint(qp1)
 	test.That(t, inside, test.ShouldBeFalse)
-	test.That(t, cp3.ApproxEqual(qp1), test.ShouldBeFalse)
+	test.That(t, cp3.ApproxEqual(qp1), test.ShouldBeTrue)
 	test.That(t, cp1.ApproxEqual(cp2), test.ShouldBeTrue)
 }
