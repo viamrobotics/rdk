@@ -474,6 +474,8 @@ const (
 	BasicType PCType = 0
 	// KDTreeType is a selector for a pointcloud backed by a KD Tree.
 	KDTreeType PCType = 1
+	// BasicOctreeType is a selector for a pointcloud backed by a Basic Octree.
+	BasicOctreeType PCType = 2
 )
 
 // ReadPCD reads a PCD file into a pointcloud.
@@ -496,19 +498,14 @@ func ReadPCDToKDTree(inRaw io.Reader) (*KDTree, error) {
 
 // ReadPCDToBasicOctree reads a PCD file into a basic octree.
 func ReadPCDToBasicOctree(inRaw io.Reader) (*BasicOctree, error) {
-	pc, err := ReadPCD(inRaw)
+	cloud, err := readPCDHelper(inRaw, BasicOctreeType)
 	if err != nil {
 		return nil, err
 	}
 
-	basicOctPC, err := ConvertPointCloudToBasicOctree(pc)
-	if err != nil {
-		return nil, err
-	}
-
-	basicOct, ok := (basicOctPC).(*BasicOctree)
+	basicOct, ok := (cloud).(*BasicOctree)
 	if !ok {
-		return nil, errors.Errorf("pointcloud %v is not a basic octree", basicOctPC)
+		return nil, errors.Errorf("pointcloud %v is not a basic octree", cloud)
 	}
 	return basicOct, nil
 }
@@ -541,6 +538,32 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 		pc = NewWithPrealloc(int(header.points))
 	case KDTreeType:
 		pc = NewKDTreeWithPrealloc(int(header.points))
+	case BasicOctreeType:
+		var maxRange []float64
+		switch header.data {
+		case PCDAscii:
+			maxRange, err = getPCDMetaDataAscii(*in, header)
+		case PCDBinary:
+			maxRange, err = getPCDMetaDataBinary(*in, header)
+		case PCDCompressed:
+			// return readPCDCompressed(in, header)
+			return nil, errors.New("compressed pcd not yet supported")
+		default:
+			return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
+		}
+		center := r3.Vector{
+			X: maxRange[3] + (maxRange[0]-maxRange[3])/2,
+			Y: maxRange[4] + (maxRange[1]-maxRange[4])/2,
+			Z: maxRange[5] + (maxRange[2]-maxRange[5])/2,
+		}
+
+		maxSideLength := math.Max((maxRange[0] - maxRange[3]),
+			math.Max((maxRange[1]-maxRange[4]), (maxRange[2]-maxRange[5])))
+		fmt.Printf("center: %v, side: %v\n", center, maxSideLength)
+		pc, err = NewBasicOctree(center, maxSideLength)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("unsupported point cloud type %d", pctype)
 	}
@@ -579,10 +602,13 @@ func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("ASCII adding point")
 		err = pc.Set(pcPoint, data)
 		if err != nil {
+			fmt.Println("failure!")
 			return nil, err
 		}
+		fmt.Println("success!")
 	}
 	return pc, nil
 }
@@ -618,6 +644,91 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointClou
 		}
 	}
 	return pc, nil
+}
+
+func getPCDMetaDataAscii(in bufio.Reader, header pcdHeader) ([]float64, error) {
+	maxRanges := []float64{0, 0, 0, 0, 0, 0}
+	for i := 0; i < int(header.points); i++ {
+		line, err := in.ReadString('\n')
+		if err != nil {
+			return []float64{}, err
+		}
+		line = strings.TrimSpace(line)
+		tokens := strings.Split(line, " ")
+		if len(tokens) != int(header.fields) {
+			return []float64{}, fmt.Errorf("unexpected number of fields in point %d", i)
+		}
+		point := make([]float64, len(tokens))
+		for j, token := range tokens {
+			point[j], err = strconv.ParseFloat(token, 64)
+			if err != nil {
+				return []float64{}, fmt.Errorf("invalid point %d field %s: %w", i, token, err)
+			}
+		}
+		pcPoint, _, err := readSliceToPoint(point, header)
+		if err != nil {
+			return []float64{}, err
+		}
+
+		if pcPoint.X > maxRanges[0] {
+			maxRanges[0] = pcPoint.X
+		}
+		if pcPoint.Y > maxRanges[1] {
+			maxRanges[1] = pcPoint.Y
+		}
+		if pcPoint.Z > maxRanges[2] {
+			maxRanges[2] = pcPoint.Z
+		}
+
+		if pcPoint.X < maxRanges[3] {
+			maxRanges[3] = pcPoint.X
+		}
+		if pcPoint.Y < maxRanges[4] {
+			maxRanges[4] = pcPoint.Y
+		}
+		if pcPoint.Z < maxRanges[5] {
+			maxRanges[5] = pcPoint.Z
+		}
+	}
+
+	return maxRanges, nil
+}
+
+func getPCDMetaDataBinary(in bufio.Reader, header pcdHeader) ([]float64, error) {
+	maxRanges := []float64{0, 0, 0, 0, 0, 0}
+
+	for i := 0; i < int(header.points); i++ {
+		pointBuf := make([]float64, 3)
+		for j := 0; j < 3; j++ {
+			buf, err := readBuffer(&in, header, j)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
+		}
+		point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
+
+		if point.X > maxRanges[0] {
+			maxRanges[0] = point.X
+		}
+		if point.Y > maxRanges[1] {
+			maxRanges[1] = point.Y
+		}
+		if point.Z > maxRanges[2] {
+			maxRanges[2] = point.Z
+		}
+
+		if point.X < maxRanges[3] {
+			maxRanges[3] = point.X
+		}
+		if point.Y < maxRanges[4] {
+			maxRanges[4] = point.Y
+		}
+		if point.Z < maxRanges[5] {
+			maxRanges[5] = point.Z
+		}
+	}
+	return maxRanges, nil
 }
 
 // reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.
