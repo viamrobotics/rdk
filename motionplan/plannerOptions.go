@@ -10,7 +10,7 @@ import (
 // default values for planning options.
 const (
 	// max linear deviation from straight-line between start and goal, in mm.
-	defaultLinearDeviation = 0.1
+	defaultLinearDeviation = 0.2
 
 	// allowable deviation from slerp between start/goal orientations, unit is the norm of the R3AA between start and goal.
 	defaultOrientationDeviation = 0.05
