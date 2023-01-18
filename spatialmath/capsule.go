@@ -73,7 +73,7 @@ func (c *capsule) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-// String returns a human readable string that represents the capsuleCreator.
+// String returns a human readable string that represents the capsule.
 func (c *capsule) String() string {
 	return fmt.Sprintf("Type: Capsule, Radius: %.0f, Length: %.0f", c.radius, c.length)
 }
@@ -97,7 +97,9 @@ func (c *capsule) AlmostEqual(g Geometry) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(c.pose, other.pose) && utils.Float64AlmostEqual(c.radius, other.radius, 1e-8)
+	return PoseAlmostEqual(c.pose, other.pose) &&
+		utils.Float64AlmostEqual(c.radius, other.radius, 1e-8) &&
+		utils.Float64AlmostEqual(c.length, other.length, 1e-8)
 }
 
 // Transform premultiplies the capsule pose with a transform, allowing the capsule to be moved in space.
@@ -226,17 +228,13 @@ func capsuleVsCapsuleDistance(c, other *capsule) float64 {
 }
 
 func capsuleVsBoxDistance(c *capsule, other *box) float64 {
-	// Capsules are not polyhedrons, so separating axis test is not ideal here.
-	meshDist := capsuleVsMeshDistance(c, other.toMesh())
-	if capsuleInBox(c, other) {
-		return meshDist * -1
+	dist := capsuleBoxSeparatingAxisDistance(c, other)
+	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
+	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
+	if dist > CollisionBuffer {
+		return capsuleVsMeshDistance(c, other.toMesh())
 	}
-	// If capsule spine intersects a triangle, we approximate (overestimate) penetration depth
-	// TODO(pl): if penetration depth is in use, this should probably be improved
-	if meshDist+c.radius < floatEpsilon {
-		return DistToLineSegment(c.segA, c.segB, other.pose.Point()) - (c.radius + other.boundingSphereR)
-	}
-	return meshDist
+	return dist
 }
 
 // IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
@@ -286,6 +284,7 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 	return c.segA.Sub(s.pose.Point()).Norm()+c.radius <= s.radius && c.segB.Sub(s.pose.Point()).Norm()+c.radius <= s.radius
 }
 
+// capsuleBoxSeparatingAxis returns immediately as soon as any result is found indicating that the two objects are not in collision
 func capsuleBoxSeparatingAxis(a *capsule, b *box) bool {
 	capCenter := a.segA.Add(a.segB).Mul(0.5)
 	centerDist := b.pose.Point().Sub(capCenter)
@@ -314,6 +313,37 @@ func capsuleBoxSeparatingAxis(a *capsule, b *box) bool {
 		}
 	}
 	return true
+}
+
+func capsuleBoxSeparatingAxisDistance(a *capsule, b *box) float64 {
+	capCenter := a.segA.Add(a.segB).Mul(0.5)
+	centerDist := b.pose.Point().Sub(capCenter)
+
+	// check if there is a distance between bounding spheres to potentially exit early
+	if boundingSphereDist := centerDist.Norm()-((a.length/2)+b.boundingSphereR); boundingSphereDist > CollisionBuffer {
+		return boundingSphereDist
+	}
+	rmA := a.pose.Orientation().RotationMatrix()
+	rmB := b.pose.Orientation().RotationMatrix()
+
+	segLen := (a.length - 2*a.radius) / 2
+	capVec := rmA.Row(2).Mul(segLen)
+
+	max := math.Inf(-1)
+	for i := 0; i < 3; i++ {
+		if separation := separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB); separation > max {
+			max = separation
+		}
+		if separation := separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB); separation > max {
+			max = separation
+		}
+		for j := 0; j < 3; j++ {
+			if separation := separatingAxisTest1D(centerDist, rmA.Row(i).Cross(rmB.Row(j)), capVec, b.halfSize, rmB); separation > max {
+				max = separation
+			}
+		}
+	}
+	return max - a.radius
 }
 
 func separatingAxisTest1D(positionDelta, plane, capVec r3.Vector, halfSizeB [3]float64, rmB *RotationMatrix) float64 {

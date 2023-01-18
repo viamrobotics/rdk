@@ -39,7 +39,7 @@ func (s *sphere) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-// String returns a human readable string that represents the sphereCreator.
+// String returns a human readable string that represents the sphere.
 func (s *sphere) String() string {
 	return fmt.Sprintf("Type: Sphere, Radius: %.0f", s.radius)
 }

@@ -11,13 +11,52 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Ordered list of box vertices
+var boxVerices = [8]r3.Vector{
+	{1,1,1},
+	{1,1,-1},
+	{1,-1,1},
+	{1,-1,-1},
+	{-1,1,1},
+	{-1,1,-1},
+	{-1,-1,1},
+	{-1,-1,-1},
+}
+
+// The sets of indices of the box vertices that tile the box exterior
+var boxTriangles = [12][3]int{
+	{0,1,3},
+	{0,2,3},
+	{0,1,5},
+	{0,4,5},
+	{0,2,6},
+	{0,4,6},
+	{7,1,3},
+	{7,2,3},
+	{7,1,5},
+	{7,4,5},
+	{7,2,6},
+	{7,4,6},
+}
+
+
+// Ordered list of box face normals
+var boxNormals = [6]r3.Vector{
+	{1,0,0},
+	{0,1,0},
+	{0,0,1},
+	{-1,0,0},
+	{0,-1,0},
+	{0,0,-1},
+}
+
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
 	pose            Pose
 	halfSize        [3]float64
 	boundingSphereR float64
 	label           string
-	triangles       *mesh
+	mesh            *mesh
 }
 
 // NewBox instantiates a new box Geometry.
@@ -188,45 +227,27 @@ func (b *box) penetrationDepth(pt r3.Vector) float64 {
 
 // vertices returns the vertices defining the box.
 func (b *box) vertices() []r3.Vector {
-	vert := make([]r3.Vector, 0, 8)
-	for _, x := range []float64{1, -1} {
-		for _, y := range []float64{1, -1} {
-			for _, z := range []float64{1, -1} {
-				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize[0], Y: y * b.halfSize[1], Z: z * b.halfSize[2]})
-				vert = append(vert, Compose(b.pose, offset).Point())
-			}
-		}
+	verts := make([]r3.Vector, 0, 8)
+	for _, vert := range boxVerices {
+		offset := NewPoseFromPoint(r3.Vector{X: vert.X * b.halfSize[0], Y: vert.Y * b.halfSize[1], Z: vert.Z * b.halfSize[2]})
+		verts = append(verts, Compose(b.pose, offset).Point())
 	}
-	return vert
+	return verts
 }
 
 // vertices returns the vertices defining the box.
 func (b *box) toMesh() *mesh {
-	if b.triangles != nil {
-		return b.triangles
-	}
-	m := &mesh{pose: b.pose}
-	triangles := make([]*triangle, 0, 12)
-	verts := b.vertices()
-
-	// Lists of adjacent face corners not including the opposing ones
-	// TODO(pl): Do this in a way that doesn't require a bunch of magic numbers or duplicated code
-	tPairs := [][]r3.Vector{
-		{verts[1], verts[3]},
-		{verts[2], verts[3]},
-		{verts[1], verts[5]},
-		{verts[4], verts[5]},
-		{verts[2], verts[6]},
-		{verts[4], verts[6]},
-	}
-	// Take the two opposing corners (halfsize * (1,1,1) and halfsize * (-1,-1,-1)) and make triangles from each of those to each valid pair
-	for _, corner := range []r3.Vector{verts[0], verts[7]} {
-		for _, tPair := range tPairs {
-			triangles = append(triangles, newTriangle(corner, tPair[0], tPair[1]))
+	if b.mesh == nil {
+		m := &mesh{pose: b.pose}
+		triangles := make([]*triangle, 0, 12)
+		verts := b.vertices()
+		for _, tri := range boxTriangles {
+			triangles = append(triangles, newTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
 		}
+		m.triangles = triangles
+		b.mesh = m
 	}
-	m.triangles = triangles
-	return m
+	return b.mesh
 }
 
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
