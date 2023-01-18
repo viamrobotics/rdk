@@ -64,7 +64,7 @@ jobs:
     - name: Upload code coverage
       uses: actions/upload-artifact@v3
       with:
-        name: pr-code-coverage
+        name: pr-motion-benchmark
         path: |
          pr.env
          code-coverage-results.md
