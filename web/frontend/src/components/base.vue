@@ -8,6 +8,7 @@ import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { rcLogConditionally } from '../lib/log';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
+import { keyboardStates } from '../lib/keyboard-state';
 
 interface Props {
   name: string;
@@ -15,7 +16,6 @@ interface Props {
   client: Client;
 }
 
-// eslint-disable-next-line no-shadow
 const enum Keymap {
   LEFT = 'a',
   RIGHT = 'd',
@@ -55,6 +55,10 @@ const initStreamState = () => {
     baseStreamStates.set(value.name, false);
   }
 };
+
+const initKeyboardState = () => {
+  keyboardStates.set('tempDisable', false);
+}
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -248,8 +252,13 @@ const handleVisibilityChange = () => {
   }
 };
 
+const tempDisableKeyboard = (disableKeyboard: boolean) => {
+  keyboardStates.set('tempDisable', disableKeyboard);
+}
+
 onMounted(() => {
   initStreamState();
+  initKeyboardState();
   window.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
@@ -320,6 +329,8 @@ onUnmounted(() => {
                   .join(',')
               "
               @input="viewPreviewCamera($event.detail.value)"
+              @focus="tempDisableKeyboard(true)"
+              @blur="tempDisableKeyboard(false)"
             />
             <template
               v-for="basecamera in filterResources(
