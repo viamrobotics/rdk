@@ -14,7 +14,7 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
-  motion_integration_test:
+  motion_benchmarks:
     if: |
       github.event_name == 'workflow_dispatch' || 
       (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
