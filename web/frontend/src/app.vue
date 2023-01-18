@@ -87,7 +87,7 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
-// TODO: Refactor. This must be in sync the refresh frequency in camera.vue, make it so it doesn't.
+// TODO: This must be kept in sync with the refresh frequency select in camera.vue. Fix that.
 const selectedMap = {
   Live: 'Live',
   'Manual Refresh': 0,
