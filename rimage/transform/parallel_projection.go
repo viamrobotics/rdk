@@ -123,6 +123,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	meta := cloud.MetaData()
 
+	var err error
 	var X, Z []float64
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		X = append(X, pt.X)
