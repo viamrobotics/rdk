@@ -22,9 +22,6 @@ jobs:
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
-  motion_integration_test:
-    uses: viamrobotics/rdk/.github/workflows/motion-integration-test.yml@DATA-859-motion-integration-tests
-
   slam_integration_test:
     uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
 
