@@ -66,12 +66,29 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
 		pointcloud := pc.New()
-		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewBasicData())
+		err := pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewBasicData())
+		test.That(t, err, test.ShouldBeNil)
 
 		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
 		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
+		test.That(t, unusedDepthMap, test.ShouldBeNil)
+	})
+
+	t.Run("Project a point with out of range data", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		pointcloud := pc.New()
+		err := pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(200))
+		test.That(t, err, test.ShouldBeNil)
+
+		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("error received a value of %v which is outside the range (0 - 100) representing probabilities", 200))
+		test.That(t, im, test.ShouldBeNil)
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 
@@ -81,7 +98,8 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 
 		pointcloud := pc.New()
 		d := pc.NewBasicData()
-		pointcloud.Set(r3.Vector{X: 10, Y: 10, Z: 10}, d)
+		err := pointcloud.Set(r3.Vector{X: 10, Y: 10, Z: 10}, d)
+		test.That(t, err, test.ShouldBeNil)
 
 		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
 		test.That(t, err, test.ShouldBeNil)
@@ -112,22 +130,6 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
 		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
-		test.That(t, unusedDepthMap, test.ShouldBeNil)
-	})
-}
-
-func TestParallelProjectionOntoXZWithRobotMarkerFailure(t *testing.T) {
-	t.Run("Project a point with out of range data", func(t *testing.T) {
-		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
-		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
-
-		pointcloud := pc.New()
-		pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(200))
-
-		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			fmt.Sprintf("error received a value of %v which is outside the range (0 - 100) representing probabilities", 200))
-		test.That(t, im, test.ShouldBeNil)
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 }

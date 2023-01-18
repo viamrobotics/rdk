@@ -167,9 +167,12 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	}
 
 	// Calculate the scale factors
-	widthScaleFactor := float64(imageWidth-1) / (maxX - minX)
-	heightScaleFactor := float64(imageHeight-1) / (maxZ - minZ)
-	scaleFactor := math.Min(widthScaleFactor, heightScaleFactor)
+	var scaleFactor float64
+	if (maxX-minX) != 0 || (maxZ-minZ) != 0 {
+		widthScaleFactor := float64(imageWidth-1) / (maxX - minX)
+		heightScaleFactor := float64(imageHeight-1) / (maxZ - minZ)
+		scaleFactor = math.Min(widthScaleFactor, heightScaleFactor)
+	}
 
 	// Add points in the pointcloud to a new image
 	var voxelColor rimage.Color
