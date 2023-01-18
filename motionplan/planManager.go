@@ -370,6 +370,15 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
 
+	// Only add the occupancy constraint if a given world space has an Interaction Space
+	if len(worldState.InteractionSpaces) > 0 {
+		occupancyConstraint, err := NewOccupancyConstraintFromWorldState(pm.frame, pm.fs, worldState, seedMap)
+		if err != nil {
+			return nil, err
+		}
+		opt.AddConstraint(defaultOccupancyConstraintName, occupancyConstraint)
+	}
+
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
 	profile, ok := planningOpts["motion_profile"]
