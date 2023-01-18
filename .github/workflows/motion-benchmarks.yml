@@ -66,6 +66,5 @@ jobs:
       with:
         name: pr-motion-benchmark
         path: |
-          pr.env
           motion-testing/results/code-coverage-results.md
         retention-days: 1
