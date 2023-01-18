@@ -571,6 +571,35 @@ func (slamSvc *builtIn) GetMap(
 	return mimeType, imData, vObj, nil
 }
 
+// DoCommand executes additional commands beyond the Motor{} interface.
+func (slamSvc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c, ok := cmd["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
+	switch c {
+	case "get_image":
+		name := "getImage"
+		extra := map[string]interface{}{"foo": "Position"}
+		pInFrame, err := slamSvc.Position(ctx, name, extra)
+		if err != nil {
+			return nil, err
+		}
+
+		_, _, _, err = slamSvc.GetMap(ctx, name, rdkutils.MimeTypePCD, pInFrame, false, extra)
+		if err != nil {
+			return nil, err
+		}
+
+		//ppRM := rimage.NewParallelProjectionOntoXZWithRobotMarker(pInFrame.Pose())
+		//im, _, err := ppRM.PointCloudToRGBD(pc)
+		im := rimage.NewImage(10, 10)
+		ret := map[string]interface{}{"return": im}
+		return ret, err
+	}
+	return nil, errors.Errorf("no such command: %s", c)
+}
+
 // NewBuiltIn returns a new slam service for the given robot.
 func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")

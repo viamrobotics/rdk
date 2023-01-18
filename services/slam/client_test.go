@@ -14,6 +14,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -76,6 +77,9 @@ func TestClientWorkingService(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
 
+	workingSLAMService.DoFunc = generic.EchoFunc
+	generic.RegisterService(workingServer, workingSvc)
+
 	go workingServer.Serve(listener)
 	defer workingServer.Stop()
 
@@ -122,6 +126,12 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
+		// test DoCommand
+		resp, err := workingSLAMClient.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -146,6 +156,12 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test DoCommand
+		resp, err := workingDialedClient.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -162,6 +178,14 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, p.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+
+		// test DoCommand
+		resp, err := workingDialedClient.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
