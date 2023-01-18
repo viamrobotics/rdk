@@ -43,6 +43,7 @@ const (
 	defaultOrientationConstraintName  = "defaultOrientationConstraint"
 	defaultCollisionConstraintName    = "defaultCollisionConstraint"
 	defaultJointConstraint            = "defaultJointSwingConstraint"
+	defaultOccupancyConstraintName    = "defaultOccupancyConstraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10

@@ -223,6 +223,73 @@ func NewCollisionConstraintFromWorldState(
 	), nil
 }
 
+// NewOccupancyConstraint TODO.
+func NewOccupancyConstraint(
+	frame referenceframe.Frame,
+	goodInput []referenceframe.Input,
+	iSpaceGeoMap map[string]spatial.Geometry,
+) Constraint {
+	frameInputVols, err := frame.Geometries(goodInput)
+	if err != nil && len(frameInputVols.Geometries()) == 0 {
+		return nil // no geometries defined for frame
+	}
+
+	constraint := func(cInput *ConstraintInput) (bool, float64) {
+		internal, err := cInput.Frame.Geometries(cInput.StartInput)
+		if err != nil && internal == nil {
+			return true, 0 // No way of knowing the robot is within the given I-Space
+		}
+
+		// TODO(wspies): This would be broken if we have more than one interaction space geometry, unless the arm stayed
+		// inside both geometries
+		fullyEncompassed := true
+		for _, internalGeom := range internal.Geometries() {
+			for _, iSpaceGeom := range iSpaceGeoMap {
+				geomInside, err := internalGeom.EncompassedBy(iSpaceGeom)
+				if err != nil {
+					return false, 0 // Bad collision check here, just return immediately
+				}
+				fullyEncompassed = fullyEncompassed && geomInside
+			}
+		}
+
+		return fullyEncompassed, 0
+	}
+
+	return constraint
+}
+
+// NewOccupancyConstraintFromWorldState TODO.
+func NewOccupancyConstraintFromWorldState(
+	frame referenceframe.Frame,
+	fs referenceframe.FrameSystem,
+	worldState *referenceframe.WorldState,
+	observationInput map[string][]referenceframe.Input,
+) (Constraint, error) {
+	worldState, err := worldState.ToWorldFrame(fs, observationInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// extract inputs corresponding to the frame
+	var goodInputs []referenceframe.Input
+	switch f := frame.(type) {
+	case *solverFrame:
+		goodInputs, err = f.mapToSlice(observationInput)
+	default:
+		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOccupancyConstraint(
+		frame,
+		goodInputs,
+		worldState.InteractionSpaces[0].Geometries(),
+	), nil
+}
+
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
