@@ -40,15 +40,14 @@ func TestClientWorkingService(t *testing.T) {
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
-
 	pcSucc := &vision.Object{}
 	pcSucc.PointCloud = pointcloud.New()
 	err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
-
 	imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	internalStateSucc := []byte{0, 1, 2, 3, 4}
 
 	workingSLAMService := &inject.SLAMService{}
 
@@ -68,6 +67,10 @@ func TestClientWorkingService(t *testing.T) {
 			return mimeType, nil, pcSucc, nil
 		}
 		return mimeType, imSucc, nil, nil
+	}
+
+	workingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
+		return internalStateSucc, nil
 	}
 
 	workingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameSucc): workingSLAMService})
@@ -122,6 +125,11 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
+		// test get internal state
+		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -146,6 +154,11 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get internal state
+		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -162,6 +175,21 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, p.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		// test get map
+		extra = map[string]interface{}{"foo": "GetMap"}
+		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypePCD)
+		test.That(t, im, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldNotBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		// test get internal state
+		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
@@ -174,13 +202,14 @@ func TestClientFailingService(t *testing.T) {
 	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	pFail := referenceframe.NewPoseInFrame("frame", pose)
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()
 	err = pcFail.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 	imFail := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	internalStateFail := []byte{0, 0, 0, 1}
 
 	failingSLAMService := &inject.SLAMService{}
 
@@ -194,6 +223,10 @@ func TestClientFailingService(t *testing.T) {
 		include bool, extra map[string]interface{},
 	) (string, image.Image, *vision.Object, error) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
+	}
+
+	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
+		return internalStateFail, errors.New("failure to get position")
 	}
 
 	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameSucc): failingSLAMService})
@@ -230,6 +263,11 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, mimeType, test.ShouldEqual, "")
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
+
+		// test get internal state
+		internalState, err := failingSLAMClient.GetInternalState(context.Background(), nameFail)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, internalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
