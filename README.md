@@ -94,5 +94,3 @@ If you add a 3rd-party library to this project, please run `make license` to ver
 Copyright 2021-2022 Viam Inc.
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
-
-This
