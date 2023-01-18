@@ -39,6 +39,9 @@ func TestGPSModels(t *testing.T) {
 
 		_, err = movementsensor.FromRobot(r, "rover")
 		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrRoverValidation.Error())
+
+		err = r.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("station", func(t *testing.T) {
@@ -62,5 +65,8 @@ func TestGPSModels(t *testing.T) {
 
 		_, err = movementsensor.FromRobot(r, "station")
 		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrStationValidation.Error())
+
+		err = r.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
