@@ -1,3 +1,4 @@
+<!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 
 import { ref, onMounted, onUnmounted } from 'vue';

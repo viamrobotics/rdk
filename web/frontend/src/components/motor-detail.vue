@@ -1,3 +1,4 @@
+<!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
