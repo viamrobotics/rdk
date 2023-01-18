@@ -17,6 +17,7 @@ type Geometry interface {
 	CollidesWith(Geometry) (bool, error)
 	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
 	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
+	// For certain entity pairs (box-box) this may be a conservative estimate of separation distance rather than exact.
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string  // Label is the name of the geometry

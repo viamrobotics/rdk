@@ -44,11 +44,11 @@ func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, er
 	if length < radius*2 {
 		return nil, newBadCapsuleLengthError(length, radius)
 	}
-	return precalcCapsule(offset, radius, length, label), nil
+	return newCapsuleWithSegPoints(offset, radius, length, label), nil
 }
 
 // Will precalculate the linear endpoints for a capsule.
-func precalcCapsule(offset Pose, radius, length float64, label string) Geometry {
+func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) Geometry {
 	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, -length/2 + radius})).Point()
 	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length/2 - radius})).Point()
 
@@ -104,7 +104,7 @@ func (c *capsule) AlmostEqual(g Geometry) bool {
 
 // Transform premultiplies the capsule pose with a transform, allowing the capsule to be moved in space.
 func (c *capsule) Transform(toPremultiply Pose) Geometry {
-	return precalcCapsule(Compose(toPremultiply, c.pose), c.radius, c.length, c.label)
+	return newCapsuleWithSegPoints(Compose(toPremultiply, c.pose), c.radius, c.length, c.label)
 }
 
 // ToProto converts the capsule to a Geometry proto message.
@@ -166,38 +166,20 @@ func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
 	return true, newCollisionTypeUnsupportedError(c, g)
 }
 
-// ToPointCloud converts a capsule geometry into []r3.Vector. This method takes one argument which determines
+// ToPoints converts a capsule geometry into []r3.Vector. This method takes one argument which determines
 // how many points should like on the capsule's surface. If the argument is set to 0. we automatically
 // substitute the value with defaultTotalSpherePoints.
 func (c *capsule) ToPoints(resolution float64) []r3.Vector {
-	// check for user defined spacing
-	area := 4. * math.Pi * c.radius * c.radius
-	if resolution == 0. {
-		resolution = defaultPointDensity
-	}
-	iter := area * resolution
-	if iter < defaultMinSpherePoints {
-		iter = defaultMinSpherePoints
-	}
-
-	// First points are placed on the hemisphere endcaps
-	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
-	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
-	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
-	var vecList []r3.Vector
-	segLen := c.length - (2 * c.radius)
-	for i := 0.; i < iter; i++ {
-		y := 1 - (i/(iter-1))*2      // y goes from 1 to -1
-		radius := math.Sqrt(1 - y*y) // radius at y
-		theta := phi * i             // golden angle increment
-		x := (math.Cos(theta) * radius) * c.radius
-		z := (math.Sin(theta) * radius) * c.radius
-		// distal hemisphere
-		if z > 0 {
-			z += segLen
+	s := &sphere{pose: NewZeroPose(), radius: c.radius}
+	vecList := s.ToPoints(resolution)
+	// move points to be correctly located on capsule endcaps
+	adj := c.length/2 - c.radius
+	for _, pt := range vecList {
+		if pt.Z >= 0 {
+			pt.Z += adj
+		} else {
+			pt.Z -= adj
 		}
-		vec := r3.Vector{x, y * c.radius, z}
-		vecList = append(vecList, vec)
 	}
 
 	// Now distribute points along the cylindrical shaft

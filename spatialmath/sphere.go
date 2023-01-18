@@ -177,7 +177,7 @@ func sphereInCapsule(s *sphere, c *capsule) bool {
 	return -capsuleVsPointDistance(c, s.pose.Point()) >= s.radius
 }
 
-// ToPointCloud converts a sphere geometry into []r3.Vector. This method takes one argument which determines
+// ToPoints converts a sphere geometry into []r3.Vector. This method takes one argument which determines
 // how many points per sqmm should be on the sphere's surface. If the argument is set to 0. we automatically
 // substitute the value with defaultPointDensity.
 func (s *sphere) ToPoints(resolution float64) []r3.Vector {

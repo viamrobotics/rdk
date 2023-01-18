@@ -360,31 +360,12 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Con
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
 func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (Constraint, Metric) {
-	// distance from line to point
-	distToLine := func(point r3.Vector) float64 {
-		ab := pt1.Sub(pt2)
-		av := point.Sub(pt2)
-
-		if av.Dot(ab) <= 0.0 { // Point is lagging behind start of the segment, so perpendicular distance is not viable.
-			return av.Norm() // Use distance to start of segment instead.
-		}
-
-		bv := point.Sub(pt1)
-
-		if bv.Dot(ab) >= 0.0 { // Point is advanced past the end of the segment, so perpendicular distance is not viable.
-			return bv.Norm()
-		}
-		dist := (ab.Cross(av)).Norm() / ab.Norm()
-
-		return dist
-	}
-
 	if pt1.Distance(pt2) < defaultEpsilon {
 		tolerance = defaultEpsilon
 	}
 
 	gradFunc := func(from, _ spatial.Pose) float64 {
-		pDist := math.Max(distToLine(from.Point())-tolerance, 0)
+		pDist := math.Max(spatial.DistToLineSegment(pt1, pt2, from.Point())-tolerance, 0)
 		return pDist
 	}
 
