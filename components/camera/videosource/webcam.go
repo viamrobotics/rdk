@@ -147,29 +147,19 @@ type WebcamAttrs struct {
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
-	minWidth := 0
-	maxWidth := 4096
-	idealWidth := 800
-	minHeight := 0
-	maxHeight := 2160
-	idealHeight := 600
-
-	if attrs.Width > 0 {
-		minWidth = 0
-		maxWidth = attrs.Width
-		idealWidth = attrs.Width
-	}
-
-	if attrs.Height > 0 {
-		minHeight = 0
-		maxHeight = attrs.Height
-		idealHeight = attrs.Height
-	}
-
 	return mediadevices.MediaStreamConstraints{
 		Video: func(constraint *mediadevices.MediaTrackConstraints) {
-			constraint.Width = prop.IntRanged{minWidth, maxWidth, idealWidth}
-			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
+			if attrs.Width > 0 {
+				constraint.Width = prop.IntExact(attrs.Width)
+			} else {
+				constraint.Width = prop.IntRanged{Min: 0, Ideal: 640, Max: 4096}
+			}
+
+			if attrs.Height > 0 {
+				constraint.Height = prop.IntExact(attrs.Height)
+			} else {
+				constraint.Height = prop.IntRanged{Min: 0, Ideal: 480, Max: 2160}
+			}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
 			if attrs.Format == "" {
