@@ -53,3 +53,4 @@ jobs:
         cd motion-testing
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestScores --baselineDir="${{ github.event.pull_request.base.ref }}" --modifiedDir="${{ github.event.pull_request.head.ref }}"'
         cat results/comparison.md
+ 
