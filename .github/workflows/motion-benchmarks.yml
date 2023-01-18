@@ -61,11 +61,11 @@ jobs:
       run: |
         echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
 
-    - name: Upload code coverage
+    - name: Upload results
       uses: actions/upload-artifact@v3
       with:
         name: pr-motion-benchmark
         path: |
-         pr.env
-         code-coverage-results.md
+          pr.env
+          motion-testing/results/code-coverage-results.md
         retention-days: 1
