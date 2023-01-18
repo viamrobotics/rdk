@@ -121,7 +121,7 @@ func pointVsBoxDistance(pt r3.Vector, b *box) float64 {
 	if distance > 0 {
 		return distance
 	}
-	return -b.penetrationDepth(pt)
+	return -b.pointPenetrationDepth(pt)
 }
 
 // ToPointCloud converts a point geometry into a []r3.Vector.

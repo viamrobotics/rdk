@@ -11,43 +11,42 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Ordered list of box vertices
-var boxVerices = [8]r3.Vector{
-	{1,1,1},
-	{1,1,-1},
-	{1,-1,1},
-	{1,-1,-1},
-	{-1,1,1},
-	{-1,1,-1},
-	{-1,-1,1},
-	{-1,-1,-1},
+// Ordered list of box vertices.
+var boxVertices = [8]r3.Vector{
+	{1, 1, 1},
+	{1, 1, -1},
+	{1, -1, 1},
+	{1, -1, -1},
+	{-1, 1, 1},
+	{-1, 1, -1},
+	{-1, -1, 1},
+	{-1, -1, -1},
 }
 
-// The sets of indices of the box vertices that tile the box exterior
+// The sets of indices of the box vertices that tile the box exterior.
 var boxTriangles = [12][3]int{
-	{0,1,3},
-	{0,2,3},
-	{0,1,5},
-	{0,4,5},
-	{0,2,6},
-	{0,4,6},
-	{7,1,3},
-	{7,2,3},
-	{7,1,5},
-	{7,4,5},
-	{7,2,6},
-	{7,4,6},
+	{0, 1, 3},
+	{0, 2, 3},
+	{0, 1, 5},
+	{0, 4, 5},
+	{0, 2, 6},
+	{0, 4, 6},
+	{7, 1, 3},
+	{7, 2, 3},
+	{7, 1, 5},
+	{7, 4, 5},
+	{7, 2, 6},
+	{7, 4, 6},
 }
 
-
-// Ordered list of box face normals
+// Ordered list of box face normals.
 var boxNormals = [6]r3.Vector{
-	{1,0,0},
-	{0,1,0},
-	{0,0,1},
-	{-1,0,0},
-	{0,-1,0},
-	{0,0,-1},
+	{1, 0, 0},
+	{0, 1, 0},
+	{0, 0, 1},
+	{-1, 0, 0},
+	{0, -1, 0},
+	{0, 0, -1},
 }
 
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
@@ -208,7 +207,7 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 }
 
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
-func (b *box) penetrationDepth(pt r3.Vector) float64 {
+func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.pose.Point())
 	rm := b.pose.Orientation().RotationMatrix()
 	min := math.Inf(1)
@@ -228,7 +227,7 @@ func (b *box) penetrationDepth(pt r3.Vector) float64 {
 // vertices returns the vertices defining the box.
 func (b *box) vertices() []r3.Vector {
 	verts := make([]r3.Vector, 0, 8)
-	for _, vert := range boxVerices {
+	for _, vert := range boxVertices {
 		offset := NewPoseFromPoint(r3.Vector{X: vert.X * b.halfSize[0], Y: vert.Y * b.halfSize[1], Z: vert.Z * b.halfSize[2]})
 		verts = append(verts, Compose(b.pose, offset).Point())
 	}
@@ -272,8 +271,13 @@ func boxVsBoxCollision(a, b *box) bool {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if separatingAxisTest(centerDist, rmA.Row(i).Cross(rmB.Row(j)), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
-				return false
+			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
+
+			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
+				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+					return false
+				}
 			}
 		}
 	}
@@ -321,7 +325,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, 0.00001) {
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
 				if separation > max {
 					max = separation

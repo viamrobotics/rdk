@@ -32,7 +32,7 @@ func newTriangle(p0, p1, p2 r3.Vector) *triangle {
 }
 
 // closestPointToCoplanarPoint takes a point, and returns the closest point on the triangle to the given point
-// The given point *MUST* be coplanar with the triangle.
+// The given point *MUST* be coplanar with the triangle. If it is known ahead of time that the point is coplanar, this is faster.
 func (t *triangle) closestPointToCoplanarPoint(pt r3.Vector) r3.Vector {
 	// Determine whether point is inside all triangle edges:
 	c0 := pt.Sub(t.p0).Cross(t.p1.Sub(t.p0))
