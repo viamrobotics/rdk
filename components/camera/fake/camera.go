@@ -1,4 +1,4 @@
-// Package fake implements a fake camera.
+// Package fake implements a fake camera which always returns the same image with a user specified resolution.
 package fake
 
 import (
