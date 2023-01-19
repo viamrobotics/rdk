@@ -2,15 +2,19 @@
 package rtsp
 
 import (
+	"bytes"
 	"context"
 	"image"
+	"image/jpeg"
 	"sync/atomic"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/liberrors"
 	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -100,21 +104,18 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 		return nil, multierr.Combine(err, c.Close())
 	}
 
-	// find the H264 track
-	track := func() *gortsplib.TrackH264 {
-		for _, track := range tracks {
-			if track, ok := track.(*gortsplib.TrackH264); ok {
-				return track
-			}
-		}
-		return nil
-	}()
-	if track == nil {
+	// find the MJPEG track
+	var forma *format.MJPEG
+	media := tracks.FindFormat(&forma)
+	if media == nil {
 		err := errors.Errorf("H264 track not found in rtsp camera %s", u)
 		return nil, multierr.Combine(err, c.Close())
 	}
-	// get the RTP->h264 decoder and the h264->image.Image decoder
-	rtpDec, h264RawDec, err := rtpH264Decoder(track)
+	// get the RTP->MJPEG decoder
+	rtpDec := forma.CreateDecoder()
+
+	// Setup the MJPEG track
+	err = c.Setup(media, baseURL, 0, 0)
 	if err != nil {
 		return nil, multierr.Combine(err, c.Close())
 	}
@@ -122,35 +123,32 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	var latestFrame atomic.Value
 	var gotFirstFrameOnce bool
 	gotFirstFrame := make(chan struct{})
-	c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+	c.OnPacketRTP(media, forma, func(pkt *rtp.Packet) {
 		// convert RTP packets into NALUs
-		nalus, _, err := rtpDec.Decode(ctx.Packet)
+		encoded, pts, err := rtpDec.Decode(pkt)
 		if err != nil {
 			return
 		}
-
-		for _, nalu := range nalus {
-			// convert NALUs into RGBA frames
-			img, err := h264RawDec.Decode(nalu)
-			if err != nil {
-				panic(err)
-			}
-
-			// wait for a frame
-			if img == nil {
-				continue
-			}
-			latestFrame.Store(img)
-			if !gotFirstFrameOnce {
-				close(gotFirstFrame)
-				gotFirstFrameOnce = true
-			}
+		// convert JPEG images to image.Image
+		img, err := jpeg.Decode(bytes.NewReader(encoded))
+		if err != nil {
+			panic(err)
 		}
-	}
-	// setup and read the H264 track only
-	err = c.SetupAndPlay(gortsplib.Tracks{track}, baseURL)
+
+		// wait for a frame
+		if img == nil {
+			continue
+		}
+		latestFrame.Store(img)
+		if !gotFirstFrameOnce {
+			close(gotFirstFrame)
+			gotFirstFrameOnce = true
+		}
+	})
+	// play the track
+	err = c.Play(nil)
 	if err != nil {
-		return nil, multierr.Combine(err, h264RawDec.Close(), c.Close())
+		return nil, multierr.Combine(err, c.Close())
 	}
 	// read the image from shared memory when it is requested
 	cancelCtx, cancel := context.WithCancel(context.Background())
