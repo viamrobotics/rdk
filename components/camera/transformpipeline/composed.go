@@ -48,7 +48,12 @@ func newDepthToPrettyTransform(
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
 	depthStream := gostream.NewEmbeddedVideoStream(source)
 	reader := &depthToPretty{
 		originalStream: depthStream,
@@ -125,7 +130,12 @@ func newOverlayTransform(
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
 	if attrs.IntrinsicParams != nil && attrs.IntrinsicParams.Height > 0. &&
 		attrs.IntrinsicParams.Width > 0. && attrs.IntrinsicParams.Fx > 0. && attrs.IntrinsicParams.Fy > 0. {
 		cameraModel.PinholeCameraIntrinsics = attrs.IntrinsicParams

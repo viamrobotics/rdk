@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/rdk/rimage/transform"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage"
@@ -25,7 +26,12 @@ func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSourc
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
 	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, camera.DepthStream)
 	return cam, camera.DepthStream, err
 }

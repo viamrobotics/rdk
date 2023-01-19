@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/rdk/rimage/transform"
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
@@ -30,7 +31,12 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	cameraModel := camera.NewPinholeCameraModel(props.IntrinsicParams, props.DistortionParams)
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
 	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
 	return cam, stream, err
