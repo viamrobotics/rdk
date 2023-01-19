@@ -62,13 +62,8 @@ const setDirection = (value: string) => {
 };
 
 const setPower = async () => {
+  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   const powerPct = (power * direction) / 100;
-  const req = new motorApi.SetPowerRequest();
-  req.setName(props.name);
-  req.setPowerPct(powerPct);
-  rcLogConditionally(req);
-
-  const mc = new MotorClient(props.client, props.name);
   try {
     return await mc.setPower(powerPct);
   } catch (error) {
@@ -78,13 +73,7 @@ const setPower = async () => {
 };
 
 const goFor = async () => {
-  const req = new motorApi.GoForRequest();
-  req.setName(props.name);
-  req.setRpm(rpm * direction);
-  req.setRevolutions(revolutions);
-  rcLogConditionally(req);
-
-  const mc = new MotorClient(props.client, props.name);
+  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     return await mc.goFor(rpm * direction, revolutions);
   } catch (error) {
@@ -94,13 +83,7 @@ const goFor = async () => {
 };
 
 const goTo = async () => {
-  const req = new motorApi.GoToRequest();
-  req.setName(props.name);
-  req.setRpm(rpm);
-  req.setPositionRevolutions(position);
-  rcLogConditionally(req);
-
-  const mc = new MotorClient(props.client, props.name);
+  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     return await mc.goTo(rpm, position);
   } catch (error) {
@@ -125,11 +108,7 @@ const motorRun = () => {
 };
 
 const motorStop = async () => {
-  const mc = new MotorClient(props.client, props.name);
-  const req = new motorApi.StopRequest();
-  req.setName(props.name);
-  rcLogConditionally(req);
-
+  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     return await mc.motorStop();
   } catch (error) {

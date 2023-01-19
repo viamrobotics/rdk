@@ -45,12 +45,7 @@ const getGPIO = () => {
 };
 
 const setGPIO = async () => {
-  const bc = new BoardClient(props.client, props.name);
-  const req = new boardApi.SetGPIORequest();
-  req.setName(props.name);
-  req.setPin(setPin);
-  req.setHigh(setLevel === 'high');
-  rcLogConditionally(req);
+  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   try {
     return await bc.setGPIO(setPin, setLevel === 'high');
@@ -61,11 +56,7 @@ const setGPIO = async () => {
 };
 
 const getPWM = async () => {
-  const bc = new BoardClient(props.client, props.name);
-  const req = new boardApi.PWMRequest();
-  req.setName(props.name);
-  req.setPin(getPin);
-  rcLogConditionally(req);
+  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     const response = await bc.pWM(getPin);
     const { dutyCyclePct } = response!.toObject();
@@ -78,12 +69,7 @@ const getPWM = async () => {
 };
 
 const setPWM = async () => {
-  const bc = new BoardClient(props.client, props.name);
-  const req = new boardApi.SetPWMRequest();
-  req.setName(props.name);
-  req.setPin(setPin);
-  req.setDutyCyclePct(Number.parseFloat(pwm) / 100);
-  rcLogConditionally(req);
+  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     return await bc.setPWM(setPin, Number.parseFloat(pwm) / 100);
   } catch (error) {
@@ -93,12 +79,7 @@ const setPWM = async () => {
 };
 
 const getPWMFrequency = async () => {
-  const bc = new BoardClient(props.client, props.name);
-  const req = new boardApi.PWMFrequencyRequest();
-  req.setName(props.name);
-  req.setPin(getPin);
-
-  rcLogConditionally(req);
+  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     const response = await bc.pWMFrequency(getPin);
     const { frequencyHz } = response!.toObject();
@@ -111,14 +92,7 @@ const getPWMFrequency = async () => {
 };
 
 const setPWMFrequency = async () => {
-  const bc = new BoardClient(props.client, props.name);
-
-  const req = new boardApi.SetPWMFrequencyRequest();
-  req.setName(props.name);
-  req.setPin(setPin);
-  req.setFrequencyHz(Number.parseFloat(pwmFrequency));
-
-  rcLogConditionally(req);
+  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     return await bc.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
   } catch (error) {
