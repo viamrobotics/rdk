@@ -33,7 +33,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: viamrobotics/motion-testing
-        ref: upgrade-rdk
+        ref: "7fc8f0c9288157b5df2c6c35a57f64eba918bba5"
         path: motion-testing
 
     - name: Run motion quality tests on main branch
