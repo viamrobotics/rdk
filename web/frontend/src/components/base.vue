@@ -1,4 +1,3 @@
-<!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 
 import { ref, onMounted, onUnmounted } from 'vue';
@@ -86,6 +85,8 @@ const stop = async () => {
     return await bc.stop();
   } catch (error) {
     displayError(error as ServiceError);
+
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -129,6 +130,7 @@ const digestInput = async () => {
     return response;
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -165,6 +167,7 @@ const handleBaseStraight = async (name: string, event: {
       return await bc.setVelocity(linear, angular);
     } catch (error) {
       displayError(error as ServiceError);
+      // eslint-disable-next-line no-useless-return
       return;
     }
   } else {
@@ -172,6 +175,7 @@ const handleBaseStraight = async (name: string, event: {
       return await bc.moveStraight(event.distance, event.speed * event.direction);
     } catch (error) {
       displayError(error as ServiceError);
+      // eslint-disable-next-line no-useless-return
       return;
     }
   }
@@ -184,6 +188,7 @@ const baseRun = async () => {
       return await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
     } catch (error) {
       displayError(error as ServiceError);
+      // eslint-disable-next-line no-useless-return
       return;
     }
   } else if (movementMode.value === 'Straight') {
@@ -194,6 +199,7 @@ const baseRun = async () => {
       distance: increment.value,
     });
   }
+  // eslint-disable-next-line no-useless-return
   return;
 };
 

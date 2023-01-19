@@ -1,4 +1,3 @@
-<!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { Client, motorApi, MotorClient, ServiceError } from '@viamrobotics/sdk';
@@ -67,6 +66,7 @@ const setPower = async () => {
     return await mc.setPower(powerPct);
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -77,6 +77,7 @@ const goFor = async () => {
     return await mc.goFor(rpm * direction, revolutions);
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -87,6 +88,7 @@ const goTo = async () => {
     return await mc.goTo(rpm, position);
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -112,6 +114,7 @@ const motorStop = async () => {
     return await mc.motorStop();
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -122,6 +125,7 @@ onMounted(async () => {
     properties = await mc.getProperties();
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 });
