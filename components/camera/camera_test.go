@@ -330,24 +330,24 @@ func TestNewPinholeCameraModel(t *testing.T) {
 		expected transform.PinholeCameraModel
 	}{
 		{
-      phci: intrinsics,
-      d: distortion,
-      expected: transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion},
+			phci:     intrinsics,
+			d:        distortion,
+			expected: transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion},
 		},
 		{
-      phci: intrinsics,
-      d: nil,
-      expected: transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics},
+			phci:     intrinsics,
+			d:        nil,
+			expected: transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics},
 		},
 		{
-			phci: nil,
-      d: distortion,
-      expected: transform.PinholeCameraModel{Distortion: distortion},
+			phci:     nil,
+			d:        distortion,
+			expected: transform.PinholeCameraModel{Distortion: distortion},
 		},
 		{
-      phci: nil,
-      d: nil,
-      expected: transform.PinholeCameraModel{},
+			phci:     nil,
+			d:        nil,
+			expected: transform.PinholeCameraModel{},
 		},
 	}
 

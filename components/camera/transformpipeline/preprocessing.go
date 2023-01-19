@@ -7,10 +7,10 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/rdk/rimage/transform"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
 
 // preprocessDepthTransform applies pre-processing functions to depth maps in order to smooth edges and fill holes.
