@@ -7,7 +7,7 @@ on:
       - completed
 
 jobs:
-  comment:
+  motion_comment:
     name: 'Post Comment on PR'
     runs-on: [x64, qemu-host]
     container:
@@ -30,5 +30,7 @@ jobs:
         with:
           number: ${{ env.PR_NUMBER }}
           recreate: true
-          path: motion-benchmarks.md
+          path: |
+            pr.env
+            motion-benchmarks.md
 
