@@ -242,50 +242,42 @@ func TestHome(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 	}
 
-	t.Run("home with encoder successfully", func(t *testing.T) {
-		err := fakeOneAx.homeEncoder(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		lastPos := counter + int(fakeOneAx.lengthMm)/int(fakeOneAx.mmPerRevolution)
-		test.That(t, fakeOneAx.positionLimits, test.ShouldResemble, []float64{float64(counter), float64(lastPos)})
-	})
+	err := fakeOneAx.homeEncoder(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	lastPos := counter + int(fakeOneAx.lengthMm)/int(fakeOneAx.mmPerRevolution)
+	test.That(t, fakeOneAx.positionLimits, test.ShouldResemble, []float64{float64(counter), float64(lastPos)})
 
-	t.Run("home with limit switch successfully", func(t *testing.T) {
-		fakeLimited.limitSwitchPins = []string{"1"}
-		err := fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
-		test.That(t, err, test.ShouldBeNil)
-		lastPos := counter + int(fakeLimited.oAx.lengthMm)
-		test.That(t, fakeLimited.oAx.positionLimits, test.ShouldResemble, []float64{float64(counter), float64(lastPos)})
-	})
+	fakeLimited.limitSwitchPins = []string{"1"}
+	err = fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
+	test.That(t, err, test.ShouldBeNil)
+	lastPos = counter + int(fakeLimited.oAx.lengthMm)
+	test.That(t, fakeLimited.oAx.positionLimits, test.ShouldResemble, []float64{float64(counter), float64(lastPos)})
 
-	t.Run("one limit switch with dimensions missing", func(t *testing.T) {
-		fakeLimited.oAx.lengthMm = 0
-		err := fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
-		test.That(t, err, test.ShouldResemble, errDimensionsNotFound(testGName,
-			fakeLimited.oAx.lengthMm,
-			fakeLimited.oAx.mmPerRevolution))
-	})
+	fakeLimited.oAx.lengthMm = 0
+	err = fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
+	test.That(t, err, test.ShouldResemble, errDimensionsNotFound(testGName,
+		fakeLimited.oAx.lengthMm,
+		fakeLimited.oAx.mmPerRevolution))
 
-	t.Run("error from motors", func(t *testing.T) {
-		goForErr := errors.New("GoFor failed")
-		posErr := errors.New("Position failed")
-		fakeOneAx.lengthMm = 100
-		fakeOneAx.motor = &inject.Motor{
-			PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-				return map[motor.Feature]bool{
-					motor.PositionReporting: false,
-				}, nil
-			},
-			GoForFunc:    func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error { return goForErr },
-			StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
-			PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) { return 1.0, posErr },
-		}
-		fakeLimited.oAx = fakeOneAx
-		err := fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
-		test.That(t, err, test.ShouldBeError, goForErr)
+	goForErr := errors.New("GoFor failed")
+	posErr := errors.New("Position failed")
+	fakeOneAx.lengthMm = 100
+	fakeOneAx.motor = &inject.Motor{
+		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+			return map[motor.Feature]bool{
+				motor.PositionReporting: false,
+			}, nil
+		},
+		GoForFunc:    func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error { return goForErr },
+		StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
+		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) { return 1.0, posErr },
+	}
+	fakeLimited.oAx = fakeOneAx
+	err = fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
+	test.That(t, err, test.ShouldBeError, goForErr)
 
-		err = fakeOneAx.homeEncoder(ctx)
-		test.That(t, err, test.ShouldBeError, posErr)
-	})
+	err = fakeOneAx.homeEncoder(ctx)
+	test.That(t, err, test.ShouldBeError, posErr)
 }
 
 func TestTestLimit(t *testing.T) {
