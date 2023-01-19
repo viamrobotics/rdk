@@ -66,8 +66,8 @@ type AS5048Config struct {
 	BoardName string `json:"board"`
 	// We include connection type here in anticipation for
 	// future SPI support
-	ConnectionType string `json:"connection_type"`
-	*i2cAttrConfig `json:"i2c_attributes,omitempty"`
+	ConnectionType string         `json:"connection_type"`
+	I2CAttrConfig  *i2cAttrConfig `json:"i2c_attributes,omitempty"`
 }
 
 // Validate checks the attributes of an initialized config
@@ -89,7 +89,10 @@ func (conf *AS5048Config) Validate(path string) ([]string, error) {
 		if len(conf.BoardName) == 0 {
 			return nil, errors.New("expected nonempty board")
 		}
-		err := conf.i2cAttrConfig.ValidateI2C(path)
+		if conf.I2CAttrConfig == nil {
+			return nil, errors.New("i2c selected as connection type, but no attributes supplied")
+		}
+		err := conf.I2CAttrConfig.ValidateI2C(path)
 		if err != nil {
 			return nil, err
 		}
@@ -158,11 +161,12 @@ func newAS5048Encoder(
 		)
 	}
 	if res.connectionType == i2cConn {
-		i2c, exists := localBoard.I2CByName(attr.I2CBus)
+		i2cConf := attr.I2CAttrConfig
+		i2c, exists := localBoard.I2CByName(i2cConf.I2CBus)
 		if !exists {
-			return nil, errors.Errorf("unable to find I2C bus: %s", attr.I2CBus)
+			return nil, errors.Errorf("unable to find I2C bus: %s", i2cConf.I2CBus)
 		}
-		i2cHandle, err := i2c.OpenHandle(byte(attr.I2CAddr))
+		i2cHandle, err := i2c.OpenHandle(byte(i2cConf.I2CAddr))
 		if err != nil {
 			return nil, err
 		}
