@@ -23,9 +23,7 @@ const (
 	testGName = "test"
 )
 
-var (
-	counter = 0
-)
+var counter = 0
 
 func createfakemotor() motor.Motor {
 	return &inject.Motor{
@@ -41,7 +39,6 @@ func createfakemotor() motor.Motor {
 		StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
 		SetPowerFunc: func(ctx context.Context, powerPct float64, extra map[string]interface{}) error { return nil },
 	}
-
 }
 
 func createfakeboard() board.Board {
