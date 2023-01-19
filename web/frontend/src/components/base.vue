@@ -82,12 +82,9 @@ const stop = async () => {
   const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   stopped = true;
   try {
-    return await bc.stop();
+    await bc.stop();
   } catch (error) {
     displayError(error as ServiceError);
-
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
@@ -123,15 +120,12 @@ const digestInput = async () => {
   angular.setZ(angularValue);
 
   try {
-    const response = await bc.setPower(linear, angular);
+    await bc.setPower(linear, angular);
     if (pressed.size <= 0) {
       stop();
     }
-    return response;
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
@@ -164,19 +158,15 @@ const handleBaseStraight = async (name: string, event: {
     linear.setY(event.speed * event.direction);
 
     try {
-      return await bc.setVelocity(linear, angular);
+      await bc.setVelocity(linear, angular);
     } catch (error) {
       displayError(error as ServiceError);
-      // eslint-disable-next-line no-useless-return
-      return;
     }
   } else {
     try {
-      return await bc.moveStraight(event.distance, event.speed * event.direction);
+      await bc.moveStraight(event.distance, event.speed * event.direction);
     } catch (error) {
       displayError(error as ServiceError);
-      // eslint-disable-next-line no-useless-return
-      return;
     }
   }
 };
@@ -185,11 +175,9 @@ const baseRun = async () => {
   const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   if (movementMode.value === 'Spin') {
     try {
-      return await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
+      await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
     } catch (error) {
       displayError(error as ServiceError);
-      // eslint-disable-next-line no-useless-return
-      return;
     }
   } else if (movementMode.value === 'Straight') {
     handleBaseStraight(props.name, {
@@ -199,8 +187,6 @@ const baseRun = async () => {
       distance: increment.value,
     });
   }
-  // eslint-disable-next-line no-useless-return
-  return;
 };
 
 const viewPreviewCamera = (values: string) => {

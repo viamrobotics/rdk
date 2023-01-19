@@ -63,33 +63,27 @@ const setPower = async () => {
   const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   const powerPct = (power * direction) / 100;
   try {
-    return await mc.setPower(powerPct);
+    await mc.setPower(powerPct);
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
 const goFor = async () => {
   const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    return await mc.goFor(rpm * direction, revolutions);
+    await mc.goFor(rpm * direction, revolutions);
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
 const goTo = async () => {
   const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    return await mc.goTo(rpm, position);
+    await mc.goTo(rpm, position);
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
@@ -111,11 +105,9 @@ const motorRun = () => {
 const motorStop = async () => {
   const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    return await mc.motorStop();
+    await mc.motorStop();
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
@@ -125,8 +117,6 @@ onMounted(async () => {
     properties = await mc.getProperties();
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 });
 

@@ -27,13 +27,10 @@ let getPinMessage = $ref('');
 const getGPIO = async () => {
   const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    const response = await bc.getGPIO(getPin);
-    getPinMessage = `Pin: ${getPin} is ${response.toObject().high ? 'high' : 'low'}`;
-    return;
+    const isHigh = await bc.getGPIO(getPin);
+    getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
   } catch (error) {
     toast.error((error as ServiceError).message);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
@@ -41,61 +38,47 @@ const setGPIO = async () => {
   const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   try {
-    return await bc.setGPIO(setPin, setLevel === 'high');
+    await bc.setGPIO(setPin, setLevel === 'high');
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
 const getPWM = async () => {
   const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    const response = await bc.pWM(getPin);
-    const { dutyCyclePct } = response!.toObject();
+    const dutyCyclePct = await bc.getPWM(getPin);
     getPinMessage = `Pin ${getPin}'s duty cycle is ${dutyCyclePct * 100}%.`;
-    return response;
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
 const setPWM = async () => {
   const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    return await bc.setPWM(setPin, Number.parseFloat(pwm) / 100);
+    await bc.setPWM(setPin, Number.parseFloat(pwm) / 100);
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
 const getPWMFrequency = async () => {
   const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    const response = await bc.pWMFrequency(getPin);
-    const { frequencyHz } = response!.toObject();
+    const frequencyHz = await bc.getPWMFrequency(getPin);
     getPinMessage = `Pin ${getPin}'s frequency is ${frequencyHz}Hz.`;
-    return response;
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
 const setPWMFrequency = async () => {
   const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    return await bc.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
+    await bc.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
   } catch (error) {
     displayError(error as ServiceError);
-    // eslint-disable-next-line no-useless-return
-    return;
   }
 };
 
