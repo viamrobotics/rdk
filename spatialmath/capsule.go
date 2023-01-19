@@ -35,14 +35,14 @@ type capsule struct {
 
 // NewCapsule instantiates a new capsule Geometry.
 func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, error) {
-	if radius < 0 {
+	if radius <= 0 || length <= 0 {
 		return nil, newBadGeometryDimensionsError(&capsule{})
-	}
-	if length == radius*2 || length == 0 {
-		return NewSphere(offset, radius, label)
 	}
 	if length < radius*2 {
 		return nil, newBadCapsuleLengthError(length, radius)
+	}
+	if length == radius*2 {
+		return NewSphere(offset, radius, label)
 	}
 	return newCapsuleWithSegPoints(offset, radius, length, label), nil
 }
@@ -173,7 +173,7 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	if resolution <= 0 {
 		resolution = defaultPointDensity
 	}
-	
+
 	s := &sphere{pose: NewZeroPose(), radius: c.radius}
 	vecList := s.ToPoints(resolution)
 	// move points to be correctly located on capsule endcaps
