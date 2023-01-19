@@ -1,7 +1,6 @@
 package pointcloud
 
 import (
-	"math"
 	"os"
 	"testing"
 
@@ -13,12 +12,11 @@ import (
 
 // Helper function for generating a new empty octree.
 func createNewOctree(center r3.Vector, side float64) (*BasicOctree, error) {
-	octree, err := NewBasicOctree(center, side)
+	basicOct, err := NewBasicOctree(center, side)
 	if err != nil {
 		return nil, err
 	}
 
-	basicOct := octree.(*BasicOctree)
 	return basicOct, err
 }
 
@@ -43,59 +41,23 @@ func checkPoints(t *testing.T, basicOct *BasicOctree, pointsAndData []PointAndDa
 	}
 }
 
-// Helper function that makes and returns a PointCloud from an artifact path consisting of the first numPoints points.
-func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (PointCloud, error) {
+// Helper function that makes and returns a PointCloud of a given type from an artifact path.
+func makeFullPointCloudFromArtifact(t *testing.T, artifactPath string, pcType PCType) (PointCloud, error) {
 	t.Helper()
 	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
 	if err != nil {
 		return nil, err
 	}
-	pcd, err := ReadPCD(pcdFile)
-	if err != nil {
-		return nil, err
+
+	var PC PointCloud
+	switch pcType {
+	case BasicType:
+		PC, err = ReadPCD(pcdFile)
+	case BasicOctreeType:
+		PC, err = ReadPCDToBasicOctree(pcdFile)
 	}
 
-	if numPoints == 0 {
-		return pcd, nil
-	}
-
-	shortenedPC := NewWithPrealloc(numPoints)
-
-	counter := numPoints
-	pcd.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		if counter > 0 {
-			err = shortenedPC.Set(p, d)
-			counter--
-		}
-		return err == nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return shortenedPC, nil
-}
-
-// Helper function that makes and returns a octree from an artifact path consisting of the first numPoints points.
-func makOctreeFromArtifact(t *testing.T, artifactPath string, numPoints int) (*BasicOctree, error) {
-	t.Helper()
-
-	pc, err := makePointCloudFromArtifact(t, artifactPath, numPoints)
-	if err != nil {
-		return nil, err
-	}
-
-	basicOctPC, err := ConvertPointCloudToBasicOctree(pc)
-	if err != nil {
-		return nil, err
-	}
-
-	basicOct, ok := (basicOctPC).(*BasicOctree)
-	if !ok {
-		return nil, errors.Errorf("pointcloud %v is not a basic octree", basicOctPC)
-	}
-
-	return basicOct, nil
+	return PC, err
 }
 
 // Test the creation of new basic octrees.
@@ -561,22 +523,48 @@ func TestBasicOctreeIterate(t *testing.T) {
 	})
 }
 
+func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (PointCloud, error) {
+	t.Helper()
+	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
+	if err != nil {
+		return nil, err
+	}
+	pc, err := ReadPCD(pcdFile)
+	if err != nil {
+		return nil, err
+	}
+
+	if numPoints == 0 {
+		return pc, nil
+	}
+
+	shortenedPC := NewWithPrealloc(numPoints)
+
+	counter := numPoints
+	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		if counter > 0 {
+			err = shortenedPC.Set(p, d)
+			counter--
+		}
+		return err == nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return shortenedPC, nil
+}
+
 // Test the functionalities involved with converting a pointcloud into a basic octree.
 func TestBasicOctreePointcloudIngestion(t *testing.T) {
+	//startPC, err := makeFullPointCloudFromArtifact(t, "pointcloud/test_short.pcd", BasicType)
 	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 	test.That(t, err, test.ShouldBeNil)
 
-	center := r3.Vector{
-		X: startPC.MetaData().MinX + (startPC.MetaData().MaxX-startPC.MetaData().MinX)/2,
-		Y: startPC.MetaData().MinY + (startPC.MetaData().MaxY-startPC.MetaData().MinY)/2,
-		Z: startPC.MetaData().MinZ + (startPC.MetaData().MaxZ-startPC.MetaData().MinZ)/2,
-	}
+	center := getCenterFromPcMetaData(startPC.MetaData())
+	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
 
-	maxSideLength := math.Max((startPC.MetaData().MaxX - startPC.MetaData().MinX),
-		math.Max((startPC.MetaData().MaxY-startPC.MetaData().MinY),
-			(startPC.MetaData().MaxZ-startPC.MetaData().MinZ)))
-
-	basicOct, err := createNewOctree(center, maxSideLength)
+	basicOct, err := NewBasicOctree(center, maxSideLength)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -602,24 +590,41 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 
 // Test the functionalities involved with converting a pcd into a basic octree.
 func TestReadBasicOctreeFromPCD(t *testing.T) {
-	artifactPath := "pointcloud/test.pcd"
+	//artifactPath := "pointcloud/test_short.pcd"
 
-	startBasicOct, err := makOctreeFromArtifact(t, artifactPath, 100)
+	basicPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 	test.That(t, err, test.ShouldBeNil)
 
-	startPC, err := makePointCloudFromArtifact(t, artifactPath, 100)
-	test.That(t, err, test.ShouldBeNil)
+	// Temp until artifact path is added
+	basicOct, err := createNewOctree(getCenterFromPcMetaData(basicPC.MetaData()),
+		getMaxSideLengthFromPcMetaData(basicPC.MetaData()))
+	basicPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		err := basicOct.Set(p, d)
+		test.That(t, err, test.ShouldBeNil)
+		return true
+	})
 
-	test.That(t, startPC.Size(), test.ShouldEqual, startBasicOct.Size())
-	test.That(t, startPC.MetaData(), test.ShouldResemble, startBasicOct.MetaData())
+	// pcdFile, err := os.Open(artifact.MustPath(artifactPath))
+	// test.That(t, err, test.ShouldBeNil)
+
+	// startPC, err := ReadPCD(pcdFile)
+	// test.That(t, err, test.ShouldBeNil)
+	// basicPC, ok := startPC.(*basicPointCloud)
+	// test.That(t, ok, test.ShouldBeTrue)
+
+	// basicOct, err := ReadPCDToBasicOctree(pcdFile)
+	// test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, basicPC.Size(), test.ShouldEqual, basicOct.Size())
+	test.That(t, basicPC.MetaData(), test.ShouldResemble, basicOct.MetaData())
 
 	// Check all points from the pcd have been properly added to the new basic octree
-	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		dOct, ok := startBasicOct.At(p.X, p.Y, p.Z)
+	basicPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, d, test.ShouldResemble, dOct)
 		return true
 	})
 
-	validateBasicOctree(t, startBasicOct, startBasicOct.center, startBasicOct.sideLength)
+	validateBasicOctree(t, basicOct, basicOct.center, basicOct.sideLength)
 }

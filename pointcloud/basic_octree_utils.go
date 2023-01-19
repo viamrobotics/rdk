@@ -170,32 +170,16 @@ func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 	return ok
 }
 
-// ConvertPointCloudToBasicOctree converts a pointcloud into a octree pointcloud representation.
-// TBD, add test case
-func ConvertPointCloudToBasicOctree(cloud PointCloud) (PointCloud, error) {
-	center := r3.Vector{
-		X: cloud.MetaData().MinX + (cloud.MetaData().MaxX-cloud.MetaData().MinX)/2,
-		Y: cloud.MetaData().MinY + (cloud.MetaData().MaxY-cloud.MetaData().MinY)/2,
-		Z: cloud.MetaData().MinZ + (cloud.MetaData().MaxZ-cloud.MetaData().MinZ)/2,
+// Helper function for calculating the center of a pointcloud based on its metadata.
+func getCenterFromPcMetaData(meta MetaData) r3.Vector {
+	return r3.Vector{
+		X: meta.MinX + (meta.MaxX-meta.MinX)/2,
+		Y: meta.MinY + (meta.MaxY-meta.MinY)/2,
+		Z: meta.MinZ + (meta.MaxZ-meta.MinZ)/2,
 	}
+}
 
-	maxSideLength := math.Max((cloud.MetaData().MaxX - cloud.MetaData().MinX),
-		math.Max((cloud.MetaData().MaxY-cloud.MetaData().MinY),
-			(cloud.MetaData().MaxZ-cloud.MetaData().MinZ)))
-
-	basicOctPC, err := NewBasicOctree(center, maxSideLength)
-	if err != nil {
-		return nil, err
-	}
-
-	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		err = basicOctPC.Set(p, d)
-		return err == nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return basicOctPC, nil
+// Helper function for calculating the max side length of a pointcloud based on its metadata.
+func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
+	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
 }
