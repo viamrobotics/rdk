@@ -9,7 +9,6 @@ import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { rcLogConditionally } from '../lib/log';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
-import { keyboardStates } from '../lib/keyboard-state';
 
 interface Props {
   name: string;
@@ -53,16 +52,16 @@ const power = $ref(50);
 const pressed = new Set<Keys>();
 let stopped = true;
 
+let keyboardStates = {
+  tempDisable: ref(false),
+  isActive: ref(false),
+};
+
 const initStreamState = () => {
   for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
     baseStreamStates.set(value.name, false);
   }
 };
-
-const initKeyboardState = () => {
-  keyboardStates.set('tempDisable', false);
-  keyboardStates.set('isActive', false);
-}
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -257,25 +256,29 @@ const handleVisibilityChange = () => {
 };
 
 const tempDisableKeyboard = (disableKeyboard: boolean) => {
-  keyboardStates.set('tempDisable', disableKeyboard);
+  keyboardStates.tempDisable.value = disableKeyboard;
 }
 
-const handleToggle = (active: boolean) => {
-  if (active) return
+const handleToggle = () => {
+  if (keyboardStates.isActive) return;
 
   if (pressed.size > 0 || !stopped) {
-    stop()
+    stop();
   }
 }
 
+const handleUpdateKeyboardState = (on:boolean) => {
+  console.log('handleUpdateKeyboard');
+  keyboardStates.isActive.value = on;
+};
+
 onClickOutside($$(root), () => {
-  console.log('hello');
-  keyboardStates.set('isActive', false);
+  console.log('click outside');
+  keyboardStates.isActive.value = false;
 });
 
 onMounted(() => {
   initStreamState();
-  initKeyboardState();
   window.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
@@ -321,6 +324,9 @@ onUnmounted(() => {
                 @keydown="handleKeyDown"
                 @keyup="handleKeyUp"
                 @toggle="handleToggle"
+                @update-keyboard-state="isOn => { handleUpdateKeyboardState(isOn) }"
+                :is-active="keyboardStates.isActive.value"
+                :temp-disable="keyboardStates.tempDisable.value"
               />
               <v-slider
                 id="power"
