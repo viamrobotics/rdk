@@ -1,11 +1,10 @@
 <!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { Client, boardApi, BoardClient, ServiceError } from '@viamrobotics/sdk';
+import { Client, BoardClient, ServiceError } from '@viamrobotics/sdk';
 
 interface Props {
   name: string
@@ -26,22 +25,16 @@ const pwmFrequency = $ref('');
 
 let getPinMessage = $ref('');
 
-const getGPIO = () => {
-  const req = new boardApi.GetGPIORequest();
-  req.setName(props.name);
-  req.setPin(getPin);
-
-  rcLogConditionally(req);
-  props.client.boardService.getGPIO(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    const x = response!.toObject();
-
-    getPinMessage = `Pin: ${getPin} is ${x.high ? 'high' : 'low'}`;
-  });
+const getGPIO = async () => {
+  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  try {
+    const response = await bc.getGPIO(getPin);
+    getPinMessage = `Pin: ${getPin} is ${response.toObject().high ? 'high' : 'low'}`;
+    return;
+  } catch (error) {
+    toast.error((error as ServiceError).message);
+    return;
+  }
 };
 
 const setGPIO = async () => {

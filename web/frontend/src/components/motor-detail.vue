@@ -1,7 +1,6 @@
 <!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { grpc } from '@improbable-eng/grpc-web';
 import { Client, motorApi, MotorClient, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
@@ -117,19 +116,16 @@ const motorStop = async () => {
   }
 };
 
-onMounted(() => {
-  const req = new motorApi.GetPropertiesRequest();
-  req.setName(props.name);
-
-  rcLogConditionally(req);
-  props.client.motorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-
-    properties = resp!.toObject();
-  });
+onMounted(async () => {
+  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  try {
+    properties = await mc.getProperties();
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
 });
+
 </script>
 
 <template>
