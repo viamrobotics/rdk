@@ -56,7 +56,7 @@ const emitKeyDown = (key: Keys) => {
   if (!props.tempDisable) {
     return;
   }
-  
+
   emit('keydown', key);
 };
 
@@ -117,12 +117,10 @@ const handlePointerUp = (key: Keys) => {
   emitKeyUp(key);
 };
 
-watch(() => props.isActive, (first) => {
-  console.log(
-    "Watch props.selected function called with args:",
-    first,
-  );
-  if (!first) toggleKeyboard(false);
+watch(() => props.isActive, (active) => {
+  if (!active) {
+    toggleKeyboard(false);
+  }
 });
 
 onUnmounted(() => {
