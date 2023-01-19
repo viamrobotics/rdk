@@ -523,42 +523,9 @@ func TestBasicOctreeIterate(t *testing.T) {
 	})
 }
 
-func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (PointCloud, error) {
-	t.Helper()
-	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
-	if err != nil {
-		return nil, err
-	}
-	pc, err := ReadPCD(pcdFile)
-	if err != nil {
-		return nil, err
-	}
-
-	if numPoints == 0 {
-		return pc, nil
-	}
-
-	shortenedPC := NewWithPrealloc(numPoints)
-
-	counter := numPoints
-	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		if counter > 0 {
-			err = shortenedPC.Set(p, d)
-			counter--
-		}
-		return err == nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return shortenedPC, nil
-}
-
 // Test the functionalities involved with converting a pointcloud into a basic octree.
 func TestBasicOctreePointcloudIngestion(t *testing.T) {
-	//startPC, err := makeFullPointCloudFromArtifact(t, "pointcloud/test_short.pcd", BasicType)
-	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+	startPC, err := makeFullPointCloudFromArtifact(t, "pointcloud/test_short.pcd", BasicType)
 	test.That(t, err, test.ShouldBeNil)
 
 	center := getCenterFromPcMetaData(startPC.MetaData())
@@ -590,36 +557,23 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 
 // Test the functionalities involved with converting a pcd into a basic octree.
 func TestReadBasicOctreeFromPCD(t *testing.T) {
-	//artifactPath := "pointcloud/test_short.pcd"
+	artifactPath := "pointcloud/test_short.pcd"
 
-	basicPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+	basicPC, err := makeFullPointCloudFromArtifact(t, artifactPath, BasicType)
 	test.That(t, err, test.ShouldBeNil)
+	basic, ok := basicPC.(*basicPointCloud)
+	test.That(t, ok, test.ShouldBeTrue)
 
-	// Temp until artifact path is added
-	basicOct, err := createNewOctree(getCenterFromPcMetaData(basicPC.MetaData()),
-		getMaxSideLengthFromPcMetaData(basicPC.MetaData()))
-	basicPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		err := basicOct.Set(p, d)
-		test.That(t, err, test.ShouldBeNil)
-		return true
-	})
+	basicOctPC, err := makeFullPointCloudFromArtifact(t, artifactPath, BasicOctreeType)
+	test.That(t, err, test.ShouldBeNil)
+	basicOct, ok := basicOctPC.(*BasicOctree)
+	test.That(t, ok, test.ShouldBeTrue)
 
-	// pcdFile, err := os.Open(artifact.MustPath(artifactPath))
-	// test.That(t, err, test.ShouldBeNil)
-
-	// startPC, err := ReadPCD(pcdFile)
-	// test.That(t, err, test.ShouldBeNil)
-	// basicPC, ok := startPC.(*basicPointCloud)
-	// test.That(t, ok, test.ShouldBeTrue)
-
-	// basicOct, err := ReadPCDToBasicOctree(pcdFile)
-	// test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, basicPC.Size(), test.ShouldEqual, basicOct.Size())
-	test.That(t, basicPC.MetaData(), test.ShouldResemble, basicOct.MetaData())
+	test.That(t, basic.Size(), test.ShouldEqual, basicOct.Size())
+	test.That(t, basic.MetaData(), test.ShouldResemble, basicOct.MetaData())
 
 	// Check all points from the pcd have been properly added to the new basic octree
-	basicPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+	basic.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, d, test.ShouldResemble, dOct)
