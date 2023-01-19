@@ -1,0 +1,33 @@
+name: 'Motion Benchmark Comment on PR'
+
+on:
+  workflow_run:
+    workflows: ["Motion Pull Request Update"]
+    types:
+      - completed
+
+jobs:
+  motion_comment:
+    name: 'Post Comment on PR'
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 5
+    if: ${{ github.event.workflow_run.event == 'pull_request_target' && github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Download Motion Benchmarks
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          run_id: ${{ github.event.workflow_run.id }}
+          name: pr-motion-benchmark
+
+      - name: Restore Environment
+        run: cat pr.env >> "${GITHUB_ENV}"
+
+      - name: Add Coverage PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          number: ${{ env.PR_NUMBER }}
+          recreate: true
+          path: motion-benchmarks.md
