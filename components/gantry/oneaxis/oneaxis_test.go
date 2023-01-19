@@ -21,9 +21,8 @@ import (
 const (
 	motorName = "x"
 	testGName = "test"
+	counter   = 1
 )
-
-var counter = 0
 
 func createfakemotor() motor.Motor {
 	return &inject.Motor{
@@ -31,7 +30,6 @@ func createfakemotor() motor.Motor {
 			return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 		},
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-			counter++
 			return float64(counter), nil
 		}, ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil },
 		GoToFunc:     func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error { return nil },
@@ -39,6 +37,7 @@ func createfakemotor() motor.Motor {
 		StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
 		SetPowerFunc: func(ctx context.Context, powerPct float64, extra map[string]interface{}) error { return nil },
 	}
+
 }
 
 func createfakeboard() board.Board {
