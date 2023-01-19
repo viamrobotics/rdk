@@ -115,7 +115,7 @@ func newJoinColorDepth(ctx context.Context, color, depth camera.Camera, attrs *j
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	cameraModel := camera.NewPinholeCameraModel(attrs.CameraParameters, attrs.DistortionParameters)
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,

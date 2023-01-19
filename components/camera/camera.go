@@ -154,11 +154,11 @@ func NewFromReader(
 	}, nil
 }
 
-// NewPinholeCameraModel creates a transform.PinholeCameraModel from
+// NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
 // a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
 // If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
 // is not set & remains nil, to prevent https://go.dev/doc/faq#nil_error.
-func NewPinholeCameraModel(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
+func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
 	distortion *transform.BrownConrady,
 ) transform.PinholeCameraModel {
 	var cameraModel transform.PinholeCameraModel

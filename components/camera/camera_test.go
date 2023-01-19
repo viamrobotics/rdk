@@ -313,7 +313,7 @@ func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.Po
 	return nil, nil
 }
 
-func TestNewPinholeCameraModel(t *testing.T) {
+func TestNewPinholeModelWithBrownConradyDistortion(t *testing.T) {
 	intrinsics := &transform.PinholeCameraIntrinsics{
 		Width:  10,
 		Height: 10,
@@ -325,20 +325,20 @@ func TestNewPinholeCameraModel(t *testing.T) {
 	distortion := &transform.BrownConrady{}
 
 	expected1 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion}
-	pinholeCameraModel1 := camera.NewPinholeCameraModel(intrinsics, distortion)
+	pinholeCameraModel1 := camera.NewPinholeModelWithBrownConradyDistortion(intrinsics, distortion)
 	test.That(t, pinholeCameraModel1, test.ShouldResemble, expected1)
 
 	expected2 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics}
-	pinholeCameraModel2 := camera.NewPinholeCameraModel(intrinsics, nil)
+	pinholeCameraModel2 := camera.NewPinholeModelWithBrownConradyDistortion(intrinsics, nil)
 	test.That(t, pinholeCameraModel2, test.ShouldResemble, expected2)
 	test.That(t, pinholeCameraModel2.Distortion, test.ShouldBeNil)
 
 	expected3 := transform.PinholeCameraModel{Distortion: distortion}
-	pinholeCameraModel3 := camera.NewPinholeCameraModel(nil, distortion)
+	pinholeCameraModel3 := camera.NewPinholeModelWithBrownConradyDistortion(nil, distortion)
 	test.That(t, pinholeCameraModel3, test.ShouldResemble, expected3)
 
 	expected4 := transform.PinholeCameraModel{}
-	pinholeCameraModel4 := camera.NewPinholeCameraModel(nil, nil)
+	pinholeCameraModel4 := camera.NewPinholeModelWithBrownConradyDistortion(nil, nil)
 	test.That(t, pinholeCameraModel4, test.ShouldResemble, expected4)
 	test.That(t, pinholeCameraModel4.Distortion, test.ShouldBeNil)
 }
