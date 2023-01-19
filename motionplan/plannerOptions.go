@@ -32,7 +32,7 @@ const (
 	defaultEpsilon = 0.001
 
 	// default number of seconds to try to solve in total before returning.
-	defaultTimeout = 1.
+	defaultTimeout = 2.
 
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 20
