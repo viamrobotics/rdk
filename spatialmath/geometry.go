@@ -121,8 +121,11 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 			if creator, err := NewBox(offset, boxDims, config.Label); err == nil {
 				return creator, nil
 			}
-		}
-		if creator, err := NewCapsule(offset, config.R, config.L, config.Label); err == nil {
+		} else if config.L != 0 {
+			if creator, err := NewCapsule(offset, config.R, config.L, config.Label); err == nil {
+				return creator, nil
+			}
+		} else if creator, err := NewSphere(offset, config.R, config.Label); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified
