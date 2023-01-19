@@ -142,6 +142,8 @@ github.com/aler9/gortsplib v0.0.0-20221129144815-8515d627356a h1:7ACx2SfiCdGTQzJ
 github.com/aler9/gortsplib v0.0.0-20221129144815-8515d627356a/go.mod h1:BOWNZ/QBkY/eVcRqUzJbPFEsRJshwxaxBT01K260Jeo=
 github.com/aler9/gortsplib v1.0.1 h1:R13+hxlvg2Hvu98+0hzg0o5fPjyUA9ZPJneMIBxKGXk=
 github.com/aler9/gortsplib v1.0.1/go.mod h1:BOWNZ/QBkY/eVcRqUzJbPFEsRJshwxaxBT01K260Jeo=
+github.com/aler9/gortsplib/v2 v2.0.5 h1:K1dxSVMCRB22tNcpqAjSQBHj6YoIp2ad0FakEJAe+lo=
+github.com/aler9/gortsplib/v2 v2.0.5/go.mod h1:cGD/4JW43Elv/f4HfNBdH78IO5ZfwZIY52fByVASmsU=
 github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82 h1:9WgSzBLo3a9ToSVV7sRTBYZ1GGOZUpq4+5H3SN0UZq4=
 github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82/go.mod h1:qsMrZCbeBf/mCLOeF16KDkPu4gktn/pOWyaq1aYQE7U=
 github.com/alexkohler/prealloc v1.0.0 h1:Hbq0/3fJPQhNkN0dR95AVrr6R7tou91y0uHG5pOcUuw=

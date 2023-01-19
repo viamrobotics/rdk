@@ -8,10 +8,10 @@ import (
 	"image/jpeg"
 	"sync/atomic"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/liberrors"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/liberrors"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/rtp"
@@ -69,7 +69,6 @@ type Attrs struct {
 type rtspCamera struct {
 	gostream.VideoReader
 	client     *gortsplib.Client
-	decoder    *h264Decoder
 	cancelFunc context.CancelFunc
 }
 
@@ -81,11 +80,11 @@ func (rc *rtspCamera) Close(ctx context.Context) error {
 	if err != nil && !errors.Is(err, clientTerminated) {
 		return err
 	}
-	return rc.decoder.Close()
+	return nil
 }
 
 // NewRTSPCamera creates a camera client for an RTSP given given the server URL.
-// Right now, only supports servers that have H264 video tracks.
+// Right now, only supports servers that have MJPEG video tracks.
 func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (camera.Camera, error) {
 	c := &gortsplib.Client{}
 	// parse URL
@@ -108,14 +107,14 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	var forma *format.MJPEG
 	media := tracks.FindFormat(&forma)
 	if media == nil {
-		err := errors.Errorf("H264 track not found in rtsp camera %s", u)
+		err := errors.Errorf("MJPEG track not found in rtsp camera %s", u)
 		return nil, multierr.Combine(err, c.Close())
 	}
 	// get the RTP->MJPEG decoder
 	rtpDec := forma.CreateDecoder()
 
 	// Setup the MJPEG track
-	err = c.Setup(media, baseURL, 0, 0)
+	_, err = c.Setup(media, baseURL, 0, 0)
 	if err != nil {
 		return nil, multierr.Combine(err, c.Close())
 	}
@@ -125,7 +124,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	gotFirstFrame := make(chan struct{})
 	c.OnPacketRTP(media, forma, func(pkt *rtp.Packet) {
 		// convert RTP packets into NALUs
-		encoded, pts, err := rtpDec.Decode(pkt)
+		encoded, _, err := rtpDec.Decode(pkt)
 		if err != nil {
 			return
 		}
@@ -137,7 +136,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 
 		// wait for a frame
 		if img == nil {
-			continue
+			return
 		}
 		latestFrame.Store(img)
 		if !gotFirstFrameOnce {
@@ -146,7 +145,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 		}
 	})
 	// play the track
-	err = c.Play(nil)
+	_, err = c.Play(nil)
 	if err != nil {
 		return nil, multierr.Combine(err, c.Close())
 	}
@@ -163,7 +162,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 		return latestFrame.Load().(image.Image), func() {}, nil
 	})
 	// define and return the camera
-	rtspCam := &rtspCamera{reader, c, h264RawDec, cancel}
+	rtspCam := &rtspCamera{reader, c, cancel}
 	cameraModel := &transform.PinholeCameraModel{attrs.IntrinsicParams, attrs.DistortionParams}
 	return camera.NewFromReader(ctx, rtspCam, cameraModel, camera.ColorStream)
 }

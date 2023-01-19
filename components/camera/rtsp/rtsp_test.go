@@ -25,9 +25,9 @@ func TestRTSPCamera(t *testing.T) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	viamutils.PanicCapturingGo(func() {
-		testMP4 := artifact.MustPath("components/camera/rtsp/earth_480_video.mp4")
+		testMP4 := artifact.MustPath("components/camera/rtsp/earth_480_mjpeg.avi")
 		ffmpegStream := ffmpeg.Input(testMP4, ffmpeg.KwArgs{"re": "", "stream_loop": -1})
-		ffmpegStream = ffmpegStream.Output(outputURL, ffmpeg.KwArgs{"c:v": "libx264", "f": "rtsp", "rtsp_transport": "tcp"})
+		ffmpegStream = ffmpegStream.Output(outputURL, ffmpeg.KwArgs{"vcodec": "mjpeg", "huffman": "0", "f": "rtsp", "rtsp_transport": "tcp"})
 		ffmpegStream.Context = cancelCtx
 		cmd := ffmpegStream.OverWriteOutput().Compile()
 		if err := cmd.Run(); err != nil {
