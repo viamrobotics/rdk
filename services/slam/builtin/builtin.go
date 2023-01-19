@@ -51,6 +51,8 @@ var (
 	dialMaxTimeoutSec             = 30 // reconfigurable for testing
 )
 
+type DummyType int
+
 const (
 	defaultDataRateMs           = 200
 	minDataRateMs               = 200
