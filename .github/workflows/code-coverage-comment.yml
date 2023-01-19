@@ -1,4 +1,4 @@
-name: 'Code Coverage Comment on PR'
+name: 'Comment on PR'
 
 on:
   workflow_run:
