@@ -109,7 +109,7 @@ type ParallelProjectionOntoXZWithRobotMarker struct {
 const (
 	sigmaLevel       = 7
 	imageHeight      = 1080
-	imageWidth       = 1080
+	imageWidth       = 1070
 	missThreshold    = 0.44
 	hitThreshold     = 0.53
 	voxelRadius      = 1
