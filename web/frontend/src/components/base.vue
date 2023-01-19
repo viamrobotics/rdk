@@ -2,7 +2,7 @@
 <script setup lang="ts">
 
 import { ref, onMounted, onUnmounted } from 'vue';
-import { BaseClient, Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -80,11 +80,8 @@ const setDirection = (dir: Directions) => {
 };
 
 const stop = async () => {
-  const bc = new BaseClient(props.client, props.name);
+  const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   stopped = true;
-  const req = new baseApi.StopRequest();
-  req.setName(props.name);
-  rcLogConditionally(req);
   try {
     return await bc.stop();
   } catch (error) {
@@ -96,7 +93,7 @@ const stop = async () => {
 const digestInput = async () => {
   let linearValue = 0;
   let angularValue = 0;
-  const bc = new BaseClient(props.client, props.name);
+  const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   for (const item of pressed) {
     switch (item) {
@@ -124,11 +121,6 @@ const digestInput = async () => {
   linear.setY(linearValue);
   angular.setZ(angularValue);
 
-  const req = new baseApi.SetPowerRequest();
-  req.setName(props.name);
-  req.setLinear(linear);
-  req.setAngular(angular);
-  rcLogConditionally(req);
   try {
     const response = await bc.setPower(linear, angular);
     if (pressed.size <= 0) {
@@ -163,17 +155,12 @@ const handleBaseStraight = async (name: string, event: {
   direction: number
   movementType: MovementTypes
 }) => {
-  const bc = new BaseClient(props.client, name);
+  const bc = new BaseClient(props.client, name, { requestLogger: rcLogConditionally });
   if (event.movementType === 'Continuous') {
     const linear = new commonApi.Vector3();
     const angular = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
-    const req = new baseApi.SetVelocityRequest();
-    req.setName(name);
-    req.setLinear(linear);
-    req.setAngular(angular);
-    rcLogConditionally(req);
     try {
       return await bc.setVelocity(linear, angular);
     } catch (error) {
@@ -181,11 +168,6 @@ const handleBaseStraight = async (name: string, event: {
       return;
     }
   } else {
-    const req = new baseApi.MoveStraightRequest();
-    req.setName(name);
-    req.setMmPerSec(event.speed * event.direction);
-    req.setDistanceMm(event.distance);
-    rcLogConditionally(req);
     try {
       return await bc.moveStraight(event.distance, event.speed * event.direction);
     } catch (error) {
@@ -196,15 +178,8 @@ const handleBaseStraight = async (name: string, event: {
 };
 
 const baseRun = async () => {
-  const bc = new BaseClient(props.client, props.name);
+  const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   if (movementMode.value === 'Spin') {
-
-    const req = new baseApi.SpinRequest();
-    req.setName(props.name);
-    req.setAngleDeg(angle.value * (spinType.value === 'Clockwise' ? -1 : 1));
-    req.setDegsPerSec(spinSpeed.value);
-    rcLogConditionally(req);
-
     try {
       return await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
     } catch (error) {
