@@ -51,6 +51,7 @@ module.exports = {
     'max-params': 'off',
     'max-statements': 'off',
     'multiline-ternary': ['error', 'always-multiline'],
+    "no-shadow": "off",
     'prefer-destructuring': [
       'error', {
         AssignmentExpression: { array: false, object: false },

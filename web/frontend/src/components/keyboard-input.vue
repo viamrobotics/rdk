@@ -48,10 +48,6 @@ const normalizeKey = (key: string): Keys | null => {
 };
 
 const emitKeyDown = (key: Keys) => {
-  if (!props.isActive) {
-    toggleKeyboard(true);
-  }
-
   pressedKeys[key] = true;
   if (!props.tempDisable) {
     return;
