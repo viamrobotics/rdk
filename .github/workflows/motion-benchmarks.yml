@@ -66,5 +66,6 @@ jobs:
       with:
         name: pr-motion-benchmark
         path: |
+          pr.env
           motion-testing/results/motion-benchmarks.md
         retention-days: 1
