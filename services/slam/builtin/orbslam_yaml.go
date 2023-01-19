@@ -26,6 +26,7 @@ const (
 
 // orbCamMaker takes in the camera properties and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
 func (slamSvc *builtIn) orbCamMaker(camProperties *transform.PinholeCameraModel) (*ORBsettings, error) {
+	panic("this is a panic!")
 	var err error
 
 	if camProperties.PinholeCameraIntrinsics == nil {
