@@ -42,7 +42,7 @@ func newUndistortTransform(
 	if attrs.CameraParams == nil {
 		return nil, camera.UnspecifiedStream, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
-	cameraModel := camera.NewPinholeCameraModel(attrs.CameraParams, attrs.DistortionParams)
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParams, attrs.DistortionParams)
 	reader := &undistortSource{
 		gostream.NewEmbeddedVideoStream(source),
 		stream,

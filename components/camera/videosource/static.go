@@ -34,7 +34,7 @@ func init() {
 			if attrs.Color == "" {
 				imgType = camera.DepthStream
 			}
-			cameraModel := camera.NewPinholeCameraModel(attrs.CameraParameters, attrs.DistortionParameters)
+			cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
 			return camera.NewFromReader(
 				ctx,
 				videoSrc,
