@@ -39,7 +39,7 @@ type basicOctreeNode struct {
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
-func NewBasicOctree(center r3.Vector, sideLength float64) (PointCloud, error) {
+func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) {
 	if sideLength <= 0 {
 		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
 	}
