@@ -16,6 +16,10 @@ jobs:
       options: --platform linux/amd64
     timeout-minutes: 30
     steps:
+    - name: Run motion quality tests on main branch
+      run: |
+        echo "${{GITHUB_REPOSITORY%/*}}:${{ github.event.pull_request.base.ref }}"'
+
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
@@ -40,7 +44,7 @@ jobs:
       run: |
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
-        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="${GITHUB_REPOSITORY%/*}:${{ github.event.pull_request.base.ref }}"'
+        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="${{GITHUB_REPOSITORY%/*}}:${{ github.event.pull_request.base.ref }}"'
         
     - name: Run motion quality tests on PR branch
       run: |
