@@ -170,6 +170,10 @@ func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
 // how many points should like on the capsule's surface. If the argument is set to 0. we automatically
 // substitute the value with defaultTotalSpherePoints.
 func (c *capsule) ToPoints(resolution float64) []r3.Vector {
+	if resolution <= 0 {
+		resolution = defaultPointDensity
+	}
+	
 	s := &sphere{pose: NewZeroPose(), radius: c.radius}
 	vecList := s.ToPoints(resolution)
 	// move points to be correctly located on capsule endcaps
@@ -265,25 +269,26 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 }
 
 // capsuleBoxSeparatingAxis returns immediately as soon as any result is found indicating that the two objects are not in collision.
-func capsuleBoxSeparatingAxis(a *capsule, b *box) bool {
-	capCenter := a.segA.Add(a.segB).Mul(0.5)
+func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
+	capCenter := c.pose.Point()
 	centerDist := b.pose.Point().Sub(capCenter)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-((a.length/2)+b.boundingSphereR) > CollisionBuffer {
+	if centerDist.Norm()-((c.length/2)+b.boundingSphereR) > CollisionBuffer {
 		return false
 	}
-	rmA := a.pose.Orientation().RotationMatrix()
+	rmA := c.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
 
-	segLen := (a.length - 2*a.radius) / 2
-	capVec := rmA.Row(2).Mul(segLen)
+	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
+	// This allows us to check separating axes on a reduced set of projections.
+	capVec := c.segB.Sub(capCenter)
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+a.radius {
+		if separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
 			return false
 		}
-		if separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+a.radius {
+		if separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
 			return false
 		}
 		for j := 0; j < 3; j++ {
@@ -291,7 +296,7 @@ func capsuleBoxSeparatingAxis(a *capsule, b *box) bool {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest1D(centerDist, crossProductPlane, capVec, b.halfSize, rmB) > CollisionBuffer+a.radius {
+				if separatingAxisTest1D(centerDist, crossProductPlane, capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
 					return false
 				}
 			}
@@ -300,19 +305,20 @@ func capsuleBoxSeparatingAxis(a *capsule, b *box) bool {
 	return true
 }
 
-func capsuleBoxSeparatingAxisDistance(a *capsule, b *box) float64 {
-	capCenter := a.segA.Add(a.segB).Mul(0.5)
+func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
+	capCenter := c.pose.Point()
 	centerDist := b.pose.Point().Sub(capCenter)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - ((a.length / 2) + b.boundingSphereR); boundingSphereDist > CollisionBuffer {
+	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > CollisionBuffer {
 		return boundingSphereDist
 	}
-	rmA := a.pose.Orientation().RotationMatrix()
+	rmA := c.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
 
-	segLen := (a.length - 2*a.radius) / 2
-	capVec := rmA.Row(2).Mul(segLen)
+	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
+	// This allows us to check separating axes on a reduced set of projections.
+	capVec := c.segB.Sub(capCenter)
 
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
@@ -333,7 +339,7 @@ func capsuleBoxSeparatingAxisDistance(a *capsule, b *box) float64 {
 			}
 		}
 	}
-	return max - a.radius
+	return max - c.radius
 }
 
 func separatingAxisTest1D(positionDelta, plane, capVec r3.Vector, halfSizeB [3]float64, rmB *RotationMatrix) float64 {
