@@ -79,7 +79,7 @@ func init() {
 // Attrs are the attributes of the fake camera config.
 type Attrs struct {
 	Width  int `json:"width,omitempty"`
-	Height int `json:"height,omtiempty"`
+	Height int `json:"height,omitempty"`
 }
 
 var fakeIntrinsics = &transform.PinholeCameraIntrinsics{
