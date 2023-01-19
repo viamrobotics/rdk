@@ -187,7 +187,8 @@ func NewCollisionConstraint(
 	return constraint
 }
 
-// NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a set of initial states.
+// NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a
+// set of initial states.
 func NewCollisionConstraintFromWorldState(
 	frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
@@ -223,43 +224,40 @@ func NewCollisionConstraintFromWorldState(
 	), nil
 }
 
-// NewOccupancyConstraint TODO.
+// NewOccupancyConstraint creates a constraint that checks for internal geometries of a robot are all ecompassed by the
+// given interaction space geometries at a given input state. If all internal geometries are not encompassed by one
+// interaction space, the constraint will return false.
 func NewOccupancyConstraint(
 	frame referenceframe.Frame,
 	goodInput []referenceframe.Input,
 	iSpaceGeoMap map[string]spatial.Geometry,
 ) Constraint {
-	frameInputVols, err := frame.Geometries(goodInput)
-	if err != nil && len(frameInputVols.Geometries()) == 0 {
-		return nil // no geometries defined for frame
-	}
-
 	constraint := func(cInput *ConstraintInput) (bool, float64) {
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
 		if err != nil && internal == nil {
-			return true, 0 // No way of knowing the robot is within the given I-Space
+			return true, 0 // No way of knowing the robot is within a given I-Space without geometries
 		}
 
-		// TODO(wspies): This would be broken if we have more than one interaction space geometry, unless the arm stayed
-		// inside both geometries
-		fullyEncompassed := true
+		// TODO(wspies): This will break if we have more than one interaction space geometry, unless the arm stayed
+		// inside both geometries, such as for overlapping spaces.
+		internalsEncompassed := true
 		for _, internalGeom := range internal.Geometries() {
 			for _, iSpaceGeom := range iSpaceGeoMap {
 				geomInside, err := internalGeom.EncompassedBy(iSpaceGeom)
 				if err != nil {
-					return false, 0 // Bad collision check here, just return immediately
+					return false, 0 // Bad encompass check here, just return immediately
 				}
-				fullyEncompassed = fullyEncompassed && geomInside
+				internalsEncompassed = internalsEncompassed && geomInside
 			}
 		}
 
-		return fullyEncompassed, 0
+		return internalsEncompassed, 0
 	}
-
 	return constraint
 }
 
-// NewOccupancyConstraintFromWorldState TODO.
+// NewOccupancyConstraintFromWorldState creates an occupancy constraint from a world state, frame system, a model and a
+// set of initial states.
 func NewOccupancyConstraintFromWorldState(
 	frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
@@ -271,7 +269,7 @@ func NewOccupancyConstraintFromWorldState(
 		return nil, err
 	}
 
-	// extract inputs corresponding to the frame
+	// Extract inputs corresponding to the frame
 	var goodInputs []referenceframe.Input
 	switch f := frame.(type) {
 	case *solverFrame:
