@@ -25,8 +25,10 @@ const (
 
 var (
 	counter = 0
+)
 
-	fakeMotor = &inject.Motor{
+func createfakemotor() motor.Motor {
+	return &inject.Motor{
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 		},
@@ -40,18 +42,21 @@ var (
 		SetPowerFunc: func(ctx context.Context, powerPct float64, extra map[string]interface{}) error { return nil },
 	}
 
-	injectGPIOPin = &inject.GPIOPin{
+}
+
+func createfakeboard() board.Board {
+	injectGPIOPin := &inject.GPIOPin{
 		GetFunc: func(ctx context.Context, extra map[string]interface{}) (bool, error) { return true, nil },
 		SetFunc: func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
 	}
-	fakeBoard = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
-)
+	return &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
+}
 
 func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 	t.Helper()
 	deps := make(registry.Dependencies)
-	deps[board.Named("board")] = fakeBoard
-	deps[motor.Named(motorName)] = fakeMotor
+	deps[board.Named("board")] = createfakeboard()
+	deps[motor.Named(motorName)] = createfakemotor()
 	return deps
 }
 
@@ -131,14 +136,6 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakecfg.GantryRPM, test.ShouldEqual, float64(100))
 }
-
-// func TestSetup(t testing.T) {
-// ctx := context.Background()
-// logger := golog.NewTestLogger(t)
-// deps := createFakeDepsForTestNewOneAxis(t)
-// fakcfg := config.Component{}
-
-// }
 
 func TestNewGantryTypes(t *testing.T) {
 	ctx := context.Background()
@@ -228,8 +225,8 @@ func TestHome(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	fakeOneAx := &oneAxis{
 		name:            testGName,
-		motor:           fakeMotor,
-		board:           fakeBoard,
+		motor:           createfakemotor(),
+		board:           createfakeboard(),
 		logger:          logger,
 		rpm:             float64(300),
 		lengthMm:        100,
@@ -283,8 +280,8 @@ func TestHome(t *testing.T) {
 func TestTestLimit(t *testing.T) {
 	ctx := context.Background()
 	baseG := &oneAxis{
-		motor: fakeMotor,
-		board: fakeBoard,
+		motor: createfakemotor(),
+		board: createfakeboard(),
 		rpm:   float64(300),
 	}
 
@@ -306,7 +303,7 @@ func TestTestLimit(t *testing.T) {
 func TestLimitHit(t *testing.T) {
 	ctx := context.Background()
 	baseG := &oneAxis{
-		board: fakeBoard,
+		board: createfakeboard(),
 	}
 
 	fakegantry := &limitSwitchGantry{
@@ -437,8 +434,8 @@ func TestStop(t *testing.T) {
 	ctx := context.Background()
 
 	fakeOAx := &oneAxis{
-		motor:          fakeMotor,
-		board:          fakeBoard,
+		motor:          createfakemotor(),
+		board:          createfakeboard(),
 		logger:         logger,
 		rpm:            float64(300),
 		lengthMm:       float64(200),
@@ -505,7 +502,7 @@ func TestGoToInputs(t *testing.T) {
 	inputs := []referenceframe.Input{}
 
 	fakeOAx := &oneAxis{
-		motor:          fakeMotor,
+		motor:          createfakemotor(),
 		lengthMm:       1.0,
 		positionLimits: []float64{1, 2},
 	}
@@ -543,7 +540,7 @@ func TestGoToInputs(t *testing.T) {
 func TestIsMoving(t *testing.T) {
 	ctx := context.Background()
 	fakeOAx := &oneAxis{
-		motor:          fakeMotor,
+		motor:          createfakemotor(),
 		lengthMm:       1.0,
 		positionLimits: []float64{1, 2},
 	}
