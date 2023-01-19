@@ -626,7 +626,6 @@ func getPCDMetaDataASCII(in bufio.Reader, header pcdHeader) (MetaData, error) {
 }
 
 func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, error) {
-
 	var err error
 	pointBuf := make([]float64, 3)
 	colorData := NewBasicData()
@@ -636,9 +635,8 @@ func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, er
 			break
 		}
 		if err != nil {
-			return PointAndData{}, nil
+			return PointAndData{}, err
 		}
-
 		pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
 	}
 	point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
@@ -647,6 +645,9 @@ func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, er
 		buf, err := readBuffer(in, header, 3)
 		if errors.Is(err, io.EOF) {
 			return PointAndData{}, nil
+		}
+		if err != nil {
+			return PointAndData{}, err
 		}
 		colorBuf := int(binary.LittleEndian.Uint32(buf))
 		colorData = NewColoredData(_pcdIntToColor(colorBuf))
