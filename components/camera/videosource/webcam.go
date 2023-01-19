@@ -29,6 +29,7 @@ import (
 
 var model = resource.NewDefaultModel("webcam")
 
+// camRegistry maps each camera's video path to it's label.
 var camRegistry = make(map[string]string, 10)
 
 func init() {
@@ -292,22 +293,14 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot find video source for camera")
 	}
-
-	logger.Infof("THE ATTRIBUTE PATH IS: %v", attrs.Path)
-
 	label := getLabelFromCamera(utils.UnwrapProxy(cam).(camera.Camera), logger)
-	logger.Infof("THE LABEL IS: %v", label)
 
+	// grab this camera's label from the registry if it's there
 	foundCamLabel, ok := camRegistry[attrs.Path]
-	if !ok { // not in the map
+	if !ok {
 		camRegistry[attrs.Path] = label
-	} else { // is in the map
+	} else {
 		label = foundCamLabel
-	}
-
-	//label := attrs.Path
-	if label == "" {
-		label = getLabelFromCamera(utils.UnwrapProxy(cam).(camera.Camera), logger)
 	}
 
 	const wait = 500 * time.Millisecond
