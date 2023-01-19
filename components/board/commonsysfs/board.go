@@ -200,6 +200,7 @@ func (sh *spiHandle) Close() error {
 }
 
 func (b *sysfsBoard) I2CByName(name string) (board.I2C, bool) {
+	b.logger.Warn("I2C is not currently supported on sysfs boards.")
 	return nil, false
 }
 
@@ -209,6 +210,7 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	b.logger.Warn("Digital interrupts are not currently supported on sysfs boards.")
 	return nil, false
 }
 
@@ -224,6 +226,7 @@ func (b *sysfsBoard) SPINames() []string {
 }
 
 func (b *sysfsBoard) I2CNames() []string {
+	b.logger.Warn("I2C is not currently supported on sysfs boards.")
 	return nil
 }
 
@@ -236,6 +239,7 @@ func (b *sysfsBoard) AnalogReaderNames() []string {
 }
 
 func (b *sysfsBoard) DigitalInterruptNames() []string {
+	b.logger.Warn("Digital interrupts are not currently supported on sysfs boards.")
 	return nil
 }
 
