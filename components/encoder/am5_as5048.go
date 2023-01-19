@@ -102,7 +102,7 @@ func (conf *AS5048Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// I2CAttrConfig stores the configuration information for I2C connection
+// I2CAttrConfig stores the configuration information for I2C connection.
 type I2CAttrConfig struct {
 	I2CBus  string `json:"i2c_bus"`
 	I2CAddr int    `json:"i2c_addr"`
