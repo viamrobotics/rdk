@@ -20,7 +20,7 @@ const (
 	defaultPseudolinearTolerance = 0.8
 
 	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 50
+	defaultSolutionsToSeed = 1
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
@@ -32,7 +32,7 @@ const (
 	defaultEpsilon = 0.001
 
 	// default number of seconds to try to solve in total before returning.
-	defaultTimeout = 2.
+	defaultTimeout = 300.
 
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 20
