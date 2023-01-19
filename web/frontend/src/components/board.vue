@@ -1,4 +1,3 @@
-<!-- eslint-disable no-useless-return -->
 <script setup lang="ts">
 
 import { toast } from '../lib/toast';
@@ -33,6 +32,7 @@ const getGPIO = async () => {
     return;
   } catch (error) {
     toast.error((error as ServiceError).message);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -44,6 +44,7 @@ const setGPIO = async () => {
     return await bc.setGPIO(setPin, setLevel === 'high');
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -57,6 +58,7 @@ const getPWM = async () => {
     return response;
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -67,6 +69,7 @@ const setPWM = async () => {
     return await bc.setPWM(setPin, Number.parseFloat(pwm) / 100);
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -80,6 +83,7 @@ const getPWMFrequency = async () => {
     return response;
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
@@ -90,6 +94,7 @@ const setPWMFrequency = async () => {
     return await bc.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
   } catch (error) {
     displayError(error as ServiceError);
+    // eslint-disable-next-line no-useless-return
     return;
   }
 };
