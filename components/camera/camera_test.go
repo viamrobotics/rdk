@@ -322,24 +322,39 @@ func TestNewPinholeCameraModel(t *testing.T) {
 		Ppx:    3.0,
 		Ppy:    4.0,
 	}
-	distortion := &transform.NoDistortion{}
+	distortion := &transform.BrownConrady{}
 
-	expected1 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion}
-	pinholeCameraModel1 := camera.NewPinholeCameraModel(intrinsics, distortion)
-	test.That(t, pinholeCameraModel1, test.ShouldResemble, expected1)
+	testCases := []struct {
+		phci     *transform.PinholeCameraIntrinsics
+		d        *transform.BrownConrady
+		expected transform.PinholeCameraModel
+	}{
+		{
+      phci: intrinsics,
+      d: distortion,
+      expected: transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion},
+		},
+		{
+      phci: intrinsics,
+      d: nil,
+      expected: transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics},
+		},
+		{
+			phci: nil,
+      d: distortion,
+      expected: transform.PinholeCameraModel{Distortion: distortion},
+		},
+		{
+      phci: nil,
+      d: nil,
+      expected: transform.PinholeCameraModel{},
+		},
+	}
 
-	expected2 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics}
-	pinholeCameraModel2 := camera.NewPinholeCameraModel(intrinsics, nil)
-	test.That(t, pinholeCameraModel2, test.ShouldResemble, expected2)
-
-	expected3 := transform.PinholeCameraModel{Distortion: distortion}
-	pinholeCameraModel3 := camera.NewPinholeCameraModel(nil, distortion)
-	test.That(t, pinholeCameraModel3, test.ShouldResemble, expected3)
-
-	expected4 := transform.PinholeCameraModel{}
-	pinholeCameraModel4 := camera.NewPinholeCameraModel(nil, nil)
-	test.That(t, pinholeCameraModel4, test.ShouldResemble, expected4)
-	test.That(t, pinholeCameraModel4.Distortion, test.ShouldBeNil)
+	for _, tc := range testCases {
+		pinholeCameraModel := camera.NewPinholeCameraModel(intrinsics, distortion)
+		test.That(t, pinholeCameraModel, test.ShouldResemble, tc.expected)
+	}
 }
 
 func TestNewCamera(t *testing.T) {
