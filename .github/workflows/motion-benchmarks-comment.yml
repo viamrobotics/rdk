@@ -30,7 +30,5 @@ jobs:
         with:
           number: ${{ env.PR_NUMBER }}
           recreate: true
-          path: |
-            pr.env
-            motion-benchmarks.md
+          path: motion-benchmarks.md
 
