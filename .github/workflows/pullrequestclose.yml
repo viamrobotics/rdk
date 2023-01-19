@@ -5,18 +5,14 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [ 'main' ]
     types: [ 'closed' ]
 
 jobs:
   appimage_clean:
     name: Remove PR AppImages
-    runs-on: [x64, qemu-host]
-    container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
-      options: --platform linux/amd64
-    timeout-minutes: 15
+    runs-on: ubuntu-latest
 
     steps:
     - name: Authorize GCP
@@ -26,10 +22,6 @@ jobs:
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
-
-    # Needed until https://github.com/google-github-actions/auth/issues/241 is fixed upstream
-    - name: Fix Auth
-      run: yes | gcloud auth login --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
     - name: Delete Files
       run: |

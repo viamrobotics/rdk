@@ -8,8 +8,8 @@ import (
 	"go.viam.com/test"
 )
 
-func makeTestBox(o Orientation, point, dims r3.Vector, label string) Geometry {
-	box, _ := NewBox(NewPose(point, o), dims, label)
+func makeTestBox(o Orientation, pt, dims r3.Vector, label string) Geometry {
+	box, _ := NewBox(NewPose(pt, o), dims, label)
 	return box
 }
 
@@ -59,7 +59,8 @@ func TestBoxPC(t *testing.T) {
 	dims1 := r3.Vector{2, 2, 2}
 	eulerAngle1 := &EulerAngles{45, 45, 0}
 	pose1 := NewPose(offset1, eulerAngle1)
-	box1 := &box{pose1, [3]float64{0.5 * dims1.X, 0.5 * dims1.Y, 0.5 * dims1.Z}, 10, ""} // with abitrary radius bounding sphere
+	box1, err := NewBox(pose1, dims1, "")
+	test.That(t, err, test.ShouldBeNil)
 	customDensity := 1.
 	output1 := box1.ToPoints(customDensity)
 
@@ -100,7 +101,8 @@ func TestBoxPC(t *testing.T) {
 	dims2 := r3.Vector{1, 1.5, 4}
 	eulerAngle2 := &EulerAngles{0, 45, 0}
 	pose2 := NewPose(offset2, eulerAngle2)
-	box2 := &box{pose2, [3]float64{0.5 * dims2.X, 0.5 * dims2.Y, 0.5 * dims2.Z}, 10, ""} // with abitrary radius bounding sphere
+	box2, err := NewBox(pose2, dims2, "")
+	test.That(t, err, test.ShouldBeNil)
 	output2 := box2.ToPoints(customDensity)
 
 	checkAgainst2 := []r3.Vector{

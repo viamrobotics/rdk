@@ -11,8 +11,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// sphere density corresponding to the total amount of points.
-const defaultTotalSpherePoints = 100
+// Always use at least this many points to describe a sphere.
+const defaultMinSpherePoints = 10.
 
 // sphere is a collision geometry that represents a sphere, it has a pose and a radius that fully define it.
 type sphere struct {
@@ -39,7 +39,7 @@ func (s *sphere) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-// String returns a human readable string that represents the sphereCreator.
+// String returns a human readable string that represents the sphere.
 func (s *sphere) String() string {
 	return fmt.Sprintf("Type: Sphere, Radius: %.0f", s.radius)
 }
@@ -89,6 +89,9 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereVsSphereDistance(s, other) <= CollisionBuffer, nil
 	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsSphereDistance(other, s) <= CollisionBuffer, nil
+	}
 	if other, ok := g.(*box); ok {
 		return sphereVsBoxCollision(s, other), nil
 	}
@@ -98,13 +101,15 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
 
-// CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
 func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*box); ok {
 		return sphereVsBoxDistance(s, other), nil
 	}
 	if other, ok := g.(*sphere); ok {
 		return sphereVsSphereDistance(s, other), nil
+	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsSphereDistance(other, s), nil
 	}
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.position), nil
@@ -115,6 +120,9 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereInSphere(s, other), nil
+	}
+	if other, ok := g.(*capsule); ok {
+		return sphereInCapsule(s, other), nil
 	}
 	if other, ok := g.(*box); ok {
 		return sphereInBox(s, other), nil
@@ -164,26 +172,39 @@ func sphereInBox(s *sphere, b *box) bool {
 	return -pointVsBoxDistance(s.pose.Point(), b) >= s.radius
 }
 
-// ToPointCloud converts a sphere geometry into []r3.Vector. This method takes one argument which determines
-// how many points should like on the sphere's surface. If the argument is set to 0. we automatically
-// substitute the value with defaultTotalSpherePoints.
+// sphereInCapsule returns a bool describing if the given sphere is fully encompassed by the given capsule.
+func sphereInCapsule(s *sphere, c *capsule) bool {
+	return -capsuleVsPointDistance(c, s.pose.Point()) >= s.radius
+}
+
+// ToPoints converts a sphere geometry into []r3.Vector. This method takes one argument which determines
+// how many points per sqmm should be on the sphere's surface. If the argument is set to 0. we automatically
+// substitute the value with defaultPointDensity.
 func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
+	area := 4. * math.Pi * s.radius * s.radius
 	if resolution != 0. {
-		iter = resolution
+		iter = area * resolution
 	} else {
-		iter = defaultTotalSpherePoints // default spacing
+		iter = area / defaultPointDensity // default spacing
+	}
+	if iter < defaultMinSpherePoints {
+		iter = defaultMinSpherePoints
 	}
 	// code taken from: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 	// we want the number of points on the sphere's surface to grow in proportion with the sphere's radius
-	nums := iter * s.radius * s.radius
 	phi := math.Pi * (3.0 - math.Sqrt(5.0)) // golden angle in radians
+	iterInt := int(iter)
 	var vecList []r3.Vector
-	for i := 0.; i < nums; i++ {
-		y := 1 - (i/(nums-1))*2      // y goes from 1 to -1
-		radius := math.Sqrt(1 - y*y) // radius at y
-		theta := phi * i             // golden angle increment
+	for i := 0; i < iterInt; i++ {
+		y := 1 - (float64(i)/float64(iterInt-1))*2 // y goes from 1 to -1
+		radius := math.Sqrt(1 - y*y)               // radius at y
+		// Account for floating point error
+		if y*y > 1 {
+			radius = 0
+		}
+		theta := phi * float64(i) // golden angle increment
 		x := (math.Cos(theta) * radius) * s.radius
 		z := (math.Sin(theta) * radius) * s.radius
 		vec := r3.Vector{x, y * s.radius, z}
