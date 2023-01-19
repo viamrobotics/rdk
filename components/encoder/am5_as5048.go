@@ -66,8 +66,8 @@ type AS5048Config struct {
 	BoardName string `json:"board"`
 	// We include connection type here in anticipation for
 	// future SPI support
-	ConnectionType string         `json:"connection_type"`
-	I2CAttrConfig  *i2cAttrConfig `json:"i2c_attributes,omitempty"`
+	ConnectionType string `json:"connection_type"`
+	*I2CAttrConfig `json:"i2c_attributes,omitempty"`
 }
 
 // Validate checks the attributes of an initialized config
@@ -102,13 +102,14 @@ func (conf *AS5048Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-type i2cAttrConfig struct {
+// I2CAttrConfig stores the configuration information for I2C connection
+type I2CAttrConfig struct {
 	I2CBus  string `json:"i2c_bus"`
 	I2CAddr int    `json:"i2c_addr"`
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (cfg *i2cAttrConfig) ValidateI2C(path string) error {
+func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -161,12 +162,11 @@ func newAS5048Encoder(
 		)
 	}
 	if res.connectionType == i2cConn {
-		i2cConf := attr.I2CAttrConfig
-		i2c, exists := localBoard.I2CByName(i2cConf.I2CBus)
+		i2c, exists := localBoard.I2CByName(attr.I2CBus)
 		if !exists {
-			return nil, errors.Errorf("unable to find I2C bus: %s", i2cConf.I2CBus)
+			return nil, errors.Errorf("unable to find I2C bus: %s", attr.I2CBus)
 		}
-		i2cHandle, err := i2c.OpenHandle(byte(i2cConf.I2CAddr))
+		i2cHandle, err := i2c.OpenHandle(byte(attr.I2CAddr))
 		if err != nil {
 			return nil, err
 		}
