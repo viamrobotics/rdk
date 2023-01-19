@@ -40,12 +40,14 @@ jobs:
       run: |
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
+        cat go.mod
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="${{ github.event.pull_request.base.label }}"'
         
     - name: Run motion quality tests on PR branch
       run: |
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
+        cat go.mod
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="${{ github.event.pull_request.head.label }}"'
         
     - name: Print results
