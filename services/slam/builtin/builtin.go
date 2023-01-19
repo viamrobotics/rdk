@@ -584,30 +584,7 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 		return nil, errors.Wrap(err, "error getting SLAM's internal state")
 	}
 
-	// Note: If we want to keep the saving functionality we can add FileType to the LibraryMetaData and remove this switch case
-	var fileType string
-	switch slamSvc.slamLib.AlgoName {
-	case "cartographer":
-		fileType = ".pbstream"
-	case "orbslamv3":
-		fileType = ".osa"
-	}
-
 	internalState := resp.GetInternalState()
-
-	// Currently there is no use for internalState so we are saving the file
-	timeStamp := time.Now()
-	filename := filepath.Join(slamSvc.dataDirectory, "data", "state_"+timeStamp.UTC().Format(slamTimeFormat)+""+fileType)
-	file, err := os.Create(filename)
-	if err != nil {
-		return nil, errors.Errorf("error creating new state file: %v", filename)
-	}
-
-	_, err = file.Write(internalState)
-
-	if err = file.Close(); err != nil {
-		return nil, err
-	}
 	return internalState, err
 }
 
