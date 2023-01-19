@@ -15,6 +15,9 @@ type Geometry interface {
 	Transform(Pose) Geometry
 	ToProtobuf() *commonpb.Geometry
 	CollidesWith(Geometry) (bool, error)
+	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
+	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
+	// For certain entity pairs (box-box) this may be a conservative estimate of separation distance rather than exact.
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
 	Label() string  // Label is the name of the geometry
@@ -31,8 +34,12 @@ const (
 	UnknownType     = GeometryType("")
 	BoxType         = GeometryType("box")
 	SphereType      = GeometryType("sphere")
+	CapsuleType     = GeometryType("capsule")
 	PointType       = GeometryType("point")
 	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
+
+	// Point density corresponding to how many points per square mm.
+	defaultPointDensity = .5
 )
 
 // GeometryConfig specifies the format of geometries specified through the configuration file.
@@ -46,6 +53,9 @@ type GeometryConfig struct {
 
 	// parameter used for defining a sphere's radius'
 	R float64 `json:"r"`
+
+	// parameter used for defining a capsule's length
+	L float64 `json:"l"`
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
@@ -100,6 +110,8 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label)
 	case SphereType:
 		return NewSphere(offset, config.R, config.Label)
+	case CapsuleType:
+		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case UnknownType:
@@ -109,8 +121,11 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 			if creator, err := NewBox(offset, boxDims, config.Label); err == nil {
 				return creator, nil
 			}
-		}
-		if creator, err := NewSphere(offset, config.R, config.Label); err == nil {
+		} else if config.L != 0 {
+			if creator, err := NewCapsule(offset, config.R, config.L, config.Label); err == nil {
+				return creator, nil
+			}
+		} else if creator, err := NewSphere(offset, config.R, config.Label); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified
