@@ -52,7 +52,7 @@ const power = $ref(50);
 const pressed = new Set<Keys>();
 let stopped = true;
 
-let keyboardStates = {
+const keyboardStates = {
   tempDisable: ref(false),
   isActive: ref(false),
 };
@@ -257,23 +257,23 @@ const handleVisibilityChange = () => {
 
 const tempDisableKeyboard = (disableKeyboard: boolean) => {
   keyboardStates.tempDisable.value = disableKeyboard;
-}
+};
 
 const handleToggle = () => {
-  if (keyboardStates.isActive) return;
+  if (keyboardStates.isActive) {
+    return;
+  }
 
   if (pressed.size > 0 || !stopped) {
     stop();
   }
-}
+};
 
 const handleUpdateKeyboardState = (on:boolean) => {
-  console.log('handleUpdateKeyboard');
   keyboardStates.isActive.value = on;
 };
 
 onClickOutside($$(root), () => {
-  console.log('click outside');
   keyboardStates.isActive.value = false;
 });
 
@@ -321,12 +321,12 @@ onUnmounted(() => {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
             <div class="flex flex-col gap-4">
               <KeyboardInput
+                :is-active="keyboardStates.isActive.value"
+                :temp-disable="keyboardStates.tempDisable.value"
                 @keydown="handleKeyDown"
                 @keyup="handleKeyUp"
                 @toggle="handleToggle"
                 @update-keyboard-state="isOn => { handleUpdateKeyboardState(isOn) }"
-                :is-active="keyboardStates.isActive.value"
-                :temp-disable="keyboardStates.tempDisable.value"
               />
               <v-slider
                 id="power"
