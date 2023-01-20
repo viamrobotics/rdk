@@ -127,7 +127,7 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		minZ := math.Min(math.Min(pose.Point().Z, p1.Z), p2.Z)
 		maxZ := math.Max(math.Max(pose.Point().Z, p1.Z), p2.Z)
 
-		scaleFactor := (math.Min((imageWidth-1)/(maxX-minX), (imageHeight-1)/(maxZ-minZ)))
+		scaleFactor := math.Min((imageWidth-1)/(maxX-minX), (imageHeight-1)/(maxZ-minZ))
 
 		robotMarkerExpectedPos := image.Point{
 			X: int(math.Round((pose.Point().X - minX) * scaleFactor)),
