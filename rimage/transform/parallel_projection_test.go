@@ -154,7 +154,7 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		}
 
 		colorAtPoint2 := im.GetXY(point2ExpectedPos.X, point2ExpectedPos.Y)
-		expectedPoint2Color, err := getProbabilityColorFromValue(d)
+		expectedPoint2Color, err := getColorFromProbabilityValue(d)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, colorAtPoint2, test.ShouldResemble, expectedPoint2Color)
 	})
