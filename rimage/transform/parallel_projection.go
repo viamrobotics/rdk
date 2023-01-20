@@ -124,7 +124,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	meta := cloud.MetaData()
 
 	if cloud.Size() == 0 {
-		return nil, nil, errors.New("invalid projection point cloud is empty")
+		return nil, nil, errors.New("projection point cloud is empty")
 	}
 
 	meanStdevX, meanStdevZ, err := calculatePointCloudMeanAndStdevXZ(cloud)
