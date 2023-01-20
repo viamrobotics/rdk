@@ -16,8 +16,12 @@ func TestFakeCameraHighResolution(t *testing.T) {
 	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, cam, 1280, 720, 812050, model.PinholeCameraIntrinsics, model.Distortion)
-	err = cam.Close(context.Background())
+	// (0,0) entry defaults to (1280, 720)
+	model, width, height = fakeModel(0, 0)
+	camOri = &Camera{Name: "test_high_zero", Model: model, Width: width, Height: height}
+	cam, err = camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
+	cameraTest(t, cam, 1280, 720, 812050, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
 func TestFakeCameraMedResolution(t *testing.T) {
@@ -30,14 +34,20 @@ func TestFakeCameraMedResolution(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestFakeCameraLowResolution(t *testing.T) {
+func TestFakeCameraUnspecified(t *testing.T) {
+	// one unspecified side should keep 16:9 aspect ratio
+	// (320, 0) -> (320, 180)
 	model, width, height := fakeModel(320, 0)
-	camOri := &Camera{Name: "test_low", Model: model, Width: width, Height: height}
+	camOri := &Camera{Name: "test_320", Model: model, Width: width, Height: height}
 	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, cam, 320, 180, 50717, model.PinholeCameraIntrinsics, model.Distortion)
-	err = cam.Close(context.Background())
+	// (0, 180) -> (320, 180)
+	model, width, height = fakeModel(0, 180)
+	camOri = &Camera{Name: "test_180", Model: model, Width: width, Height: height}
+	cam, err = camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
+	cameraTest(t, cam, 320, 180, 50717, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
 func cameraTest(
@@ -65,4 +75,6 @@ func cameraTest(
 	} else {
 		test.That(t, prop.DistortionParams, test.ShouldResemble, distortion)
 	}
+	err = cam.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 }
