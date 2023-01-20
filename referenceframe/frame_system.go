@@ -309,10 +309,36 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// FrameSystemToPCD in a framesystem and returns a map where all elements are the point representation
-// of their geometry type with respect to the world.
+// FrameSystemToPCD takes in a framesystem and returns a map where all elements are
+// the point representation of their geometry type with respect to the world.
 func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
+	// check to make sure the frame system is not empty
+	if system.FrameNames() == nil {
+		return vectorMap, errors.New("cannot convert empty frame system")
+	}
+	geoMap, err := FrameSystemGeometries(system, inputs)
+	if err != nil {
+		return nil, err
+	}
+	for name, geosInFrame := range geoMap {
+		geos := geosInFrame.geometries
+		for _, g := range geos {
+			asPoints := g.ToPoints(1.)
+			vectorMap[name] = asPoints
+		}
+	}
+	return vectorMap, nil
+}
+
+// FrameSystemGeometries takes in a framesystem and returns a map where all elements
+// are GeometriesInFrame modified to be with respect to the world.
+func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[string]*GeometriesInFrame, error) {
+	geoMap := make(map[string]*GeometriesInFrame)
+	// check to make sure the frame system is not empty
+	if system.FrameNames() == nil {
+		return geoMap, errors.New("cannot convert empty frame system")
+	}
 	for _, name := range system.FrameNames() {
 		currentFrame := system.Frame(name)
 		parent, err := system.Parent(currentFrame)
@@ -320,35 +346,32 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 			return nil, err
 		}
 		currentInput := inputs[name]
-		if currentInput == nil {
+		// if currentInput is nil and DoF != 0 we chose to omit the
+		// frame entirely as this would return the frame's geometries
+		// in their home or "zero" position, and not in their
+		// current position.
+		if currentInput == nil && len(currentFrame.DoF()) != 0 {
 			currentInput = make([]Input, len(currentFrame.DoF()))
 		}
-		geosInFrame, err := currentFrame.Geometries(currentInput)
-		if err != nil {
-			return nil, err
-		}
-		if parent.Name() != "world" {
-			transformed, err := system.Transform(inputs, geosInFrame, World)
+		if currentInput != nil {
+			geosInFrame, err := currentFrame.Geometries(currentInput)
 			if err != nil {
 				return nil, err
 			}
-			transformedGeo := transformed.(*GeometriesInFrame)
-			var aggregatePoints []r3.Vector
-			for _, g := range transformedGeo.Geometries() {
-				aggregatePoints = append(aggregatePoints, g.ToPoints(1.)...)
+			// if the frame's parent is not 'world' we apply a transformation
+			if parent.Name() != World {
+				transformed, err := system.Transform(inputs, geosInFrame, World)
+				if err != nil {
+					return nil, err
+				}
+				transformedGeo := transformed.(*GeometriesInFrame)
+				geoMap[name] = transformedGeo
+			} else {
+				geoMap[name] = geosInFrame
 			}
-
-			vectorMap[name] = aggregatePoints
-		} else {
-			var aggregate []r3.Vector
-			for _, g := range geosInFrame.Geometries() {
-				aggregate = append(aggregate, g.ToPoints(1.)...)
-			}
-			vectorMap[name] = aggregate
 		}
 	}
-
-	return vectorMap, nil
+	return geoMap, nil
 }
 
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
