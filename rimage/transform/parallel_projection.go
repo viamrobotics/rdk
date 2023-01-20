@@ -295,7 +295,7 @@ func calculateScaleFactor(xRange, zRange float64) float64 {
 	return scaleFactor
 }
 
-// Checks if overflow has occurred in the given variable or it is NaN.
+// Errors out if overflow has occurred in the given variable or if it is NaN.
 func safeMath(v float64, err error) (float64, error) {
 	if err != nil {
 		return 0, err
