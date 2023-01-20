@@ -160,7 +160,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight {
-			voxelColor, err = getProbabilityColorFromValue(data)
+			pointColor, err = getColorFromProbabilityValue(data)
 			if err != nil {
 				return false
 			}
