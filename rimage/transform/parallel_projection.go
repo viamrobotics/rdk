@@ -247,7 +247,7 @@ func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 
 	switch {
 	case prob < missThreshold:
-		b = uint8(255 * (prob / missThreshold))
+		b = uint8(255 * ((prob - missThreshold) / (1 - missThreshold)))
 	case prob > hitThreshold:
 		g = uint8(255 * ((prob - hitThreshold) / (1 - hitThreshold)))
 	default:
