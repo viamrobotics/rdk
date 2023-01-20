@@ -328,7 +328,9 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 			asPoints := g.ToPoints(1.)
 			aggregatePoints = append(aggregatePoints, asPoints...)
 		}
-		vectorMap[name] = aggregatePoints
+		if len(aggregatePoints) > 0 {
+			vectorMap[name] = aggregatePoints
+		}
 	}
 	return vectorMap, nil
 }
