@@ -34,6 +34,8 @@ func errDimensionsNotFound(name string, length, mmPerRev float64) error {
 		name, length, mmPerRev)
 }
 
+var errZeroLengthGantry = errors.New("zero length gantry found between position limits")
+
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
 	Board           string    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
@@ -153,10 +155,13 @@ func setUpGantry(
 }
 
 type limitSwitchGantry struct {
+	ctx context.Context
 	oAx *oneAxis
 
 	limitSwitchPins []string
 	limitHigh       bool
+	limitHitMu      sync.Mutex
+	limitsPolled    bool
 
 	mu     sync.Mutex
 	logger golog.Logger
@@ -180,22 +185,59 @@ func newLimitSwitchGantry(
 	}
 
 	g := &limitSwitchGantry{
+		ctx:             ctx,
 		limitSwitchPins: conf.LimitSwitchPins,
 		limitHigh:       *conf.LimitPinEnabled,
 		oAx:             oneAxis,
 		logger:          logger,
+		limitsPolled:    false,
 	}
 
 	if len(g.limitSwitchPins) == 1 && (g.oAx.mmPerRevolution == 0 || g.oAx.lengthMm == 0) {
 		return nil, errDimensionsNotFound(g.oAx.name, g.oAx.mmPerRevolution, g.oAx.mmPerRevolution)
 	}
 
-	for idx := range g.limitSwitchPins {
-		if err := g.limitHitChecker(ctx, idx); err != nil {
-			return nil, err
+	g.limitHitChecker()
+
+	return g, nil
+}
+
+func (g *limitSwitchGantry) limitHitChecker() {
+	// lock the mutex associated with this monitoring function
+	g.limitHitMu.Lock()
+	// check if the state is false
+	if !g.limitsPolled {
+		return
+	}
+	// we know we are monitoring the limit switches in this gantry,
+	// return if the limitHits are already being checked
+	g.limitsPolled = true
+	g.limitHitMu.Unlock()
+
+	var errs error
+	for {
+		select {
+		case <-g.ctx.Done():
+			return
+		default:
+		}
+		for idx := range g.limitSwitchPins {
+			hit, err := g.limitHit(g.ctx, idx)
+			if hit || err != nil {
+				g.limitHitMu.Lock()
+				g.limitsPolled = false
+				g.limitHitMu.Unlock()
+				errs := multierr.Combine(errs, err)
+				// motor operation manager cancels running
+				err = g.oAx.motor.Stop(g.ctx, nil)
+				errs = multierr.Combine(errs, err)
+				if errs != nil {
+					g.logger.Error(errs)
+					return
+				}
+			}
 		}
 	}
-	return g, nil
 }
 
 func (g *limitSwitchGantry) limitHit(ctx context.Context, offset int) (bool, error) {
@@ -209,32 +251,6 @@ func (g *limitSwitchGantry) limitHit(ctx context.Context, offset int) (bool, err
 	high, err := pin.Get(ctx, nil)
 
 	return high == g.limitHigh, err
-}
-
-func (g *limitSwitchGantry) limitHitChecker(
-	ctx context.Context,
-	limInt int,
-) error {
-	var errs error
-	g.oAx.activeBackGroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			hit, err := g.limitHit(ctx, limInt)
-			if hit || err != nil {
-				errs = multierr.Combine(errs, err)
-				// motor operation manager cancels running
-				err = g.oAx.motor.Stop(ctx, nil)
-				errs = multierr.Combine(errs, err)
-				return
-			}
-		}
-	}, g.oAx.activeBackGroundWorkers.Done)
-	return errs
 }
 
 func (g *limitSwitchGantry) testLimit(ctx context.Context, limInt int) (float64, error) {
@@ -310,7 +326,7 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 	g.oAx.positionLimits = []float64{positionA, positionB}
 
 	if g.oAx.gantryRange = positionB - positionA; g.oAx.gantryRange == 0 {
-		return errors.New("zero range gantry found between position limits")
+		return errZeroLengthGantry
 	}
 
 	// Go backwards so limit stops are not hit.

@@ -21,7 +21,10 @@ import (
 const (
 	motorName = "x"
 	testGName = "test"
-	counter   = 1
+)
+
+var (
+	count = 0
 )
 
 func createfakemotor() motor.Motor {
@@ -30,7 +33,7 @@ func createfakemotor() motor.Motor {
 			return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 		},
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-			return float64(counter), nil
+			return float64(count + 1), nil
 		}, ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil },
 		GoToFunc:     func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error { return nil },
 		GoForFunc:    func(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error { return nil },
@@ -157,11 +160,11 @@ func TestNewGantryTypes(t *testing.T) {
 	fakecfg.ConvertedAttributes.(*AttrConfig).LimitPinEnabled = &setTrue
 	fakecfg.ConvertedAttributes.(*AttrConfig).LimitSwitchPins = []string{"1", "2"}
 	fakegantry, err = setUpGantry(ctx, deps, fakecfg, logger)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, errZeroLengthGantry)
 	_, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = fakegantry.(*limitSwitchGantry)
-	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ok, test.ShouldBeFalse)
 
 	fakecfg.ConvertedAttributes.(*AttrConfig).LimitSwitchPins = []string{"1"}
 	fakegantry, err = setUpGantry(ctx, deps, fakecfg, logger)
@@ -237,14 +240,14 @@ func TestHome(t *testing.T) {
 
 	err := fakeOneAx.homeEncoder(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	lastPos := counter + int(fakeOneAx.lengthMm)/int(fakeOneAx.mmPerRevolution)
-	test.That(t, fakeOneAx.positionLimits, test.ShouldResemble, []float64{float64(counter), float64(lastPos)})
+	lastPos := count + int(fakeOneAx.lengthMm)/int(fakeOneAx.mmPerRevolution) + 1
+	test.That(t, fakeOneAx.positionLimits, test.ShouldResemble, []float64{float64(count) + 1, float64(lastPos)})
 
 	fakeLimited.limitSwitchPins = []string{"1"}
 	err = fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
 	test.That(t, err, test.ShouldBeNil)
-	lastPos = counter + int(fakeLimited.oAx.lengthMm)
-	test.That(t, fakeLimited.oAx.positionLimits, test.ShouldResemble, []float64{float64(counter), float64(lastPos)})
+	lastPos = count + int(fakeLimited.oAx.lengthMm) + 1
+	test.That(t, fakeLimited.oAx.positionLimits, test.ShouldResemble, []float64{float64(count + 1), float64(lastPos)})
 
 	fakeLimited.oAx.lengthMm = 0
 	err = fakeLimited.homeWithLimSwitch(ctx, fakeLimited.limitSwitchPins)
@@ -289,11 +292,11 @@ func TestTestLimit(t *testing.T) {
 
 	pos, err := fakegantry.testLimit(ctx, 0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldEqual, counter)
+	test.That(t, pos, test.ShouldEqual, count+1) // we called inject motors move position once
 
 	pos, err = fakegantry.testLimit(ctx, 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldEqual, counter)
+	test.That(t, pos, test.ShouldEqual, count+1) // same as l295
 }
 
 func TestLimitHit(t *testing.T) {
