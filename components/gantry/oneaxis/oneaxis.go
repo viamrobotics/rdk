@@ -3,7 +3,6 @@ package oneaxis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -136,7 +135,7 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	if g.gantryRange = positionB - positionA; g.gantryRange == 0 {
-		return errors.New("zero range gantry found between position limits")
+		return errZeroLengthGantry
 	}
 
 	return nil
