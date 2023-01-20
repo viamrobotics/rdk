@@ -164,7 +164,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 			if err != nil {
 				return false
 			}
-			im.Circle(image.Point{X: x, Y: y}, pointRadius, voxelColor)
+			im.Circle(image.Point{X: x, Y: y}, pointRadius, pointColor)
 		}
 		return true
 	})
