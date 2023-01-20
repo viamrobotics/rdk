@@ -287,9 +287,9 @@ func calculatePointCloudMeanAndStdevXZ(cloud pointcloud.PointCloud) (meanStdev, 
 // if needed based on the mean and standard deviation of the X and Z coordinates.
 func calculateScaleFactor(xRange, zRange float64) float64 {
 	var scaleFactor float64
-	if (xRange) != 0 || (zRange) != 0 {
-		widthScaleFactor := float64(imageWidth-1) / (xRange)
-		heightScaleFactor := float64(imageHeight-1) / (zRange)
+	if xRange != 0 || zRange != 0 {
+		widthScaleFactor := float64(imageWidth-1) / xRange
+		heightScaleFactor := float64(imageHeight-1) / zRange
 		scaleFactor = math.Min(widthScaleFactor, heightScaleFactor)
 	}
 	return scaleFactor
