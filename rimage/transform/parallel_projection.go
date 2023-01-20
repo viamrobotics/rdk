@@ -197,7 +197,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 	return r3.Vector{}, errors.New("converting an image point to a 3D point is currently unimplemented for this projection")
 }
 
-// getProbabilityColorFromValue returns an RGB color value based on the probability value and defined hit and miss
+// getColorFromProbabilityValue returns an RGB color value based on the probability value and defined hit and miss
 // thresholds
 // TODO (RSDK-1705): Once probability values are available, a temporary algorithm is being used based on Cartographer's method
 // of painting images. Currently this function will return a shade of green if the probability is above the hit threshold and
