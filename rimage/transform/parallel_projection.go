@@ -107,13 +107,13 @@ type ParallelProjectionOntoXZWithRobotMarker struct {
 }
 
 const (
-	sigmaLevel       = 7
-	imageHeight      = 1080
-	imageWidth       = 1070
-	missThreshold    = 0.44
-	hitThreshold     = 0.53
-	voxelRadius      = 1
-	robotMarkerRatio = 5
+	sigmaLevel        = 7    // level of precision for stdev calculation (determined through experimentation)
+	imageHeight       = 1080 // image height
+	imageWidth        = 1080 // image width
+	missThreshold     = 0.44 // percentage at below which any probability point is will be colored a miss
+	hitThreshold      = 0.53 // percentage at above which any probability point is will be colored a hit
+	pointRadius       = 1    // radius of pointcloud point
+	robotMarkerRadius = 5    // radius of robot marker point
 )
 
 // PointCloudToRGBD creates an image of a pointcloud in the XZ plane, scaling the points to a standard image
@@ -123,7 +123,10 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	meta := cloud.MetaData()
 
-	var err error
+	if cloud.Size() == 0 {
+		return nil, nil, errors.New("invalid projection point cloud is empty")
+	}
+
 	var X, Z []float64
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		X = append(X, pt.X)
@@ -135,20 +138,20 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	// the mean and standard deviation of the X and Z coordinates
 	meanX, err := stats.Mean(X)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "calculation of the X-coord's mean during pcd projection failed")
+		return nil, nil, errors.Wrap(err, "unable to calculate mean of X values on given point cloud")
 	}
 	stdevX, err := stats.StandardDeviation(X)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "calculation of the X-coord's stdev during pcd projection failed")
+		return nil, nil, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
 	}
 
 	meanZ, err := stats.Mean(Z)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "calculation of the Z-coord's mean during pcd projection failed")
+		return nil, nil, errors.Wrap(err, "unable to calculate mean of Z values on given point cloud")
 	}
 	stdevZ, err := stats.StandardDeviation(Z)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "calculation of the Z-coord's stdev during pcd projection failed")
+		return nil, nil, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
 	}
 
 	maxX := math.Min(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
@@ -188,7 +191,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 			if err != nil {
 				return false
 			}
-			im.Circle(image.Point{x, y}, voxelRadius, voxelColor)
+			im.Circle(image.Point{X: x, Y: y}, pointRadius, voxelColor)
 		}
 		return true
 	})
@@ -201,9 +204,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	if ppRM.robotPose != nil {
 		x := int(math.Round((robotMarker.Point().X - minX) * scaleFactor))
 		y := int(math.Round((robotMarker.Point().Z - minZ) * scaleFactor))
-
 		robotMarkerColor := rimage.NewColor(255, 0, 0)
-		im.Circle(image.Point{X: x, Y: y}, voxelRadius, robotMarkerColor)
+		im.Circle(image.Point{X: x, Y: y}, robotMarkerRadius, robotMarkerColor)
 	}
 	return im, nil, nil
 }
@@ -214,7 +216,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
 	dm *rimage.DepthMap,
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
-	return nil, errors.New("converting a RGB image to Pointcloud is currently unimplemented for this projection")
+	return nil, errors.New("converting an RGB image to Pointcloud is currently unimplemented for this projection")
 }
 
 // ImagePointTo3DPoint is unimplemented and will produce an error.
@@ -224,7 +226,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 
 // getProbabilityColorFromValue returns an RGB color value based on the probability value and defined hit and miss
 // thresholds
-// TODO (RSDK-1705): Once probability values are available this function should be changed to produced desired images.
+// TODO (RSDK-1705): Once probability values are available, a temporary algorithm is being used based on Cartographer's method
+// of painting images.
 func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 	var r, g, b uint8
 
@@ -234,7 +237,7 @@ func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 
 	if d.Value() > 100 || d.Value() < 0 {
 		return rimage.NewColor(0, 0, 0),
-			errors.Errorf("error received a value of %v which is outside the range (0 - 100) representing probabilities", d.Value())
+			errors.Errorf("received a value of %v which is outside the range (0 - 100) representing probabilities", d.Value())
 	}
 
 	prob := float64(d.Value()) / 100.
