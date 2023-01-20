@@ -62,6 +62,22 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 
+	t.Run("Project a pointcloud with NaN positional value", func(t *testing.T) {
+		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
+
+		pointcloud := pc.New()
+
+		p1 := r3.Vector{X: math.NaN(), Y: 0, Z: 0}
+		err := pointcloud.Set(p1, pc.NewBasicData())
+		test.That(t, err, test.ShouldBeNil)
+
+		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "NaN detected")
+		test.That(t, im, test.ShouldBeNil)
+		test.That(t, unusedDepthMap, test.ShouldBeNil)
+	})
+
 	t.Run("Project a single point pointcloud with no data", func(t *testing.T) {
 		pose := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&pose)
