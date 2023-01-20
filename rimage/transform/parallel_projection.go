@@ -127,39 +127,15 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		return nil, nil, errors.New("invalid projection point cloud is empty")
 	}
 
-	var X, Z []float64
-	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
-		X = append(X, pt.X)
-		Z = append(Z, pt.Z)
-		return true
-	})
-
-	// Calculate max and min range to be represented in the output image and, if needed, cropping it based on
-	// the mean and standard deviation of the X and Z coordinates
-	meanX, err := safeMath(stats.Mean(X))
+	meanStdevX, meanStdevZ, err := calculatePointCloudMeanAndStdevXZ(cloud)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate mean of X values on the given point cloud")
+		return nil, nil, err
 	}
 
-	stdevX, err := safeMath(stats.StandardDeviation(X))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate stdev of X values on the given point cloud")
-	}
-
-	meanZ, err := safeMath(stats.Mean(Z))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate mean of Z values on the given point cloud")
-	}
-
-	stdevZ, err := safeMath(stats.StandardDeviation(Z))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate stdev of Z values on the given point cloud")
-	}
-
-	maxX := math.Min(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
-	minX := math.Max(meanX-float64(sigmaLevel)*stdevX, meta.MinX)
-	maxZ := math.Min(meanZ+float64(sigmaLevel)*stdevZ, meta.MaxZ)
-	minZ := math.Max(meanZ-float64(sigmaLevel)*stdevZ, meta.MinZ)
+	maxX := math.Min(meanStdevX.mean+float64(sigmaLevel)*meanStdevZ.stdev, meta.MaxX)
+	minX := math.Max(meanStdevX.mean-float64(sigmaLevel)*meanStdevZ.stdev, meta.MinX)
+	maxZ := math.Min(meanStdevZ.mean+float64(sigmaLevel)*meanStdevZ.stdev, meta.MaxZ)
+	minZ := math.Max(meanStdevZ.mean-float64(sigmaLevel)*meanStdevZ.stdev, meta.MinZ)
 
 	// Change the max and min values to ensure the robot marker can be represented in the output image
 	var robotMarker spatialmath.Pose
@@ -172,12 +148,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	}
 
 	// Calculate the scale factors
-	var scaleFactor float64
-	if (maxX-minX) != 0 || (maxZ-minZ) != 0 {
-		widthScaleFactor := float64(imageWidth-1) / (maxX - minX)
-		heightScaleFactor := float64(imageHeight-1) / (maxZ - minZ)
-		scaleFactor = math.Min(widthScaleFactor, heightScaleFactor)
-	}
+	scaleFactor := calculateScaleFactor(maxX-minX, maxZ-minZ)
 
 	// Add points in the pointcloud to a new image
 	var voxelColor rimage.Color
@@ -188,7 +159,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
-		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight && data != nil {
+		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight {
 			voxelColor, err = getProbabilityColorFromValue(data)
 			if err != nil {
 				return false
@@ -234,6 +205,10 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 	var r, g, b uint8
 
+	if d == nil {
+		return rimage.NewColor(0, 0, 0), errors.New("data received was null")
+	}
+
 	if !d.HasValue() {
 		return rimage.NewColor(255, 255, 255), nil
 	}
@@ -258,9 +233,65 @@ func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 }
 
 // NewParallelProjectionOntoXZWithRobotMarker creates a new ParallelProjectionOntoXZWithRobotMarker with the given
-// robot pose, if.
+// robot pose.
 func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXZWithRobotMarker {
 	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}
+}
+
+// Struct containing the mean and stdev.
+type meanStdev struct {
+	mean  float64
+	stdev float64
+}
+
+// Calculates the mean and standard deviation of the X and Z coordinates stored in the point cloud.
+func calculatePointCloudMeanAndStdevXZ(cloud pointcloud.PointCloud) (meanStdev, meanStdev, error) {
+	var X, Z []float64
+	var x, z meanStdev
+
+	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
+		X = append(X, pt.X)
+		Z = append(Z, pt.Z)
+		return true
+	})
+
+	meanX, err := safeMath(stats.Mean(X))
+	if err != nil {
+		return x, z, errors.Wrap(err, "unable to calculate mean of X values on given point cloud")
+	}
+	x.mean = meanX
+
+	stdevX, err := safeMath(stats.StandardDeviation(X))
+	if err != nil {
+		return x, z, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
+	}
+	x.stdev = stdevX
+
+	meanZ, err := safeMath(stats.Mean(Z))
+	if err != nil {
+		return x, z, errors.Wrap(err, "unable to calculate mean of Z values on given point cloud")
+	}
+	z.mean = meanZ
+
+	stdevZ, err := safeMath(stats.StandardDeviation(Z))
+	if err != nil {
+		return x, z, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
+	}
+	z.stdev = stdevZ
+
+	return x, z, nil
+}
+
+// Calculates the scaling factor needed to fit the projected pointcloud to the desired image size, cropping it
+// if needed based on the mean and standard deviation of the X and Z coordinates.
+func calculateScaleFactor(xRange, zRange float64) float64 {
+	var scaleFactor float64
+	if (xRange) != 0 || (zRange) != 0 {
+		widthScaleFactor := float64(imageWidth-1) / (xRange)
+		heightScaleFactor := float64(imageHeight-1) / (zRange)
+		scaleFactor = math.Min(widthScaleFactor, heightScaleFactor)
+	}
+	return scaleFactor
 }
 
 // Checks if overflow has occurred in the given variable or it is NaN.
