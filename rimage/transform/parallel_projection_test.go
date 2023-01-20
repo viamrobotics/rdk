@@ -24,6 +24,7 @@ func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int
 		return nil, err
 	}
 	pcd, err := pc.ReadPCD(pcdFile)
+	fmt.Println(pcd.Size())
 	if err != nil {
 		return nil, err
 	}

@@ -229,7 +229,8 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 // getProbabilityColorFromValue returns an RGB color value based on the probability value and defined hit and miss
 // thresholds
 // TODO (RSDK-1705): Once probability values are available, a temporary algorithm is being used based on Cartographer's method
-// of painting images.
+// of painting images. Currently this function will return a shade of green if the probability is above the hit threshold and
+// a shade of blue if it is below the miss threshold. These shades will be more distinct the further from the threshold they are.
 func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 	var r, g, b uint8
 
