@@ -202,7 +202,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt imag
 // TODO (RSDK-1705): Once probability values are available, a temporary algorithm is being used based on Cartographer's method
 // of painting images. Currently this function will return a shade of green if the probability is above the hit threshold and
 // a shade of blue if it is below the miss threshold. These shades will be more distinct the further from the threshold they are.
-func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
+func getColorFromProbabilityValue(d pointcloud.Data) (rimage.Color, error) {
 	var r, g, b uint8
 
 	if d == nil {
