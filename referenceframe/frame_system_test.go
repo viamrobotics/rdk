@@ -259,10 +259,8 @@ func TestFrameSystemToPCD(t *testing.T) {
 	frame1, err := NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(frame1, frame0)
-
-	inputs := make(map[string][]Input)
-	inputs["frame0"] = make([]Input, 0)
-	inputs["frame1"] = make([]Input, 0)
+	// -----
+	inputs := StartPositions(fs)
 	outMap, err := FrameSystemToPCD(fs, inputs)
 	test.That(t, err, test.ShouldBeNil)
 	//nolint:dupl
@@ -332,6 +330,32 @@ func TestFrameSystemToPCD(t *testing.T) {
 	}
 
 	// --------------------------------------------
+	// test where we incorrectly define the frame system, i.e. with nil parent for frame0
+	fs = NewEmptySimpleFrameSystem("test")
+	// ------
+	name0 = "frame0"
+	pose0 = spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
+	dims0 = r3.Vector{2, 2, 2}
+	geomCreator0, err = spatial.NewBox(pose0, dims0, "box0")
+	test.That(t, err, test.ShouldBeNil)
+	frame0, err = NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame0, nil)
+	// -----
+	name1 = "frame1"
+	pose1 = spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	dims1 = r3.Vector{2, 2, 2}
+	geomCreator1, err = spatial.NewBox(pose1, dims1, "box1")
+	test.That(t, err, test.ShouldBeNil)
+	frame1, err = NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame1, frame0)
+	// -----
+	inputs = StartPositions(fs)
+	_, err = FrameSystemToPCD(fs, inputs)
+	test.That(t, err, test.ShouldBeError)
+
+	// --------------------------------------------
 	// here we are testing an arm with a block attached to the end effector
 	fs = NewEmptySimpleFrameSystem("test")
 	logger := golog.NewTestLogger(t)
@@ -341,7 +365,6 @@ func TestFrameSystemToPCD(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 	test.That(t, err, test.ShouldBeNil)
-
 	lc := &LinkConfig{
 		ID:          "test",
 		Parent:      "world",
@@ -366,10 +389,35 @@ func TestFrameSystemToPCD(t *testing.T) {
 	blockFrame, err := NewStaticFrameWithGeometry(blockName, pose1, blockGeomCreator)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(blockFrame, armFrame)
-
-	inputs = make(map[string][]Input)
-	inputs["test"] = make([]Input, 6)
-	inputs["block"] = make([]Input, 0)
+	// -----
+	inputs = StartPositions(fs)
 	_, err = FrameSystemToPCD(fs, inputs)
 	test.That(t, err, test.ShouldBeNil)
+	// pc1, err := pointcloud.VectorsToPointCloud(outMap["test"], color.NRGBA{0, 0, 255, 255})
+	// test.That(t, err, test.ShouldBeNil)
+	// pc2, err := pointcloud.VectorsToPointCloud(outMap["block"], color.NRGBA{255, 0, 0, 255})
+	// test.That(t, err, test.ShouldBeNil)
+	// var cluster []pointcloud.PointCloud
+	// cluster = append(cluster, pc1, pc2)
+	// merged, err := pointcloud.MergePointCloudsWithColor(cluster)
+	// test.That(t, err, test.ShouldBeNil)
+
+	// f, err := os.OpenFile("testAgainst.pcd", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// err = pointcloud.ToPCD(merged, f, 0)
+	// test.That(t, err, test.ShouldBeNil)
+	// f.Close()
+
+	// b, err := ioutil.ReadFile("testAgainst.pcd")
+	// test.That(t, err, test.ShouldBeNil)
+	// asBytes := md5.Sum(b)
+
+	// fmt.Println("asBytes: ", asBytes)
+	// fmt.Printf("%x", asBytes)
+
+	// err = os.Remove("testAgainst.pcd")
+	// test.That(t, err, test.ShouldBeNil)
+
 }
