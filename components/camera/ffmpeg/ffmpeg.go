@@ -170,7 +170,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	})
 
 	ffCam.VideoReader = reader
-	return camera.NewFromReader(ctx, ffCam, &transform.PinholeCameraModel{attrs.CameraParameters, nil}, camera.ColorStream)
+	return camera.NewFromReader(ctx, ffCam, &transform.PinholeCameraModel{PinholeCameraIntrinsics: attrs.CameraParameters}, camera.ColorStream)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {
