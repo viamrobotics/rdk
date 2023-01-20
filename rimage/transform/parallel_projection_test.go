@@ -16,39 +16,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// Helper function that makes and returns a PointCloud from an artifact path consisting of the first numPoints of points.
-func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pc.PointCloud, error) {
-	t.Helper()
-	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
-	if err != nil {
-		return nil, err
-	}
-	pcd, err := pc.ReadPCD(pcdFile)
-	if err != nil {
-		return nil, err
-	}
-
-	if numPoints == 0 {
-		return pcd, nil
-	}
-
-	shortenedPC := pc.NewWithPrealloc(numPoints)
-
-	counter := numPoints
-	pcd.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
-		if counter > 0 {
-			err = shortenedPC.Set(p, d)
-			counter--
-		}
-		return err == nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return shortenedPC, nil
-}
-
 func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 	t.Run("Project an empty pointcloud", func(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
@@ -196,13 +163,63 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
 		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&p)
 
-		startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
+		pcdFile, err := os.Open(artifact.MustPath("pointcloud/test_short.pcd"))
 		test.That(t, err, test.ShouldBeNil)
 
-		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(startPC)
+		PC, err := pc.ReadPCD(pcdFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(PC)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
 		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
+	})
+
+	t.Run("Test that projecting two offset pointclouds will produce same image", func(t *testing.T) {
+		// Image 1
+		pose := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
+		ppRM := NewParallelProjectionOntoXZWithRobotMarker(&pose)
+
+		pointcloud := pc.New()
+		d := pc.NewBasicData()
+		p1 := r3.Vector{X: -2, Y: 10, Z: -3}
+		err := pointcloud.Set(p1, d)
+		test.That(t, err, test.ShouldBeNil)
+		p2 := r3.Vector{X: 10, Y: 10, Z: 10}
+		err = pointcloud.Set(p2, d)
+		test.That(t, err, test.ShouldBeNil)
+
+		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, im.Width(), test.ShouldEqual, imageWidth)
+		test.That(t, im.Height(), test.ShouldEqual, imageHeight)
+		test.That(t, unusedDepthMap, test.ShouldBeNil)
+
+		// Image 2
+		offset := r3.Vector{X: 7, Y: -19, Z: 2}
+
+		pose1 := spatialmath.NewPose(
+			r3.Vector{X: pose.Point().X + offset.X, Y: pose.Point().Y + offset.Y, Z: pose.Point().Z + offset.Z},
+			spatialmath.NewOrientationVector(),
+		)
+		ppRM1 := NewParallelProjectionOntoXZWithRobotMarker(&pose1)
+
+		pointcloud = pc.New()
+		d = pc.NewBasicData()
+		p1 = r3.Vector{X: p1.X + offset.X, Y: p1.Y + offset.Y, Z: p1.Z + offset.Z}
+		err = pointcloud.Set(p1, d)
+		test.That(t, err, test.ShouldBeNil)
+		p2 = r3.Vector{X: p2.X + offset.X, Y: p2.Y + offset.Y, Z: p2.Z + offset.Z}
+		err = pointcloud.Set(p2, d)
+		test.That(t, err, test.ShouldBeNil)
+
+		im1, unusedDepthMap1, err := ppRM1.PointCloudToRGBD(pointcloud)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, im1.Width(), test.ShouldEqual, imageWidth)
+		test.That(t, im1.Height(), test.ShouldEqual, imageHeight)
+		test.That(t, unusedDepthMap1, test.ShouldBeNil)
+
+		test.That(t, im, test.ShouldResemble, im1)
 	})
 }
