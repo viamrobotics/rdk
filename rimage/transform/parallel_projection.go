@@ -110,8 +110,8 @@ const (
 	sigmaLevel        = 7    // level of precision for stdev calculation (determined through experimentation)
 	imageHeight       = 1080 // image height
 	imageWidth        = 1080 // image width
-	missThreshold     = 0.44 // percentage at below which any probability point is will be colored a miss
-	hitThreshold      = 0.53 // percentage at above which any probability point is will be colored a hit
+	missThreshold     = 0.44 // probability limit below which the associated point is assumed to be free space
+	hitThreshold      = 0.53 // probability limit above which the associated point is assumed to indicate an obstacle
 	pointRadius       = 1    // radius of pointcloud point
 	robotMarkerRadius = 5    // radius of robot marker point
 )
