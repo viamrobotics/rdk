@@ -3,7 +3,6 @@ package mpu6050
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -248,11 +247,10 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 	gz := int(rutils.Int16FromBytesBE(data[4:6]))
 
 	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
-	radiansPerDegree := math.Pi / 180.0
 	return spatialmath.AngularVelocity{
-		X: setScale(gx, maxRotation*radiansPerDegree),
-		Y: setScale(gy, maxRotation*radiansPerDegree),
-		Z: setScale(gz, maxRotation*radiansPerDegree),
+		X: setScale(gx, maxRotation),
+		Y: setScale(gy, maxRotation),
+		Z: setScale(gz, maxRotation),
 	}
 }
 
