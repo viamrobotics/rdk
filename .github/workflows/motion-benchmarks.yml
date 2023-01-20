@@ -37,23 +37,29 @@ jobs:
       env: 
         BRANCH: ${{ github.event.pull_request.base.label }}
       run: |
+        echo $BRANCH
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name=$BRANCH'
+        ls results/$BRANCH/
         
     - name: Run motion quality tests on PR branch
       env:
         BRANCH: ${{ github.event.pull_request.head.label }}
       run: |
+        echo $BRANCH
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name=$BRANCH'
+        ls results/$BRANCH/
         
     - name: Print results
       env:
         BASELINE: ${{ github.event.pull_request.base.label }}
         MODIFIED: ${{ github.event.pull_request.head.label }}
       run: |
+        echo $BASELINE
+        echo $MODIFIED
         cd motion-testing
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED'
         cat results/motion-benchmarks.md
