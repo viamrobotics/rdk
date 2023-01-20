@@ -136,22 +136,24 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 
 	// Calculate max and min range to be represented in the output image and, if needed, cropping it based on
 	// the mean and standard deviation of the X and Z coordinates
-	meanX, err := stats.Mean(X)
+	meanX, err := safeMath(stats.Mean(X))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate mean of X values on given point cloud")
-	}
-	stdevX, err := stats.StandardDeviation(X)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
+		return nil, nil, errors.Wrap(err, "unable to calculate mean of X values on the given point cloud")
 	}
 
-	meanZ, err := stats.Mean(Z)
+	stdevX, err := safeMath(stats.StandardDeviation(X))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate mean of Z values on given point cloud")
+		return nil, nil, errors.Wrap(err, "unable to calculate stdev of X values on the given point cloud")
 	}
-	stdevZ, err := stats.StandardDeviation(Z)
+
+	meanZ, err := safeMath(stats.Mean(Z))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
+		return nil, nil, errors.Wrap(err, "unable to calculate mean of Z values on the given point cloud")
+	}
+
+	stdevZ, err := safeMath(stats.StandardDeviation(Z))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to calculate stdev of Z values on the given point cloud")
 	}
 
 	maxX := math.Min(meanX+float64(sigmaLevel)*stdevX, meta.MaxX)
@@ -258,4 +260,18 @@ func getProbabilityColorFromValue(d pointcloud.Data) (rimage.Color, error) {
 // robot pose, if.
 func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXZWithRobotMarker {
 	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}
+}
+
+// Checks if overflow has occurred in the given variable or it is NaN.
+func safeMath(v float64, err error) (float64, error) {
+	if err != nil {
+		return 0, err
+	}
+	switch {
+	case math.IsInf(v, 0):
+		return 0, errors.New("overflow detected")
+	case math.IsNaN(v):
+		return 0, errors.New("NaN detected")
+	}
+	return v, nil
 }
