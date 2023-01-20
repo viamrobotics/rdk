@@ -20,14 +20,20 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
+var (
+	modelSingle = resource.NewDefaultModel("single_stream")
+	modelDual   = resource.NewDefaultModel("dual_stream")
+)
+
 func init() {
-	registry.RegisterComponent(camera.Subtype, "single_stream",
+	registry.RegisterComponent(camera.Subtype, modelSingle,
 		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -38,7 +44,7 @@ func init() {
 			return NewServerSource(ctx, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "single_stream",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelSingle,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ServerAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -53,7 +59,7 @@ func init() {
 		},
 		&ServerAttrs{})
 
-	registry.RegisterComponent(camera.Subtype, "dual_stream",
+	registry.RegisterComponent(camera.Subtype, modelDual,
 		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -64,7 +70,7 @@ func init() {
 			return newDualServerSource(ctx, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "dual_stream",
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDual,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf dualServerAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
@@ -112,10 +118,11 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.ImageType(cfg.Stream),
 	}
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,
-		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		&cameraModel,
 		videoSrc.Stream,
 	)
 }
@@ -248,10 +255,11 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		stream:     camera.ImageType(cfg.Stream),
 		Intrinsics: cfg.CameraParameters,
 	}
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewFromReader(
 		ctx,
 		videoSrc,
-		&transform.PinholeCameraModel{cfg.CameraParameters, cfg.DistortionParameters},
+		&cameraModel,
 		videoSrc.stream,
 	)
 }

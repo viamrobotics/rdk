@@ -62,7 +62,7 @@ func TestArmRemoteControl(t *testing.T) {
 	fakeArm, _ := fakearm.NewArm(
 		config.Component{
 			Name:                arm.Subtype.String(),
-			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName6DOF},
+			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: string(xarm.ModelName6DOF.Name)},
 		},
 		logger,
 	)

@@ -1,4 +1,4 @@
-package config
+package config_test
 
 import (
 	"bytes"
@@ -18,12 +18,14 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	watcher, err := NewWatcher(context.Background(), &Config{}, logger)
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	timer := time.NewTimer(time.Second)
@@ -44,10 +46,10 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	watcher, err := NewWatcher(context.Background(), &Config{ConfigFilePath: temp.Name()}, logger)
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{ConfigFilePath: temp.Name()}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	writeConf := func(conf *Config) {
+	writeConf := func(conf *config.Config) {
 		md, err := json.Marshal(&conf)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, os.WriteFile(temp.Name(), md, 0o755), test.ShouldBeNil)
@@ -61,13 +63,16 @@ func TestNewWatcherFile(t *testing.T) {
 		}
 	}
 
-	confToWrite := Config{
+	confToWrite := config.Config{
 		ConfigFilePath: temp.Name(),
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.Subtype.ResourceSubtype,
+				API:       arm.Subtype,
 				Name:      "hello",
-				Attributes: AttributeMap{
+				Model:     resource.NewDefaultModel("hello"),
+				Attributes: config.AttributeMap{
 					"world": 1.0,
 				},
 			},
@@ -78,10 +83,10 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "echo",
 			},
 		},
-		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
 			BindAddress: "localhost:8080",
-			Sessions: SessionsConfig{
-				HeartbeatWindow: DefaultSessionHeartbeatWindow,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
 	}
@@ -90,13 +95,16 @@ func TestNewWatcherFile(t *testing.T) {
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
-	confToWrite = Config{
+	confToWrite = config.Config{
 		ConfigFilePath: temp.Name(),
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.Subtype.ResourceSubtype,
+				API:       arm.Subtype,
 				Name:      "world",
-				Attributes: AttributeMap{
+				Model:     resource.NewDefaultModel("world"),
+				Attributes: config.AttributeMap{
 					"hello": 1.0,
 				},
 			},
@@ -107,10 +115,10 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "bar",
 			},
 		},
-		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
 			BindAddress: "localhost:8080",
-			Sessions: SessionsConfig{
-				HeartbeatWindow: DefaultSessionHeartbeatWindow,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
 	}
@@ -138,13 +146,16 @@ func TestNewWatcherFile(t *testing.T) {
 	case <-timer.C:
 	}
 
-	confToWrite = Config{
+	confToWrite = config.Config{
 		ConfigFilePath: temp.Name(),
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.Subtype.ResourceSubtype,
+				API:       arm.Subtype,
 				Name:      "woo",
-				Attributes: AttributeMap{
+				Model:     resource.NewDefaultModel("woo"),
+				Attributes: config.AttributeMap{
 					"wah": 1.0,
 				},
 			},
@@ -155,10 +166,10 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "mah",
 			},
 		},
-		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
 			BindAddress: "localhost:8080",
-			Sessions: SessionsConfig{
-				HeartbeatWindow: DefaultSessionHeartbeatWindow,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
 	}
@@ -179,14 +190,14 @@ func TestNewWatcherCloud(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	certsToReturn := Cloud{
+	certsToReturn := config.Cloud{
 		TLSCertificate: "hello",
 		TLSPrivateKey:  "world",
 	}
 
 	cloudID := primitive.NewObjectID().Hex()
 
-	var confToReturn Config
+	var confToReturn config.Config
 	var confErr bool
 	var confMu sync.Mutex
 	var certsOnce bool
@@ -240,7 +251,7 @@ func TestNewWatcherCloud(t *testing.T) {
 		httpServer.Serve(listener)
 	}()
 
-	cloudConf := &Cloud{
+	cloudConf := &config.Cloud{
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
 		ID:              cloudID,
 		Secret:          "my_secret",
@@ -248,13 +259,16 @@ func TestNewWatcherCloud(t *testing.T) {
 		LocalFQDN:       "yee",
 		RefreshInterval: time.Second,
 	}
-	confToReturn = Config{
+	confToReturn = config.Config{
 		Cloud: cloudConf,
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.Subtype.ResourceSubtype,
+				API:       arm.Subtype,
 				Name:      "hello",
-				Attributes: AttributeMap{
+				Model:     resource.NewDefaultModel("hello"),
+				Attributes: config.AttributeMap{
 					"world": 1.0,
 				},
 			},
@@ -265,10 +279,10 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "echo",
 			},
 		},
-		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
 			BindAddress: "localhost:8080",
-			Sessions: SessionsConfig{
-				HeartbeatWindow: DefaultSessionHeartbeatWindow,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
 	}
@@ -277,19 +291,22 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 
-	watcher, err := NewWatcher(context.Background(), &Config{Cloud: cloudConf}, logger)
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: cloudConf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	confToReturn = Config{
+	confToReturn = config.Config{
 		Cloud: cloudConf,
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.Subtype.ResourceSubtype,
+				API:       arm.Subtype,
 				Name:      "world",
-				Attributes: AttributeMap{
+				Model:     resource.NewDefaultModel("world"),
+				Attributes: config.AttributeMap{
 					"hello": 1.0,
 				},
 			},
@@ -300,10 +317,10 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "bar",
 			},
 		},
-		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
 			BindAddress: "localhost:8080",
-			Sessions: SessionsConfig{
-				HeartbeatWindow: DefaultSessionHeartbeatWindow,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
 	}
@@ -326,13 +343,16 @@ func TestNewWatcherCloud(t *testing.T) {
 	case <-timer.C:
 	}
 
-	confToReturn = Config{
+	confToReturn = config.Config{
 		Cloud: cloudConf,
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.Subtype.ResourceSubtype,
+				API:       arm.Subtype,
 				Name:      "woo",
-				Attributes: AttributeMap{
+				Model:     resource.NewDefaultModel("woo"),
+				Attributes: config.AttributeMap{
 					"wah": 1.0,
 				},
 			},
@@ -343,10 +363,10 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "mah",
 			},
 		},
-		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
 			BindAddress: "localhost:8080",
-			Sessions: SessionsConfig{
-				HeartbeatWindow: DefaultSessionHeartbeatWindow,
+			Sessions: config.SessionsConfig{
+				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
 	}

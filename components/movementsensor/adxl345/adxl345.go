@@ -20,11 +20,12 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "accel-adxl345"
+var modelName = resource.NewDefaultModel("accel-adxl345")
 
 // AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
 type AttrConfig struct {
@@ -59,7 +60,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -250,6 +251,19 @@ func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interf
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
+func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	adxl.mu.Lock()
+	defer adxl.mu.Unlock()
+	lastError := adxl.lastError
+	adxl.lastError = nil
+
+	if lastError != nil {
+		return r3.Vector{}, lastError
+	}
+
+	return adxl.linearAcceleration, nil
+}
+
 func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
@@ -279,7 +293,9 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	// We don't implement any of the MovementSensor interface yet, though hopefully
 	// LinearAcceleration will be added to the interface soon.
-	return &movementsensor.Properties{}, nil
+	return &movementsensor.Properties{
+		LinearAccelerationSupported: true,
+	}, nil
 }
 
 // Puts the chip into standby mode.

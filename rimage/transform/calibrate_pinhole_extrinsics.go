@@ -56,7 +56,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	translation := r3.Vector{res.X[3], res.X[4], res.X[5]}
 	logger.Debugf("translation: %v", translation)
 	logger.Debugf("rotation: %v", rotation.RotationMatrix())
-	pose := spatialmath.NewPoseFromOrientation(translation, rotation)
+	pose := spatialmath.NewPose(translation, rotation)
 	if err != nil {
 		return pose, fmt.Errorf("%+v: %w", res.Status, err)
 	}

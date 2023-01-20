@@ -4,6 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, sensorsApi, commonApi } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
+import { rcLogConditionally } from '../lib/log';
 
 interface SensorName {
   name: string
@@ -41,6 +42,7 @@ const getReadings = (inputNames: SensorName[]) => {
   req.setName(props.name);
   req.setSensorNamesList(names);
 
+  rcLogConditionally(req);
   props.client.sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       return toast.error(error.message);

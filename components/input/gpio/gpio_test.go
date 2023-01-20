@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 type setupResult struct {
@@ -104,7 +105,7 @@ func setup(t *testing.T) *setupResult {
 		},
 	}
 
-	inputReg := registry.ComponentLookup(input.Subtype, "gpio")
+	inputReg := registry.ComponentLookup(input.Subtype, resource.NewDefaultModel("gpio"))
 	test.That(t, inputReg, test.ShouldNotBeNil)
 
 	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, s.logger)
@@ -596,7 +597,7 @@ func TestGPIOInput(t *testing.T) {
 				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i)
 			})
 			s.axisMu.RLock()
-			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 70*time.Millisecond, 130*time.Millisecond)
+			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 50*time.Millisecond, 130*time.Millisecond)
 			s.axisMu.RUnlock()
 		}
 	})

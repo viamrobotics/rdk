@@ -4,7 +4,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -164,9 +167,24 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
+	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
+	// TODO(PRODUCT-344): remove triplet checking here after complete
+	var nonTriplet bool
 	queries := make([]discovery.Query, 0, len(req.Queries))
 	for _, q := range req.Queries {
-		queries = append(queries, discovery.Query{resource.SubtypeName(q.Subtype), q.Model})
+		m, err := resource.NewModelFromString(q.Model)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.ContainsRune(q.Subtype, ':') {
+			nonTriplet = true
+			q.Subtype = "rdk:component:" + q.Subtype
+		}
+		s, err := resource.NewSubtypeFromString(q.Subtype)
+		if err != nil {
+			return nil, err
+		}
+		queries = append(queries, discovery.Query{API: s, Model: m})
 	}
 
 	discoveries, err := s.r.DiscoverComponents(ctx, queries)
@@ -180,7 +198,11 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbQuery := &pb.DiscoveryQuery{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
+		pbQuery := &pb.DiscoveryQuery{Subtype: discovery.Query.API.String(), Model: discovery.Query.Model.String()}
+		if nonTriplet {
+			pbQuery.Subtype = string(discovery.Query.API.ResourceSubtype)
+			pbQuery.Model = string(discovery.Query.Model.Name)
+		}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{
@@ -229,6 +251,34 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 	}
 	transformedPose, err := s.r.TransformPose(ctx, referenceframe.ProtobufToPoseInFrame(req.Source), req.Destination, transforms)
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
+}
+
+// TransformPCD will transform the pointcloud to the desired frame in the robot's frame system.
+// Do not move the robot between the generation of the initial pointcloud and the receipt
+// of the transformed pointcloud because that will make the transformations inaccurate.
+// TODO(RSDK-1123): PCD files have a field called VIEWPOINT which encodes an offset as a translation+quaternion.
+// if we used VIEWPOINT, you only need to query the frame system to get the transform between the source and destination frame.
+// Then, you put that transform as a translation+quaternion in the VIEWPOINT field. You would only change one line in the PCD file,
+// rather than having to decode and then encode every point in the PCD. Would be a considerable speed up.
+func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) (*pb.TransformPCDResponse, error) {
+	// transform PCD bytes to pointcloud
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd))
+	if err != nil {
+		return nil, err
+	}
+	// transform
+	final, err := s.r.TransformPointCloud(ctx, pc, req.Source, req.Destination)
+	if err != nil {
+		return nil, err
+	}
+	// transform pointcloud back to PCD bytes
+	var buf bytes.Buffer
+	buf.Grow(200 + (final.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
+	err = pointcloud.ToPCD(final, &buf, pointcloud.PCDBinary)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.TransformPCDResponse{PointCloudPcd: buf.Bytes()}, err
 }
 
 // GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.

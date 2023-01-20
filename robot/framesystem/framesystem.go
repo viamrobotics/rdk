@@ -9,10 +9,12 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // SubtypeName is the name of the type of service.
@@ -28,6 +30,7 @@ type Service interface {
 		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
+	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 }
 
 // RobotFsCurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
@@ -203,6 +206,28 @@ func (svc *frameSystemService) TransformPose(
 	return pose, nil
 }
 
+// TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
+// if destination string is empty, defaults to transforming to the world frame.
+// Do not move the robot between the generation of the initial pointcloud and the receipt
+// of the transformed pointcloud because that will make the transformations inaccurate.
+func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
+	if dstName == "" {
+		dstName = referenceframe.World
+	}
+	if srcName == "" {
+		return nil, errors.New("srcName cannot be empty, must provide name of point cloud origin")
+	}
+	// get transform pose needed to get to destination frame
+	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
+	theTransform, err := svc.TransformPose(ctx, sourceFrameZero, dstName, nil)
+	if err != nil {
+		return nil, err
+	}
+	// returned the transformed pointcloud where the transform was applied to each point
+	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.r.Logger())
+}
+
 // updateLocalParts collects the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
 func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
@@ -228,19 +253,26 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		if c.Frame.Parent == "" {
 			return errors.Errorf("parent field in frame config for part %q is empty", c.Name)
 		}
-		if c.Frame.ID == "" {
-			c.Frame.ID = c.Name
+		cfgCopy := &referenceframe.LinkConfig{
+			ID:          c.Frame.ID,
+			Translation: c.Frame.Translation,
+			Orientation: c.Frame.Orientation,
+			Geometry:    c.Frame.Geometry,
+			Parent:      c.Frame.Parent,
+		}
+		if cfgCopy.ID == "" {
+			cfgCopy.ID = c.Name
 		}
 		seen[c.Name] = true
 		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return err
 		}
-		lif, err := c.Frame.ParseConfig()
+		lif, err := cfgCopy.ParseConfig()
 		if err != nil {
 			return err
 		}
-		parts[c.Frame.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+		parts[cfgCopy.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
 	}
 	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
 	return nil

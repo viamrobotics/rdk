@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/motor/dmc4000"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves the go routines stuck waiting).
@@ -80,7 +81,7 @@ func TestDMC4000Motor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "DMC4000")
+	motorReg := registry.ComponentLookup(motor.Subtype, resource.NewDefaultModel("DMC4000"))
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes

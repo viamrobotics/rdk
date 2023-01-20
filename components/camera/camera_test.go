@@ -184,7 +184,6 @@ func TestReconfigurableCamera(t *testing.T) {
 	actualCamera2 := &mock{Name: testCameraName2}
 	reconfCamera2, err := camera.WrapWithReconfigurable(actualCamera2, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
 	stream, err := reconfCamera1.(camera.Camera).Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -192,17 +191,22 @@ func TestReconfigurableCamera(t *testing.T) {
 	nextImg, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextImg, test.ShouldResemble, img)
+	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
 
+	test.That(t, rutils.UnwrapProxy(reconfCamera1), test.ShouldNotResemble, rutils.UnwrapProxy(reconfCamera2))
 	err = reconfCamera1.Reconfigure(context.Background(), reconfCamera2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rutils.UnwrapProxy(reconfCamera1), test.ShouldResemble, rutils.UnwrapProxy(reconfCamera2))
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
-	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
-	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
+
+	stream, err = reconfCamera1.(camera.Camera).Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 
 	nextImg, _, err = stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextImg, test.ShouldResemble, img)
+	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 1)
 
 	img1, _, err := camera.ReadImage(context.Background(), reconfCamera1.(camera.Camera))
 	test.That(t, err, test.ShouldBeNil)
@@ -224,20 +228,28 @@ func TestClose(t *testing.T) {
 	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
+	stream, err := reconfCamera1.(camera.Camera).Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	nextImg, _, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextImg, test.ShouldResemble, img)
+
 	test.That(t, utils.TryClose(context.Background(), reconfCamera1), test.ShouldBeNil)
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
+
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, context.Canceled.Error())
 }
 
 var img = image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 type mock struct {
 	camera.Camera
-	mu          sync.Mutex
-	Name        string
-	nextCount   int
-	reconfCount int
-	closedErr   error
+	mu        sync.Mutex
+	Name      string
+	nextCount int
+	closedErr error
 }
 
 type mockStream struct {
@@ -269,7 +281,6 @@ func (m *mock) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler)
 func (m *mock) Close(_ context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.reconfCount++
 	m.closedErr = context.Canceled
 	return nil
 }
@@ -302,6 +313,36 @@ func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.Po
 	return nil, nil
 }
 
+func TestNewPinholeModelWithBrownConradyDistortion(t *testing.T) {
+	intrinsics := &transform.PinholeCameraIntrinsics{
+		Width:  10,
+		Height: 10,
+		Fx:     1.0,
+		Fy:     2.0,
+		Ppx:    3.0,
+		Ppy:    4.0,
+	}
+	distortion := &transform.BrownConrady{}
+
+	expected1 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics, Distortion: distortion}
+	pinholeCameraModel1 := camera.NewPinholeModelWithBrownConradyDistortion(intrinsics, distortion)
+	test.That(t, pinholeCameraModel1, test.ShouldResemble, expected1)
+
+	expected2 := transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics}
+	pinholeCameraModel2 := camera.NewPinholeModelWithBrownConradyDistortion(intrinsics, nil)
+	test.That(t, pinholeCameraModel2, test.ShouldResemble, expected2)
+	test.That(t, pinholeCameraModel2.Distortion, test.ShouldBeNil)
+
+	expected3 := transform.PinholeCameraModel{Distortion: distortion}
+	pinholeCameraModel3 := camera.NewPinholeModelWithBrownConradyDistortion(nil, distortion)
+	test.That(t, pinholeCameraModel3, test.ShouldResemble, expected3)
+
+	expected4 := transform.PinholeCameraModel{}
+	pinholeCameraModel4 := camera.NewPinholeModelWithBrownConradyDistortion(nil, nil)
+	test.That(t, pinholeCameraModel4, test.ShouldResemble, expected4)
+	test.That(t, pinholeCameraModel4.Distortion, test.ShouldBeNil)
+}
+
 func TestNewCamera(t *testing.T) {
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}
@@ -330,7 +371,7 @@ func TestNewCamera(t *testing.T) {
 	cam2, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{intrinsics1, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics1},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -344,7 +385,7 @@ func TestNewCamera(t *testing.T) {
 	cam3, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{cam2props.IntrinsicParams, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: cam2props.IntrinsicParams},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -356,7 +397,7 @@ func TestNewCamera(t *testing.T) {
 	cam4, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{intrinsics2, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics2},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -373,7 +414,7 @@ func TestNewCamera(t *testing.T) {
 	cam5, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{props.IntrinsicParams, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -436,7 +477,7 @@ func TestCameraWithProjector(t *testing.T) {
 	cam, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
-		&transform.PinholeCameraModel{params1, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: params1},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -455,7 +496,7 @@ func TestCameraWithProjector(t *testing.T) {
 	cam2, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc2,
-		&transform.PinholeCameraModel{props.IntrinsicParams, nil},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)

@@ -3,7 +3,6 @@ package mpu6050
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -18,11 +17,12 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "gyro-mpu6050"
+var model = resource.NewDefaultModel("gyro-mpu6050")
 
 // AttrConfig is used to configure the attributes of the chip.
 type AttrConfig struct {
@@ -47,7 +47,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Component{
+	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		// Note: this looks like it can be simplified to just be `Constructor: NewMpu6050`.
 		// However, if you try that, the compiler says the types are subtly incompatible. Just
 		// leave it like this.
@@ -61,7 +61,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -247,11 +247,10 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 	gz := int(rutils.Int16FromBytesBE(data[4:6]))
 
 	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
-	radiansPerDegree := math.Pi / 180.0
 	return spatialmath.AngularVelocity{
-		X: setScale(gx, maxRotation*radiansPerDegree),
-		Y: setScale(gy, maxRotation*radiansPerDegree),
-		Z: setScale(gz, maxRotation*radiansPerDegree),
+		X: setScale(gx, maxRotation),
+		Y: setScale(gy, maxRotation),
+		Z: setScale(gz, maxRotation),
 	}
 }
 
@@ -280,6 +279,19 @@ func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interf
 
 func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
+}
+
+func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]interface{}) (r3.Vector, error) {
+	mpu.mu.Lock()
+	defer mpu.mu.Unlock()
+
+	lastError := mpu.lastError
+	mpu.lastError = nil
+
+	if lastError != nil {
+		return r3.Vector{}, lastError
+	}
+	return mpu.linearAcceleration, nil
 }
 
 func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
@@ -315,7 +327,8 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 
 func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		AngularVelocitySupported: true,
+		AngularVelocitySupported:    true,
+		LinearAccelerationSupported: true,
 	}, nil
 }
 

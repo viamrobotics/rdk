@@ -11,13 +11,14 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
-const fileModel = "image_file"
+var fileModel = resource.NewDefaultModel("image_file")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, fileModel,
@@ -33,15 +34,16 @@ func init() {
 			if attrs.Color == "" {
 				imgType = camera.DepthStream
 			}
+			cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
 			return camera.NewFromReader(
 				ctx,
 				videoSrc,
-				&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
+				&cameraModel,
 				imgType,
 			)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, fileModel,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, fileModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf fileSourceAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

@@ -11,11 +11,42 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// BoxCreator implements the GeometryCreator interface for box structs.
-type boxCreator struct {
-	halfSize        r3.Vector
-	boundingSphereR float64
-	pointCreator
+// Ordered list of box vertices.
+var boxVertices = [8]r3.Vector{
+	{1, 1, 1},
+	{1, 1, -1},
+	{1, -1, 1},
+	{1, -1, -1},
+	{-1, 1, 1},
+	{-1, 1, -1},
+	{-1, -1, 1},
+	{-1, -1, -1},
+}
+
+// The sets of indices of the box vertices that tile the box exterior.
+var boxTriangles = [12][3]int{
+	{0, 1, 3},
+	{0, 2, 3},
+	{0, 1, 5},
+	{0, 4, 5},
+	{0, 2, 6},
+	{0, 4, 6},
+	{7, 1, 3},
+	{7, 2, 3},
+	{7, 1, 5},
+	{7, 4, 5},
+	{7, 2, 6},
+	{7, 4, 6},
+}
+
+// Ordered list of box face normals.
+var boxNormals = [6]r3.Vector{
+	{1, 0, 0},
+	{0, 1, 0},
+	{0, 0, 1},
+	{-1, 0, 0},
+	{0, -1, 0},
+	{0, 0, -1},
 }
 
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
@@ -24,62 +55,12 @@ type box struct {
 	halfSize        [3]float64
 	boundingSphereR float64
 	label           string
-}
-
-// NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
-// at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBoxCreator(dims r3.Vector, offset Pose, label string) (GeometryCreator, error) {
-	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, newBadGeometryDimensionsError(&box{})
-	}
-	halfSize := dims.Mul(0.5)
-	return &boxCreator{
-		halfSize:        halfSize,
-		boundingSphereR: halfSize.Norm(),
-		pointCreator:    pointCreator{offset, label},
-	}, nil
-}
-
-// NewGeometry instantiates a new box from a BoxCreator class.
-func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
-	return &box{
-		pose:            Compose(bc.offset, pose),
-		halfSize:        [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z},
-		boundingSphereR: bc.halfSize.Norm(),
-		label:           bc.label,
-	}
-}
-
-// String returns a human readable string that represents the boxCreator.
-func (bc *boxCreator) String() string {
-	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*bc.halfSize.X, 2*bc.halfSize.Y, 2*bc.halfSize.Z)
-}
-
-func (bc *boxCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(bc)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(config)
-}
-
-// ToProtobuf converts the box to a Geometry proto message.
-func (bc *boxCreator) ToProtobuf() *commonpb.Geometry {
-	return &commonpb.Geometry{
-		Center: PoseToProtobuf(bc.offset),
-		GeometryType: &commonpb.Geometry_Box{
-			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
-				X: 2 * bc.halfSize.X,
-				Y: 2 * bc.halfSize.Y,
-				Z: 2 * bc.halfSize.Z,
-			}},
-		},
-		Label: bc.label,
-	}
+	mesh            *mesh
 }
 
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
+	// Negative dimensions not allowed. Zero dimensions are allowed for bounding boxes, etc.
 	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
@@ -90,6 +71,19 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 		boundingSphereR: halfSize.Norm(),
 		label:           label,
 	}, nil
+}
+
+// String returns a human readable string that represents the box.
+func (b *box) String() string {
+	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
+}
+
+func (b *box) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(b)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(config)
 }
 
 // Label returns the label of this box.
@@ -103,20 +97,6 @@ func (b *box) Label() string {
 // Pose returns the pose of the box.
 func (b *box) Pose() Pose {
 	return b.pose
-}
-
-// Vertices returns the vertices defining the box.
-func (b *box) Vertices() []r3.Vector {
-	vertices := make([]r3.Vector, 8)
-	for i, x := range []float64{1, -1} {
-		for j, y := range []float64{1, -1} {
-			for k, z := range []float64{1, -1} {
-				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize[0], Y: y * b.halfSize[1], Z: z * b.halfSize[2]})
-				vertices[4*i+2*j+k] = Compose(b.pose, offset).Point()
-			}
-		}
-	}
-	return vertices
 }
 
 // AlmostEqual compares the box with another geometry and checks if they are equivalent.
@@ -166,8 +146,11 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxCollision(other, b), nil
 	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsBoxDistance(other, b) <= CollisionBuffer, nil
+	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxCollision(b, other.pose.Point()), nil
+		return pointVsBoxCollision(other.position, b), nil
 	}
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
@@ -179,8 +162,11 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxDistance(other, b), nil
 	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsBoxDistance(other, b), nil
+	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxDistance(b, other.pose.Point()), nil
+		return pointVsBoxDistance(other.position, b), nil
 	}
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
@@ -191,6 +177,9 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 	}
 	if other, ok := g.(*sphere); ok {
 		return boxInSphere(b, other), nil
+	}
+	if other, ok := g.(*capsule); ok {
+		return boxInCapsule(b, other), nil
 	}
 	if _, ok := g.(*point); ok {
 		return false, nil
@@ -218,7 +207,7 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 }
 
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
-func (b *box) penetrationDepth(pt r3.Vector) float64 {
+func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.pose.Point())
 	rm := b.pose.Orientation().RotationMatrix()
 	min := math.Inf(1)
@@ -235,8 +224,34 @@ func (b *box) penetrationDepth(pt r3.Vector) float64 {
 	return min
 }
 
+// vertices returns the vertices defining the box.
+func (b *box) vertices() []r3.Vector {
+	verts := make([]r3.Vector, 0, 8)
+	for _, vert := range boxVertices {
+		offset := NewPoseFromPoint(r3.Vector{X: vert.X * b.halfSize[0], Y: vert.Y * b.halfSize[1], Z: vert.Z * b.halfSize[2]})
+		verts = append(verts, Compose(b.pose, offset).Point())
+	}
+	return verts
+}
+
+// vertices returns the vertices defining the box.
+func (b *box) toMesh() *mesh {
+	if b.mesh == nil {
+		m := &mesh{pose: b.pose}
+		triangles := make([]*triangle, 0, 12)
+		verts := b.vertices()
+		for _, tri := range boxTriangles {
+			triangles = append(triangles, newTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
+		}
+		m.triangles = triangles
+		b.mesh = m
+	}
+	return b.mesh
+}
+
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
+// Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
 func boxVsBoxCollision(a, b *box) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
@@ -256,8 +271,13 @@ func boxVsBoxCollision(a, b *box) bool {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if separatingAxisTest(centerDist, rmA.Row(i).Cross(rmB.Row(j)), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
-				return false
+			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
+
+			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
+				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+					return false
+				}
 			}
 		}
 	}
@@ -305,7 +325,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, 0.00001) {
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
 				if separation > max {
 					max = separation
@@ -318,8 +338,8 @@ func boxVsBoxDistance(a, b *box) float64 {
 
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
 func boxInBox(inner, outer *box) bool {
-	for _, vertex := range inner.Vertices() {
-		if !pointVsBoxCollision(outer, vertex) {
+	for _, vertex := range inner.vertices() {
+		if !pointVsBoxCollision(vertex, outer) {
 			return false
 		}
 	}
@@ -328,12 +348,22 @@ func boxInBox(inner, outer *box) bool {
 
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
 func boxInSphere(b *box, s *sphere) bool {
-	for _, vertex := range b.Vertices() {
+	for _, vertex := range b.vertices() {
 		if sphereVsPointDistance(s, vertex) > CollisionBuffer {
 			return false
 		}
 	}
 	return sphereVsPointDistance(s, b.pose.Point()) <= 0
+}
+
+// boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.
+func boxInCapsule(b *box, c *capsule) bool {
+	for _, vertex := range b.vertices() {
+		if capsuleVsPointDistance(c, vertex) > CollisionBuffer {
+			return false
+		}
+	}
+	return true
 }
 
 // separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
@@ -351,4 +381,93 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
 	}
 	return sum
+}
+
+// ToPointCloud converts a box geometry into a []r3.Vector. This method takes one argument which
+// determines how many points to place per square mm. If the argument is set to 0. we automatically
+// substitute the value with defaultPointDensity.
+func (b *box) ToPoints(resolution float64) []r3.Vector {
+	// check for user defined spacing
+	var iter float64
+	if resolution > 0. {
+		iter = resolution
+	} else {
+		iter = defaultPointDensity
+	}
+
+	// the boolean values which are passed into the fillFaces method allow for the edges of the
+	// box to only be iterated over once. This removes duplicate points.
+	// TODO: the fillFaces method calls can be made concurrent if the ToPointCloud method is too slow
+	var facePoints []r3.Vector
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 0, true, false)...)
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 1, true, true)...)
+	facePoints = append(facePoints, fillFaces(b.halfSize, iter, 2, false, false)...)
+
+	transformedVecs := transformPointsToPose(facePoints, b.Pose())
+	return transformedVecs
+}
+
+// fillFaces returns a list of vectors which lie on the surface of the box.
+func fillFaces(halfSize [3]float64, iter float64, fixedDimension int, orEquals1, orEquals2 bool) []r3.Vector {
+	var facePoints []r3.Vector
+	// create points on box faces with box centered at (0, 0, 0)
+	starts := [3]float64{0.0, 0.0, 0.0}
+	// depending on which face we want to fill, one of i,j,k is kept constant
+	starts[fixedDimension] = halfSize[fixedDimension]
+	for i := starts[0]; lessThan(orEquals1, i, halfSize[0]); i += iter {
+		for j := starts[1]; lessThan(orEquals2, j, halfSize[1]); j += iter {
+			for k := starts[2]; k <= halfSize[2]; k += iter {
+				p1 := r3.Vector{i, j, k}
+				p2 := r3.Vector{i, j, -k}
+				p3 := r3.Vector{i, -j, k}
+				p4 := r3.Vector{i, -j, -k}
+				p5 := r3.Vector{-i, j, k}
+				p6 := r3.Vector{-i, j, -k}
+				p7 := r3.Vector{-i, -j, -k}
+				p8 := r3.Vector{-i, -j, k}
+
+				switch {
+				case i == 0.0 && j == 0.0:
+					facePoints = append(facePoints, p1, p2)
+				case j == 0.0 && k == 0.0:
+					facePoints = append(facePoints, p1, p5)
+				case i == 0.0 && k == 0.0:
+					facePoints = append(facePoints, p1, p7)
+				case i == 0.0:
+					facePoints = append(facePoints, p1, p2, p3, p4)
+				case j == 0.0:
+					facePoints = append(facePoints, p1, p2, p5, p6)
+				case k == 0.0:
+					facePoints = append(facePoints, p1, p3, p5, p8)
+				default:
+					facePoints = append(facePoints, p1, p2, p3, p4, p5, p6, p7, p8)
+				}
+			}
+		}
+	}
+	return facePoints
+}
+
+// lessThan checks if v1 <= v1 only if orEquals is true, otherwise we check if v1 < v2.
+func lessThan(orEquals bool, v1, v2 float64) bool {
+	if orEquals {
+		return v1 <= v2
+	}
+	return v1 < v2
+}
+
+// transformPointsToPose gives vectors the proper orientation then translates them to the desired position.
+func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
+	var transformedVectors []r3.Vector
+	// create pose for a vector at origin from the desired orientation
+	originWithPose := NewPoseFromOrientation(pose.Orientation())
+	// point at specified offset with (0,0,0,1) axis angles
+	identityPose := NewPoseFromPoint(pose.Point())
+	// point at specified offset with desired orientation
+	offsetBy := Compose(identityPose, originWithPose)
+	for i := range facePoints {
+		transformedVec := Compose(offsetBy, NewPoseFromPoint(facePoints[i])).Point()
+		transformedVectors = append(transformedVectors, transformedVec)
+	}
+	return transformedVectors
 }

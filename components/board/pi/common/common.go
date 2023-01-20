@@ -9,10 +9,11 @@ import (
 	"go.viam.com/rdk/components/board/commonsysfs"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 // ModelName is the name used refer to any implementation of a pi based component.
-const ModelName = "pi"
+var ModelName = resource.NewDefaultModel("pi")
 
 // ServoConfig is the config for a pi servo.
 type ServoConfig struct {
@@ -35,7 +36,7 @@ func (config *ServoConfig) Validate(path string) error {
 
 func init() {
 	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
+		board.Subtype,
 		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf commonsysfs.Config
@@ -44,7 +45,7 @@ func init() {
 		&commonsysfs.Config{})
 
 	config.RegisterComponentAttributeMapConverter(
-		servo.SubtypeName,
+		servo.Subtype,
 		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ServoConfig

@@ -22,6 +22,8 @@ type MovementSensor struct {
 	AngularVelocityFunc         func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error)
 	CompassHeadingFuncExtraCap  map[string]interface{}
 	CompassHeadingFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	LinearAccelerationExtraCap  map[string]interface{}
+	LinearAccelerationFunc      func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
 	OrientationFuncExtraCap     map[string]interface{}
 	OrientationFunc             func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
 	PropertiesFuncExtraCap      map[string]interface{}
@@ -74,6 +76,15 @@ func (i *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]i
 	}
 	i.AngularVelocityFuncExtraCap = extra
 	return i.AngularVelocityFunc(ctx, extra)
+}
+
+// LinearAcceleration func or passthrough.
+func (i *MovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	if i.LinearAccelerationFunc == nil {
+		return i.MovementSensor.LinearAcceleration(ctx, extra)
+	}
+	i.LinearAccelerationExtraCap = extra
+	return i.LinearAccelerationFunc(ctx, extra)
 }
 
 // Orientation func or passthrough.

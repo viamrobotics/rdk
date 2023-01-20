@@ -79,7 +79,7 @@ func TestTransformPointToPoint(t *testing.T) {
 	// Rotation in the (z,x) plane of 90 degrees
 	rot, err := spatialmath.NewRotationMatrix([]float64{0, 0, 1, 0, 1, 0, -1, 0, 0})
 	test.That(t, err, test.ShouldBeNil)
-	dcie.ExtrinsicD2C = spatialmath.NewPoseFromOrientation(t2, rot)
+	dcie.ExtrinsicD2C = spatialmath.NewPose(t2, rot)
 	x4, y4, z4 := dcie.TransformPointToPoint(x1, y1, z1)
 	test.That(t, x4, test.ShouldAlmostEqual, 1.)
 	test.That(t, y4, test.ShouldAlmostEqual, 2.)
@@ -102,7 +102,7 @@ func TestUndistortImage(t *testing.T) {
 		TangentialP2: -0.00116427,
 		RadialK3:     -0.06468911,
 	}
-	pinhole800 := &PinholeCameraModel{params800, distortion800}
+	pinhole800 := &PinholeCameraModel{PinholeCameraIntrinsics: params800, Distortion: distortion800}
 	params1280 := &PinholeCameraIntrinsics{
 		Width:  1280,
 		Height: 720,
@@ -118,7 +118,7 @@ func TestUndistortImage(t *testing.T) {
 		TangentialP2: -2.65675762e-04,
 		RadialK3:     -6.51379008e-02,
 	}
-	pinhole1280 := &PinholeCameraModel{params1280, distortion1280}
+	pinhole1280 := &PinholeCameraModel{PinholeCameraIntrinsics: params1280, Distortion: distortion1280}
 	// nil input
 	_, err := pinhole800.UndistortImage(nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input image is nil")
@@ -161,7 +161,10 @@ func TestUndistortDepthMap(t *testing.T) {
 		TangentialP2: 0.,
 		RadialK3:     0.,
 	}
-	pinhole := &PinholeCameraModel{params, distortion}
+	var cameraModel PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = params
+	cameraModel.Distortion = distortion
+	pinhole := &cameraModel
 	// nil input
 	_, err := pinhole.UndistortDepthMap(nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input DepthMap is nil")

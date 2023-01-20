@@ -17,10 +17,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelname = "roboclaw"
+var modelname = resource.NewDefaultModel("roboclaw")
 
 // AttrConfig is used for converting motor config attributes.
 type AttrConfig struct {
@@ -63,7 +64,7 @@ func init() {
 	)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
@@ -118,12 +119,13 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 		return nil, err
 	}
 
-	return &roboclawMotor{conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
+	return &roboclawMotor{name: config.Name, conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
 }
 
 var _ = motor.LocalMotor(&roboclawMotor{})
 
 type roboclawMotor struct {
+	name string
 	conn *roboclaw.Roboclaw
 	conf *AttrConfig
 
@@ -251,5 +253,5 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 }
 
 func (m *roboclawMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
+	return motor.NewGoTillStopUnsupportedError(m.name)
 }

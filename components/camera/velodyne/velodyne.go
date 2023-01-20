@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -86,7 +87,7 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-const modelname = "velodyne"
+var modelname = resource.NewDefaultModel("velodyne")
 
 func init() {
 	registry.RegisterComponent(
@@ -116,7 +117,7 @@ func init() {
 			return New(ctx, logger, port, ttl)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -264,7 +265,7 @@ func pointFrom(yaw, pitch, distance float64) r3.Vector {
 	ea.Yaw = yaw
 	ea.Pitch = pitch
 
-	pose1 := spatialmath.NewPoseFromOrientation(r3.Vector{0, 0, 0}, ea)
+	pose1 := spatialmath.NewPoseFromOrientation(ea)
 	pose2 := spatialmath.NewPoseFromPoint(r3.Vector{distance, 0, 0})
 	p := spatialmath.Compose(pose1, pose2).Point()
 

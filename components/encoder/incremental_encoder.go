@@ -13,14 +13,15 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const incrModelName = "incremental"
+var incrModel = resource.NewDefaultModel("incremental")
 
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		incrModelName,
+		incrModel,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -31,8 +32,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
-		incrModelName,
+		Subtype,
+		incrModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf IncrementalConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -230,15 +231,20 @@ func (e *IncrementalEncoder) Start(ctx context.Context) {
 }
 
 // TicksCount returns number of ticks since last zeroing.
-func (e *IncrementalEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
-	return atomic.LoadInt64(&e.position), nil
+func (e *IncrementalEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	res := atomic.LoadInt64(&e.position)
+	return float64(res), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *IncrementalEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
-	atomic.StoreInt64(&e.position, offset)
-	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
+func (e *IncrementalEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := ValidateIntegerOffset(offset); err != nil {
+		return err
+	}
+	offsetInt := int64(offset)
+	atomic.StoreInt64(&e.position, offsetInt)
+	atomic.StoreInt64(&e.pRaw, (offsetInt<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 

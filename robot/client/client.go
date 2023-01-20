@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -36,6 +38,7 @@ import (
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -91,6 +94,7 @@ var exemptFromConnectionCheck = map[string]bool{
 	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
 	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
 	"/proto.rpc.v1.AuthService/Authenticate":                     true,
+	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":           true,
 }
 
 func skipConnectionCheck(method string) bool {
@@ -531,6 +535,12 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 		if name.Namespace != resource.ResourceNamespaceRDK {
 			return grpc.NewForeignResource(name, rc.conn), nil
 		}
+		// At this point we checked that the 'name' is in the rc.resourceNames list
+		// and it is in the RDK namespace, so it's likely we provide a package for
+		// interacting with it.
+		rc.logger.Errorw("the client registration for resource doesn't exist, you may need to import relevant client package",
+			"resource", name,
+			"import_guess", fmt.Sprintf("go.viam.com/rdk/%s/%s/register", name.ResourceType, name.Subtype))
 		return nil, ErrMissingClientRegistration
 	}
 	// pass in conn
@@ -715,7 +725,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 	for _, q := range qs {
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: string(q.SubtypeName), Model: q.Model},
+			&pb.DiscoveryQuery{Subtype: q.API.String(), Model: q.Model.String()},
 		)
 	}
 
@@ -726,9 +736,17 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 
 	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
 	for _, disc := range resp.Discovery {
+		m, err := resource.NewModelFromString(disc.Query.Model)
+		if err != nil {
+			return nil, err
+		}
+		s, err := resource.NewSubtypeFromString(disc.Query.Subtype)
+		if err != nil {
+			return nil, err
+		}
 		q := discovery.Query{
-			SubtypeName: resource.SubtypeName(disc.Query.Subtype),
-			Model:       disc.Query.Model,
+			API:   s,
+			Model: m,
 		}
 		discoveries = append(
 			discoveries, discovery.Discovery{
@@ -784,6 +802,34 @@ func (rc *RobotClient) TransformPose(
 		return nil, err
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
+// TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
+// Do not move the robot between the generation of the initial pointcloud and the receipt
+// of the transformed pointcloud because that will make the transformations inaccurate.
+// TODO(RSDK-1197): Rather than having to apply a transform to every point using ApplyOffset,
+// implementing the suggested ticket would mean simply adding the transform to a field in the
+// point cloud struct, and then returning the updated struct. Would be super fast.
+func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+) (pointcloud.PointCloud, error) {
+	if dstName == "" {
+		dstName = referenceframe.World
+	}
+	if srcName == "" {
+		return nil, errors.New("srcName cannot be empty, must provide name of point cloud origin")
+	}
+	// get the offset pose from a TransformPose request
+	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
+	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
+		Destination:            dstName,
+		Source:                 referenceframe.PoseInFrameToProtobuf(sourceFrameZero),
+		SupplementalTransforms: []*commonpb.Transform{},
+	})
+	if err != nil {
+		return nil, err
+	}
+	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
+	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
 }
 
 // Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.

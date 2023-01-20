@@ -9,24 +9,24 @@ import (
 )
 
 func makeTestSphere(point r3.Vector, radius float64, label string) Geometry {
-	sphere, _ := NewSphere(point, radius, label)
+	sphere, _ := NewSphere(NewPoseFromPoint(point), radius, label)
 	return sphere
 }
 
 func TestNewSphere(t *testing.T) {
-	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
+	offset := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
-	// test sphere created from NewBox method
-	geometry, err := NewSphere(offset.Point(), 1, "")
+	// test sphere created from NewSphere method
+	geometry, err := NewSphere(offset, 1, "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, geometry, test.ShouldResemble, &sphere{pose: NewPoseFromPoint(offset.Point()), radius: 1})
-	_, err = NewSphere(offset.Point(), -1, "")
+	test.That(t, geometry, test.ShouldResemble, &sphere{pose: offset, radius: 1})
+	_, err = NewSphere(offset, -1, "")
 	test.That(t, err.Error(), test.ShouldContainSubstring, newBadGeometryDimensionsError(&sphere{}).Error())
 
-	// test sphere created from GeometryCreator with offset
-	gc, err := NewSphereCreator(1, offset, "")
+	// test sphere created from initial sphere with offset
+	gc, err := NewSphere(offset, 1, "")
 	test.That(t, err, test.ShouldBeNil)
-	geometry = gc.NewGeometry(PoseInverse(offset))
+	geometry = gc.Transform(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
@@ -38,6 +38,39 @@ func TestSphereAlmostEqual(t *testing.T) {
 	test.That(t, original.AlmostEqual(bad), test.ShouldBeFalse)
 }
 
-func TestSphereVertices(t *testing.T) {
-	test.That(t, R3VectorAlmostEqual(makeTestSphere(r3.Vector{}, 1, "").Vertices()[0], r3.Vector{}, 1e-8), test.ShouldBeTrue)
+func TestSpherePC(t *testing.T) {
+	pt := r3.Vector{-2, -2, -2}
+	radius := 2.5
+	label := ""
+	sphere := &sphere{NewPoseFromPoint(pt), radius, label}
+	customDensity := 0.3
+	output := sphere.ToPoints(customDensity)
+	checkAgainst := []r3.Vector{
+		{-2.000000000000000000000000, 0.500000000000000000000000, -2.000000000000000000000000},
+		{-2.767965613386037304621823, 0.272727272727272485042249, -1.296480589849675402192020},
+		{-1.874334356274330648517434, 0.045454545454545414173708, -3.431895194651603198110479},
+		{-0.955997121732925059234276, -0.181818181818181656694833, -0.638283118191185439016522},
+		{-3.898993408161034679437762, -0.409090909090909171652584, -2.335905195291390956668920},
+		{-0.232036488272917562625253, -0.636363636363636464565730, -3.124633668787413220968574},
+		{-2.578089165489593437285976, -0.863636363636363535434270, 0.150462881031420803168430},
+		{-3.073384452255186083391436, -1.090909090909090828347416, -4.066736445864615134837550},
+		{0.259282319327660104590905, -1.318181818181818343305167, -1.174913720562765773181013},
+		{-4.272346794705999428742871, -1.545454545454545636218313, -1.062008275973910009781775},
+		{-0.944772670927437996368781, -1.772727272727272707086854, -4.254959509928371907960809},
+		{-1.251790338887817544133441, -2.000000000000000000000000, 0.385410300769742697468700},
+		{-4.154071348128081098138864, -2.227272727272727070868541, -3.248328376114109072858582},
+		{0.400991759990806162505805, -2.454545454545454585826292, -2.527851303122686132951458},
+		{-3.383317673798449831679136, -2.681818181818181656694833, -0.032372957011671310567635},
+		{-2.299282434379497530585468, -2.909090909090908727563374, -4.309541890393015606264271},
+		{-0.297272844364510291370607, -3.136363636363636686610334, -0.564939750598641765577668},
+		{-4.093561696420204398805254, -3.363636363636363313389666, -1.913424651021499389713654},
+		{-0.633041584840636106790157, -3.590909090909091272436626, -3.360306199238909385940133},
+		{-2.079258583903523138758374, -3.818181818181818343305167, -0.285960049208109579055304},
+		{-2.920954643538304473793232, -4.045454545454544970084498, -3.103611456548260871812772},
+		{-0.967806681180649386320169, -4.272727272727273373220669, -1.861119848839560830811024},
+		{-2.000000000000000000000000, -4.500000000000000000000000, -2.000000000000000000000000},
+	}
+	for i, v := range output {
+		test.That(t, R3VectorAlmostEqual(v, checkAgainst[i], 1e-2), test.ShouldBeTrue)
+	}
 }

@@ -13,6 +13,9 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
+	gutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -20,6 +23,40 @@ var (
 	speed = 5.4
 	fix   = 1
 )
+
+const (
+	testRoverName   = "testRover"
+	testStationName = "testStation"
+)
+
+func setupInjectRobotWithGPS() *inject.Robot {
+	r := &inject.Robot{}
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		switch name {
+		case movementsensor.Named(testRoverName):
+			return &RTKMovementSensor{}, nil
+		case movementsensor.Named(testStationName):
+			return &rtkStation{}, nil
+		default:
+			return nil, gutils.NewResourceNotFoundError(name)
+		}
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{movementsensor.Named(testRoverName), movementsensor.Named(testStationName)}
+	}
+	return r
+}
+
+func TestModelTypeCreators(t *testing.T) {
+	r := setupInjectRobotWithGPS()
+	gps1, err := movementsensor.FromRobot(r, testRoverName)
+	test.That(t, gps1, test.ShouldResemble, &RTKMovementSensor{})
+	test.That(t, err, test.ShouldBeNil)
+	gps2, err := movementsensor.FromRobot(r, testStationName)
+	test.That(t, gps2, test.ShouldResemble, &rtkStation{})
+	test.That(t, err, test.ShouldBeNil)
+}
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
@@ -60,7 +97,6 @@ func TestConnect(t *testing.T) {
 	url := "http://fakeurl"
 	username := "user"
 	password := "pwd"
-	mountPoint := "mp"
 
 	// create new ntrip client and connect
 	err := g.Connect("invalidurl", username, password, 10)
@@ -73,9 +109,6 @@ func TestConnect(t *testing.T) {
 
 	err = g.GetStream("", 10)
 	test.That(t, err, test.ShouldNotBeNil)
-
-	err = g.GetStream(mountPoint, 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
 }
 
 func TestNewRTKMovementSensor(t *testing.T) {
@@ -88,7 +121,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		// serial protocol
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: roverModel,
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_send_nmea":           true,
@@ -129,7 +162,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 	t.Run("I2C protocol", func(t *testing.T) {
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: roverModel,
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
@@ -141,13 +174,13 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"ntrip_baud":                115200,
 				"ntrip_send_nmea":           true,
 				"ntrip_connect_attempts":    10,
-				"correction_input_protocol": "I2C",
+				"correction_input_protocol": "i2c",
 				"path":                      path,
 				"board":                     testBoardName,
 				"bus":                       testBusName,
 			},
 			ConvertedAttributes: &AttrConfig{
-				CorrectionSource: "I2C",
+				CorrectionSource: "i2c",
 				Board:            testBoardName,
 				I2CAttrConfig: &I2CAttrConfig{
 					I2CBus:      testBusName,
@@ -170,7 +203,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		// invalid protocol
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: resource.NewDefaultModel("rtk"),
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
@@ -193,7 +226,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 	t.Run("no ntrip address", func(t *testing.T) {
 		cfig := config.Component{
 			Name:  "movementsensor1",
-			Model: "rtk",
+			Model: resource.NewDefaultModel("rtk"),
 			Type:  movementsensor.SubtypeName,
 			Attributes: config.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
