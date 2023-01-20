@@ -51,7 +51,8 @@ jobs:
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name=$BRANCH'
-        ls results/$BRANCH/
+        sudo ls results/
+        sudo ls results/$BRANCH/
         
     - name: Print results
       env:
