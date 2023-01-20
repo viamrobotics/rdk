@@ -178,6 +178,7 @@ func TestDiffConfigs(t *testing.T) {
 				Removed:        &config.Config{},
 				ResourcesEqual: true,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -190,6 +191,7 @@ func TestDiffConfigs(t *testing.T) {
 				Removed:        &config.Config{},
 				ResourcesEqual: true,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -202,6 +204,7 @@ func TestDiffConfigs(t *testing.T) {
 				Removed:        &config.Config{},
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -214,6 +217,7 @@ func TestDiffConfigs(t *testing.T) {
 				Modified:       &config.ModifiedConfigDiff{},
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -226,6 +230,7 @@ func TestDiffConfigs(t *testing.T) {
 				Modified:       &config2,
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -328,6 +333,7 @@ func TestDiffConfigs(t *testing.T) {
 				},
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 	} {
