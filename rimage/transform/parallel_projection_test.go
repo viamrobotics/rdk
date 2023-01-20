@@ -24,7 +24,7 @@ func TestParallelProjectionOntoXZWithRobotMarker(t *testing.T) {
 		pointcloud := pc.New()
 
 		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid projection point cloud is empty")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "projection point cloud is empty")
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
