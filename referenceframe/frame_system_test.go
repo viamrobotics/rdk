@@ -403,9 +403,8 @@ func TestFrameSystemToPCD(t *testing.T) {
 	// test.That(t, err, test.ShouldBeNil)
 
 	// f, err := os.OpenFile("testAgainst.pcd", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	// test.That(t, err, test.ShouldBeNil)
+
 	// err = pointcloud.ToPCD(merged, f, 0)
 	// test.That(t, err, test.ShouldBeNil)
 	// f.Close()

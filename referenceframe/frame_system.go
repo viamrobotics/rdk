@@ -323,10 +323,12 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 	}
 	for name, geosInFrame := range geoMap {
 		geos := geosInFrame.geometries
+		aggregatePoints := []r3.Vector{}
 		for _, g := range geos {
 			asPoints := g.ToPoints(1.)
-			vectorMap[name] = asPoints
+			aggregatePoints = append(aggregatePoints, asPoints...)
 		}
+		vectorMap[name] = aggregatePoints
 	}
 	return vectorMap, nil
 }
