@@ -11,8 +11,43 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// box density corresponding to how many points per square mm.
-const defaultBoxPointDensity = .5
+// Ordered list of box vertices.
+var boxVertices = [8]r3.Vector{
+	{1, 1, 1},
+	{1, 1, -1},
+	{1, -1, 1},
+	{1, -1, -1},
+	{-1, 1, 1},
+	{-1, 1, -1},
+	{-1, -1, 1},
+	{-1, -1, -1},
+}
+
+// The sets of indices of the box vertices that tile the box exterior.
+var boxTriangles = [12][3]int{
+	{0, 1, 3},
+	{0, 2, 3},
+	{0, 1, 5},
+	{0, 4, 5},
+	{0, 2, 6},
+	{0, 4, 6},
+	{7, 1, 3},
+	{7, 2, 3},
+	{7, 1, 5},
+	{7, 4, 5},
+	{7, 2, 6},
+	{7, 4, 6},
+}
+
+// Ordered list of box face normals.
+var boxNormals = [6]r3.Vector{
+	{1, 0, 0},
+	{0, 1, 0},
+	{0, 0, 1},
+	{-1, 0, 0},
+	{0, -1, 0},
+	{0, 0, -1},
+}
 
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
@@ -20,6 +55,7 @@ type box struct {
 	halfSize        [3]float64
 	boundingSphereR float64
 	label           string
+	mesh            *mesh
 }
 
 // NewBox instantiates a new box Geometry.
@@ -61,20 +97,6 @@ func (b *box) Label() string {
 // Pose returns the pose of the box.
 func (b *box) Pose() Pose {
 	return b.pose
-}
-
-// vertices returns the vertices defining the box.
-func (b *box) vertices() []r3.Vector {
-	vert := make([]r3.Vector, 8)
-	for i, x := range []float64{1, -1} {
-		for j, y := range []float64{1, -1} {
-			for k, z := range []float64{1, -1} {
-				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize[0], Y: y * b.halfSize[1], Z: z * b.halfSize[2]})
-				vert[4*i+2*j+k] = Compose(b.pose, offset).Point()
-			}
-		}
-	}
-	return vert
 }
 
 // AlmostEqual compares the box with another geometry and checks if they are equivalent.
@@ -124,6 +146,9 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxCollision(other, b), nil
 	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsBoxDistance(other, b) <= CollisionBuffer, nil
+	}
 	if other, ok := g.(*point); ok {
 		return pointVsBoxCollision(other.position, b), nil
 	}
@@ -137,6 +162,9 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxDistance(other, b), nil
 	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsBoxDistance(other, b), nil
+	}
 	if other, ok := g.(*point); ok {
 		return pointVsBoxDistance(other.position, b), nil
 	}
@@ -149,6 +177,9 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 	}
 	if other, ok := g.(*sphere); ok {
 		return boxInSphere(b, other), nil
+	}
+	if other, ok := g.(*capsule); ok {
+		return boxInCapsule(b, other), nil
 	}
 	if _, ok := g.(*point); ok {
 		return false, nil
@@ -176,7 +207,7 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 }
 
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
-func (b *box) penetrationDepth(pt r3.Vector) float64 {
+func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.pose.Point())
 	rm := b.pose.Orientation().RotationMatrix()
 	min := math.Inf(1)
@@ -193,8 +224,34 @@ func (b *box) penetrationDepth(pt r3.Vector) float64 {
 	return min
 }
 
+// vertices returns the vertices defining the box.
+func (b *box) vertices() []r3.Vector {
+	verts := make([]r3.Vector, 0, 8)
+	for _, vert := range boxVertices {
+		offset := NewPoseFromPoint(r3.Vector{X: vert.X * b.halfSize[0], Y: vert.Y * b.halfSize[1], Z: vert.Z * b.halfSize[2]})
+		verts = append(verts, Compose(b.pose, offset).Point())
+	}
+	return verts
+}
+
+// vertices returns the vertices defining the box.
+func (b *box) toMesh() *mesh {
+	if b.mesh == nil {
+		m := &mesh{pose: b.pose}
+		triangles := make([]*triangle, 0, 12)
+		verts := b.vertices()
+		for _, tri := range boxTriangles {
+			triangles = append(triangles, newTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
+		}
+		m.triangles = triangles
+		b.mesh = m
+	}
+	return b.mesh
+}
+
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
+// Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
 func boxVsBoxCollision(a, b *box) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
@@ -214,8 +271,13 @@ func boxVsBoxCollision(a, b *box) bool {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if separatingAxisTest(centerDist, rmA.Row(i).Cross(rmB.Row(j)), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
-				return false
+			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
+
+			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
+				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+					return false
+				}
 			}
 		}
 	}
@@ -263,7 +325,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, 0.00001) {
+			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
 				if separation > max {
 					max = separation
@@ -294,6 +356,16 @@ func boxInSphere(b *box, s *sphere) bool {
 	return sphereVsPointDistance(s, b.pose.Point()) <= 0
 }
 
+// boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.
+func boxInCapsule(b *box, c *capsule) bool {
+	for _, vertex := range b.vertices() {
+		if capsuleVsPointDistance(c, vertex) > CollisionBuffer {
+			return false
+		}
+	}
+	return true
+}
+
 // separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
 // this plane.  Per the separating hyperplane theorem, if such a plane exists (and a positive number is returned)
 // this proves that there is no collision between the boxes
@@ -313,14 +385,14 @@ func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]
 
 // ToPointCloud converts a box geometry into a []r3.Vector. This method takes one argument which
 // determines how many points to place per square mm. If the argument is set to 0. we automatically
-// substitute the value with defaultBoxPointDensity.
+// substitute the value with defaultPointDensity.
 func (b *box) ToPoints(resolution float64) []r3.Vector {
 	// check for user defined spacing
 	var iter float64
-	if resolution != 0. {
+	if resolution > 0. {
 		iter = resolution
 	} else {
-		iter = defaultBoxPointDensity
+		iter = defaultPointDensity
 	}
 
 	// the boolean values which are passed into the fillFaces method allow for the edges of the
