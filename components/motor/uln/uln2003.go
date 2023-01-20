@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -25,16 +24,21 @@ import (
 
 var model = resource.NewDefaultModel("uln2003")
 
+var step_sequence = [8][4]bool{{false, false, false, true},
+	{false, false, true, true},
+	{false, false, true, false},
+	{false, true, true, false},
+	{false, true, false, false},
+	{true, true, false, false},
+	{true, false, false, false},
+	{true, false, false, true}}
+
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
 	In1 string `json:"In1"`
 	In2 string `json:"In2"`
 	In3 string `json:"In3"`
 	In4 string `json:"In4"`
-	// Step          string `json:"step"`
-	// Direction     string `json:"dir"`
-	// EnablePinHigh string `json:"en_high,omitempty"`
-	// EnablePinLow  string `json:"en_low,omitempty"`
 }
 
 // Config describes the configuration of a motor.
@@ -45,7 +49,6 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
-// Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.BoardName == "" {
@@ -63,7 +66,7 @@ func init() {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, config.Name, logger)
+			return newULN(ctx, actualBoard, *motorConfig, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, model, _motor)
@@ -93,57 +96,50 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
-	logger golog.Logger,
-) (motor.Motor, error) {
-	// if mc.TicksPerRotation == 0 {
-	// 	return nil, errors.New("expected ticks_per_rotation in config for motor")
-	// }
+func newULN(ctx context.Context, b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
+	if mc.TicksPerRotation == 0 {
+		return nil, errors.New("expected ticks_per_rotation in config for motor")
+	}
 
-	m := &ulnStepper{
+	m := &uln2003{
 		theBoard:         b,
-		stepsPerRotation: mc.TicksPerRotation,
+		ticksPerRotation: mc.TicksPerRotation,
 		stepperDelay:     mc.StepperDelay,
 		logger:           logger,
 		motorName:        name,
 	}
 
-	// if mc.Pins.EnablePinHigh != "" {
-	// 	enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	m.enablePinHigh = enablePinHigh
-	// }
-	// if mc.Pins.EnablePinLow != "" {
-	// 	enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	m.enablePinLow = enablePinLow
-	// }
-	// if mc.Pins.Step != "" {
-	// 	stepPin, err := b.GPIOPinByName(mc.Pins.Step)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	m.stepPin = stepPin
-	// }
-	// if mc.Pins.Direction != "" {
-	// 	directionPin, err := b.GPIOPinByName(mc.Pins.Direction)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	m.dirPin = directionPin
-	// }
+	if mc.Pins.In1 != "" {
+		in1, err := b.GPIOPinByName(mc.Pins.In1)
+		if err != nil {
+			return nil, err
+		}
+		m.in1 = in1
+	}
 
-	// if mc.Pins.In1 != "" {
-	// 	in1, err := b.GPIOPinByName(mc.Pins.In1)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	m.In1 = in1
-	// }
+	if mc.Pins.In2 != "" {
+		in2, err := b.GPIOPinByName(mc.Pins.In2)
+		if err != nil {
+			return nil, err
+		}
+		m.in2 = in2
+	}
+
+	if mc.Pins.In3 != "" {
+		in3, err := b.GPIOPinByName(mc.Pins.In3)
+		if err != nil {
+			return nil, err
+		}
+		m.in3 = in3
+	}
+
+	if mc.Pins.In4 != "" {
+		in4, err := b.GPIOPinByName(mc.Pins.In4)
+		if err != nil {
+			return nil, err
+		}
+		m.in4 = in4
+	}
 
 	if err := m.Validate(); err != nil {
 		return nil, err
@@ -153,16 +149,13 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 	return m, nil
 }
 
-type ulnStepper struct {
-	// config
-	theBoard                    board.Board
-	stepsPerRotation            int
-	stepperDelay                uint
-	In1, In2, In3, In4          board.GPIOPin
-	enablePinHigh, enablePinLow board.GPIOPin
-	stepPin, dirPin             board.GPIOPin
-	logger                      golog.Logger
-	motorName                   string
+type uln2003 struct {
+	theBoard           board.Board
+	ticksPerRotation   int
+	stepperDelay       uint
+	in1, in2, in3, in4 board.GPIOPin
+	logger             golog.Logger
+	motorName          string
 
 	// state
 	lock  sync.Mutex
@@ -176,57 +169,49 @@ type ulnStepper struct {
 }
 
 // validate if this config is valid.
-func (m *ulnStepper) Validate() error {
+func (m *uln2003) Validate() error {
+
 	if m.theBoard == nil {
-		return errors.New("need a board for gpioStepper")
+		return errors.New("need a board for uln2003")
 	}
 
-	if m.stepsPerRotation == 0 {
-		return errors.New("need to set 'steps per rotation' for gpioStepper")
+	if m.ticksPerRotation == 0 {
+		return errors.New("need to set 'ticks per rotation' for uln2003")
 	}
 
 	if m.stepperDelay == 0 {
 		m.stepperDelay = 20
 	}
 
-	if m.In1 == nil {
-		return errors.New("need to set In1 for ULN2003")
+	if m.in1 == nil {
+		return errors.New("need a 'In1' pin for uln2003")
 	}
 
-	if m.In2 == nil {
-		return errors.New("need to set In2 for ULN2003")
+	if m.in2 == nil {
+		return errors.New("need a 'In2' pin for uln2003")
 	}
 
-	if m.In3 == nil {
-		return errors.New("need to set In3 for ULN2003")
+	if m.in3 == nil {
+		return errors.New("need a 'In3' pin for uln2003")
 	}
 
-	if m.In4 == nil {
-		return errors.New("need to set In4 for ULN2003")
-	}
-
-	if m.stepPin == nil {
-		return errors.New("need a 'step' pin for gpioStepper")
-	}
-
-	if m.dirPin == nil {
-		return errors.New("need a 'dir' pin for gpioStepper")
+	if m.in4 == nil {
+		return errors.New("need a 'In4' pin for uln2003")
 	}
 
 	return nil
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
-func (m *ulnStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
 	}
-
-	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.motorName)
+	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
 }
 
-func (m *ulnStepper) startThread(ctx context.Context) {
+func (m *uln2003) startThread(ctx context.Context) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -238,11 +223,11 @@ func (m *ulnStepper) startThread(ctx context.Context) {
 	go m.doRun(ctx)
 }
 
-func (m *ulnStepper) doRun(ctx context.Context) {
+func (m *uln2003) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
 		if err != nil {
-			m.logger.Info("error in gpioStepper %w", err)
+			m.logger.Info("error in uln2003 %w", err)
 		}
 
 		if !utils.SelectContextOrWait(ctx, sleep) {
@@ -251,7 +236,7 @@ func (m *ulnStepper) doRun(ctx context.Context) {
 	}
 }
 
-func (m *ulnStepper) doCycle(ctx context.Context) (time.Duration, error) {
+func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -268,31 +253,40 @@ func (m *ulnStepper) doCycle(ctx context.Context) (time.Duration, error) {
 }
 
 // have to be locked to call.
-func (m *ulnStepper) doStep(ctx context.Context, forward bool) error {
-	err := multierr.Combine(
-		m.enable(ctx, true),
-		m.stepPin.Set(ctx, true, nil),
-		m.dirPin.Set(ctx, forward, nil),
-	)
-	if err != nil {
-		return err
-	}
+func (m *uln2003) doStep(ctx context.Context, forward bool) error {
 
 	time.Sleep(time.Duration(m.stepperDelay) * time.Microsecond)
 
 	if forward {
+		for steps := 0; steps < len(step_sequence); steps++ {
+			m.in1.Set(ctx, step_sequence[steps][0], nil)
+			m.in2.Set(ctx, step_sequence[steps][1], nil)
+			m.in3.Set(ctx, step_sequence[steps][2], nil)
+			m.in4.Set(ctx, step_sequence[steps][3], nil)
+
+		}
 		m.stepPosition++
+
 	} else {
+		for steps := len(step_sequence); steps >= 0; steps-- {
+			m.in1.Set(ctx, step_sequence[steps][0], nil)
+			m.in2.Set(ctx, step_sequence[steps][1], nil)
+			m.in3.Set(ctx, step_sequence[steps][2], nil)
+			m.in4.Set(ctx, step_sequence[steps][3], nil)
+
+		}
 		m.stepPosition--
+
 	}
-	return m.stepPin.Set(ctx, false, nil)
+
+	return nil
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *ulnStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -312,7 +306,7 @@ func (m *ulnStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *ulnStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
+func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
 		revolutions = 1000000.0
 	}
@@ -336,8 +330,8 @@ func (m *ulnStepper) goForInternal(ctx context.Context, rpm, revolutions float64
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition += int64(float64(d) * revolutions * float64(m.stepsPerRotation))
-	m.targetStepsPerSecond = int64(rpm * float64(m.stepsPerRotation) / 60.0)
+	m.targetStepPosition += int64(float64(d) * revolutions * float64(m.ticksPerRotation))
+	m.targetStepsPerSecond = int64(rpm * float64(m.ticksPerRotation) / 60.0)
 	if m.targetStepsPerSecond == 0 {
 		m.targetStepsPerSecond = 1
 	}
@@ -348,7 +342,7 @@ func (m *ulnStepper) goForInternal(ctx context.Context, rpm, revolutions float64
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *ulnStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *uln2003) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
@@ -358,72 +352,46 @@ func (m *ulnStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64,
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
-// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
-// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
-// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-func (m *ulnStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
-
-	if err := m.GoFor(ctx, rpm, 0, nil); err != nil {
-		return err
-	}
-	defer func() {
-		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Errorw("failed to turn off motor (%s)", m.motorName, "error", err)
-		}
-	}()
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.Wrap(ctx.Err(), "stopped via context")
-		}
-		if stopFunc != nil && stopFunc(ctx) {
-			return ctx.Err()
-		}
-	}
-}
-
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *ulnStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *uln2003) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
+	m.stepPosition = int64(offset * float64(m.ticksPerRotation))
 	return nil
 }
 
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *ulnStepper) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *uln2003) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
+	return float64(m.stepPosition) / float64(m.ticksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
-func (m *ulnStepper) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+func (m *uln2003) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
 // IsMoving returns if the motor is currently moving.
-func (m *ulnStepper) IsMoving(ctx context.Context) (bool, error) {
+func (m *uln2003) IsMoving(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.stepPosition != m.targetStepPosition, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *ulnStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *uln2003) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.enable(ctx, false)
 }
 
-func (m *ulnStepper) stop() {
+func (m *uln2003) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.targetStepPosition = m.stepPosition
@@ -433,7 +401,7 @@ func (m *ulnStepper) stop() {
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
 // that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
 // redundant.
-func (m *ulnStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *uln2003) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
@@ -445,13 +413,21 @@ func (m *ulnStepper) IsPowered(ctx context.Context, extra map[string]interface{}
 	return on, percent, err
 }
 
-func (m *ulnStepper) enable(ctx context.Context, on bool) error {
-	if m.enablePinHigh != nil {
-		return m.enablePinHigh.Set(ctx, on, nil)
+func (m *uln2003) enable(ctx context.Context, on bool) error {
+	if m.in1 != nil {
+		return m.in1.Set(ctx, !on, nil)
 	}
 
-	if m.enablePinLow != nil {
-		return m.enablePinLow.Set(ctx, !on, nil)
+	if m.in2 != nil {
+		return m.in2.Set(ctx, !on, nil)
+	}
+
+	if m.in3 != nil {
+		return m.in3.Set(ctx, !on, nil)
+	}
+
+	if m.in2 != nil {
+		return m.in4.Set(ctx, !on, nil)
 	}
 
 	return nil

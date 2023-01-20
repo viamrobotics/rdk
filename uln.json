@@ -6,13 +6,13 @@
       "model": "uln2003",
       "attributes": {
         "pins": {
-			"In1": "17",
-			"In2": "18",
-			"In3": "27",
-			"In4": "22"
+			"In1": "11",
+			"In2": "12",
+			"In3": "13",
+			"In4": "15"
         },
         "board": "pi",
-        "tickes_per_rotation": 4
+        "tickes_per_rotation": 8
       },
       "depends_on": ["pi"]
     },
