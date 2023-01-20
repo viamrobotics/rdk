@@ -50,6 +50,7 @@ jobs:
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="BRANCH"'
         
     - name: Print results
+      env:
         BASELINE: ${{ github.event.pull_request.base.label }}
         MODIFIED: ${{ github.event.pull_request.head.label }}
       run: |
