@@ -61,6 +61,7 @@ require (
 	github.com/pion/webrtc/v3 v3.1.50
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/rhysd/actionlint v1.6.22-0.20221022051330-a6edfdd585fc
+	github.com/rs/cors v1.8.2
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
 	github.com/u2takey/ffmpeg-go v0.4.1
@@ -77,7 +78,7 @@ require (
 	go.viam.com/api v0.1.49
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.6-0.20221221182443-100057239d4e
+	go.viam.com/utils v0.1.10-0.20230120213729-59833cd0937a
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.1.0
 	golang.org/x/tools v0.1.12
@@ -297,7 +298,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/rocketlaunchr/dataframe-go v0.0.0-20201007021539-67b046771f0b // indirect
-	github.com/rs/cors v1.8.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryancurrah/gomodguard v1.2.4 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.3.0 // indirect
