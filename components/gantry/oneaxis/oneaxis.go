@@ -38,10 +38,9 @@ type oneAxis struct {
 
 	model referenceframe.Model
 
-	logger                  golog.Logger
-	opMgr                   operation.SingleOperationManager
-	activeBackGroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
+	logger golog.Logger
+	opMgr  operation.SingleOperationManager
+	mu     sync.Mutex
 }
 
 // newOneAxis creates a new one axis gantry.
@@ -93,6 +92,8 @@ func newOneAxis(
 }
 
 func (g *oneAxis) createModel(axis r3.Vector) (referenceframe.Model, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	var errs error
 	m := referenceframe.NewSimpleModel("")
 
@@ -113,6 +114,8 @@ func (g *oneAxis) createModel(axis r3.Vector) (referenceframe.Model, error) {
 }
 
 func (g *oneAxis) linearToRotational(positions float64) float64 {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * theRange)
@@ -120,6 +123,9 @@ func (g *oneAxis) linearToRotational(positions float64) float64 {
 }
 
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	// should be non-zero from creator function
