@@ -323,6 +323,7 @@ func TestServiceWithRemote(t *testing.T) {
 	allParts, err := r2.FrameSystemConfig(context.Background(), transforms)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
