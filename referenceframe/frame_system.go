@@ -313,10 +313,6 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 // the point representation of their geometry type with respect to the world.
 func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
-	// check to make sure the frame system is not empty
-	if system.FrameNames() == nil {
-		return vectorMap, errors.New("cannot convert empty frame system")
-	}
 	geoMap, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
 		return nil, err
@@ -339,10 +335,6 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 // are GeometriesInFrame modified to be with respect to the world.
 func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[string]*GeometriesInFrame, error) {
 	geoMap := make(map[string]*GeometriesInFrame)
-	// check to make sure the frame system is not empty
-	if system.FrameNames() == nil {
-		return geoMap, errors.New("cannot convert empty frame system")
-	}
 	for _, name := range system.FrameNames() {
 		currentFrame := system.Frame(name)
 		parent, err := system.Parent(currentFrame)
