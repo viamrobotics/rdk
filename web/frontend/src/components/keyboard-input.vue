@@ -48,10 +48,11 @@ const normalizeKey = (key: string): Keys | null => {
 };
 
 const emitKeyDown = (key: Keys) => {
-  pressedKeys[key] = true;
   if (!props.tempDisable) {
     return;
   }
+  
+  pressedKeys[key] = true;
 
   emit('keydown', key);
 };
