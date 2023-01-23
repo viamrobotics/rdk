@@ -147,7 +147,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		validateBasicOctree(t, basicOct, center, side)
 	})
 
-	t.Run("Set point into internal node node into basic octree", func(t *testing.T) {
+	t.Run("Set point into internal node into basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(ctx, center, side, logger)
 		test.That(t, err, test.ShouldBeNil)
 

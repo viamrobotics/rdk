@@ -1,4 +1,4 @@
-//go:build !arm
+//go:build !arm && !windows
 
 // Package builtin is the service that allows you to access various computer vision algorithms
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.

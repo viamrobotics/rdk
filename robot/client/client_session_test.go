@@ -37,7 +37,7 @@ import (
 /*
 The client session tests here are fairly complicated because they make heavy use of dependency injection
 in order to mimic the server side very deliberately in order to introduce failures that would be hard
-with the actual production code. As a result, you'll find the the server analogue to this to be much simpler
+with the actual production code. As a result, you'll find the server analogue to this to be much simpler
 to reason about and in fact it ends up covering many similar cases but ones that are not as important to
 client behavior.
 */

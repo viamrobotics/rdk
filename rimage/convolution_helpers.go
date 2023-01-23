@@ -12,8 +12,10 @@ import (
 type BorderPad int
 
 const (
+	//nolint:dupword
 	// BorderConstant - X X X A B C D E X X X - where X is a black ( color.Gray{0} ) pixel.
 	BorderConstant BorderPad = iota
+	//nolint:dupword
 	// BorderReplicate - A A A A B C D E E E E  - copies the nearest border pixel into padding.
 	BorderReplicate
 	// BorderReflect - D C B A B C D E D C B - reflects the nearest pixel group around border pixel.
