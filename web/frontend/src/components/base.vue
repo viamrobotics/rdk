@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref, onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { onClickOutside } from '@vueuse/core';
 import { Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
@@ -33,29 +33,29 @@ type Directions = 'Forwards' | 'Backwards'
 
 const root = $ref<HTMLElement>();
 
-const selectedItem = ref<Tabs>('Keyboard');
-const movementMode = ref<MovementModes>('Straight');
-const movementType = ref<MovementTypes>('Continuous');
-const direction = ref<Directions>('Forwards');
-const spinType = ref<SpinTypes>('Clockwise');
-const increment = ref(1000);
+let selectedItem = $ref<Tabs>('Keyboard');
+let movementMode = $ref<MovementModes>('Straight');
+let movementType = $ref<MovementTypes>('Continuous');
+let direction = $ref<Directions>('Forwards');
+let spinType = $ref<SpinTypes>('Clockwise');
+let increment = $ref(1000);
 // straight mm/s
-const speed = ref(300);
+let speed = $ref(300);
 // deg/s
-const spinSpeed = ref(90);
-const angle = ref(0);
+let spinSpeed = $ref(90);
+let angle = $ref(0);
 
-const selectCameras = ref('');
+let selectCameras = $ref('');
 
-const power = $ref(50);
+let power = $ref(50);
 
-const pressed = new Set<Keys>();
+let pressed = new Set<Keys>();
 let stopped = true;
 
-const keyboardStates = {
-  tempDisable: ref(false),
-  isActive: ref(false),
-};
+const keyboardStates = $ref({
+  tempDisable: false,
+  isActive: false,
+});
 
 const initStreamState = () => {
   for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
@@ -64,26 +64,26 @@ const initStreamState = () => {
 };
 
 const resetDiscreteState = () => {
-  movementMode.value = 'Straight';
-  movementType.value = 'Continuous';
-  direction.value = 'Forwards';
-  spinType.value = 'Clockwise';
+  movementMode = 'Straight';
+  movementType = 'Continuous';
+  direction = 'Forwards';
+  spinType = 'Clockwise';
 };
 
 const setMovementMode = (mode: MovementModes) => {
-  movementMode.value = mode;
+  movementMode = mode;
 };
 
 const setMovementType = (type: MovementTypes) => {
-  movementType.value = type;
+  movementType = type;
 };
 
 const setSpinType = (type: SpinTypes) => {
-  spinType.value = type;
+  spinType = type;
 };
 
 const setDirection = (dir: Directions) => {
-  direction.value = dir;
+  direction = dir;
 };
 
 const stop = () => {
@@ -184,23 +184,23 @@ const handleBaseStraight = (name: string, event: {
 };
 
 const baseRun = () => {
-  if (movementMode.value === 'Spin') {
+  if (movementMode === 'Spin') {
 
     const req = new baseApi.SpinRequest();
     req.setName(props.name);
-    req.setAngleDeg(angle.value * (spinType.value === 'Clockwise' ? -1 : 1));
-    req.setDegsPerSec(spinSpeed.value);
+    req.setAngleDeg(angle * (spinType === 'Clockwise' ? -1 : 1));
+    req.setDegsPerSec(spinSpeed);
 
     rcLogConditionally(req);
     props.client.baseService.spin(req, new grpc.Metadata(), displayError);
 
-  } else if (movementMode.value === 'Straight') {
+  } else if (movementMode === 'Straight') {
 
     handleBaseStraight(props.name, {
-      movementType: movementType.value,
-      direction: direction.value === 'Forwards' ? 1 : -1,
-      speed: speed.value,
-      distance: increment.value,
+      movementType: movementType,
+      direction: direction === 'Forwards' ? 1 : -1,
+      speed: speed,
+      distance: increment,
     });
 
   }
@@ -234,14 +234,14 @@ const viewPreviewCamera = (values: string) => {
 };
 
 const handleTabSelect = (tab: Tabs) => {
-  selectedItem.value = tab;
+  selectedItem = tab;
 
   /*
    * deselect options from select cameras select
    * TODO: handle better with xstate and reactivate on return
    */
-  selectCameras.value = '';
-  viewPreviewCamera(selectCameras.value);
+  selectCameras = '';
+  viewPreviewCamera(selectCameras);
 
   if (tab === 'Discrete') {
     resetDiscreteState();
@@ -256,7 +256,7 @@ const handleVisibilityChange = () => {
 };
 
 const tempDisableKeyboard = (disableKeyboard: boolean) => {
-  keyboardStates.tempDisable.value = disableKeyboard;
+  keyboardStates.tempDisable = disableKeyboard;
 };
 
 const handleToggle = () => {
@@ -270,11 +270,11 @@ const handleToggle = () => {
 };
 
 const handleUpdateKeyboardState = (on:boolean) => {
-  keyboardStates.isActive.value = on;
+  keyboardStates.isActive = on;
 };
 
 onClickOutside($$(root), () => {
-  keyboardStates.isActive.value = false;
+  keyboardStates.isActive = false;
 });
 
 onMounted(() => {
@@ -321,8 +321,8 @@ onUnmounted(() => {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
             <div class="flex flex-col gap-4">
               <KeyboardInput
-                :is-active="keyboardStates.isActive.value"
-                :temp-disable="keyboardStates.tempDisable.value"
+                :is-active="keyboardStates.isActive"
+                :temp-disable="keyboardStates.tempDisable"
                 @keydown="handleKeyDown"
                 @keyup="handleKeyUp"
                 @toggle="handleToggle"
