@@ -51,7 +51,7 @@ const emitKeyDown = (key: Keys) => {
   if (props.tempDisable) {
     return;
   }
-  
+
   pressedKeys[key] = true;
 
   emit('keydown', key);
