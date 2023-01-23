@@ -38,18 +38,18 @@ let movementMode = $ref<MovementModes>('Straight');
 let movementType = $ref<MovementTypes>('Continuous');
 let direction = $ref<Directions>('Forwards');
 let spinType = $ref<SpinTypes>('Clockwise');
-let increment = $ref(1000);
+const increment = $ref(1000);
 // straight mm/s
-let speed = $ref(300);
+const speed = $ref(300);
 // deg/s
-let spinSpeed = $ref(90);
-let angle = $ref(0);
+const spinSpeed = $ref(90);
+const angle = $ref(0);
 
 let selectCameras = $ref('');
 
-let power = $ref(50);
+const power = $ref(50);
 
-let pressed = new Set<Keys>();
+const pressed = new Set<Keys>();
 let stopped = true;
 
 const keyboardStates = $ref({
@@ -197,9 +197,9 @@ const baseRun = () => {
   } else if (movementMode === 'Straight') {
 
     handleBaseStraight(props.name, {
-      movementType: movementType,
+      movementType,
       direction: direction === 'Forwards' ? 1 : -1,
-      speed: speed,
+      speed,
       distance: increment,
     });
 
