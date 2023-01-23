@@ -323,13 +323,11 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 	for name, geosInFrame := range geoMap {
 		geos := geosInFrame.geometries
 		aggregatePoints := []r3.Vector{}
-		if geos != nil {
-			for _, g := range geos {
-				asPoints := g.ToPoints(defaultPointDensity)
-				aggregatePoints = append(aggregatePoints, asPoints...)
-			}
-			vectorMap[name] = aggregatePoints
+		for _, g := range geos {
+			asPoints := g.ToPoints(defaultPointDensity)
+			aggregatePoints = append(aggregatePoints, asPoints...)
 		}
+		vectorMap[name] = aggregatePoints
 	}
 	return vectorMap, nil
 }
@@ -357,16 +355,18 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[s
 			if err != nil {
 				return nil, err
 			}
-			// if the frame's parent is not 'world' we apply a transformation
-			if parent.Name() != World {
-				transformed, err := system.Transform(inputs, geosInFrame, World)
-				if err != nil {
-					return nil, err
+			if geosInFrame.geometries != nil {
+				// if the frame's parent is not 'world' we apply a transformation
+				if parent.Name() != World {
+					transformed, err := system.Transform(inputs, geosInFrame, World)
+					if err != nil {
+						return nil, err
+					}
+					transformedGeo := transformed.(*GeometriesInFrame)
+					geoMap[name] = transformedGeo
+				} else {
+					geoMap[name] = geosInFrame
 				}
-				transformedGeo := transformed.(*GeometriesInFrame)
-				geoMap[name] = transformedGeo
-			} else {
-				geoMap[name] = geosInFrame
 			}
 		}
 	}
