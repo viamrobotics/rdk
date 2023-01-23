@@ -88,7 +88,7 @@ func TestTransformPointToPoint(t *testing.T) {
 	test.That(t, z4, test.ShouldAlmostEqual, 0.)
 }
 
-func TestUndistortedImage(t *testing.T) {
+func TestUndistortImage(t *testing.T) {
 	params800 := &PinholeCameraIntrinsics{
 		Width:  800,
 		Height: 600,
@@ -147,7 +147,7 @@ func TestUndistortedImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestUndistortedDepthMap(t *testing.T) {
+func TestUndistortDepthMap(t *testing.T) {
 	params := &PinholeCameraIntrinsics{ // not the real intrinsic parameters of the depth map
 		Width:  1280,
 		Height: 720,
