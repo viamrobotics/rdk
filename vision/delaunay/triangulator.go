@@ -277,6 +277,7 @@ func (tri *triangulator) link(a, b int) {
 }
 
 func (tri *triangulator) legalize(a int) int {
+	//nolint:dupword
 	// if the pair of triangles doesn'tri satisfy the Delaunay condition
 	// (p1 is inside the circumcircle of [p0, pl, pr]), flip them,
 	// then do the same check/flip recursively for the new pair of triangles
