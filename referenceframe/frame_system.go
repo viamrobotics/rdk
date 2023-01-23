@@ -320,13 +320,14 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 	for name, geosInFrame := range geoMap {
 		geos := geosInFrame.geometries
 		aggregatePoints := []r3.Vector{}
-		for _, g := range geos {
-			asPoints := g.ToPoints(1.)
-			aggregatePoints = append(aggregatePoints, asPoints...)
+		//nolint:staticcheck
+		if geos != nil {
+			for _, g := range geos {
+				asPoints := g.ToPoints(1.)
+				aggregatePoints = append(aggregatePoints, asPoints...)
+			}
 		}
-		if len(aggregatePoints) > 0 {
-			vectorMap[name] = aggregatePoints
-		}
+		vectorMap[name] = aggregatePoints
 	}
 	return vectorMap, nil
 }
