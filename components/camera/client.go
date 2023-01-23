@@ -166,13 +166,15 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	if err != nil {
 		return Properties{}, err
 	}
-	result.IntrinsicParams = &transform.PinholeCameraIntrinsics{
-		Width:  int(resp.IntrinsicParameters.WidthPx),
-		Height: int(resp.IntrinsicParameters.HeightPx),
-		Fx:     resp.IntrinsicParameters.FocalXPx,
-		Fy:     resp.IntrinsicParameters.FocalYPx,
-		Ppx:    resp.IntrinsicParameters.CenterXPx,
-		Ppy:    resp.IntrinsicParameters.CenterYPx,
+	if intrinsics := resp.IntrinsicParameters; intrinsics != nil {
+		result.IntrinsicParams = &transform.PinholeCameraIntrinsics{
+			Width:  int(intrinsics.WidthPx),
+			Height: int(intrinsics.HeightPx),
+			Fx:     intrinsics.FocalXPx,
+			Fy:     intrinsics.FocalYPx,
+			Ppx:    intrinsics.CenterXPx,
+			Ppy:    intrinsics.CenterYPx,
+		}
 	}
 	result.SupportsPCD = resp.SupportsPcd
 	// if no distortion model present, return result with no model

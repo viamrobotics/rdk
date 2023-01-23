@@ -2,6 +2,8 @@ package transform
 
 import (
 	"context"
+	"go.viam.com/rdk/pointcloud"
+	"image"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -86,7 +88,7 @@ func TestTransformPointToPoint(t *testing.T) {
 	test.That(t, z4, test.ShouldAlmostEqual, 0.)
 }
 
-func TestUndistortImage(t *testing.T) {
+func TestUndistortedImage(t *testing.T) {
 	params800 := &PinholeCameraIntrinsics{
 		Width:  800,
 		Height: 600,
@@ -145,7 +147,7 @@ func TestUndistortImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestUndistortDepthMap(t *testing.T) {
+func TestUndistortedDepthMap(t *testing.T) {
 	params := &PinholeCameraIntrinsics{ // not the real intrinsic parameters of the depth map
 		Width:  1280,
 		Height: 720,
@@ -206,4 +208,18 @@ func TestGetCameraMatrix(t *testing.T) {
 	test.That(t, intrinsicsK.At(0, 2), test.ShouldEqual, intrinsics.Ppx)
 	test.That(t, intrinsicsK.At(1, 2), test.ShouldEqual, intrinsics.Ppy)
 	test.That(t, intrinsicsK.At(2, 2), test.ShouldEqual, 1)
+}
+
+func TestNilIntrinsics(t *testing.T) {
+	var nilIntrinsics *PinholeCameraIntrinsics = nil
+
+	// should not panic
+	nilIntrinsics.CheckValid()
+	nilIntrinsics.GetCameraMatrix()
+	nilIntrinsics.PixelToPoint(0.0, 0.0, 0.0)
+	nilIntrinsics.PointToPixel(0.0, 0.0, 0.0)
+	nilIntrinsics.ImagePointTo3DPoint(image.Point{}, rimage.Depth(0))
+	nilIntrinsics.RGBDToPointCloud(&rimage.Image{}, &rimage.DepthMap{})
+	nilIntrinsics.PointCloudToRGBD(pointcloud.PointCloud(nil))
+
 }
