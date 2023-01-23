@@ -67,7 +67,7 @@ type AS5048Config struct {
 	// We include connection type here in anticipation for
 	// future SPI support
 	ConnectionType string `json:"connection_type"`
-	*i2cAttrConfig `json:"i2c_attributes,omitempty"`
+	*I2CAttrConfig `json:"i2c_attributes,omitempty"`
 }
 
 // Validate checks the attributes of an initialized config
@@ -89,7 +89,10 @@ func (conf *AS5048Config) Validate(path string) ([]string, error) {
 		if len(conf.BoardName) == 0 {
 			return nil, errors.New("expected nonempty board")
 		}
-		err := conf.i2cAttrConfig.ValidateI2C(path)
+		if conf.I2CAttrConfig == nil {
+			return nil, errors.New("i2c selected as connection type, but no attributes supplied")
+		}
+		err := conf.I2CAttrConfig.ValidateI2C(path)
 		if err != nil {
 			return nil, err
 		}
@@ -99,13 +102,14 @@ func (conf *AS5048Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-type i2cAttrConfig struct {
+// I2CAttrConfig stores the configuration information for I2C connection.
+type I2CAttrConfig struct {
 	I2CBus  string `json:"i2c_bus"`
 	I2CAddr int    `json:"i2c_addr"`
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (cfg *i2cAttrConfig) ValidateI2C(path string) error {
+func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
