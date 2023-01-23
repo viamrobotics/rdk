@@ -25,9 +25,9 @@ const pwmFrequency = $ref('');
 let getPinMessage = $ref('');
 
 const getGPIO = async () => {
-  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    const isHigh = await bc.getGPIO(getPin);
+    const isHigh = await boardClient.getGPIO(getPin);
     getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
   } catch (error) {
     toast.error((error as ServiceError).message);
@@ -35,19 +35,19 @@ const getGPIO = async () => {
 };
 
 const setGPIO = async () => {
-  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   try {
-    await bc.setGPIO(setPin, setLevel === 'high');
+    await boardClient.setGPIO(setPin, setLevel === 'high');
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
 const getPWM = async () => {
-  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    const dutyCyclePct = await bc.getPWM(getPin);
+    const dutyCyclePct = await boardClient.getPWM(getPin);
     getPinMessage = `Pin ${getPin}'s duty cycle is ${dutyCyclePct * 100}%.`;
   } catch (error) {
     displayError(error as ServiceError);
@@ -55,18 +55,18 @@ const getPWM = async () => {
 };
 
 const setPWM = async () => {
-  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    await bc.setPWM(setPin, Number.parseFloat(pwm) / 100);
+    await boardClient.setPWM(setPin, Number.parseFloat(pwm) / 100);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
 const getPWMFrequency = async () => {
-  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    const frequencyHz = await bc.getPWMFrequency(getPin);
+    const frequencyHz = await boardClient.getPWMFrequency(getPin);
     getPinMessage = `Pin ${getPin}'s frequency is ${frequencyHz}Hz.`;
   } catch (error) {
     displayError(error as ServiceError);
@@ -74,9 +74,9 @@ const getPWMFrequency = async () => {
 };
 
 const setPWMFrequency = async () => {
-  const bc = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    await bc.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
+    await boardClient.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
   } catch (error) {
     displayError(error as ServiceError);
   }

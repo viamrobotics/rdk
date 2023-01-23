@@ -79,10 +79,10 @@ const setDirection = (dir: Directions) => {
 };
 
 const stop = async () => {
-  const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   stopped = true;
   try {
-    await bc.stop();
+    await baseClient.stop();
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -91,7 +91,7 @@ const stop = async () => {
 const digestInput = async () => {
   let linearValue = 0;
   let angularValue = 0;
-  const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   for (const item of pressed) {
     switch (item) {
@@ -120,7 +120,7 @@ const digestInput = async () => {
   angular.setZ(angularValue);
 
   try {
-    await bc.setPower(linear, angular);
+    await baseClient.setPower(linear, angular);
     if (pressed.size <= 0) {
       stop();
     }
@@ -151,20 +151,20 @@ const handleBaseStraight = async (name: string, event: {
   direction: number
   movementType: MovementTypes
 }) => {
-  const bc = new BaseClient(props.client, name, { requestLogger: rcLogConditionally });
+  const baseClient = new BaseClient(props.client, name, { requestLogger: rcLogConditionally });
   if (event.movementType === 'Continuous') {
     const linear = new commonApi.Vector3();
     const angular = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
     try {
-      await bc.setVelocity(linear, angular);
+      await baseClient.setVelocity(linear, angular);
     } catch (error) {
       displayError(error as ServiceError);
     }
   } else {
     try {
-      await bc.moveStraight(event.distance, event.speed * event.direction);
+      await baseClient.moveStraight(event.distance, event.speed * event.direction);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -172,10 +172,10 @@ const handleBaseStraight = async (name: string, event: {
 };
 
 const baseRun = async () => {
-  const bc = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   if (movementMode.value === 'Spin') {
     try {
-      await bc.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
+      await baseClient.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
     } catch (error) {
       displayError(error as ServiceError);
     }

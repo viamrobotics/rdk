@@ -60,28 +60,28 @@ const setDirection = (value: string) => {
 };
 
 const setPower = async () => {
-  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   const powerPct = (power * direction) / 100;
   try {
-    await mc.setPower(powerPct);
+    await motorClient.setPower(powerPct);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
 const goFor = async () => {
-  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    await mc.goFor(rpm * direction, revolutions);
+    await motorClient.goFor(rpm * direction, revolutions);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
 const goTo = async () => {
-  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    await mc.goTo(rpm, position);
+    await motorClient.goTo(rpm, position);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -103,18 +103,18 @@ const motorRun = () => {
 };
 
 const motorStop = async () => {
-  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    await mc.motorStop();
+    await motorClient.motorStop();
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
 onMounted(async () => {
-  const mc = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
-    properties = await mc.getProperties();
+    properties = await motorClient.getProperties();
   } catch (error) {
     displayError(error as ServiceError);
   }
