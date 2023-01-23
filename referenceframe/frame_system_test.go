@@ -1,9 +1,13 @@
 package referenceframe
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/gob"
 	"encoding/json"
 	"math"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -353,7 +357,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	// -----
 	inputs = StartPositions(fs)
 	_, err = FrameSystemToPCD(fs, inputs)
-	test.That(t, err, test.ShouldBeError)
+	test.That(t, err, test.ShouldBeNil)
 
 	// --------------------------------------------
 	// here we are testing an arm with a block attached to the end effector
@@ -383,7 +387,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	fs.AddFrame(armFrame, fs.World())
 	blockName := "block"
 	blockPose := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
-	blockdims := r3.Vector{20, 20, 20}
+	blockdims := r3.Vector{10, 10, 10}
 	blockGeomCreator, err := spatial.NewBox(blockPose, blockdims, "box1")
 	test.That(t, err, test.ShouldBeNil)
 	blockFrame, err := NewStaticFrameWithGeometry(blockName, pose1, blockGeomCreator)
@@ -391,31 +395,28 @@ func TestFrameSystemToPCD(t *testing.T) {
 	fs.AddFrame(blockFrame, armFrame)
 	// -----
 	inputs = StartPositions(fs)
-	_, err = FrameSystemToPCD(fs, inputs)
+	outMap, err = FrameSystemToPCD(fs, inputs)
 	test.That(t, err, test.ShouldBeNil)
-	// pc1, err := pointcloud.VectorsToPointCloud(outMap["test"], color.NRGBA{0, 0, 255, 255})
-	// test.That(t, err, test.ShouldBeNil)
-	// pc2, err := pointcloud.VectorsToPointCloud(outMap["block"], color.NRGBA{255, 0, 0, 255})
-	// test.That(t, err, test.ShouldBeNil)
-	// var cluster []pointcloud.PointCloud
-	// cluster = append(cluster, pc1, pc2)
-	// merged, err := pointcloud.MergePointCloudsWithColor(cluster)
-	// test.That(t, err, test.ShouldBeNil)
 
-	// f, err := os.OpenFile("testAgainst.pcd", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
-	// test.That(t, err, test.ShouldBeNil)
+	out := outMap["test"]
+	out = append(out, outMap["block"]...)
 
-	// err = pointcloud.ToPCD(merged, f, 0)
-	// test.That(t, err, test.ShouldBeNil)
-	// f.Close()
-
-	// b, err := ioutil.ReadFile("testAgainst.pcd")
-	// test.That(t, err, test.ShouldBeNil)
-	// asBytes := md5.Sum(b)
-
-	// fmt.Println("asBytes: ", asBytes)
-	// fmt.Printf("%x", asBytes)
-
-	// err = os.Remove("testAgainst.pcd")
-	// test.That(t, err, test.ShouldBeNil)
+	// 1. convert 3D array to 1D
+	total := []float64{}
+	for i := range out {
+		total = append(total, out[i].X)
+		total = append(total, out[i].Y)
+		total = append(total, out[i].Z)
+	}
+	// 2. sort that
+	sort.Float64s(total)
+	// 3. Encode the value
+	var network bytes.Buffer        // Stand-in for a network connection
+	enc := gob.NewEncoder(&network) // Will write to network.
+	err = enc.Encode(total)
+	test.That(t, err, test.ShouldBeNil)
+	// 4. Hash the bytes
+	asBytes := md5.Sum(network.Bytes())
+	checkAgainst := [16]uint8{70, 188, 150, 67, 13, 145, 69, 79, 192, 180, 155, 249, 175, 57, 76, 7}
+	test.That(t, asBytes, test.ShouldEqual, checkAgainst)
 }
