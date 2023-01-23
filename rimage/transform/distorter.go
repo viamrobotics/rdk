@@ -22,8 +22,8 @@ type Distorter interface {
 	Transform(x, y float64) (float64, float64)
 }
 
-// ErrInvalidDistortionError is used when the distortion_parameters are invalid.
-func ErrInvalidDistortionError(msg string) error {
+// InvalidDistortionError is used when the distortion_parameters are invalid.
+func InvalidDistortionError(msg string) error {
 	return errors.Wrapf(errors.New("invalid distortion_parameters"), msg)
 }
 

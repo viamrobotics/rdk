@@ -14,7 +14,7 @@ type BrownConrady struct {
 // CheckValid checks if the fields for BrownConrady have valid inputs.
 func (bc *BrownConrady) CheckValid() error {
 	if bc == nil {
-		return ErrInvalidDistortionError("BrownConrady shaped distortion_parameters not provided")
+		return InvalidDistortionError("BrownConrady shaped distortion_parameters not provided")
 	}
 	return nil
 }
