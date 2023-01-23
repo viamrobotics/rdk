@@ -82,6 +82,9 @@ func (pt *point) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereVsPointDistance(other, pt.position) <= 0, nil
 	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsPointDistance(other, pt.position) <= 0, nil
+	}
 	if other, ok := g.(*point); ok {
 		return pt.AlmostEqual(other), nil
 	}
@@ -95,6 +98,9 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	}
 	if other, ok := g.(*sphere); ok {
 		return sphereVsPointDistance(other, pt.position), nil
+	}
+	if other, ok := g.(*capsule); ok {
+		return capsuleVsPointDistance(other, pt.position), nil
 	}
 	if other, ok := g.(*point); ok {
 		return pt.position.Sub(other.position).Norm(), nil
@@ -121,7 +127,7 @@ func pointVsBoxDistance(pt r3.Vector, b *box) float64 {
 	if distance > 0 {
 		return distance
 	}
-	return -b.penetrationDepth(pt)
+	return -b.pointPenetrationDepth(pt)
 }
 
 // ToPointCloud converts a point geometry into a []r3.Vector.

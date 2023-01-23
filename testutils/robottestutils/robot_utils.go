@@ -16,9 +16,9 @@ import (
 )
 
 // CreateBaseOptionsAndListener creates a new web options with random port as listener.
-func CreateBaseOptionsAndListener(t *testing.T) (weboptions.Options, net.Listener, string) {
-	t.Helper()
-	var listener net.Listener = testutils.ReserveRandomListener(t)
+func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listener, string) {
+	tb.Helper()
+	var listener net.Listener = testutils.ReserveRandomListener(tb)
 	options := weboptions.New()
 	options.Network.BindAddress = ""
 	options.Network.Listener = listener
@@ -27,8 +27,8 @@ func CreateBaseOptionsAndListener(t *testing.T) (weboptions.Options, net.Listene
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(t *testing.T, logger *zap.SugaredLogger, addr string, dur time.Duration) *client.RobotClient {
-	t.Helper()
+func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur time.Duration) *client.RobotClient {
+	tb.Helper()
 	// start robot client
 	robotClient, err := client.New(
 		context.Background(),
@@ -38,6 +38,6 @@ func NewRobotClient(t *testing.T, logger *zap.SugaredLogger, addr string, dur ti
 		client.WithCheckConnectedEvery(5*dur),
 		client.WithReconnectEvery(dur),
 	)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(tb, err, test.ShouldBeNil)
 	return robotClient
 }
