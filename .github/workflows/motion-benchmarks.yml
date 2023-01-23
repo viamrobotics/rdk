@@ -12,6 +12,9 @@ jobs:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 30
+    env:
+      BASELINE: ${{ github.event.pull_request.base.label }}
+      MODIFIED: ${{ github.event.pull_request.head.label }}
     steps:
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
@@ -34,16 +37,12 @@ jobs:
         path: motion-testing
 
     - name: Run motion quality tests on main branch
-      env: 
-        BASELINE: ${{ github.event.pull_request.base.label }}
       run: |
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
         sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$BASELINE"
         
     - name: Run motion quality tests on PR branch
-      env:
-        MODIFIED: ${{ github.event.pull_request.head.label }}
       run: |
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
