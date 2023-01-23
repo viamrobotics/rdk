@@ -27,6 +27,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
+	"github.com/rs/cors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -486,7 +487,6 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		// Skip if stream is already registered, otherwise raise any other errors
 		var registeredError *gostream.StreamAlreadyRegisteredError
 		if errors.As(err, &registeredError) {
-			svc.logger.Warn(registeredError.Error())
 			return nil, true, nil
 		} else if err != nil {
 			return nil, false, err
@@ -1066,8 +1066,9 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	}
 
 	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
-	mux.Handle(pat.New("/api/*"), addPrefix(svc.rpcServer.GatewayHandler()))
-	mux.Handle(pat.New("/*"), svc.rpcServer.GRPCHandler())
+	corsHandler := cors.AllowAll()
+	mux.Handle(pat.New("/api/*"), corsHandler.Handler(addPrefix(svc.rpcServer.GatewayHandler())))
+	mux.Handle(pat.New("/*"), corsHandler.Handler(svc.rpcServer.GRPCHandler()))
 
 	return mux, nil
 }
