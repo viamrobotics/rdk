@@ -349,8 +349,8 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[s
 		// frame entirely as this would return the frame's geometries
 		// in their home or "zero" position, and not in their
 		// current position.
-		if currentInput == nil && len(currentFrame.DoF()) != 0 {
-			currentInput = make([]Input, len(currentFrame.DoF()))
+		if currentInput == nil && len(currentFrame.DoF()) == 0 {
+			currentInput = []Input{}
 		}
 		if currentInput != nil {
 			geosInFrame, err := currentFrame.Geometries(currentInput)
