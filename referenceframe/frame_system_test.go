@@ -397,9 +397,9 @@ func TestFrameSystemToPCD(t *testing.T) {
 	outMap, err = FrameSystemToPCD(fs, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
+	// 0. get output values
 	out := outMap["test"]
 	out = append(out, outMap["block"]...)
-
 	// 1. convert 3D array to 1D
 	total := []float64{}
 	for i := range out {
