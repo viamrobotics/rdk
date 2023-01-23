@@ -73,7 +73,8 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
 
-	diff.MediaEqual = diffMedia(diff.Added, diff.Removed)
+	different = diffMedia(diff.Added, diff.Removed)
+	diff.MediaEqual = !different
 
 	return &diff, nil
 }
@@ -407,14 +408,14 @@ func diffTLS(leftTLS, rightTLS *tls.Config) bool {
 
 func diffMedia(added, removed *Config) bool {
 	for idx := 0; idx < len(added.Components); idx++ {
-		if added.Components[idx].Type == "camera" {
-			return false
+		if added.Components[idx].Type == "camera" || added.Components[idx].Type == "audio_input" {
+			return true
 		}
 	}
 	for idx := 0; idx < len(removed.Components); idx++ {
-		if removed.Components[idx].Type == "camera" {
-			return false
+		if removed.Components[idx].Type == "camera" || removed.Components[idx].Type == "audio_input" {
+			return true
 		}
 	}
-	return true
+	return false
 }
