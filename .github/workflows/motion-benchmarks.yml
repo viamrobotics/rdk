@@ -1,0 +1,70 @@
+name: Motion Benchmarks
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  motion_benchmarks:
+    name:  Motion Benchmarks
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 30
+    env:
+      BASELINE: ${{ github.event.pull_request.base.label }}
+      MODIFIED: ${{ github.event.pull_request.head.label }}
+    steps:
+    - name: Check out main branch code
+      if: github.event_name != 'pull_request_target'
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 2
+
+    - name: Check out code in motion-testing repository
+      uses: actions/checkout@v3
+      with:
+        repository: viamrobotics/motion-testing
+        path: motion-testing
+
+    - name: Run motion quality tests on main branch
+      run: |
+        cd motion-testing
+        go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
+        sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$BASELINE"
+        
+    - name: Run motion quality tests on PR branch
+      run: |
+        cd motion-testing
+        go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
+        sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$MODIFIED"
+        
+    - name: Print results
+      run: |
+        cd motion-testing
+        sudo -u testbot bash -lc "sudo go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED"
+        cat results/motion-benchmarks.md
+ 
+    # Now that RDK is public, can't directly comment without token having full read/write access
+    # motion-benchmarks-comment.yml will trigger seperately and post the actual comments
+
+    - name: Prepare code comment
+      run: |
+        echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
+
+    - name: Upload results
+      uses: actions/upload-artifact@v3
+      with:
+        name: pr-motion-benchmark
+        path: |
+          pr.env
+          motion-testing/results/motion-benchmarks.md
+        retention-days: 1
