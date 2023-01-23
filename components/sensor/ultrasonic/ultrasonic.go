@@ -3,7 +3,6 @@ package ultrasonic
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
