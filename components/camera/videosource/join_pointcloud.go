@@ -157,7 +157,7 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 			}
 			intrinsicParams = props.IntrinsicParams
 		}
-		return camera.NewFromReader(ctx, joinSource, &transform.PinholeCameraModel{intrinsicParams, nil}, camera.ColorStream)
+		return camera.NewFromReader(ctx, joinSource, &transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsicParams}, camera.ColorStream)
 	}
 	return camera.NewFromReader(ctx, joinSource, nil, camera.ColorStream)
 }

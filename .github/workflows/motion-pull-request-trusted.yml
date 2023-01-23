@@ -1,0 +1,25 @@
+name: Motion Pull Request Update
+
+concurrency: 
+  group: pullrequest-untrusted-${{ github.head_ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request_target:
+    branches: [ main]
+    types: [ labeled ]
+    paths:
+      - 'motionplan/**'
+      - 'referenceframe/**'
+      - 'spatialmath/**'
+
+# To test workflow updates you need to work in a branch directly on viamrobotics/rdk
+# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @main before merge.
+
+jobs:
+  motion_benchmarks:
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request_target' && (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage') && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+    uses: viamrobotics/rdk/.github/workflows/motion-benchmarks.yml@main
