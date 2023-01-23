@@ -16,11 +16,6 @@ jobs:
       BASELINE: ${{ github.event.pull_request.base.label }}
       MODIFIED: ${{ github.event.pull_request.head.label }}
     steps:
-    - name: Dump github context
-      run:   echo "$GITHUB_CONTEXT"
-      shell: bash
-      env:
-        GITHUB_CONTEXT: ${{ toJson(github) }}
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
