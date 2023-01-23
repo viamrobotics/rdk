@@ -40,7 +40,7 @@ jobs:
         echo $BRANCH
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
-        sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name="$BRANCH"'
+        sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$BRANCH"
         sudo ls results
         sudo ls results/$BRANCH/
         
