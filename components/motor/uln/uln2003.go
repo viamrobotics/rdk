@@ -1,4 +1,4 @@
-// Package gpiostepper implements a GPIO based stepper motor.
+// Package uln implements a GPIO based stepper motor with uln2003 controler.
 package uln
 
 import (
@@ -22,16 +22,18 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("uln2003")
+var model = resource.NewDefaultModel("uln")
 
-var step_sequence = [8][4]bool{{false, false, false, true},
+var stepSequence = [8][4]bool{
+	{false, false, false, true},
 	{false, false, true, true},
 	{false, false, true, false},
 	{false, true, true, false},
 	{false, true, false, false},
 	{true, true, false, false},
 	{true, false, false, false},
-	{true, false, false, true}}
+	{true, false, false, true},
+}
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -49,6 +51,7 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.BoardName == "" {
@@ -170,7 +173,6 @@ type uln2003 struct {
 
 // validate if this config is valid.
 func (m *uln2003) Validate() error {
-
 	if m.theBoard == nil {
 		return errors.New("need a board for uln2003")
 	}
@@ -254,29 +256,54 @@ func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
 
 // have to be locked to call.
 func (m *uln2003) doStep(ctx context.Context, forward bool) error {
-
 	time.Sleep(time.Duration(m.stepperDelay) * time.Microsecond)
 
 	if forward {
-		for steps := 0; steps < len(step_sequence); steps++ {
-			m.in1.Set(ctx, step_sequence[steps][0], nil)
-			m.in2.Set(ctx, step_sequence[steps][1], nil)
-			m.in3.Set(ctx, step_sequence[steps][2], nil)
-			m.in4.Set(ctx, step_sequence[steps][3], nil)
+		for steps := 0; steps < len(stepSequence); steps++ {
+			err1 := m.in1.Set(ctx, stepSequence[steps][0], nil)
+			if err1 != nil {
+				return errors.New("failed to set In1 with error")
+			}
 
+			err2 := m.in2.Set(ctx, stepSequence[steps][1], nil)
+			if err2 != nil {
+				return errors.New("failed to set In2 with error")
+			}
+
+			err3 := m.in3.Set(ctx, stepSequence[steps][2], nil)
+			if err3 != nil {
+				return errors.New("failed to set In3 with error")
+			}
+
+			err4 := m.in4.Set(ctx, stepSequence[steps][3], nil)
+			if err4 != nil {
+				return errors.New("failed to set In4 with error")
+			}
 		}
 		m.stepPosition++
-
 	} else {
-		for steps := len(step_sequence); steps >= 0; steps-- {
-			m.in1.Set(ctx, step_sequence[steps][0], nil)
-			m.in2.Set(ctx, step_sequence[steps][1], nil)
-			m.in3.Set(ctx, step_sequence[steps][2], nil)
-			m.in4.Set(ctx, step_sequence[steps][3], nil)
+		for steps := len(stepSequence); steps >= 0; steps-- {
+			err1 := m.in1.Set(ctx, stepSequence[steps][0], nil)
+			if err1 != nil {
+				return errors.New("failed to set In1 with error")
+			}
 
+			err2 := m.in2.Set(ctx, stepSequence[steps][1], nil)
+			if err2 != nil {
+				return errors.New("failed to set In2 with error")
+			}
+
+			err3 := m.in3.Set(ctx, stepSequence[steps][2], nil)
+			if err3 != nil {
+				return errors.New("failed to set In3 with error")
+			}
+
+			err4 := m.in4.Set(ctx, stepSequence[steps][3], nil)
+			if err4 != nil {
+				return errors.New("failed to set In4 with error")
+			}
 		}
 		m.stepPosition--
-
 	}
 
 	return nil

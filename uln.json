@@ -3,7 +3,7 @@
     {
       "name": "ULN",
       "type": "motor",
-      "model": "uln2003",
+      "model": "uln",
       "attributes": {
         "pins": {
 			"In1": "11",
@@ -12,7 +12,7 @@
 			"In4": "15"
         },
         "board": "pi",
-        "tickes_per_rotation": 8
+        "ticks_per_rotation": 8
       },
       "depends_on": ["pi"]
     },
