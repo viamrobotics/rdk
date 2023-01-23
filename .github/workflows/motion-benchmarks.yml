@@ -41,9 +41,10 @@ jobs:
         cd motion-testing
         go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
         sudo -u testbot bash -lc 'sudo go test ./... -v -run TestDefault --name=$BRANCH'
-        ls
-        pwd
-        ls results/$BRANCH/
+        sudo ls
+        sudo pwd
+        sudo ls results
+        sudo ls results/$BRANCH/
         
     - name: Run motion quality tests on PR branch
       env:
