@@ -16,6 +16,9 @@ import (
 // World is the string "world", but made into an exported constant.
 const World = "world"
 
+// defaultPointDensity is the default value for the spatialmath.ToPoints conversion method.
+const defaultPointDensity = 0.
+
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
 	// Name returns the name of this FrameSystem
@@ -320,14 +323,13 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input) (map[string
 	for name, geosInFrame := range geoMap {
 		geos := geosInFrame.geometries
 		aggregatePoints := []r3.Vector{}
-		//nolint:staticcheck
 		if geos != nil {
 			for _, g := range geos {
-				asPoints := g.ToPoints(1.)
+				asPoints := g.ToPoints(defaultPointDensity)
 				aggregatePoints = append(aggregatePoints, asPoints...)
 			}
+			vectorMap[name] = aggregatePoints
 		}
-		vectorMap[name] = aggregatePoints
 	}
 	return vectorMap, nil
 }
