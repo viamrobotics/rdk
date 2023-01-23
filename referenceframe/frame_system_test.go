@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/gob"
 	"encoding/json"
 	"math"
@@ -414,7 +415,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	err = enc.Encode(total)
 	test.That(t, err, test.ShouldBeNil)
 	// 4. Hash the bytes
-	// asBytes := md5.Sum(network.Bytes())
-	// checkAgainst := [16]uint8{70, 188, 150, 67, 13, 145, 69, 79, 192, 180, 155, 249, 175, 57, 76, 7}
-	// test.That(t, asBytes, test.ShouldEqual, checkAgainst)
+	asBytes := md5.Sum(network.Bytes())
+	checkAgainst := [16]uint8{186, 50, 44, 150, 22, 138, 8, 112, 157, 170, 13, 28, 50, 158, 145, 148}
+	test.That(t, asBytes, test.ShouldEqual, checkAgainst)
 }
