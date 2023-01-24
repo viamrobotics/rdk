@@ -180,12 +180,19 @@ var testModule = Module{
 	ExePath: "/tmp/test.mod",
 }
 
+var testPackageConfig = PackageConfig{
+	Name:    "package-name",
+	Package: "some/package",
+	Version: "v1",
+}
+
 var (
 	testInvalidModule        = Module{}
 	testInvalidComponent     = Component{}
 	testInvalidRemote        = Remote{}
 	testInvalidProcessConfig = pexec.ProcessConfig{}
 	testInvalidService       = Service{}
+	testInvalidPackage       = PackageConfig{}
 )
 
 //nolint:thelper
@@ -846,6 +853,9 @@ func TestFromProto(t *testing.T) {
 	authConfig, err := AuthConfigToProto(&testAuthConfig)
 	test.That(t, err, test.ShouldBeNil)
 
+	packageConfig, err := PackageConfigToProto(&testPackageConfig)
+	test.That(t, err, test.ShouldBeNil)
+
 	debug := true
 
 	input := &pb.RobotConfig{
@@ -855,6 +865,7 @@ func TestFromProto(t *testing.T) {
 		Components: []*pb.ComponentConfig{componentConfig},
 		Processes:  []*pb.ProcessConfig{processConfig},
 		Services:   []*pb.ServiceConfig{serviceConfig},
+		Packages:   []*pb.PackageConfig{packageConfig},
 		Network:    networkConfig,
 		Auth:       authConfig,
 		Debug:      &debug,
@@ -872,6 +883,7 @@ func TestFromProto(t *testing.T) {
 	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
+	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
 }
 
 func TestPartialStart(t *testing.T) {
@@ -899,6 +911,9 @@ func TestPartialStart(t *testing.T) {
 	authConfig, err := AuthConfigToProto(&testAuthConfig)
 	test.That(t, err, test.ShouldBeNil)
 
+	packageConfig, err := PackageConfigToProto(&testPackageConfig)
+	test.That(t, err, test.ShouldBeNil)
+
 	remoteInvalidConfig, err := RemoteConfigToProto(&testInvalidRemote)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -914,6 +929,9 @@ func TestPartialStart(t *testing.T) {
 	serviceInvalidConfig, err := ServiceConfigToProto(&testInvalidService)
 	test.That(t, err, test.ShouldBeNil)
 
+	packageInvalidConfig, err := PackageConfigToProto(&testInvalidPackage)
+	test.That(t, err, test.ShouldBeNil)
+
 	debug := true
 	disablePartialStart := false
 
@@ -924,6 +942,7 @@ func TestPartialStart(t *testing.T) {
 		Components:          []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
 		Processes:           []*pb.ProcessConfig{processConfig, processInvalidConfig},
 		Services:            []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
+		Packages:            []*pb.PackageConfig{packageConfig, packageInvalidConfig},
 		Network:             networkConfig,
 		Auth:                authConfig,
 		Debug:               &debug,
@@ -948,6 +967,8 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
+	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
+	test.That(t, out.Packages[1], test.ShouldResemble, testInvalidPackage)
 }
 
 func TestDisablePartialStart(t *testing.T) {
