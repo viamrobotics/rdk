@@ -226,10 +226,10 @@ func TestClientFailingService(t *testing.T) {
 	}
 
 	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
-		return internalStateFail, errors.New("failure to get position")
+		return internalStateFail, errors.New("failure to get internal state")
 	}
 
-	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameSucc): failingSLAMService})
+	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
@@ -242,8 +242,7 @@ func TestClientFailingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc).String(), logger)
-		test.That(t, err, test.ShouldBeNil)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
 
 		// test get position
 		p, err := failingSLAMClient.Position(context.Background(), nameFail, map[string]interface{}{})
@@ -266,7 +265,7 @@ func TestClientFailingService(t *testing.T) {
 
 		// test get internal state
 		internalState, err := failingSLAMClient.GetInternalState(context.Background(), nameFail)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
 		test.That(t, internalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
