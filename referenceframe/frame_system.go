@@ -361,7 +361,6 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[s
 			}
 			transformedGeo := transformed.(*GeometriesInFrame)
 			geoMap[name] = transformedGeo
-
 		}
 	}
 	return geoMap, nil
