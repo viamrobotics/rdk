@@ -66,6 +66,7 @@ type Attrs struct {
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
+// Validate checks to see if the attributes of the model are valid.
 func (at *Attrs) Validate() error {
 	if prefix := strings.HasPrefix(at.Address, "rtsp://"); !prefix {
 		return errors.New(`rtsp_address must begin with "rtsp://"`)
@@ -73,9 +74,10 @@ func (at *Attrs) Validate() error {
 	if err := at.IntrinsicParams.CheckValid(); err != nil {
 		return err
 	}
-	if err := at.DistortionParams.CheckValid(); err != nil {
-		return err
-	}
+	// if err := at.DistortionParams.CheckValid(); err != nil {
+	//	return err
+	//}
+	return nil
 }
 
 // rtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.

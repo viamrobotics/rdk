@@ -3,6 +3,7 @@ package rtsp
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/bhaney/rtsp-simple-server/server"
 	"github.com/edaniels/golog"
@@ -23,19 +24,20 @@ func TestRTSPCamera(t *testing.T) {
 	// run the test avi in a loop through ffmpeg and hand it to the server
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ffmpegIsStreaming := make(chan bool, 1)
+	ffmpegIsStreaming := make(chan struct{})
 	viamutils.PanicCapturingGo(func() {
 		testMP4 := artifact.MustPath("components/camera/rtsp/earth_480_mjpeg.avi")
 		ffmpegStream := ffmpeg.Input(testMP4, ffmpeg.KwArgs{"re": "", "stream_loop": -1})
 		ffmpegStream = ffmpegStream.Output(outputURL, ffmpeg.KwArgs{"vcodec": "mjpeg", "huffman": "0", "f": "rtsp", "rtsp_transport": "tcp"})
 		ffmpegStream.Context = cancelCtx
 		cmd := ffmpegStream.OverWriteOutput().Compile()
-		ffmpegIsStreaming <- true
+		close(ffmpegIsStreaming)
 		if err := cmd.Run(); err != nil {
 			return
 		}
 	})
-	<-ffmpegIsStreaming // wait so ffmpeg can publish to rtsp server
+	<-ffmpegIsStreaming
+	time.Sleep(2 * time.Second) // cmd.Run() takes a while to begin ffmpeg
 	// create the rtsp camera model
 	rtspConf := &Attrs{Address: outputURL}
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
