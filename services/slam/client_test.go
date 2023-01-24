@@ -246,7 +246,7 @@ func TestClientFailingService(t *testing.T) {
 
 		// test get position
 		p, err := failingSLAMClient.Position(context.Background(), nameFail, map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, p, test.ShouldBeNil)
 
 		// test get map
@@ -258,7 +258,7 @@ func TestClientFailingService(t *testing.T) {
 			true,
 			map[string]interface{}{},
 		)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get map")
 		test.That(t, mimeType, test.ShouldEqual, "")
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
