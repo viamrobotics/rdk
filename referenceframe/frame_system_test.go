@@ -407,7 +407,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 		}
 	})
 
-	t.Run("correct frame system with a parent child relationship, with nil input and DOF != 0", func(t *testing.T) {
+	t.Run("correct frame system with nil input and DOF != 0", func(t *testing.T) {
 		fs := NewEmptySimpleFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
