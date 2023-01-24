@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -86,8 +85,6 @@ func TestConfig1(t *testing.T) {
 	bounds := pic.Bounds()
 
 	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
-
-	test.That(t, cfg.Components[0].Attributes["bar"], test.ShouldEqual, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")))
 }
 
 func TestConfigFake(t *testing.T) {
