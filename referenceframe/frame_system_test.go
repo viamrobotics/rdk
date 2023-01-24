@@ -335,6 +335,38 @@ func TestFrameSystemToPCD(t *testing.T) {
 			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
 		}
 	})
+	t.Run("displaced box with another box as its child with nil inputs", func(t *testing.T) {
+		fs := NewEmptySimpleFrameSystem("test")
+		logger := golog.NewTestLogger(t)
+		// ------
+		name0 := "frame0"
+		pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
+		dims0 := r3.Vector{1, 1, 1}
+		geomCreator0, err := spatial.NewBox(pose0, dims0, "box0")
+		test.That(t, err, test.ShouldBeNil)
+		frame0, err := NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
+		test.That(t, err, test.ShouldBeNil)
+		fs.AddFrame(frame0, fs.World())
+		// -----
+		name1 := "frame1"
+		pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+		dims1 := r3.Vector{1, 1, 1}
+		geomCreator1, err := spatial.NewBox(pose1, dims1, "box1")
+		test.That(t, err, test.ShouldBeNil)
+		frame1, err := NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
+		test.That(t, err, test.ShouldBeNil)
+		fs.AddFrame(frame1, frame0)
+		// -----
+		outMap, err := FrameSystemToPCD(fs, nil, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		for i, v := range outMap["frame0"] {
+			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst0[i], 1e-2), test.ShouldBeTrue)
+		}
+		for i, v := range outMap["frame1"] {
+			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
+		}
+	})
 
 	t.Run("incorrectly defined frame system, i.e. with nil parent for frame0", func(t *testing.T) {
 		fs := NewEmptySimpleFrameSystem("test")
