@@ -11,12 +11,13 @@
                 "z": 162.5
             },
             "geometry": {
-                "r": 151.0,
-                "l": 234.5,
+                "type": "capsule",
+                "r": 75.5,
+                "l": 240.0,
                 "translation": {
                     "x": 0,
                     "y": 0,
-                    "z": 117.25
+                    "z": 120.0
                 }
             }
         },
@@ -38,12 +39,22 @@
                 "z": 0
             },
             "geometry": {
-                "r": 149.7,
-                "l": 545.2,
+                "type": "capsule",
+                "r": 65.0,
+                "l": 550.0,
                 "translation": {
-                    "x": -197.10,
-                    "y": -150.35,
+                    "x": -275.0,
+                    "y": 0,
                     "z": 0
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": -1,
+                        "y": 0,
+                        "z": 0,
+                        "th": 0
+                    }
                 }
             }
         },
@@ -56,12 +67,22 @@
                 "z": 0
             },
             "geometry": {
-                "r": 115.8,
-                "l": 489.4,
+                "type": "capsule",
+                "r": 50.0,
+                "l": 490.0,
                 "translation": {
-                    "x": -186.8,
-                    "y": -20.55,
+                    "x": -245.0,
+                    "y": 0,
                     "z": 0
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": -1,
+                        "y": 0,
+                        "z": 0,
+                        "th": 0
+                    }
                 }
             }
         },
@@ -74,12 +95,22 @@
                 "z": 0
             },
             "geometry": {
-                "r": 109.9,
-                "l": 112.2,
+                "type": "capsule",
+                "r": 40.0,
+                "l": 230.0,
                 "translation": {
                     "x": 0,
-                    "y": -131.6,
+                    "y": -115.0,
                     "z": 0
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0,
+                        "y": -1,
+                        "z": 0,
+                        "th": 0
+                    }
                 }
             }
         },
@@ -92,12 +123,22 @@
                 "z": -99.7
             },
             "geometry": {
-                "r": 155.7,
-                "l": 85.2,
+                "type": "capsule",
+                "r": 40.0,
+                "l": 200.0,
                 "translation": {
                     "x": 0,
-                    "y": -45.8,
-                    "z": -99.7
+                    "y": 0,
+                    "z": -100.0
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0,
+                        "y": 0,
+                        "z": -1,
+                        "th": 0
+                    }
                 }
             }
         },
@@ -115,7 +156,26 @@
                     "x": 0,
                     "y": -1,
                     "z": 0,
-                    "th": 90
+                    "th": 0
+                }
+            },
+            "geometry": {
+                "type": "capsule",
+                "r": 40.0,
+                "l": 170.0,
+                "translation": {
+                    "x": 0,
+                    "y": -85.0,
+                    "z": 0.0
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0,
+                        "y": -1,
+                        "z": 0,
+                        "th": 0
+                    }
                 }
             }
         }
