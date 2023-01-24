@@ -6,6 +6,7 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
+	"strings"
 	"sync/atomic"
 
 	"github.com/aler9/gortsplib/v2"
@@ -65,6 +66,18 @@ type Attrs struct {
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
+func (at *Attrs) Validate() error {
+	if prefix := strings.HasPrefix(at.Address, "rtsp://"); !prefix {
+		return errors.New(`rtsp_address must begin with "rtsp://"`)
+	}
+	if err := at.IntrinsicParams.CheckValid(); err != nil {
+		return err
+	}
+	if err := at.DistortionParams.CheckValid(); err != nil {
+		return err
+	}
+}
+
 // rtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.
 type rtspCamera struct {
 	gostream.VideoReader
@@ -74,10 +87,9 @@ type rtspCamera struct {
 
 // Close closes the camera.
 func (rc *rtspCamera) Close(ctx context.Context) error {
-	clientTerminated := liberrors.ErrClientTerminated{}
+	var clientTerminated liberrors.ErrClientTerminated
 	rc.cancelFunc()
-	err := rc.client.Close()
-	if err != nil && !errors.Is(err, clientTerminated) {
+	if err := rc.client.Close(); err != nil && !errors.Is(err, clientTerminated) {
 		return err
 	}
 	return nil
@@ -93,10 +105,17 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 		return nil, err
 	}
 	// connect to the server - be sure to close it if setup fails.
+	var clientSuccessful bool
+	var clientErr error
 	err = c.Start(u.Scheme, u.Host)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if !clientSuccessful {
+			clientErr = c.Close()
+		}
+	}()
 	// find published tracks
 	tracks, baseURL, _, err := c.Describe(u)
 	if err != nil {
@@ -104,25 +123,25 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	}
 
 	// find the MJPEG track
-	var forma *format.MJPEG
-	media := tracks.FindFormat(&forma)
+	var mjpeg *format.MJPEG
+	media := tracks.FindFormat(&mjpeg)
 	if media == nil {
 		err := errors.Errorf("MJPEG track not found in rtsp camera %s", u)
-		return nil, multierr.Combine(err, c.Close())
+		return nil, multierr.Combine(err, clientErr)
 	}
 	// get the RTP->MJPEG decoder
-	rtpDec := forma.CreateDecoder()
+	rtpDec := mjpeg.CreateDecoder()
 
 	// Setup the MJPEG track
 	_, err = c.Setup(media, baseURL, 0, 0)
 	if err != nil {
-		return nil, multierr.Combine(err, c.Close())
+		return nil, multierr.Combine(err, clientErr)
 	}
 	// On packet retreival, turn it into an image, and store it in shared memory
 	var latestFrame atomic.Value
 	var gotFirstFrameOnce bool
 	gotFirstFrame := make(chan struct{})
-	c.OnPacketRTP(media, forma, func(pkt *rtp.Packet) {
+	c.OnPacketRTP(media, mjpeg, func(pkt *rtp.Packet) {
 		// convert RTP packets into NALUs
 		encoded, _, err := rtpDec.Decode(pkt)
 		if err != nil {
@@ -147,8 +166,9 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	// play the track
 	_, err = c.Play(nil)
 	if err != nil {
-		return nil, multierr.Combine(err, c.Close())
+		return nil, multierr.Combine(err, clientErr)
 	}
+	clientSuccessful = true
 	// read the image from shared memory when it is requested
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -157,8 +177,9 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 			return nil, nil, cancelCtx.Err()
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
-		case <-gotFirstFrame:
+		default:
 		}
+		<-gotFirstFrame // block until you get the first frame
 		return latestFrame.Load().(image.Image), func() {}, nil
 	})
 	// define and return the camera
