@@ -362,7 +362,15 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger
 			// the parent of the frame is handled by the Transform method.
 			transformed, err := system.Transform(inputs, geosInFrame, World)
 			if err != nil && strings.Contains(err.Error(), "no positions provided for frame with name") {
-				logger.Debugf("unable to handle the transform for %v because no positions were provided", name)
+				logger.Debugf("unable to handle the transform for %v", name)
+				parent, err := system.Parent(currentFrame)
+				if err != nil {
+					logger.Debugf("%v has nil parent", name)
+					return nil, err
+				}
+				logger.Debugf("%v has parent %v", name, parent.Name())
+				parentInput := inputs[parent.Name()]
+				logger.Debugf("%v has input %v", parent.Name(), parentInput)
 				continue
 			} else if err != nil {
 				return nil, err
