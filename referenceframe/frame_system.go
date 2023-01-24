@@ -338,10 +338,6 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[s
 	geoMap := make(map[string]*GeometriesInFrame)
 	for _, name := range system.FrameNames() {
 		currentFrame := system.Frame(name)
-		parent, err := system.Parent(currentFrame)
-		if err != nil {
-			return nil, err
-		}
 		currentInput := inputs[name]
 		// if currentInput is nil and DoF != 0 we chose to omit the
 		// frame entirely as this would return the frame's geometries
@@ -358,7 +354,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[s
 			return nil, err
 		}
 		if len(geosInFrame.Geometries()) > 0 {
-			// the parent of the frame handled by the Transform method
+			// the parent of the frame handled by the Transform method.
 			transformed, err := system.Transform(inputs, geosInFrame, World)
 			if err != nil {
 				return nil, err
