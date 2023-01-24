@@ -3721,6 +3721,10 @@
     "test.pcd": {
       "hash": "6eb977c07e0b40d9535318d94ba6db2e",
       "size": 4693948
+    },
+    "test_short.pcd": {
+      "hash": "54c0246dbb47c2bfb758941ea5e873a2",
+      "size": 1734
     }
   },
   "preprocessing": {
