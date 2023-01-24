@@ -2,7 +2,7 @@ name: PR Test Label Manager
 
 on:
   pull_request_target:
-    branches: [ motion-benchmarks-fix ]
+    branches: [ main ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
