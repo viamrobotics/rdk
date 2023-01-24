@@ -3,7 +3,6 @@ package ultrasonic
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -200,8 +199,7 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	// on the time interval between the sound and its echo
 	// and the speed of sound (343 m/s)
 	distMeters := timeA.Sub(timeB).Seconds() * 343.0 / 2.0
-	distMilli := math.Round((distMeters*1000.0)*1000.0) / 1000.0
-	s.distanceChan <- distMilli
+	s.distanceChan <- distMeters
 	return nil
 }
 
