@@ -19,6 +19,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -581,21 +582,31 @@ func (slamSvc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{
 	case "get_image":
 		name := "getImage"
 		extra := map[string]interface{}{"foo": "Position"}
+		cameraPosition := referenceframe.NewPoseInFrame("", spatialmath.NewPose(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			spatialmath.NewOrientationVector()))
+
+		// Get PointCloud Map
+		_, _, vObj, err := slamSvc.GetMap(ctx, name, rdkutils.MimeTypePCD, cameraPosition, false, extra)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get Robot Pose
 		pInFrame, err := slamSvc.Position(ctx, name, extra)
 		if err != nil {
 			return nil, err
 		}
 
-		_, _, _, err = slamSvc.GetMap(ctx, name, rdkutils.MimeTypePCD, pInFrame, false, extra)
+		// Project PointCloud and add robot position to resulting image
+		p := pInFrame.Pose()
+		ppRM := transform.NewParallelProjectionOntoXZWithRobotMarker(&p)
+		im, _, err := ppRM.PointCloudToRGBD(vObj.PointCloud)
 		if err != nil {
 			return nil, err
 		}
 
-		//ppRM := rimage.NewParallelProjectionOntoXZWithRobotMarker(pInFrame.Pose())
-		//im, _, err := ppRM.PointCloudToRGBD(pc)
-		im := rimage.NewImage(10, 10)
-		ret := map[string]interface{}{"return": im}
-		return ret, err
+		return map[string]interface{}{"return": im}, nil
 	}
 	return nil, errors.Errorf("no such command: %s", c)
 }
