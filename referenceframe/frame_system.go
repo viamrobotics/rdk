@@ -317,6 +317,10 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
 func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger *zap.SugaredLogger) (map[string][]r3.Vector, error) {
+	if inputs == nil {
+		newInputs := StartPositions(system)
+		return FrameSystemToPCD(system, newInputs, logger)
+	}
 	vectorMap := make(map[string][]r3.Vector)
 	geoMap, err := FrameSystemGeometries(system, inputs, logger)
 	if err != nil {
@@ -339,6 +343,10 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger *zap
 //
 //nolint:lll
 func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger *zap.SugaredLogger) (map[string]*GeometriesInFrame, error) {
+	if inputs == nil {
+		newInputs := StartPositions(system)
+		return FrameSystemGeometries(system, newInputs, logger)
+	}
 	geoMap := make(map[string]*GeometriesInFrame)
 	for _, name := range system.FrameNames() {
 		currentFrame := system.Frame(name)
@@ -348,6 +356,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger
 		// in their home or "zero" position, and not in their
 		// current position.
 		if currentInput == nil && len(currentFrame.DoF()) == 0 {
+			inputs[name] = []Input{}
 			currentInput = []Input{}
 		}
 		if currentInput == nil {
