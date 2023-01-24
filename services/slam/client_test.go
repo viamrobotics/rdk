@@ -209,7 +209,6 @@ func TestClientFailingService(t *testing.T) {
 	err = pcFail.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 	imFail := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	internalStateFail := []byte{}
 
 	failingSLAMService := &inject.SLAMService{}
 
@@ -226,7 +225,7 @@ func TestClientFailingService(t *testing.T) {
 	}
 
 	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
-		return internalStateFail, errors.New("failure to get internal state")
+		return nil, errors.New("failure to get internal state")
 	}
 
 	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService})
