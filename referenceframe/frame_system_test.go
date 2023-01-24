@@ -385,7 +385,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 		test.That(t, err, test.ShouldBeNil)
 		lc := &LinkConfig{
-			ID:          "test",
+			ID:          "arm",
 			Parent:      "world",
 			Translation: r3.Vector{1, 2, 3},
 			Orientation: orientConf,
