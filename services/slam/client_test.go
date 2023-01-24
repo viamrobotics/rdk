@@ -209,7 +209,7 @@ func TestClientFailingService(t *testing.T) {
 	err = pcFail.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 	imFail := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	internalStateFail := []byte{0, 0, 0, 1}
+	internalStateFail := []byte{}
 
 	failingSLAMService := &inject.SLAMService{}
 
@@ -266,7 +266,7 @@ func TestClientFailingService(t *testing.T) {
 
 		// test get internal state
 		internalState, err := failingSLAMClient.GetInternalState(context.Background(), nameFail)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, internalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
