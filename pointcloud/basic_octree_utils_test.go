@@ -1,9 +1,9 @@
 package pointcloud
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -303,18 +303,18 @@ func stringBasicOctreeNodeType(n NodeType) string {
 }
 
 //nolint:unused
-func printBasicOctree(bOct *BasicOctree, s string) {
-	//nolint:forbidigo
-	fmt.Printf("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
+func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
+	
+	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
 		bOct.center.X, bOct.center.Y, bOct.center.Z,
 		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
 
 	if bOct.node.nodeType == leafNodeFilled {
-		//nolint:forbidigo
-		fmt.Printf("%s (%e %e %e) - Val: %v\n", s,
+		
+		logger.Infof("%s (%e %e %e) - Val: %v\n", s,
 			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
 	}
 	for _, v := range bOct.node.children {
-		printBasicOctree(v, s+"-+-")
+		printBasicOctree(logger, v, s+"-+-")
 	}
 }
