@@ -304,13 +304,11 @@ func stringBasicOctreeNodeType(n NodeType) string {
 
 //nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
-	
 	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
 		bOct.center.X, bOct.center.Y, bOct.center.Z,
 		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
 
 	if bOct.node.nodeType == leafNodeFilled {
-		
 		logger.Infof("%s (%e %e %e) - Val: %v\n", s,
 			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
 	}
