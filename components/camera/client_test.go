@@ -319,16 +319,7 @@ func TestClientProperties(t *testing.T) {
 			client := camera.NewClientFromConn(context.Background(), conn, testCameraName, logger)
 			actualProps, err := client.Properties(context.Background())
 			test.That(t, err, test.ShouldBeNil)
-
-			test.That(t, actualProps.SupportsPCD, test.ShouldEqual, testCase.props.SupportsPCD)
-			test.That(t, actualProps.ImageType, test.ShouldEqual, testCase.props.ImageType)
-			test.That(t, actualProps.IntrinsicParams, test.ShouldResemble, testCase.props.IntrinsicParams)
-			// if no distortion model present, we use transform.NoDistortion
-			if testCase.props.DistortionParams == nil {
-				test.That(t, actualProps.DistortionParams, test.ShouldEqual, &transform.NoDistortion{})
-			} else {
-				test.That(t, actualProps.DistortionParams, test.ShouldResemble, testCase.props.DistortionParams)
-			}
+			test.That(t, actualProps, test.ShouldResemble, testCase.props)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		})
