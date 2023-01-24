@@ -6,8 +6,6 @@ import "github.com/pkg/errors"
 type DistortionType string
 
 const (
-	// NoneDistortionType applies no distortion to an input image. Essentially an identity transform.
-	NoneDistortionType = DistortionType("no_distortion")
 	// BrownConradyDistortionType is for simple lenses of narrow field easily modeled as a pinhole camera.
 	BrownConradyDistortionType = DistortionType("brown_conrady")
 	// KannalaBrandtDistortionType is for wide-angle and fisheye lense distortion.
@@ -32,24 +30,7 @@ func NewDistorter(distortionType DistortionType, parameters []float64) (Distorte
 	switch distortionType { //nolint:exhaustive
 	case BrownConradyDistortionType:
 		return NewBrownConrady(parameters)
-	case NoneDistortionType, DistortionType(""):
-		return &NoDistortion{}, nil
 	default:
 		return nil, errors.Errorf("do no know how to parse %q distortion model", distortionType)
 	}
 }
-
-// NoDistortion applies no Distortion to the camera.
-type NoDistortion struct{}
-
-// CheckValid returns an error if invalid.
-func (nd *NoDistortion) CheckValid() error { return nil }
-
-// ModelType returns the name of the model.
-func (nd *NoDistortion) ModelType() DistortionType { return NoneDistortionType }
-
-// Parameters returns nothing, because there is no distortion.
-func (nd *NoDistortion) Parameters() []float64 { return []float64{} }
-
-// Transform is the identity transform.
-func (nd *NoDistortion) Transform(x, y float64) (float64, float64) { return x, y }

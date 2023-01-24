@@ -2,9 +2,10 @@ package transform
 
 import (
 	"context"
-	"go.viam.com/rdk/pointcloud"
 	"image"
 	"testing"
+
+	"go.viam.com/rdk/pointcloud"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -211,7 +212,7 @@ func TestGetCameraMatrix(t *testing.T) {
 }
 
 func TestNilIntrinsics(t *testing.T) {
-	var nilIntrinsics *PinholeCameraIntrinsics = nil
+	var nilIntrinsics *PinholeCameraIntrinsics
 
 	// should not panic
 	nilIntrinsics.CheckValid()
@@ -221,5 +222,4 @@ func TestNilIntrinsics(t *testing.T) {
 	nilIntrinsics.ImagePointTo3DPoint(image.Point{}, rimage.Depth(0))
 	nilIntrinsics.RGBDToPointCloud(&rimage.Image{}, &rimage.DepthMap{})
 	nilIntrinsics.PointCloudToRGBD(pointcloud.PointCloud(nil))
-
 }
