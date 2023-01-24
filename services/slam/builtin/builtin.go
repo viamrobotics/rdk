@@ -581,7 +581,7 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 
 	resp, err := slamSvc.clientAlgo.GetInternalState(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting SLAM's internal state")
+		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")
 	}
 
 	internalState := resp.GetInternalState()
