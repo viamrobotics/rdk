@@ -350,23 +350,24 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[s
 		if currentInput == nil && len(currentFrame.DoF()) == 0 {
 			currentInput = []Input{}
 		}
-		if currentInput != nil {
-			geosInFrame, err := currentFrame.Geometries(currentInput)
-			if err != nil {
-				return nil, err
-			}
-			if geosInFrame.geometries != nil {
-				// if the frame's parent is not 'world' we apply a transformation
-				if parent.Name() != World {
-					transformed, err := system.Transform(inputs, geosInFrame, World)
-					if err != nil {
-						return nil, err
-					}
-					transformedGeo := transformed.(*GeometriesInFrame)
-					geoMap[name] = transformedGeo
-				} else {
-					geoMap[name] = geosInFrame
+		if currentInput == nil {
+			continue
+		}
+		geosInFrame, err := currentFrame.Geometries(currentInput)
+		if err != nil {
+			return nil, err
+		}
+		if len(geosInFrame.Geometries()) > 0 {
+			// if the frame's parent is not 'world' we apply a transformation
+			if parent.Name() != World {
+				transformed, err := system.Transform(inputs, geosInFrame, World)
+				if err != nil {
+					return nil, err
 				}
+				transformedGeo := transformed.(*GeometriesInFrame)
+				geoMap[name] = transformedGeo
+			} else {
+				geoMap[name] = geosInFrame
 			}
 		}
 	}
