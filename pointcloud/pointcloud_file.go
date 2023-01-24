@@ -294,7 +294,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
 		var err error
-		// divide by 1000 as rdk uses millimeters and PCD expects meters
+		// Converts RDK units (millimeters) to meters for PCD
 		x := pos.X / 1000.
 		y := pos.Y / 1000.
 		z := pos.Z / 1000.
@@ -639,13 +639,12 @@ func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, er
 		}
 		pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
 	}
+
+	// Converts PCD units (meters) to millimeters for RDK
 	point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
 
 	if header.fields == pcdPointColor && !errors.Is(err, io.EOF) {
 		buf, err := readBuffer(in, header, 3)
-		if errors.Is(err, io.EOF) {
-			return PointAndData{}, nil
-		}
 		if err != nil {
 			return PointAndData{}, err
 		}
@@ -659,6 +658,9 @@ func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, er
 func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
 	for i := 0; i < int(header.points); i++ {
 		pd, err := extractPCDPointBinary(in, header)
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		if err != nil {
 			return nil, err
 		}
