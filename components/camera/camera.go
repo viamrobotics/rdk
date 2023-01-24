@@ -135,7 +135,14 @@ func NewFromReader(
 			if err != nil {
 				return nil, NewPropertiesError("source camera")
 			}
-			actualSystem = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+			actualSystem = &cameraModel
 		}
 	}
 	return &videoSource{
@@ -145,6 +152,22 @@ func NewFromReader(
 		actualSource: reader,
 		imageType:    imageType,
 	}, nil
+}
+
+// NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
+// a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
+// If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
+// is not set & remains nil, to prevent https://go.dev/doc/faq#nil_error.
+func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
+	distortion *transform.BrownConrady,
+) transform.PinholeCameraModel {
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = pinholeCameraIntrinsics
+
+	if distortion != nil {
+		cameraModel.Distortion = distortion
+	}
+	return cameraModel
 }
 
 // NewPropertiesError returns an error specific to a failure in Properties.
@@ -172,7 +195,14 @@ func NewFromSource(
 			if err != nil {
 				return nil, NewPropertiesError("source camera")
 			}
-			actualSystem = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+
+			actualSystem = &cameraModel
 		}
 	}
 	return &videoSource{
@@ -254,7 +284,11 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	}
 	result.ImageType = vs.imageType
 	result.IntrinsicParams = vs.system.PinholeCameraIntrinsics
-	result.DistortionParams = vs.system.Distortion
+
+	if vs.system.Distortion != nil {
+		result.DistortionParams = vs.system.Distortion
+	}
+
 	return result, nil
 }
 

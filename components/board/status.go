@@ -23,7 +23,7 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 			}
 			val, err := x.Read(ctx, extra)
 			if err != nil {
-				return nil, errors.Wrap(err, "couldn't read analog (%s)")
+				return nil, errors.Wrapf(err, "couldn't read analog (%s)", name)
 			}
 			status.Analogs[name] = &commonpb.AnalogStatus{Value: int32(val)}
 		}

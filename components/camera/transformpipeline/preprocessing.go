@@ -21,15 +21,18 @@ type preprocessDepthTransform struct {
 func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSource,
 ) (gostream.VideoSource, camera.ImageType, error) {
 	reader := &preprocessDepthTransform{gostream.NewEmbeddedVideoStream(source)}
-	var cameraModel *transform.PinholeCameraModel
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return nil, camera.UnspecifiedStream, err
-		}
-		cameraModel = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+
+	props, err := propsFromVideoSource(ctx, source)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
-	cam, err := camera.NewFromReader(ctx, reader, cameraModel, camera.DepthStream)
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
+	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, camera.DepthStream)
 	return cam, camera.DepthStream, err
 }
 

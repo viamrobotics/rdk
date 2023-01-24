@@ -78,6 +78,11 @@ func NewGeometryConfig(gc Geometry) (*GeometryConfig, error) {
 		config.Type = SphereType
 		config.R = gc.(*sphere).radius
 		config.Label = gc.(*sphere).label
+	case *capsule:
+		config.Type = SphereType
+		config.R = gc.(*capsule).radius
+		config.L = gc.(*capsule).length
+		config.Label = gc.(*capsule).label
 	case *point:
 		config.Type = PointType
 		config.Label = gc.(*point).label
@@ -138,6 +143,9 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	pose := NewPoseFromProtobuf(geometry.Center)
 	if box := geometry.GetBox().GetDimsMm(); box != nil {
 		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label)
+	}
+	if capsule := geometry.GetCapsule(); capsule != nil {
+		return NewCapsule(pose, capsule.RadiusMm, capsule.LengthMm, geometry.Label)
 	}
 	if sphere := geometry.GetSphere(); sphere != nil {
 		if sphere.RadiusMm == 0 {
