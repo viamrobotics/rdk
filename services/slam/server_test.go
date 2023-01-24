@@ -156,7 +156,7 @@ func TestServer(t *testing.T) {
 			Name: testSlamServiceName,
 		}
 		resp, err := slamServer.GetInternalState(context.Background(), req)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "error getting the internal state from the SLAM client")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
