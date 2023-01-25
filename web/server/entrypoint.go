@@ -9,9 +9,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/opus"
-	"github.com/edaniels/gostream/codec/x264"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -259,9 +256,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		})
 	}
 
-	var streamConfig gostream.StreamConfig
-	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
-	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
+	streamConfig := makeStreamConfig()
 
 	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
 	if s.args.RevealSensitiveConfigDiffs {
