@@ -17,8 +17,14 @@ const (
 // Distorter defines a Transform that takes an undistorted image and distorts it according to the model.
 type Distorter interface {
 	ModelType() DistortionType
+	CheckValid() error
 	Parameters() []float64
 	Transform(x, y float64) (float64, float64)
+}
+
+// InvalidDistortionError is used when the distortion_parameters are invalid.
+func InvalidDistortionError(msg string) error {
+	return errors.Wrapf(errors.New("invalid distortion_parameters"), msg)
 }
 
 // NewDistorter returns a Distorter given a valid DistortionType and its parameters.
@@ -35,6 +41,9 @@ func NewDistorter(distortionType DistortionType, parameters []float64) (Distorte
 
 // NoDistortion applies no Distortion to the camera.
 type NoDistortion struct{}
+
+// CheckValid returns an error if invalid.
+func (nd *NoDistortion) CheckValid() error { return nil }
 
 // ModelType returns the name of the model.
 func (nd *NoDistortion) ModelType() DistortionType { return NoneDistortionType }
