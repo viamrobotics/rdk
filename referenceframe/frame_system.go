@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
@@ -18,7 +17,7 @@ import (
 // World is the string "world", but made into an exported constant.
 const World = "world"
 
-// defaultPointDensity is the default value for the spatialmath.ToPoints conversion method.
+// defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
@@ -316,14 +315,14 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger *zap.SugaredLogger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geoMap, err := FrameSystemGeometries(system, inputs, logger)
 	if err != nil {
 		return nil, err
 	}
 	for name, geosInFrame := range geoMap {
-		geos := geosInFrame.geometries
+		geos := geosInFrame.Geometries()
 		aggregatePoints := []r3.Vector{}
 		for _, g := range geos {
 			asPoints := g.ToPoints(defaultPointDensity)
@@ -338,7 +337,7 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger *zap
 // are GeometriesInFrame modified to be with respect to the world.
 //
 //nolint:lll
-func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger *zap.SugaredLogger) (map[string]*GeometriesInFrame, error) {
+func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string]*GeometriesInFrame, error) {
 	geoMap := make(map[string]*GeometriesInFrame)
 	for _, name := range system.FrameNames() {
 		currentFrame := system.Frame(name)
@@ -351,7 +350,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger
 			currentInput = []Input{}
 		}
 		if currentInput == nil {
-			logger.Debugf("will not transform %v to be with respect to the world", name)
+			logger.Debugf("will not transform %v to be with respect to the world as it had no inputs provided", name)
 			continue
 		}
 		geosInFrame, err := currentFrame.Geometries(currentInput)
@@ -362,15 +361,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger
 			// the parent of the frame is handled by the Transform method.
 			transformed, err := system.Transform(inputs, geosInFrame, World)
 			if err != nil && strings.Contains(err.Error(), "no positions provided for frame with name") {
-				logger.Debugf("unable to handle the transform for %v", name)
-				parent, err := system.Parent(currentFrame)
-				if err != nil {
-					logger.Debugf("%v has nil parent", name)
-					return nil, err
-				}
-				logger.Debugf("%v has parent %v", name, parent.Name())
-				parentInput := inputs[parent.Name()]
-				logger.Debugf("%v has input %v", parent.Name(), parentInput)
+				logger.Debugf("%v, unable to handle the transform for %v", err.Error(), name)
 				continue
 			} else if err != nil {
 				return nil, err
