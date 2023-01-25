@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
@@ -315,7 +316,7 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger *zap.SugaredLogger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geoMap, err := FrameSystemGeometries(system, inputs, logger)
 	if err != nil {
@@ -337,7 +338,7 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golo
 // are GeometriesInFrame modified to be with respect to the world.
 //
 //nolint:lll
-func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string]*GeometriesInFrame, error) {
+func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger *zap.SugaredLogger) (map[string]*GeometriesInFrame, error) {
 	geoMap := make(map[string]*GeometriesInFrame)
 	for _, name := range system.FrameNames() {
 		currentFrame := system.Frame(name)
@@ -350,7 +351,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger
 			currentInput = []Input{}
 		}
 		if currentInput == nil {
-			logger.Debugf("will not transform %v to be with respect to the world as it had no inputs provided", name)
+			logger.Debugf("will not transform %v to be with respect to the world", name)
 			continue
 		}
 		geosInFrame, err := currentFrame.Geometries(currentInput)
@@ -361,7 +362,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger
 			// the parent of the frame is handled by the Transform method.
 			transformed, err := system.Transform(inputs, geosInFrame, World)
 			if err != nil && strings.Contains(err.Error(), "no positions provided for frame with name") {
-				logger.Debugf("%v, unable to handle the transform for %v", err.Error(), name)
+				logger.Debugf("unable to handle the transform for %v because no positions were provided", name)
 				continue
 			} else if err != nil {
 				return nil, err
