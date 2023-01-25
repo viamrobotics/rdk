@@ -2,8 +2,8 @@ package rtsp
 
 import (
 	"context"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/bhaney/rtsp-simple-server/server"
 	"github.com/edaniels/golog"
@@ -37,10 +37,13 @@ func TestRTSPCamera(t *testing.T) {
 		}
 	})
 	<-ffmpegIsStreaming
-	time.Sleep(1 * time.Second) // cmd.Run() takes a while to begin ffmpeg
 	// create the rtsp camera model
+	// keep trying until RTSP server is running
 	rtspConf := &Attrs{Address: outputURL}
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
+	for err != nil && strings.Contains(err.Error(), "404 (Not Found)") {
+		rtspCam, err = NewRTSPCamera(context.Background(), rtspConf, logger)
+	}
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := rtspCam.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
