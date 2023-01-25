@@ -2,6 +2,7 @@ package transform
 
 import (
 	"context"
+	"image"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -9,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -102,7 +104,7 @@ func TestUndistortImage(t *testing.T) {
 		TangentialP2: -0.00116427,
 		RadialK3:     -0.06468911,
 	}
-	pinhole800 := &PinholeCameraModel{params800, distortion800}
+	pinhole800 := &PinholeCameraModel{PinholeCameraIntrinsics: params800, Distortion: distortion800}
 	params1280 := &PinholeCameraIntrinsics{
 		Width:  1280,
 		Height: 720,
@@ -118,7 +120,7 @@ func TestUndistortImage(t *testing.T) {
 		TangentialP2: -2.65675762e-04,
 		RadialK3:     -6.51379008e-02,
 	}
-	pinhole1280 := &PinholeCameraModel{params1280, distortion1280}
+	pinhole1280 := &PinholeCameraModel{PinholeCameraIntrinsics: params1280, Distortion: distortion1280}
 	// nil input
 	_, err := pinhole800.UndistortImage(nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input image is nil")
@@ -161,7 +163,10 @@ func TestUndistortDepthMap(t *testing.T) {
 		TangentialP2: 0.,
 		RadialK3:     0.,
 	}
-	pinhole := &PinholeCameraModel{params, distortion}
+	var cameraModel PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = params
+	cameraModel.Distortion = distortion
+	pinhole := &cameraModel
 	// nil input
 	_, err := pinhole.UndistortDepthMap(nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input DepthMap is nil")
@@ -203,4 +208,15 @@ func TestGetCameraMatrix(t *testing.T) {
 	test.That(t, intrinsicsK.At(0, 2), test.ShouldEqual, intrinsics.Ppx)
 	test.That(t, intrinsicsK.At(1, 2), test.ShouldEqual, intrinsics.Ppy)
 	test.That(t, intrinsicsK.At(2, 2), test.ShouldEqual, 1)
+}
+
+func TestNilIntrinsics(t *testing.T) {
+	var nilIntrinsics *PinholeCameraIntrinsics
+	test.That(t, func() { nilIntrinsics.CheckValid() }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.GetCameraMatrix() }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.PixelToPoint(0.0, 0.0, 0.0) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.PointToPixel(0.0, 0.0, 0.0) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.ImagePointTo3DPoint(image.Point{}, rimage.Depth(0)) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.RGBDToPointCloud(&rimage.Image{}, &rimage.DepthMap{}) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.PointCloudToRGBD(pointcloud.PointCloud(nil)) }, test.ShouldNotPanic)
 }

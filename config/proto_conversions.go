@@ -75,6 +75,11 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 		return nil, errors.Wrap(err, "error converting services config from proto")
 	}
 
+	cfg.Packages, err = toRDKSlice(proto.Packages, PackageConfigFromProto, disablePartialStart)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting packages config from proto")
+	}
+
 	if proto.Debug != nil {
 		cfg.Debug = *proto.Debug
 	}
@@ -843,4 +848,22 @@ func ServiceConfigFromShared(cfg Component) Service {
 		ConvertedAttributes: cfg.ConvertedAttributes,
 		ImplicitDependsOn:   cfg.ImplicitDependsOn,
 	}
+}
+
+// PackageConfigToProto converts a rdk package config to the proto version.
+func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
+	return &pb.PackageConfig{
+		Name:    cfg.Name,
+		Package: cfg.Package,
+		Version: cfg.Version,
+	}, nil
+}
+
+// PackageConfigFromProto converts a proto package config to the rdk version.
+func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
+	return &PackageConfig{
+		Name:    proto.Name,
+		Package: proto.Package,
+		Version: proto.Version,
+	}, nil
 }

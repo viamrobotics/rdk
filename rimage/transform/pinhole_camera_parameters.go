@@ -172,6 +172,9 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath string) (*PinholeCameraIntr
 // contains the pixel.
 func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, float64, float64) {
 	// TODO(louise): add unit test
+	if params == nil {
+		return float64(0), float64(0), float64(0)
+	}
 	xOverZ := (x - params.Ppx) / params.Fx
 	yOverZ := (y - params.Ppy) / params.Fy
 	// get x and y
@@ -218,6 +221,9 @@ func (params *PinholeCameraIntrinsics) RGBDToPointCloud(
 func (params *PinholeCameraIntrinsics) PointCloudToRGBD(
 	cloud pointcloud.PointCloud,
 ) (*rimage.Image, *rimage.DepthMap, error) {
+	if params == nil {
+		return nil, nil, nil
+	}
 	return intrinsics3DTo2D(cloud, params)
 }
 
@@ -258,6 +264,9 @@ func ProjectPointCloudToRGBPlane(
 //	[0 fy ppy],
 //	[0 0  1]]
 func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
+	if params == nil {
+		return nil
+	}
 	cameraMatrix := mat.NewDense(3, 3, nil)
 	cameraMatrix.Set(0, 0, params.Fx)
 	cameraMatrix.Set(1, 1, params.Fy)
