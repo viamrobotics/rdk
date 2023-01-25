@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"regexp"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ type Config struct {
 	Components []Component           `json:"components,omitempty"`
 	Processes  []pexec.ProcessConfig `json:"processes,omitempty"`
 	Services   []Service             `json:"services,omitempty"`
+	Packages   []PackageConfig       `json:"packages,omitempty"`
 	Network    NetworkConfig         `json:"network"`
 	Auth       AuthConfig            `json:"auth"`
 	Debug      bool                  `json:"debug,omitempty"`
@@ -124,6 +126,16 @@ func (c *Config) Ensure(fromCloud bool) error {
 		return err
 	}
 
+	for idx := 0; idx < len(c.Packages); idx++ {
+		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
+			fullErr := errors.Errorf("error validating package config %s", err)
+			if c.DisablePartialStart {
+				return fullErr
+			}
+			golog.Global().Debug(errors.Wrap(err, "Package config error, starting robot without package: "+c.Packages[idx].Name))
+		}
+	}
+
 	return nil
 }
 
@@ -155,7 +167,7 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 }
 
 // A Remote describes a remote robot that should be integrated.
-// The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of the
+// The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
@@ -743,4 +755,36 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 type Updateable interface {
 	// Update updates the resource
 	Update(context.Context, *Config) error
+}
+
+var packageNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// DefaultPackageVersionValue default value of the package version used when empty.
+const DefaultPackageVersionValue = "latest"
+
+// A PackageConfig describes the configuration of a Package.
+type PackageConfig struct {
+	// Name is the local name of the package on the RDK. Must be unique across Packages. Must not be empty.
+	Name string `json:"name"`
+	// Package is the unqiue package name hosted by a remote PackageService. Must not be empty.
+	Package string `json:"package"`
+	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
+	Version string `json:"version,omitempty"`
+}
+
+// Validate package config is valid.
+func (p *PackageConfig) Validate(path string) error {
+	if p.Name == "" {
+		return utils.NewConfigValidationError(path, errors.New("empty package name"))
+	}
+
+	if p.Package == "" {
+		return utils.NewConfigValidationError(path, errors.New("empty package id"))
+	}
+
+	if !packageNameRegEx.MatchString(p.Name) {
+		return errors.Errorf("package %s name must contain only letters, numbers, underscores and hyphens", path)
+	}
+
+	return nil
 }

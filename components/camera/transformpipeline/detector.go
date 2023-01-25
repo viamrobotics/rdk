@@ -43,13 +43,16 @@ func newDetectionsTransform(
 	if !ok {
 		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
-	var cameraModel *transform.PinholeCameraModel
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return nil, camera.UnspecifiedStream, err
-		}
-		cameraModel = &transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams}
+
+	props, err := propsFromVideoSource(ctx, source)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
 	}
 	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 	detector := &detectorSource{
@@ -58,7 +61,7 @@ func newDetectionsTransform(
 		confFilter,
 		r,
 	}
-	cam, err := camera.NewFromReader(ctx, detector, cameraModel, camera.ColorStream)
+	cam, err := camera.NewFromReader(ctx, detector, &cameraModel, camera.ColorStream)
 	return cam, camera.ColorStream, err
 }
 

@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/impl"
+	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
 func TestModuleFunctions(t *testing.T) {
@@ -49,20 +49,13 @@ func TestModuleFunctions(t *testing.T) {
 	parentAddr, err := myRobot.ModuleAddress()
 	test.That(t, err, test.ShouldBeNil)
 
-	addr := filepath.Dir(parentAddr) + "/mod.sock"
-
+	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
 	m, err := module.NewModule(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("AddModelFromRegistry", func(t *testing.T) {
-		err = m.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model)
-		test.That(t, err, test.ShouldBeNil)
-	})
+	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model), test.ShouldBeNil)
 
-	t.Run("Start", func(t *testing.T) {
-		err = m.Start(ctx)
-		test.That(t, err, test.ShouldBeNil)
-	})
+	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
 	conn, err := grpc.Dial(
 		"unix://"+addr,
@@ -74,43 +67,41 @@ func TestModuleFunctions(t *testing.T) {
 
 	client := pb.NewModuleServiceClient(conn)
 
-	t.Run("SetReady", func(t *testing.T) {
-		m.SetReady(false)
+	m.SetReady(false)
 
-		resp, err := client.Ready(ctx, &pb.ReadyRequest{})
+	resp, err := client.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Ready, test.ShouldBeFalse)
+
+	m.SetReady(true)
+
+	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Ready, test.ShouldBeTrue)
+
+	t.Run("HandlerMap", func(t *testing.T) {
+		// test the raw return
+		handlers := resp.GetHandlermap().GetHandlers()
+		test.That(t, handlers[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
+		test.That(t, handlers[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
+		test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldEqual, "gizmo")
+		test.That(t, handlers[0].GetModels()[0], test.ShouldEqual, "acme:demo:mygizmo")
+
+		// convert from proto
+		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), conn)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Ready, test.ShouldBeFalse)
+		test.That(t, len(hmap), test.ShouldEqual, 1)
 
-		m.SetReady(true)
-
-		resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Ready, test.ShouldBeTrue)
-
-		t.Run("HandlerMap", func(t *testing.T) {
-			// test the raw return
-			handlers := resp.GetHandlermap().GetHandlers()
-			test.That(t, handlers[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
-			test.That(t, handlers[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-			test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldEqual, "gizmo")
-			test.That(t, handlers[0].GetModels()[0], test.ShouldEqual, "acme:demo:mygizmo")
-
-			// convert from proto
-			hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), conn)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(hmap), test.ShouldEqual, 1)
-
-			for k, v := range hmap {
-				test.That(t, k.Subtype, test.ShouldResemble, gizmoapi.Subtype)
-				test.That(t, v[0], test.ShouldResemble, mygizmo.Model)
-			}
-			// convert back to proto
-			handlers2 := hmap.ToProto().GetHandlers()
-			test.That(t, handlers2[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
-			test.That(t, handlers2[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-			test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldEqual, "gizmo")
-			test.That(t, handlers2[0].GetModels()[0], test.ShouldEqual, "acme:demo:mygizmo")
-		})
+		for k, v := range hmap {
+			test.That(t, k.Subtype, test.ShouldResemble, gizmoapi.Subtype)
+			test.That(t, v[0], test.ShouldResemble, mygizmo.Model)
+		}
+		// convert back to proto
+		handlers2 := hmap.ToProto().GetHandlers()
+		test.That(t, handlers2[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
+		test.That(t, handlers2[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
+		test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldEqual, "gizmo")
+		test.That(t, handlers2[0].GetModels()[0], test.ShouldEqual, "acme:demo:mygizmo")
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {
