@@ -16,6 +16,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const getPin = $ref('');
 const setPin = $ref('');
 const setLevel = $ref('');
@@ -25,7 +26,6 @@ const pwmFrequency = $ref('');
 let getPinMessage = $ref('');
 
 const getGPIO = async () => {
-  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     const isHigh = await boardClient.getGPIO(getPin);
     getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
@@ -35,7 +35,6 @@ const getGPIO = async () => {
 };
 
 const setGPIO = async () => {
-  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   try {
     await boardClient.setGPIO(setPin, setLevel === 'high');
@@ -45,7 +44,6 @@ const setGPIO = async () => {
 };
 
 const getPWM = async () => {
-  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     const dutyCyclePct = await boardClient.getPWM(getPin);
     getPinMessage = `Pin ${getPin}'s duty cycle is ${dutyCyclePct * 100}%.`;
@@ -55,7 +53,6 @@ const getPWM = async () => {
 };
 
 const setPWM = async () => {
-  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     await boardClient.setPWM(setPin, Number.parseFloat(pwm) / 100);
   } catch (error) {
@@ -64,7 +61,6 @@ const setPWM = async () => {
 };
 
 const getPWMFrequency = async () => {
-  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     const frequencyHz = await boardClient.getPWMFrequency(getPin);
     getPinMessage = `Pin ${getPin}'s frequency is ${frequencyHz}Hz.`;
@@ -74,7 +70,6 @@ const getPWMFrequency = async () => {
 };
 
 const setPWMFrequency = async () => {
-  const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     await boardClient.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
   } catch (error) {

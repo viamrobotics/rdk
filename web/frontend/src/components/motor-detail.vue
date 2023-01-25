@@ -14,7 +14,7 @@ interface Props {
 const props = defineProps<Props>();
 
 type MovementTypes = 'go' | 'goFor' | 'goTo';
-
+const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const position = $ref(0);
 const rpm = $ref(0);
 const power = $ref(50);
@@ -60,7 +60,6 @@ const setDirection = (value: string) => {
 };
 
 const setPower = async () => {
-  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   const powerPct = (power * direction) / 100;
   try {
     await motorClient.setPower(powerPct);
@@ -70,7 +69,6 @@ const setPower = async () => {
 };
 
 const goFor = async () => {
-  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     await motorClient.goFor(rpm * direction, revolutions);
   } catch (error) {
@@ -79,7 +77,6 @@ const goFor = async () => {
 };
 
 const goTo = async () => {
-  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     await motorClient.goTo(rpm, position);
   } catch (error) {
@@ -103,7 +100,6 @@ const motorRun = () => {
 };
 
 const motorStop = async () => {
-  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     await motorClient.motorStop();
   } catch (error) {
@@ -112,7 +108,6 @@ const motorStop = async () => {
 };
 
 onMounted(async () => {
-  const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
   try {
     properties = await motorClient.getProperties();
   } catch (error) {
