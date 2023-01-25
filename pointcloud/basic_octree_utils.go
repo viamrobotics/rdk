@@ -173,9 +173,9 @@ func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 // Helper function for calculating the center of a pointcloud based on its metadata.
 func getCenterFromPcMetaData(meta MetaData) r3.Vector {
 	return r3.Vector{
-		X: meta.MinX + (meta.MaxX-meta.MinX)/2,
-		Y: meta.MinY + (meta.MaxY-meta.MinY)/2,
-		Z: meta.MinZ + (meta.MaxZ-meta.MinZ)/2,
+		X: (meta.MaxX + meta.MinX) / 2,
+		Y: (meta.MaxY + meta.MinY) / 2,
+		Z: (meta.MaxZ + meta.MinZ) / 2,
 	}
 }
 
