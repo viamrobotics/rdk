@@ -14,7 +14,7 @@ import (
 )
 
 /* In this file are functions to create a Voxel, a Voxel Grid from a point cloud
-A Voxel is a voxel represents a value on a regular grid in
+A Voxel represents a value on a regular grid in
 three-dimensional space. As with pixels in a 2D bitmap, voxels themselves do
 not typically have their position (i.e. coordinates) explicitly encoded with
 their values.
