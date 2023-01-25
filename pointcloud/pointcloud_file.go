@@ -545,18 +545,7 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 	case KDTreeType:
 		pc = NewKDTreeWithPrealloc(int(header.points))
 	case BasicOctreeType:
-		var meta MetaData
-		switch header.data {
-		case PCDAscii:
-			meta, err = getPCDMetaDataASCII(*in, header)
-		case PCDBinary:
-			meta, err = getPCDMetaDataBinary(*in, header)
-		case PCDCompressed:
-			// return readPCDCompressed(in, header)
-			return nil, errors.New("compressed pcd not yet supported")
-		default:
-			return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
-		}
+		meta, err := getPCDMetaData(*in, header)
 		if err != nil {
 			return nil, err
 		}
@@ -620,18 +609,6 @@ func readPCDASCII(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud
 	return pc, nil
 }
 
-func getPCDMetaDataASCII(in bufio.Reader, header pcdHeader) (MetaData, error) {
-	meta := NewMetaData()
-	for i := 0; i < int(header.points); i++ {
-		pd, err := extractPCDPointASCII(&in, header, i)
-		if err != nil {
-			return MetaData{}, err
-		}
-		meta.Merge(pd.P, pd.D)
-	}
-	return meta, nil
-}
-
 func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, error) {
 	var err error
 	pointBuf := make([]float64, 3)
@@ -679,16 +656,32 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointClou
 	return pc, nil
 }
 
-func getPCDMetaDataBinary(in bufio.Reader, header pcdHeader) (MetaData, error) {
+func getPCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
 	meta := NewMetaData()
-	for i := 0; i < int(header.points); i++ {
-		pd, err := extractPCDPointBinary(&in, header)
-		if err != nil {
-			return MetaData{}, err
+	switch header.data {
+	case PCDAscii:
+		for i := 0; i < int(header.points); i++ {
+			pd, err := extractPCDPointASCII(&in, header, i)
+			if err != nil {
+				return MetaData{}, err
+			}
+			meta.Merge(pd.P, pd.D)
 		}
-
-		meta.Merge(pd.P, pd.D)
+	case PCDBinary:
+		for i := 0; i < int(header.points); i++ {
+			pd, err := extractPCDPointBinary(&in, header)
+			if err != nil {
+				return MetaData{}, err
+			}
+			meta.Merge(pd.P, pd.D)
+		}
+	case PCDCompressed:
+		// return readPCDCompressed(in, header)
+		return MetaData{}, errors.New("compressed pcd not yet supported")
+	default:
+		return MetaData{}, fmt.Errorf("unsupported pcd data type %v", header.data)
 	}
+
 	return meta, nil
 }
 
