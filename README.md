@@ -90,6 +90,23 @@ See documentation in [Direct Remote Control](./web/cmd/directremotecontrol/main.
 We run [LicenseFinder](https://github.com/pivotal/LicenseFinder) in CI to verify 3rd-party libraries have approved software licenses.
 If you add a 3rd-party library to this project, please run `make license` to verify that it can be used.
 
+### Windows Support (Experimental)
+
+Windows 10 22H2 and up.
+
+#### Development Dependencies
+
+* bash (from https://gitforwindows.org/ is good)
+* gcc (from https://www.msys2.org/ `mingw-w64-x86_64-toolchain` is good)
+
+Support is not well tested yet.
+
+#### Known Issues
+
+* motion planning is not supported yet (https://viam.atlassian.net/browse/RSDK-1772).
+* video streaming is not supported yet (https://viam.atlassian.net/browse/RSDK-1771). 
+* rpc: ICE between local connections found via ICE mDNS appear to be flaky in the establishment phase.
+
 ## License
 Copyright 2021-2022 Viam Inc.
 

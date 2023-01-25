@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
@@ -147,11 +146,16 @@ func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	oldMask := syscall.Umask(0o077)
-	lis, err := net.Listen("unix", m.addr)
-	syscall.Umask(oldMask)
-	if err != nil {
-		return errors.WithMessage(err, "failed to listen")
+	var lis net.Listener
+	if err := MakeSelfOwnedFilesFunc(func() error {
+		var err error
+		lis, err = net.Listen("unix", m.addr)
+		if err != nil {
+			return errors.WithMessage(err, "failed to listen")
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	m.activeBackgroundWorkers.Add(1)
@@ -465,18 +469,4 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
-}
-
-// CheckSocketOwner verifies that UID of a filepath/socket matches the current process's UID.
-func CheckSocketOwner(address string) error {
-	// check that the module socket has the same ownership as our process
-	info, err := os.Stat(address)
-	if err != nil {
-		return err
-	}
-	stat := info.Sys().(*syscall.Stat_t)
-	if os.Getuid() != int(stat.Uid) {
-		return errors.New("socket ownership doesn't match current process UID")
-	}
-	return nil
 }

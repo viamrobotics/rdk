@@ -11,6 +11,14 @@ type BrownConrady struct {
 	TangentialP2 float64 `json:"tp2"`
 }
 
+// CheckValid checks if the fields for BrownConrady have valid inputs.
+func (bc *BrownConrady) CheckValid() error {
+	if bc == nil {
+		return InvalidDistortionError("BrownConrady shaped distortion_parameters not provided")
+	}
+	return nil
+}
+
 // NewBrownConrady takes in a slice of floats that will be passed into the struct in order.
 func NewBrownConrady(inp []float64) (*BrownConrady, error) {
 	if len(inp) > 5 {
