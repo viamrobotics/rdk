@@ -34,7 +34,7 @@ that are also aware of the new protocol in question.
 
 # Reconfiguration
 
-Reconfiguration is handled as transparently as possible to the end user. When a resource would be reconfigured by the resource manager,
+The reconfiguration process is handled as transparently as possible to the end user. When a resource would be reconfigured by the resource manager,
 it is checked if it belongs to a module. If true, then a ReconfigureResource() request is sent to the module instead. (The existing grpc
 client object on the parent side is untouched.) In the module, the receiving method attempts to cast the real resource to
 registry.ReconfigurableComponent/Service. If successful, the Reconfigure() method is called on the resource. This method receives the
@@ -47,7 +47,7 @@ For removal (during shutdown) RemoveResource() is called, and only passes the re
 
 # Shutdown
 
-Shutdown is hooked so that during the Close() of the resource manager, resources are checked if they are modular, and if so,
+The shutdown process is hooked so that during the Close() of the resource manager, resources are checked if they are modular, and if so,
 RemoveResource() is called after the parent-side rpc client is closed. The grpc module service is also kept open as late as possible.
 Otherwise, shutdown happens as normal, including the closing of components in topological (dependency) order.
 

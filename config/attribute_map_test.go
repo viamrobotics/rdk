@@ -55,7 +55,6 @@ func TestAttributeMap(t *testing.T) {
 	// AttributeMap.Int
 	// AttributeMap.String
 
-	// AttributeMap.IntSlice
 	// AttributeMap.IntSlice properly returns an int slice
 	iSlice := sampleAttributeMap.IntSlice("good_int_slice")
 	test.That(t, iSlice, test.ShouldResemble, []int{1, 2, 3})
@@ -70,7 +69,6 @@ func TestAttributeMap(t *testing.T) {
 	test.That(t, badIntSliceGetter1, test.ShouldPanic)
 	test.That(t, badIntSliceGetter2, test.ShouldPanic)
 
-	// AttributeMap.IntSlice
 	// AttributeMap.IntSlice properly returns an int slice
 	sSlice := sampleAttributeMap.StringSlice("good_string_slice")
 	test.That(t, sSlice, test.ShouldResemble, []string{"1", "2", "3"})
@@ -85,7 +83,6 @@ func TestAttributeMap(t *testing.T) {
 	test.That(t, badStringSliceGetter1, test.ShouldPanic)
 	test.That(t, badStringSliceGetter2, test.ShouldPanic)
 
-	// AttributeMap.Float64Slice
 	// AttributeMap.Float64Slice properly returns a float64 slice
 	fSlice := sampleAttributeMap.Float64Slice("good_float64_slice")
 	test.That(t, fSlice, test.ShouldResemble, []float64{1.1, 2.2, 3.3})
@@ -96,7 +93,6 @@ func TestAttributeMap(t *testing.T) {
 	}
 	test.That(t, badFloat64SliceGetter, test.ShouldPanic)
 
-	// AttributeMap.BoolSlice
 	// AttributeMap.BoolSlice properly returns a boolean slice
 	bSlice := sampleAttributeMap.BoolSlice("good_boolean_slice", true)
 	test.That(t, bSlice, test.ShouldResemble, []bool{true, true, false})

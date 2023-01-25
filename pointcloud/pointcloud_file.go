@@ -243,13 +243,19 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	}
 	if cloud.MetaData().HasColor {
 		_, err = fmt.Fprintf(out, "FIELDS x y z rgb\n"+
+			//nolint:dupword
 			"SIZE 4 4 4 4\n"+
+			//nolint:dupword
 			"TYPE F F F I\n"+
+			//nolint:dupword
 			"COUNT 1 1 1 1\n")
 	} else {
 		_, err = fmt.Fprintf(out, "FIELDS x y z\n"+
+			//nolint:dupword
 			"SIZE 4 4 4\n"+
+			//nolint:dupword
 			"TYPE F F F\n"+
+			//nolint:dupword
 			"COUNT 1 1 1\n")
 	}
 	if err != nil {
@@ -257,6 +263,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	}
 	_, err = fmt.Fprintf(out, "WIDTH %d\n"+
 		"HEIGHT %d\n"+ // TODO (aidanglickman): If we support structured PointClouds, update this
+		//nolint:dupword
 		"VIEWPOINT 0 0 0 1 0 0 0\n"+ // TODO (aidanglickman): When PointClouds support transform metadata update this
 		"POINTS %d\n",
 		cloud.Size(),

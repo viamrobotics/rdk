@@ -118,7 +118,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToRGBD(
 	width, height := dct.OutputSize.X, dct.OutputSize.Y
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
-	// TODO(bijan): naive implementation until we get get more points in the warp config
+	// TODO(bijan): naive implementation until we get more points in the warp config
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
 		j := pt.X - meta.MinX
 		i := pt.Y - meta.MinY
