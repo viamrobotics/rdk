@@ -26,13 +26,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // The AppClient provides all the CLI command functionality needed to talk
@@ -44,6 +42,7 @@ type AppClient struct {
 	dataClient datapb.DataServiceClient
 	baseURL    *url.URL
 	rpcOpts    []rpc.DialOption
+	authFlow   *authFlow
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location
@@ -69,12 +68,23 @@ func checkBaseURL(c *cli.Context) (*url.URL, []rpc.DialOption, error) {
 	}, nil
 }
 
+func isProdBaseURL(baseURL *url.URL) bool {
+	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
+}
+
 // NewAppClient returns a new app client that may already
 // be authenticated.
 func NewAppClient(c *cli.Context) (*AppClient, error) {
 	baseURL, rpcOpts, err := checkBaseURL(c)
 	if err != nil {
 		return nil, err
+	}
+
+	var authFlow *authFlow
+	if isProdBaseURL(baseURL) {
+		authFlow = newCLIAuthFlow(c.App.Writer)
+	} else {
+		authFlow = newStgCLIAuthFlow(c.App.Writer)
 	}
 
 	conf, err := configFromCache()
@@ -92,7 +102,32 @@ func NewAppClient(c *cli.Context) (*AppClient, error) {
 		rpcOpts:     rpcOpts,
 		selectedOrg: &apppb.Organization{},
 		selectedLoc: &apppb.Location{},
+		authFlow:    authFlow,
 	}, nil
+}
+
+// Login goes through the CLI login flow using a device code and browser. Once logged in the access token and user details
+// are cached on disk.
+func (c *AppClient) Login() error {
+	var token *Token
+	var err error
+	if c.conf.Auth != nil && c.conf.Auth.CanRefresh() {
+		token, err = c.authFlow.Refresh(c.c.Context, c.conf.Auth)
+		if err != nil {
+			utils.UncheckedError(c.Logout())
+			return err
+		}
+	} else {
+		token, err = c.authFlow.Login(c.c.Context)
+		if err != nil {
+			return err
+		}
+	}
+
+	// write token to config.
+	c.conf.Auth = token
+
+	return storeConfigToCache(c.conf)
 }
 
 // Config returns the current config.
@@ -123,11 +158,31 @@ func (c *AppClient) ensureLoggedIn() error {
 		return nil
 	}
 
-	if c.conf.AuthEmail == "" {
+	if c.conf.Auth == nil {
 		return errors.New("not logged in")
 	}
 
-	rpcOpts := append(c.RPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth))
+	if c.conf.Auth.IsExpired() {
+		if !c.conf.Auth.CanRefresh() {
+			utils.UncheckedError(c.Logout())
+			return errors.New("token expired and cannot refresh")
+		}
+
+		// expired.
+		newToken, err := c.authFlow.Refresh(c.c.Context, c.conf.Auth)
+		if err != nil {
+			utils.UncheckedError(c.Logout()) // clear cache if failed to refresh
+			return errors.Wrapf(err, "error while refrshing token")
+		}
+
+		// write token to config.
+		c.conf.Auth = newToken
+		if err := storeConfigToCache(c.conf); err != nil {
+			return err
+		}
+	}
+
+	rpcOpts := append(c.RPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth.AccessToken))
 
 	conn, err := rpc.DialDirectGRPC(
 		c.c.Context,
@@ -175,55 +230,6 @@ func (c *AppClient) PrepareAuthorization() (string, string, error) {
 		return "", "", err
 	}
 	return deviceData.Token, deviceData.URL, nil
-}
-
-// Authenticate authenticates the client with the given token.
-func (c *AppClient) Authenticate(ctx context.Context, token string) error {
-	rpcOpts := append(c.RPCOpts(),
-		rpc.WithCredentials(rpc.Credentials{
-			Type:    "device-otp",
-			Payload: token,
-		}),
-	)
-	for {
-		if !utils.SelectContextOrWait(ctx, time.Second) {
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return nil
-			}
-			return errors.New("took too long to authorized; try again")
-		}
-
-		conn, err := rpc.DialDirectGRPC(
-			ctx,
-			c.baseURL.Host,
-			nil,
-			rpcOpts...,
-		)
-		if err != nil {
-			return err
-		}
-
-		authenticator, ok := conn.(rpc.ClientConnAuthenticator)
-		if !ok {
-			panic("expected authenticator")
-		}
-		authMaterial, err := authenticator.Authenticate(ctx)
-		if err != nil {
-			if code := status.Code(err); code == codes.FailedPrecondition {
-				continue
-			}
-		}
-
-		conf := &Config{Auth: authMaterial}
-		if err := conf.parseAuthInfo(); err != nil {
-			return err
-		}
-		if err := storeConfigToCache(conf); err != nil {
-			return err
-		}
-		c.conf = conf
-		return nil
-	}
 }
 
 // Logout logs out the client and clears the config.
@@ -357,26 +363,6 @@ func (c *AppClient) ListLocations(orgID string) ([]*apppb.Location, error) {
 	return (*c.locs), nil
 }
 
-// LocationAuth returns the authentication material for the given location.
-func (c *AppClient) LocationAuth(orgStr, locStr string) (*apppb.LocationAuth, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	if err := c.selectOrganization(orgStr); err != nil {
-		return nil, err
-	}
-	if err := c.selectLocation(locStr); err != nil {
-		return nil, err
-	}
-	resp, err := c.client.LocationAuth(c.c.Context, &apppb.LocationAuthRequest{
-		LocationId: c.selectedLoc.Id,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Auth, nil
-}
-
 // ListRobots returns all robots in the given location.
 func (c *AppClient) ListRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -402,10 +388,12 @@ func (c *AppClient) Robot(orgStr, locStr, robotStr string) (*apppb.Robot, error)
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
+
 	robots, err := c.ListRobots(orgStr, locStr)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, robot := range robots {
 		if robot.Id == robotStr || robot.Name == robotStr {
 			return robot, nil
@@ -547,13 +535,14 @@ func (c *AppClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
-	locAuth, err := c.LocationAuth(orgStr, locStr)
-	if err != nil {
+	if err := c.ensureLoggedIn(); err != nil {
 		return nil, "", nil, err
 	}
-
-	if len(locAuth.Secrets) == 0 {
-		return nil, "", nil, errors.New("missing secrets in LocationAuth")
+	if err := c.selectOrganization(orgStr); err != nil {
+		return nil, "", nil, err
+	}
+	if err := c.selectLocation(locStr); err != nil {
+		return nil, "", nil, err
 	}
 
 	part, err := c.RobotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
@@ -567,10 +556,10 @@ func (c *AppClient) prepareDial(
 	}()
 	dialCtx := rpc.ContextWithDialer(c.c.Context, rpcDialer)
 
-	rpcOpts := append(c.RPCOpts(), rpc.WithCredentials(rpc.Credentials{
-		Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-		Payload: locAuth.Secrets[0].Secret,
-	}))
+	rpcOpts := append(c.RPCOpts(),
+		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
+		rpc.WithStaticExternalAuthenticationMaterial(c.conf.Auth.AccessToken),
+	)
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
