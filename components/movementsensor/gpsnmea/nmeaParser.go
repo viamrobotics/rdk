@@ -84,7 +84,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		}
 		g.satsInUse = len(gsa.SV)
 	} else if gga, ok := s.(nmea.GGA); ok {
-		// GGA provides validity, lon/lat, altitude, altitude, sats in use, and horizontal position error
+		// GGA provides validity, lon/lat, altitude, sats in use, and horizontal position error
 		g.fixQuality, err = strconv.Atoi(gga.FixQuality)
 		if err != nil {
 			return err
