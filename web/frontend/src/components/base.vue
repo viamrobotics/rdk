@@ -29,7 +29,7 @@ type MovementTypes = 'Continuous' | 'Discrete'
 type MovementModes = 'Straight' | 'Spin'
 type SpinTypes = 'Clockwise' | 'Counterclockwise'
 type Directions = 'Forwards' | 'Backwards'
-
+const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const selectedItem = ref<Tabs>('Keyboard');
 const movementMode = ref<MovementModes>('Straight');
 const movementType = ref<MovementTypes>('Continuous');
@@ -79,7 +79,6 @@ const setDirection = (dir: Directions) => {
 };
 
 const stop = async () => {
-  const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   stopped = true;
   try {
     await baseClient.stop();
@@ -91,7 +90,6 @@ const stop = async () => {
 const digestInput = async () => {
   let linearValue = 0;
   let angularValue = 0;
-  const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
   for (const item of pressed) {
     switch (item) {
@@ -145,13 +143,12 @@ const handleKeyUp = (key: Keys) => {
   }
 };
 
-const handleBaseStraight = async (name: string, event: {
+const handleBaseStraight = async (event: {
   distance: number
   speed: number
   direction: number
   movementType: MovementTypes
 }) => {
-  const baseClient = new BaseClient(props.client, name, { requestLogger: rcLogConditionally });
   if (event.movementType === 'Continuous') {
     const linear = new commonApi.Vector3();
     const angular = new commonApi.Vector3();
@@ -172,7 +169,6 @@ const handleBaseStraight = async (name: string, event: {
 };
 
 const baseRun = async () => {
-  const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
   if (movementMode.value === 'Spin') {
     try {
       await baseClient.spin(angle.value * (spinType.value === 'Clockwise' ? -1 : 1), spinSpeed.value);
@@ -180,7 +176,7 @@ const baseRun = async () => {
       displayError(error as ServiceError);
     }
   } else if (movementMode.value === 'Straight') {
-    handleBaseStraight(props.name, {
+    handleBaseStraight({
       movementType: movementType.value,
       direction: direction.value === 'Forwards' ? 1 : -1,
       speed: speed.value,
