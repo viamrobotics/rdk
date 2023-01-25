@@ -362,6 +362,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		return nil, errors.New("pi SPI cannot use both native CS pins and extended/gpio CS pins at the same time")
 	}
 
+	//nolint:dupword
 	// Bitfields for mode
 	// Mode POL PHA
 	// 0    0   0
