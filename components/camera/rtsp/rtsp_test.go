@@ -37,7 +37,7 @@ func TestRTSPCamera(t *testing.T) {
 		}
 	})
 	<-ffmpegIsStreaming
-	time.Sleep(2 * time.Second) // cmd.Run() takes a while to begin ffmpeg
+	time.Sleep(1 * time.Second) // cmd.Run() takes a while to begin ffmpeg
 	// create the rtsp camera model
 	rtspConf := &Attrs{Address: outputURL}
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)

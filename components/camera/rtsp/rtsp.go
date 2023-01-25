@@ -74,9 +74,9 @@ func (at *Attrs) Validate() error {
 	if err := at.IntrinsicParams.CheckValid(); err != nil {
 		return err
 	}
-	// if err := at.DistortionParams.CheckValid(); err != nil {
-	//	return err
-	//}
+	if err := at.DistortionParams.CheckValid(); err != nil {
+		return err
+	}
 	return nil
 }
 
