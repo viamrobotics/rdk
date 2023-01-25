@@ -667,6 +667,7 @@ func getPCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
 			}
 			meta.Merge(pd.P, pd.D)
 		}
+
 	case PCDBinary:
 		for i := 0; i < int(header.points); i++ {
 			pd, err := extractPCDPointBinary(&in, header)
