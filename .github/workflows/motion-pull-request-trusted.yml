@@ -1,7 +1,7 @@
 name: Motion Pull Request Update
 
 concurrency: 
-  group: pullrequest-untrusted-${{ github.head_ref }}
+  group: motion-pr-untrusted-${{ github.head_ref }}
   cancel-in-progress: true
 
 on:

@@ -11,6 +11,14 @@ type BrownConrady struct {
 	TangentialP2 float64 `json:"tp2"`
 }
 
+// CheckValid checks if the fields for BrownConrady have valid inputs.
+func (bc *BrownConrady) CheckValid() error {
+	if bc == nil {
+		return InvalidDistortionError("BrownConrady shaped distortion_parameters not provided")
+	}
+	return nil
+}
+
 // NewBrownConrady takes in a slice of floats that will be passed into the struct in order.
 func NewBrownConrady(inp []float64) (*BrownConrady, error) {
 	if len(inp) > 5 {
@@ -32,12 +40,18 @@ func (bc *BrownConrady) ModelType() DistortionType {
 
 // Parameters returns the parameters of the distortion model as a list of floats.
 func (bc *BrownConrady) Parameters() []float64 {
+	if bc == nil {
+		return []float64{}
+	}
 	return []float64{bc.RadialK1, bc.RadialK2, bc.RadialK3, bc.TangentialP1, bc.TangentialP2}
 }
 
 // Transform distorts the input points x,y according to a modified Brown-Conrady model as described by OpenCV
 // https://docs.opencv.org/3.4/da/d54/group__imgproc__transform.html#ga7dfb72c9cf9780a347fbe3d1c47e5d5a
 func (bc *BrownConrady) Transform(x, y float64) (float64, float64) {
+	if bc == nil {
+		return x, y
+	}
 	r2 := x*x + y*y
 	radDist := (1. + bc.RadialK1*r2 + bc.RadialK2*r2*r2 + bc.RadialK3*r2*r2*r2)
 	radDistX := x * radDist
