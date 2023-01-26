@@ -14,8 +14,6 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-const baseName = "name"
-
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
@@ -43,7 +41,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := createWheeledBase(context.Background(), motorDeps, cfg, baseName, logger)
+	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -312,7 +310,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := createWheeledBase(ctx, motorDeps, cfg, baseName, logger)
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -351,32 +349,4 @@ func TestValidate(t *testing.T) {
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestAngleCalculations(t *testing.T) {
-	for _, tc := range []struct {
-		QuadrantName string
-		Added        float64
-		Current      float64
-		Expected     float64
-	}{
-		{"acute-CCW-Q1", 10, 10, 20},
-		{"acute-CCW-Q2", 10, 95, 105},
-		{"acute-CCW-Q3", 10, 175, -175},
-		{"acute-CCW-Q4", 10, 275, -75},
-		{"obtuse-CCW-Q2", 110, 10, 120},
-		{"obtuse-CCW-Q3", 110, 80, -170},
-		{"obtuse-CCW-Q4", 110, 170, -80},
-		{"acute-CW-Q4", -20, 10, -10},
-		{"acute-CW-Q3", -20, -80, -100},
-		{"acute-CW-Q2", -20, -170, 170},
-		{"ninetey", 10, 80, 90},
-		{"positive-one-eighty", 10, 170, 179.9},
-		{"negative-one-eighty", -10, -170, 179.9},
-	} {
-		t.Run(tc.QuadrantName, func(t *testing.T) {
-			calculated := calculatedDomainLimitedAngleError(tc.Added, tc.Current)
-			test.That(t, calculated, test.ShouldAlmostEqual, tc.Expected)
-		})
-	}
 }

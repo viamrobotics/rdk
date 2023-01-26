@@ -1,5 +1,5 @@
 service:
-  golangci-lint-version: 1.48.x
+  golangci-lint-version: 1.50.x
 run:
   deadline: 900s
   modules-download-mode: readonly
@@ -50,6 +50,7 @@ linters:
     - structcheck
     - tagliatelle
     - testpackage
+    - thelper # false positives
     - varcheck
     - varnamelen
     - wrapcheck
@@ -81,6 +82,7 @@ issues:
   exclude-rules:
     - path: _test\.go$|^tests/|^examples/
       linters:
+        - dupword
         - errcheck
         - exhaustive
         - forcetypeassert

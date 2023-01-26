@@ -297,7 +297,9 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
-func TestPCDKDTree(t *testing.T) {
+func createNewPCD(t *testing.T) string {
+	t.Helper()
+
 	cloud := NewKDTree()
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewBasicData()), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewBasicData()), test.ShouldBeNil)
@@ -313,10 +315,27 @@ func TestPCDKDTree(t *testing.T) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary\n")
 
+	return gotPCD
+}
+
+func TestPCDKDTree(t *testing.T) {
+	gotPCD := createNewPCD(t)
+
 	cloud2, err := ReadPCDToKDTree(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
 	gotPt, found := cloud2.At(-1, -2, 5)
+	test.That(t, found, test.ShouldBeTrue)
+	test.That(t, gotPt, test.ShouldNotBeNil)
+}
+
+func TestPCDOctree(t *testing.T) {
+	gotPCD := createNewPCD(t)
+
+	basicOct, err := ReadPCDToBasicOctree(strings.NewReader(gotPCD))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, basicOct.Size(), test.ShouldEqual, 3)
+	gotPt, found := basicOct.At(-1, -2, 5)
 	test.That(t, found, test.ShouldBeTrue)
 	test.That(t, gotPt, test.ShouldNotBeNil)
 }

@@ -1,4 +1,5 @@
-//go:build !arm
+//go:build !arm && !windows
+
 package builtin
 
 import (

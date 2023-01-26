@@ -38,7 +38,7 @@ var (
 	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
 )
 
-// SleepAngles are the angles we go to to prepare to turn off torque.
+// SleepAngles are the angles we go to prepare to turn off torque.
 var SleepAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    840,

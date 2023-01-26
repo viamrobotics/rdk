@@ -342,7 +342,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 	}
 	defer func() {
 		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Errorw("failed to turn off motor (%s)", m.motorName, "error", err)
+			m.logger.Errorw("failed to turn off motor", "name", m.motorName, "error", err)
 		}
 	}()
 	for {
