@@ -3,6 +3,8 @@ package commonsysfs
 // This file is heavily inspired by https://github.com/mkch/gpio
 
 import (
+	"fmt"
+	"os"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -26,11 +28,6 @@ const (
 func ioctl(fd int, request uintptr, data uintptr) error {
 	_, _, err := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), request, data)
 	return err
-}
-
-type ioctlPin struct {
-	fd     int
-	offset uint32
 }
 
 /*
@@ -70,4 +67,38 @@ func (pin *ioctlPin) Set(isHigh bool) error {
 								Lines: 1,
 								}
 	return ioctl(pin.fd, GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
+}
+
+type ioctlPin struct {
+	fd     int
+	offset uint32
+}
+
+var (
+	chips map[string](*os.File)  // Maps pseudofiles from /dev to file descriptors of opened files
+	pins map[int]ioctlPin
+)
+
+func Initialize(gpioMappings map[int]GPIOBoardMapping) error {
+	for pin, mapping := range gpioMappings {
+		file, ok := chips[mapping.GPIOChipDev]
+		if !ok {
+			var err error
+			file, err = os.Open(fmt.Sprintf("/dev/%s", mapping.GPIOChipDev))
+			if err != nil {
+				return err
+			}
+			chips[mapping.GPIOChipDev] = file
+		}
+		pins[pin] = ioctlPin{fd: int(file.Fd()), offset: uint32(mapping.GPIO)}
+	}
+	return nil
+}
+
+func SetPin(pinNumber int, isHigh bool) error {
+	pin, ok := pins[pinNumber]
+	if !ok {
+		return fmt.Errorf("Cannot set GPIO for unknown pin number: %d", pinNumber)
+	}
+	return pin.Set(isHigh)
 }
