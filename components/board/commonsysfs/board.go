@@ -40,7 +40,7 @@ type Config struct {
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
+func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useIoctl bool) {
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
@@ -54,6 +54,13 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
+
+			if useIoctl {
+				if err := ioctlInitialize(gpioMappings); err != nil {
+					return nil, err
+				}
+			}
+
 			var spis map[string]*spiBus
 			if len(conf.SPIs) != 0 {
 				spis = make(map[string]*spiBus, len(conf.SPIs))
@@ -86,6 +93,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 				spis:         spis,
 				analogs:      analogs,
 				pwms:         map[string]pwmSetting{},
+				useIoctl:     useIoctl,
 				logger:       logger,
 				cancelCtx:    cancelCtx,
 				cancelFunc:   cancelFunc,
@@ -136,6 +144,7 @@ type sysfsBoard struct {
 	spis         map[string]*spiBus
 	analogs      map[string]board.AnalogReader
 	pwms         map[string]pwmSetting
+	useIoctl     bool
 	logger       golog.Logger
 
 	cancelCtx               context.Context
@@ -284,6 +293,10 @@ type gpioPin struct {
 }
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
+	if b.useIoctl {
+		return ioctlGetPin(pinName)
+	}
+
 	pin, hwPWMSupported, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return nil, err

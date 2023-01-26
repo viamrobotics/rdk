@@ -3,11 +3,13 @@ package commonsysfs
 // This file is heavily inspired by https://github.com/mkch/gpio
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+	"go.viam.com/rdk/components/board"
 )
 
 const (
@@ -54,7 +56,13 @@ type GPIOHandleRequest struct {
 	Fd            int32
 }
 
-func (pin *ioctlPin) Set(isHigh bool) error {
+type IoctlPin struct {
+	fd     int
+	offset uint32
+}
+
+// This helps implement the board.GPIOPin interface for IoctlPin.
+func (pin *IoctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) error {
 	var value byte
 	if isHigh {
 		value = 1
@@ -69,17 +77,37 @@ func (pin *ioctlPin) Set(isHigh bool) error {
 	return ioctl(pin.fd, GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
 }
 
-type ioctlPin struct {
-	fd     int
-	offset uint32
+// This helps implement the board.GPIOPin interface for IoctlPin.
+func (pin *IoctlPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return false, nil
+}
+
+// This helps implement the board.GPIOPin interface for IoctlPin.
+func (pin *IoctlPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	return 0.0, nil
+}
+
+// This helps implement the board.GPIOPin interface for IoctlPin.
+func (pin *IoctlPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	return nil
+}
+
+// This helps implement the board.GPIOPin interface for IoctlPin.
+func (pin *IoctlPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	return 0, nil
+}
+
+// This helps implement the board.GPIOPin interface for IoctlPin.
+func (pin *IoctlPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	return nil
 }
 
 var (
 	chips map[string](*os.File)  // Maps pseudofiles from /dev to file descriptors of opened files
-	pins map[int]ioctlPin
+	pins map[string]IoctlPin
 )
 
-func Initialize(gpioMappings map[int]GPIOBoardMapping) error {
+func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) error {
 	for pin, mapping := range gpioMappings {
 		file, ok := chips[mapping.GPIOChipDev]
 		if !ok {
@@ -90,15 +118,15 @@ func Initialize(gpioMappings map[int]GPIOBoardMapping) error {
 			}
 			chips[mapping.GPIOChipDev] = file
 		}
-		pins[pin] = ioctlPin{fd: int(file.Fd()), offset: uint32(mapping.GPIO)}
+		pins[fmt.Sprintf("%d", pin)] = IoctlPin{fd: int(file.Fd()), offset: uint32(mapping.GPIO)}
 	}
 	return nil
 }
 
-func SetPin(pinNumber int, isHigh bool) error {
-	pin, ok := pins[pinNumber]
+func ioctlGetPin(pinName string) (board.GPIOPin, error) {
+	pin, ok := pins[pinName]
 	if !ok {
-		return fmt.Errorf("Cannot set GPIO for unknown pin number: %d", pinNumber)
+		return nil, fmt.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
 	}
-	return pin.Set(isHigh)
+	return &pin, nil
 }

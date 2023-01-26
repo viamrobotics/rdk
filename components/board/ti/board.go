@@ -22,5 +22,5 @@ func init() {
 		golog.Global().Debugw("error getting ti GPIO board mapping", "error", err)
 	}
 
-	commonsysfs.RegisterBoard(modelName, gpioMappings)
+	commonsysfs.RegisterBoard(modelName, gpioMappings, false)
 }
