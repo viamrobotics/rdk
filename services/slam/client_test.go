@@ -41,7 +41,11 @@ func TestClientWorkingService(t *testing.T) {
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPose(
+		r3.Vector{X: 1, Y: 2, Z: 3},
+		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1},
+	)
+
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
 	pcSucc := &vision.Object{}
@@ -95,7 +99,7 @@ func TestClientWorkingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc).String(), logger)
+		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameSucc, logger)
 		// test get position
 		extra := map[string]interface{}{"foo": "Position"}
 		pInFrame, err := workingSLAMClient.Position(context.Background(), nameSucc, extra)
@@ -178,7 +182,6 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, p.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
-		test.That(t, conn.Close(), test.ShouldBeNil)
 
 		// test DoCommand
 		resp, err := workingDialedClient.DoCommand(context.Background(), generic.TestCommand)
@@ -198,7 +201,11 @@ func TestClientFailingService(t *testing.T) {
 	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPose(
+		r3.Vector{X: 1, Y: 2, Z: 3},
+		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1},
+	)
+
 	pFail := referenceframe.NewPoseInFrame("frame", pose)
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()
@@ -220,7 +227,11 @@ func TestClientFailingService(t *testing.T) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
 	}
 
-	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameSucc): failingSLAMService})
+	failingSLAMService.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return nil, errors.New("failure to perform DoCommand")
+	}
+
+	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
@@ -233,7 +244,7 @@ func TestClientFailingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc).String(), logger)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameFail, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
@@ -256,5 +267,10 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
+
+		// test do command
+		result, err := failingSLAMClient.DoCommand(context.Background(), map[string]interface{}{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, result, test.ShouldBeNil)
 	})
 }
