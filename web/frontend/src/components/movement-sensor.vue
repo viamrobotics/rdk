@@ -33,6 +33,10 @@ const refresh = async () => {
     rcLogConditionally(req);
     props.client.movementSensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
+        if (err.message === 'Response closed without headers') {
+          refreshId = window.setTimeout(refresh, 500);
+          return;
+        }
         return displayError(err);
       }
 
