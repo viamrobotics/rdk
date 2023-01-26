@@ -1103,19 +1103,28 @@ func TestGetMapAndPosition(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
+	ctx := context.Background()
+	// Test GetPosition
+	p, err := svc.Position(ctx, "hi", map[string]interface{}{})
 	test.That(t, p, test.ShouldBeNil)
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error getting SLAM position")
 
+	// Test GetMap
 	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3},
 		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
-	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})
+	mimeType, im, pc, err := svc.GetMap(ctx, "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})
 	test.That(t, mimeType, test.ShouldResemble, "")
 	test.That(t, im, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldBeNil)
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error getting SLAM map")
+
+	// Test DoCommand
+	cmd := map[string]interface{}{"command": "get_pcd_projection"}
+	response, err := svc.DoCommand(ctx, cmd)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error getting SLAM map")
+	test.That(t, response, test.ShouldBeNil)
 
 	grpcServer.Stop()
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)

@@ -583,9 +583,9 @@ func (slamSvc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{
 		return nil, errors.New("missing 'command' value")
 	}
 	switch c {
-	case "get_image":
-		name := "getImage"
-		extra := map[string]interface{}{"foo": "Position"}
+	case "get_pcd_projection":
+		name := "slam"
+		extra := map[string]interface{}{}
 		cameraPosition := referenceframe.NewPoseInFrame("", spatialmath.NewPose(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			spatialmath.NewOrientationVector()))
@@ -607,8 +607,17 @@ func (slamSvc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{
 		ppRM := transform.NewParallelProjectionOntoXZWithRobotMarker(&p)
 		im, _, err := ppRM.PointCloudToRGBD(vObj.PointCloud)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "issue projecting given pointcloud")
 		}
+
+		// ---------- TEMP ----------
+		timeStamp := time.Now()
+		filename := filepath.Join(slamSvc.dataDirectory, "data", "rgb", "projected_image_"+timeStamp.UTC().Format(slamTimeFormat)+".png")
+		err = rimage.WriteImageToFile(filename, im)
+		if err != nil {
+			return nil, errors.Wrap(err, "issue writing projected map image to file")
+		}
+		// --------------------------
 
 		return map[string]interface{}{"return": im}, nil
 	}
