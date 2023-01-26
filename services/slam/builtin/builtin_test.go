@@ -1080,7 +1080,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
-func TestGetMapAndPosition(t *testing.T) {
+func TestEndpointFailures(t *testing.T) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1116,6 +1116,10 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, im, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
+
+	internalState, err := svc.GetInternalState(context.Background(), "hi")
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting the internal state from the SLAM client")
+	test.That(t, internalState, test.ShouldBeNil)
 
 	grpcServer.Stop()
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
