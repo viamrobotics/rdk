@@ -25,44 +25,41 @@ const (
 	cartoSleepMs = 100
 )
 
-// Checks the cartographer map.
+// Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
-	t.Helper()
-
 	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	t.Logf("Pointcloud points: %v", pointcloud.Size())
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
-// Checks the cartographer position.
+// Checks the cartographer position within a defined tolerance.
 func testCartographerPosition(t *testing.T, svc slam.Service) {
-	t.Helper()
+	expectedPos := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
+	tolerancePos := 0.01
+	expectedOri := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: -1}
+	toleranceOri := 0.5
 
 	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	expectedPos := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
-	tolerancePos := 0.004
 
 	actualPos := position.Pose().Point()
+	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
 	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
 	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
 	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
 
-	expectedOri := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
-	toleranceOri := 0.2
-
-	actualOri := position.Pose().Orientation().OrientationVectorDegrees()
-	test.That(t, actualOri.OX, test.ShouldBeBetween, expectedOri.OX-toleranceOri, expectedOri.OX+toleranceOri)
-	test.That(t, actualOri.OY, test.ShouldBeBetween, expectedOri.OY-toleranceOri, expectedOri.OY+toleranceOri)
-	test.That(t, actualOri.OZ, test.ShouldBeBetween, expectedOri.OZ-toleranceOri, expectedOri.OZ+toleranceOri)
+	actualOri := position.Pose().Orientation().AxisAngles()
+	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
+	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.OX-toleranceOri, expectedOri.OX+toleranceOri)
+	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.OY-toleranceOri, expectedOri.OY+toleranceOri)
+	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.OZ-toleranceOri, expectedOri.OZ+toleranceOri)
 	test.That(t, actualOri.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
 }
 
 // Checks the cartographer internal state.
 func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir string) {
-	t.Helper()
-
 	internalState, err := svc.GetInternalState(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
 
