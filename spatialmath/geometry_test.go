@@ -34,6 +34,8 @@ func TestGeometrySerialization(t *testing.T) {
 		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "sphere"}, true},
 		{"sphere bad dims", GeometryConfig{Type: "sphere", R: -1}, false},
 		{"infer sphere", GeometryConfig{R: 1, OrientationOffset: orientation, Label: "infer sphere"}, true},
+		{"capsule", GeometryConfig{Type: "capsule", L: 4, R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "capsule"}, true},
+		{"infer capsule", GeometryConfig{L: 4, R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "infer capsule"}, true},
 		{"point", GeometryConfig{Type: "point", TranslationOffset: translation, OrientationOffset: orientation, Label: "point"}, true},
 		{"infer point", GeometryConfig{}, false},
 		{"bad type", GeometryConfig{Type: "bad"}, false},
