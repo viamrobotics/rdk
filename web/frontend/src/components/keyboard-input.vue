@@ -3,21 +3,27 @@
 
 export type Keys = 'w' | 'a' | 's' | 'd'
 
-import { onClickOutside } from '@vueuse/core';
 import { mdiArrowUp as w, mdiRestore as a, mdiReload as d, mdiArrowDown as s } from '@mdi/js';
 import Icon from './icon.vue';
-import { onUnmounted } from 'vue';
+import { watch, onUnmounted } from 'vue';
 
 interface Emits {
   (event: 'keydown', key: Keys): void
   (event: 'keyup', key: Keys): void
   (event: 'toggle', active: boolean): void
+  (event: 'update-keyboard-state', value: boolean): void
 }
 
 const emit = defineEmits<Emits>();
 
+interface Props {
+  isActive: boolean,
+  tempDisable: boolean,
+}
+
+const props = defineProps<Props>();
+
 const keyIcons = { w, a, s, d };
-const root = $ref<HTMLElement>();
 
 const pressedKeys = $ref({
   w: false,
@@ -25,8 +31,6 @@ const pressedKeys = $ref({
   s: false,
   d: false,
 });
-
-let isActive = $ref(false);
 
 const keysLayout = [['a'], ['w', 's'], ['d']] as const;
 
@@ -44,11 +48,12 @@ const normalizeKey = (key: string): Keys | null => {
 };
 
 const emitKeyDown = (key: Keys) => {
-  if (!isActive) {
-    // eslint-disable-next-line no-use-before-define
-    toggleKeyboard(true);
+  if (props.tempDisable) {
+    return;
   }
+
   pressedKeys[key] = true;
+
   emit('keydown', key);
 };
 
@@ -58,6 +63,10 @@ const emitKeyUp = (key: Keys) => {
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
+  if (props.tempDisable) {
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
 
@@ -71,6 +80,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const handleKeyUp = (event: KeyboardEvent) => {
+  if (props.tempDisable) {
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
 
@@ -89,8 +102,8 @@ const toggleKeyboard = (nowActive: boolean) => {
     window.removeEventListener('keyup', handleKeyUp);
   }
 
-  isActive = nowActive;
-  emit('toggle', isActive);
+  emit('update-keyboard-state', nowActive);
+  emit('toggle', nowActive);
 };
 
 const handlePointerDown = (key: Keys) => {
@@ -101,8 +114,10 @@ const handlePointerUp = (key: Keys) => {
   emitKeyUp(key);
 };
 
-onClickOutside($$(root), () => {
-  toggleKeyboard(false);
+watch(() => props.isActive, (active) => {
+  if (!active) {
+    toggleKeyboard(false);
+  }
 });
 
 onUnmounted(() => {
@@ -112,13 +127,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    ref="root"
-  >
+  <div>
     <v-switch
-      :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
-      class="pr-4"
-      :value="isActive ? 'on' : 'off'"
+      :label="props.isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
+      class="pr-4 w-fit"
+      :value="props.isActive ? 'on' : 'off'"
       @input="toggleKeyboard($event.detail.value)"
     />
     <div class="flex gap-2">
