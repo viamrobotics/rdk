@@ -20,7 +20,6 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -28,12 +27,11 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
-var (
-	model            = resource.NewDefaultModel("rtsp")
-	clientTerminated = liberrors.ErrClientTerminated{}
-)
+var model = resource.NewDefaultModel("rtsp")
+var clientTerminated = liberrors.ErrClientTerminated{}
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
@@ -122,18 +120,18 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 					errors.Is(err, io.EOF) ||
 					errors.Is(err, syscall.EPIPE) ||
 					errors.Is(err, syscall.ECONNREFUSED)) {
-					rc.logger.Warnw("The rtsp client for ", rc.u, " has error", err)
+					rc.logger.Warnw("The rtsp client encountered an error, trying to reconnect", err)
 					if err = rc.reconnectClient(); err != nil {
 						rc.logger.Warnw("cannot reconnect to rtsp server:", err)
 					} else {
-						rc.logger.Infow("reconnected to rtsp server", rc.u)
+						rc.logger.Infof("reconnected to rtsp server %s", rc.u)
 					}
 				} else if res != nil && res.StatusCode != base.StatusOK {
-					rc.logger.Warnw("The rtsp server responded with", res.StatusCode, "trying to reconnect")
+					rc.logger.Warnf("The rtsp server responded with non-OK status %s", res.StatusCode)
 					if err = rc.reconnectClient(); err != nil {
 						rc.logger.Warnw("cannot reconnect to rtsp server:", err)
 					} else {
-						rc.logger.Infow("reconnected to rtsp server", rc.u)
+						rc.logger.Infof("reconnected to rtsp server %s", rc.u)
 					}
 				}
 			} else {
@@ -148,7 +146,7 @@ func (rc *rtspCamera) reconnectClient() error {
 	if rc.client != nil {
 		err := rc.client.Close()
 		if err != nil {
-			return err
+			rc.logger.Debugw("error while closing rtsp client:", err)
 		}
 	}
 	// replace the client with a new one, but close it if setup is not successful
@@ -158,7 +156,7 @@ func (rc *rtspCamera) reconnectClient() error {
 	var err error
 	defer func() {
 		if !clientSuccessful {
-			if errClose := client.Close(); errClose != nil {
+			if errClose := rc.client.Close(); errClose != nil {
 				err = multierr.Combine(err, errClose)
 			}
 		}
