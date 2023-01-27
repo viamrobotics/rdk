@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -37,6 +38,8 @@ func NewBuiltIn(logger golog.Logger) (shell.Service, error) {
 type builtIn struct {
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	generic.Unimplemented
 }
 
 func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan shell.Output, error) {

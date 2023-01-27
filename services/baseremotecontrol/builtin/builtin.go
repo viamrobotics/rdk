@@ -14,6 +14,7 @@ import (
 	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -34,6 +35,7 @@ const (
 	arrowControl
 	droneControl
 )
+
 var Subtype = baseremotecontrol.Subtype
 
 func init() {
@@ -97,6 +99,8 @@ type builtIn struct {
 	cancel                  func()
 	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
+
+	generic.Unimplemented
 }
 
 // NewDefault returns a new remote control service for the given robot.

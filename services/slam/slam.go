@@ -12,6 +12,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -76,6 +77,7 @@ type Service interface {
 		bool,
 		map[string]interface{},
 	) (string, image.Image, *vision.Object, error)
+	generic.Generic
 }
 
 type reconfigurableSlam struct {
@@ -114,6 +116,12 @@ func (svc *reconfigurableSlam) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableSlam) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure replaces the old slam service with a new slam.

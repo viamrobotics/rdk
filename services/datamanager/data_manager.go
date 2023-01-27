@@ -11,6 +11,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -40,6 +41,8 @@ func init() {
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
 	Sync(ctx context.Context, extra map[string]interface{}) error
+
+	generic.Generic
 }
 
 var (
@@ -88,6 +91,12 @@ func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableDataManager) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *config.Config) error {

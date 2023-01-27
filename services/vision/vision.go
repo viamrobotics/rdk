@@ -13,6 +13,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -75,6 +76,7 @@ type Service interface {
 	AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
 	RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
+	generic.Generic
 }
 
 var (
@@ -272,6 +274,12 @@ func (svc *reconfigurableVision) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableVision) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure replaces the old vision service with a new vision.

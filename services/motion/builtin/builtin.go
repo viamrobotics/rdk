@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -41,6 +42,8 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 type builtIn struct {
 	r      robot.Robot
 	logger golog.Logger
+
+	generic.Unimplemented
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -183,7 +186,7 @@ func (ms *builtIn) GetPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
 			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
 		),
 		destinationFrame,
 		supplementalTransforms,

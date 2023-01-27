@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -46,6 +47,8 @@ type Service interface {
 	Close(ctx context.Context) error
 	// controllerInputs returns the list of inputs from the controller that are being monitored for that control mode.
 	ControllerInputs() []input.Control
+
+	generic.Generic
 }
 
 type reconfigurableBaseRemoteControl struct {
@@ -62,6 +65,12 @@ func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return viamutils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableBaseRemoteControl) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {

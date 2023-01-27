@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 )
@@ -148,4 +149,8 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 		return err
 	}
 	return nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

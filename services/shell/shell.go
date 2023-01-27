@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -37,6 +38,8 @@ func init() {
 // A Service handles shells for a local robot.
 type Service interface {
 	Shell(ctx context.Context, extra map[string]interface{}) (input chan<- string, output <-chan Output, retErr error)
+
+	generic.Generic
 }
 
 var (
@@ -95,6 +98,12 @@ func (svc *reconfigurableShell) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return utils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableShell) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure replaces the old shell service with a new shell.

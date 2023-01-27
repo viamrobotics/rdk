@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -58,6 +59,8 @@ type Service interface {
 	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
+
+	generic.Generic
 }
 
 var (
@@ -168,6 +171,12 @@ func (svc *reconfigurableNavigation) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return utils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableNavigation) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure replaces the old navigation service with a new navigation.

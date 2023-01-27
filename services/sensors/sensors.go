@@ -10,6 +10,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -46,6 +47,7 @@ type Readings struct {
 type Service interface {
 	Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
 	Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]Readings, error)
+	generic.Generic
 }
 
 var (
@@ -138,6 +140,12 @@ func (svc *reconfigurableSensors) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableSensors) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure replaces the old Sensors service with a new Sensors.
