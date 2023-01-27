@@ -6,8 +6,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"syscall"
 	"unsafe"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 	"go.viam.com/rdk/components/board"
 )
@@ -27,8 +29,12 @@ const (
 	GPIOHANDLE_REQUEST_OPEN_SOURCE = 1 << 4
 )
 
-func ioctl(fd int, request uintptr, data uintptr) error {
-	_, _, err := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), request, data)
+func ioctl(fd uintptr, request uintptr, data uintptr) error {
+	_, _, err := unix.Syscall(unix.SYS_IOCTL, fd, request, data)
+	if err.Error() == "errno 0" {
+		// If errno is 0, there was no error, so ignore the (lack of) problem.
+		return nil
+	}
 	return err
 }
 
@@ -56,77 +62,90 @@ type GPIOHandleRequest struct {
 	Fd            int32
 }
 
-type IoctlPin struct {
-	fd     int
-	offset uint32
+type GPIOHandleData struct {
+	Values [64]uint8
 }
 
-// This helps implement the board.GPIOPin interface for IoctlPin.
-func (pin *IoctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) error {
+type ioctlPin struct {
+	// These first two values should be considered immutable
+	devicePath string
+	offset     uint32
+}
+
+// This helps implement the board.GPIOPin interface for ioctlPin.
+func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) error {
 	var value byte
 	if isHigh {
 		value = 1
 	} else {
 		value = 0
 	}
+
+	devFile, err := os.Open(pin.devicePath)
+	if err != nil {
+		return err
+	}
+	defer devFile.Close()
+
 	request := GPIOHandleRequest{LineOffsets: [64]uint32{pin.offset},
-								Flags: GPIOHANDLE_REQUEST_OUTPUT,
-								DefaultValues: [64]byte{value},
-								Lines: 1,
-								}
-	return ioctl(pin.fd, GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
-}
+								 Flags: GPIOHANDLE_REQUEST_OUTPUT,
+								 DefaultValues: [64]byte{value},
+								 ConsumerLabel: [32]byte{},
+								 Lines: 1,
+								 Fd: 0,
+								 }
 
-// This helps implement the board.GPIOPin interface for IoctlPin.
-func (pin *IoctlPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return false, nil
-}
-
-// This helps implement the board.GPIOPin interface for IoctlPin.
-func (pin *IoctlPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return 0.0, nil
-}
-
-// This helps implement the board.GPIOPin interface for IoctlPin.
-func (pin *IoctlPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	err = ioctl(devFile.Fd(), GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
+	if err != nil {
+	    return err
+	}
+	syscall.Close(int(request.Fd))
 	return nil
 }
 
-// This helps implement the board.GPIOPin interface for IoctlPin.
-func (pin *IoctlPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
-	return 0, nil
+// This helps implement the board.GPIOPin interface for ioctlPin.
+func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return false, errors.New("reading GPIO is not supported on ioctl pins yet")
 }
 
-// This helps implement the board.GPIOPin interface for IoctlPin.
-func (pin *IoctlPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
-	return nil
+// This helps implement the board.GPIOPin interface for ioctlPin.
+func (pin *ioctlPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	return 0.0, errors.New("PWM stuff is not supported on ioctl pins yet")
+}
+
+// This helps implement the board.GPIOPin interface for ioctlPin.
+func (pin *ioctlPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	return errors.New("PWM stuff is not supported on ioctl pins yet")
+}
+
+// This helps implement the board.GPIOPin interface for ioctlPin.
+func (pin *ioctlPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	return 0, errors.New("PWM stuff is not supported on ioctl pins yet")
+}
+
+// This helps implement the board.GPIOPin interface for ioctlPin.
+func (pin *ioctlPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	return errors.New("PWM stuff is not supported on ioctl pins yet")
 }
 
 var (
-	chips map[string](*os.File)  // Maps pseudofiles from /dev to file descriptors of opened files
-	pins map[string]IoctlPin
+	pins map[string]ioctlPin
 )
 
-func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) error {
+func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) {
+	pins = make(map[string]ioctlPin)
 	for pin, mapping := range gpioMappings {
-		file, ok := chips[mapping.GPIOChipDev]
-		if !ok {
-			var err error
-			file, err = os.Open(fmt.Sprintf("/dev/%s", mapping.GPIOChipDev))
-			if err != nil {
-				return err
-			}
-			chips[mapping.GPIOChipDev] = file
+		pins[fmt.Sprintf("%d", pin)] = ioctlPin{
+			devicePath: fmt.Sprintf("/dev/%s", mapping.GPIOChipDev),
+			offset: uint32(mapping.GPIO),
 		}
-		pins[fmt.Sprintf("%d", pin)] = IoctlPin{fd: int(file.Fd()), offset: uint32(mapping.GPIO)}
 	}
-	return nil
 }
 
 func ioctlGetPin(pinName string) (board.GPIOPin, error) {
 	pin, ok := pins[pinName]
 	if !ok {
-		return nil, fmt.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
+		return nil, errors.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
 	}
 	return &pin, nil
 }
