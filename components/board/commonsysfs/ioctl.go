@@ -11,9 +11,9 @@ import (
 	"unsafe"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/components/board"
 	"golang.org/x/sys/unix"
 
+	"go.viam.com/rdk/components/board"
 )
 
 const (
@@ -147,12 +147,12 @@ func (pin *ioctlPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[stri
 	return errors.New("PWM stuff is not supported on ioctl pins yet")
 }
 
-var pins map[string]ioctlPin
+var pins map[string]*ioctlPin
 
 func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) {
-	pins = make(map[string]ioctlPin)
+	pins = make(map[string]*ioctlPin)
 	for pin, mapping := range gpioMappings {
-		pins[fmt.Sprintf("%d", pin)] = ioctlPin{
+		pins[fmt.Sprintf("%d", pin)] = &ioctlPin{
 			devicePath: fmt.Sprintf("/dev/%s", mapping.GPIOChipDev),
 			offset:     uint32(mapping.GPIO),
 		}
@@ -164,5 +164,5 @@ func ioctlGetPin(pinName string) (board.GPIOPin, error) {
 	if !ok {
 		return nil, errors.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
 	}
-	return &pin, nil
+	return pin, nil
 }
