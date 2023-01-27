@@ -234,7 +234,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	rtspCam.VideoReader = reader
 	rtspCam.cancelCtx = cancelCtx
 	rtspCam.cancelFunc = cancel
-	cameraModel := &transform.PinholeCameraModel{attrs.IntrinsicParams, attrs.DistortionParams}
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.IntrinsicParams, attrs.DistortionParams)
 	rtspCam.clientReconnectBackgroundWorker()
-	return camera.NewFromReader(ctx, rtspCam, cameraModel, camera.ColorStream)
+	return camera.NewFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
 }
