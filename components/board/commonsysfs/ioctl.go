@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"sync"
 	"syscall"
 	"unsafe"
 
@@ -34,8 +33,8 @@ func ioctl(fd, request, data uintptr) error {
 	return err
 }
 
-// This is a struct to give to ioctl when configuring a GPIO pin.
-type GPIOHandleRequest struct {
+// gpioHandleRequest is a struct to give to ioctl when configuring a GPIO pin.
+type gpioHandleRequest struct {
 	LineOffsets   [64]uint32
 	Flags         uint32
 	DefaultValues [64]byte
@@ -44,8 +43,8 @@ type GPIOHandleRequest struct {
 	Fd            int32
 }
 
-// This is a struct to give to ioctl when reading the state of an input GPIO pin.
-type GPIOHandleData struct {
+// gpioHandleData is a struct to give to ioctl when reading the state of an input GPIO pin.
+type gpioHandleData struct {
 	Values [64]uint8
 }
 
@@ -75,7 +74,7 @@ func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]inte
 	}
 	defer devFile.Close()
 
-	request := GPIOHandleRequest{
+	request := gpioHandleRequest{
 		LineOffsets:   [64]uint32{pin.offset},
 		Flags:         gpioHandleRequestOutput,
 		DefaultValues: [64]byte{value},
@@ -103,7 +102,7 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 	}
 	defer devFile.Close()
 
-	request := GPIOHandleRequest{
+	request := gpioHandleRequest{
 		LineOffsets:   [64]uint32{pin.offset},
 		Flags:         gpioHandleRequestInput,
 		DefaultValues: [64]byte{},
@@ -118,7 +117,7 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 	}
 	defer syscall.Close(int(request.Fd))
 
-	readRequest := GPIOHandleData{Values: [64]uint8{}}
+	readRequest := gpioHandleData{Values: [64]uint8{}}
 	err = ioctl(uintptr(request.Fd), gpioHandleGetLineValuesIoctl,
 		uintptr(unsafe.Pointer(&readRequest)))
 	if err != nil {
