@@ -104,7 +104,7 @@ func (rc *rtspCamera) Close(ctx context.Context) error {
 	rc.cancelFunc()
 	rc.activeBackgroundWorkers.Wait()
 	if err := rc.client.Close(); err != nil && !errors.Is(err, clientTerminated) {
-		rc.logger.Infow("error while closing rtsp client:", err)
+		rc.logger.Infow("error while closing rtsp client:", "error", err)
 	}
 	return nil
 }
@@ -122,18 +122,18 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 					errors.Is(err, io.EOF) ||
 					errors.Is(err, syscall.EPIPE) ||
 					errors.Is(err, syscall.ECONNREFUSED)) {
-					rc.logger.Warnw("The rtsp client encountered an error, trying to reconnect", err)
+					rc.logger.Warnw("The rtsp client encountered an error, trying to reconnect", "url", rc.u, "error", err)
 					if err = rc.reconnectClient(); err != nil {
-						rc.logger.Warnw("cannot reconnect to rtsp server:", err)
+						rc.logger.Warnw("cannot reconnect to rtsp server", "error", err)
 					} else {
-						rc.logger.Infof("reconnected to rtsp server %s", rc.u)
+						rc.logger.Infow("reconnected to rtsp server", "url", rc.u)
 					}
 				} else if res != nil && res.StatusCode != base.StatusOK {
-					rc.logger.Warnf("The rtsp server responded with non-OK status %s", res.StatusCode)
+					rc.logger.Warnw("The rtsp server responded with non-OK status", "url", rc.u, "status code", res.StatusCode)
 					if err = rc.reconnectClient(); err != nil {
-						rc.logger.Warnw("cannot reconnect to rtsp server:", err)
+						rc.logger.Warnw("cannot reconnect to rtsp server", "error", err)
 					} else {
-						rc.logger.Infof("reconnected to rtsp server %s", rc.u)
+						rc.logger.Infow("reconnected to rtsp server", "url", rc.u)
 					}
 				}
 			} else {
@@ -148,7 +148,7 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	if rc.client != nil {
 		err := rc.client.Close()
 		if err != nil {
-			rc.logger.Debugw("error while closing rtsp client:", err)
+			rc.logger.Debugw("error while closing rtsp client:", "error", err)
 		}
 	}
 	// replace the client with a new one, but close it if setup is not successful
