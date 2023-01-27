@@ -16,7 +16,7 @@ import (
 )
 
 func TestRegisterBoard(t *testing.T) {
-	RegisterBoard("test", map[int]GPIOBoardMapping{})
+	RegisterBoard("test", map[int]GPIOBoardMapping{}, false)
 }
 
 func TestCommonSysFs(t *testing.T) {

@@ -6,24 +6,26 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"syscall"
 	"sync"
+	"sync"
+	"syscall"
 	"unsafe"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sys/unix"
 	"go.viam.com/rdk/components/board"
+	"golang.org/x/sys/unix"
+
 )
 
 const (
-	GPIO_GET_LINEHANDLE_IOCTL        = 0xc16cb403
-	GPIOHANDLE_GET_LINE_VALUES_IOCTL = 0xc040b408
+	gpioGetLineHandleIoctl       = 0xc16cb403
+	gpioHandleGetLineValuesIoctl = 0xc040b408
 
-	GPIOHANDLE_REQUEST_INPUT       = 1 << 0
-	GPIOHANDLE_REQUEST_OUTPUT      = 1 << 1
+	gpioHandleRequestInput  = 1 << 0
+	gpioHandleRequestOutput = 1 << 1
 )
 
-func ioctl(fd uintptr, request uintptr, data uintptr) error {
+func ioctl(fd, request, data uintptr) error {
 	_, _, err := unix.Syscall(unix.SYS_IOCTL, fd, request, data)
 	if err.Error() == "errno 0" {
 		// If errno is 0, there was no error, so ignore the (lack of) problem.
@@ -73,17 +75,18 @@ func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]inte
 	}
 	defer devFile.Close()
 
-	request := GPIOHandleRequest{LineOffsets: [64]uint32{pin.offset},
-								 Flags: GPIOHANDLE_REQUEST_OUTPUT,
-								 DefaultValues: [64]byte{value},
-								 ConsumerLabel: [32]byte{},
-								 Lines: 1,
-								 Fd: 0,
-								 }
+	request := GPIOHandleRequest{
+		LineOffsets:   [64]uint32{pin.offset},
+		Flags:         gpioHandleRequestOutput,
+		DefaultValues: [64]byte{value},
+		ConsumerLabel: [32]byte{},
+		Lines:         1,
+		Fd:            0,
+	}
 
-	err = ioctl(devFile.Fd(), GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
+	err = ioctl(devFile.Fd(), gpioGetLineHandleIoctl, uintptr(unsafe.Pointer(&request)))
 	if err != nil {
-	    return err
+		return err
 	}
 	syscall.Close(int(request.Fd))
 	return nil
@@ -100,25 +103,26 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 	}
 	defer devFile.Close()
 
-	request := GPIOHandleRequest{LineOffsets: [64]uint32{pin.offset},
-								 Flags: GPIOHANDLE_REQUEST_INPUT,
-								 DefaultValues: [64]byte{},
-								 ConsumerLabel: [32]byte{},
-								 Lines: 1,
-								 Fd: 0,
-								 }
+	request := GPIOHandleRequest{
+		LineOffsets:   [64]uint32{pin.offset},
+		Flags:         gpioHandleRequestInput,
+		DefaultValues: [64]byte{},
+		ConsumerLabel: [32]byte{},
+		Lines:         1,
+		Fd:            0,
+	}
 
-	err = ioctl(devFile.Fd(), GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
+	err = ioctl(devFile.Fd(), gpioGetLineHandleIoctl, uintptr(unsafe.Pointer(&request)))
 	if err != nil {
-	    return false, err
+		return false, err
 	}
 	defer syscall.Close(int(request.Fd))
 
 	readRequest := GPIOHandleData{Values: [64]uint8{}}
-	err = ioctl(uintptr(request.Fd), GPIOHANDLE_GET_LINE_VALUES_IOCTL,
-				uintptr(unsafe.Pointer(&readRequest)))
+	err = ioctl(uintptr(request.Fd), gpioHandleGetLineValuesIoctl,
+		uintptr(unsafe.Pointer(&readRequest)))
 	if err != nil {
-	    return false, err
+		return false, err
 	}
 
 	return (readRequest.Values[0] != 0), nil
@@ -144,16 +148,14 @@ func (pin *ioctlPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[stri
 	return errors.New("PWM stuff is not supported on ioctl pins yet")
 }
 
-var (
-	pins map[string]ioctlPin
-)
+var pins map[string]ioctlPin
 
 func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) {
 	pins = make(map[string]ioctlPin)
 	for pin, mapping := range gpioMappings {
 		pins[fmt.Sprintf("%d", pin)] = ioctlPin{
 			devicePath: fmt.Sprintf("/dev/%s", mapping.GPIOChipDev),
-			offset: uint32(mapping.GPIO),
+			offset:     uint32(mapping.GPIO),
 		}
 	}
 }
