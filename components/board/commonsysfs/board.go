@@ -56,9 +56,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useI
 			}
 
 			if useIoctl {
-				if err := ioctlInitialize(gpioMappings); err != nil {
-					return nil, err
-				}
+				ioctlInitialize(gpioMappings)
 			}
 
 			var spis map[string]*spiBus
