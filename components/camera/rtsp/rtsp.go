@@ -20,6 +20,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -27,11 +28,12 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
-var model = resource.NewDefaultModel("rtsp")
-var clientTerminated = liberrors.ErrClientTerminated{}
+var (
+	model            = resource.NewDefaultModel("rtsp")
+	clientTerminated = liberrors.ErrClientTerminated{}
+)
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
@@ -142,7 +144,7 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 }
 
 // reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
-func (rc *rtspCamera) reconnectClient() error {
+func (rc *rtspCamera) reconnectClient() (err error) {
 	if rc.client != nil {
 		err := rc.client.Close()
 		if err != nil {
@@ -153,7 +155,6 @@ func (rc *rtspCamera) reconnectClient() error {
 	client := &gortsplib.Client{}
 	rc.client = client
 	var clientSuccessful bool
-	var err error
 	defer func() {
 		if !clientSuccessful {
 			if errClose := rc.client.Close(); errClose != nil {
