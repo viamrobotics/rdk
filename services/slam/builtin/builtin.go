@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -573,6 +574,9 @@ func (slamSvc *builtIn) GetMap(
 		mimeType = resp.MimeType
 	}
 
+	cmd := map[string]interface{}{"command": "get_pcd_projection", "data": vObj}
+	slamSvc.DoCommand(ctx, cmd)
+
 	return mimeType, imData, vObj, nil
 }
 
@@ -590,18 +594,26 @@ func (slamSvc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			spatialmath.NewOrientationVector()))
 
-		// Get PointCloud Map
-		_, _, vObj, err := slamSvc.GetMap(ctx, name, rdkutils.MimeTypePCD, cameraPosition, false, extra)
-		if err != nil {
-			return nil, err
+		d, ok := cmd["data"]
+		vObj := d.(*vision.Object)
+		if !ok {
+
+			fmt.Println("Getting map...")
+			// Get PointCloud Map
+			_, _, _, err := slamSvc.GetMap(ctx, name, rdkutils.MimeTypePCD, cameraPosition, false, extra)
+			if err != nil {
+				return nil, err
+			}
 		}
 
+		fmt.Println("Getting position...")
 		// Get Robot Pose
 		pInFrame, err := slamSvc.Position(ctx, name, extra)
 		if err != nil {
 			return nil, err
 		}
 
+		fmt.Println("Projecting map...")
 		// Project PointCloud and add robot position to resulting image
 		p := pInFrame.Pose()
 		ppRM := transform.NewParallelProjectionOntoXZWithRobotMarker(&p)
@@ -612,7 +624,7 @@ func (slamSvc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{
 
 		// ---------- TEMP ----------
 		timeStamp := time.Now()
-		filename := filepath.Join(slamSvc.dataDirectory, "data", "rgb", "projected_image_"+timeStamp.UTC().Format(slamTimeFormat)+".png")
+		filename := filepath.Join(slamSvc.dataDirectory, "projected_image_"+timeStamp.UTC().Format(slamTimeFormat)+".png")
 		err = rimage.WriteImageToFile(filename, im)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue writing projected map image to file")
