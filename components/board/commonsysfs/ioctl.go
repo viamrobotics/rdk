@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"sync"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -70,10 +71,14 @@ type ioctlPin struct {
 	// These first two values should be considered immutable
 	devicePath string
 	offset     uint32
+	mu         sync.Mutex
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
 func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) error {
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+
 	var value byte
 	if isHigh {
 		value = 1
@@ -105,7 +110,37 @@ func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]inte
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
 func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return false, errors.New("reading GPIO is not supported on ioctl pins yet")
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+
+	devFile, err := os.Open(pin.devicePath)
+	if err != nil {
+		return false, err
+	}
+	defer devFile.Close()
+
+	request := GPIOHandleRequest{LineOffsets: [64]uint32{pin.offset},
+								 Flags: GPIOHANDLE_REQUEST_INPUT,
+								 DefaultValues: [64]byte{},
+								 ConsumerLabel: [32]byte{},
+								 Lines: 1,
+								 Fd: 0,
+								 }
+
+	err = ioctl(devFile.Fd(), GPIO_GET_LINEHANDLE_IOCTL, uintptr(unsafe.Pointer(&request)))
+	if err != nil {
+	    return false, err
+	}
+	defer syscall.Close(int(request.Fd))
+
+	readRequest := GPIOHandleData{Values: [64]uint8{}}
+	err = ioctl(uintptr(request.Fd), GPIOHANDLE_GET_LINE_VALUES_IOCTL,
+				uintptr(unsafe.Pointer(&readRequest)))
+	if err != nil {
+	    return false, err
+	}
+
+	return (readRequest.Values[0] != 0), nil
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
