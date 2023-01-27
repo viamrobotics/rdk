@@ -1,3 +1,4 @@
+//go:build linux
 package commonsysfs
 
 // This file is heavily inspired by https://github.com/mkch/gpio
