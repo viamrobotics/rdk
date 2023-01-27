@@ -606,8 +606,13 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 
 func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
+	actualCam := rutils.UnwrapProxy(source).(camera.Camera)
+	cameraSource, err := camera.SourceFromCamera(actualCam)
+	if err != nil {
+		golog.Global().Errorf("error getting camera source: %v", err)
+	}
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		return webstream.StreamVideoSource(ctxWithJPEGHint, source, stream, opts)
+		return webstream.StreamVideoSource(ctxWithJPEGHint, cameraSource, stream, opts)
 	})
 }
 
