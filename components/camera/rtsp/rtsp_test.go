@@ -48,7 +48,7 @@ func TestRTSPCamera(t *testing.T) {
 	<-streamStarted
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
 	// keep trying until RTSP server is running
-	for err != nil && strings.Contains(err.Error(), "404 (Not Found)") {
+	for err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "400")) {
 		rtspCam, err = NewRTSPCamera(context.Background(), rtspConf, logger)
 	}
 	test.That(t, err, test.ShouldBeNil)
