@@ -16,13 +16,10 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -35,7 +32,6 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
-	MovementSensor       []string `json:"movement_sensor"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -65,7 +61,6 @@ func (config *Config) Validate(path string) ([]string, error) {
 
 	deps = append(deps, config.Left...)
 	deps = append(deps, config.Right...)
-	deps = append(deps, config.MovementSensor...)
 
 	return deps, nil
 }
@@ -75,7 +70,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), config.Name, logger)
+			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 
@@ -96,172 +91,17 @@ type wheeledBase struct {
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
 
-	left                []motor.Motor
-	right               []motor.Motor
-	allMotors           []motor.Motor
-	movementSensor      []movementsensor.MovementSensor
-	orienationSupported bool
-	orientationSensor   movementsensor.MovementSensor
+	left      []motor.Motor
+	right     []motor.Motor
+	allMotors []motor.Motor
 
-	opMgr  operation.SingleOperationManager
-	logger golog.Logger
-	model  referenceframe.Model
+	opMgr operation.SingleOperationManager
 }
 
-// createWheeledBase returns a new wheeled base defined by the given config.
-func createWheeledBase(
-	ctx context.Context,
-	deps registry.Dependencies,
-	cfg *Config,
-	baseName string,
-	logger golog.Logger,
-) (base.LocalBase, error) {
-	base := &wheeledBase{
-		widthMm:              cfg.WidthMM,
-		wheelCircumferenceMm: cfg.WheelCircumferenceMM,
-		spinSlipFactor:       cfg.SpinSlipFactor,
-		logger:               logger,
-	}
-
-	if base.spinSlipFactor == 0 {
-		base.spinSlipFactor = 1
-	}
-
-	for _, name := range cfg.Left {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
-		}
-		positionReporting, err := m.Properties(ctx, nil)
-		if positionReporting["PositonReporting"] && err == nil {
-			base.logger.Debugf("have encoders on motor %#v", m)
-		}
-		base.logger.Debug("no encoders found on left motors")
-		base.left = append(base.left, m)
-	}
-
-	for _, name := range cfg.Right {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
-		}
-		positionReporting, err := m.Properties(ctx, nil)
-		if positionReporting["PositonReporting"] && err == nil {
-			base.logger.Debugf("have encoders on motor %#v", m)
-		}
-		base.logger.Debug("no encoders found on right motors")
-		base.right = append(base.right, m)
-	}
-
-	for _, msName := range cfg.MovementSensor {
-		ms, err := movementsensor.FromDependencies(deps, msName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
-		}
-		base.movementSensor = append(base.movementSensor, ms)
-		props, err := ms.Properties(ctx, nil)
-		if props.OrientationSupported && err == nil {
-			base.orienationSupported = props.OrientationSupported
-			base.orientationSensor = ms
-		}
-	}
-
-	base.allMotors = append(base.allMotors, base.left...)
-	base.allMotors = append(base.allMotors, base.right...)
-
-	var err error
-	base.model, err = base.createModelFrame(baseName, cfg.WidthMM)
-	if err != nil {
-		logger.Error("error creating base model, check that a name for the base and width are provided in the configuration")
-	}
-
-	return base, nil
-}
-
-func (base *wheeledBase) createModelFrame(baseName string, widthMM int) (referenceframe.Model, error) {
-	basePose := spatialmath.NewPose(
-		r3.Vector{X: 0, Y: 0, Z: 0},
-		&spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 1, OZ: -90})
-	geometry, err := spatialmath.NewBox(
-		basePose,
-		r3.Vector{X: float64(widthMM), Y: float64(widthMM), Z: float64(widthMM)},
-		"base_dimensions")
-	if err != nil {
-		return nil, err
-	}
-	model := referenceframe.NewSimpleModel(baseName)
-	f, err := referenceframe.NewStaticFrameWithGeometry(baseName, basePose, geometry)
-	if err != nil {
-		return nil, err
-	}
-	model.OrdTransforms = append(model.OrdTransforms, f)
-	return model, nil
-}
-
-func (base *wheeledBase) Spin(
-	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
-) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
-	switch {
-	case base.orientationSensor != nil && base.orienationSupported:
-		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
-
-	default:
-		return base.spinWithoutMovementSensor(ctx, angleDeg, degsPerSec)
-	}
-}
-
-func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
-) (float64, error) {
-	orientation, err := ms.Orientation(ctx, extra)
-	if err != nil {
-		return 0, err
-	}
-	return rdkutils.RadToDeg(orientation.EulerAngles().Yaw), nil
-}
-
-func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
-
-	currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
-	if err != nil {
-		base.logger.Errorf("error: %#v", err)
-		return err
-	}
-
-	targetYaw := calculatedDomainLimitedAngleError(angleDeg, currYaw)
-	for {
-		base.logger.Info(ctx.Err())
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
-		if err != nil {
-			base.logger.Errorf("error: %#v", err)
-			continue
-		}
-
-		errAngle := targetYaw - currYaw
-		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
-		// poll the sensor for the current error in angle
-		if math.Abs(errAngle) < 5 {
-			if err := base.Stop(ctx, nil); err != nil {
-				return err
-			}
-			break
-		}
-		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg, degsPerSec float64) error {
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := base.Stop(ctx, nil)
@@ -270,48 +110,11 @@ func (base *wheeledBase) spinWithoutMovementSensor(ctx context.Context, angleDeg
 		}
 		return err
 	}
+
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
-}
-
-// TODO: should be used as part of RSDK-1698, to deal with imus that
-// return values between -180 to 180 and 0-360 (probably components using our sensor filters).
-// corresponding tests only use
-//
-
-func calculatedDomainLimitedAngleError(target, current float64) float64 {
-	angle := target + current
-	// reduce the angle
-	angle = math.Mod(angle, 360)
-
-	// force it to be the positive remainder, so that 0 <= angle < 360
-	angle = math.Mod(angle+360, 360)
-
-	// force into the minimum absolute value residue class, so that -180 < angle <= 180
-	if angle > 180 {
-		angle -= 360
-	}
-
-	// handle case of IMUs not reporting 180 degrees
-	if math.Abs(angle) == 180 {
-		angle -= 0.1
-	}
-
-	return angle
-}
-
-// returns rpm, revolutions for a spin motion.
-func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
-	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
-	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
-
-	// RPM = revolutions (rotation) * deg/sec * (1 rotation / 2pi deg) * (60 sec / 1 min) = rotation/min
-	rpm := revolutions * degsPerSec * 30 / math.Pi
-	revolutions = math.Abs(revolutions)
-
-	return rpm, revolutions
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
@@ -322,9 +125,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := base.Stop(ctx, nil)
 		if err != nil {
-			return errors.Errorf(
-				"error when trying to move straight at a speed and/or distance of 0: %v", err,
-			)
+			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
 		}
 		return err
 	}
@@ -332,14 +133,12 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	// Straight math
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
 
-	return base.runAll(ctx, -rpm, rotations, rpm, rotations)
+	return base.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
-	// a right handed frame system is maintained if positive angle yields positive leftRPM and negative rightRPM
-	// in this function, assuming the motors are configured to have positive power drive the base forwards
 	for _, m := range base.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
@@ -349,7 +148,6 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		err = errors.Wrap(err, "error in runInParallel in runAll")
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
@@ -402,6 +200,7 @@ func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vec
 
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
+
 	lPower, rPower := base.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
@@ -419,6 +218,18 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 	}
 
 	return nil
+}
+
+// returns rpm, revolutions for a spin motion.
+func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
+	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
+	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
+
+	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
+	rpm := revolutions * degsPerSec * 30 / math.Pi
+	revolutions = math.Abs(revolutions)
+
+	return rpm, revolutions
 }
 
 // return rpms left, right.
@@ -481,7 +292,6 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 }
 
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	base.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range base.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx, extra))
@@ -508,4 +318,43 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 
 func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
+}
+
+// CreateWheeledBase returns a new wheeled base defined by the given config.
+func CreateWheeledBase(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config *Config,
+	logger golog.Logger,
+) (base.LocalBase, error) {
+	base := &wheeledBase{
+		widthMm:              config.WidthMM,
+		wheelCircumferenceMm: config.WheelCircumferenceMM,
+		spinSlipFactor:       config.SpinSlipFactor,
+	}
+
+	if base.spinSlipFactor == 0 {
+		base.spinSlipFactor = 1
+	}
+
+	for _, name := range config.Left {
+		m, err := motor.FromDependencies(deps, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
+		}
+		base.left = append(base.left, m)
+	}
+
+	for _, name := range config.Right {
+		m, err := motor.FromDependencies(deps, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
+		}
+		base.right = append(base.right, m)
+	}
+
+	base.allMotors = append(base.allMotors, base.left...)
+	base.allMotors = append(base.allMotors, base.right...)
+
+	return base, nil
 }

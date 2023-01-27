@@ -301,7 +301,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
 		var err error
-		// divide by 1000 as rdk uses millimeters and PCD expects meters
+		// Converts RDK units (millimeters) to meters for PCD
 		x := pos.X / 1000.
 		y := pos.Y / 1000.
 		z := pos.Z / 1000.
@@ -481,6 +481,8 @@ const (
 	BasicType PCType = 0
 	// KDTreeType is a selector for a pointcloud backed by a KD Tree.
 	KDTreeType PCType = 1
+	// BasicOctreeType is a selector for a pointcloud backed by a Basic Octree.
+	BasicOctreeType PCType = 2
 )
 
 // ReadPCD reads a PCD file into a pointcloud.
@@ -499,6 +501,19 @@ func ReadPCDToKDTree(inRaw io.Reader) (*KDTree, error) {
 		return nil, fmt.Errorf("pointcloud %v is not a KD Tree", cloud)
 	}
 	return kd, nil
+}
+
+// ReadPCDToBasicOctree reads a PCD file into a basic octree.
+func ReadPCDToBasicOctree(inRaw io.Reader) (*BasicOctree, error) {
+	cloud, err := readPCDHelper(inRaw, BasicOctreeType)
+	if err != nil {
+		return nil, err
+	}
+	basicOct, ok := (cloud).(*BasicOctree)
+	if !ok {
+		return nil, errors.Errorf("pointcloud %v is not a basic octree", cloud)
+	}
+	return basicOct, nil
 }
 
 func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
@@ -529,12 +544,22 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 		pc = NewWithPrealloc(int(header.points))
 	case KDTreeType:
 		pc = NewKDTreeWithPrealloc(int(header.points))
+	case BasicOctreeType:
+		meta, err := getPCDMetaData(*in, header)
+		if err != nil {
+			return nil, err
+		}
+
+		pc, err = NewBasicOctree(getCenterFromPcMetaData(meta), getMaxSideLengthFromPcMetaData(meta))
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("unsupported point cloud type %d", pctype)
 	}
 	switch header.data {
 	case PCDAscii:
-		return readPCDAscii(in, header, pc)
+		return readPCDASCII(in, header, pc)
 	case PCDBinary:
 		return readPCDBinary(in, header, pc)
 	case PCDCompressed:
@@ -545,29 +570,38 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 	}
 }
 
-func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
+func extractPCDPointASCII(in *bufio.Reader, header pcdHeader, i int) (PointAndData, error) {
+	line, err := in.ReadString('\n')
+	if err != nil {
+		return PointAndData{}, err
+	}
+	line = strings.TrimSpace(line)
+	tokens := strings.Split(line, " ")
+	if len(tokens) != int(header.fields) {
+		return PointAndData{}, fmt.Errorf("unexpected number of fields in point %d", i)
+	}
+	point := make([]float64, len(tokens))
+	for j, token := range tokens {
+		point[j], err = strconv.ParseFloat(token, 64)
+		if err != nil {
+			return PointAndData{}, fmt.Errorf("invalid point %d field %s: %w", i, token, err)
+		}
+	}
+	pcPoint, data, err := readSliceToPoint(point, header)
+	if err != nil {
+		return PointAndData{}, err
+	}
+
+	return PointAndData{P: pcPoint, D: data}, nil
+}
+
+func readPCDASCII(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
 	for i := 0; i < int(header.points); i++ {
-		line, err := in.ReadString('\n')
+		pd, err := extractPCDPointASCII(in, header, i)
 		if err != nil {
 			return nil, err
 		}
-		line = strings.TrimSpace(line)
-		tokens := strings.Split(line, " ")
-		if len(tokens) != int(header.fields) {
-			return nil, fmt.Errorf("unexpected number of fields in point %d", i)
-		}
-		point := make([]float64, len(tokens))
-		for j, token := range tokens {
-			point[j], err = strconv.ParseFloat(token, 64)
-			if err != nil {
-				return nil, fmt.Errorf("invalid point %d field %s: %w", i, token, err)
-			}
-		}
-		pcPoint, data, err := readSliceToPoint(point, header)
-		if err != nil {
-			return nil, err
-		}
-		err = pc.Set(pcPoint, data)
+		err = pc.Set(pd.P, pd.D)
 		if err != nil {
 			return nil, err
 		}
@@ -575,37 +609,81 @@ func readPCDAscii(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud
 	return pc, nil
 }
 
-func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
+func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, error) {
 	var err error
-	for i := 0; i < int(header.points); i++ {
-		pointBuf := make([]float64, 3)
-		colorData := NewBasicData()
-		for j := 0; j < 3; j++ {
-			buf, err := readBuffer(in, header, j)
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
+	pointBuf := make([]float64, 3)
+	colorData := NewBasicData()
+	for j := 0; j < 3; j++ {
+		buf, err := readBuffer(in, header, j)
+		if errors.Is(err, io.EOF) {
+			break
 		}
-		point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
+		if err != nil {
+			return PointAndData{}, err
+		}
+		pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
+	}
 
-		if header.fields == pcdPointColor && !errors.Is(err, io.EOF) {
-			buf, err := readBuffer(in, header, 3)
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			colorBuf := int(binary.LittleEndian.Uint32(buf))
-			colorData = NewColoredData(_pcdIntToColor(colorBuf))
+	// Converts PCD units (meters) to millimeters for RDK
+	point := r3.Vector{X: 1000. * pointBuf[0], Y: 1000. * pointBuf[1], Z: 1000. * pointBuf[2]}
+
+	if header.fields == pcdPointColor && !errors.Is(err, io.EOF) {
+		buf, err := readBuffer(in, header, 3)
+		if err != nil {
+			return PointAndData{}, err
+		}
+		colorBuf := int(binary.LittleEndian.Uint32(buf))
+		colorData = NewColoredData(_pcdIntToColor(colorBuf))
+	}
+
+	return PointAndData{P: point, D: colorData}, nil
+}
+
+func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
+	for i := 0; i < int(header.points); i++ {
+		pd, err := extractPCDPointBinary(in, header)
+		if errors.Is(err, io.EOF) {
+			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		err = pc.Set(point, colorData)
+		err = pc.Set(pd.P, pd.D)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return pc, nil
+}
+
+func getPCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
+	meta := NewMetaData()
+	switch header.data {
+	case PCDAscii:
+		for i := 0; i < int(header.points); i++ {
+			pd, err := extractPCDPointASCII(&in, header, i)
+			if err != nil {
+				return MetaData{}, err
+			}
+			meta.Merge(pd.P, pd.D)
+		}
+
+	case PCDBinary:
+		for i := 0; i < int(header.points); i++ {
+			pd, err := extractPCDPointBinary(&in, header)
+			if err != nil {
+				return MetaData{}, err
+			}
+			meta.Merge(pd.P, pd.D)
+		}
+	case PCDCompressed:
+		// return readPCDCompressed(in, header)
+		return MetaData{}, errors.New("compressed pcd not yet supported")
+	default:
+		return MetaData{}, fmt.Errorf("unsupported pcd data type %v", header.data)
+	}
+
+	return meta, nil
 }
 
 // reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.

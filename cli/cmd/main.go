@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -84,25 +83,42 @@ func main() {
 					if err != nil {
 						return err
 					}
-					if email := client.Config().AuthEmail; email != "" {
-						fmt.Fprintf(c.App.Writer, "Already authenticated as %q\n", email)
+
+					loggedInMessage := func(token *rdkcli.Token) {
+						fmt.Fprintf(c.App.Writer, "Already authenticated as %q expires at %s\n", token.User.Email, token.ExpiresAt)
+					}
+
+					if client.Config().Auth != nil && !client.Config().Auth.IsExpired() {
+						loggedInMessage(client.Config().Auth)
 						return nil
 					}
 
-					token, authURL, err := client.PrepareAuthorization()
-					if err != nil {
+					if err := client.Login(); err != nil {
 						return err
 					}
-					fmt.Fprintf(c.App.Writer, "To authorize this device, visit:\n\t%s\n", authURL)
 
-					ctx, cancel := context.WithTimeout(c.Context, time.Minute)
-					defer cancel()
-
-					if err := client.Authenticate(ctx, token); err != nil {
-						return err
-					}
-					fmt.Fprintf(c.App.Writer, "Authenticated as %q\n", client.Config().AuthEmail)
+					loggedInMessage(client.Config().Auth)
 					return nil
+				},
+				Subcommands: []*cli.Command{
+					{
+						Name:  "print-access-token",
+						Usage: "print-access-token - print an access token for your current credentials",
+						Action: func(c *cli.Context) error {
+							client, err := rdkcli.NewAppClient(c)
+							if err != nil {
+								return err
+							}
+
+							if client.Config().Auth == nil || client.Config().Auth.IsExpired() {
+								return errors.New("not authenticated. run \"auth\" command")
+							}
+
+							fmt.Fprintln(c.App.Writer, client.Config().Auth.AccessToken)
+
+							return nil
+						},
+					},
 				},
 			},
 			{
@@ -113,15 +129,15 @@ func main() {
 					if err != nil {
 						return err
 					}
-					email := client.Config().AuthEmail
-					if email == "" {
+					auth := client.Config().Auth
+					if auth == nil {
 						fmt.Fprintf(c.App.Writer, "Already logged out\n")
 						return nil
 					}
 					if err := client.Logout(); err != nil {
 						return err
 					}
-					fmt.Fprintf(c.App.Writer, "Logged out from %q\n", email)
+					fmt.Fprintf(c.App.Writer, "Logged out from %q\n", auth.User.Email)
 					return nil
 				},
 			},
@@ -133,12 +149,12 @@ func main() {
 					if err != nil {
 						return err
 					}
-					email := client.Config().AuthEmail
-					if email == "" {
+					auth := client.Config().Auth
+					if auth == nil {
 						fmt.Fprintf(c.App.Writer, "Not logged in\n")
 						return nil
 					}
-					fmt.Fprintf(c.App.Writer, "%s\n", email)
+					fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
 					return nil
 				},
 			},

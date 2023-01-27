@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-
-	"github.com/golang-jwt/jwt/v4"
-	"go.viam.com/utils/rpc"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -24,9 +21,7 @@ func configFromCache() (*Config, error) {
 	if err := json.Unmarshal(rd, &conf); err != nil {
 		return nil, err
 	}
-	if err := conf.parseAuthInfo(); err != nil {
-		return nil, err
-	}
+
 	return &conf, nil
 }
 
@@ -48,15 +43,5 @@ func storeConfigToCache(cfg *Config) error {
 
 // Config contains stored config information for the CLI.
 type Config struct {
-	Auth      string `json:"auth"` // opaque
-	AuthEmail string `json:"-"`
-}
-
-func (c *Config) parseAuthInfo() error {
-	var claims rpc.JWTClaims
-	if _, _, err := jwt.NewParser().ParseUnverified(c.Auth, &claims); err != nil {
-		return err
-	}
-	c.AuthEmail = claims.AuthMetadata["email"]
-	return nil
+	Auth *Token `json:"auth"`
 }
