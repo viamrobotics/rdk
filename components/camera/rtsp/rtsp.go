@@ -4,9 +4,11 @@ package rtsp
 import (
 	"context"
 	"image"
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/aler9/gortsplib/v2"
@@ -28,7 +30,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("rtsp")
+var (
+	model            = resource.NewDefaultModel("rtsp")
+	clientTerminated = liberrors.ErrClientTerminated{}
+)
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
@@ -89,17 +94,17 @@ type rtspCamera struct {
 	cancelCtx               context.Context
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
+	gotFirstFrameOnce       bool
 	latestFrame             atomic.Value
 	logger                  golog.Logger
 }
 
-// Close closes the camera.
+// Close closes the camera. It always returns nil, but because of Close() interface, it needs to return an error.
 func (rc *rtspCamera) Close(ctx context.Context) error {
-	var clientTerminated liberrors.ErrClientTerminated
 	rc.cancelFunc()
 	rc.activeBackgroundWorkers.Wait()
 	if err := rc.client.Close(); err != nil && !errors.Is(err, clientTerminated) {
-		return err
+		rc.logger.Infow("error while closing rtsp client:", err)
 	}
 	return nil
 }
@@ -110,143 +115,60 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 	ticker := time.NewTicker(5 * time.Second)
 	goutils.ManagedGo(func() {
 		for {
-			select {
-			case <-rc.cancelCtx.Done():
-				return
-			case <-ticker.C:
-				// check if the client is still connected with an OPTIONS request
+			if ok := goutils.SelectContextOrWaitChan(rc.cancelCtx, ticker.C); ok {
+				// use an OPTIONS request to see if the server is still responding to requests
 				res, err := rc.client.Options(rc.u)
-				if err != nil && (errors.Is(err, liberrors.ErrClientTerminated{}) ||
-					strings.Contains(err.Error(), "EOF") ||
-					strings.Contains(err.Error(), "connection refused") ||
-					strings.Contains(err.Error(), "broken pipe")) {
-					rc.logger.Warnf("The rtsp client for %s has error %s", rc.u, err)
-					if err = restartClient(rc); err != nil {
-						rc.logger.Warnf("cannot reconnect to rtsp server: %s", err)
+				if err != nil && (errors.Is(err, clientTerminated) ||
+					errors.Is(err, io.EOF) ||
+					errors.Is(err, syscall.EPIPE) ||
+					errors.Is(err, syscall.ECONNREFUSED)) {
+					rc.logger.Warnw("The rtsp client for ", rc.u, " has error", err)
+					if err = rc.reconnectClient(); err != nil {
+						rc.logger.Warnw("cannot reconnect to rtsp server:", err)
 					} else {
-						rc.logger.Infof("reconnected to rtsp server %s", rc.u)
+						rc.logger.Infow("reconnected to rtsp server", rc.u)
 					}
 				} else if res != nil && res.StatusCode != base.StatusOK {
-					rc.logger.Warnf("The rtsp server responded with %s, trying to reconnect", res.StatusCode)
-					if err = restartClient(rc); err != nil {
-						rc.logger.Warnf("cannot reconnect to rtsp server: %s", err)
+					rc.logger.Warnw("The rtsp server responded with", res.StatusCode, "trying to reconnect")
+					if err = rc.reconnectClient(); err != nil {
+						rc.logger.Warnw("cannot reconnect to rtsp server:", err)
 					} else {
-						rc.logger.Infof("reconnected to rtsp server %s", rc.u)
+						rc.logger.Infow("reconnected to rtsp server", rc.u)
 					}
 				}
+			} else {
+				return
 			}
 		}
 	}, rc.activeBackgroundWorkers.Done)
 }
 
-// NewRTSPCamera creates a camera client for an RTSP given given the server URL.
-// Right now, only supports servers that have MJPEG video tracks.
-func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (camera.Camera, error) {
-	// parse URL
-	u, err := url.Parse(attrs.Address)
-	if err != nil {
-		return nil, err
-	}
-	client := &gortsplib.Client{}
-	// connect to the server - be sure to close it if setup fails.
-	var clientSuccessful bool
-	var clientErr error
-	err = client.Start(u.Scheme, u.Host)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if !clientSuccessful {
-			clientErr = client.Close()
-		}
-	}()
-	// get MJPEG decodings
-	mjpegFormat, mjpegDecoder := mjpegDecoding()
-
-	// find published tracks, and MJPEG specifically
-	tracks, baseURL, _, err := client.Describe(u)
-	if err != nil {
-		return nil, multierr.Combine(err, clientErr)
-	}
-	track := tracks.FindFormat(&mjpegFormat)
-	if track == nil {
-		err := errors.Errorf("MJPEG track not found in rtsp camera %s", u)
-		return nil, multierr.Combine(err, clientErr)
-	}
-	// Setup the MJPEG track
-	_, err = client.Setup(track, baseURL, 0, 0)
-	if err != nil {
-		return nil, multierr.Combine(err, clientErr)
-	}
-	// define the camera
-	rtspCam := &rtspCamera{
-		u:      u,
-		logger: logger,
-	}
-	var gotFirstFrameOnce bool
-	gotFirstFrame := make(chan struct{})
-	// On packet retreival, turn it into an image, and store it in shared memory
-	client.OnPacketRTP(track, mjpegFormat, func(pkt *rtp.Packet) {
-		img, err := mjpegDecoder(pkt)
+// reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
+func (rc *rtspCamera) reconnectClient() error {
+	if rc.client != nil {
+		err := rc.client.Close()
 		if err != nil {
-			return
+			return err
 		}
-		// wait for a frame
-		if img == nil {
-			return
-		}
-		rtspCam.latestFrame.Store(img)
-		if !gotFirstFrameOnce {
-			close(gotFirstFrame)
-			gotFirstFrameOnce = true
-		}
-	})
-	// play the track
-	_, err = client.Play(nil)
-	if err != nil {
-		return nil, multierr.Combine(err, clientErr)
 	}
-	clientSuccessful = true
-	// read the image from shared memory when it is requested
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-		select {
-		case <-cancelCtx.Done():
-			return nil, nil, cancelCtx.Err()
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
-		default:
-		}
-		<-gotFirstFrame // block until you get the first frame
-		return rtspCam.latestFrame.Load().(image.Image), func() {}, nil
-	})
-	// define and return the camera
-	rtspCam.VideoReader = reader
-	rtspCam.client = client
-	rtspCam.cancelCtx = cancelCtx
-	rtspCam.cancelFunc = cancel
-	cameraModel := &transform.PinholeCameraModel{attrs.IntrinsicParams, attrs.DistortionParams}
-	rtspCam.clientReconnectBackgroundWorker()
-	return camera.NewFromReader(ctx, rtspCam, cameraModel, camera.ColorStream)
-}
-
-func restartClient(rc *rtspCamera) error {
-	err := rc.client.Close()
-	if err != nil {
-		rc.logger.Debugf("error closing while trying to restart client: %s", err)
-	}
-	// replace the client with a new one
+	// replace the client with a new one, but close it if setup is not successful
 	client := &gortsplib.Client{}
 	rc.client = client
-	// restart the client
+	var clientSuccessful bool
+	var err error
+	defer func() {
+		if !clientSuccessful {
+			if errClose := client.Close(); errClose != nil {
+				err = multierr.Combine(err, errClose)
+			}
+		}
+	}()
 	err = rc.client.Start(rc.u.Scheme, rc.u.Host)
 	if err != nil {
 		return err
 	}
-	// get MJPEG decodings
 	mjpegFormat, mjpegDecoder := mjpegDecoding()
 
-	// find published tracks, and MJPEG specifically
 	tracks, baseURL, _, err := rc.client.Describe(rc.u)
 	if err != nil {
 		return err
@@ -255,7 +177,6 @@ func restartClient(rc *rtspCamera) error {
 	if track == nil {
 		return errors.New("MJPEG track not found")
 	}
-	// Setup the MJPEG track
 	_, err = rc.client.Setup(track, baseURL, 0, 0)
 	if err != nil {
 		return err
@@ -266,16 +187,55 @@ func restartClient(rc *rtspCamera) error {
 		if err != nil {
 			return
 		}
-		// wait for a frame
 		if img == nil {
 			return
 		}
 		rc.latestFrame.Store(img)
+		if !rc.gotFirstFrameOnce {
+			rc.gotFirstFrameOnce = true
+		}
 	})
-	// play the track
 	_, err = rc.client.Play(nil)
 	if err != nil {
 		return err
 	}
+	clientSuccessful = true
 	return nil
+}
+
+// NewRTSPCamera creates a camera client for an RTSP given given the server URL.
+// Right now, only supports servers that have MJPEG video tracks.
+func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (camera.Camera, error) {
+	u, err := url.Parse(attrs.Address)
+	if err != nil {
+		return nil, err
+	}
+	rtspCam := &rtspCamera{
+		u:      u,
+		logger: logger,
+	}
+	err = rtspCam.reconnectClient()
+	if err != nil {
+		return nil, err
+	}
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+		select {
+		case <-cancelCtx.Done():
+			return nil, nil, cancelCtx.Err()
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		default:
+			for !rtspCam.gotFirstFrameOnce { // block until you get the first frame
+				continue
+			}
+		}
+		return rtspCam.latestFrame.Load().(image.Image), func() {}, nil
+	})
+	rtspCam.VideoReader = reader
+	rtspCam.cancelCtx = cancelCtx
+	rtspCam.cancelFunc = cancel
+	cameraModel := &transform.PinholeCameraModel{attrs.IntrinsicParams, attrs.DistortionParams}
+	rtspCam.clientReconnectBackgroundWorker()
+	return camera.NewFromReader(ctx, rtspCam, cameraModel, camera.ColorStream)
 }
