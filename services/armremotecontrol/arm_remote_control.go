@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -37,6 +38,8 @@ func init() {
 // A Service controls the armremotecontrol for a robot.
 type Service interface {
 	Close(ctx context.Context) error
+
+	generic.Generic
 }
 
 var _ = resource.Reconfigurable(&reconfigurableArmRemoteControl{})
@@ -55,6 +58,12 @@ func (svc *reconfigurableArmRemoteControl) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return utils.TryClose(ctx, svc.actual)
+}
+
+func (r *reconfigurableArmRemoteControl) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableArmRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/shell/v1"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -111,4 +112,8 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 	})
 
 	return input, output, nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

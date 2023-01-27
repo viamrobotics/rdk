@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
@@ -112,6 +113,8 @@ type builtIn struct {
 
 	modelManager            model.Manager
 	modelManagerConstructor model.ManagerConstructor
+
+	generic.Unimplemented
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")

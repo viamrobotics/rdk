@@ -31,6 +31,7 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -316,6 +317,8 @@ type builtIn struct {
 	slamProcessLogReader         io.ReadCloser
 	slamProcessLogWriter         io.WriteCloser
 	slamProcessBufferedLogReader bufio.Reader
+
+	generic.Unimplemented
 }
 
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from

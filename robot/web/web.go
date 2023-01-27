@@ -415,7 +415,7 @@ func (svc *webService) Update(ctx context.Context, resources map[resource.Name]i
 func (svc *webService) updateResources(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
-	components := make(map[resource.Name]interface{})
+	generics := make(map[resource.Name]interface{})
 	for n, v := range resources {
 		r, ok := groupedResources[n.Subtype]
 		if !ok {
@@ -423,11 +423,17 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 		}
 		r[n] = v
 		groupedResources[n.Subtype] = r
+
+		// Add generics to components
 		if n.Subtype.Type.ResourceType == resource.ResourceTypeComponent {
-			components[n] = v
+			generics[n] = v
+		}
+		// Add generics to services
+		if n.Subtype.Type.ResourceType == resource.ResourceTypeService {
+			generics[n] = v
 		}
 	}
-	groupedResources[generic.Subtype] = components
+	groupedResources[generic.Subtype] = generics
 
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]

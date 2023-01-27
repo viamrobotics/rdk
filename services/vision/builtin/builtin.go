@@ -14,6 +14,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -70,6 +71,8 @@ type builtIn struct {
 	r      robot.Robot
 	modReg modelMap
 	logger golog.Logger
+
+	generic.Unimplemented
 }
 
 // GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
