@@ -16,18 +16,11 @@ import (
 )
 
 const (
-	GPIO_GET_CHIPINFO_IOCTL          = 0x8044b401
-	GPIO_GET_LINEINFO_IOCTL          = 0xc048b402
 	GPIO_GET_LINEHANDLE_IOCTL        = 0xc16cb403
-	GPIOHANDLE_SET_LINE_VALUES_IOCTL = 0xc040b409
 	GPIOHANDLE_GET_LINE_VALUES_IOCTL = 0xc040b408
-	GPIO_GET_LINEEVENT_IOCTL         = 0xc030b404
 
 	GPIOHANDLE_REQUEST_INPUT       = 1 << 0
 	GPIOHANDLE_REQUEST_OUTPUT      = 1 << 1
-	GPIOHANDLE_REQUEST_ACTIVE_LOW  = 1 << 2
-	GPIOHANDLE_REQUEST_OPEN_DRAIN  = 1 << 3
-	GPIOHANDLE_REQUEST_OPEN_SOURCE = 1 << 4
 )
 
 func ioctl(fd uintptr, request uintptr, data uintptr) error {
@@ -39,21 +32,7 @@ func ioctl(fd uintptr, request uintptr, data uintptr) error {
 	return err
 }
 
-/*
-type GPIOChipInfo struct {
-	Name  [32]byte
-	Label [32]byte
-	Lines uint32
-}
-
-type GPIOLineInfo struct {
-	LineOffset uint32
-	Flags      uint32
-	Name       [32]byte
-	Consumer   [32]byte
-}
-*/
-
+// This is a struct to give to ioctl when configuring a GPIO pin.
 type GPIOHandleRequest struct {
 	LineOffsets   [64]uint32
 	Flags         uint32
@@ -63,12 +42,14 @@ type GPIOHandleRequest struct {
 	Fd            int32
 }
 
+// This is a struct to give to ioctl when reading the state of an input GPIO pin.
 type GPIOHandleData struct {
 	Values [64]uint8
 }
 
 type ioctlPin struct {
-	// These first two values should be considered immutable
+	// These values should both be considered immutable. The mutex is only here so that the ioctl
+	// calls don't have race conditions.
 	devicePath string
 	offset     uint32
 	mu         sync.Mutex
