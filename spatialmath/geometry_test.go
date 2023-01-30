@@ -38,7 +38,7 @@ func TestGeometrySerialization(t *testing.T) {
 		{"infer point", GeometryConfig{}, false},
 		{"bad type", GeometryConfig{Type: "bad"}, false},
 		{"c", GeometryConfig{Type: "capsule", L: 4, R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "c"}, true},
-		{"infer c", GeometryConfig{L: 4, R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "infer cc"}, true},
+		{"infer c", GeometryConfig{L: 4, R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "infer c"}, true},
 	}
 
 	pose := NewPoseFromPoint(r3.Vector{X: 1, Y: 1, Z: 1})
