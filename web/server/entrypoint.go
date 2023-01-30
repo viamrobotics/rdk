@@ -307,20 +307,22 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					continue
 				}
 				var options weboptions.Options
-				if !diff.NetworkEqual {
+
+				if !diff.NetworkEqual || !diff.MediaEqual {
+					if err := myRobot.StopWeb(); err != nil {
+						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
+						continue
+					}
 					options, err = s.createWebOptions(processedConfig)
 					if err != nil {
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 						continue
 					}
 				}
+
 				myRobot.Reconfigure(ctx, processedConfig)
 
-				if !diff.NetworkEqual {
-					if err := myRobot.StopWeb(); err != nil {
-						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
-						continue
-					}
+				if !diff.NetworkEqual || !diff.MediaEqual {
 					if err := myRobot.StartWeb(ctx, options); err != nil {
 						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}
