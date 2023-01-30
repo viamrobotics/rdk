@@ -7,12 +7,13 @@
 // We support reading the accelerometer, gyroscope, and thermometer data off of the chip. We do not
 // yet support using the digital interrupt pin to notify when interesting things happen (freefall,
 // collisions, etc.), nor do we yet support using the I2C slave connection to add an external clock
-// or magnetometer. 
+// or magnetometer.
 //
 // The chip has two possible I2C addresses, which can be selected by wiring the AD0 pin to either
 // hot or ground:
 //   - if AD0 is wired to ground, it uses the default I2C address of 0x68
 //   - if AD0 is wired to hot, it uses the alternate I2C address of 0x69
+//
 // If you use the alternate address, your config file for this component must set its
 // "use_alternate_i2c_address" boolean to true.
 package mpu6050
