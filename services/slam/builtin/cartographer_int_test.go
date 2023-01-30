@@ -38,7 +38,7 @@ func testCartographerMap(t *testing.T, svc slam.Service) {
 func testCartographerPosition(t *testing.T, svc slam.Service) {
 	expectedPos := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
 	tolerancePos := 0.01
-	expectedOri := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: -1}
+	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
 	toleranceOri := 0.5
 
 	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
@@ -52,9 +52,9 @@ func testCartographerPosition(t *testing.T, svc slam.Service) {
 
 	actualOri := position.Pose().Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
-	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.OX-toleranceOri, expectedOri.OX+toleranceOri)
-	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.OY-toleranceOri, expectedOri.OY+toleranceOri)
-	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.OZ-toleranceOri, expectedOri.OZ+toleranceOri)
+	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
+	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
+	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.RZ-toleranceOri, expectedOri.RZ+toleranceOri)
 	test.That(t, actualOri.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
 }
 
