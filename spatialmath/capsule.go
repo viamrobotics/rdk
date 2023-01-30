@@ -31,6 +31,7 @@ type capsule struct {
 	// They are stoed here because they are useful and expensive to calculate
 	segA r3.Vector // Proximal endpoint of capsule line segment. First point from `pose` to be surrounded by `radius` of capsule
 	segB r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
+	center r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
 }
 
 // NewCapsule instantiates a new capsule Geometry.
@@ -51,6 +52,7 @@ func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, er
 func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) Geometry {
 	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, -length/2 + radius})).Point()
 	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length/2 - radius})).Point()
+	center := offset.Point()
 
 	return &capsule{
 		pose:   offset,
@@ -59,6 +61,7 @@ func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) 
 		label:  label,
 		segA:   segA,
 		segB:   segB,
+		center:   center,
 	}
 }
 
@@ -270,7 +273,7 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 
 // capsuleBoxSeparatingAxis returns immediately as soon as any result is found indicating that the two objects are not in collision.
 func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
-	capCenter := c.pose.Point()
+	capCenter := c.center
 	centerDist := b.pose.Point().Sub(capCenter)
 
 	// check if there is a distance between bounding spheres to potentially exit early
@@ -283,12 +286,14 @@ func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
 	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
 	// This allows us to check separating axes on a reduced set of projections.
 	capVec := c.segB.Sub(capCenter)
+	
+	cutoff := CollisionBuffer+c.radius
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
+		if separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB) > cutoff {
 			return false
 		}
-		if separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
+		if separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB) > cutoff {
 			return false
 		}
 		for j := 0; j < 3; j++ {
@@ -296,7 +301,7 @@ func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest1D(centerDist, crossProductPlane, capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
+				if separatingAxisTest1D(centerDist, crossProductPlane, capVec, b.halfSize, rmB) > cutoff {
 					return false
 				}
 			}
