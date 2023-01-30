@@ -119,3 +119,25 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 
 	return resp, nil
 }
+
+// GetInternalState returns a byte slice representing the internal state of the specified SLAM algorithm.
+func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetInternalStateRequest) (
+	*pb.GetInternalStateResponse, error,
+) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalState")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	internalState, err := svc.GetInternalState(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetInternalStateResponse{
+		InternalState: internalState,
+	}, nil
+}
