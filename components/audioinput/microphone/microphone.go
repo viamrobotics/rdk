@@ -82,7 +82,6 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 	for i, info := range all {
 		logger.Debugf("%s", info.ID)
 		logger.Debugf("\t labels: %v", info.Labels)
-		logger.Debugf("\t priority: %v", info.Priority)
 		for _, p := range info.Properties {
 			logger.Debugf("\t %+v", p.Audio)
 			if pattern != nil && !pattern.MatchString(info.Labels[i]) {
@@ -114,34 +113,6 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 	}
 
 	return nil, errors.New("found no microphones")
-	//
-	//labels := gostream.QueryAudioDeviceLabels()
-	//for _, label := range labels {
-	//	if debug {
-	//		logger.Debugf("%s", label)
-	//	}
-	//
-	//	if pattern != nil && !pattern.MatchString(label) {
-	//		if debug {
-	//			logger.Debug("\t skipping because of pattern")
-	//		}
-	//		continue
-	//	}
-	//
-	//	s, err := tryMicrophoneOpen(label, gostream.DefaultConstraints, logger)
-	//	if err == nil {
-	//		if debug {
-	//			logger.Debug("\t USING")
-	//		}
-	//
-	//		return s, nil
-	//	}
-	//	if debug {
-	//		logger.Debugf("\t %w", err)
-	//	}
-	//}
-	//
-	//return nil, errors.New("found no microphones")
 }
 
 func tryMicrophoneOpen(
