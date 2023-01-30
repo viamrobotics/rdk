@@ -1328,26 +1328,26 @@ func resetFolder(path string) error {
 	return err
 }
 
-func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int, deleteProcessedData, online bool) int {
+func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int, deleteProcessedData, useLiveData bool) int {
 	var numFiles int
 
 	switch mode {
 	case slam.Mono:
-		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, online, deleteProcessedData)
+		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
 		test.That(t, err, test.ShouldBeNil)
 
 		numFiles = numFilesRGB
 	case slam.Rgbd:
-		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, online, deleteProcessedData)
+		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
 		test.That(t, err, test.ShouldBeNil)
 
-		numFilesDepth, err := checkDataDirForExpectedFiles(t, dir+"/data/depth", prev, online, deleteProcessedData)
+		numFilesDepth, err := checkDataDirForExpectedFiles(t, dir+"/data/depth", prev, deleteProcessedData, useLiveData)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, numFilesRGB, test.ShouldEqual, numFilesDepth)
 		numFiles = numFilesRGB
 	case slam.Dim2d:
-		numFiles2D, err := checkDataDirForExpectedFiles(t, dir+"/data", prev, online, deleteProcessedData)
+		numFiles2D, err := checkDataDirForExpectedFiles(t, dir+"/data", prev, deleteProcessedData, useLiveData)
 		test.That(t, err, test.ShouldBeNil)
 		numFiles = numFiles2D
 	default:
@@ -1357,7 +1357,7 @@ func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int
 
 // Compares the number of files found in a specified data directory with the previous number found and uses
 // the online state and delete_processed_data value to evaluate this comparison.
-func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_processed_data, online bool) (int, error) {
+func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_processed_data, useLiveData bool) (int, error) {
 
 	files, err := ioutil.ReadDir(dir)
 	test.That(t, err, test.ShouldBeNil)
@@ -1365,16 +1365,16 @@ func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_pro
 	if prev == 0 {
 		return len(files), nil
 	}
-	if delete_processed_data && online {
+	if delete_processed_data && useLiveData {
 		test.That(t, prev, test.ShouldBeLessThanOrEqualTo, dataBufferSize+1)
 	}
-	if !delete_processed_data && online {
+	if !delete_processed_data && useLiveData {
 		test.That(t, prev, test.ShouldBeLessThan, len(files))
 	}
-	if delete_processed_data && !online {
+	if delete_processed_data && !useLiveData {
 		return 0, errors.New("the delete_processed_data value cannot be true when running SLAM in offline mode")
 	}
-	if !delete_processed_data && !online {
+	if !delete_processed_data && !useLiveData {
 		test.That(t, prev, test.ShouldEqual, len(files))
 	}
 	return len(files), nil
