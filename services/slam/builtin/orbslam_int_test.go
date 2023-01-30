@@ -80,20 +80,20 @@ func testOrbslamMap(t *testing.T, svc slam.Service) {
 // Checks the orbslam position within a defined tolerance
 func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string) {
 	var expectedPos r3.Vector
-	expectedOri := &spatialmath.OrientationVector{}
+	expectedOri := &spatialmath.R4AA{}
 	tolerancePos := 0.05
 	toleranceOri := 0.5
 
 	switch {
 	case mode == "mono" && actionMode == "mapping":
 		expectedPos = r3.Vector{X: 0.020, Y: -0.032, Z: -0.053}
-		expectedOri = &spatialmath.OrientationVector{Theta: 0.104, OX: 0.144, OY: 0.980, OZ: -0.137}
+		expectedOri = &spatialmath.R4AA{Theta: 0.104, RX: 0.144, RY: 0.980, RZ: -0.137}
 	case mode == "mono" && actionMode == "updating":
 		expectedPos = r3.Vector{X: 0.023, Y: -0.036, Z: -0.040}
-		expectedOri = &spatialmath.OrientationVector{Theta: 0.099, OX: 0.092, OY: 0.993, OZ: -0.068}
+		expectedOri = &spatialmath.R4AA{Theta: 0.099, RX: 0.092, RY: 0.993, RZ: -0.068}
 	case mode == "rgbd":
 		expectedPos = r3.Vector{X: -0.001, Y: -0.004, Z: -0.008}
-		expectedOri = &spatialmath.OrientationVector{Theta: 0.002, OX: 0.602, OY: -0.772, OZ: -0.202}
+		expectedOri = &spatialmath.R4AA{Theta: 0.002, RX: 0.602, RY: -0.772, RZ: -0.202}
 	}
 
 	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
@@ -107,9 +107,9 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 
 	actualOri := position.Pose().Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
-	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.OX-toleranceOri, expectedOri.OX+toleranceOri)
-	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.OY-toleranceOri, expectedOri.OY+toleranceOri)
-	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.OZ-toleranceOri, expectedOri.OZ+toleranceOri)
+	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
+	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
+	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.RZ-toleranceOri, expectedOri.RZ+toleranceOri)
 	test.That(t, actualOri.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
 }
 
