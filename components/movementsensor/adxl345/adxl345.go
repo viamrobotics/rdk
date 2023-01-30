@@ -4,13 +4,14 @@
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
 //
 // We support reading the accelerometer data off of the chip. We do not yet support using the
-// digital interrupt pins to notify when interesting things happen (freefall, collisions, etc.). 
+// digital interrupt pins to notify when interesting things happen (freefall, collisions, etc.).
 //
 // Because we only support I2C interaction, the CS pin must be wired to a high signal (which tells
 // the chip which communication interface to use). The chip has two possible I2C addresses, which
 // can be selected by wiring the SDO pin to either hot or ground:
 //   - if SDO is wired to ground, it uses the default I2C address of 0x53
 //   - if SDO is wired to hot, it uses the alternate I2C address of 0x1D
+//
 // If you use the alternate address, your config file for this component must set its
 // "use_alternate_i2c_address" boolean to true.
 package adxl345
