@@ -2,10 +2,10 @@
 // to an I2C bus on the robot (the chip supports communicating over SPI as well, but this package
 // does not support that interface). The datasheet for this chip is available at:
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
-
+//
 // We support reading the accelerometer data off of the chip. We do not yet support using the
 // digital interrupt pins to notify when interesting things happen (freefall, collisions, etc.). 
-
+//
 // Because we only support I2C interaction, the CS pin must be wired to a high signal (which tells
 // the chip which communication interface to use). The chip has two possible I2C addresses, which
 // can be selected by wiring the SDO pin to either hot or ground:
