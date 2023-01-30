@@ -31,8 +31,8 @@ type capsule struct {
 	// They are stoed here because they are useful and expensive to calculate
 	segA   r3.Vector // Proximal endpoint of capsule line segment. First point from `pose` to be surrounded by `radius` of capsule
 	segB   r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
-	center r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
-	capVec r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
+	center r3.Vector // Centerpoint of capsule as an r3.Vector, cached to prevent recalculation
+	capVec r3.Vector // Vector pointing from `center` towards `segB`, cached to prevent recalculation
 
 	rotMatrix *RotationMatrix
 }
