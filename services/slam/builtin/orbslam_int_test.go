@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -66,33 +68,49 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 	}
 }
 
-// Checks that we can get position and map, and that there are more than zero map points.
-// Doesn't check precise values due to variations in orbslam results.
-func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
-	t.Helper()
-
-	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	// Typical values for RGBD are around (-0.001, -0.004, -0.008)
-	// Typical values for Mono without an existing map are around (0.020, -0.032, -0.053)
-	// Typical values for Mono with an existing map are around (0.023, -0.036, -0.040)
-	t.Logf("Position point: (%v, %v, %v)",
-		position.Pose().Point().X, position.Pose().Point().Y, position.Pose().Point().Z)
-	// Typical values for RGBD are around (0.602, -0.772, -0.202), theta=0.002
-	// Typical values for Mono without an existing map are around (0.144, 0.980, -0.137), theta=0.104
-	// Typical values for Mono with an existing map are around ( 0.092, 0.993, -0.068), theta=0.099
-	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v",
-		position.Pose().Orientation().AxisAngles().RX,
-		position.Pose().Orientation().AxisAngles().RY,
-		position.Pose().Orientation().AxisAngles().RZ,
-		position.Pose().Orientation().AxisAngles().Theta)
+// Checks the orbslam map and confirms there are more than zero map points.
+func testOrbslamMap(t *testing.T, svc slam.Service) {
 	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
-	// Typical value for RGBD is 329
-	// Values for Mono vary
 	t.Logf("Pointcloud points: %v", pointcloud.Size())
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThan, 0)
+}
+
+// Checks the orbslam position within a defined tolerance
+func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string) {
+	var expectedPos r3.Vector
+	expectedOri := &spatialmath.R4AA{}
+	tolerancePos := 0.5
+	toleranceOri := 0.5
+
+	switch {
+	case mode == "mono" && actionMode == "mapping":
+		expectedPos = r3.Vector{X: 0.020, Y: -0.032, Z: -0.053}
+		expectedOri = &spatialmath.R4AA{Theta: 0.104, RX: 0.144, RY: 0.980, RZ: -0.137}
+	case mode == "mono" && actionMode == "updating":
+		expectedPos = r3.Vector{X: 0.023, Y: -0.036, Z: -0.040}
+		expectedOri = &spatialmath.R4AA{Theta: 0.099, RX: 0.092, RY: 0.993, RZ: -0.068}
+	case mode == "rgbd":
+		expectedPos = r3.Vector{X: -0.001, Y: -0.004, Z: -0.008}
+		expectedOri = &spatialmath.R4AA{Theta: 0.002, RX: 0.602, RY: -0.772, RZ: -0.202}
+	}
+
+	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+
+	actualPos := position.Pose().Point()
+	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
+	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
+	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
+	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
+
+	actualOri := position.Pose().Orientation().AxisAngles()
+	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
+	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
+	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
+	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.RZ-toleranceOri, expectedOri.RZ+toleranceOri)
+	test.That(t, actualOri.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
 }
 
 func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
@@ -169,7 +187,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -184,7 +202,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPositionAndMap(t, svc)
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping")
+	testOrbslamMap(t, svc)
 
 	// Close out slam service
 	err = utils.TryClose(context.Background(), svc)
@@ -265,7 +284,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed image to SLAM") {
-			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 			start_time_sent_image = time.Now()
 		}
 		if strings.Contains(line, "Finished processing offline images") {
@@ -279,7 +298,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPositionAndMap(t, svc)
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping")
+	testOrbslamMap(t, svc)
 
 	if !orbslam_hangs {
 		// Wait for the final map to be saved
@@ -369,7 +389,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -384,7 +404,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPositionAndMap(t, svc)
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating")
+	testOrbslamMap(t, svc)
 
 	// Close out slam service
 	err = utils.TryClose(context.Background(), svc)

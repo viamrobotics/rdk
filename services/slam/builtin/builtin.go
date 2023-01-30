@@ -575,6 +575,23 @@ func (slamSvc *builtIn) GetMap(
 	return mimeType, imData, vObj, nil
 }
 
+// GetInternalState forwards the request for the SLAM algorithms's internal state. Once a response is received, it is returned
+// to the user.
+func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalState")
+	defer span.End()
+
+	req := &pb.GetInternalStateRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetInternalState(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")
+	}
+
+	internalState := resp.GetInternalState()
+	return internalState, err
+}
+
 // NewBuiltIn returns a new slam service for the given robot.
 func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
