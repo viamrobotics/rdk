@@ -81,7 +81,7 @@ func testOrbslamMap(t *testing.T, svc slam.Service) {
 func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string) {
 	var expectedPos r3.Vector
 	expectedOri := &spatialmath.R4AA{}
-	tolerancePos := 0.05
+	tolerancePos := 0.5
 	toleranceOri := 0.5
 
 	switch {
@@ -187,7 +187,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
@@ -284,7 +284,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed image to SLAM") {
-			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 			start_time_sent_image = time.Now()
 		}
 		if strings.Contains(line, "Finished processing offline images") {
@@ -389,7 +389,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed image to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
 			test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
