@@ -11,7 +11,7 @@ Note that this is split into two files. The content of wrapper.go is only needed
 ### summationapi
 Custom (service) api called "Summation" (acme:service:summation).
 
-### protos
+### proto
 This folder contains the protobuf for the above two APIs. Only the .proto files are human modified. The rest is generated automatically by running "make" from within this directory. Note that the generation is performed using the "buf" command line tool, which itself is installed automatically as part of the make scripting. To generate protocols for other languages, other tooling or commands may be used. The key takeaway is that just the files with the .proto suffix are needed to generate the basic protobuf libraries for any given language.
 
 ## Models
