@@ -88,7 +88,7 @@ See documentation in [Direct Remote Control](./web/cmd/directremotecontrol/main.
 ### License check
 
 We run [LicenseFinder](https://github.com/pivotal/LicenseFinder) in CI to verify 3rd-party libraries have approved software licenses.
-If you add a 3rd-party library to this project, please run `make license` to verify that it can be used.
+If you add a 3rd-party library to this project, please run `make license-check` to verify that it can be used.
 
 ### Windows Support (Experimental)
 
