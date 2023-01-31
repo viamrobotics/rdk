@@ -2,6 +2,7 @@ package builtin_test
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -84,7 +85,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	t.Log("\n=== Testing online mode ===\n")
 
-	mapRate := 1
+	mapRate := 9999
 	deleteProcessedData := false
 	useLiveData := true
 
@@ -109,8 +110,21 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Wait for cartographer to finish processing data
+
+	// Make sure we initialize in mapping mode
 	logReader := svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Running in mapping mode") {
+			break
+		}
+
+		test.That(t, strings.Contains(line, "Running in updating mode"), test.ShouldBeFalse)
+		test.That(t, strings.Contains(line, "Running in localization only mode"), test.ShouldBeFalse)
+	}
+
+	// Wait for cartographer to finish processing data
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
 		cartographerIntLidarReleasePointCloudChan <- 1
@@ -145,14 +159,14 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, os.Remove(name+"/data/"+lastFileName), test.ShouldBeNil)
 	prevNumFiles -= 1
 
-	// Remove maps so that testing in offline mode will run in mapping mode,
-	// as opposed to updating mode.
-	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
+	files, err = ioutil.ReadDir(name + "/map/")
+	fmt.Printf("THERE ARE %v FILES IN MAP\n", len(files))
 
 	// Test offline mode using the data generated in the online test
 	t.Log("\n=== Testing offline mode ===\n")
 
 	useLiveData = false
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -170,8 +184,19 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Wait for cartographer to finish processing data
+	// Make sure we initialize in mapping mode
 	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Running in mapping mode") {
+			break
+		}
+		test.That(t, strings.Contains(line, "Running in updating mode"), test.ShouldBeFalse)
+		test.That(t, strings.Contains(line, "Running in localization only mode"), test.ShouldBeFalse)
+	}
+
+	// Wait for cartographer to finish processing data
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
@@ -230,7 +255,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Make sure we initialize from a saved map
+	// Make sure we initialize in localization mode
 	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
@@ -303,7 +328,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Make sure we initialize from a saved map
+	// Make sure we initialize in updating mode
 	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
