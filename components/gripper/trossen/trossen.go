@@ -49,7 +49,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
-			return newGripper(logger, deps)
+			return newGripper(config.Name, logger, deps)
 		},
 	})
 
@@ -65,7 +65,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
-			return newGripper(logger, deps)
+			return newGripper(config.Name, logger, deps)
 		},
 	})
 
@@ -78,12 +78,14 @@ func init() {
 
 // Gripper represents an instance of a Trossen gripper.
 type Gripper struct {
+	name       string
 	trossenArm arm.LocalArm
+	logger     golog.Logger
 	generic.Unimplemented
 }
 
 // newGripper TODO.
-func newGripper(logger golog.Logger, deps registry.Dependencies) (gripper.LocalGripper, error) {
+func newGripper(name string, logger golog.Logger, deps registry.Dependencies) (gripper.LocalGripper, error) {
 	var _arm arm.LocalArm
 	// TODO: an arm name should be specified for the gripper as a configuration
 	// attribute in a future commit. This is a breaking change that needs to be
@@ -101,7 +103,7 @@ func newGripper(logger golog.Logger, deps registry.Dependencies) (gripper.LocalG
 	if _arm == nil {
 		return nil, errors.New("need a trossen arm in depends_on")
 	}
-	newGripper := Gripper{trossenArm: _arm}
+	newGripper := Gripper{trossenArm: _arm, logger: logger, name: name}
 	return &newGripper, nil
 }
 
@@ -110,6 +112,9 @@ func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error 
 	_, err := g.trossenArm.DoCommand(ctx,
 		map[string]interface{}{"command": trossenarm.TrossenGripperOpen},
 	)
+	if err != nil {
+		g.logger.Errorf("open failed for trossen gripper %s", g.name)
+	}
 	return err
 }
 
@@ -119,6 +124,7 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 		map[string]interface{}{"command": trossenarm.TrossenGripperClose},
 	)
 	if err != nil {
+		g.logger.Errorf("grab failed for trossen gripper %s", g.name)
 		return false, err
 	}
 	return cmdResp["grabbed"].(bool), nil
