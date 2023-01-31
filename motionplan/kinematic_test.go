@@ -85,13 +85,14 @@ func TestForwardKinematics(t *testing.T) {
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
-	// Test out of bounds. Note that ComputePosition will return nil on OOB.
+	// Test out of bounds. Note that ComputePosition will return not return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
-	checkOrien := &spatial.R4AA{Theta: -2.48798057005674, RX: 0.23071941493324336, RY: -0.7100813450467474, RZ: 0.6652465971273088}
-	checkPoint := r3.Vector{X: 258.093975133089884366199840, Y: -258.093975133089884366199840, Z: 360.250000000000113686837722}
-	test.That(t, pos.Orientation().AxisAngles(), test.ShouldResemble, checkOrien)
-	test.That(t, pos.Point(), test.ShouldResemble, checkPoint)
+	expect = spatial.NewPose(
+		r3.Vector{X: 258.093975133089884366199840, Y: -258.093975133089884366199840, Z: 360.250000000000113686837722},
+		&spatial.R4AA{Theta: -2.48798057005674, RX: 0.23071941493324336, RY: -0.7100813450467474, RZ: 0.6652465971273088},
+	)
+	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }
 
