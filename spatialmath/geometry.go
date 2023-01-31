@@ -79,7 +79,7 @@ func NewGeometryConfig(gc Geometry) (*GeometryConfig, error) {
 		config.R = gc.(*sphere).radius
 		config.Label = gc.(*sphere).label
 	case *capsule:
-		config.Type = SphereType
+		config.Type = CapsuleType
 		config.R = gc.(*capsule).radius
 		config.L = gc.(*capsule).length
 		config.Label = gc.(*capsule).label
