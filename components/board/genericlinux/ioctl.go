@@ -102,7 +102,7 @@ func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) {
 	pins = make(map[string]*ioctlPin)
 	for pin, mapping := range gpioMappings {
 		pins[fmt.Sprintf("%d", pin)] = &ioctlPin{
-			devicePath: fmt.Sprintf("/dev/%s", mapping.GPIOChipDev),
+			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 		}
 	}
