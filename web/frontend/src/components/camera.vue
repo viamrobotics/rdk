@@ -51,10 +51,10 @@ const clearStreamContainer = (camName: string, elName: string) => {
     `[data-stream="${camName}"]`
   );
   if (elName === 'video') {
-    streamContainer?.querySelector(elName)?.classList.add('hidden');
+    streamContainer?.querySelector('video')?.classList.add('hidden');
     streamContainer?.querySelector('img')?.classList.remove('hidden');
   } else {
-    streamContainer?.querySelector(elName)?.classList.add('hidden');
+    streamContainer?.querySelector('img')?.classList.add('hidden');
     streamContainer?.querySelector('video')?.classList.remove('hidden');
   }
 };
