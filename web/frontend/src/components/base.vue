@@ -51,7 +51,10 @@ const power = $ref(50);
 
 const pressed = new Set<Keys>();
 let stopped = true;
-let activeKeyboard = false;
+
+const keyboardStates = $ref({
+  isActive: false,
+});
 
 const resources =filterResources(props.resources, 'rdk', 'component', 'camera')
 const initStreamState = () => {
@@ -259,11 +262,11 @@ const handleVisibilityChange = () => {
 };
 
 // const tempDisableKeyboard = (disableKeyboard: boolean) => {
-//   activeKeyboards.tempDisable = disableKeyboard;
+//   keyboardStates.tempDisable = disableKeyboard;
 // };
 
 const handleToggle = () => {
-  if (activeKeyboard) {
+  if (keyboardStates.isActive) {
     return;
   }
 
@@ -272,12 +275,12 @@ const handleToggle = () => {
   }
 };
 
-const handleUpdateactiveKeyboard = (on:boolean) => {
-  activeKeyboard = on;
+const handleUpdateKeyboardState = (on:boolean) => {
+  keyboardStates.isActive = on;
 };
 
 onClickOutside($$(root), () => {
-  activeKeyboard = false;
+  keyboardStates.isActive = false;
 });
 
 onMounted(() => {
@@ -311,9 +314,10 @@ onUnmounted(() => {
       />
 
       <div class="flex gap-4 border border-t-0 border-black">
-        <div class="flex flex-col gap-4 p-4 min-w-[17em]">
+        <div class="flex flex-col gap-4 p-4 min-w-[18em]">
           <h2 class="font-bold">Motor Controls</h2>
           <v-radio
+            class="mb-4"
             label="Control Mode"
             options="Keyboard, Discrete"
             :selected="selectedMode"
@@ -322,13 +326,12 @@ onUnmounted(() => {
 
           <div v-if="selectedMode === 'Keyboard'">
             <KeyboardInput
-              :is-active="activeKeyboard"
+              :is-active="keyboardStates.isActive"
               @keydown="handleKeyDown"
               @keyup="handleKeyUp"
               @toggle="handleToggle"
-              @update-keyboard-state="isOn => { handleUpdateactiveKeyboard(isOn) }"
+              @update-keyboard-state="isOn => { handleUpdateKeyboardState(isOn) }"
             />
-
             <v-slider
               id="power"
               class="pt-2 w-full max-w-xs"
@@ -341,6 +344,7 @@ onUnmounted(() => {
               @input="power = $event.detail.value"
             />
           </div>
+
           <div 
             v-if="selectedMode === 'Discrete'"
             class="flex flex-col gap-4"
@@ -400,7 +404,6 @@ onUnmounted(() => {
             />
             <div
               v-if="movementMode === 'Spin'"
-              class="w-72 pl-6"
             >
               <v-slider
                 :min="0"
@@ -413,6 +416,7 @@ onUnmounted(() => {
               />
             </div>
           </div>
+
           <hr class="my-4 border-t border-gray-400"/>
 
           <h2 class="font-bold">Live Feeds</h2>
@@ -441,71 +445,6 @@ onUnmounted(() => {
           </template>
         </div>
       </div>
-
-
-
-
-
-        <!-- <v-tabs
-          tabs="Keyboard, Discrete"
-          :selected="selectedMode"
-          @input="handleTabSelect($event.detail.value)"
-          class="mt-72"
-        />
-
-        <div
-          v-if="selectedMode === 'Keyboard'"
-          class="h-auto p-4"
-        >
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div class="flex flex-col gap-4">
-              
-            </div>
-            <div v-if="resources">
-              <v-multiselect
-                v-model="selectCameras"
-                class="mb-4"
-                clearable="false"
-                placeholder="Select Cameras"
-                aria-label="Select Cameras"
-                :options="
-                  resources
-                    .map(({ name }) => name)
-                    .join(',')
-                "
-                @input="viewPreviewCamera($event.detail.value)"
-                @focus="tempDisableKeyboard(true)"
-                @blur="tempDisableKeyboard(false)"
-              />
-              <template
-                v-for="basecamera in resources"
-                :key="basecamera.name"
-              >
-                <div
-                  v-if="basecamera"
-                  :data-stream-preview="basecamera.name"
-                  :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
-                />
-              </template>
-            </div>
-          </div>
-        </div>
-        <div
-          v-if="selectedMode === 'Discrete'"
-          class="flex gap-4 p-4"
-        >
-          <div class="mb-4 grow">
-            
-          </div>
-          <div class="self-end">
-            <v-button
-              icon="play-circle-filled"
-              variant="success"
-              label="RUN"
-              @click="baseRun()"
-            />
-          </div>
-        </div> -->
     </v-collapse>
   </div>
 </template>
