@@ -62,9 +62,9 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 	defer func() {err = chip.Close()}()
 
 	line, err := chip.OpenLine(pin.offset, 0, gpio.Input, "viam-gpio")
-    if err != nil {
-        return false, err
-    }
+	if err != nil {
+		return false, err
+	}
 	defer func() {err = line.Close()}()
 
 	value, err := line.Value()
