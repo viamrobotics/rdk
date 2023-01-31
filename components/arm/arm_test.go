@@ -436,7 +436,7 @@ func TestOOBArm(t *testing.T) {
 var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 
 type mockOOB struct {
-	arm.Arm   // should this be arm.Arm?
+	arm.Arm
 	Name      string
 	JLimits   map[string][]float64
 	JPosition map[string]float64
