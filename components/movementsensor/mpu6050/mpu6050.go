@@ -6,8 +6,8 @@
 //
 // We support reading the accelerometer, gyroscope, and thermometer data off of the chip. We do not
 // yet support using the digital interrupt pin to notify when interesting things happen (freefall,
-// collisions, etc.), nor do we yet support using the I2C slave connection to add an external clock
-// or magnetometer.
+// collisions, etc.), nor do we yet support using the secondary I2C connection to add an external
+// clock or magnetometer.
 //
 // The chip has two possible I2C addresses, which can be selected by wiring the AD0 pin to either
 // hot or ground:
