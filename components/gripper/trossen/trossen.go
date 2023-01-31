@@ -116,7 +116,7 @@ func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error 
 // Grab closes the gripper by defering to the arm.
 func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	cmdResp, err := g.trossenArm.DoCommand(ctx,
-		map[string]interface{}{"command": trossenarm.TrossenGripperOpen},
+		map[string]interface{}{"command": trossenarm.TrossenGripperClose},
 	)
 	if err != nil {
 		return false, err
