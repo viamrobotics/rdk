@@ -24,4 +24,4 @@ jobs:
 
       - name: Run license finder
         run: |
-          sudo -u testbot bash -lc 'make license'
+          sudo -u testbot bash -lc 'make license-check'

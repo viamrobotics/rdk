@@ -56,6 +56,7 @@ type box struct {
 	boundingSphereR float64
 	label           string
 	mesh            *mesh
+	rotMatrix       *RotationMatrix
 }
 
 // NewBox instantiates a new box Geometry.
@@ -147,7 +148,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 		return sphereVsBoxCollision(other, b), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return capsuleVsBoxDistance(other, b) <= CollisionBuffer, nil
+		return capsuleVsBoxCollision(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
 		return pointVsBoxCollision(other.position, b), nil
@@ -249,6 +250,15 @@ func (b *box) toMesh() *mesh {
 	return b.mesh
 }
 
+// rotationMatrix returns the cached matrix if it exists, and generates it if not.
+func (b *box) rotationMatrix() *RotationMatrix {
+	if b.rotMatrix == nil {
+		b.rotMatrix = b.pose.Orientation().RotationMatrix()
+	}
+
+	return b.rotMatrix
+}
+
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
 // Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
@@ -260,8 +270,8 @@ func boxVsBoxCollision(a, b *box) bool {
 		return false
 	}
 
-	rmA := a.pose.Orientation().RotationMatrix()
-	rmB := b.pose.Orientation().RotationMatrix()
+	rmA := a.rotationMatrix()
+	rmB := b.rotationMatrix()
 
 	for i := 0; i < 3; i++ {
 		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
@@ -302,8 +312,8 @@ func boxVsBoxDistance(a, b *box) float64 {
 		return boundingSphereDist
 	}
 
-	rmA := a.pose.Orientation().RotationMatrix()
-	rmB := b.pose.Orientation().RotationMatrix()
+	rmA := a.rotationMatrix()
+	rmB := b.rotationMatrix()
 
 	// iterate over axes of box
 	max := math.Inf(-1)

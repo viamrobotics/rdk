@@ -1,61 +1,59 @@
-# This file is NOT optimized for human-readability - please use the
-# `license_finder` program to read and edit it: https://github.com/viamrobotics/rdk#license-check
 ---
 - - :permit
   - MIT
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-01 21:53:06.561636718 Z
 - - :permit
   - New BSD
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-15 13:09:14.673806968 Z
 - - :permit
   - Apache 2.0
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-15 13:15:11.855751606 Z
 - - :permit
   - Simplified BSD
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-15 13:17:08.745016552 Z
 - - :permit
   - ISC
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-15 13:37:40.979906881 Z
 - - :license
   - github.com/ajstarks/svgo
   - Creative Commons Attribution 4.0 International Public License
-  - :who:
+  - :who: 
     :license_links: https://github.com/ajstarks/svgo/blob/1546f124cd8b0cba8d505fa2ddb110c211670c59/LICENSE
     :versions: []
     :when: 2022-08-15 14:34:00.115389050 Z
 - - :license
   - github.com/go-fonts/liberation
   - New BSD
-  - :who:
+  - :who: 
     :license_links: https://github.com/go-fonts/liberation/blob/0c2fdab5e932afd0923f4f71ae23691a66305ef6/LICENSE
     :versions: []
     :when: 2022-08-15 14:47:01.153930427 Z
 - - :license
   - github.com/go-gl/mathgl
   - New BSD
-  - :who:
+  - :who: 
     :license_links: https://github.com/go-gl/mathgl/blob/45f44e1fbc36e29eb200186c5fd63828a2ffc540/LICENSE
     :versions: []
     :when: 2022-08-15 14:51:09.537862545 Z
 - - :license
   - github.com/go-latex/latex
   - New BSD
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/go-latex/latex/blob/c0d11ff05a81a63afdffbba6e577b2a3a6e69c85/LICENSE
     :versions: []
@@ -63,7 +61,7 @@
 - - :license
   - github.com/improbable-eng/grpc-web
   - Apache License 2.0
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/improbable-eng/grpc-web/blob/90ce72a31aa7bdfd6eae03fc735953902949c0de/LICENSE.txt
     :versions: []
@@ -71,7 +69,7 @@
 - - :license
   - github.com/jmespath/go-jmespath
   - Apache License 2.0
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/jmespath/go-jmespath/blob/b0104c826a24d7c202da8e1dbfb9ea4cfa35d774/LICENSE
     :versions: []
@@ -79,7 +77,7 @@
 - - :license
   - github.com/xdg-go/pbkdf2
   - Apache License 2.0
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/xdg-go/pbkdf2/blob/7f452ef1dac88350356f1bb84a23748205e64b96/LICENSE
     :versions: []
@@ -87,7 +85,7 @@
 - - :license
   - github.com/xdg-go/scram
   - Apache License 2.0
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/xdg-go/scram/blob/ef29d5590bacede26100601bb2f7d9bb08bacc75/LICENSE
     :versions: []
@@ -95,7 +93,7 @@
 - - :license
   - github.com/xdg-go/stringprep
   - Apache License 2.0
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/xdg-go/stringprep/blob/eb5c8f240eb1ea3fe0144fd4d3e0c305492d8eb1/LICENSE
     :versions: []
@@ -103,7 +101,7 @@
 - - :license
   - go-hep.org/x/hep
   - New BSD
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/go-hep/hep/blob/535619c28f900dcd37c522f2b9d593ec61b7b8dd/LICENSE
     :versions: []
@@ -111,40 +109,40 @@
 - - :license
   - gonum.org/v1/plot
   - New BSD
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/gonum/plot/blob/c2b63591159b9dceb2cbf953702691d2a2fe7a6d/LICENSE
     :versions: []
     :when: 2022-08-15 15:56:25.026774237 Z
 - - :permit
   - Creative Commons Attribution 4.0 International Public License
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-29 22:26:18.925886068 Z
 - - :permit
   - GPLv3
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-30 15:22:06.823924964 Z
 - - :license
   - github.com/gen2brain/malgo
   - The Unlicense
-  - :who:
+  - :who: 
     :license_links: https://github.com/gen2brain/malgo/blob/6af716cf2273f0675789cc1366977970e31b2239/LICENSE
     :versions: []
     :when: 2022-08-30 15:37:02.011437856 Z
 - - :license
   - github.com/goburrow/modbus
   - New BSD
-  - :who:
+  - :who: 
     :why: https://github.com/goburrow/modbus/blob/606c02f4eef527a1d4cf7d8733d5fd7ba34f91d8/LICENSE
     :versions: []
     :when: 2022-09-14 16:27:17.872831000 Z
 - - :approve
   - github.com/ziutek/mymysql
-  - :who:
+  - :who: 
     :why: license language is compatible with AGPL
     :versions: []
     :when: 2022-09-14 16:27:17.872831000 Z
@@ -152,7 +150,7 @@
 - - :license
   - github.com/golang/freetype
   - GPLv2+
-  - :who:
+  - :who: 
     :why: we are allowed to choose one of two licenses (freetype or GPL version 2
       or higher) - we are choosing the latter
     :versions: []
@@ -160,17 +158,16 @@
     :license_links: https://github.com/golang/freetype/blob/e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4/LICENSE
 - - :permit
   - The Unlicense
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-08-30 16:12:12.044846522 Z
     :license_links: https://unlicense.org
 - - :license
   - github.com/gonum/blas
   - New BSD
-  - :who:
-    :why:
-      'TODO(RSDK-582): this library is deprecated but still an indirect dependency
+  - :who: 
+    :why: 'TODO(RSDK-582): this library is deprecated but still an indirect dependency
       to RDK'
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
@@ -178,9 +175,8 @@
 - - :license
   - github.com/gonum/lapack
   - New BSD
-  - :who:
-    :why:
-      'TODO(RSDK-582): this library is deprecated but still an indirect dependency
+  - :who: 
+    :why: 'TODO(RSDK-582): this library is deprecated but still an indirect dependency
       to RDK'
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
@@ -188,31 +184,36 @@
 - - :license
   - github.com/gonum/matrix
   - New BSD
-  - :who:
-    :why:
-      'TODO(RSDK-582): this library is deprecated but still an indirect dependency
+  - :who: 
+    :why: 'TODO(RSDK-582): this library is deprecated but still an indirect dependency
       to RDK'
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
     :when: 2022-08-30 16:24:26.855308650 Z
 - - :license
-  - '@viamrobotics/rpc'
+  - "@viamrobotics/rpc"
   - MIT
-  - :who:
+  - :who: 
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/viamrobotics/goutils/blob/6684974ace14045e04d479777852602817e03313/LICENSE
     :versions: []
     :when: 2022-08-31 20:08:14.585047144 Z
 - - :approve
   - github.com/viamrobotics/evdev
-  - :who:
-    :why: 'license language is compatible with AGPL'
-    :license_links: 'https://github.com/viamrobotics/evdev/blob/5a415229fba9557cca9bfedc7ba89cb48f28fab0/LICENSE'
+  - :who: 
+    :why: license language is compatible with AGPL
+    :license_links: https://github.com/viamrobotics/evdev/blob/5a415229fba9557cca9bfedc7ba89cb48f28fab0/LICENSE
     :versions: []
     :when: 2022-08-31 20:13:08.147340927 Z
 - - :permit
   - GPLv2+
-  - :who:
-    :why:
+  - :who: 
+    :why: 
     :versions: []
     :when: 2022-09-16 15:13:54.129990412 Z
+- - :approve
+  - github.com/opencensus-integrations/gomongowrapper
+  - :who: 
+    :why: 
+    :versions: []
+    :when: 2023-01-30 21:31:27.476042000 Z

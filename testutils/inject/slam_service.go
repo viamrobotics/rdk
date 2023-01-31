@@ -15,6 +15,7 @@ type SLAMService struct {
 	PositionFunc func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error)
 	GetMapFunc   func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool, extra map[string]interface{}) (string, image.Image, *vision.Object, error)
+	GetInternalStateFunc func(ctx context.Context, name string) ([]byte, error)
 }
 
 // Position calls the injected PositionFunc or the real version.
@@ -39,4 +40,12 @@ func (slamSvc *SLAMService) GetMap(
 		return slamSvc.Service.GetMap(ctx, name, mimeType, cp, include, extra)
 	}
 	return slamSvc.GetMapFunc(ctx, name, mimeType, cp, include, extra)
+}
+
+// GetInternalState calls the injected GetInternalStateFunc or the real version.
+func (slamSvc *SLAMService) GetInternalState(ctx context.Context, name string) ([]byte, error) {
+	if slamSvc.GetInternalStateFunc == nil {
+		return slamSvc.Service.GetInternalState(ctx, name)
+	}
+	return slamSvc.GetInternalStateFunc(ctx, name)
 }

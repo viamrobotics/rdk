@@ -2,9 +2,11 @@ package module
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
@@ -105,6 +107,7 @@ type Module struct {
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
 	services                map[resource.Subtype]subtype.Service
+	closeOnce               sync.Once
 	pb.UnimplementedModuleServiceServer
 }
 
@@ -172,18 +175,21 @@ func (m *Module) Start(ctx context.Context) error {
 
 // Close shuts down the module and grpc server.
 func (m *Module) Close(ctx context.Context) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.logger.Info("Shutting down gracefully.")
-	if m.parent != nil {
-		if err := m.parent.Close(ctx); err != nil {
+	m.closeOnce.Do(func() {
+		m.mu.Lock()
+		parent := m.parent
+		m.mu.Unlock()
+		m.logger.Info("Shutting down gracefully.")
+		if parent != nil {
+			if err := parent.Close(ctx); err != nil {
+				m.logger.Error(err)
+			}
+		}
+		if err := m.server.Stop(); err != nil {
 			m.logger.Error(err)
 		}
-	}
-	if err := m.server.Stop(); err != nil {
-		m.logger.Error(err)
-	}
-	m.activeBackgroundWorkers.Wait()
+		m.activeBackgroundWorkers.Wait()
+	})
 }
 
 // GetParentResource returns a resource from the parent robot by name.
@@ -379,6 +385,12 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
+	defer func() {
+		slowWatcherCancel()
+		<-slowWatcher
+	}()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
