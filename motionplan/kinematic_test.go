@@ -88,8 +88,11 @@ func TestForwardKinematics(t *testing.T) {
 	// Test out of bounds. Note that ComputePosition will return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
-	test.That(t, pos, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
+	checkOrien := &spatial.R4AA{Theta: -2.48798057005674, RX: 0.23071941493324336, RY: -0.7100813450467474, RZ: 0.6652465971273088}
+	checkPoint := r3.Vector{X: 258.093975133089884366199840, Y: -258.093975133089884366199840, Z: 360.250000000000113686837722}
+	test.That(t, pos.Orientation().AxisAngles(), test.ShouldResemble, checkOrien)
+	test.That(t, pos.Point(), test.ShouldResemble, checkPoint)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 const derivEqualityEpsilon = 1e-16
