@@ -29,8 +29,12 @@ type capsule struct {
 
 	// These values are generated at geometry creation time and should not be altered by hand
 	// They are stoed here because they are useful and expensive to calculate
-	segA r3.Vector // Proximal endpoint of capsule line segment. First point from `pose` to be surrounded by `radius` of capsule
-	segB r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
+	segA   r3.Vector // Proximal endpoint of capsule line segment. First point from `pose` to be surrounded by `radius` of capsule
+	segB   r3.Vector // Distal endpoint of capsule line segment. Most distal point to be surrounded by `radius` of capsule
+	center r3.Vector // Centerpoint of capsule as an r3.Vector, cached to prevent recalculation
+	capVec r3.Vector // Vector pointing from `center` towards `segB`, cached to prevent recalculation
+
+	rotMatrix *RotationMatrix
 }
 
 // NewCapsule instantiates a new capsule Geometry.
@@ -51,6 +55,7 @@ func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, er
 func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) Geometry {
 	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, -length/2 + radius})).Point()
 	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length/2 - radius})).Point()
+	center := offset.Point()
 
 	return &capsule{
 		pose:   offset,
@@ -59,6 +64,8 @@ func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) 
 		label:  label,
 		segA:   segA,
 		segB:   segB,
+		center: center,
+		capVec: segB.Sub(center),
 	}
 }
 
@@ -104,7 +111,16 @@ func (c *capsule) AlmostEqual(g Geometry) bool {
 
 // Transform premultiplies the capsule pose with a transform, allowing the capsule to be moved in space.
 func (c *capsule) Transform(toPremultiply Pose) Geometry {
-	return newCapsuleWithSegPoints(Compose(toPremultiply, c.pose), c.radius, c.length, c.label)
+	newPose := Compose(toPremultiply, c.pose)
+	return &capsule{
+		pose:   newPose,
+		radius: c.radius,
+		length: c.length,
+		label:  c.label,
+		segA:   Compose(toPremultiply, NewPoseFromPoint(c.segA)).Point(),
+		segB:   Compose(toPremultiply, NewPoseFromPoint(c.segB)).Point(),
+		center: newPose.Point(),
+	}
 }
 
 // ToProto converts the capsule to a Geometry proto message.
@@ -201,6 +217,15 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	return transformPointsToPose(vecList, c.Pose())
 }
 
+// rotationMatrix returns the cached matrix if it exists, and generates it if not.
+func (c *capsule) rotationMatrix() *RotationMatrix {
+	if c.rotMatrix == nil {
+		c.rotMatrix = c.pose.Orientation().RotationMatrix()
+	}
+
+	return c.rotMatrix
+}
+
 func capsuleVsPointDistance(c *capsule, other r3.Vector) float64 {
 	return DistToLineSegment(c.segA, c.segB, other) - c.radius
 }
@@ -214,6 +239,11 @@ func capsuleVsCapsuleDistance(c, other *capsule) float64 {
 }
 
 func capsuleVsBoxDistance(c *capsule, other *box) float64 {
+	// Large amounts of capsule collision code were adopted from `brax`
+	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/colliders.py
+	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/geometry.py
+	// Brax converts boxes to meshes composed of 12 triangles and does collision detection on those.
+	// SAT is faster and easier if we are *NOT* GPU-accelerated. But triangle method is guaranteed accurate at distances.
 	dist := capsuleBoxSeparatingAxisDistance(c, other)
 	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
@@ -242,16 +272,6 @@ func capsuleVsTriangleDistance(c *capsule, other *triangle) float64 {
 	return capPt.Sub(triPt).Norm() - c.radius
 }
 
-func capsuleVsBoxCollision(c *capsule, other *box) bool {
-	// TODO(pl): Large amounts of capsule collision code were adopted from `brax`
-	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/colliders.py
-	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/geometry.py
-	// Brax converts boxes to meshes composed of 12 triangles and does collision detection on those.
-	// We support doing so but it appears that separating axis test is superior so that is what is used here.
-	// The two methods should be fully characterized.
-	return capsuleBoxSeparatingAxis(c, other)
-}
-
 // capsuleInCapsule returns a bool describing if the inner capsule is fully encompassed by the outer capsule.
 func capsuleInCapsule(inner, outer *capsule) bool {
 	return capsuleVsPointDistance(outer, inner.segA) < -inner.radius &&
@@ -268,27 +288,27 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 	return c.segA.Sub(s.pose.Point()).Norm()+c.radius <= s.radius && c.segB.Sub(s.pose.Point()).Norm()+c.radius <= s.radius
 }
 
-// capsuleBoxSeparatingAxis returns immediately as soon as any result is found indicating that the two objects are not in collision.
-func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
-	capCenter := c.pose.Point()
-	centerDist := b.pose.Point().Sub(capCenter)
+// capsuleVsBoxCollision returns immediately as soon as any result is found indicating that the two objects are not in collision.
+func capsuleVsBoxCollision(c *capsule, b *box) bool {
+	centerDist := b.pose.Point().Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
 	if centerDist.Norm()-((c.length/2)+b.boundingSphereR) > CollisionBuffer {
 		return false
 	}
-	rmA := c.pose.Orientation().RotationMatrix()
-	rmB := b.pose.Orientation().RotationMatrix()
+	rmA := c.rotationMatrix()
+	rmB := b.rotationMatrix()
 
 	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
 	// This allows us to check separating axes on a reduced set of projections.
-	capVec := c.segB.Sub(capCenter)
+
+	cutoff := CollisionBuffer + c.radius
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
+		if separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB) > cutoff {
 			return false
 		}
-		if separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
+		if separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB) > cutoff {
 			return false
 		}
 		for j := 0; j < 3; j++ {
@@ -296,7 +316,7 @@ func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest1D(centerDist, crossProductPlane, capVec, b.halfSize, rmB) > CollisionBuffer+c.radius {
+				if separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB) > cutoff {
 					return false
 				}
 			}
@@ -306,26 +326,24 @@ func capsuleBoxSeparatingAxis(c *capsule, b *box) bool {
 }
 
 func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
-	capCenter := c.pose.Point()
-	centerDist := b.pose.Point().Sub(capCenter)
+	centerDist := b.pose.Point().Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
 	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > CollisionBuffer {
 		return boundingSphereDist
 	}
-	rmA := c.pose.Orientation().RotationMatrix()
-	rmB := b.pose.Orientation().RotationMatrix()
+	rmA := c.rotationMatrix()
+	rmB := b.rotationMatrix()
 
 	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
 	// This allows us to check separating axes on a reduced set of projections.
-	capVec := c.segB.Sub(capCenter)
 
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
-		if separation := separatingAxisTest1D(centerDist, rmA.Row(i), capVec, b.halfSize, rmB); separation > max {
+		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB); separation > max {
 			max = separation
 		}
-		if separation := separatingAxisTest1D(centerDist, rmB.Row(i), capVec, b.halfSize, rmB); separation > max {
+		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB); separation > max {
 			max = separation
 		}
 		for j := 0; j < 3; j++ {
@@ -333,7 +351,7 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separation := separatingAxisTest1D(centerDist, crossProductPlane, capVec, b.halfSize, rmB); separation > max {
+				if separation := separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB); separation > max {
 					max = separation
 				}
 			}
@@ -342,7 +360,7 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 	return max - c.radius
 }
 
-func separatingAxisTest1D(positionDelta, plane, capVec r3.Vector, halfSizeB [3]float64, rmB *RotationMatrix) float64 {
+func separatingAxisTest1D(positionDelta, capVec *r3.Vector, plane r3.Vector, halfSizeB [3]float64, rmB *RotationMatrix) float64 {
 	sum := math.Abs(positionDelta.Dot(plane))
 	for i := 0; i < 3; i++ {
 		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
