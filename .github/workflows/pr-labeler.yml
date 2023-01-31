@@ -31,7 +31,7 @@ jobs:
         uses: andymckay/labeler@1.0.4
         with:
           repo-token: ${{ secrets.PR_TOKEN }} 
-          add-labels: "safe to test"
+          add-labels: '"safe to test", viam-org'
       - name: Add Unsafe PR Comment
         if: |
           steps.is_organization_member.outputs.result == 'false'
