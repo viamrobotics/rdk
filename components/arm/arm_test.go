@@ -2,6 +2,9 @@ package arm_test
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -14,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -345,7 +349,177 @@ func TestExtraOptions(t *testing.T) {
 	test.That(t, actualArm1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
 
+func TestOOBArm(t *testing.T) {
+	// instantiate OOB arm
+	limits := make(map[string][]float64)
+	limits["j1"] = []float64{1, -10}
+	limits["j2"] = []float64{1, -10}
+	limits["j3"] = []float64{1, -10}
+
+	jPos := make(map[string]float64)
+	jPos["j1"] = 10
+	jPos["j2"] = 10
+	jPos["j3"] = 10
+
+	actualArm := &mockOOB{
+		Name:      testArmName,
+		JLimits:   limits,
+		JPosition: jPos,
+		Joints:    []string{"j1", "j2", "j3"},
+	}
+
+	t.Run("EndPosition and JointPositions work when OOB", func(t *testing.T) {
+		pose1, err := actualArm.EndPosition(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose1, test.ShouldResemble, pose)
+
+		positions1, err := actualArm.JointPositions(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		actualPositions := []float64{actualArm.JPosition["j1"], actualArm.JPosition["j2"], actualArm.JPosition["j3"]}
+		test.That(t, positions1.GetValues(), test.ShouldResemble, actualPositions)
+	})
+
+	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
+		err := actualArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
+		test.That(t, err.Error(), test.ShouldEqual, "10 needs to be within bounds [-10, 1] before MoveToPosition can work")
+	})
+
+	t.Run("MoveToJointPositions fails if more OOB", func(t *testing.T) {
+		vals := []float64{11, 10, 10}
+		err := actualArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
+		test.That(t, err.Error(), test.ShouldEqual, "11 needs to be within bounds [-10, 10]")
+	})
+
+	t.Run("GoToInputs fails if more OOB", func(t *testing.T) {
+		goal := []referenceframe.Input{{Value: 11}, {Value: 10}, {Value: 10}}
+		err := actualArm.GoToInputs(context.Background(), goal)
+		test.That(t, err.Error(), test.ShouldEqual, "-100 needs to be within bounds [-10, 10]")
+	})
+
+	t.Run("MoveToJointPositions works if more in bounds", func(t *testing.T) {
+		vals := []float64{9, 10, 10}
+		err := actualArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
+		test.That(t, err, test.ShouldBeNil)
+		actualPositions := []float64{actualArm.JPosition["j1"], actualArm.JPosition["j2"], actualArm.JPosition["j3"]}
+		test.That(t, actualPositions, test.ShouldResemble, vals)
+	})
+
+	t.Run("MoveToJointPositions works if completely in bounds", func(t *testing.T) {
+		vals := []float64{-5, -5, -5}
+		err := actualArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
+		test.That(t, err, test.ShouldBeNil)
+		actualPositions := []float64{actualArm.JPosition["j1"], actualArm.JPosition["j2"], actualArm.JPosition["j3"]}
+		test.That(t, actualPositions, test.ShouldResemble, vals)
+	})
+
+	t.Run("MoveToJointPositions fails if causes OOB from IB", func(t *testing.T) {
+		vals := []float64{-15, -15, -15}
+		err := actualArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
+		test.That(t, err.Error(), test.ShouldEqual, "-15 needs to be within bounds [-10, 1]")
+	})
+
+	t.Run("MoveToPosition works when IB", func(t *testing.T) {
+		err := actualArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("GoToInputs works when IB", func(t *testing.T) {
+		goal := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+		err := actualArm.GoToInputs(context.Background(), goal)
+		test.That(t, err, test.ShouldBeNil)
+		vals := []float64{0, 0, 0}
+		actualPositions := []float64{actualArm.JPosition["j1"], actualArm.JPosition["j2"], actualArm.JPosition["j3"]}
+		test.That(t, actualPositions, test.ShouldResemble, vals)
+	})
+}
+
 var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+
+type mockOOB struct {
+	arm.Arm   // should this be arm.Arm?
+	Name      string
+	JLimits   map[string][]float64
+	JPosition map[string]float64
+	Joints    []string
+}
+
+func (m *mockOOB) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	return pose, nil
+}
+
+func (m *mockOOB) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	positionList := []float64{m.JPosition["j1"], m.JPosition["j2"], m.JPosition["j3"]}
+	positions := pb.JointPositions{
+		Values: positionList,
+	}
+	return &positions, nil
+}
+
+func (m *mockOOB) MoveToPosition(
+	ctx context.Context,
+	pose spatialmath.Pose,
+	worldState *referenceframe.WorldState,
+	extra map[string]interface{},
+) error {
+	for jName := range m.JLimits {
+		max := m.JLimits[jName][0]
+		min := m.JLimits[jName][1]
+		currPosition := m.JPosition[jName]
+		if currPosition > max || currPosition < min {
+			return fmt.Errorf("%v needs to be within bounds [%v, %v] before MoveToPosition can work", currPosition, min, max)
+		}
+	}
+	return nil
+}
+
+func (m *mockOOB) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := m.checkDesiredJointPositions(positionDegs.Values); err != nil {
+		return err
+	}
+	moveTo := positionDegs.Values
+	m.JPosition["j1"] = moveTo[0]
+	m.JPosition["j2"] = moveTo[1]
+	m.JPosition["j3"] = moveTo[2]
+	return nil
+}
+
+func (m *mockOOB) checkDesiredJointPositions(desiredJoints []float64) error {
+	positions := []float64{m.JPosition["j1"], m.JPosition["j2"], m.JPosition["j3"]}
+	for i, val := range desiredJoints {
+		name := strings.Join([]string{"j", strconv.Itoa(i + 1)}, "")
+		limits := m.JLimits[name]
+		max := limits[0]
+		min := limits[1]
+		currPosition := positions[i]
+		if currPosition > max {
+			max = currPosition
+		} else if currPosition < min {
+			min = currPosition
+		}
+		if val > max || val < min {
+			return fmt.Errorf("%v needs to be within bounds [%v, %v]", val, min, max)
+		}
+	}
+	return nil
+}
+
+func (m *mockOOB) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	var vals []float64
+	x := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+	if x[0] == goal[0] && x[1] == goal[1] && x[2] == goal[2] {
+		vals = []float64{0, 0, 0}
+	} else {
+		vals = []float64{-100, -100, -100}
+	}
+	if err := m.checkDesiredJointPositions(vals); err != nil {
+		return err
+	}
+	m.JPosition["j1"] = vals[0]
+	m.JPosition["j2"] = vals[1]
+	m.JPosition["j3"] = vals[2]
+	return nil
+}
 
 type mock struct {
 	arm.Arm
