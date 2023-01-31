@@ -33,6 +33,21 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// This is an implementation of the Arm API for Trossen arm models
+// vx300s and wx250s ONLY (these codenames can be found at https://docs.trossenrobotics.com/interbotix_xsarms_docs/)
+// Specifications for vx300s (ViperX-300 6DOF):
+// https://docs.trossenrobotics.com/interbotix_xsarms_docs/specifications/vx300s.html
+// Specifications for wx250s (WidowX-250 6DOF):
+// https://docs.trossenrobotics.com/interbotix_xsarms_docs/specifications/wx250s.html
+
+const servoCount = 9
+
+// TrossenGripperOpen is the command string for opening the gripper
+const TrossenGripperOpen = "open"
+
+// TrossenGripperClose is the command string for closing the gripper
+const TrossenGripperClose = "grab"
+
 var (
 	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
 	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
@@ -60,7 +75,7 @@ var OffAngles = map[string]float64{
 
 // Arm TODO.
 type Arm struct {
-	generic.Unimplemented
+	generic.Generic
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
@@ -100,7 +115,7 @@ func getPortMutex(port string) *sync.Mutex {
 type AttrConfig struct {
 	UsbPort       string `json:"serial_path"`
 	BaudRate      int    `json:"serial_baud_rate"`
-	ArmServoCount int    `json:"arm_servo_count"`
+	ArmServoCount int    `json:"arm_servo_count,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -110,9 +125,6 @@ func (config *AttrConfig) Validate(path string) error {
 	}
 	if config.BaudRate == 0 {
 		return errors.New("expected nonempty serial_baud_rate")
-	}
-	if config.ArmServoCount == 0 {
-		return errors.New("expected nonempty arm_servo_count")
 	}
 
 	return nil
@@ -157,7 +169,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		return nil, rdkutils.NewUnexpectedTypeError(attributes, cfg.ConvertedAttributes)
 	}
 	usbPort := attributes.UsbPort
-	servos, err := findServos(usbPort, attributes.BaudRate, attributes.ArmServoCount)
+	servos, err := findServos(usbPort, attributes.BaudRate)
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +187,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 			"Forearm_rot": {servos[5]},
 			"Wrist":       {servos[6]},
 			"Wrist_rot":   {servos[7]},
+			"Gripper":     {servos[8]},
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
@@ -237,6 +250,83 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 	}
 
 	return &pb.JointPositions{Values: positions}, nil
+}
+
+// DoCommand handles incoming gripper requests
+func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	name, ok := cmd["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' value")
+	}
+	switch name {
+	case TrossenGripperClose:
+		grabbed, err := a.grab(ctx)
+		return map[string]interface{}{"grabbed": grabbed}, err
+	case TrossenGripperOpen:
+		return nil, a.open(ctx)
+	default:
+		return nil, errors.Errorf("no such command: %s", name)
+	}
+}
+
+// Opens the gripper. Accessible via DoCommand and called by the
+// Trossen gripper implementation (through DoCommand)
+func (a *Arm) open(ctx context.Context) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
+	err := a.Joints["Gripper"][0].SetGoalPWM(150)
+	if err != nil {
+		return err
+	}
+
+	// We don't want to over-open
+	atPos := false
+	for !atPos {
+		var pos int
+		pos, err = a.Joints["Gripper"][0].PresentPosition()
+		if err != nil {
+			return err
+		}
+		if pos < 2800 {
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+				return ctx.Err()
+			}
+		} else {
+			atPos = true
+		}
+	}
+	err = a.Joints["Gripper"][0].SetGoalPWM(0)
+	return err
+}
+
+// Closes the gripper. Accessible via DoCommand and called by the
+// Trossen gripper implementation (through DoCommand)
+func (a *Arm) grab(ctx context.Context) (bool, error) {
+	_, done := a.opMgr.New(ctx)
+	defer done()
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
+	err := a.Joints["Gripper"][0].SetGoalPWM(-350)
+	if err != nil {
+		return false, err
+	}
+	err = servo.WaitForMovementVar(a.Joints["Gripper"][0])
+	if err != nil {
+		return false, err
+	}
+	pos, err := a.Joints["Gripper"][0].PresentPosition()
+	if err != nil {
+		return false, err
+	}
+	didGrab := true
+
+	// If servo position is less than 1500, it's closed and we grabbed nothing
+	if pos < 1500 {
+		didGrab = false
+	}
+	return didGrab, nil
 }
 
 // Stop is unimplemented for trossen.
@@ -532,12 +622,9 @@ func setServoDefaults(newServo *servo.Servo) error {
 
 // findServos finds the specified number of Dynamixel servos on the specified USB port
 // we are going to hardcode some USB parameters that we will literally never want to change.
-func findServos(usbPort string, baudRate, armServoCount int) ([]*servo.Servo, error) {
+func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 	if baudRate == 0 {
 		return nil, errors.New("non-zero serial_baud_rate expected")
-	}
-	if armServoCount == 0 {
-		return nil, errors.New("non-zero arm_servo_coun expected")
 	}
 
 	options := serial.OpenOptions{
@@ -559,7 +646,7 @@ func findServos(usbPort string, baudRate, armServoCount int) ([]*servo.Servo, er
 	network := network.New(serial)
 
 	// By default, Dynamixel servos come 1-indexed out of the box because reasons
-	for i := 1; i <= armServoCount; i++ {
+	for i := 1; i <= servoCount; i++ {
 		// Get model ID of each servo
 		newServo, err := s_model.New(network, i)
 		if err != nil {
