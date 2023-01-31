@@ -113,9 +113,11 @@ func getPortMutex(port string) *sync.Mutex {
 
 // AttrConfig is used for converting Arm config attributes.
 type AttrConfig struct {
-	UsbPort       string `json:"serial_path"`
-	BaudRate      int    `json:"serial_baud_rate"`
-	ArmServoCount int    `json:"arm_servo_count,omitempty"`
+	UsbPort  string `json:"serial_path"`
+	BaudRate int    `json:"serial_baud_rate"`
+	// NOTE: ArmServoCount is currently unused because both
+	// supported arms are 9 servo arms - GV
+	ArmServoCount int `json:"arm_servo_count,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
