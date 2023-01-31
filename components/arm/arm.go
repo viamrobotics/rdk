@@ -221,25 +221,12 @@ func (r *reconfigurableArm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	model := r.actual.ModelFrame()
-	joints, err := r.actual.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	// check that joint positions are not out of bounds
-	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
-		return err
-	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToPosition(ctx, pose, worldState, extra)
 }
 
 func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error {
-	// check that joint positions are not out of bounds
-	if err := checkDesiredJointPositions(ctx, r.actual, positionDegs.Values); err != nil {
-		return err
-	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToJointPositions(ctx, positionDegs, extra)
@@ -270,12 +257,6 @@ func (r *reconfigurableArm) CurrentInputs(ctx context.Context) ([]referenceframe
 }
 
 func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	model := r.actual.ModelFrame()
-	positionDegs := model.ProtobufFromInput(goal)
-	if err := checkDesiredJointPositions(ctx, r.actual, positionDegs.Values); err != nil {
-		return err
-	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GoToInputs(ctx, goal)
@@ -436,9 +417,9 @@ func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Inpu
 	return nil
 }
 
-// checkDesiredJointPositions validates that the desired joint positions either bring the joint back
+// CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
 // in bounds or do not move the joint more out of bounds.
-func checkDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []float64) error {
+func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []float64) error {
 	currentJointPos, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return err

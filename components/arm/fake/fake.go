@@ -136,8 +136,13 @@ func (a *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
+	model := a.ModelFrame()
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
+		return err
+	}
+	// check that joint positions are not out of bounds
+	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
 		return err
 	}
 	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), nil)
@@ -149,6 +154,9 @@ func (a *Arm) MoveToPosition(
 
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+	if err := arm.CheckDesiredJointPositions(ctx, a, joints.Values); err != nil {
+		return err
+	}
 	inputs := a.model.InputFromProtobuf(joints)
 	pos, err := a.model.Transform(inputs)
 	if err != nil {
@@ -186,7 +194,11 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
+	positionDegs := a.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+		return err
+	}
+	return a.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // Close does nothing.

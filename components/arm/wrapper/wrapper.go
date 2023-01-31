@@ -120,6 +120,15 @@ func (wrapper *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
+	model := wrapper.ModelFrame()
+	joints, err := wrapper.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// check that joint positions are not out of bounds
+	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
+		return err
+	}
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, wrapper.robot, wrapper, pos, worldState)
@@ -127,6 +136,10 @@ func (wrapper *Arm) MoveToPosition(
 
 // MoveToJointPositions sets the joints.
 func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints.Values); err != nil {
+		return err
+	}
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 
@@ -166,5 +179,10 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return wrapper.MoveToJointPositions(ctx, wrapper.model.ProtobufFromInput(goal), nil)
+	// check that joint positions are not out of bounds
+	positionDegs := wrapper.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs.Values); err != nil {
+		return err
+	}
+	return wrapper.MoveToJointPositions(ctx, positionDegs, nil)
 }

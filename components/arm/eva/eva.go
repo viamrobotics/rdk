@@ -158,12 +158,25 @@ func (e *eva) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
+	model := e.ModelFrame()
+	joints, err := e.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// check that joint positions are not out of bounds
+	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
+		return err
+	}
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.robot, e, pos, worldState)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions.Values); err != nil {
+		return err
+	}
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 
@@ -392,7 +405,11 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
+	positionDegs := e.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs.Values); err != nil {
+		return err
+	}
+	return e.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // Model returns the kinematics model of the eva arm, also has all Frame information.
