@@ -19,7 +19,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20230120214506-446e2f5ee348
-	github.com/edaniels/gostream v0.0.0-20230110151222-0786fc09b473
+	github.com/edaniels/gostream v0.0.0-20230130232608-8603743b5579
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
