@@ -115,9 +115,8 @@ const selectCameraView = () => {
     viewCamera(false);
     emit('selected-camera-view', selectedInterval);
     return;
-  } else {
-    clearStreamContainer(props.cameraName, 'img');
   }
+  clearStreamContainer(props.cameraName, 'img');
 
   viewCamera(true);
 };
@@ -126,7 +125,7 @@ const toggleExpand = () => {
   camera = !camera;
 
   emit('clear-interval');
-  
+
   if (camera) {
     selectCameraView();
   } else {
