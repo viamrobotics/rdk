@@ -235,7 +235,7 @@ func TestClientModel(t *testing.T) {
 	model, err := referenceframe.UnmarshalModelJSON([]byte(json), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// creat inject Robot
+	// create inject Robot
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
