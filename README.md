@@ -90,6 +90,28 @@ See documentation in [Direct Remote Control](./web/cmd/directremotecontrol/main.
 We run [LicenseFinder](https://github.com/pivotal/LicenseFinder) in CI to verify 3rd-party libraries have approved software licenses.
 If you add a 3rd-party library to this project, please run `make license-check` to verify that it can be used.
 
+For maintainers, here is how to make some common license policy changes:
+
+#### Permit a new license (e.g. MIT): 
+https://github.com/pivotal/LicenseFinder#permitting-licenses
+```
+license_finder permitted_licenses add MIT
+```
+
+#### Associate a license with a dependency that is not automatically detected or incorrect:
+https://github.com/pivotal/LicenseFinder#setting-licenses
+```
+license_finder licenses add my_new_dependency MIT
+```
+
+#### Approve a dependency outright - please include a reason if you do this!
+https://github.com/pivotal/LicenseFinder#approving-dependencies
+```
+license_finder approvals add my_new_dependency --why="valid reason"
+```
+
+Please refer to the README at https://github.com/pivotal/LicenseFinder for information on how to make other license policy changes.
+
 ### Windows Support (Experimental)
 
 Windows 10 22H2 and up.

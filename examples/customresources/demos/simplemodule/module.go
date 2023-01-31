@@ -19,7 +19,8 @@ import (
 
 	"go.viam.com/utils"
 )
-var myModel = resource.NewModel("acme", "demo","mycounter")
+
+var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("SimpleModule"))
@@ -44,6 +45,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
+
 	// This will block (leaving the module running) until the context is cancelled.
 	// The utils.ContextualMain catches OS signals and will cancel our context for us when one is sent for shutdown/termination.
 	<-ctx.Done()

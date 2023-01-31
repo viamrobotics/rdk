@@ -154,10 +154,15 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	}
 	cancel()
 
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
+		ctx, 90*time.Second, "server is taking a while to shutdown", s.logger)
+
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
 		s.logger.Errorw("error serving web", "error", err)
 	}
+	slowWatcherCancel()
+	<-slowWatcher
 
 	return err
 }
