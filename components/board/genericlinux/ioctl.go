@@ -6,6 +6,7 @@ package genericlinux
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"sync"
 	"syscall"
@@ -130,7 +131,7 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
 func (pin *ioctlPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return 0.0, errors.New("PWM stuff is not supported on ioctl pins yet")
+	return math.NaN, errors.New("PWM stuff is not supported on ioctl pins yet")
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
