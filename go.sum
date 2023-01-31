@@ -319,6 +319,8 @@ github.com/edaniels/golog v0.0.0-20230120214506-446e2f5ee348 h1:BC0Sx/x4HdIqPR26
 github.com/edaniels/golog v0.0.0-20230120214506-446e2f5ee348/go.mod h1:Ms3gOPiAEPRrgN3kBOF8YIkT2JEXxPFk/HBx/FAkmgA=
 github.com/edaniels/gostream v0.0.0-20230110151222-0786fc09b473 h1:rqhhHecKXNQiScJGgVEiHmOITM6NVK5pBd88nuyZzas=
 github.com/edaniels/gostream v0.0.0-20230110151222-0786fc09b473/go.mod h1:gjWpPsRBEIMkxtETvJgsbh6tjGHWa/KWE66xrHp+wsM=
+github.com/edaniels/gostream v0.0.0-20230130232608-8603743b5579 h1:mknqpki1PrDa+h+KygJ50B3Mo+UqgZ3xXN8CP4abexs=
+github.com/edaniels/gostream v0.0.0-20230130232608-8603743b5579/go.mod h1:gjWpPsRBEIMkxtETvJgsbh6tjGHWa/KWE66xrHp+wsM=
 github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd h1:W6Zlh2ja8A5vljn17Ix/gZhaUbYMFKAuBjc4t9nma7U=
 github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd/go.mod h1:CibiLtefSZOd0smxazen6pzvjNK3HrvgGojYOqC3/4Q=
 github.com/edaniels/zeroconf v1.0.4 h1:XjP6+FRg/2R7+MPvEXmaCTrdUbvhyhGSjxtovC4hXCg=
