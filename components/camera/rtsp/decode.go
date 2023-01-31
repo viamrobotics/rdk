@@ -7,6 +7,7 @@ import (
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/pion/rtp"
+	"github.com/pkg/errors"
 )
 
 type decoder func(pkt *rtp.Packet) (image.Image, error)
@@ -18,7 +19,7 @@ func mjpegDecoding() (*format.MJPEG, decoder) {
 	mjpegDecoder := func(pkt *rtp.Packet) (image.Image, error) {
 		encoded, _, err := rtpDec.Decode(pkt)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "rtp to mjpeg decoding failed")
 		}
 		return jpeg.Decode(bytes.NewReader(encoded))
 	}

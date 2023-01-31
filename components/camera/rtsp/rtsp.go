@@ -5,7 +5,6 @@ import (
 	"context"
 	"image"
 	"io"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -74,8 +73,9 @@ type Attrs struct {
 
 // Validate checks to see if the attributes of the model are valid.
 func (at *Attrs) Validate() error {
-	if prefix := strings.HasPrefix(at.Address, "rtsp://"); !prefix {
-		return errors.New(`rtsp_address must begin with "rtsp://"`)
+	_, err := url.Parse(at.Address)
+	if err != nil {
+		return err
 	}
 	if err := at.IntrinsicParams.CheckValid(); err != nil {
 		return err
@@ -113,6 +113,7 @@ func (rc *rtspCamera) Close(ctx context.Context) error {
 func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 	rc.activeBackgroundWorkers.Add(1)
 	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 	goutils.ManagedGo(func() {
 		for {
 			if ok := goutils.SelectContextOrWaitChan(rc.cancelCtx, ticker.C); ok {
@@ -145,6 +146,9 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 
 // reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
 func (rc *rtspCamera) reconnectClient() (err error) {
+	if rc == nil {
+		return errors.New("rtspCamera is nil")
+	}
 	if rc.client != nil {
 		err := rc.client.Close()
 		if err != nil {
