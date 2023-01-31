@@ -31,7 +31,7 @@ var (
 
 // AttrConfig is the config for a trossen gripper. WARNING: These
 // attributes no longer do anything and should be removed in a
-// later commit - GV
+// later commit - GV.
 type AttrConfig struct {
 	SerialPath string `json:"serial_path,omitempty"`
 	BaudRate   int    `json:"serial_baud_rate,omitempty"`
@@ -49,7 +49,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
-			return newGripper(attr, logger, deps)
+			return newGripper(logger, deps)
 		},
 	})
 
@@ -65,7 +65,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
-			return newGripper(attr, logger, deps)
+			return newGripper(logger, deps)
 		},
 	})
 
@@ -83,7 +83,7 @@ type Gripper struct {
 }
 
 // newGripper TODO.
-func newGripper(attributes *AttrConfig, logger golog.Logger, deps registry.Dependencies) (gripper.LocalGripper, error) {
+func newGripper(logger golog.Logger, deps registry.Dependencies) (gripper.LocalGripper, error) {
 	var _arm arm.LocalArm
 	// TODO: an arm name should be specified for the gripper as a configuration
 	// attribute in a future commit. This is a breaking change that needs to be
