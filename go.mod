@@ -258,6 +258,7 @@ require (
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect
 	github.com/mwitkow/go-proto-validators v0.2.0 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect

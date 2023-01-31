@@ -7,52 +7,17 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
 	"sync"
-	"syscall"
-	"unsafe"
 
+	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
-	"golang.org/x/sys/unix"
 
 	"go.viam.com/rdk/components/board"
 )
 
-const (
-	gpioGetLineHandleIoctl       = 0xc16cb403
-	gpioHandleGetLineValuesIoctl = 0xc040b408
-
-	gpioHandleRequestInput  = 1 << 0
-	gpioHandleRequestOutput = 1 << 1
-)
-
-func ioctl(fd, request, data uintptr) error {
-	_, _, err := unix.Syscall(unix.SYS_IOCTL, fd, request, data)
-	if err.Error() == "errno 0" {
-		// If errno is 0, there was no error, so ignore the (lack of) problem.
-		return nil
-	}
-	return err
-}
-
-// gpioHandleRequest is a struct to give to ioctl when configuring a GPIO pin.
-type gpioHandleRequest struct {
-	LineOffsets   [64]uint32
-	Flags         uint32
-	DefaultValues [64]byte
-	ConsumerLabel [32]byte
-	Lines         uint32
-	Fd            int32
-}
-
-// gpioHandleData is a struct to give to ioctl when reading the state of an input GPIO pin.
-type gpioHandleData struct {
-	Values [64]uint8
-}
-
 type ioctlPin struct {
-	// These values should both be considered immutable. The mutex is only here so that the ioctl
-	// calls don't have race conditions.
+	// These values should both be considered immutable. The mutex is only here so that the use of
+	// the multiple calls to the gpio package don't have race conditions.
 	devicePath string
 	offset     uint32
 	mu         sync.Mutex
@@ -70,26 +35,18 @@ func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]inte
 		value = 0
 	}
 
-	devFile, err := os.Open(pin.devicePath)
+	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
 		return err
 	}
-	defer devFile.Close()
+	defer chip.Close()
 
-	request := gpioHandleRequest{
-		LineOffsets:   [64]uint32{pin.offset},
-		Flags:         gpioHandleRequestOutput,
-		DefaultValues: [64]byte{value},
-		ConsumerLabel: [32]byte{},
-		Lines:         1,
-		Fd:            0,
-	}
-
-	err = ioctl(devFile.Fd(), gpioGetLineHandleIoctl, uintptr(unsafe.Pointer(&request)))
+	line, err := chip.OpenLine(pin.offset, value, gpio.Output, "viam-gpio")
 	if err != nil {
 		return err
 	}
-	syscall.Close(int(request.Fd))
+	defer line.Close()
+
 	return nil
 }
 
@@ -98,40 +55,30 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	devFile, err := os.Open(pin.devicePath)
+	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
 		return false, err
 	}
-	defer devFile.Close()
+	defer chip.Close()
 
-	request := gpioHandleRequest{
-		LineOffsets:   [64]uint32{pin.offset},
-		Flags:         gpioHandleRequestInput,
-		DefaultValues: [64]byte{},
-		ConsumerLabel: [32]byte{},
-		Lines:         1,
-		Fd:            0,
-	}
+	line, err := chip.OpenLine(pin.offset, 0, gpio.Input, "viam-gpio")
+    if err != nil {
+        return false, err
+    }
+    defer line.Close()
 
-	err = ioctl(devFile.Fd(), gpioGetLineHandleIoctl, uintptr(unsafe.Pointer(&request)))
-	if err != nil {
-		return false, err
-	}
-	defer syscall.Close(int(request.Fd))
-
-	readRequest := gpioHandleData{Values: [64]uint8{}}
-	err = ioctl(uintptr(request.Fd), gpioHandleGetLineValuesIoctl,
-		uintptr(unsafe.Pointer(&readRequest)))
+	value, err := line.Value()
 	if err != nil {
 		return false, err
 	}
 
-	return (readRequest.Values[0] != 0), nil
+	// We'd expect value to be either 0 or 1, but any non-zero value should be considered high.
+	return (value != 0), nil
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
 func (pin *ioctlPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return math.NaN, errors.New("PWM stuff is not supported on ioctl pins yet")
+	return math.NaN(), errors.New("PWM stuff is not supported on ioctl pins yet")
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
