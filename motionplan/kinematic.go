@@ -25,7 +25,6 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (spa
 	}
 
 	pose, err := model.Transform(model.InputFromProtobuf(joints))
-	// add comment here about this error check
 	if err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString) {
 		return nil, err
 	}
