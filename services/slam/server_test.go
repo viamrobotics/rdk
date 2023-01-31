@@ -39,7 +39,7 @@ func TestServer(t *testing.T) {
 	slamServer := slam.NewServer(injectSubtypeSvc)
 
 	t.Run("working get position functions", func(t *testing.T) {
-		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+		pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
 		var extraOptions map[string]interface{}
@@ -62,7 +62,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("working get map function", func(t *testing.T) {
-		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+		pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 		pcSucc := &vision.Object{}
 		pcSucc.PointCloud = pointcloud.New()
@@ -105,20 +105,6 @@ func TestServer(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 	})
 
-	t.Run("working get internal state functions", func(t *testing.T) {
-		internalStateSucc := []byte{1, 2, 3, 4}
-		injectSvc.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
-			return internalStateSucc, nil
-		}
-
-		req := &pb.GetInternalStateRequest{
-			Name: testSlamServiceName,
-		}
-		respInternalState, err := slamServer.GetInternalState(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, respInternalState.GetInternalState(), test.ShouldResemble, internalStateSucc)
-	})
-
 	t.Run("failing get position function", func(t *testing.T) {
 		injectSvc.PositionFunc = func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 			return nil, errors.New("failure to get position")
@@ -133,7 +119,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing get map function", func(t *testing.T) {
-		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+		pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 
 		injectSvc.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 			include bool, extra map[string]interface{},
@@ -147,19 +133,6 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	t.Run("failing get internal state function", func(t *testing.T) {
-		injectSvc.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
-			return nil, errors.New("failure to get internal state")
-		}
-
-		req := &pb.GetInternalStateRequest{
-			Name: testSlamServiceName,
-		}
-		resp, err := slamServer.GetInternalState(context.Background(), req)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
-		test.That(t, resp, test.ShouldBeNil)
-	})
-
 	resourceMap = map[resource.Name]interface{}{
 		slam.Named(testSlamServiceName): "not a frame system",
 	}
@@ -170,19 +143,14 @@ func TestServer(t *testing.T) {
 		improperImplErr := slam.NewUnimplementedInterfaceError("string")
 
 		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
-		getPositionResp, err := slamServer.GetPosition(context.Background(), getPositionReq)
-		test.That(t, getPositionResp, test.ShouldBeNil)
+		getModeResp, err := slamServer.GetPosition(context.Background(), getPositionReq)
+		test.That(t, getModeResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
 		getMapReq := &pb.GetMapRequest{Name: testSlamServiceName}
-		getMapResp, err := slamServer.GetMap(context.Background(), getMapReq)
-		test.That(t, getMapResp, test.ShouldBeNil)
+		setModeResp, err := slamServer.GetMap(context.Background(), getMapReq)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
-
-		getInternalStateReq := &pb.GetInternalStateRequest{Name: testSlamServiceName}
-		getInternalStateResp, err := slamServer.GetInternalState(context.Background(), getInternalStateReq)
-		test.That(t, getInternalStateResp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
+		test.That(t, setModeResp, test.ShouldBeNil)
 	})
 
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
@@ -203,7 +171,7 @@ func TestServer(t *testing.T) {
 		injectSubtypeSvc, err := subtype.New(resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 		slamServer = slam.NewServer(injectSubtypeSvc)
-		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+		pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 		injectSvc.PositionFunc = func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 			return pSucc, nil

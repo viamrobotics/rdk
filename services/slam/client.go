@@ -129,20 +129,3 @@ func (c *client) GetMap(
 
 	return mimeType, imageData, vObject, nil
 }
-
-// GetInternalState creates a request, calls the slam service GetInternalState, and parses the response into bytes.
-func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalState")
-	defer span.End()
-
-	req := &pb.GetInternalStateRequest{Name: name}
-
-	resp, err := c.client.GetInternalState(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	internalState := resp.GetInternalState()
-
-	return internalState, nil
-}
