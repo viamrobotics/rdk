@@ -337,6 +337,15 @@ func (ua *URArm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
+	model := ua.ModelFrame()
+	joints, err := ua.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// check that joint positions are not out of bounds
+	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
+		return err
+	}
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -355,6 +364,10 @@ func (ua *URArm) MoveToPosition(
 
 // MoveToJointPositions TODO.
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, ua, joints.Values); err != nil {
+		return err
+	}
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
@@ -469,7 +482,12 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
+	// check that joint positions are not out of bounds
+	positionDegs := ua.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {
+		return err
+	}
+	return ua.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // AddToLog TODO.

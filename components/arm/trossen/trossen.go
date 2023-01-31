@@ -199,6 +199,15 @@ func (a *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
+	model := a.ModelFrame()
+	joints, err := a.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// check that joint positions are not out of bounds
+	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
+		return err
+	}
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
@@ -206,6 +215,10 @@ func (a *Arm) MoveToPosition(
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, a, jp.Values); err != nil {
+		return err
+	}
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	if len(jp.Values) > len(a.JointOrder()) {
@@ -448,7 +461,11 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
+	positionDegs := a.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+		return err
+	}
+	return a.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.
