@@ -24,7 +24,7 @@ type ioctlPin struct {
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) error {
+func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) (err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -39,19 +39,19 @@ func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]inte
 	if err != nil {
 		return err
 	}
-	defer chip.Close()
+	defer func() {err = chip.Close()}()
 
 	line, err := chip.OpenLine(pin.offset, value, gpio.Output, "viam-gpio")
 	if err != nil {
 		return err
 	}
-	defer line.Close()
+	defer func() {err = line.Close()}()
 
 	return nil
 }
 
 // This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -59,13 +59,13 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (boo
 	if err != nil {
 		return false, err
 	}
-	defer chip.Close()
+	defer func() {err = chip.Close()}()
 
 	line, err := chip.OpenLine(pin.offset, 0, gpio.Input, "viam-gpio")
     if err != nil {
         return false, err
     }
-    defer line.Close()
+	defer func() {err = line.Close()}()
 
 	value, err := line.Value()
 	if err != nil {
