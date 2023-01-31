@@ -1,7 +1,7 @@
 package jetson
 
 import (
-	"go.viam.com/rdk/components/board/commonsysfs"
+	"go.viam.com/rdk/components/board/genericlinux"
 )
 
 const (
@@ -15,9 +15,9 @@ const (
 	jetsonOrin     = "jetson_orin"
 )
 
-var boardInfoMappings = map[string]commonsysfs.BoardInformation{
+var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	claraAGXXavier: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -68,7 +68,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	},
 
 	jetsonNX: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{224: 148, 169: 118}, map[int]string{169: "PS.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 157, 169: 127}, map[int]string{169: "PT.05"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP5_SCLK", "", -1},
@@ -120,7 +120,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonXavier: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -187,7 +187,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	},
 
 	jetsonTX2NX: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 			{map[int]int{64: 28, 47: 23}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
 			{map[int]int{192: 72, 140: 62}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP1_SCLK", "", -1},
@@ -216,7 +216,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonTX2: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "PAUDIO_MCLK", "AUD_MCLK", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{192: 146, 140: 117}, map[int]string{140: "PT.02"}, "2200000.gpio", 11, 17, "PUART0_RTS", "UART1_RTS", "", -1},
@@ -295,7 +295,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonTX1: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "AUDIO_MCLK", "AUD_MCLK", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{-1: 162}, nil, "6000d000.gpio", 11, 17, "UART0_RTS", "UART1_RTS", "", -1},
@@ -328,7 +328,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonNano: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "GPIO9", "AUD_MCLK", "", -1},
 			{map[int]int{-1: 50}, nil, "6000d000.gpio", 11, 17, "UART1_RTS", "UART2_RTS", "", -1},
 			{map[int]int{-1: 79}, nil, "6000d000.gpio", 12, 18, "I2S0_SCLK", "DAP4_SCLK", "", -1},
@@ -361,7 +361,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonOrin: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
