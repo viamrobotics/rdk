@@ -3,8 +3,10 @@ package referenceframe
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
@@ -14,6 +16,9 @@ import (
 
 // World is the string "world", but made into an exported constant.
 const World = "world"
+
+// defaultPointDensity ensures we use the default value specified within the spatialmath package.
+const defaultPointDensity = 0.
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
@@ -306,6 +311,64 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	}
 
 	return newFS, nil
+}
+
+// FrameSystemToPCD takes in a framesystem and returns a map where all elements are
+// the point representation of their geometry type with respect to the world.
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
+	vectorMap := make(map[string][]r3.Vector)
+	geoMap, err := FrameSystemGeometries(system, inputs, logger)
+	if err != nil {
+		return nil, err
+	}
+	for name, geosInFrame := range geoMap {
+		geos := geosInFrame.Geometries()
+		aggregatePoints := []r3.Vector{}
+		for _, g := range geos {
+			asPoints := g.ToPoints(defaultPointDensity)
+			aggregatePoints = append(aggregatePoints, asPoints...)
+		}
+		vectorMap[name] = aggregatePoints
+	}
+	return vectorMap, nil
+}
+
+// FrameSystemGeometries takes in a framesystem and returns a map where all elements
+// are GeometriesInFrame modified to be with respect to the world.
+func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string]*GeometriesInFrame, error) {
+	geoMap := make(map[string]*GeometriesInFrame)
+	for _, name := range system.FrameNames() {
+		currentFrame := system.Frame(name)
+		currentInput := inputs[name]
+		// if currentInput is nil and DoF != 0 we chose to omit the
+		// frame entirely as this would return the frame's geometries
+		// in their home or "zero" position, and not in their
+		// current position.
+		if currentInput == nil && len(currentFrame.DoF()) == 0 {
+			currentInput = []Input{}
+		}
+		if currentInput == nil {
+			logger.Debugf("will not transform %v to be with respect to the world as it had no inputs provided", name)
+			continue
+		}
+		geosInFrame, err := currentFrame.Geometries(currentInput)
+		if err != nil {
+			return nil, err
+		}
+		if len(geosInFrame.Geometries()) > 0 {
+			// the parent of the frame is handled by the Transform method.
+			transformed, err := system.Transform(inputs, geosInFrame, World)
+			if err != nil && strings.Contains(err.Error(), "no positions provided for frame with name") {
+				logger.Debugf("%v, unable to handle the transform for %v", err.Error(), name)
+				continue
+			} else if err != nil {
+				return nil, err
+			}
+			transformedGeo := transformed.(*GeometriesInFrame)
+			geoMap[name] = transformedGeo
+		}
+	}
+	return geoMap, nil
 }
 
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
