@@ -42,10 +42,10 @@ import (
 
 const servoCount = 9
 
-// TrossenGripperOpen is the command string for opening the gripper
+// TrossenGripperOpen is the command string for opening the gripper.
 const TrossenGripperOpen = "open"
 
-// TrossenGripperClose is the command string for closing the gripper
+// TrossenGripperClose is the command string for closing the gripper.
 const TrossenGripperClose = "grab"
 
 var (
@@ -254,7 +254,7 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 	return &pb.JointPositions{Values: positions}, nil
 }
 
-// DoCommand handles incoming gripper requests
+// DoCommand handles incoming gripper requests.
 func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
@@ -272,7 +272,7 @@ func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[st
 }
 
 // Opens the gripper. Accessible via DoCommand and called by the
-// Trossen gripper implementation (through DoCommand)
+// Trossen gripper implementation (through DoCommand).
 func (a *Arm) open(ctx context.Context) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
@@ -304,7 +304,7 @@ func (a *Arm) open(ctx context.Context) error {
 }
 
 // Closes the gripper. Accessible via DoCommand and called by the
-// Trossen gripper implementation (through DoCommand)
+// Trossen gripper implementation (through DoCommand).
 func (a *Arm) grab(ctx context.Context) (bool, error) {
 	_, done := a.opMgr.New(ctx)
 	defer done()
