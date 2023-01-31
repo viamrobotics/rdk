@@ -1,6 +1,7 @@
-// Package commonsysfs implements a sysfs (https://en.wikipedia.org/wiki/Sysfs) based board. This does not provide
-// a board model itself but provides the underlying logic for any sysfs based board.
-package commonsysfs
+// Package genericlinux implements a Linux-based board making heavy use of sysfs
+// (https://en.wikipedia.org/wiki/Sysfs). This does not provide a board model itself but provides
+// the underlying logic for any sysfs based board.
+package genericlinux
 
 import (
 	"context"

@@ -1,6 +1,6 @@
 //go:build !linux
 
-package commonsysfs
+package genericlinux
 
 import (
 	"github.com/pkg/errors"
