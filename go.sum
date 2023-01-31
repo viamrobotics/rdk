@@ -1011,6 +1011,7 @@ github.com/mitchellh/reflectwalk v1.0.0/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx
 github.com/mitchellh/reflectwalk v1.0.1/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
 github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
+github.com/mkch/asserting v0.0.0-20190916092325-c18221b2f2b2 h1:ZuTZrURK+9dqhtVw11exJ65tjbh3DVXj4L5R1KnFAU8=
 github.com/mkch/asserting v0.0.0-20190916092325-c18221b2f2b2/go.mod h1:7QF1TGIJmEibF74aU9YWLLfDOnl4R94hWzpD/zWowbM=
 github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e h1:vSAYdBvTvlYVdoDYYQapVnlPd8Klrk19uHPDy29agsg=
 github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e/go.mod h1:4uOFgu7xPZTSz7NSamkmHD67Y6CdXgK9Lx8Dm0qm1vQ=
