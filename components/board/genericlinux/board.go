@@ -284,7 +284,7 @@ func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
 	return pin, hwPWMSupported, nil
 }
 
-type gpioPin struct {
+type periphGpioPin struct {
 	b              *sysfsBoard
 	pin            gpio.PinIO
 	pinName        string
@@ -301,10 +301,10 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 		return nil, err
 	}
 
-	return gpioPin{b, pin, pinName, hwPWMSupported}, nil
+	return periphGpioPin{b, pin, pinName, hwPWMSupported}, nil
 }
 
-func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+func (gp periphGpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -313,7 +313,7 @@ func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface
 	return gp.set(high)
 }
 
-func (gp gpioPin) set(high bool) error {
+func (gp periphGpioPin) set(high bool) error {
 	l := gpio.Low
 	if high {
 		l = gpio.High
@@ -321,11 +321,11 @@ func (gp gpioPin) set(high bool) error {
 	return gp.pin.Out(l)
 }
 
-func (gp gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (gp periphGpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return gp.pin.Read() == gpio.High, nil
 }
 
-func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (gp periphGpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
@@ -337,14 +337,14 @@ func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float6
 }
 
 // expects to already have lock acquired.
-func (b *sysfsBoard) startSoftwarePWMLoop(gp gpioPin) {
+func (b *sysfsBoard) startSoftwarePWMLoop(gp periphGpioPin) {
 	b.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		b.softwarePWMLoop(b.cancelCtx, gp)
 	}, b.activeBackgroundWorkers.Done)
 }
 
-func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
+func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin) {
 	for {
 		cont := func() bool {
 			b.mu.RLock()
@@ -379,7 +379,7 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 	}
 }
 
-func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (gp periphGpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -408,14 +408,14 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[st
 	return nil
 }
 
-func (gp gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (gp periphGpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
 	return uint(gp.b.pwms[gp.pinName].frequency / physic.Hertz), nil
 }
 
-func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (gp periphGpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
