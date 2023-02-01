@@ -24,4 +24,3 @@ jobs:
         with:
           token: ${{ secrets.NPM_TOKEN }}
           package: ./web/frontend/package.json
-          access: public
