@@ -22,7 +22,7 @@ func TestRegisterBoard(t *testing.T) {
 func TestGenericLinux(t *testing.T) {
 	ctx := context.Background()
 
-	gp1 := &gpioPin{b: &sysfsBoard{
+	gp1 := &periphGpioPin{b: &sysfsBoard{
 		mu:     sync.RWMutex{},
 		logger: golog.NewTestLogger(t),
 	}}
@@ -36,7 +36,7 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	gp2 := &gpioPin{
+	gp2 := &periphGpioPin{
 		b: &sysfsBoard{
 			Unimplemented: generic.Unimplemented{},
 			mu:            sync.RWMutex{},
