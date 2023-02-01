@@ -29,10 +29,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var (
-	model            = resource.NewDefaultModel("rtsp")
-	clientTerminated = liberrors.ErrClientTerminated{}
-)
+var model = resource.NewDefaultModel("rtsp")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
@@ -103,7 +100,7 @@ type rtspCamera struct {
 func (rc *rtspCamera) Close(ctx context.Context) error {
 	rc.cancelFunc()
 	rc.activeBackgroundWorkers.Wait()
-	if err := rc.client.Close(); err != nil && !errors.Is(err, clientTerminated) {
+	if err := rc.client.Close(); err != nil && !errors.Is(err, liberrors.ErrClientTerminated{}) {
 		rc.logger.Infow("error while closing rtsp client:", "error", err)
 	}
 	return nil
@@ -119,18 +116,18 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 			if ok := goutils.SelectContextOrWaitChan(rc.cancelCtx, ticker.C); ok {
 				// use an OPTIONS request to see if the server is still responding to requests
 				res, err := rc.client.Options(rc.u)
-				if err != nil && (errors.Is(err, clientTerminated) ||
+				badState := false
+				if err != nil && (errors.Is(err, liberrors.ErrClientTerminated{}) ||
 					errors.Is(err, io.EOF) ||
 					errors.Is(err, syscall.EPIPE) ||
 					errors.Is(err, syscall.ECONNREFUSED)) {
 					rc.logger.Warnw("The rtsp client encountered an error, trying to reconnect", "url", rc.u, "error", err)
-					if err = rc.reconnectClient(); err != nil {
-						rc.logger.Warnw("cannot reconnect to rtsp server", "error", err)
-					} else {
-						rc.logger.Infow("reconnected to rtsp server", "url", rc.u)
-					}
+					badState = true
 				} else if res != nil && res.StatusCode != base.StatusOK {
 					rc.logger.Warnw("The rtsp server responded with non-OK status", "url", rc.u, "status code", res.StatusCode)
+					badState = true
+				}
+				if badState {
 					if err = rc.reconnectClient(); err != nil {
 						rc.logger.Warnw("cannot reconnect to rtsp server", "error", err)
 					} else {
