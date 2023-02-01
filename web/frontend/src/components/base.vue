@@ -415,6 +415,12 @@ onUnmounted(() => {
                 @input="angle = $event.detail.value"
               />
             </div>
+            <v-button
+              icon="play-circle-filled"
+              variant="success"
+              label="RUN"
+              @click="baseRun()"
+            />
           </div>
 
           <hr class="my-4 border-t border-gray-400"/>
