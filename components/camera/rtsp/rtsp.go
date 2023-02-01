@@ -92,6 +92,7 @@ type rtspCamera struct {
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	gotFirstFrameOnce       bool
+	gotFirstFrame           chan struct{}
 	latestFrame             atomic.Value
 	logger                  golog.Logger
 }
@@ -193,6 +194,7 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 		rc.latestFrame.Store(img)
 		if !rc.gotFirstFrameOnce {
 			rc.gotFirstFrameOnce = true
+			close(rc.gotFirstFrame)
 		}
 	})
 	_, err = rc.client.Play(nil)
@@ -210,9 +212,11 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	if err != nil {
 		return nil, err
 	}
+	gotFirstFrame := make(chan struct{})
 	rtspCam := &rtspCamera{
-		u:      u,
-		logger: logger,
+		u:             u,
+		logger:        logger,
+		gotFirstFrame: gotFirstFrame,
 	}
 	err = rtspCam.reconnectClient()
 	if err != nil {
@@ -226,9 +230,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
 		default:
-			for !rtspCam.gotFirstFrameOnce { // block until you get the first frame
-				continue
-			}
+			<-rtspCam.gotFirstFrame // block until you get the first frame
 		}
 		return rtspCam.latestFrame.Load().(image.Image), func() {}, nil
 	})
