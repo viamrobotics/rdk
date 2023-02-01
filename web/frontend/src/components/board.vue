@@ -1,10 +1,9 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { Client, boardApi } from '@viamrobotics/sdk';
+import { Client, BoardClient, ServiceError } from '@viamrobotics/sdk';
 
 interface Props {
   name: string
@@ -17,6 +16,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const getPin = $ref('');
 const setPin = $ref('');
 const setLevel = $ref('');
@@ -25,86 +25,56 @@ const pwmFrequency = $ref('');
 
 let getPinMessage = $ref('');
 
-const getGPIO = () => {
-  const req = new boardApi.GetGPIORequest();
-  req.setName(props.name);
-  req.setPin(getPin);
-
-  rcLogConditionally(req);
-  props.client.boardService.getGPIO(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    const x = response!.toObject();
-
-    getPinMessage = `Pin: ${getPin} is ${x.high ? 'high' : 'low'}`;
-  });
+const getGPIO = async () => {
+  try {
+    const isHigh = await boardClient.getGPIO(getPin);
+    getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
+  } catch (error) {
+    toast.error((error as ServiceError).message);
+  }
 };
 
-const setGPIO = () => {
-  const req = new boardApi.SetGPIORequest();
-  req.setName(props.name);
-  req.setPin(setPin);
-  req.setHigh(setLevel === 'high');
+const setGPIO = async () => {
 
-  rcLogConditionally(req);
-  props.client.boardService.setGPIO(req, new grpc.Metadata(), displayError);
+  try {
+    await boardClient.setGPIO(setPin, setLevel === 'high');
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const getPWM = () => {
-  const req = new boardApi.PWMRequest();
-  req.setName(props.name);
-  req.setPin(getPin);
-
-  rcLogConditionally(req);
-  props.client.boardService.pWM(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const { dutyCyclePct } = response!.toObject();
-
+const getPWM = async () => {
+  try {
+    const dutyCyclePct = await boardClient.getPWM(getPin);
     getPinMessage = `Pin ${getPin}'s duty cycle is ${dutyCyclePct * 100}%.`;
-  });
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const setPWM = () => {
-  const req = new boardApi.SetPWMRequest();
-  req.setName(props.name);
-  req.setPin(setPin);
-  req.setDutyCyclePct(Number.parseFloat(pwm) / 100);
-
-  rcLogConditionally(req);
-  props.client.boardService.setPWM(req, new grpc.Metadata(), displayError);
+const setPWM = async () => {
+  try {
+    await boardClient.setPWM(setPin, Number.parseFloat(pwm) / 100);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const getPWMFrequency = () => {
-  const req = new boardApi.PWMFrequencyRequest();
-  req.setName(props.name);
-  req.setPin(getPin);
-
-  rcLogConditionally(req);
-  props.client.boardService.pWMFrequency(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const { frequencyHz } = response!.toObject();
-
+const getPWMFrequency = async () => {
+  try {
+    const frequencyHz = await boardClient.getPWMFrequency(getPin);
     getPinMessage = `Pin ${getPin}'s frequency is ${frequencyHz}Hz.`;
-  });
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const setPWMFrequency = () => {
-  const req = new boardApi.SetPWMFrequencyRequest();
-  req.setName(props.name);
-  req.setPin(setPin);
-  req.setFrequencyHz(Number.parseFloat(pwmFrequency));
-
-  rcLogConditionally(req);
-  props.client.boardService.setPWMFrequency(req, new grpc.Metadata(), displayError);
+const setPWMFrequency = async () => {
+  try {
+    await boardClient.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 </script>
