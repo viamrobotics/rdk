@@ -357,9 +357,13 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.
 				return "", nil, errors.Wrap(err, "error getting camera properties for slam service")
 			}
 
-			_, ok = props.DistortionParams.(*transform.BrownConrady)
+			brownConrady, ok := props.DistortionParams.(*transform.BrownConrady)
 			if !ok {
 				return "", nil, errors.New("error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported")
+			}
+			if err := brownConrady.CheckValid(); err != nil {
+				return "", nil, errors.Wrapf(err, "error validating distortion_parameters for slam service")
+
 			}
 		}
 
@@ -569,6 +573,23 @@ func (slamSvc *builtIn) GetMap(
 	}
 
 	return mimeType, imData, vObj, nil
+}
+
+// GetInternalState forwards the request for the SLAM algorithms's internal state. Once a response is received, it is returned
+// to the user.
+func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalState")
+	defer span.End()
+
+	req := &pb.GetInternalStateRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetInternalState(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")
+	}
+
+	internalState := resp.GetInternalState()
+	return internalState, err
 }
 
 // NewBuiltIn returns a new slam service for the given robot.

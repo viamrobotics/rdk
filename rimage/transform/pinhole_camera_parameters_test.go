@@ -2,6 +2,7 @@ package transform
 
 import (
 	"context"
+	"image"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -9,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -206,4 +208,15 @@ func TestGetCameraMatrix(t *testing.T) {
 	test.That(t, intrinsicsK.At(0, 2), test.ShouldEqual, intrinsics.Ppx)
 	test.That(t, intrinsicsK.At(1, 2), test.ShouldEqual, intrinsics.Ppy)
 	test.That(t, intrinsicsK.At(2, 2), test.ShouldEqual, 1)
+}
+
+func TestNilIntrinsics(t *testing.T) {
+	var nilIntrinsics *PinholeCameraIntrinsics
+	test.That(t, func() { nilIntrinsics.CheckValid() }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.GetCameraMatrix() }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.PixelToPoint(0.0, 0.0, 0.0) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.PointToPixel(0.0, 0.0, 0.0) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.ImagePointTo3DPoint(image.Point{}, rimage.Depth(0)) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.RGBDToPointCloud(&rimage.Image{}, &rimage.DepthMap{}) }, test.ShouldNotPanic)
+	test.That(t, func() { nilIntrinsics.PointCloudToRGBD(pointcloud.PointCloud(nil)) }, test.ShouldNotPanic)
 }
