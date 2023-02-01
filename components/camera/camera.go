@@ -228,6 +228,17 @@ func SourceFromCamera(cam Camera) (gostream.VideoSource, error) {
 	if asSrc, ok := cam.(*videoSource); ok {
 		return asSrc.videoSource, nil
 	}
+
+	if asWaitGroup, ok := cam.(*CameraWaitGroup); ok {
+		asAct := utils.UnwrapProxy(asWaitGroup.Cam).(Camera)
+		return SourceFromCamera(asAct)
+	}
+
+	if asReconfigurable, ok := cam.(*reconfigurableCamera); ok {
+		asAct := utils.UnwrapProxy(asReconfigurable).(Camera)
+		return SourceFromCamera(asAct)
+	}
+
 	return nil, errors.Errorf("invalid conversion from %T to %v", cam, "*camera.videoSource")
 }
 

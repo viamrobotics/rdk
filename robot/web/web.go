@@ -627,6 +627,12 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+		if cam, ok := source.(camera.Camera); ok {
+			src, err := camera.SourceFromCamera(cam)
+			if err == nil {
+				source = src
+			}
+		}
 		return webstream.StreamVideoSource(ctxWithJPEGHint, source, stream, opts)
 	})
 }
