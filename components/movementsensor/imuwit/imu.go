@@ -199,57 +199,44 @@ func NewWit(
 
 	portReader := bufio.NewReader(port)
 
-	i.startUpdateLoop(ctx, portReader, logger)
-
-	return &i, nil
-}
-
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
-	var cancelCtx context.Context
-	cancelCtx, imu.cancelFunc = context.WithCancel(ctx)
-	waitCh := make(chan struct{})
-	imu.activeBackgroundWorkers.Add(1)
+	ctx, i.cancelFunc = context.WithCancel(context.Background())
+	i.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer imu.activeBackgroundWorkers.Done()
-		close(waitCh)
+		defer utils.UncheckedErrorFunc(port.Close)
+		defer i.activeBackgroundWorkers.Done()
+
 		for {
-			select {
-			case <-cancelCtx.Done():
+			if ctx.Err() != nil {
 				return
-			default:
 			}
+
 			line, err := portReader.ReadString('U')
-			if err != nil {
-				imu.logger.Errorf("error reading line from port %#v", err)
-			}
 
 			// Randomly sample logging until we have better log level control
 			//nolint:gosec
 			if rand.Intn(100) < 3 {
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
+
 			func() {
-				imu.mu.Lock()
-				defer imu.mu.Unlock()
+				i.mu.Lock()
+				defer i.mu.Unlock()
 
 				if err != nil {
-					imu.lastError = err
-					logger.Error(imu.lastError)
+					i.lastError = err
+					logger.Error(i.lastError)
 				} else {
 					if len(line) != 11 {
 						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
-						imu.numBadReadings++
+						i.numBadReadings++
+						return
 					}
-					imu.lastError = imu.parseWIT(line)
-				}
-
-				if ctx.Err() != nil {
-					return
+					i.lastError = i.parseWIT(line)
 				}
 			}()
 		}
 	})
-	<-waitCh
+	return &i, nil
 }
 
 func scale(a, b byte, r float64) float64 {

@@ -9,13 +9,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/opus"
-	"github.com/edaniels/gostream/codec/x264"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -59,8 +55,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	if argsParsed.Debug {
 		logConfig = golog.NewDebugLoggerConfig()
 	} else {
-		logConfig = golog.NewProductionLoggerConfig()
-		logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		logConfig = golog.NewDevelopmentLoggerConfig()
 	}
 	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
@@ -157,10 +152,15 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	}
 	cancel()
 
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
+		ctx, 90*time.Second, "server is taking a while to shutdown", s.logger)
+
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
 		s.logger.Errorw("error serving web", "error", err)
 	}
+	slowWatcherCancel()
+	<-slowWatcher
 
 	return err
 }
@@ -259,9 +259,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		})
 	}
 
-	var streamConfig gostream.StreamConfig
-	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
-	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
+	streamConfig := makeStreamConfig()
 
 	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
 	if s.args.RevealSensitiveConfigDiffs {
@@ -312,20 +310,22 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					continue
 				}
 				var options weboptions.Options
-				if !diff.NetworkEqual {
+
+				if !diff.NetworkEqual || !diff.MediaEqual {
+					if err := myRobot.StopWeb(); err != nil {
+						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
+						continue
+					}
 					options, err = s.createWebOptions(processedConfig)
 					if err != nil {
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 						continue
 					}
 				}
+
 				myRobot.Reconfigure(ctx, processedConfig)
 
-				if !diff.NetworkEqual {
-					if err := myRobot.StopWeb(); err != nil {
-						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
-						continue
-					}
+				if !diff.NetworkEqual || !diff.MediaEqual {
 					if err := myRobot.StartWeb(ctx, options); err != nil {
 						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}

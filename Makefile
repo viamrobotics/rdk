@@ -89,7 +89,7 @@ server:
 clean-all:
 	git clean -fxd
 
-license:
+license-check:
 	license_finder --npm-options='--prefix web/frontend'
 
 include *.make

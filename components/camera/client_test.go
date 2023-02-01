@@ -237,6 +237,95 @@ func TestClient(t *testing.T) {
 	})
 }
 
+func TestClientProperties(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	server, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera := &inject.Camera{}
+	resources := map[resource.Name]interface{}{camera.Named(testCameraName): injectCamera}
+	svc, err := subtype.New(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	rSubType := registry.ResourceSubtypeLookup(camera.Subtype)
+	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc), test.ShouldBeNil)
+	test.That(t, generic.RegisterService(server, svc), test.ShouldBeNil)
+
+	go test.That(t, server.Serve(listener), test.ShouldBeNil)
+	defer func() { test.That(t, server.Stop(), test.ShouldBeNil) }()
+
+	fakeIntrinsics := &transform.PinholeCameraIntrinsics{
+		Width:  1,
+		Height: 1,
+		Fx:     1,
+		Fy:     1,
+		Ppx:    1,
+		Ppy:    1,
+	}
+	fakeDistortion := &transform.BrownConrady{
+		RadialK1:     1.0,
+		RadialK2:     1.0,
+		RadialK3:     1.0,
+		TangentialP1: 1.0,
+		TangentialP2: 1.0,
+	}
+
+	testCases := []struct {
+		name  string
+		props camera.Properties
+	}{
+		{
+			name: "non-nil properties",
+			props: camera.Properties{
+				SupportsPCD:      true,
+				ImageType:        camera.UnspecifiedStream,
+				IntrinsicParams:  fakeIntrinsics,
+				DistortionParams: fakeDistortion,
+			},
+		}, {
+			name: "nil intrinsic params",
+			props: camera.Properties{
+				SupportsPCD:      true,
+				ImageType:        camera.UnspecifiedStream,
+				IntrinsicParams:  nil,
+				DistortionParams: fakeDistortion,
+			},
+		}, {
+			name: "nil distortion parameters",
+			props: camera.Properties{
+				SupportsPCD:      true,
+				ImageType:        camera.UnspecifiedStream,
+				IntrinsicParams:  fakeIntrinsics,
+				DistortionParams: nil,
+			},
+		}, {
+			name:  "empty properties",
+			props: camera.Properties{},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return testCase.props, nil
+			}
+
+			conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			client := camera.NewClientFromConn(context.Background(), conn, testCameraName, logger)
+			actualProps, err := client.Properties(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, actualProps, test.ShouldResemble, testCase.props)
+
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		})
+	}
+}
+
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
