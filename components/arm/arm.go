@@ -172,11 +172,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	endPosition, err := arm.EndPosition(ctx, nil)
+	jointPositions, err := arm.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	jointPositions, err := arm.JointPositions(ctx, nil)
+	model := arm.ModelFrame()
+	endPosition, err := motionplan.ComputePosition(model, jointPositions)
 	if err != nil {
 		return nil, err
 	}
