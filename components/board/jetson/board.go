@@ -1,4 +1,4 @@
-// Package jetson implements a jetson based board.
+// Package jetson implements a jetson-based board.
 package jetson
 
 import (
@@ -22,5 +22,5 @@ func init() {
 		golog.Global().Debugw("error getting jetson GPIO board mapping", "error", err)
 	}
 
-	genericlinux.RegisterBoard(modelName, gpioMappings, true)
+	genericlinux.RegisterBoard(modelName, gpioMappings, false)
 }
