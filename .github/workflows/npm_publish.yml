@@ -19,11 +19,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build
-        run: |
-          sudo chown -R testbot .
-          sudo -u testbot bash -lc 'make build'
-
       - name: Publish
         uses: JS-DevTools/npm-publish@v1
         with:
