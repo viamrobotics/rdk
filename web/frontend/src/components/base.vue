@@ -1,9 +1,8 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted } from 'vue';
 import { onClickOutside } from '@vueuse/core';
-import { Client, type ServiceError, baseApi, commonApi, StreamClient } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi, StreamClient } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -31,6 +30,7 @@ type MovementModes = 'Straight' | 'Spin'
 type SpinTypes = 'Clockwise' | 'Counterclockwise'
 type Directions = 'Forwards' | 'Backwards'
 
+const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const root = $ref<HTMLElement>();
 
 let selectedMode = $ref<Tabs>('Keyboard');
@@ -87,15 +87,16 @@ const setDirection = (dir: Directions) => {
   direction = dir;
 };
 
-const stop = () => {
+const stop = async () => {
   stopped = true;
-  const req = new baseApi.StopRequest();
-  req.setName(props.name);
-  rcLogConditionally(req);
-  props.client.baseService.stop(req, new grpc.Metadata(), displayError);
+  try {
+    await baseClient.stop();
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const digestInput = () => {
+const digestInput = async () => {
   let linearValue = 0;
   let angularValue = 0;
 
@@ -125,19 +126,15 @@ const digestInput = () => {
   linear.setY(linearValue);
   angular.setZ(angularValue);
 
-  const req = new baseApi.SetPowerRequest();
-  req.setName(props.name);
-  req.setLinear(linear);
-  req.setAngular(angular);
-
-  rcLogConditionally(req);
-  props.client.baseService.setPower(req, new grpc.Metadata(), (error) => {
-    displayError(error);
+  try {
+    await baseClient.setPower(linear, angular);
+  } catch (error) {
+    displayError(error as ServiceError);
 
     if (pressed.size <= 0) {
       stop();
     }
-  });
+  }
 };
 
 const handleKeyDown = (key: Keys) => {
@@ -156,7 +153,7 @@ const handleKeyUp = (key: Keys) => {
   }
 };
 
-const handleBaseStraight = (name: string, event: {
+const handleBaseStraight = async (event: {
   distance: number
   speed: number
   direction: number
@@ -164,46 +161,37 @@ const handleBaseStraight = (name: string, event: {
 }) => {
   if (event.movementType === 'Continuous') {
     const linear = new commonApi.Vector3();
+    const angular = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
-    const req = new baseApi.SetVelocityRequest();
-    req.setName(name);
-    req.setLinear(linear);
-    req.setAngular(new commonApi.Vector3());
-
-    rcLogConditionally(req);
-    props.client.baseService.setVelocity(req, new grpc.Metadata(), displayError);
+    try {
+      await baseClient.setVelocity(linear, angular);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
   } else {
-    const req = new baseApi.MoveStraightRequest();
-    req.setName(name);
-    req.setMmPerSec(event.speed * event.direction);
-    req.setDistanceMm(event.distance);
-
-    rcLogConditionally(req);
-    props.client.baseService.moveStraight(req, new grpc.Metadata(), displayError);
+    try {
+      await baseClient.moveStraight(event.distance, event.speed * event.direction);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
   }
 };
 
-const baseRun = () => {
+const baseRun = async () => {
   if (movementMode === 'Spin') {
-
-    const req = new baseApi.SpinRequest();
-    req.setName(props.name);
-    req.setAngleDeg(angle * (spinType === 'Clockwise' ? -1 : 1));
-    req.setDegsPerSec(spinSpeed);
-
-    rcLogConditionally(req);
-    props.client.baseService.spin(req, new grpc.Metadata(), displayError);
-
+    try {
+      await baseClient.spin(angle * (spinType === 'Clockwise' ? -1 : 1), spinSpeed);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
   } else if (movementMode === 'Straight') {
-
-    handleBaseStraight(props.name, {
+    handleBaseStraight({
       movementType,
       direction: direction === 'Forwards' ? 1 : -1,
       speed,
       distance: increment,
     });
-
   }
 };
 

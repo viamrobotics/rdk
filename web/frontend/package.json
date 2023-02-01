@@ -8,7 +8,7 @@
     "@mdi/js": "^6.9.96",
     "@viamrobotics/prime": "^0.0.106",
     "@viamrobotics/rpc": "^0.1.32",
-    "@viamrobotics/sdk": "^0.0.11",
+    "@viamrobotics/sdk": "^0.0.13",
     "@vitejs/plugin-vue": "^3.1.2",
     "@vueuse/core": "^9.3.1",
     "eslint-import-resolver-custom-alias": "^1.3.0",
