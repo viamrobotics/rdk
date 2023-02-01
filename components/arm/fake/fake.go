@@ -126,7 +126,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.model, joints)
+	return motionplan.ComputeOOBPosition(a.model, joints)
 }
 
 // MoveToPosition sets the position.
@@ -136,13 +136,8 @@ func (a *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	model := a.ModelFrame()
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
-		return err
-	}
-	// check that joint positions are not out of bounds
-	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
 		return err
 	}
 	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), nil)

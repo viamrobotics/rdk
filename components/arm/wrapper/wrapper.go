@@ -110,7 +110,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(wrapper.model, joints)
+	return motionplan.ComputeOOBPosition(wrapper.model, joints)
 }
 
 // MoveToPosition sets the position.
@@ -120,15 +120,6 @@ func (wrapper *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	model := wrapper.ModelFrame()
-	joints, err := wrapper.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	// check that joint positions are not out of bounds
-	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
-		return err
-	}
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, wrapper.robot, wrapper, pos, worldState)

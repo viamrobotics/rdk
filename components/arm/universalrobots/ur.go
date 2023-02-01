@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -324,7 +325,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(ua.model, joints)
+	return motionplan.ComputeOOBPosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -337,15 +338,6 @@ func (ua *URArm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	model := ua.ModelFrame()
-	joints, err := ua.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	// check that joint positions are not out of bounds
-	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
-		return err
-	}
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}

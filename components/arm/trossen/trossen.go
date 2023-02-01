@@ -189,7 +189,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.model, joints)
+	return motionplan.ComputeOOBPosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -199,15 +199,6 @@ func (a *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	model := a.ModelFrame()
-	joints, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	// check that joint positions are not out of bounds
-	if _, err = model.Transform(model.InputFromProtobuf(joints)); err != nil {
-		return err
-	}
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, a.robot, a, pos, worldState)
