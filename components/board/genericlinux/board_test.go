@@ -16,7 +16,7 @@ import (
 )
 
 func TestRegisterBoard(t *testing.T) {
-	RegisterBoard("test", map[int]GPIOBoardMapping{}, false)
+	RegisterBoard("test", map[int]GPIOBoardMapping{}, true)
 }
 
 func TestGenericLinux(t *testing.T) {

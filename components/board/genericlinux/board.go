@@ -41,7 +41,7 @@ type Config struct {
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useIoctl bool) {
+func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriph bool) {
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
@@ -56,7 +56,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useI
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
 
-			if useIoctl {
+			if !usePeriph {
 				gpioInitialize(gpioMappings)
 			}
 
@@ -92,7 +92,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useI
 				spis:         spis,
 				analogs:      analogs,
 				pwms:         map[string]pwmSetting{},
-				useIoctl:     useIoctl,
+				usePeriph:    usePeriph,
 				logger:       logger,
 				cancelCtx:    cancelCtx,
 				cancelFunc:   cancelFunc,
@@ -143,7 +143,7 @@ type sysfsBoard struct {
 	spis         map[string]*spiBus
 	analogs      map[string]board.AnalogReader
 	pwms         map[string]pwmSetting
-	useIoctl     bool
+	usePeriph    bool
 	logger       golog.Logger
 
 	cancelCtx               context.Context
@@ -292,7 +292,7 @@ type periphGpioPin struct {
 }
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
-	if b.useIoctl {
+	if !b.usePeriph {
 		return gpioGetPin(pinName)
 	}
 
