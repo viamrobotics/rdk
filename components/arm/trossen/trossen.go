@@ -661,6 +661,7 @@ func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 		}
 
 		servos = append(servos, newServo)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	return servos, nil
