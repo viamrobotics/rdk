@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -56,8 +55,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	if argsParsed.Debug {
 		logConfig = golog.NewDebugLoggerConfig()
 	} else {
-		logConfig = golog.NewProductionLoggerConfig()
-		logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		logConfig = golog.NewDevelopmentLoggerConfig()
 	}
 	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
