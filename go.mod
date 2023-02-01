@@ -79,7 +79,7 @@ require (
 	go.viam.com/api v0.1.53
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.10-0.20230131175140-09e6ac40cbd5
+	go.viam.com/utils v0.1.11-0.20230201185702-8ad7c122bab7
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.1.0
 	golang.org/x/tools v0.2.0
@@ -279,7 +279,7 @@ require (
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.10 // indirect
 	github.com/pion/rtp v1.7.13 // indirect
-	github.com/pion/sctp v1.8.5 // indirect
+	github.com/pion/sctp v1.8.6 // indirect
 	github.com/pion/sdp/v3 v3.0.6 // indirect
 	github.com/pion/srtp/v2 v2.0.10 // indirect
 	github.com/pion/stun v0.3.5 // indirect
