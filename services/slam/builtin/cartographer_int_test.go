@@ -158,6 +158,9 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, os.Remove(name+"/data/"+lastFileName), test.ShouldBeNil)
 	prevNumFiles -= 1
 
+	// Check that no maps were generated during previous test
+	testCartographerDir(t, name, 0)
+
 	// Test offline mode using the data generated in the online test
 	t.Log("\n=== Testing offline mode ===\n")
 
