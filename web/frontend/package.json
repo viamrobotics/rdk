@@ -1,6 +1,6 @@
 {
-  "name": "rdk-web",
-  "version": "0.1.0",
+  "name": "remote-control",
+  "version": "0.2.14",
   "license": "Apache-2.0",
   "dependencies": {
     "@fontsource/space-mono": "^4.5.10",

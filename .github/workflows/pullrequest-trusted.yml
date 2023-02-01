@@ -35,6 +35,11 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  npm_publish:
+    uses: viamrobotics/rdk/.github/workflows/npm_publish.yml@ml-npm-publish
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   appimage-ignore-tests:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
