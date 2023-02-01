@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { displayError } from '../lib/error';
 import {
   StreamClient,
@@ -40,19 +40,22 @@ let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();
 let camera = $ref(false);
 
-const selectedValue = ref('Live');
+const selectedValue = $ref('Live');
 
 const initStreamState = () => {
   cameraStreamStates.set(props.cameraName, false);
 };
 
-const clearStreamContainer = (camName: string) => {
-  const streamContainers = document.querySelectorAll(
+const clearStreamContainer = (camName: string, elName: string) => {
+  const streamContainer = document.querySelector(
     `[data-stream="${camName}"]`
   );
-  for (const streamContainer of streamContainers) {
-    streamContainer.querySelector('video')?.remove();
-    streamContainer.querySelector('img')?.remove();
+  if (elName === 'video') {
+    streamContainer?.querySelector('video')?.classList.add('hidden');
+    streamContainer?.querySelector('img')?.classList.remove('hidden');
+  } else {
+    streamContainer?.querySelector('img')?.classList.add('hidden');
+    streamContainer?.querySelector('video')?.classList.remove('hidden');
   }
 };
 
@@ -104,14 +107,16 @@ const togglePCDExpand = () => {
 
 const selectCameraView = () => {
   emit('clear-interval');
-  clearStreamContainer(props.cameraName);
 
-  if (selectedValue.value !== 'Live') {
-    const selectedInterval: number = selectedMap[selectedValue.value as keyof typeof selectedMap];
+  if (selectedValue !== 'Live') {
+    clearStreamContainer(props.cameraName, 'video');
+
+    const selectedInterval: number = selectedMap[selectedValue as keyof typeof selectedMap];
     viewCamera(false);
     emit('selected-camera-view', selectedInterval);
     return;
   }
+  clearStreamContainer(props.cameraName, 'img');
 
   viewCamera(true);
 };
@@ -120,7 +125,7 @@ const toggleExpand = () => {
   camera = !camera;
 
   emit('clear-interval');
-  clearStreamContainer(props.cameraName);
+
   if (camera) {
     selectCameraView();
   } else {
@@ -129,7 +134,7 @@ const toggleExpand = () => {
 };
 
 const refreshCamera = () => {
-  emit('selected-camera-view', selectedMap[selectedValue.value as keyof typeof selectedMap]);
+  emit('selected-camera-view', selectedMap[selectedValue as keyof typeof selectedMap]);
   emit('clear-interval');
 };
 
