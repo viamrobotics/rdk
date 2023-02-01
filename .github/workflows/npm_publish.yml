@@ -1,4 +1,4 @@
-name: NPM Publish 2
+name: NPM Publish 3
 
 on:
   workflow_call:
