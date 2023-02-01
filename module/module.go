@@ -2,10 +2,11 @@ package module
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"sync"
-	"syscall"
+	"time"
 
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
@@ -106,6 +107,7 @@ type Module struct {
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
 	services                map[resource.Subtype]subtype.Service
+	closeOnce               sync.Once
 	pb.UnimplementedModuleServiceServer
 }
 
@@ -147,11 +149,16 @@ func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	oldMask := syscall.Umask(0o077)
-	lis, err := net.Listen("unix", m.addr)
-	syscall.Umask(oldMask)
-	if err != nil {
-		return errors.WithMessage(err, "failed to listen")
+	var lis net.Listener
+	if err := MakeSelfOwnedFilesFunc(func() error {
+		var err error
+		lis, err = net.Listen("unix", m.addr)
+		if err != nil {
+			return errors.WithMessage(err, "failed to listen")
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	m.activeBackgroundWorkers.Add(1)
@@ -168,18 +175,21 @@ func (m *Module) Start(ctx context.Context) error {
 
 // Close shuts down the module and grpc server.
 func (m *Module) Close(ctx context.Context) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.logger.Info("Shutting down gracefully.")
-	if m.parent != nil {
-		if err := m.parent.Close(ctx); err != nil {
+	m.closeOnce.Do(func() {
+		m.mu.Lock()
+		parent := m.parent
+		m.mu.Unlock()
+		m.logger.Info("Shutting down gracefully.")
+		if parent != nil {
+			if err := parent.Close(ctx); err != nil {
+				m.logger.Error(err)
+			}
+		}
+		if err := m.server.Stop(); err != nil {
 			m.logger.Error(err)
 		}
-	}
-	if err := m.server.Stop(); err != nil {
-		m.logger.Error(err)
-	}
-	m.activeBackgroundWorkers.Wait()
+		m.activeBackgroundWorkers.Wait()
+	})
 }
 
 // GetParentResource returns a resource from the parent robot by name.
@@ -375,6 +385,12 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
+	defer func() {
+		slowWatcherCancel()
+		<-slowWatcher
+	}()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -465,18 +481,4 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
-}
-
-// CheckSocketOwner verifies that UID of a filepath/socket matches the current process's UID.
-func CheckSocketOwner(address string) error {
-	// check that the module socket has the same ownership as our process
-	info, err := os.Stat(address)
-	if err != nil {
-		return err
-	}
-	stat := info.Sys().(*syscall.Stat_t)
-	if os.Getuid() != int(stat.Uid) {
-		return errors.New("socket ownership doesn't match current process UID")
-	}
-	return nil
 }

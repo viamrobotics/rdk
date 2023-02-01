@@ -22,6 +22,7 @@ type Diff struct {
 	Removed        *Config
 	ResourcesEqual bool
 	NetworkEqual   bool
+	MediaEqual     bool
 	PrettyDiff     string
 }
 
@@ -71,6 +72,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
+
+	different = diffMedia(diff.Added, diff.Removed)
+	diff.MediaEqual = !different
 
 	return &diff, nil
 }
@@ -398,6 +402,20 @@ func diffTLS(leftTLS, rightTLS *tls.Config) bool {
 	}
 	if !reflect.DeepEqual(leftClientCert, rightClientCert) {
 		return true
+	}
+	return false
+}
+
+func diffMedia(added, removed *Config) bool {
+	for idx := 0; idx < len(added.Components); idx++ {
+		if added.Components[idx].Type == "camera" || added.Components[idx].Type == "audio_input" {
+			return true
+		}
+	}
+	for idx := 0; idx < len(removed.Components); idx++ {
+		if removed.Components[idx].Type == "camera" || removed.Components[idx].Type == "audio_input" {
+			return true
+		}
 	}
 	return false
 }
