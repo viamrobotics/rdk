@@ -356,6 +356,17 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 
 // Move is a helper function to abstract away movement for general arms.
 func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *referenceframe.WorldState) error {
+	joints, err := a.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	model := a.ModelFrame()
+	// check that joint positions are not out of bounds
+	_, err = motionplan.ComputePosition(model, joints)
+	if err != nil {
+		return err
+	}
+
 	solution, err := Plan(ctx, r, a, dst, worldState)
 	if err != nil {
 		return err
@@ -440,7 +451,7 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []floa
 			min = currPosition
 		}
 		if val > max || val < min {
-			return fmt.Errorf("%v needs to be within bounds [%v, %v]", val, min, max)
+			return fmt.Errorf("joint %v needs to be within bounds [%v, %v] and cannot be moved to %v", i, val, min, max)
 		}
 	}
 	return nil
