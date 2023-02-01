@@ -203,7 +203,7 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	return nil
 }
 
-// NewRTSPCamera creates a camera client for an RTSP given given the server URL.
+// NewRTSPCamera creates a camera client using RTSP given the server URL.
 // Right now, only supports servers that have MJPEG video tracks.
 func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (camera.Camera, error) {
 	u, err := url.Parse(attrs.Address)
