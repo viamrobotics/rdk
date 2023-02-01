@@ -57,7 +57,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useI
 			}
 
 			if useIoctl {
-				ioctlInitialize(gpioMappings)
+				gpioInitialize(gpioMappings)
 			}
 
 			var spis map[string]*spiBus
@@ -293,7 +293,7 @@ type periphGpioPin struct {
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if b.useIoctl {
-		return ioctlGetPin(pinName)
+		return gpioGetPin(pinName)
 	}
 
 	pin, hwPWMSupported, err := b.getGPIOLine(pinName)

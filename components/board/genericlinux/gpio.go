@@ -1,7 +1,7 @@
 //go:build linux
 
 // Package genericlinux is for Linux boards, and this particular file is for GPIO pins using the
-// ioctl interface.
+// ioctl interface, indirectly by way of mkch's gpio package.
 package genericlinux
 
 import (
@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/components/board"
 )
 
-type ioctlPin struct {
+type gpioPin struct {
 	// These values should both be considered immutable. The mutex is only here so that the use of
 	// the multiple calls to the gpio package don't have race conditions.
 	devicePath string
@@ -24,8 +24,8 @@ type ioctlPin struct {
 	mu         sync.Mutex
 }
 
-// This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) (err error) {
+// This helps implement the board.GPIOPin interface for gpioPin.
+func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) (err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -51,8 +51,8 @@ func (pin *ioctlPin) Set(ctx context.Context, isHigh bool, extra map[string]inte
 	return nil
 }
 
-// This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (result bool, err error) {
+// This helps implement the board.GPIOPin interface for gpioPin.
+func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (result bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -77,39 +77,39 @@ func (pin *ioctlPin) Get(ctx context.Context, extra map[string]interface{}) (res
 	return (value != 0), nil
 }
 
-// This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return math.NaN(), errors.New("PWM stuff is not supported on ioctl pins yet")
+// This helps implement the board.GPIOPin interface for gpioPin.
+func (pin *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	return math.NaN(), errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 }
 
-// This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
-	return errors.New("PWM stuff is not supported on ioctl pins yet")
+// This helps implement the board.GPIOPin interface for gpioPin.
+func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	return errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 }
 
-// This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
-	return 0, errors.New("PWM stuff is not supported on ioctl pins yet")
+// This helps implement the board.GPIOPin interface for gpioPin.
+func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	return 0, errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 }
 
-// This helps implement the board.GPIOPin interface for ioctlPin.
-func (pin *ioctlPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
-	return errors.New("PWM stuff is not supported on ioctl pins yet")
+// This helps implement the board.GPIOPin interface for gpioPin.
+func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	return errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 }
 
-var pins map[string]*ioctlPin
+var pins map[string]*gpioPin
 
-func ioctlInitialize(gpioMappings map[int]GPIOBoardMapping) {
-	pins = make(map[string]*ioctlPin)
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) {
+	pins = make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
-		pins[fmt.Sprintf("%d", pin)] = &ioctlPin{
+		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 		}
 	}
 }
 
-func ioctlGetPin(pinName string) (board.GPIOPin, error) {
+func gpioGetPin(pinName string) (board.GPIOPin, error) {
 	pin, ok := pins[pinName]
 	if !ok {
 		return nil, errors.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
