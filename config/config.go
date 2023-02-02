@@ -56,6 +56,9 @@ type Config struct {
 	// DisablePartialStart ensures that a robot will only start when all the components,
 	// services, and remotes pass config validation. This value is false by default
 	DisablePartialStart bool `json:"disable_partial_start"`
+
+	// PackagePath sets the directory used to store packages locally. Defaults to ~/.viam/packages
+	PackagePath string `json:"-"`
 }
 
 // Ensure ensures all parts of the config are valid.
@@ -757,7 +760,11 @@ type Updateable interface {
 	Update(context.Context, *Config) error
 }
 
+// Valid package name regex.
 var packageNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// Regex to match if a config is referencing a Package. Group is the package name.
+var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
 
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
@@ -787,4 +794,31 @@ func (p *PackageConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
+// Returns nil if no package reference is found.
+func GetPackageReference(path string) *PackageReference {
+	// return early before regex match
+	if len(path) == 0 || path[0] != '$' {
+		return nil
+	}
+
+	match := packageReferenceRegex.FindStringSubmatch(path)
+	if match == nil {
+		return nil
+	}
+
+	if len(match) != 3 {
+		return nil
+	}
+
+	return &PackageReference{Package: match[1], PathInPackage: match[2]}
+}
+
+// PackageReference contains the deconstructed parts of a package reference in the config.
+// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
+type PackageReference struct {
+	Package       string
+	PathInPackage string
 }
