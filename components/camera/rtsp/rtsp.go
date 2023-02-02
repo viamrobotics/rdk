@@ -110,11 +110,9 @@ func (rc *rtspCamera) Close(ctx context.Context) error {
 // clientReconnectBackgroundWorker checks every 5 sec to see if the client is connected to the server, and reconnects if not.
 func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 	rc.activeBackgroundWorkers.Add(1)
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
 	goutils.ManagedGo(func() {
 		for {
-			if ok := goutils.SelectContextOrWaitChan(rc.cancelCtx, ticker.C); ok {
+			if ok := goutils.SelectContextOrWait(rc.cancelCtx, 5*time.Second); ok {
 				// use an OPTIONS request to see if the server is still responding to requests
 				res, err := rc.client.Options(rc.u)
 				badState := false
