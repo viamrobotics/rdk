@@ -155,5 +155,8 @@ func (i *audioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) 
 func (i *audioInput) Close(ctx context.Context) error {
 	i.cancel()
 	i.activeBackgroundWorkers.Wait()
+	i.cond.L.Lock()
+	i.cond.Signal()
+	i.cond.L.Unlock()
 	return i.AudioSource.Close(ctx)
 }

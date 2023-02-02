@@ -6,6 +6,7 @@ import (
 	_ "go.viam.com/rdk/components/camera/align"
 	_ "go.viam.com/rdk/components/camera/fake"
 	_ "go.viam.com/rdk/components/camera/ffmpeg"
+	_ "go.viam.com/rdk/components/camera/rtsp"
 	_ "go.viam.com/rdk/components/camera/transformpipeline"
 	_ "go.viam.com/rdk/components/camera/velodyne"
 	_ "go.viam.com/rdk/components/camera/videosource"
