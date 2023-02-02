@@ -23,7 +23,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("uln")
+var (
+	model                = resource.NewDefaultModel("uln")
+	minStepDelay         = 0.002                  // minimum sleep time between steps
+	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
+)
 
 var stepSequence = [8][4]bool{
 	{false, false, false, true},
@@ -226,11 +230,11 @@ func (m *uln2003) startThread(ctx context.Context) {
 	go m.doRun(ctx)
 }
 
-// setStepperDelay.
+// setStepperDelay calculates the wait time between each step taken.
+// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
 func (m *uln2003) setStepperDelay(rpm float64) float64 {
 	stepperDelay := 1 / ((rpm * 8) / 60)
-	m.logger.Info("Stepper Delay is: ", stepperDelay)
-	return math.Max(stepperDelay, 0.002)
+	return math.Max(stepperDelay, minStepDelay)
 }
 
 func (m *uln2003) doRun(ctx context.Context) {
@@ -269,67 +273,63 @@ func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
 // have to be locked to call.
 func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 	if forward {
-		for steps := 0; steps < len(stepSequence); steps++ {
-			err1 := m.in1.Set(ctx, stepSequence[steps][0], nil)
+		for tick := 0; tick < len(stepSequence); tick++ {
+			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
 			if err1 != nil {
 				return errors.New("failed to set In1 with error")
 			}
 
-			time.Sleep(100 * time.Microsecond)
-			err2 := m.in2.Set(ctx, stepSequence[steps][1], nil)
+			time.Sleep(minDelayBetweenTicks)
+			err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
 			if err2 != nil {
 				return errors.New("failed to set In2 with error")
 			}
 
-			time.Sleep(100 * time.Microsecond)
+			time.Sleep(minDelayBetweenTicks)
 
-			err3 := m.in3.Set(ctx, stepSequence[steps][2], nil)
+			err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
 			if err3 != nil {
 				return errors.New("failed to set In3 with error")
 			}
 
-			time.Sleep(100 * time.Microsecond)
+			time.Sleep(minDelayBetweenTicks)
 
-			err4 := m.in4.Set(ctx, stepSequence[steps][3], nil)
+			err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
 			if err4 != nil {
 				return errors.New("failed to set In4 with error")
 			}
 		}
 		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
-
 		m.stepPosition++
-		m.logger.Debugf("stepPosition in doStep: %d", m.stepPosition)
 	} else {
-		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
-		for steps := len(stepSequence) - 1; steps >= 0; steps-- {
-			err1 := m.in1.Set(ctx, stepSequence[steps][0], nil)
+		for tick := len(stepSequence) - 1; tick >= 0; tick-- {
+			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
 			if err1 != nil {
 				return errors.New("failed to set In1 with error")
 			}
 
-			m.logger.Debug("in1 set")
+			time.Sleep(minDelayBetweenTicks)
 
-			err2 := m.in2.Set(ctx, stepSequence[steps][1], nil)
+			err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
 			if err2 != nil {
 				return errors.New("failed to set In2 with error")
 			}
 
-			m.logger.Debug("in2 set")
+			time.Sleep(minDelayBetweenTicks)
 
-			err3 := m.in3.Set(ctx, stepSequence[steps][2], nil)
+			err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
 			if err3 != nil {
 				return errors.New("failed to set In3 with error")
 			}
 
-			m.logger.Debug("in3 set")
+			time.Sleep(minDelayBetweenTicks)
 
-			err4 := m.in4.Set(ctx, stepSequence[steps][3], nil)
+			err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
 			if err4 != nil {
 				return errors.New("failed to set In4 with error")
 			}
-
-			m.logger.Debug("in4 set")
 		}
+		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
 		m.stepPosition--
 	}
 
@@ -343,8 +343,6 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if rpm == 0 {
 		rpm = m.rotationPerMinute
-	} else {
-		m.rotationPerMinute = rpm
 	}
 
 	ctx, done := m.opMgr.New(ctx)
@@ -376,6 +374,7 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 	rpm = math.Abs(rpm) * float64(d)
 
 	if math.Abs(rpm) < 0.1 {
+		m.logger.Info("RPM is less than 0.1 ", rpm)
 		return m.Stop(ctx, nil)
 	}
 
@@ -413,13 +412,12 @@ func (m *uln2003) ResetZeroPosition(ctx context.Context, offset float64, extra m
 	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
 }
 
-// Position reports the position of the motor based on its encoder. If it's not supported, the returned
-// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-// back into calls of GoFor.
+// Position reports the current step position of the motor. If it's not supported, the returned
+// data is undefined.
 func (m *uln2003) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return float64(m.stepPosition) / float64(m.ticksPerRotation), nil
+	return float64(m.stepPosition), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
