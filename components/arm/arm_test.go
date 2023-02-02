@@ -9,18 +9,17 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/motionplan"
-
-	// fakearm "go.viam.com/rdk/components/arm/fake"
-	ur "go.viam.com/rdk/components/arm/universalrobots"
-	"go.viam.com/rdk/config"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
+	// fakearm "go.viam.com/rdk/components/arm/fake"
+	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -199,7 +198,6 @@ func TestCreateStatus(t *testing.T) {
 		// 	pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
 		// 	test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 		// 	test.That(t, status2, test.ShouldResemble, status)
-
 	})
 
 	// t.Run("not moving", func(t *testing.T) {
