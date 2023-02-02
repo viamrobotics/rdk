@@ -50622,6 +50622,14 @@
       "hash": "8ecf7ccd4c22d4606783db10a26018c4",
       "size": 145250924
     },
+    "fakeImageMap.jpg": {
+      "hash": "0a9ce6cac42cd580ec5d9e06e8db80f7",
+      "size": 242152
+    },
+    "fakePCDMap.pcd": {
+      "hash": "3a1a4c791dcdd7d468f0e194479497ea",
+      "size": 7384940
+    },
     "locating_in_map.lua": {
       "hash": "94180b8051257132b0e6eaab763c303a",
       "size": 1017
