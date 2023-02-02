@@ -249,9 +249,6 @@ func (m *uln2003) doRun(ctx context.Context) {
 func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	if m.targetStepPosition != 0 {
-		m.logger.Debugf("targetStepPosition in doCycle: ", m.targetStepPosition)
-	}
 
 	if m.stepPosition >= m.targetStepPosition {
 		err := m.enable(ctx, false)
@@ -263,11 +260,10 @@ func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 	k := time.Duration(int64(time.Microsecond*1000*1000) / int64(math.Abs(float64(m.targetStepsPerSecond))))
-	m.logger.Info("time duration in doCycle is: ", k)
 	return k, nil
 }
 
-// test: check if it is going thought the 8 steps are same
+// test: check if it is going through the 8 steps are same
 // validation
 // rpm validation math
 // have to be locked to call.
@@ -299,8 +295,8 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 				return errors.New("failed to set In4 with error")
 			}
 		}
-		// time.Sleep(time.Duration(m.setStepperDelay(ctx, rpm)))
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
+
 		m.stepPosition++
 		m.logger.Debugf("stepPosition in doStep: %d", m.stepPosition)
 	} else {
@@ -390,10 +386,8 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition += int64(float64(d) * revolutions * float64(m.ticksPerRotation))
-	m.logger.Debugf("target Step position is: ", m.targetStepPosition)
+	m.targetStepPosition += int64(float64(d)*revolutions*float64(m.ticksPerRotation)) / 8
 	m.targetStepsPerSecond = int64(revolutions * float64(m.ticksPerRotation) / 60.0)
-	m.logger.Debugf("Target steps per second is: ", m.targetStepsPerSecond)
 	if m.targetStepsPerSecond == 0 {
 		m.targetStepsPerSecond = 1
 	}
@@ -425,11 +419,7 @@ func (m *uln2003) ResetZeroPosition(ctx context.Context, offset float64, extra m
 func (m *uln2003) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	pos := float64(m.stepPosition) / float64(m.ticksPerRotation)
-	m.logger.Debugf("stepPosition is ", m.stepPosition)
-	m.logger.Debugf("ticksPerRotation is ", m.ticksPerRotation)
-	m.logger.Debugf("current position is: ", pos)
-	return pos, nil
+	return float64(m.stepPosition) / float64(m.ticksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
