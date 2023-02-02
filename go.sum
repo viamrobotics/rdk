@@ -1183,6 +1183,7 @@ github.com/pion/ice/v2 v2.2.11/go.mod h1:NqUDUao6SjSs1+4jrqpexDmFlptlVhGxQjcymXL
 github.com/pion/ice/v2 v2.2.12/go.mod h1:z2KXVFyRkmjetRlaVRgjO9U3ShKwzhlUylvxKfHfd5A=
 github.com/pion/ice/v2 v2.2.14-0.20230201193927-95ba67631460 h1:YtGgmqbw2ikYHwWRm07uhqnciDyELVG/HVagXL4Zrtw=
 github.com/pion/ice/v2 v2.2.14-0.20230201193927-95ba67631460/go.mod h1:eLo6vulCNlThvd0zgCfMrF1/U94gEfF0PMHEhhy3uZY=
+github.com/pion/ice/v2 v2.2.14/go.mod h1:eLo6vulCNlThvd0zgCfMrF1/U94gEfF0PMHEhhy3uZY=
 github.com/pion/interceptor v0.1.11/go.mod h1:tbtKjZY14awXd7Bq0mmWvgtHB5MDaRN7HV3OZ/uy7s8=
 github.com/pion/interceptor v0.1.12 h1:CslaNriCFUItiXS5o+hh5lpL0t0ytQkFnUcbbCs2Zq8=
 github.com/pion/interceptor v0.1.12/go.mod h1:bDtgAD9dRkBZpWHGKaoKb42FhDHTG2rX8Ii9LRALLVA=
@@ -1209,6 +1210,7 @@ github.com/pion/sdp/v3 v3.0.6 h1:WuDLhtuFUUVpTfus9ILC4HRyHsW6TdugjEX/QY9OiUw=
 github.com/pion/sdp/v3 v3.0.6/go.mod h1:iiFWFpQO8Fy3S5ldclBkpXqmWy02ns78NOKoLLL0YQw=
 github.com/pion/srtp/v2 v2.0.10 h1:b8ZvEuI+mrL8hbr/f1YiJFB34UMrOac3R3N1yq2UN0w=
 github.com/pion/srtp/v2 v2.0.10/go.mod h1:XEeSWaK9PfuMs7zxXyiN252AHPbH12NX5q/CFDWtUuA=
+github.com/pion/srtp/v2 v2.0.11/go.mod h1:vzHprzbuVoYJ9NfaRMycnFrkHcLSaLVuBZDOtFQNZjY=
 github.com/pion/stun v0.3.5/go.mod h1:gDMim+47EeEtfWogA37n6qXZS88L5V6LqFcf+DZA2UA=
 github.com/pion/stun v0.4.0 h1:vgRrbBE2htWHy7l3Zsxckk7rkjnjOsSM7PHZnBwo8rk=
 github.com/pion/stun v0.4.0/go.mod h1:QPsh1/SbXASntw3zkkrIk3ZJVKz4saBY2G7S10P3wCw=
@@ -1228,6 +1230,7 @@ github.com/pion/udp v0.1.1/go.mod h1:6AFo+CMdKQm7UiA0eUPA8/eVCTx8jBIITLZHc9DWX5M
 github.com/pion/webrtc/v3 v3.1.48/go.mod h1:JOk9h4pOtogTAWM1SCoEG2opDQmEOR0QZcbEo9vy0Xc=
 github.com/pion/webrtc/v3 v3.1.50 h1:wLMo1+re4WMZ9Kun9qcGcY+XoHkE3i0CXrrc0sjhVCk=
 github.com/pion/webrtc/v3 v3.1.50/go.mod h1:y9n09weIXB+sjb9mi0GBBewNxo4TKUQm5qdtT5v3/X4=
+github.com/pion/webrtc/v3 v3.1.52/go.mod h1:t0OjGi318LfSsCQpXTMO0kEaG+ncYzLVBC+Lhz5qbp4=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 h1:KoWmjvw+nsYOo29YJK9vDA65RGE3NrOnUtO7a+RF9HU=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8/go.mod h1:HKlIX3XHQyzLZPlr7++PzdhaXEj94dEiJgZDTsxEqUI=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
@@ -1635,6 +1638,8 @@ go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e h1:1tJIJv/zsobFV5feR2ZiG/+
 go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
 go.viam.com/utils v0.1.11-0.20230202014714-4c20eecb4ec1 h1:SlvGwHsjFknMvpzLTZ6VFi0PHw/ij6KnDXQjaDkz5xA=
 go.viam.com/utils v0.1.11-0.20230202014714-4c20eecb4ec1/go.mod h1:qyPZYCLwku0+SMd5c4FxLZOhwT1kgjmYI7LKWw2TkyU=
+go.viam.com/utils v0.1.11-0.20230202202700-32261eb54b4c h1:d0OcT1P92mMnQXGVQiGEq5tmSPkirt+MrK8qv6IvpA4=
+go.viam.com/utils v0.1.11-0.20230202202700-32261eb54b4c/go.mod h1:9kyAudfpUHACI8OW0dScrgbfUzDas+A/RbcEI4H7wE0=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
 goji.io v2.0.2+incompatible h1:uIssv/elbKRLznFUy3Xj4+2Mz/qKhek/9aZQDUMae7c=
