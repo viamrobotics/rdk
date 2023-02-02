@@ -379,12 +379,13 @@ func TestExtraOptions(t *testing.T) {
 
 func TestOOBArm(t *testing.T) {
 	// TODO: edit st we test on all arms.
+	allArms := []string{"xArm6", "xArm7", "eva", "trossen-wx250s", "trossen-vx300s", "wrapper_arm"}
 	logger := golog.NewTestLogger(t)
 	cfg := config.Component{
 		Name:  arm.Subtype.String(),
 		Model: resource.NewDefaultModel("ur5e"),
 		ConvertedAttributes: &fake.AttrConfig{
-			ArmModel: "ur5e",
+			ArmModel: allArms[0],
 		},
 	}
 
