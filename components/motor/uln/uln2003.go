@@ -30,14 +30,14 @@ var (
 )
 
 var stepSequence = [8][4]bool{
-	{false, false, false, true},
-	{false, false, true, true},
-	{false, false, true, false},
-	{false, true, true, false},
-	{false, true, false, false},
-	{true, true, false, false},
-	{true, false, false, false},
 	{true, false, false, true},
+	{true, false, false, false},
+	{true, true, false, false},
+	{false, true, false, false},
+	{false, true, true, false},
+	{false, false, true, false},
+	{false, false, true, true},
+	{false, false, false, true},
 }
 
 // PinConfig defines the mapping of where motor are wired.
