@@ -222,13 +222,19 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-		select {
+		select { // First select block always ensures the cancellations are listened to.
 		case <-cancelCtx.Done():
 			return nil, nil, cancelCtx.Err()
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
 		default:
-			<-rtspCam.gotFirstFrame // block until you get the first frame
+		}
+		select { // if gotFirstFrame is closed, this case will almost always fire and not respect the cancelation.
+		case <-cancelCtx.Done():
+			return nil, nil, cancelCtx.Err()
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		case <-rtspCam.gotFirstFrame:
 		}
 		return rtspCam.latestFrame.Load().(image.Image), func() {}, nil
 	})
