@@ -62,7 +62,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.3.12
 	github.com/pion/rtp v1.7.13
-	github.com/pion/webrtc/v3 v3.1.50
+	github.com/pion/webrtc/v3 v3.1.52
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/rhysd/actionlint v1.6.22-0.20221022051330-a6edfdd585fc
 	github.com/rs/cors v1.8.2
@@ -82,7 +82,7 @@ require (
 	go.viam.com/api v0.1.53
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.11-0.20230202014714-4c20eecb4ec1
+	go.viam.com/utils v0.1.11-0.20230202202700-32261eb54b4c
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.1.0
 	golang.org/x/tools v0.2.0
@@ -296,16 +296,15 @@ require (
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.1.5 // indirect
-	github.com/pion/ice/v2 v2.2.14-0.20230201193927-95ba67631460 // indirect
+	github.com/pion/ice/v2 v2.2.14 // indirect
 	github.com/pion/interceptor v0.1.12 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.6 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.10 // indirect
-	github.com/pion/rtp v1.7.13 // indirect
 	github.com/pion/sctp v1.8.6 // indirect
 	github.com/pion/sdp/v3 v3.0.6 // indirect
-	github.com/pion/srtp/v2 v2.0.10 // indirect
+	github.com/pion/srtp/v2 v2.0.11 // indirect
 	github.com/pion/stun v0.4.0 // indirect
 	github.com/pion/transport v0.14.1 // indirect
 	github.com/pion/transport/v2 v2.0.0 // indirect

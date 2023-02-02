@@ -480,7 +480,6 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		svc.logger.Warn("attempting to add stream before stream server is initialized. skipping this operation...")
 		return nil
 	}
 	videoSources := allVideoSourcesToDisplay(svc.r)
