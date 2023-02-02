@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
+
 	// fakearm "go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/sensor"
@@ -189,31 +190,47 @@ func TestCreateStatus(t *testing.T) {
 		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
 		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 
-		// 	resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
-		// 	status2, err := resourceSubtype.Status(context.Background(), injectArm)
-		// 	test.That(t, err, test.ShouldBeNil)
-		// 	test.That(t, status2.IsMoving, test.ShouldResemble, status.IsMoving)
-		// 	test.That(t, status2.JointPositions, test.ShouldResemble, status.JointPositions)
-		// 	pose1 := spatialmath.NewPoseFromProtobuf(status2.EndPosition)
-		// 	pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
-		// 	test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
-		// 	test.That(t, status2, test.ShouldResemble, status)
+		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
+		status2, err := resourceSubtype.Status(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+
+		statusMap, err := protoutils.InterfaceToMap(status2)
+		test.That(t, err, test.ShouldBeNil)
+
+		endPosMap, err := protoutils.InterfaceToMap(statusMap["end_position"])
+		test.That(t, err, test.ShouldBeNil)
+		pose3 := spatialmath.NewPose(
+			r3.Vector{endPosMap["x"].(float64), endPosMap["y"].(float64), endPosMap["z"].(float64)},
+			&spatialmath.OrientationVectorDegrees{endPosMap["theta"].(float64), endPosMap["o_x"].(float64), endPosMap["o_y"].(float64), endPosMap["o_z"].(float64)},
+		)
+		test.That(t, spatialmath.PoseAlmostEqualEps(pose3, pose2, 0.01), test.ShouldBeTrue)
+
+		moving := statusMap["is_moving"].(bool)
+		test.That(t, moving, test.ShouldResemble, status.IsMoving)
+
+		jPosFace := statusMap["joint_positions"].(map[string]interface{})["values"].([]interface{})
+		jPos := []float64{jPosFace[0].(float64), jPosFace[1].(float64), jPosFace[2].(float64), jPosFace[3].(float64), jPosFace[4].(float64), jPosFace[5].(float64)}
+		test.That(t, jPos, test.ShouldResemble, status.JointPositions.Values)
 	})
 
-	// t.Run("not moving", func(t *testing.T) {
-	// 	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
-	// 		return false, nil
-	// 	}
+	t.Run("not moving", func(t *testing.T) {
+		injectArm.IsMovingFunc = func(context.Context) (bool, error) {
+			return false, nil
+		}
 
-	// 	status2 := &pb.Status{
-	// 		EndPosition:    spatialmath.PoseToProtobuf(pose),
-	// 		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
-	// 		IsMoving:       false,
-	// 	}
-	// 	status1, err := arm.CreateStatus(context.Background(), injectArm)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, status1, test.ShouldResemble, status2)
-	// })
+		status2 := &pb.Status{
+			EndPosition:    spatialmath.PoseToProtobuf(testPose),
+			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}},
+			IsMoving:       false,
+		}
+		status1, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1.IsMoving, test.ShouldResemble, status2.IsMoving)
+		test.That(t, status1.JointPositions, test.ShouldResemble, status2.JointPositions)
+		pose1 := spatialmath.NewPoseFromProtobuf(status1.EndPosition)
+		pose2 := spatialmath.NewPoseFromProtobuf(status2.EndPosition)
+		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
+	})
 
 	t.Run("fail on JointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
@@ -361,6 +378,7 @@ func TestExtraOptions(t *testing.T) {
 }
 
 func TestOOBArm(t *testing.T) {
+	// TODO: edit st we test on all arms.
 	logger := golog.NewTestLogger(t)
 	cfg := config.Component{
 		Name:  arm.Subtype.String(),
