@@ -42,6 +42,8 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 	}
 	defer func() { err = chip.Close() }()
 
+	// The line returned has its default value set to the intended GPIO output, so we don't need to
+	// do anything else with it but close the file descriptor.
 	line, err := chip.OpenLine(pin.offset, value, gpio.Output, "viam-gpio")
 	if err != nil {
 		return err
