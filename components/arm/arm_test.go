@@ -408,7 +408,8 @@ func TestOOBArm(t *testing.T) {
 	t.Run("CreateStatus errors when OOB", func(t *testing.T) {
 		status, err := arm.CreateStatus(context.Background(), injectedArm)
 		test.That(t, status, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "12.56637 input out of bounds {-6.28319 6.28319}")
+		stringCheck := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
+		test.That(t, err.Error(), test.ShouldEqual, stringCheck)
 	})
 
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
@@ -421,7 +422,7 @@ func TestOOBArm(t *testing.T) {
 	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
 		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
-		test.That(t, err.Error(), test.ShouldEqual, "12.56637 input out of bounds {-6.28319 6.28319}")
+		test.That(t, err.Error(), test.ShouldEqual, "cartesian movements are not allowed when arm joints are out of bounds")
 	})
 
 	t.Run("MoveToJointPositions fails if more OOB", func(t *testing.T) {

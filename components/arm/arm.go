@@ -365,7 +365,7 @@ func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, world
 	model := a.ModelFrame()
 	// check that joint positions are not out of bounds
 	_, err = motionplan.ComputePosition(model, joints)
-	if err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString) {
+	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
 		return fmt.Errorf("cartesian movements are not allowed when arm joints are out of bounds")
 	} else if err != nil {
 		return err
