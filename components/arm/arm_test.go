@@ -15,8 +15,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-
-	// fakearm "go.viam.com/rdk/components/arm/fake"
+	// fakearm "go.viam.com/rdk/components/arm/fake".
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
@@ -201,7 +200,10 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pose3 := spatialmath.NewPose(
 			r3.Vector{endPosMap["x"].(float64), endPosMap["y"].(float64), endPosMap["z"].(float64)},
-			&spatialmath.OrientationVectorDegrees{endPosMap["theta"].(float64), endPosMap["o_x"].(float64), endPosMap["o_y"].(float64), endPosMap["o_z"].(float64)},
+			&spatialmath.OrientationVectorDegrees{
+				endPosMap["theta"].(float64), endPosMap["o_x"].(float64),
+				endPosMap["o_y"].(float64), endPosMap["o_z"].(float64),
+			},
 		)
 		test.That(t, spatialmath.PoseAlmostEqualEps(pose3, pose2, 0.01), test.ShouldBeTrue)
 
@@ -209,7 +211,10 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, moving, test.ShouldResemble, status.IsMoving)
 
 		jPosFace := statusMap["joint_positions"].(map[string]interface{})["values"].([]interface{})
-		jPos := []float64{jPosFace[0].(float64), jPosFace[1].(float64), jPosFace[2].(float64), jPosFace[3].(float64), jPosFace[4].(float64), jPosFace[5].(float64)}
+		jPos := []float64{
+			jPosFace[0].(float64), jPosFace[1].(float64), jPosFace[2].(float64),
+			jPosFace[3].(float64), jPosFace[4].(float64), jPosFace[5].(float64),
+		}
 		test.That(t, jPos, test.ShouldResemble, status.JointPositions.Values)
 	})
 
