@@ -452,7 +452,7 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []floa
 			min = currPosition
 		}
 		if val > max || val < min {
-			return fmt.Errorf("joint %v needs to be within bounds [%v, %v] and cannot be moved to %v", i, val, min, max)
+			return fmt.Errorf("joint %v needs to be within bounds [%v, %v] and cannot be moved to %v", i, min, max, val)
 		}
 	}
 	return nil
