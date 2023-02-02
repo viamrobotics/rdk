@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-	// fakearm "go.viam.com/rdk/components/arm/fake".
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
