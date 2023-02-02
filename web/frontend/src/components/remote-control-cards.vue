@@ -29,23 +29,23 @@ import {
     filterComponentsWithNames,
 } from '../lib/resource';
 
-import Arm from './components/arm.vue';
-import AudioInput from './components/audio-input.vue';
-import Base from './components/base.vue';
-import Board from './components/board.vue';
-import CameraView from './components/camera.vue';
-import OperationsSessions from './components/operations-sessions.vue';
-import DoCommand from './components/do-command.vue';
-import Gantry from './components/gantry.vue';
-import Gripper from './components/gripper.vue';
-import Gamepad from './components/gamepad.vue';
-import InputController from './components/input-controller.vue';
-import Motor from './components/motor-detail.vue';
-import MovementSensor from './components/movement-sensor.vue';
-import Navigation from './components/navigation.vue';
-import ServoComponent from './components/servo.vue';
-import Sensors from './components/sensors.vue';
-import Slam from './components/slam.vue';
+import Arm from './arm.vue';
+import AudioInput from './audio-input.vue';
+import Base from './base.vue';
+import Board from './board.vue';
+import CameraView from './camera.vue';
+import OperationsSessions from './operations-sessions.vue';
+import DoCommand from './do-command.vue';
+import Gantry from './gantry.vue';
+import Gripper from './gripper.vue';
+import Gamepad from './gamepad.vue';
+import InputController from './input-controller.vue';
+import Motor from './motor-detail.vue';
+import MovementSensor from './movement-sensor.vue';
+import Navigation from './navigation.vue';
+import ServoComponent from './servo.vue';
+import Sensors from './sensors.vue';
+import Slam from './slam.vue';
 
 import {
     fixArmStatus,
