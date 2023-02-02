@@ -8,6 +8,7 @@ import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { rcLogConditionally } from '../lib/log';
 import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
+import { hideStreamContainer } from '../lib/clear-stream-containers';
 
 interface Props {
   name: string;
@@ -200,18 +201,24 @@ const viewPreviewCamera = (values: string) => {
     if (values.split(',').includes(key)) {
       try {
         // Only add stream if other components have not already
-        if (!cameraStreamStates.get(key) && !baseStreamStates.get(key)) {
+        if (!cameraStreamStates.get(key)?.on && !baseStreamStates.get(key)) {
           streams.add(key);
         }
       } catch (error) {
         displayError(error as ServiceError);
         return;
       }
+
+      // hide associated camera generated in camera card
+      if (!cameraStreamStates.get(key)?.live) {
+        hideStreamContainer(key, 'img');
+      }
+
       baseStreamStates.set(key, true);
     } else if (baseStreamStates.get(key) === true) {
       try {
         // Only remove stream if other components are not using the stream
-        if (!cameraStreamStates.get(key)) {
+        if (!cameraStreamStates.get(key)?.on) {
           streams.remove(key);
         }
       } catch (error) {
@@ -221,6 +228,7 @@ const viewPreviewCamera = (values: string) => {
       baseStreamStates.set(key, false);
     }
   }
+
 };
 
 const handleTabSelect = (tab: Tabs) => {
