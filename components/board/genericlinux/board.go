@@ -57,6 +57,9 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 			}
 
 			if !usePeriphGpio {
+				// We currently have two implementations of GPIO pins on these boards: one using
+				// libraries from periph.io and one using an ioctl approach. If we're using the
+				// latter, we need to initialize it here.
 				gpioInitialize(gpioMappings)
 			}
 
@@ -292,10 +295,14 @@ type periphGpioPin struct {
 }
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
-	if !b.usePeriphGpio {
-		return gpioGetPin(pinName)
+	if b.usePeriphGpio {
+		return b.periphGPIOPinByName(pinName)
+	} else {
+		return gpioGetPin(pinName) // implemented in gpio.go
 	}
+}
 
+func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
 	pin, hwPWMSupported, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return nil, err
