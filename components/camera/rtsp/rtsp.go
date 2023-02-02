@@ -222,7 +222,7 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-		select { // one select block to always ensure the cancellations are listened to.
+		select { // First select block always ensures the cancellations are listened to.
 		case <-cancelCtx.Done():
 			return nil, nil, cancelCtx.Err()
 		case <-ctx.Done():
