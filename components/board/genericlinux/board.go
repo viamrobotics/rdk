@@ -41,7 +41,7 @@ type Config struct {
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriph bool) {
+func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
@@ -56,7 +56,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
 
-			if !usePeriph {
+			if !usePeriphGpio {
 				gpioInitialize(gpioMappings)
 			}
 
@@ -88,14 +88,14 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
 			return &sysfsBoard{
-				gpioMappings: gpioMappings,
-				spis:         spis,
-				analogs:      analogs,
-				pwms:         map[string]pwmSetting{},
-				usePeriph:    usePeriph,
-				logger:       logger,
-				cancelCtx:    cancelCtx,
-				cancelFunc:   cancelFunc,
+				gpioMappings:  gpioMappings,
+				spis:          spis,
+				analogs:       analogs,
+				pwms:          map[string]pwmSetting{},
+				usePeriphGpio: usePeriphGpio,
+				logger:        logger,
+				cancelCtx:     cancelCtx,
+				cancelFunc:    cancelFunc,
 			}, nil
 		}})
 	config.RegisterComponentAttributeMapConverter(
@@ -138,13 +138,13 @@ func init() {
 
 type sysfsBoard struct {
 	generic.Unimplemented
-	mu           sync.RWMutex
-	gpioMappings map[int]GPIOBoardMapping
-	spis         map[string]*spiBus
-	analogs      map[string]board.AnalogReader
-	pwms         map[string]pwmSetting
-	usePeriph    bool
-	logger       golog.Logger
+	mu            sync.RWMutex
+	gpioMappings  map[int]GPIOBoardMapping
+	spis          map[string]*spiBus
+	analogs       map[string]board.AnalogReader
+	pwms          map[string]pwmSetting
+	usePeriphGpio bool
+	logger        golog.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -292,7 +292,7 @@ type periphGpioPin struct {
 }
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
-	if !b.usePeriph {
+	if !b.usePeriphGpio {
 		return gpioGetPin(pinName)
 	}
 
