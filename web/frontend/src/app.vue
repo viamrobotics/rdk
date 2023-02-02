@@ -2,13 +2,13 @@
 <script setup lang="ts">
 import RemoteControlCards from './components/remote-control-cards.vue';
 
-const host = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
-const bakedAuth = window.bakedAuth;
-const rcDebug = window.rcDebug;
-const supportedAuthTypes = window.supportedAuthTypes;
-const webrtcAdditionalICEServers = window.webrtcAdditionalICEServers;
-const webrtcEnabled = window.webrtcEnabled;
-const webrtcSignalingAddress = window.webrtcSignalingAddress;
+const host = $computed(() => `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`);
+const bakedAuth = $computed(() => window.bakedAuth);
+const rcDebug = $computed(() => window.rcDebug);
+const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
+const webrtcAdditionalICEServers = $computed(() => window.webrtcAdditionalICEServers);
+const webrtcEnabled = $computed(() => window.webrtcEnabled);
+const webrtcSignalingAddress = $computed(() => window.webrtcSignalingAddress);
 
 </script>
 
