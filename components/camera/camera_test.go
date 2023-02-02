@@ -223,6 +223,22 @@ func TestReconfigurableCamera(t *testing.T) {
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
 }
 
+func TestSourceFromCamera(t *testing.T) {
+	videoSrc := &simpleSource{"rimage/board1_small"}
+	actualCam, err := camera.NewFromReader(context.Background(), videoSrc, nil, camera.UnspecifiedStream)
+	reconfCam, err := camera.WrapWithReconfigurable(actualCam, resource.Name{})
+	test.That(t, reconfCam, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	source, err := camera.SourceFromCamera(reconfCam.(camera.Camera))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, source, test.ShouldNotBeNil)
+	wgCam := camera.CameraWaitGroup{Cam: reconfCam.(camera.Camera)}
+	test.That(t, wgCam.Cam, test.ShouldNotBeNil)
+	source2, err := camera.SourceFromCamera(wgCam.Cam)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, source2, test.ShouldNotBeNil)
+}
+
 func TestClose(t *testing.T) {
 	actualCamera1 := &mock{Name: testCameraName}
 	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1, resource.Name{})
