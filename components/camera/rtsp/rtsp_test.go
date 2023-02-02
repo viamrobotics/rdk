@@ -13,7 +13,7 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
-func startFFMPEG(outputURL string, streamStarted, streamStopped chan struct{}) context.CancelFunc {
+func startFFMPEG(outputURL string, streamStarted chan struct{}) context.CancelFunc {
 	// run the test avi in a loop through ffmpeg and hand it to the server
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	viamutils.PanicCapturingGo(func() {
@@ -24,7 +24,6 @@ func startFFMPEG(outputURL string, streamStarted, streamStopped chan struct{}) c
 		cmd := ffmpegStream.OverWriteOutput().Compile()
 		close(streamStarted)
 		if err := cmd.Run(); err != nil {
-			close(streamStopped)
 			return
 		}
 	})
@@ -40,8 +39,7 @@ func TestRTSPCamera(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	defer s.Close()
 	streamStarted := make(chan struct{})
-	streamStopped := make(chan struct{})
-	cancel := startFFMPEG(outputURL, streamStarted, streamStopped)
+	cancel := startFFMPEG(outputURL, streamStarted)
 	defer cancel()
 	// create the rtsp camera model
 	rtspConf := &Attrs{Address: outputURL}
@@ -54,7 +52,7 @@ func TestRTSPCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := rtspCam.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = stream.Next(context.Background())
+	_, _, err = stream.Next(context.Background()) // first Next to trigger the gotFirstFrame bool and chan
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 10; i++ {
 		_, _, err := stream.Next(context.Background())
