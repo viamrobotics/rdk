@@ -62,6 +62,10 @@ const (
 	SubtypeName = resource.SubtypeName("arm")
 )
 
+// MTPoob is a string that all MoveToPosition errors should contain if the method is called
+// and there are joints which are out of bounds.
+const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
+
 var defaultArmPlannerOptions = map[string]interface{}{
 	"motion_profile": motionplan.LinearMotionProfile,
 }
@@ -366,8 +370,11 @@ func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, world
 	// check that joint positions are not out of bounds
 	_, err = motionplan.ComputePosition(model, joints)
 	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		err = errors.New("cartesian movements are not allowed when arm joints are out of bounds")
-		return err
+		return errors.New(strings.Join(
+			[]string{
+				MTPoob,
+				err.Error(),
+			}, " - "))
 	} else if err != nil {
 		return err
 	}
@@ -456,7 +463,7 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []floa
 			min = currPosition
 		}
 		if val > max || val < min {
-			return fmt.Errorf("joint %v needs to be within bounds [%v, %v] and cannot be moved to %v", i, min, max, val)
+			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val)
 		}
 	}
 	return nil

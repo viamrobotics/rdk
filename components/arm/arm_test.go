@@ -3,6 +3,7 @@ package arm_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -425,13 +426,16 @@ func TestOOBArm(t *testing.T) {
 	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
 		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
-		test.That(t, err.Error(), test.ShouldEqual, "cartesian movements are not allowed when arm joints are out of bounds")
+		u := "cartesian movements are not allowed when arm joints are out of bounds"
+		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
+		s := strings.Join([]string{u, v}, " - ")
+		test.That(t, err.Error(), test.ShouldEqual, s)
 	})
 
 	t.Run("MoveToJointPositions fails if more OOB", func(t *testing.T) {
 		vals := []float64{0, 0, 0, 0, 0, 800}
 		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
-		test.That(t, err.Error(), test.ShouldEqual, "joint 5 needs to be within bounds [-360, 720] and cannot be moved to 800")
+		test.That(t, err.Error(), test.ShouldEqual, "joint 5 needs to be within range [-360, 720] and cannot be moved to 800")
 	})
 
 	t.Run("GoToInputs fails if more OOB", func(t *testing.T) {
@@ -439,7 +443,7 @@ func TestOOBArm(t *testing.T) {
 		model := injectedArm.LocalArm.ModelFrame()
 		positionDegs := model.ProtobufFromInput(goal)
 		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, positionDegs.Values)
-		test.That(t, err.Error(), test.ShouldEqual, "joint 0 needs to be within bounds [-360, 360] and cannot be moved to 630.2535746439056")
+		test.That(t, err.Error(), test.ShouldEqual, "joint 0 needs to be within range [-360, 360] and cannot be moved to 630.2535746439056")
 	})
 
 	t.Run("MoveToJointPositions works if more in bounds", func(t *testing.T) {
@@ -457,7 +461,7 @@ func TestOOBArm(t *testing.T) {
 	t.Run("MoveToJointPositions fails if causes OOB from IB", func(t *testing.T) {
 		vals := []float64{0, 0, 0, 0, 0, 400}
 		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
-		output := "joint 5 needs to be within bounds [-360, 360] and cannot be moved to 400"
+		output := "joint 5 needs to be within range [-360, 360] and cannot be moved to 400"
 		test.That(t, err.Error(), test.ShouldEqual, output)
 	})
 
