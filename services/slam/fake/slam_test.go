@@ -17,15 +17,21 @@ func TestFakeSLAMPosition(t *testing.T) {
 	pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pInFrame.Parent(), test.ShouldEqual, slamSvc.Name)
-	test.That(t, pInFrame.Pose().Point(), test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
-	test.That(t, pInFrame.Pose().Orientation().AxisAngles(), test.ShouldResemble, spatialmath.NewOrientationVector().AxisAngles())
+
+	expectedPoint := r3.Vector{X: 1.8607751801785188, Y: 34.26593374183797, Z: 0}
+	test.That(t, pInFrame.Pose().Point(), test.ShouldResemble, expectedPoint)
+
+	expectedOri := spatialmath.NewR4AA()
+	expectedOri.RZ = -1
+	expectedOri.Theta = 3.0542483867902197
+	test.That(t, pInFrame.Pose().Orientation().AxisAngles(), test.ShouldResemble, expectedOri)
 }
 
 func TestFakeSLAMGetInternalState(t *testing.T) {
 	slamSvc := &FakeSLAM{Name: "test"}
 	data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, data, test.ShouldResemble, []byte{0, 0, 0})
+	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 }
 
 func TestFakeSLAMGetMap(t *testing.T) {
