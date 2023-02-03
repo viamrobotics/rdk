@@ -297,9 +297,8 @@ type periphGpioPin struct {
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if b.usePeriphGpio {
 		return b.periphGPIOPinByName(pinName)
-	} else {
-		return gpioGetPin(pinName) // implemented in gpio.go
 	}
+	return gpioGetPin(pinName) // implemented in gpio.go
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
