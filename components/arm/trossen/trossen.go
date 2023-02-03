@@ -42,12 +42,6 @@ import (
 
 const servoCount = 9
 
-// TrossenGripperOpen is the command string for opening the gripper.
-const TrossenGripperOpen = "open"
-
-// TrossenGripperClose is the command string for closing the gripper.
-const TrossenGripperClose = "grab"
-
 var (
 	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
 	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
@@ -254,26 +248,8 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 	return &pb.JointPositions{Values: positions}, nil
 }
 
-// DoCommand handles incoming gripper requests.
-func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	name, ok := cmd["command"]
-	if !ok {
-		return nil, errors.New("missing 'command' value")
-	}
-	switch name {
-	case TrossenGripperClose:
-		grabbed, err := a.grab(ctx)
-		return map[string]interface{}{"grabbed": grabbed}, err
-	case TrossenGripperOpen:
-		return nil, a.open(ctx)
-	default:
-		return nil, errors.Errorf("no such command: %s", name)
-	}
-}
-
-// Opens the gripper. Accessible via DoCommand and called by the
-// Trossen gripper implementation (through DoCommand).
-func (a *Arm) open(ctx context.Context) error {
+// Open opens the gripper.
+func (a *Arm) Open(ctx context.Context) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	a.moveLock.Lock()
@@ -303,9 +279,8 @@ func (a *Arm) open(ctx context.Context) error {
 	return err
 }
 
-// Closes the gripper. Accessible via DoCommand and called by the
-// Trossen gripper implementation (through DoCommand).
-func (a *Arm) grab(ctx context.Context) (bool, error) {
+// Grab closes the gripper.
+func (a *Arm) Grab(ctx context.Context) (bool, error) {
 	_, done := a.opMgr.New(ctx)
 	defer done()
 	a.moveLock.Lock()
@@ -398,7 +373,7 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 
 // JointOrder TODO.
 func (a *Arm) JointOrder() []string {
-	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
+	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot", "Gripper"}
 }
 
 // PrintPositions prints positions of all servos.
