@@ -13,13 +13,13 @@ type i2cBus struct {
 	name   string
 }
 
-func newI2cBus(name string, number int) i2cBus {
-	return i2cBus{name: name, number: number}
-}
-
 // This lets the i2cBus type implement the board.I2C interface.
 func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
-	return localI2c{internal: i2c.NewI2C(addr, bus.number)}
+	handle, err := i2c.NewI2C(addr, bus.number)
+	if err != nil {
+		return nil, err
+	}
+	return &localI2c{internal: handle}, nil
 }
 
 // We want to use the i2c.I2C struct, but we also want to have it conform to the board.I2CHandle
@@ -35,7 +35,7 @@ func (h *localI2c) Write(ctx context.Context, tx []byte) error {
 	if err != nil {
 		return err
 	}
-	if bytesWritten != len(tx) {
+	if int(bytesWritten) != len(tx) {
 		return fmt.Errorf("Not all bytes were written to I2C address %d on bus %d! Had %d, wrote %d.",
 			h.internal.GetAddr(), h.internal.GetBus(), len(tx), bytesWritten)
 	}
@@ -49,7 +49,7 @@ func (h *localI2c) Read(ctx context.Context, count int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bytesRead != count {
+	if int(bytesRead) != count {
 		return nil, fmt.Errorf("Not enough bytes were read from I2C address %d on bus %d! Needed %d, got %d.",
 			h.internal.GetAddr(), h.internal.GetBus(), count, bytesRead)
 	}
@@ -84,7 +84,7 @@ func (h *localI2c) ReadBlockData(ctx context.Context, register byte, numBytes ui
 	if err != nil {
 		return nil, err
 	}
-	if len(results) != numBytes {
+	if len(results) != int(numBytes) {
 		return nil, fmt.Errorf("Not enough bytes were read from I2C register %d, address %d on bus %d! Needed %d, got %d.",
 			register, h.internal.GetAddr(), h.internal.GetBus(), numBytes, len(results))
 	}
@@ -103,9 +103,13 @@ func (h *localI2c) WriteBlockData(ctx context.Context, register byte, numBytes u
 	if err != nil {
 		return err
 	}
-	if bytesWritten != numBytes+1 {
+	if int(bytesWritten) != int(numBytes)+1 {
 		return fmt.Errorf("Not enough bytes were written to I2C register %d, address %d on bus %d! Needed %d, got %d.",
 			register, h.internal.GetAddr(), h.internal.GetBus(), numBytes, bytesWritten-1)
 	}
 	return nil
+}
+
+func (h *localI2c) Close() error {
+	return h.internal.Close()
 }
