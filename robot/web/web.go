@@ -629,7 +629,9 @@ func (svc *webService) startImageStream(ctx context.Context, source gostream.Vid
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		if cam, ok := source.(camera.Camera); ok {
 			src, err := camera.SourceFromCamera(cam)
-			if err == nil {
+			if err != nil {
+				svc.logger.Warnw("error getting camera source", "error", err)
+			} else {
 				source = src
 			}
 		}
