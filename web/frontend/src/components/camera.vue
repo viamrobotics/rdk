@@ -44,7 +44,7 @@ let camera = $ref(false);
 const refreshFrequency = $ref('Live');
 
 const initStreamState = () => {
-  cameraStreamStates.set(props.cameraName, {'on': false, 'live': (refreshFrequency === 'Live') ? true : false});
+  cameraStreamStates.set(props.cameraName, { on: false, live: (refreshFrequency === 'Live') });
 };
 
 const viewCamera = async (isOn: boolean) => {
@@ -61,7 +61,7 @@ const viewCamera = async (isOn: boolean) => {
     } catch (error) {
       displayError(error as ServiceError);
     }
-    cameraStreamStates.set(props.cameraName, {'on' : true, 'live': (refreshFrequency === 'Live') ? true : false});
+    cameraStreamStates.set(props.cameraName, { on: true, live: (refreshFrequency === 'Live') });
   } else {
     try {
       // only remove camera stream if active and base stream is not active
@@ -74,7 +74,7 @@ const viewCamera = async (isOn: boolean) => {
     } catch (error) {
       displayError(error as ServiceError);
     }
-    cameraStreamStates.set(props.cameraName, {'on' : false, 'live': (refreshFrequency === 'Live') ? true : false});
+    cameraStreamStates.set(props.cameraName, { on: false, live: (refreshFrequency === 'Live') });
   }
 };
 
