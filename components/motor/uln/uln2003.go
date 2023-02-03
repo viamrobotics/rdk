@@ -29,6 +29,8 @@ var (
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 )
 
+// stepSequence contains high and low signal for uln2003 pins.
+// Treversing through stepSequence once is one step.
 var stepSequence = [8][4]bool{
 	{true, false, false, true},
 	{true, false, false, false},
@@ -302,9 +304,7 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
 		m.stepPosition++
 	} else {
-		m.logger.Debug("Inside else statement, forward is False")
 		for tick := len(stepSequence) - 1; tick >= 0; tick-- {
-			m.logger.Debug("inside the for loop")
 			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
 			if err1 != nil {
 				return errors.New("failed to set In1 with error")
@@ -349,17 +349,14 @@ func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	m.logger.Debug("Entering goForInternal")
 	err := m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
-	m.logger.Debug("returned from goForInternal")
 
 	if revolutions == 0 {
 		return nil
 	}
-	m.logger.Debug("Revolutions is non zero")
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
@@ -371,14 +368,11 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 	var d int64 = 1
 
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
-		m.logger.Debug("Recolutions and rpm has difference signs")
 		d = -1
 	}
 
 	revolutions = math.Abs(revolutions)
-	m.logger.Debugf("revolution is: ", revolutions)
 	rpm = math.Abs(rpm) * float64(d)
-	m.logger.Debugf("RPM is : ", rpm)
 
 	if math.Abs(rpm) < 0.1 {
 		m.logger.Info("RPM is less than 0.1 ", rpm)
@@ -388,16 +382,12 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	m.logger.Debug("Locked")
 	if !m.threadStarted {
 		return errors.New("thread not started")
 	}
 
-	m.logger.Debug("Thread has started")
 	m.targetStepPosition += int64(float64(d)*revolutions*float64(m.ticksPerRotation)) / 8
-	m.logger.Debugf("targetStepposition is: ", m.targetStepPosition)
 	m.targetStepsPerSecond = int64(revolutions * float64(m.ticksPerRotation) / 60.0)
-	m.logger.Debugf("targetStepsPerSeconds is: ", m.targetStepsPerSecond)
 	if m.targetStepsPerSecond == 0 {
 		m.targetStepsPerSecond = 1
 	}
