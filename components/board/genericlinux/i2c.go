@@ -26,7 +26,7 @@ func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 // interface, and we cannot define new functions on non-local types. So, we create a local struct
 // that contains the non-local one, upon which we can define extra functions.
 type localI2c struct {
-	internal i2c.I2C
+	internal *i2c.I2C
 }
 
 // This helps the localI2c struct implement the board.I2CHandle interface.
@@ -80,7 +80,7 @@ func (h *localI2c) WriteWordData(ctx context.Context, register byte, data uint16
 func (h *localI2c) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	// The ignored value is the number of bytes we read. It should be identical to len(results),
 	// and if it's ever not, we should probably just return the results anyway.
-	results, _, err := h.internal.ReadRegBytes(register, numBytes)
+	results, _, err := h.internal.ReadRegBytes(register, int(numBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (h *localI2c) WriteBlockData(ctx context.Context, register byte, numBytes u
 	// register address and then the relevant bytes.
 	rawData := make([]byte, numBytes+1)
 	rawData[0] = register
-	rawData[1:] = data
+	copy(rawData[1:], data)
 	bytesWritten, err := h.internal.WriteBytes(rawData)
 	if err != nil {
 		return err
