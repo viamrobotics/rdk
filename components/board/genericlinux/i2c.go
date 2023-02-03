@@ -3,6 +3,7 @@ package genericlinux
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/d2r2/go-i2c"
 	"go.viam.com/rdk/components/board"
@@ -11,22 +12,22 @@ import (
 type i2cBus struct {
 	number int
 	name   string
+	mu     sync.Mutex
 }
 
 // This lets the i2cBus type implement the board.I2C interface.
 func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
+	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
 	handle, err := i2c.NewI2C(addr, bus.number)
 	if err != nil {
 		return nil, err
 	}
-	return &localI2c{internal: handle}, nil
+	return &localI2c{internal: handle, mu: &bus.mu}, nil
 }
 
-// We want to use the i2c.I2C struct, but we also want to have it conform to the board.I2CHandle
-// interface, and we cannot define new functions on non-local types. So, we create a local struct
-// that contains the non-local one, upon which we can define extra functions.
 type localI2c struct {
 	internal *i2c.I2C
+	mu       *sync.Mutex
 }
 
 // This helps the localI2c struct implement the board.I2CHandle interface.
@@ -111,5 +112,6 @@ func (h *localI2c) WriteBlockData(ctx context.Context, register byte, numBytes u
 }
 
 func (h *localI2c) Close() error {
+	h.mu.Unlock() // Unlock the entire bus so someone else can use it
 	return h.internal.Close()
 }
