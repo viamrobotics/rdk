@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import { displayError } from '../lib/error';
 import {
   StreamClient,
@@ -12,17 +11,11 @@ import {
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
-import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
   cameraName: string;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
-}
-
-interface Emits {
-  (event: 'clear-interval'): void;
-  (event: 'selected-camera-view', value: number): void;
 }
 
 const selectedMap = {
@@ -34,17 +27,13 @@ const selectedMap = {
 } as const;
 
 const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+const refreshFrequency = $ref('Live');
 
 let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();
 let camera = $ref(false);
-
-const selectedValue = $ref('Live');
-
-const initStreamState = () => {
-  cameraStreamStates.set(props.cameraName, false);
-};
+let cameraFrameIntervalId = $ref(-1);
+let streamActive = false;
 
 const clearStreamContainer = (camName: string, elName: string) => {
   const streamContainer = document.querySelector(
@@ -64,30 +53,64 @@ const viewCamera = async (isOn: boolean) => {
   if (isOn) {
     try {
       // only add stream if not already active
-      if (
-        !baseStreamStates.get(props.cameraName) &&
-        !cameraStreamStates.get(props.cameraName)
-      ) {
+      if ( !streamActive ) {
         await streams.add(props.cameraName);
       }
     } catch (error) {
       displayError(error as ServiceError);
     }
-    cameraStreamStates.set(props.cameraName, true);
+    streamActive = true;
   } else {
     try {
       // only remove camera stream if active and base stream is not active
-      if (
-        !baseStreamStates.get(props.cameraName) &&
-        cameraStreamStates.get(props.cameraName)
-      ) {
+      if ( streamActive ) {
         await streams.remove(props.cameraName);
       }
     } catch (error) {
       displayError(error as ServiceError);
     }
-    cameraStreamStates.set(props.cameraName, false);
+    streamActive = false;
   }
+};
+
+const viewFrame = async (cameraName: string) => {
+  let blob;
+  try {
+    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
+  } catch (error) {
+    displayError(error as ServiceError);
+    return;
+  }
+
+  const streamContainers = document.querySelectorAll(
+    `[data-stream="${cameraName}"]`
+  );
+  for (const streamContainer of streamContainers) {
+    const image = new Image();
+    image.src = URL.createObjectURL(blob);
+    streamContainer.querySelector('img')?.remove();
+    streamContainer.append(image);
+  }
+};
+
+const viewCameraFrame = (cameraName: string, time: number) => {
+  clearFrameInterval();
+
+  // Live
+  if (time === -1) {
+    return;
+  }
+
+  viewFrame(cameraName);
+  if (time > 0) {
+    cameraFrameIntervalId = window.setInterval(() => {
+      viewFrame(cameraName);
+    }, Number(time) * 1000);
+  }
+};
+
+const clearFrameInterval = () => {
+  window.clearInterval(cameraFrameIntervalId);
 };
 
 const renderPCD = async () => {
@@ -106,25 +129,27 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  emit('clear-interval');
+  clearFrameInterval();
+  const selectedInterval: number = selectedMap[refreshFrequency as keyof typeof selectedMap];
 
-  if (selectedValue !== 'Live') {
+  if (refreshFrequency !== 'Live') {
     clearStreamContainer(props.cameraName, 'video');
-
-    const selectedInterval: number = selectedMap[selectedValue as keyof typeof selectedMap];
+    
+    viewCameraFrame(props.cameraName, selectedInterval);
     viewCamera(false);
-    emit('selected-camera-view', selectedInterval);
+
     return;
   }
-  clearStreamContainer(props.cameraName, 'img');
 
+  clearStreamContainer(props.cameraName, 'img');
+  viewCameraFrame(props.cameraName, selectedInterval);
   viewCamera(true);
 };
 
 const toggleExpand = () => {
   camera = !camera;
 
-  emit('clear-interval');
+  clearFrameInterval();
 
   if (camera) {
     selectCameraView();
@@ -134,8 +159,10 @@ const toggleExpand = () => {
 };
 
 const refreshCamera = () => {
-  emit('selected-camera-view', selectedMap[selectedValue as keyof typeof selectedMap]);
-  emit('clear-interval');
+  const selectedInterval: number = selectedMap[refreshFrequency as keyof typeof selectedMap];
+
+  viewCameraFrame(props.cameraName, selectedInterval);
+  clearFrameInterval();
 };
 
 const exportScreenshot = async (cameraName: string) => {
@@ -151,10 +178,6 @@ const exportScreenshot = async (cameraName: string) => {
 
   window.open(URL.createObjectURL(blob), '_blank');
 };
-
-onMounted(() => {
-  initStreamState();
-});
 </script>
 
 <template>
@@ -192,7 +215,7 @@ onMounted(() => {
                 <div class="">
                   <div class="relative">
                     <v-select
-                      v-model="selectedValue"
+                      v-model="refreshFrequency"
                       label="Refresh frequency"
                       aria-label="Default select example"
                       :options="Object.keys(selectedMap).join(',')"
@@ -202,7 +225,7 @@ onMounted(() => {
                 </div>
                 <div class="self-end">
                   <v-button
-                    v-if="camera && selectedValue === 'Manual Refresh'"
+                    v-if="camera && refreshFrequency === 'Manual Refresh'"
                     icon="refresh"
                     label="Refresh"
                     @click="refreshCamera"
