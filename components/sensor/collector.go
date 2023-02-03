@@ -45,6 +45,13 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
 		for name, value := range values {
+			if len(arg) != 0 {
+				// If specific sensor reading names were passed in the robot config, report only those
+				// Otherwise, report all sensor values
+				if _, ok := arg[name]; !ok {
+					continue
+				}
+			}
 			records = append(records, SensorRecord{ReadingName: name, Reading: value})
 		}
 		return SensorRecords{Readings: records}, nil
