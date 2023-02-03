@@ -229,7 +229,7 @@ func SourceFromCamera(cam Camera) (gostream.VideoSource, error) {
 		return asSrc.videoSource, nil
 	}
 
-	if asWaitGroup, ok := cam.(*CameraWaitGroup); ok {
+	if asWaitGroup, ok := cam.(*WaitGroupCamera); ok {
 		return SourceFromCamera(asWaitGroup.Cam)
 	}
 

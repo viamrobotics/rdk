@@ -287,7 +287,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	}
 
 	const wait = 500 * time.Millisecond
-	camWg := camera.CameraWaitGroup{Cam: cam.(camera.Camera)}
+	camWg := camera.WaitGroupCamera{Cam: cam.(camera.Camera)}
 	camWg.ActiveBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		defer goutils.UncheckedError(goutils.TryClose(ctx, cam))

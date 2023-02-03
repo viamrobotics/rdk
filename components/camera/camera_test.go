@@ -236,7 +236,7 @@ func TestSourceFromCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, source, test.ShouldNotBeNil)
 
-	wgCam := camera.CameraWaitGroup{Cam: reconfCam.(camera.Camera)}
+	wgCam := camera.WaitGroupCamera{Cam: reconfCam.(camera.Camera)}
 	test.That(t, wgCam.Cam, test.ShouldNotBeNil)
 
 	source2, err := camera.SourceFromCamera(wgCam.Cam)
