@@ -6,17 +6,17 @@ import (
 	"github.com/d2r2/go-i2c"
 )
 
-type I2cBus struct {
+type i2cBus struct {
 	number int
 	name   string
 }
 
-func newI2cBus(name string, number int) I2cBus {
-	return I2cBus{name: name, number: number}
+func newI2cBus(name string, number int) i2cBus {
+	return i2cBus{name: name, number: number}
 }
 
-// This lets the I2cBus type implement the board.I2C interface.
-func (bus *I2cBus) OpenHandle(addr byte) (I2CHandle, error) {
+// This lets the i2cBus type implement the board.I2C interface.
+func (bus *i2cBus) OpenHandle(addr byte) (I2CHandle, error) {
 	return i2c.NewI2C(addr, bus.number)
 }
 
