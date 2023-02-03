@@ -230,8 +230,7 @@ func SourceFromCamera(cam Camera) (gostream.VideoSource, error) {
 	}
 
 	if asWaitGroup, ok := cam.(*CameraWaitGroup); ok {
-		asAct := utils.UnwrapProxy(asWaitGroup.Cam).(Camera)
-		return SourceFromCamera(asAct)
+		return SourceFromCamera(asWaitGroup.Cam)
 	}
 
 	if asReconfigurable, ok := cam.(*reconfigurableCamera); ok {
