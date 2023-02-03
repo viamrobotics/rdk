@@ -618,6 +618,7 @@ const viewFrame = async (cameraName: string) => {
   for (const streamContainer of streamContainers) {
     const image = new Image();
     image.src = URL.createObjectURL(blob);
+    streamContainer.querySelector('video')?.classList.add('hidden');
     streamContainer.querySelector('img')?.remove();
     streamContainer.append(image);
   }
