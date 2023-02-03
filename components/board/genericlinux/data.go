@@ -1,4 +1,4 @@
-package commonsysfs
+package genericlinux
 
 import (
 	"fmt"

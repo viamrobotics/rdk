@@ -1,6 +1,7 @@
-// Package commonsysfs implements a sysfs (https://en.wikipedia.org/wiki/Sysfs) based board. This does not provide
-// a board model itself but provides the underlying logic for any sysfs based board.
-package commonsysfs
+// Package genericlinux implements a Linux-based board making heavy use of sysfs
+// (https://en.wikipedia.org/wiki/Sysfs). This does not provide a board model itself but provides
+// the underlying logic for any Linux/sysfs based board.
+package genericlinux
 
 import (
 	"context"
@@ -40,7 +41,7 @@ type Config struct {
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
+func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
@@ -54,6 +55,14 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
+
+			if !usePeriphGpio {
+				// We currently have two implementations of GPIO pins on these boards: one using
+				// libraries from periph.io and one using an ioctl approach. If we're using the
+				// latter, we need to initialize it here.
+				gpioInitialize(gpioMappings)
+			}
+
 			var spis map[string]*spiBus
 			if len(conf.SPIs) != 0 {
 				spis = make(map[string]*spiBus, len(conf.SPIs))
@@ -82,13 +91,14 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
 			return &sysfsBoard{
-				gpioMappings: gpioMappings,
-				spis:         spis,
-				analogs:      analogs,
-				pwms:         map[string]pwmSetting{},
-				logger:       logger,
-				cancelCtx:    cancelCtx,
-				cancelFunc:   cancelFunc,
+				gpioMappings:  gpioMappings,
+				spis:          spis,
+				analogs:       analogs,
+				pwms:          map[string]pwmSetting{},
+				usePeriphGpio: usePeriphGpio,
+				logger:        logger,
+				cancelCtx:     cancelCtx,
+				cancelFunc:    cancelFunc,
 			}, nil
 		}})
 	config.RegisterComponentAttributeMapConverter(
@@ -131,12 +141,13 @@ func init() {
 
 type sysfsBoard struct {
 	generic.Unimplemented
-	mu           sync.RWMutex
-	gpioMappings map[int]GPIOBoardMapping
-	spis         map[string]*spiBus
-	analogs      map[string]board.AnalogReader
-	pwms         map[string]pwmSetting
-	logger       golog.Logger
+	mu            sync.RWMutex
+	gpioMappings  map[int]GPIOBoardMapping
+	spis          map[string]*spiBus
+	analogs       map[string]board.AnalogReader
+	pwms          map[string]pwmSetting
+	usePeriphGpio bool
+	logger        golog.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -276,7 +287,7 @@ func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
 	return pin, hwPWMSupported, nil
 }
 
-type gpioPin struct {
+type periphGpioPin struct {
 	b              *sysfsBoard
 	pin            gpio.PinIO
 	pinName        string
@@ -284,15 +295,22 @@ type gpioPin struct {
 }
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
+	if b.usePeriphGpio {
+		return b.periphGPIOPinByName(pinName)
+	}
+	return gpioGetPin(pinName) // implemented in gpio.go
+}
+
+func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
 	pin, hwPWMSupported, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return nil, err
 	}
 
-	return gpioPin{b, pin, pinName, hwPWMSupported}, nil
+	return periphGpioPin{b, pin, pinName, hwPWMSupported}, nil
 }
 
-func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+func (gp periphGpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -301,7 +319,7 @@ func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface
 	return gp.set(high)
 }
 
-func (gp gpioPin) set(high bool) error {
+func (gp periphGpioPin) set(high bool) error {
 	l := gpio.Low
 	if high {
 		l = gpio.High
@@ -309,11 +327,11 @@ func (gp gpioPin) set(high bool) error {
 	return gp.pin.Out(l)
 }
 
-func (gp gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (gp periphGpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return gp.pin.Read() == gpio.High, nil
 }
 
-func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (gp periphGpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
@@ -325,14 +343,14 @@ func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float6
 }
 
 // expects to already have lock acquired.
-func (b *sysfsBoard) startSoftwarePWMLoop(gp gpioPin) {
+func (b *sysfsBoard) startSoftwarePWMLoop(gp periphGpioPin) {
 	b.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		b.softwarePWMLoop(b.cancelCtx, gp)
 	}, b.activeBackgroundWorkers.Done)
 }
 
-func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
+func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin) {
 	for {
 		cont := func() bool {
 			b.mu.RLock()
@@ -367,7 +385,7 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 	}
 }
 
-func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (gp periphGpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -396,14 +414,14 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[st
 	return nil
 }
 
-func (gp gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (gp periphGpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
 	return uint(gp.b.pwms[gp.pinName].frequency / physic.Hertz), nil
 }
 
-func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (gp periphGpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
