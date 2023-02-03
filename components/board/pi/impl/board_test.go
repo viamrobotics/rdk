@@ -12,7 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/commonsysfs"
+	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
@@ -23,7 +23,7 @@ func TestPiPigpio(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := commonsysfs.Config{
+	cfg := genericlinux.Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"}, // bcom 17
 			{Name: "servo-i", Pin: "22", Type: "servo"},

@@ -1,4 +1,4 @@
-package commonsysfs
+package genericlinux
 
 import (
 	"context"
@@ -16,13 +16,13 @@ import (
 )
 
 func TestRegisterBoard(t *testing.T) {
-	RegisterBoard("test", map[int]GPIOBoardMapping{})
+	RegisterBoard("test", map[int]GPIOBoardMapping{}, true)
 }
 
-func TestCommonSysFs(t *testing.T) {
+func TestGenericLinux(t *testing.T) {
 	ctx := context.Background()
 
-	gp1 := &gpioPin{b: &sysfsBoard{
+	gp1 := &periphGpioPin{b: &sysfsBoard{
 		mu:     sync.RWMutex{},
 		logger: golog.NewTestLogger(t),
 	}}
@@ -36,7 +36,7 @@ func TestCommonSysFs(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	gp2 := &gpioPin{
+	gp2 := &periphGpioPin{
 		b: &sysfsBoard{
 			Unimplemented: generic.Unimplemented{},
 			mu:            sync.RWMutex{},
@@ -107,7 +107,7 @@ func TestCommonSysFs(t *testing.T) {
 		test.That(t, gn1, test.ShouldBeNil)
 	})
 
-	t.Run("test commonsysfs gpio pin functionality", func(t *testing.T) {
+	t.Run("test genericlinux gpio pin functionality", func(t *testing.T) {
 		err := gp2.SetPWM(ctx, 50, nil)
 		test.That(t, err, test.ShouldBeNil)
 
