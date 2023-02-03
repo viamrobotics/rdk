@@ -71,11 +71,15 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				}
 			}
 
-			var i2cs map[string]*board.I2C
+			var i2cs map[string]board.I2C
 			if len(conf.I2Cs) != 0 {
-				i2cs = make(map[string]*board.I2C, len(conf.I2Cs))
+				i2cs = make(map[string]board.I2C, len(conf.I2Cs))
 				for _, i2cConf := range conf.I2Cs {
-					i2cs[i2cConf.Name] = &i2cBus{number: i2cConf.Bus, name: i2cConf.Name}
+					busNumber, err := strconv.Atoi(i2cConf.Bus)
+					if err != nil {
+						return nil, errors.Errorf("Malformed I2C bus number: %s", i2cConf.Bus)
+					}
+					i2cs[i2cConf.Name] = &i2cBus{number: busNumber, name: i2cConf.Name}
 				}
 			}
 
@@ -156,7 +160,7 @@ type sysfsBoard struct {
 	spis          map[string]*spiBus
 	analogs       map[string]board.AnalogReader
 	pwms          map[string]pwmSetting
-	i2cs          map[string]*board.I2C
+	i2cs          map[string]board.I2C
 	usePeriphGpio bool
 	logger        golog.Logger
 
