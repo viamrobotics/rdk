@@ -428,7 +428,7 @@ func TestOOBArm(t *testing.T) {
 		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
 		u := "cartesian movements are not allowed when arm joints are out of bounds"
 		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
-		s := strings.Join([]string{u, v}, " - ")
+		s := strings.Join([]string{u, v}, ": ")
 		test.That(t, err.Error(), test.ShouldEqual, s)
 	})
 
