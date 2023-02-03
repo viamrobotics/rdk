@@ -2,12 +2,11 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { onClickOutside } from '@vueuse/core';
-import { BaseClient, Client, type ServiceError, commonApi, StreamClient } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { rcLogConditionally } from '../lib/log';
-import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
   name: string;
@@ -39,14 +38,9 @@ let movementType = $ref<MovementTypes>('Continuous');
 let direction = $ref<Directions>('Forwards');
 let spinType = $ref<SpinTypes>('Clockwise');
 const increment = $ref(1000);
-// straight mm/s
-const speed = $ref(300);
-// deg/s
-const spinSpeed = $ref(90);
+const speed = $ref(300); // straight mm/s
+const spinSpeed = $ref(90); // deg/s
 const angle = $ref(0);
-
-let selectCameras = $ref('');
-
 const power = $ref(50);
 
 const pressed = new Set<Keys>();
@@ -57,11 +51,6 @@ const keyboardStates = $ref({
 });
 
 const resources =filterResources(props.resources, 'rdk', 'component', 'camera')
-const initStreamState = () => {
-  for (const value of resources) {
-    baseStreamStates.set(value.name, false);
-  }
-};
 
 const resetDiscreteState = () => {
   movementMode = 'Straight';
@@ -195,47 +184,8 @@ const baseRun = async () => {
   }
 };
 
-const viewPreviewCamera = (value: string) => {
-  const streams = new StreamClient(props.client);
-
-  for (const [key] of baseStreamStates) {
-    if (value === key) {
-      if (!baseStreamStates.get(key)) {
-        try {
-          // Only add stream if other components have not already
-          if (!cameraStreamStates.get(key) && !baseStreamStates.get(key)) {
-            streams.add(key);
-          }
-        } catch (error) {
-          displayError(error as ServiceError);
-        }
-
-        baseStreamStates.set(key, true);
-      } else {
-        try {
-          // Only remove stream if other components are not using the stream
-          if (!cameraStreamStates.get(key)) {
-            streams.remove(key);
-          }
-        } catch (error) {
-          displayError(error as ServiceError);
-        }
-        
-        baseStreamStates.set(key, false);
-      }
-    }
-  }
-};
-
 const handleTabSelect = (controlMode: Tabs) => {
   selectedMode = controlMode;
-
-  /*
-   * deselect options from select cameras select
-   * TODO: handle better with xstate and reactivate on return
-   */
-  selectCameras = '';
-  viewPreviewCamera(selectCameras);
 
   if (controlMode === 'Discrete') {
     resetDiscreteState();
@@ -248,10 +198,6 @@ const handleVisibilityChange = () => {
     stop();
   }
 };
-
-// const tempDisableKeyboard = (disableKeyboard: boolean) => {
-//   keyboardStates.tempDisable = disableKeyboard;
-// };
 
 const handleToggle = () => {
   if (keyboardStates.isActive) {
@@ -272,7 +218,6 @@ onClickOutside($$(root), () => {
 });
 
 onMounted(() => {
-  initStreamState();
   window.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
@@ -421,22 +366,13 @@ onUnmounted(() => {
             >
               <v-switch
                 :label="value.name"
-                @input="viewPreviewCamera(value.name)"
+                @input=""
               />
             </template>
           </div>
         </div>
         <div class="flex flex-col gap-4 border-l border-black p-4">
-          <template
-            v-for="basecamera in resources"
-            :key="basecamera.name"
-          >
-            <div
-              v-if="basecamera"
-              :data-stream-preview="basecamera.name"
-              :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
-            />
-          </template>
+          
         </div>
       </div>
     </v-collapse>
