@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	model                = resource.NewDefaultModel("uln")
+	model                = resource.NewDefaultModel("28byj-48")
 	minStepDelay         = 0.002                  // minimum sleep time between steps
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 )
