@@ -32,6 +32,7 @@ type ModifiedConfigDiff struct {
 	Components []Component
 	Processes  []pexec.ProcessConfig
 	Services   []Service
+	Packages   []PackageConfig
 }
 
 // DiffConfigs returns the difference between the two given configs
@@ -67,7 +68,11 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	servicesDifferent := diffServices(left.Services, right.Services, &diff)
 
 	different = servicesDifferent || different
-	different = diffProcesses(left.Processes, right.Processes, &diff) || different
+	processesDifferent := diffProcesses(left.Processes, right.Processes, &diff) || different
+
+	different = processesDifferent || different
+	different = diffPackages(left.Packages, right.Packages, &diff) || different
+
 	diff.ResourcesEqual = !different
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
@@ -292,6 +297,47 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 		return false
 	}
 	diff.Modified.Processes = append(diff.Modified.Processes, right)
+	return true
+}
+
+func diffPackages(left, right []PackageConfig, diff *Diff) bool {
+	leftIndex := make(map[string]int)
+	leftM := make(map[string]PackageConfig)
+	for idx, l := range left {
+		leftM[l.Name] = l
+		leftIndex[l.Name] = idx
+	}
+
+	var removed []int
+
+	var different bool
+	for _, r := range right {
+		l, ok := leftM[r.Name]
+		delete(leftM, r.Name)
+		if ok {
+			different = diffPackage(l, r, diff) || different
+			continue
+		}
+		diff.Added.Packages = append(diff.Added.Packages, r)
+		different = true
+	}
+
+	for k := range leftM {
+		removed = append(removed, leftIndex[k])
+		different = true
+	}
+	sort.Ints(removed)
+	for _, idx := range removed {
+		diff.Removed.Packages = append(diff.Removed.Packages, left[idx])
+	}
+	return different
+}
+
+func diffPackage(left, right PackageConfig, diff *Diff) bool {
+	if reflect.DeepEqual(left, right) {
+		return false
+	}
+	diff.Modified.Packages = append(diff.Modified.Packages, right)
 	return true
 }
 
