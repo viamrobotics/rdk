@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -22,17 +23,11 @@ var modelname = resource.NewDefaultModel("sht3xd")
 
 const (
 	defaultI2Caddr = 0x44
-
 	// Addresses of sht3xd registers.
-
-	sht3xdCOMMANDREADSERIALNUMBER = 0x3780;
-	sht3xdCOMMANDREADSTATUS = 0xF32D;
-	sht3xdCOMMANDCLEARSTATUS = 0x3041;
-	sht3xdCOMMANDHEATERENABLE = 0x306D;
-	sht3xdCOMMANDHEATERDISABLE = 0x3066;
-	sht3xdCOMMANDSOFTRESET = 0x30A2;
-	sht3xdCOMMANDPOLLINGH = 0x2400;
-	sht3xdCOMMANDFETCHDATA = 0xE000;
+	sht3xdCOMMANDSOFTRESET1 = 0x30
+	sht3xdCOMMANDSOFTRESET2 = 0xA2
+	sht3xdCOMMANDPOLLINGH1  = 0x24
+	sht3xdCOMMANDPOLLINGH2  = 0x00
 )
 
 // AttrConfig is used for converting config attributes.
@@ -101,62 +96,97 @@ func newSensor(
 	addr := attr.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
-		logger.Warn("using i2c address :", defaultI2Caddr)
+		logger.Warn("using i2c address : 0x44")
 	}
 
 	s := &sht3xd{
-		name:     name,
-		logger:   logger,
-		bus:      i2cbus,
-		addr:     byte(addr),
+		name:   name,
+		logger: logger,
+		bus:    i2cbus,
+		addr:   byte(addr),
 	}
-	
+
+	err = s.reset(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set polling repeatability high
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
 		s.logger.Errorf("can't open sht3xd i2c %s", err)
 		return nil, err
 	}
-	err = handle.Write(ctx, []byte{0x30,0xA2})
+	err = handle.Write(ctx, []byte{sht3xdCOMMANDPOLLINGH1, sht3xdCOMMANDPOLLINGH2})
 	if err != nil {
-		s.logger.Debug("Failed to soft reset")
+		return nil, multierr.Append(err, handle.Close())
 	}
 
 	return s, handle.Close()
 }
 
-// sht3xd is a i2c sensor device.
+// sht3xd is a i2c sensor device that reports temperature and humidity.
 type sht3xd struct {
 	generic.Unimplemented
 	logger golog.Logger
 
-	bus         board.I2C
-	addr        byte
-	name        string
+	bus  board.I2C
+	addr byte
+	name string
 }
 
 // Readings returns a list containing single item (current temperature).
 func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	handle, err := s.bus.OpenHandle(s.addr)
-	if err != nil {
-		s.logger.Errorf("can't open sht3xd i2c %s", err)
-		return nil, err
+	tryRead := func() ([]byte, error) {
+		handle, err := s.bus.OpenHandle(s.addr)
+		if err != nil {
+			s.logger.Errorf("can't open sht3xd i2c %s", err)
+			return nil, err
+		}
+		err = handle.Write(ctx, []byte{0x24, 0x00})
+		if err != nil {
+			s.logger.Debug("Failed to request temperature")
+		}
+		buffer, err := handle.Read(ctx, 2)
+		if err != nil {
+			return nil, multierr.Append(err, handle.Close())
+		}
+		return buffer, handle.Close()
 	}
-	err = handle.Write(ctx, []byte{0x24,0x00})
+	buffer, err := tryRead()
 	if err != nil {
-		s.logger.Debug("Failed to request temperature")
+		// If error, do a soft reset and try again
+		err = s.reset(ctx)
+		if err != nil {
+			return nil, err
+		}
+		buffer, err = tryRead()
+		if err != nil {
+			return nil, err
+		}
 	}
-	buffer, err := handle.Read(ctx, 2)
-	if err != nil {
-		return nil, err
+	if len(buffer) != 2 {
+		return nil, fmt.Errorf("expected 2 bytes from sht3xd i2c, got %d", len(buffer))
 	}
 	tempRaw := binary.LittleEndian.Uint16([]byte{0, buffer[0]})
 	humidRaw := binary.LittleEndian.Uint16([]byte{0, buffer[1]})
 
-	temp := 175.0 * float64(tempRaw) / 65535.0 - 45.0
+	temp := 175.0*float64(tempRaw)/65535.0 - 45.0
 	humid := 100.0 * float64(humidRaw) / 65535.0
 	return map[string]interface{}{
 		"temperature_celsius":    temp,
 		"temperature_fahrenheit": temp*1.8 + 32,
-		"humidity":        humid,
-	}, handle.Close()
+		"humidity":               humid,
+	}, nil
+}
+
+// Readings returns a list containing single item (current temperature).
+func (s *sht3xd) reset(ctx context.Context) error {
+	handle, err := s.bus.OpenHandle(s.addr)
+	if err != nil {
+		s.logger.Errorf("can't open sht3xd i2c %s", err)
+		return err
+	}
+	err = handle.Write(ctx, []byte{sht3xdCOMMANDSOFTRESET1, sht3xdCOMMANDSOFTRESET2})
+	return multierr.Append(err, handle.Close())
 }

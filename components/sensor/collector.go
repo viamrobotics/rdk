@@ -21,15 +21,15 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// SensorRecords a collection of SensorRecord.
-type SensorRecords struct {
-	Readings []SensorRecord
+// ReadingRecords a collection of ReadingRecord.
+type ReadingRecords struct {
+	Readings []ReadingRecord
 }
 
-// SensorRecord a single analog reading.
-type SensorRecord struct {
-	ReadingName  string
-	Reading interface{}
+// ReadingRecord a single analog reading.
+type ReadingRecord struct {
+	ReadingName string
+	Reading     interface{}
 }
 
 func newSensorCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -39,7 +39,7 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var records []SensorRecord
+		var records []ReadingRecord
 		values, err := sensorResource.Readings(ctx, nil) // TODO: pass in something here from the config rather than nil?
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
@@ -52,9 +52,9 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 					continue
 				}
 			}
-			records = append(records, SensorRecord{ReadingName: name, Reading: value})
+			records = append(records, ReadingRecord{ReadingName: name, Reading: value})
 		}
-		return SensorRecords{Readings: records}, nil
+		return ReadingRecords{Readings: records}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
