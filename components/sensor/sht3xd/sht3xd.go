@@ -111,18 +111,7 @@ func newSensor(
 		return nil, err
 	}
 
-	// Set polling repeatability high
-	handle, err := s.bus.OpenHandle(s.addr)
-	if err != nil {
-		s.logger.Errorf("can't open sht3xd i2c %s", err)
-		return nil, err
-	}
-	err = handle.Write(ctx, []byte{sht3xdCOMMANDPOLLINGH1, sht3xdCOMMANDPOLLINGH2})
-	if err != nil {
-		return nil, multierr.Append(err, handle.Close())
-	}
-
-	return s, handle.Close()
+	return s, nil
 }
 
 // sht3xd is a i2c sensor device that reports temperature and humidity.
@@ -143,9 +132,10 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 			s.logger.Errorf("can't open sht3xd i2c %s", err)
 			return nil, err
 		}
-		err = handle.Write(ctx, []byte{0x24, 0x00})
+		err = handle.Write(ctx, []byte{sht3xdCOMMANDPOLLINGH1, sht3xdCOMMANDPOLLINGH2})
 		if err != nil {
 			s.logger.Debug("Failed to request temperature")
+			return nil, multierr.Append(err, handle.Close())
 		}
 		buffer, err := handle.Read(ctx, 2)
 		if err != nil {
