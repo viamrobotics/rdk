@@ -3,10 +3,12 @@ package trossen
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/arm"
 	trossenarm "go.viam.com/rdk/components/arm/trossen"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
@@ -28,17 +30,17 @@ var (
 	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
 )
 
-// AttrConfig is the config for a trossen gripper. WARNING: These
-// attributes no longer do anything and should be removed in a
-// later commit - GV.
+// AttrConfig is the config for a trossen gripper.
 type AttrConfig struct {
-	SerialPath string `json:"serial_path,omitempty"`
-	BaudRate   int    `json:"serial_baud_rate,omitempty"`
+	Arm string `json:"arm"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	return nil
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	if config.Arm == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm")
+	}
+	return []string{config.Arm}, nil
 }
 
 func init() {
@@ -48,7 +50,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
-			return newGripper(config.Name, logger, deps)
+			return newGripper(config.Name, logger, deps, attr)
 		},
 	})
 
@@ -64,7 +66,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
-			return newGripper(config.Name, logger, deps)
+			return newGripper(config.Name, logger, deps, attr)
 		},
 	})
 
@@ -84,23 +86,16 @@ type Gripper struct {
 }
 
 // newGripper TODO.
-func newGripper(name string, logger golog.Logger, deps registry.Dependencies) (gripper.LocalGripper, error) {
+func newGripper(name string, logger golog.Logger, deps registry.Dependencies, attr *AttrConfig) (gripper.LocalGripper, error) {
 	var _arm *trossenarm.Arm
-	// TODO: an arm name should be specified for the gripper as a configuration
-	// attribute in a future commit. This is a breaking change that needs to be
-	// scoped - GV
-	for _, d := range deps {
-		a, ok := rdkutils.UnwrapProxy(d).(*trossenarm.Arm)
-		if ok {
-			_arm = a
-		} else if _arm != nil {
-			return nil, errors.New(
-				"multiple arms found in dependencies, trossen gripper needs one specific trossen arm in dependencies",
-			)
-		}
+	a, err := arm.FromDependencies(deps, attr.Arm)
+	if err != nil {
+		return nil, err
 	}
-	if _arm == nil {
-		return nil, errors.New("need a trossen arm in depends_on")
+	_arm, ok := rdkutils.UnwrapProxy(a).(*trossenarm.Arm)
+	if !ok {
+		return nil, errors.Errorf(
+			"arm specified for trossen gripper %s is not a trossen arm", name)
 	}
 	newGripper := Gripper{trossenArm: _arm, logger: logger, name: name}
 	return &newGripper, nil
