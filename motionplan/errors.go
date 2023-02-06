@@ -2,7 +2,7 @@ package motionplan
 
 import "errors"
 
-var errIKSolve = errors.New("no IK solutions, check if goal outside workspace")
+var errIKSolve = errors.New("zero IK solutions produced, goal positions appears to be physically unreachable")
 
 var errPlannerFailed = errors.New("motion planner failed to find path")
 

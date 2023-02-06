@@ -300,6 +300,54 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	return fs
 }
 
+func TestArmOOBSolve(t *testing.T) {
+	fs := makeTestFS(t)
+	positions := frame.StartPositions(fs)
+
+	// Set a goal unreachable by the UR due to sheer distance
+	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	_, err := PlanMotion(
+		context.Background(),
+		logger.Sugar(),
+		frame.NewPoseInFrame(frame.World, goal1),
+		fs.Frame("urCamera"),
+		positions,
+		fs,
+		nil,
+		nil,
+	)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
+}
+
+func TestArmObstacleSolve(t *testing.T) {
+	fs := makeTestFS(t)
+	positions := frame.StartPositions(fs)
+
+	// Set an obstacle such that it is impossible to reach the goal without colliding with it
+	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 257, Y: 210, Z: -300}), r3.Vector{10, 10, 100}, "")
+	test.That(t, err, test.ShouldBeNil)
+	geometries := make(map[string]spatialmath.Geometry)
+	geometries["obstacle"] = obstacle
+	obstacles := frame.NewGeometriesInFrame(frame.World, geometries)
+	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
+
+	// Set a goal unreachable by the UR
+	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	_, err = PlanMotion(
+		context.Background(),
+		logger.Sugar(),
+		frame.NewPoseInFrame(frame.World, goal1),
+		fs.Frame("urCamera"),
+		positions,
+		fs,
+		worldState,
+		nil,
+	)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "all IK solutions failed constraints. Failures: { defaultCollisionConstraint: 100.00% }, ")
+}
+
 func TestArmAndGantrySolve(t *testing.T) {
 	fs := makeTestFS(t)
 	positions := frame.StartPositions(fs)

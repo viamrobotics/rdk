@@ -3,6 +3,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"time"
@@ -44,7 +45,7 @@ func PlanMotion(ctx context.Context,
 	worldState *frame.WorldState,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	return PlanWaypoints(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+	return motionPlanInternal(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
 }
 
 // PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
@@ -61,7 +62,7 @@ func PlanRobotMotion(ctx context.Context,
 		return nil, err
 	}
 
-	return PlanWaypoints(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+	return motionPlanInternal(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -81,7 +82,7 @@ func PlanFrameMotion(ctx context.Context,
 	}
 	destination := frame.NewPoseInFrame(frame.World, dst)
 	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := PlanWaypoints(
+	solutionMap, err := motionPlanInternal(
 		ctx,
 		logger,
 		[]*frame.PoseInFrame{destination},
@@ -100,6 +101,21 @@ func PlanFrameMotion(ctx context.Context,
 // PlanWaypoints plans motions to a list of destinations in order for a given frame. It takes a given frame system, wraps it with a
 // SolvableFS, and solves. It will generate a list of intermediate waypoints as well to pass to the solvable framesystem if possible.
 func PlanWaypoints(ctx context.Context,
+	logger golog.Logger,
+	goals []*frame.PoseInFrame,
+	f frame.Frame,
+	seedMap map[string][]frame.Input,
+	fs frame.FrameSystem,
+	worldState *frame.WorldState,
+	motionConfigs []map[string]interface{},
+) ([]map[string][]frame.Input, error) {
+	return motionPlanInternal(ctx, logger, goals, f, seedMap, fs, worldState, motionConfigs)
+}
+
+// motionPlanInternal is the internal private function that all motion planning access calls. This will construct the plan manager for each
+// waypoint, and return at the end.
+// This has the same function signature as `PlanWaypoints` but is a private function so as to not have public functions call other.
+func motionPlanInternal(ctx context.Context,
 	logger golog.Logger,
 	goals []*frame.PoseInFrame,
 	f frame.Frame,
@@ -156,6 +172,22 @@ func PlanWaypoints(ctx context.Context,
 		if len(sf.DoF()) == 0 {
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
+		seed, err := sf.mapToSlice(seedMap)
+		if err != nil {
+			return nil, err
+		}
+		startPose, err := sf.Transform(seed)
+		if err != nil {
+			return nil, err
+		}
+
+		logger.Infof(
+			"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v",
+			f.Name(),
+			frame.PoseInFrameToProtobuf(goal),
+			seedMap,
+			spatialmath.PoseToProtobuf(startPose),
+		)
 
 		sfPlanner, err := newPlanManager(sf, fs, logger, i)
 		if err != nil {
@@ -207,7 +239,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 	if err != nil {
 		return false
 	}
-	ok, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
+	ok, _, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
 		StartPos:   position,
 		EndPos:     position,
 		StartInput: inputs,
@@ -308,6 +340,10 @@ func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed
 
 	solutions := map[float64][]frame.Input{}
 
+	// A map keeping track of which constraints fail
+	failures := map[string]int{}
+	constraintFailCnt := 0
+
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:
 	for {
@@ -319,34 +355,45 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			cPass, cScore := mp.planOpts.CheckConstraints(&ConstraintInput{
+			cPass, cScore, failName := mp.planOpts.CheckConstraints(&ConstraintInput{
 				seedPos,
 				goalPos,
 				seed,
 				step,
 				mp.frame,
 			})
-			endPass, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
-				goalPos,
-				goalPos,
-				step,
-				step,
-				mp.frame,
-			})
+			if cPass {
+				// TODO (pl): Current implementation of constraints treats the starting input of a ConstraintInput as the state to check for
+				// validity. Since we use CheckConstraints instead of CheckConstraintPath here, we need to check both the start and
+				// end pose for validity
+				endPass, _, failName := mp.planOpts.CheckConstraints(&ConstraintInput{
+					goalPos,
+					goalPos,
+					step,
+					step,
+					mp.frame,
+				})
 
-			if cPass && endPass {
-				if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-					solutions = map[float64][]frame.Input{}
+				if endPass {
+					if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
+						solutions = map[float64][]frame.Input{}
+						solutions[cScore] = step
+						// good solution, stopping early
+						break IK
+					}
+
 					solutions[cScore] = step
-					// good solution, stopping early
-					break IK
+					if len(solutions) >= nSolutions {
+						// sufficient solutions found, stopping early
+						break IK
+					}
+				} else {
+					constraintFailCnt++
+					failures[failName]++
 				}
-
-				solutions[cScore] = step
-				if len(solutions) >= nSolutions {
-					// sufficient solutions found, stopping early
-					break IK
-				}
+			} else {
+				constraintFailCnt++
+				failures[failName]++
 			}
 			// Skip the return check below until we have nothing left to read from solutionGen
 			continue IK
@@ -362,7 +409,17 @@ IK:
 		}
 	}
 	if len(solutions) == 0 {
-		return nil, errIKSolve
+		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions
+		// were produced, which constraints were failed
+		if constraintFailCnt == 0 {
+			return nil, errIKSolve
+		}
+		errIKConstraint := "all IK solutions failed constraints. Failures: "
+		for failName, count := range failures {
+			errIKConstraint += fmt.Sprintf("{ %s: %.2f%% }, ", failName, 100*float64(count)/float64(constraintFailCnt))
+		}
+
+		return nil, errors.New(errIKConstraint)
 	}
 
 	keys := make([]float64, 0, len(solutions))
