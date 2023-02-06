@@ -70,8 +70,10 @@ func (slamSvc *FakeSLAM) GetMap(ctx context.Context, name, mimeType string, cp *
 	slamSvc.incrementDataCount()
 
 	switch mimeType {
+
 	case rdkutils.MimeTypePCD:
 		pcdFile, err := os.Open(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/pointcloud/pointcloud_%d.pcd", slamSvc.dataCount)))
+		defer pcdFile.Close()
 		if err != nil {
 			return "", nil, nil, err
 		}
@@ -83,16 +85,18 @@ func (slamSvc *FakeSLAM) GetMap(ctx context.Context, name, mimeType string, cp *
 		if err != nil {
 			return "", nil, nil, err
 		}
+
 	case rdkutils.MimeTypeJPEG:
 		img, err = rimage.NewImageFromFile(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/image_map/image_map_%d.png", slamSvc.dataCount)))
+
 	default:
 		return "", nil, nil, errors.New("received invalid mimeType for GetMap call")
 	}
+
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	slamSvc.Position(ctx, name, map[string]interface{}{})
 	return mimeType, img, vObj, nil
 }
 
@@ -105,27 +109,15 @@ func (slamSvc *FakeSLAM) Position(ctx context.Context, name string, extra map[st
 
 	substrings := strings.Split(string(data), " | ")
 
-	// Extract point
-	pointStrings := strings.Split(substrings[0], " ")
-
-	point := make([]float64, len(pointStrings))
-	for i, v := range pointStrings {
-		x, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return nil, err
-		}
-		point[i] = x
+	point, err := extract(strings.Split(substrings[0], " "))
+	if err != nil {
+		return nil, err
 	}
+	xyz := r3.Vector{X: point[0], Y: point[1], Z: point[2]}
 
-	// Extract orientation
-	orientationStrings := strings.Split(substrings[1], " ")
-	orientations := make([]float64, len(orientationStrings))
-	for i, v := range orientationStrings {
-		x, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return nil, err
-		}
-		orientations[i] = x
+	orientations, err := extract(strings.Split(substrings[1], " "))
+	if err != nil {
+		return nil, err
 	}
 
 	ori := spatialmath.NewR4AA()
@@ -133,9 +125,23 @@ func (slamSvc *FakeSLAM) Position(ctx context.Context, name string, extra map[st
 	ori.RY = orientations[1]
 	ori.RZ = orientations[2]
 	ori.Theta = orientations[3]
+	pose := spatialmath.NewPose(xyz, ori)
 
-	pInFrame := referenceframe.NewPoseInFrame(name, spatialmath.NewPose(r3.Vector{X: point[0], Y: point[1], Z: point[2]}, ori))
+	pInFrame := referenceframe.NewPoseInFrame(name, pose)
+
 	return pInFrame, nil
+}
+
+func extract(strings []string) ([]float64, error) {
+	elems := make([]float64, len(strings))
+	for i, v := range strings {
+		x, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return nil, err
+		}
+		elems[i] = x
+	}
+	return elems, nil
 }
 
 // GetInternalState does nothing.
