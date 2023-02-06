@@ -32,6 +32,7 @@ type Arguments struct {
 	ConfigFile                 string `flag:"config,usage=robot config file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
+	DisableDirConfig           bool   `flag:"disable-dir-config,usage=prohibit connections from changing the directories where data is stored on-robot"`
 	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
@@ -213,6 +214,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.Debug = s.args.Debug || cfg.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
+		out.DisableDirConfig = s.args.DisableDirConfig
 		out.UntrustedEnv = s.args.UntrustedEnv
 		return out, nil
 	}
