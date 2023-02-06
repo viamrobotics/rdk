@@ -1,5 +1,5 @@
-// Package uln implements a GPIO based stepper motor with uln2003 controler.
-package uln
+// Package ulnstepper implements a GPIO based stepper motor with uln2003 controler.
+package ulnstepper
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	model                = resource.NewDefaultModel("28byj-48")
+	model                = resource.NewDefaultModel("28byj48")
 	minStepDelay         = 0.002                  // minimum sleep time between steps
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 )
