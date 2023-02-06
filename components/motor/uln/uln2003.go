@@ -163,6 +163,7 @@ func newULN(ctx context.Context, b board.Board, mc Config, name string, logger g
 	return m, nil
 }
 
+// struct is named after the controler uln2003.
 type uln2003 struct {
 	theBoard           board.Board
 	rotationPerMinute  float64
@@ -185,27 +186,27 @@ type uln2003 struct {
 // validate if this config is valid.
 func (m *uln2003) Validate() error {
 	if m.theBoard == nil {
-		return errors.New("need a board for uln2003")
+		return errors.Errorf("need a board for motor (%s)", m.motorName)
 	}
 
 	if m.rotationPerMinute == 0 {
-		return errors.New("need to set 'rotation_per_minute' for motor")
+		return errors.Errorf("need to set 'rotation_per_minute' for motor (%s)", m.motorName)
 	}
 
 	if m.in1 == nil {
-		return errors.New("need a 'In1' pin for uln2003")
+		return errors.Errorf("need a 'In1' pin for motor (%s)", m.motorName)
 	}
 
 	if m.in2 == nil {
-		return errors.New("need a 'In2' pin for uln2003")
+		return errors.Errorf("need a 'In2' pin for motor (%s)", m.motorName)
 	}
 
 	if m.in3 == nil {
-		return errors.New("need a 'In3' pin for uln2003")
+		return errors.Errorf("need a 'In3' pin for motor (%s)", m.motorName)
 	}
 
 	if m.in4 == nil {
-		return errors.New("need a 'In4' pin for uln2003")
+		return errors.Errorf("need a 'In4' pin for motor (%s)", m.motorName)
 	}
 
 	return nil
@@ -277,27 +278,27 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 		for tick := 0; tick < len(stepSequence); tick++ {
 			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
 			if err1 != nil {
-				return errors.New("failed to set In1 with error")
+				return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
 			}
 
 			time.Sleep(minDelayBetweenTicks)
 			err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
 			if err2 != nil {
-				return errors.New("failed to set In2 with error")
+				return errors.Errorf("failed to set In2 with error in motor (%s)", m.motorName)
 			}
 
 			time.Sleep(minDelayBetweenTicks)
 
 			err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
 			if err3 != nil {
-				return errors.New("failed to set In3 with error")
+				return errors.Errorf("failed to set In3 with error in motor (%s)", m.motorName)
 			}
 
 			time.Sleep(minDelayBetweenTicks)
 
 			err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
 			if err4 != nil {
-				return errors.New("failed to set In4 with error")
+				return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
 			}
 		}
 		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
@@ -306,28 +307,28 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 		for tick := len(stepSequence) - 1; tick >= 0; tick-- {
 			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
 			if err1 != nil {
-				return errors.New("failed to set In1 with error")
+				return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
 			}
 
 			time.Sleep(minDelayBetweenTicks)
 
 			err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
 			if err2 != nil {
-				return errors.New("failed to set In2 with error")
+				return errors.Errorf("failed to set In2 with error in motor (%s)", m.motorName)
 			}
 
 			time.Sleep(minDelayBetweenTicks)
 
 			err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
 			if err3 != nil {
-				return errors.New("failed to set In3 with error")
+				return errors.Errorf("failed to set In3 with error in motor (%s)", m.motorName)
 			}
 
 			time.Sleep(minDelayBetweenTicks)
 
 			err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
 			if err4 != nil {
-				return errors.New("failed to set In4 with error")
+				return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
 			}
 		}
 		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
