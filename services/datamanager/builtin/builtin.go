@@ -404,6 +404,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
+	if cfg.UntrustedEnv && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
+		return errors.New("cannot change capture directory in untrusted environment")
+	}
 	svc.captureDir = svcConfig.CaptureDir
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
