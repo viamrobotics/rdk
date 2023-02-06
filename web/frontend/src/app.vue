@@ -797,13 +797,25 @@ onMounted(async () => {
     />
 
     <!-- ******* CAMERAS *******  -->
-    <CameraView
+    <v-collapse
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
-      :key="camera.name"
-      :camera-name="camera.name"
-      :client="client"
-      :resources="resources"
-    />
+      :title="camera.name"
+      class="camera"
+    >
+      <v-breadcrumbs
+        slot="title"
+        crumbs="camera"
+      />
+      
+      <CameraView
+        :key="camera.name"
+        :camera-name="camera.name"
+        :client="client"
+        :resources="resources"
+        :show-switch=true
+        :show-refresh=true
+      />
+    </v-collapse>
 
     <!-- ******* NAVIGATION ******* -->
     <Navigation
