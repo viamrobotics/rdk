@@ -309,6 +309,7 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 // Stop is unimplemented for trossen.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
+	a.opMgr.CancelRunning(ctx)
 	return multierr.Combine(
 		a.TorqueOff(),
 		a.TorqueOn(),
