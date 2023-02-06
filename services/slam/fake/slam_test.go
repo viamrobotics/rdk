@@ -110,7 +110,7 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 		_, _, vObj, err := slamSvc.GetMap(
 			context.Background(),
 			slamSvc.Name,
-			rdkutils.MimeTypePCD,
+			mimeType,
 			pInFrame,
 			true,
 			extra,
