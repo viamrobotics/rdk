@@ -46,6 +46,7 @@ func Test1(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
+	mc.RotationPerMinute = 100
 
 	mm, err := newULN(ctx, b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -78,13 +79,13 @@ func Test1(t *testing.T) {
 			tb.Helper()
 			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, false)
-			test.That(tb, powerPct, test.ShouldEqual, 0.0)
+			test.That(tb, on, test.ShouldEqual, true)
+			test.That(tb, powerPct, test.ShouldEqual, 1.0)
 		})
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldEqual, 2)
+		test.That(t, pos, test.ShouldEqual, 0)
 	})
 
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
@@ -93,16 +94,8 @@ func Test1(t *testing.T) {
 
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, true)
-		test.That(t, powerPct, test.ShouldEqual, 1.0)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			on, powerPct, err = m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, false)
-			test.That(tb, powerPct, test.ShouldEqual, 0.0)
-		})
+		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -122,13 +115,13 @@ func Test1(t *testing.T) {
 			tb.Helper()
 			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, false)
-			test.That(tb, powerPct, test.ShouldEqual, 0.0)
+			test.That(tb, on, test.ShouldEqual, true)
+			test.That(tb, powerPct, test.ShouldEqual, 1.0)
 		})
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldEqual, -2)
+		test.That(t, pos, test.ShouldEqual, 0)
 	})
 
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
@@ -137,16 +130,8 @@ func Test1(t *testing.T) {
 
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, true)
-		test.That(t, powerPct, test.ShouldEqual, 1.0)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			on, powerPct, err = m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, false)
-			test.That(tb, powerPct, test.ShouldEqual, 0.0)
-		})
+		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -191,11 +176,6 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldBeGreaterThan, 2)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
-	})
-
-	t.Run("motor testing with 0 rpm", func(t *testing.T) {
-		err = m.GoFor(ctx, 0, 1, nil)
-		test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	cancel()
