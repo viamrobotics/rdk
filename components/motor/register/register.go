@@ -11,5 +11,5 @@ import (
 	_ "go.viam.com/rdk/components/motor/i2cmotors"
 	_ "go.viam.com/rdk/components/motor/roboclaw"
 	_ "go.viam.com/rdk/components/motor/tmcstepper"
-	_ "go.viam.com/rdk/components/motor/uln"
+	_ "go.viam.com/rdk/components/motor/ulnstepper"
 )
