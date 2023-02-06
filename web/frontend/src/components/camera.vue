@@ -14,6 +14,8 @@ import PCD from './pcd.vue';
 
 interface Props {
   cameraName: string;
+  showSwitch: boolean;
+  showRefresh: boolean;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
 }
@@ -181,95 +183,84 @@ const exportScreenshot = async (cameraName: string) => {
 </script>
 
 <template>
-  <v-collapse
-    :title="cameraName"
-    class="camera"
-  >
-    <v-breadcrumbs
-      slot="title"
-      crumbs="camera"
+  <div class="flex flex-col gap-4 border-x border-b border-black p-4">
+    <v-switch
+      v-if="props.showSwitch"
+      id="camera"
+      :label="camera ? 'Hide Camera' : 'View Camera'"
+      :aria-label="
+        camera
+          ? `Hide Camera: ${$props.cameraName}`
+          : `View Camera: ${$props.cameraName}`
+      "
+      :value="camera ? 'on' : 'off'"
+      @input="toggleExpand"
     />
-    <div class="h-auto border-x border-b border-black p-2">
-      <div class="container mx-auto">
-        <div class="pt-4">
-          <div class="flex mb-4 items-center gap-2">
-            <v-switch
-              id="camera"
-              :label="camera ? 'Hide Camera' : 'View Camera'"
-              :aria-label="
-                camera
-                  ? `Hide Camera: ${$props.cameraName}`
-                  : `View Camera: ${$props.cameraName}`
-              "
-              :value="camera ? 'on' : 'off'"
-              @input="toggleExpand"
-            />
-          </div>
 
-          <div class="pb-4">
-            <div class="flex flex-wrap">
-              <div
-                v-if="camera"
-                class="flex flex-wrap justify-items-end gap-2"
-              >
-                <div class="">
-                  <div class="relative">
-                    <v-select
-                      v-model="refreshFrequency"
-                      label="Refresh frequency"
-                      aria-label="Default select example"
-                      :options="Object.keys(selectedMap).join(',')"
-                      @input="selectCameraView"
-                    />
-                  </div>
-                </div>
-                <div class="self-end">
-                  <v-button
-                    v-if="camera && refreshFrequency === 'Manual Refresh'"
-                    icon="refresh"
-                    label="Refresh"
-                    @click="refreshCamera"
-                  />
-                </div>
-                <div class="self-end">
-                  <v-button
-                    v-if="camera"
-                    icon="camera"
-                    label="Export Screenshot"
-                    @click="exportScreenshot(cameraName)"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div
-            :aria-label="`${cameraName} stream`"
-            :data-stream="cameraName"
-            :class="{ hidden: !camera }"
-            class="clear-both h-fit transition-all duration-300 ease-in-out"
+    <div class="flex flex-wrap">
+      <div
+        v-if="camera"
+        class="flex flex-wrap justify-items-end gap-2"
+      >
+        <div 
+          v-if="props.showRefresh"
+          class="relative"
+        >
+          <v-select
+            v-model="refreshFrequency"
+            label="Refresh frequency"
+            aria-label="Default select example"
+            :options="Object.keys(selectedMap).join(',')"
+            @input="selectCameraView"
           />
         </div>
-        <div class="pt-4">
-          <div class="flex items-center gap-2 align-top">
-            <v-switch
-              :label="pcdExpanded ? 'Hide Point Cloud Data' : 'View Point Cloud Data'"
-              :value="pcdExpanded ? 'on' : 'off'"
-              @input="togglePCDExpand"
-            />
-            <InfoButton
-              :info-rows="['When turned on, point cloud will be recalculated']"
-            />
-          </div>
-
-          <PCD
-            v-if="pcdExpanded"
-            :resources="resources"
-            :pointcloud="pointcloud"
-            :camera-name="cameraName"
-            :client="client"
+        <div 
+          v-if="props.showRefresh"
+          class="self-end"
+        >
+          <v-button
+            v-if="camera && refreshFrequency === 'Manual Refresh'"
+            icon="refresh"
+            label="Refresh"
+            @click="refreshCamera"
+          />
+        </div>
+        <div class="self-end">
+          <v-button
+            v-if="camera"
+            icon="camera"
+            label="Export Screenshot"
+            @click="exportScreenshot(cameraName)"
           />
         </div>
       </div>
     </div>
-  </v-collapse>
+    
+    <div
+      :aria-label="`${cameraName} stream`"
+      :data-stream="cameraName"
+      :class="{ hidden: !camera }"
+      class="clear-both h-fit transition-all duration-300 ease-in-out"
+    />
+    <div class="pt-4">
+      <div class="flex items-center gap-2 align-top">
+        <v-switch
+          :label="pcdExpanded ? 'Hide Point Cloud Data' : 'View Point Cloud Data'"
+          :value="pcdExpanded ? 'on' : 'off'"
+          @input="togglePCDExpand"
+        />
+        <InfoButton
+          :info-rows="['When turned on, point cloud will be recalculated']"
+        />
+      </div>
+
+      <PCD
+        v-if="pcdExpanded"
+        :resources="resources"
+        :pointcloud="pointcloud"
+        :camera-name="cameraName"
+        :client="client"
+      />
+    </div>
+  </div>
 </template>
