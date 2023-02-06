@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -672,6 +673,11 @@ func (rc *RobotClient) OperationManager() *operation.Manager {
 
 // SessionManager returns nil.
 func (rc *RobotClient) SessionManager() session.Manager {
+	return nil
+}
+
+// PackageManager returns nil.
+func (rc *RobotClient) PackageManager() packages.Manager {
 	return nil
 }
 

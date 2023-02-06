@@ -110,7 +110,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(wrapper.model, joints)
+	return motionplan.ComputeOOBPosition(wrapper.model, joints)
 }
 
 // MoveToPosition sets the position.
@@ -127,6 +127,10 @@ func (wrapper *Arm) MoveToPosition(
 
 // MoveToJointPositions sets the joints.
 func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints.Values); err != nil {
+		return err
+	}
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 
@@ -166,5 +170,10 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return wrapper.MoveToJointPositions(ctx, wrapper.model.ProtobufFromInput(goal), nil)
+	// check that joint positions are not out of bounds
+	positionDegs := wrapper.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs.Values); err != nil {
+		return err
+	}
+	return wrapper.MoveToJointPositions(ctx, positionDegs, nil)
 }

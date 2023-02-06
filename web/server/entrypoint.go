@@ -5,6 +5,8 @@ import (
 	"context"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime/pprof"
 	"time"
 
@@ -21,6 +23,8 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
+
+var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 // Arguments for the command.
 type Arguments struct {
@@ -214,6 +218,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
 		out.UntrustedEnv = s.args.UntrustedEnv
+		out.PackagePath = path.Join(viamDotDir, "packages")
 		return out, nil
 	}
 

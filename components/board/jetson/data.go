@@ -13,6 +13,7 @@ const (
 	jetsonNano     = "jetson_nano"
 	jetsonTX2NX    = "jetson_tx2_NX"
 	jetsonOrin     = "jetson_orin"
+	jetsonOrinNX   = "jetson_orin_nx"
 )
 
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
@@ -389,6 +390,35 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		[]string{
 			"nvidia,p3737-0000+p3701-0000",
 			"nvidia,p3737-0000+p3701-0004",
+		},
+	},
+	jetsonOrinNX: {
+		[]genericlinux.PinDefinition{
+			{map[int]int{164: 144}, map[int]string{164: "PAC.06"}, "2200000.gpio", 7, 4, "GPIO09", "GP167", "", -1},
+			{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
+			{map[int]int{164: 50}, map[int]string{164: "PH.07"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "GP122", "", -1},
+			{map[int]int{164: 122}, map[int]string{164: "PY.00"}, "2200000.gpio", 13, 27, "SPI1_SCK", "GP36_SPI3_CLK", "", -1},
+			{map[int]int{164: 85}, map[int]string{164: "PN.01"}, "2200000.gpio", 15, 22, "GPIO12", "GP88_PWM1", "3280000.pwm", 0},
+			{map[int]int{164: 126}, map[int]string{164: "PY.04"}, "2200000.gpio", 16, 23, "SPI1_CS1", "GP40_SPI3_CS1_N", "", -1},
+			{map[int]int{164: 125}, map[int]string{164: "PY.03"}, "2200000.gpio", 18, 24, "SPI1_CS0", "GP39_SPI3_CS0_N", "", -1},
+			{map[int]int{164: 135}, map[int]string{164: "PZ.05"}, "2200000.gpio", 19, 10, "SPI0_MOSI", "GP49_SPI1_MOSI", "", -1},
+			{map[int]int{164: 134}, map[int]string{164: "PZ.04"}, "2200000.gpio", 21, 9, "SPI0_MISO", "GP48_SPI1_MISO", "", -1},
+			{map[int]int{164: 123}, map[int]string{164: "PY.01"}, "2200000.gpio", 22, 25, "SPI1_MISO", "GP37_SPI3_MISO", "", -1},
+			{map[int]int{164: 133}, map[int]string{164: "PZ.03"}, "2200000.gpio", 23, 11, "SPI0_SCK", "GP47_SPI1_CLK", "", -1},
+			{map[int]int{164: 136}, map[int]string{164: "PZ.06"}, "2200000.gpio", 24, 8, "SPI0_CS0", "GP50_SPI1_CS0_N", "", -1},
+			{map[int]int{164: 137}, map[int]string{164: "PZ.07"}, "2200000.gpio", 26, 7, "SPI0_CS1", "GP51_SPI1_CS1_N", "", -1},
+			{map[int]int{164: 105}, map[int]string{164: "PQ.05"}, "2200000.gpio", 29, 5, "GPIO01", "GP65", "", -1},
+			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 31, 6, "GPIO11", "GP66", "", -1},
+			{map[int]int{164: 41}, map[int]string{164: "PG.06"}, "2200000.gpio", 32, 12, "GPIO07", "GP113_PWM7", "", -1},
+			{map[int]int{164: 43}, map[int]string{164: "PH.00"}, "2200000.gpio", 33, 13, "GPIO13", "GP115", "32c0000.pwm", 0},
+			{map[int]int{164: 53}, map[int]string{164: "PI.02"}, "2200000.gpio", 35, 19, "I2S0_FS", "GP125", "", -1},
+			{map[int]int{164: 113}, map[int]string{164: "PR.05"}, "2200000.gpio", 36, 16, "UART1_CTS", "GP73_UART1_CTS_N", "", -1},
+			{map[int]int{164: 124}, map[int]string{164: "PY.02"}, "2200000.gpio", 37, 26, "SPI1_MOSI", "GP38_SPI3_MOSI", "", -1},
+			{map[int]int{164: 52}, map[int]string{164: "PI.01"}, "2200000.gpio", 38, 20, "I2S0_SDIN", "GP124", "", -1},
+			{map[int]int{164: 51}, map[int]string{164: "PI.00"}, "2200000.gpio", 40, 21, "I2S0_SDOUT", "GP123", "", -1},
+		},
+		[]string{
+			"nvidia,p3509-0000+p3767-0000",
 		},
 	},
 }

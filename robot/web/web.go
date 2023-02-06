@@ -169,10 +169,7 @@ func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 		}
 	}
 
-	// TODO(APP-1086): During rollout of weboauth feature we need to support the app returning only the 1 location secret.
-	if len(handlers) == 1 && hasLocationSecretHandler {
-		return true
-	} else if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+	if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
 		return true
 	}
 

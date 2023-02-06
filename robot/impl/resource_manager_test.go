@@ -53,6 +53,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
@@ -1839,6 +1840,10 @@ func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
 }
 
 func (rr *dummyRobot) SessionManager() session.Manager {
+	panic("change to return nil")
+}
+
+func (rr *dummyRobot) PackageManager() packages.Manager {
 	panic("change to return nil")
 }
 

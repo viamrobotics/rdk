@@ -961,3 +961,31 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) config.AttributeMap 
 
 	return jwksAsInterface
 }
+
+func TestGetPackageReference(t *testing.T) {
+	t.Run("non reference", func(t *testing.T) {
+		test.That(t, config.GetPackageReference("/a/path"), test.ShouldBeNil)
+	})
+
+	t.Run("non reference with ${package.some}", func(t *testing.T) {
+		test.That(t, config.GetPackageReference("/a/path/${packages.some}"), test.ShouldBeNil)
+	})
+
+	t.Run("non reference with ${package.some", func(t *testing.T) {
+		test.That(t, config.GetPackageReference("${packages.some"), test.ShouldBeNil)
+	})
+
+	t.Run("non reference with ${package.some} empty space", func(t *testing.T) {
+		test.That(t, config.GetPackageReference(" ${packages.some-package}"), test.ShouldBeNil)
+	})
+
+	t.Run("valid package reference", func(t *testing.T) {
+		test.That(t, config.GetPackageReference("${packages.some-package}/some/path"), test.ShouldResemble,
+			&config.PackageReference{Package: "some-package", PathInPackage: "/some/path"})
+	})
+
+	t.Run("valid package reference no path", func(t *testing.T) {
+		test.That(t, config.GetPackageReference("${packages.some-package}"), test.ShouldResemble,
+			&config.PackageReference{Package: "some-package", PathInPackage: ""})
+	})
+}
