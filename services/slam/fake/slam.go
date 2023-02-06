@@ -63,7 +63,6 @@ type SLAM struct {
 	dataCount int
 }
 
-// GetMap does nothing.
 func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 	include bool, extra map[string]interface{},
 ) (string, image.Image, *vision.Object, error) {
@@ -104,7 +103,6 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 	return mimeType, img, vObj, nil
 }
 
-// Position does nothing.
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/position/position_%d.txt", slamSvc.dataCount)))
 	if err != nil {
@@ -148,7 +146,6 @@ func extract(strings []string) ([]float64, error) {
 	return elems, nil
 }
 
-// GetInternalState does nothing.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
 	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf(internalStateTemplate, slamSvc.dataCount)))
 	if err != nil {
