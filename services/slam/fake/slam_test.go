@@ -2,7 +2,6 @@ package fake
 
 import (
 	"context"
-	"image"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -11,7 +10,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
 )
 
 func TestFakeSLAMPosition(t *testing.T) {
@@ -95,10 +93,10 @@ func TestFakeSLAMGetMap(t *testing.T) {
 
 func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extra map[string]interface{}) {
 	testDataCount := maxDataCount
-	getMapPcdResults := []*vision.Object{}
-	getMapImageResults := []image.Image{}
+	getMapPcdResults := []float64{}
+	getMapImageResults := []int{}
 	getPositionResults := []spatialmath.Pose{}
-	getInternalStateResults := [][]byte{}
+	getInternalStateResults := []int{}
 
 	// Call GetMap twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
@@ -107,7 +105,7 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 		getPositionResults = append(getPositionResults, pInFrame.Pose())
 
 		data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
-		getInternalStateResults = append(getInternalStateResults, data)
+		getInternalStateResults = append(getInternalStateResults, len(data))
 
 		_, im, vObj, err := slamSvc.GetMap(
 			context.Background(),
@@ -117,8 +115,13 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 			true,
 			extra,
 		)
-		getMapPcdResults = append(getMapPcdResults, vObj)
-		getMapImageResults = append(getMapImageResults, im)
+
+		switch mimeType {
+		case rdkutils.MimeTypePCD:
+			getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
+		case rdkutils.MimeTypeJPEG:
+			getMapImageResults = append(getMapImageResults, im.Bounds().Max.X)
+		}
 
 		test.That(t, err, test.ShouldBeNil)
 	}
