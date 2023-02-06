@@ -6,8 +6,16 @@ import (
 	"sync"
 
 	"github.com/d2r2/go-i2c"
+	"github.com/d2r2/go-logger"
 	"go.viam.com/rdk/components/board"
 )
+
+// The I2C library we use implements its own logging. We disable that here.
+func init() {
+	fmt.Println("About to finalize logger...")
+	logger.FinalizeLogger() // Destruct the other logger.
+	fmt.Println("Finished finalizing logger!")
+}
 
 type i2cBus struct {
 	number int
