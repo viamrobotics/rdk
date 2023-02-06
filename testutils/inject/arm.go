@@ -22,6 +22,7 @@ type Arm struct {
 	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc             func(context.Context) (bool, error)
 	CloseFunc                func(ctx context.Context) error
+	ModelFrameFunc           func() referenceframe.Model
 }
 
 // EndPosition calls the injected EndPosition or the real version.
@@ -91,4 +92,12 @@ func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[st
 		return a.LocalArm.DoCommand(ctx, cmd)
 	}
 	return a.DoFunc(ctx, cmd)
+}
+
+// ModelFrame calls the injected DoCommand or the real version.
+func (a *Arm) ModelFrame() referenceframe.Model {
+	if a.ModelFrameFunc == nil {
+		return a.LocalArm.ModelFrame()
+	}
+	return a.ModelFrameFunc()
 }

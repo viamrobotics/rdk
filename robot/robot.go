@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
@@ -60,6 +61,9 @@ type Robot interface {
 
 	// SessionManager returns the session manager the robot is using.
 	SessionManager() session.Manager
+
+	// PackageManager returns the package manager the robot is using.
+	PackageManager() packages.Manager
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
