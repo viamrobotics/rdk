@@ -231,15 +231,15 @@ func TestSourceFromCamera(t *testing.T) {
 	reconfCam, err := camera.WrapWithReconfigurable(actualCam, resource.Name{})
 	test.That(t, reconfCam, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
-
 	source, err := camera.SourceFromCamera(reconfCam.(camera.Camera))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, source, test.ShouldNotBeNil)
 
-	wgCam := camera.WaitGroupCamera{Cam: reconfCam.(camera.Camera)}
+	wgCam := &camera.WaitGroupCamera{Cam: reconfCam.(camera.Camera)}
 	test.That(t, wgCam.Cam, test.ShouldNotBeNil)
-
-	source2, err := camera.SourceFromCamera(wgCam.Cam)
+	wgReconfCam, err := camera.WrapWithReconfigurable(wgCam, resource.Name{})
+	test.That(t, err, test.ShouldBeNil)
+	source2, err := camera.SourceFromCamera(wgReconfCam.(camera.Camera))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, source2, test.ShouldNotBeNil)
 }
