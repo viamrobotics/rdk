@@ -103,7 +103,7 @@ func newGripper(name string, logger golog.Logger, deps registry.Dependencies, at
 
 // Open opens the gripper by defering to the arm.
 func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
-	if err := g.trossenArm.Open(ctx); err != nil {
+	if err := g.trossenArm.OpenGripper(ctx); err != nil {
 		g.logger.Errorf("open failed for trossen gripper %s", g.name)
 		return err
 	}
