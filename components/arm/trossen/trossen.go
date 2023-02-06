@@ -245,7 +245,7 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 	positions := make([]float64, 0, numJoints)
 	for i, jointName := range a.jointOrder() {
 		if i != numJoints {
-			positions[i] = servoPosToValues(angleMap[jointName])
+			positions = append(positions, servoPosToValues(angleMap[jointName]))
 		}
 	}
 
