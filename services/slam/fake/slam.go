@@ -142,6 +142,7 @@ func extract(strings []string) ([]float64, error) {
 		elems[i] = x
 	}
 	return elems, nil
+
 }
 
 // GetInternalState does nothing.
