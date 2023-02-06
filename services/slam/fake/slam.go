@@ -35,6 +35,7 @@ const (
 	maxDataCount          = 16
 	pcdTemplate           = "slam/example_cartographer_outputs/pointcloud/pointcloud_%d.pcd"
 	pngTemplate           = "slam/example_cartographer_outputs/image_map/image_map_%d.png"
+	positionTemplate      = "slam/example_cartographer_outputs/position/position_%d.txt"
 )
 
 func init() {
@@ -104,7 +105,7 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 }
 
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
-	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/position/position_%d.txt", slamSvc.dataCount)))
+	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf(positionTemplate, slamSvc.dataCount)))
 	if err != nil {
 		return nil, err
 	}
