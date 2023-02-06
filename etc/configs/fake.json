@@ -132,17 +132,7 @@
         {
             "name": "slam1",
             "type": "slam",
-            "model": "fake",
-            "attributes": {
-                "config_params": {
-                    "mode": "2d"
-                  },
-                  "data_dir": "",
-                  "use_live_data": true,
-                  "sensors": [
-                    "rplidar"
-                  ]
-            }
+            "model": "fake"
         }       
     ]
 }
