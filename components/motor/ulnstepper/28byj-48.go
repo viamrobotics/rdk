@@ -403,7 +403,7 @@ func (m *uln2003) GoTo(ctx context.Context, rpm, positionRevolutions float64, ex
 	if err != nil {
 		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
 	}
-	moveDistance := positionRevolutions - curPos
+	moveDistance := positionRevolutions - (curPos / float64(m.ticksPerRotation))
 
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
