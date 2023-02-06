@@ -269,10 +269,9 @@ func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
 	return k, nil
 }
 
-// test: check if it is going through the 8 steps are same
-// validation
-// rpm validation math
-// have to be locked to call.
+// doStep has to be locked to call.
+// Depending on the direction, doStep will either treverse the stepSequence array in ascending
+// or descending order.
 func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 	if forward {
 		for tick := 0; tick < len(stepSequence); tick++ {
