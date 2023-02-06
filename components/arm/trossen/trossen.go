@@ -69,7 +69,7 @@ var OffAngles = map[string]float64{
 
 // Arm TODO.
 type Arm struct {
-	generic.Generic
+	generic.Unimplemented
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
@@ -119,9 +119,6 @@ func (config *AttrConfig) Validate(path string) error {
 	if len(config.UsbPort) == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
-	if config.BaudRate == 0 {
-		config.BaudRate = 100000
-	}
 
 	return nil
 }
@@ -165,7 +162,11 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		return nil, rdkutils.NewUnexpectedTypeError(attributes, cfg.ConvertedAttributes)
 	}
 	usbPort := attributes.UsbPort
-	servos, err := findServos(usbPort, attributes.BaudRate)
+	baudRate := attributes.BaudRate
+	if baudRate == 0 {
+		baudRate = 100000
+	}
+	servos, err := findServos(usbPort, baudRate)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,7 @@ func (a *Arm) MoveToPosition(
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Values) > (len(a.JointOrder()) - 1) {
+	if len(jp.Values) > (len(a.jointOrder()) - 1) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -226,7 +227,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	// TODO(pl): make block configurable
 	block := false
 	for i, pos := range jp.Values {
-		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
+		a.JointTo(a.jointOrder()[i], degreeToServoPos(pos), block)
 	}
 
 	a.moveLock.Unlock()
@@ -240,9 +241,9 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 		return &pb.JointPositions{}, err
 	}
 
-	numJoints := len(a.JointOrder()) - 1
+	numJoints := len(a.jointOrder()) - 1
 	positions := make([]float64, 0, numJoints)
-	for i, jointName := range a.JointOrder() {
+	for i, jointName := range a.jointOrder() {
 		if i != numJoints {
 			positions[i] = servoPosToValues(angleMap[jointName])
 		}
@@ -309,7 +310,7 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 	return didGrab, nil
 }
 
-// Stop is unimplemented for trossen.
+// Stop stops the servos of the arm.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-374: Implement Stop
 	a.opMgr.CancelRunning(ctx)
@@ -334,7 +335,7 @@ func (a *Arm) Close() {
 		a.logger.Errorf("failed to get angles: %s", err)
 	}
 	alreadyAtSleep := true
-	for _, joint := range a.JointOrder() {
+	for _, joint := range a.jointOrder() {
 		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
 			alreadyAtSleep = false
 		}
@@ -375,8 +376,7 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 	return angles, nil
 }
 
-// JointOrder TODO.
-func (a *Arm) JointOrder() []string {
+func (a *Arm) jointOrder() []string {
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot", "Gripper"}
 }
 
@@ -397,7 +397,7 @@ func (a *Arm) PrintPositions() error {
 // GetAllServos returns a slice containing all servos in the arm.
 func (a *Arm) GetAllServos() []*servo.Servo {
 	var servos []*servo.Servo
-	for _, joint := range a.JointOrder() {
+	for _, joint := range a.jointOrder() {
 		servos = append(servos, a.Joints[joint]...)
 	}
 	return servos
@@ -487,11 +487,10 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.JointTo("Wrist", 2509, sleepWait)
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
+	a.moveLock.Unlock()
 	if err := a.OpenGripper(ctx); err != nil {
-		a.moveLock.Unlock()
 		return err
 	}
-	a.moveLock.Unlock()
 	return a.WaitForMovement(ctx)
 }
 

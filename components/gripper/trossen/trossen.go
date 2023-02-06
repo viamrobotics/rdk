@@ -3,6 +3,7 @@ package trossen
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -21,7 +22,7 @@ import (
 
 // This is an implementation of the Gripper API for Trossen arms. The gripper
 // requires a single Trossen arm component in its dependencies upon configuration,
-// as all of the gripper functions defer to DoCommand on the arm implementation. See
+// as all of the gripper functions defer to commands on the arm implementation. See
 // components/arm/trossen/trossen.go for more about the arm implementations
 // and supported arms
 
@@ -85,7 +86,7 @@ type Gripper struct {
 	generic.Unimplemented
 }
 
-// newGripper TODO.
+// newGripper returns an instance of a trossen Gripper.
 func newGripper(name string, logger golog.Logger, deps registry.Dependencies, attr *AttrConfig) (gripper.LocalGripper, error) {
 	var _arm *trossenarm.Arm
 	a, err := arm.FromDependencies(deps, attr.Arm)
@@ -104,8 +105,7 @@ func newGripper(name string, logger golog.Logger, deps registry.Dependencies, at
 // Open opens the gripper by defering to the arm.
 func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	if err := g.trossenArm.OpenGripper(ctx); err != nil {
-		g.logger.Errorf("open failed for trossen gripper %s", g.name)
-		return err
+		return errors.Wrap(err, fmt.Sprintf("open failed for trossen gripper %s", g.name))
 	}
 	return nil
 }
@@ -114,13 +114,12 @@ func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error 
 func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	hasGrabbed, err := g.trossenArm.Grab(ctx)
 	if err != nil {
-		g.logger.Errorf("grab failed for trossen gripper %s", g.name)
-		return false, err
+		return false, errors.Wrap(err, fmt.Sprintf("open failed for trossen gripper %s", g.name))
 	}
 	return hasGrabbed, nil
 }
 
-// Stop is unimplemented for Gripper.
+// Stop is stops the gripper servo on the trossen arm.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return g.trossenArm.Stop(ctx, extra)
 }
