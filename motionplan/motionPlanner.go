@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -180,13 +181,21 @@ func motionPlanInternal(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
+		wsPb := &commonpb.WorldState{}
+		if worldState != nil {
+			wsPb, err = frame.WorldStateToProtobuf(worldState)
+			if err != nil {
+				return nil, err
+			}
+		}
 
 		logger.Infof(
-			"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v",
+			"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
 			f.Name(),
 			frame.PoseInFrameToProtobuf(goal),
 			seedMap,
 			spatialmath.PoseToProtobuf(startPose),
+			wsPb,
 		)
 
 		sfPlanner, err := newPlanManager(sf, fs, logger, i)
@@ -206,6 +215,8 @@ func motionPlanInternal(ctx context.Context,
 			}
 		}
 	}
+
+	logger.Debugf("final plan steps: %v", steps)
 
 	return steps, nil
 }
