@@ -335,9 +335,20 @@ func (a *Arm) Close() {
 		a.logger.Errorf("failed to get angles: %s", err)
 	}
 	alreadyAtSleep := true
-	for _, joint := range a.jointOrder() {
-		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
-			alreadyAtSleep = false
+	for i, joint := range a.jointOrder() {
+		if i != (len(a.jointOrder()) - 1) {
+			if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
+				alreadyAtSleep = false
+			}
+		} else {
+			gripperPos, err := a.Joints["Gripper"][0].PresentPosition()
+			if err != nil {
+				a.logger.Errorf("failed to get gripper position on close: %s", err)
+			} else {
+				if gripperPos >= 2800 {
+					alreadyAtSleep = false
+				}
+			}
 		}
 	}
 	if !alreadyAtSleep {
@@ -488,10 +499,9 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
 	a.moveLock.Unlock()
-	if err := a.OpenGripper(ctx); err != nil {
-		return err
-	}
-	return a.WaitForMovement(ctx)
+	gripperErr := a.OpenGripper(ctx)
+	waitErr := a.WaitForMovement(ctx)
+	return multierr.Combine(gripperErr, waitErr)
 }
 
 // GetMoveLock TODO.
@@ -505,10 +515,14 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 	wait := false
 	for jointName := range a.Joints {
-		a.JointTo(jointName, 2048, wait)
+		if jointName != "Gripper" {
+			a.JointTo(jointName, 2048, wait)
+		}
 	}
 	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	gripperErr := a.OpenGripper(ctx)
+	waitErr := a.WaitForMovement(ctx)
+	return multierr.Combine(gripperErr, waitErr)
 }
 
 // CurrentInputs TODO.
