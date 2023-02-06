@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"image"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -94,7 +95,8 @@ func TestFakeSLAMGetMap(t *testing.T) {
 
 func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extra map[string]interface{}) {
 	testDataCount := maxDataCount
-	getMapResults := []*vision.Object{}
+	getMapPcdResults := []*vision.Object{}
+	getMapImageResults := []image.Image{}
 	getPositionResults := []spatialmath.Pose{}
 	getInternalStateResults := [][]byte{}
 
@@ -107,7 +109,7 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 		data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 		getInternalStateResults = append(getInternalStateResults, data)
 
-		_, _, vObj, err := slamSvc.GetMap(
+		_, im, vObj, err := slamSvc.GetMap(
 			context.Background(),
 			slamSvc.Name,
 			mimeType,
@@ -115,13 +117,11 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 			true,
 			extra,
 		)
-		getMapResults = append(getMapResults, vObj)
+		getMapPcdResults = append(getMapPcdResults, vObj)
+		getMapImageResults = append(getMapImageResults, im)
 
 		test.That(t, err, test.ShouldBeNil)
 	}
-
-	getMapResultsFirst := getMapResults[len(getMapResults)/2:]
-	getMapResultsLast := getMapResults[:len(getMapResults)/2]
 
 	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
 	getPositionResultsLast := getPositionResults[:len(getPositionResults)/2]
@@ -134,7 +134,6 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 	// This proves that each call to GetMap
 	// advances the test data (both for GetMap & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
-	test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
 	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
 	test.That(t, getInternalStateResultsFirst, test.ShouldResemble, getInternalStateResultsLast)
 
@@ -143,9 +142,23 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 	// This proves that each call to GetMap
 	// advances the test data (both for GetMap & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
-	test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
 	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
 	test.That(t, getInternalStateResultsFirst, test.ShouldNotResemble, reverse(getInternalStateResultsLast))
+
+	supportedMimeTypes := []string{rdkutils.MimeTypePCD, rdkutils.MimeTypeJPEG}
+	test.That(t, supportedMimeTypes, test.ShouldContain, mimeType)
+	switch mimeType {
+	case rdkutils.MimeTypePCD:
+		getMapResultsFirst := getMapPcdResults[len(getMapPcdResults)/2:]
+		getMapResultsLast := getMapPcdResults[:len(getMapPcdResults)/2]
+		test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
+		test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
+	case rdkutils.MimeTypeJPEG:
+		getMapResultsFirst := getMapImageResults[len(getMapImageResults)/2:]
+		getMapResultsLast := getMapImageResults[:len(getMapImageResults)/2]
+		test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
+		test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
+	}
 }
 
 func reverse[T any](slice []T) []T {
