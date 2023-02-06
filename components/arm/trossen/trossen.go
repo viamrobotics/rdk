@@ -108,7 +108,7 @@ func getPortMutex(port string) *sync.Mutex {
 // AttrConfig is used for converting Arm config attributes.
 type AttrConfig struct {
 	UsbPort  string `json:"serial_path"`
-	BaudRate int    `json:"serial_baud_rate"`
+	BaudRate int    `json:"serial_baud_rate,omitempty"`
 	// NOTE: ArmServoCount is currently unused because both
 	// supported arms are 9 servo arms - GV
 	ArmServoCount int `json:"arm_servo_count,omitempty"`
@@ -117,10 +117,10 @@ type AttrConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if len(config.UsbPort) == 0 {
-		return errors.New("expected nonempty serial_path")
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	if config.BaudRate == 0 {
-		return errors.New("expected nonempty serial_baud_rate")
+		config.BaudRate = 100000
 	}
 
 	return nil
@@ -217,7 +217,7 @@ func (a *Arm) MoveToPosition(
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Values) > len(a.JointOrder()) {
+	if len(jp.Values) > (len(a.JointOrder()) - 1) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -240,16 +240,19 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 		return &pb.JointPositions{}, err
 	}
 
-	positions := make([]float64, 0, len(a.JointOrder()))
-	for _, jointName := range a.JointOrder() {
-		positions = append(positions, servoPosToValues(angleMap[jointName]))
+	numJoints := len(a.JointOrder()) - 1
+	positions := make([]float64, 0, numJoints)
+	for i, jointName := range a.JointOrder() {
+		if i != numJoints {
+			positions[i] = servoPosToValues(angleMap[jointName])
+		}
 	}
 
 	return &pb.JointPositions{Values: positions}, nil
 }
 
-// Open opens the gripper.
-func (a *Arm) Open(ctx context.Context) error {
+// OpenGripper opens the gripper.
+func (a *Arm) OpenGripper(ctx context.Context) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	a.moveLock.Lock()
@@ -484,6 +487,10 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.JointTo("Wrist", 2509, sleepWait)
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
+	if err := a.OpenGripper(ctx); err != nil {
+		a.moveLock.Unlock()
+		return err
+	}
 	a.moveLock.Unlock()
 	return a.WaitForMovement(ctx)
 }
