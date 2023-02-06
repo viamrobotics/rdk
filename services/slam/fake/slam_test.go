@@ -13,7 +13,7 @@ import (
 )
 
 func TestFakeSLAMPosition(t *testing.T) {
-	slamSvc := &FakeSLAM{Name: "test"}
+	slamSvc := &SLAM{Name: "test"}
 	pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pInFrame.Parent(), test.ShouldEqual, slamSvc.Name)
@@ -32,7 +32,7 @@ func TestFakeSLAMPosition(t *testing.T) {
 }
 
 func TestFakeSLAMGetInternalState(t *testing.T) {
-	slamSvc := &FakeSLAM{Name: "test"}
+	slamSvc := &SLAM{Name: "test"}
 	data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
@@ -43,13 +43,13 @@ func TestFakeSLAMGetInternalState(t *testing.T) {
 
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map advances the test data", func(t *testing.T) {
-		slamSvc := &FakeSLAM{Name: "test"}
+		slamSvc := &SLAM{Name: "test"}
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypePCD, slamSvc, extra)
 	})
 
 	t.Run("Test getting a JPEG map advances the test data", func(t *testing.T) {
-		slamSvc := &FakeSLAM{Name: "test"}
+		slamSvc := &SLAM{Name: "test"}
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypeJPEG, slamSvc, extra)
 	})
@@ -59,8 +59,14 @@ func TestFakeSLAMGetMap(t *testing.T) {
 	extra := map[string]interface{}{}
 
 	t.Run("Test getting valid JPEG map", func(t *testing.T) {
-		slamSvc := &FakeSLAM{Name: "test"}
-		pInFrame := referenceframe.NewPoseInFrame(slamSvc.Name, spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector()))
+		slamSvc := &SLAM{Name: "test"}
+		pInFrame := referenceframe.NewPoseInFrame(
+			slamSvc.Name,
+			spatialmath.NewPose(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				spatialmath.NewOrientationVector(),
+			),
+		)
 		mimeType, im, vObj, err := slamSvc.GetMap(
 			context.Background(),
 			slamSvc.Name,
@@ -80,18 +86,28 @@ func TestFakeSLAMGetMap(t *testing.T) {
 	})
 
 	t.Run("Test getting invalid PNG map", func(t *testing.T) {
-		slamSvc := &FakeSLAM{Name: "test"}
-		pInFrame := referenceframe.NewPoseInFrame(slamSvc.Name, spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector()))
-		mimeType, im, vObj, err := slamSvc.GetMap(context.Background(), slamSvc.Name, rdkutils.MimeTypePNG, pInFrame, true, extra)
+		slamSvc := &SLAM{Name: "test"}
+		pInFrame := referenceframe.NewPoseInFrame(
+			slamSvc.Name,
+			spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0},
+				spatialmath.NewOrientationVector()),
+		)
+		mimeType, im, vObj, err := slamSvc.GetMap(
+			context.Background(),
+			slamSvc.Name,
+			rdkutils.MimeTypePNG,
+			pInFrame,
+			true,
+			extra,
+		)
 		test.That(t, err, test.ShouldBeError, "received invalid mimeType for GetMap call")
 		test.That(t, mimeType, test.ShouldEqual, "")
 		test.That(t, vObj, test.ShouldBeNil)
 		test.That(t, im, test.ShouldBeNil)
 	})
-
 }
 
-func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extra map[string]interface{}) {
+func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra map[string]interface{}) {
 	testDataCount := maxDataCount
 	getMapPcdResults := []float64{}
 	getMapImageResults := []int{}
@@ -100,11 +116,12 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *FakeSLAM, extr
 
 	// Call GetMap twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
-		pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, map[string]interface{}{})
+		pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, extra)
 		test.That(t, err, test.ShouldBeNil)
 		getPositionResults = append(getPositionResults, pInFrame.Pose())
 
 		data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
+		test.That(t, err, test.ShouldBeNil)
 		getInternalStateResults = append(getInternalStateResults, len(data))
 
 		_, im, vObj, err := slamSvc.GetMap(

@@ -12,6 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/generic"
@@ -27,9 +28,13 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-var (
-	model        = resource.NewDefaultModel("fake")
-	maxDataCount = 16
+var model = resource.NewDefaultModel("fake")
+
+const (
+	internalStateTemplate = "slam/example_cartographer_outputs/internal_state/internal_state_%d.pbstream"
+	maxDataCount          = 16
+	pcdTemplate           = "slam/example_cartographer_outputs/pointcloud/pointcloud_%d.pcd"
+	pngTemplate           = "slam/example_cartographer_outputs/image_map/image_map_%d.png"
 )
 
 func init() {
@@ -43,23 +48,23 @@ func init() {
 				config config.Service,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return &FakeSLAM{Name: config.Name, dataCount: 1}, nil
+				return &SLAM{Name: config.Name, dataCount: 1}, nil
 			},
 		},
 	)
 }
 
-var _ = slam.Service(&FakeSLAM{})
+var _ = slam.Service(&SLAM{})
 
-// FakeSLAM is a fake slam that returns generic data.
-type FakeSLAM struct {
+// SLAM is a fake slam that returns generic data.
+type SLAM struct {
 	generic.Echo
 	Name      string
 	dataCount int
 }
 
 // GetMap does nothing.
-func (slamSvc *FakeSLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
+func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 	include bool, extra map[string]interface{},
 ) (string, image.Image, *vision.Object, error) {
 	var err error
@@ -70,14 +75,13 @@ func (slamSvc *FakeSLAM) GetMap(ctx context.Context, name, mimeType string, cp *
 	slamSvc.incrementDataCount()
 
 	switch mimeType {
-
 	case rdkutils.MimeTypePCD:
-		pcdFile, err := os.Open(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/pointcloud/pointcloud_%d.pcd", slamSvc.dataCount)))
-		defer pcdFile.Close()
+		f, err := os.Open(artifact.MustPath(fmt.Sprintf(pcdTemplate, slamSvc.dataCount)))
 		if err != nil {
 			return "", nil, nil, err
 		}
-		pc, err := pointcloud.ReadPCDToBasicOctree(pcdFile)
+		defer utils.UncheckedErrorFunc(f.Close)
+		pc, err := pointcloud.ReadPCDToBasicOctree(f)
 		if err != nil {
 			return "", nil, nil, err
 		}
@@ -87,7 +91,7 @@ func (slamSvc *FakeSLAM) GetMap(ctx context.Context, name, mimeType string, cp *
 		}
 
 	case rdkutils.MimeTypeJPEG:
-		img, err = rimage.NewImageFromFile(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/image_map/image_map_%d.png", slamSvc.dataCount)))
+		img, err = rimage.NewImageFromFile(artifact.MustPath(fmt.Sprintf(pngTemplate, slamSvc.dataCount)))
 
 	default:
 		return "", nil, nil, errors.New("received invalid mimeType for GetMap call")
@@ -101,7 +105,7 @@ func (slamSvc *FakeSLAM) GetMap(ctx context.Context, name, mimeType string, cp *
 }
 
 // Position does nothing.
-func (slamSvc *FakeSLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
+func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/position/position_%d.txt", slamSvc.dataCount)))
 	if err != nil {
 		return nil, err
@@ -142,18 +146,17 @@ func extract(strings []string) ([]float64, error) {
 		elems[i] = x
 	}
 	return elems, nil
-
 }
 
 // GetInternalState does nothing.
-func (slamSvc *FakeSLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
-	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf("slam/example_cartographer_outputs/internal_state/internal_state_%d.pbstream", slamSvc.dataCount)))
+func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
+	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf(internalStateTemplate, slamSvc.dataCount)))
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (slamSvc *FakeSLAM) incrementDataCount() {
+func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
