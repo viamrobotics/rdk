@@ -1232,6 +1232,8 @@ github.com/pion/udp v0.1.2/go.mod h1:CuqU2J4MmF3sjqKfk1SaIhuNXdum5PJRqd2LHuLMQSk
 github.com/pion/webrtc/v3 v3.1.50/go.mod h1:y9n09weIXB+sjb9mi0GBBewNxo4TKUQm5qdtT5v3/X4=
 github.com/pion/webrtc/v3 v3.1.53 h1:vVyBPndwclEb2sClJHegQvlXWlA1YAbADyOhVQgphlM=
 github.com/pion/webrtc/v3 v3.1.53/go.mod h1:CJ3+hHptn5qzgeeTRGN5zuAlVtTXwGJYH18Zznn+onw=
+github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d h1:ls+7AYarUlUSetfnN/DKVNcK6W8mQWc6VblmOm4XwX0=
+github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d/go.mod h1:DO7ixpslN6XfbWzeNH9vkS5CF2FQUX81B85rYe9zDxU=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 h1:KoWmjvw+nsYOo29YJK9vDA65RGE3NrOnUtO7a+RF9HU=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8/go.mod h1:HKlIX3XHQyzLZPlr7++PzdhaXEj94dEiJgZDTsxEqUI=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
