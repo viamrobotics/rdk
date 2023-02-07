@@ -32,7 +32,7 @@ type Arguments struct {
 	ConfigFile                    string `flag:"config,usage=robot config file"`
 	CPUProfile                    string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                         bool   `flag:"debug"`
-	DisableDirectoryConfiguration bool   `flag:"disable-directory-configuration,usage=prohibit connections from changing the directories where data is stored on-robot"`
+	DisableDirectoryConfiguration bool   `flag:"disable-directory-configuration,usage=prohibit connections from changing the directories where data is stored on-robot"` //nolint:lll
 	SharedDir                     string `flag:"shareddir,usage=web resource directory"`
 	Version                       bool   `flag:"version,usage=print version"`
 	WebProfile                    bool   `flag:"webprofile,usage=include profiler in http server"`
