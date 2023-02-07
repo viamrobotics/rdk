@@ -6,6 +6,7 @@ import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
+import CameraView from './camera.vue';
 import { rcLogConditionally } from '../lib/log';
 
 interface Props {
@@ -371,8 +372,24 @@ onUnmounted(() => {
             </template>
           </div>
         </div>
-        <div class="flex flex-col gap-4 border-l border-black p-4">
-          
+        <div
+          data-parent="base"
+          class="flex flex-col gap-4 border-l border-black p-4"
+        >
+          <!-- ******* CAMERAS *******  -->
+          <template
+            v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
+            :key="`base ${camera.name}`"
+          >
+            <CameraView
+              :camera-name="camera.name"
+              parent-name="base"
+              :client="client"
+              :resources="resources"
+              :show-switch=true
+              :show-refresh=true
+            />
+          </template>
         </div>
       </div>
     </v-collapse>
