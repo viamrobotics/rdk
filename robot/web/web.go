@@ -169,10 +169,7 @@ func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 		}
 	}
 
-	// TODO(APP-1086): During rollout of weboauth feature we need to support the app returning only the 1 location secret.
-	if len(handlers) == 1 && hasLocationSecretHandler {
-		return true
-	} else if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+	if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
 		return true
 	}
 
@@ -480,7 +477,6 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		svc.logger.Warn("attempting to add stream before stream server is initialized. skipping this operation...")
 		return nil
 	}
 	videoSources := allVideoSourcesToDisplay(svc.r)

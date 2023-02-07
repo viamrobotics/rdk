@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"math"
+	"strings"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
@@ -25,6 +26,26 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (spa
 
 	pose, err := model.Transform(model.InputFromProtobuf(joints))
 	if err != nil {
+		return nil, err
+	}
+
+	return pose, nil
+}
+
+// ComputeOOBPosition takes a model and a protobuf JointPositions in degrees and returns the cartesian
+// position of the end effector as a protobuf ArmPosition even when the arm is in an out of bounds state.
+// This is performed statelessly without changing any data.
+func ComputeOOBPosition(model referenceframe.Frame, joints *pb.JointPositions) (spatialmath.Pose, error) {
+	if len(joints.Values) != len(model.DoF()) {
+		return nil, errors.Errorf(
+			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",
+			len(model.DoF()),
+			len(joints.Values),
+		)
+	}
+
+	pose, err := model.Transform(model.InputFromProtobuf(joints))
+	if err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString) {
 		return nil, err
 	}
 
