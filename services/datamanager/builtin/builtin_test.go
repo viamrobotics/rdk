@@ -112,7 +112,7 @@ func TestDirectoryConfigurationDisabled(t *testing.T) {
 	defer dmsvc.Close(context.Background())
 
 	config := setupConfig(t, enabledTabularCollectorConfigPath)
-	config.DisableDirConfig = true
+	config.DisableDirectoryConfiguration = true
 
 	err := dmsvc.Update(context.Background(), config)
 	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)

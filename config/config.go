@@ -46,9 +46,9 @@ type Config struct {
 	// command line arguments.
 	UntrustedEnv bool `json:"-"`
 
-	// DisableDirConfig is used to disable the configurability of directories where we
+	// DisableDirectoryConfiguration is used to disable the configurability of directories where we
 	// capture data. This is set via command line arguments.
-	DisableDirConfig bool `json:"-"`
+	DisableDirectoryConfiguration bool `json:"-"`
 
 	// FromCommand indicates if this config was parsed via the web server command.
 	// If false, it's for creating a robot via the RDK library. This is helpful for

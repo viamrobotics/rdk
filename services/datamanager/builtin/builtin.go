@@ -406,7 +406,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	if cfg.DisableDirConfig && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
+	if cfg.DisableDirectoryConfiguration && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
 		return errCaptureDirectoryConfigurationDisabled
 	}
 	svc.captureDir = svcConfig.CaptureDir
