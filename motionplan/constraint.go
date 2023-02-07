@@ -132,6 +132,7 @@ func NewCollisionConstraint(
 	frame referenceframe.Frame,
 	goodInput []referenceframe.Input,
 	obstacles, interactionSpaces map[string]spatial.Geometry,
+	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) Constraint {
 	zeroVols, err := frame.Geometries(goodInput)
@@ -153,6 +154,11 @@ func NewCollisionConstraint(
 	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, true)
 	if err != nil {
 		return nil
+	}
+	for _, specification := range collisionSpecifications {
+		if err := zeroCG.AddCollisionSpecification(specification); err != nil {
+			return nil
+		}
 	}
 
 	constraint := func(cInput *ConstraintInput) (bool, float64) {
@@ -197,6 +203,7 @@ func NewCollisionConstraintFromWorldState(
 	fs referenceframe.FrameSystem,
 	worldState *referenceframe.WorldState,
 	observationInput map[string][]referenceframe.Input,
+	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) (Constraint, error) {
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
@@ -223,6 +230,7 @@ func NewCollisionConstraintFromWorldState(
 		goodInputs,
 		worldState.Obstacles[0].Geometries(),
 		worldState.InteractionSpaces[0].Geometries(),
+		collisionSpecifications,
 		reportDistances,
 	), nil
 }

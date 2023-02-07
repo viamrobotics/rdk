@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/pkg/errors"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -57,7 +58,7 @@ type collisionEntity struct {
 type CollisionEntities interface {
 	count() int
 	entityFromIndex(int) *collisionEntity
-	indexFromName(string) (int, error)
+	indexFromName(string) (int, bool)
 	checkCollision(*collisionEntity, *collisionEntity, bool) (float64, error)
 	reportCollisions([]float64) []int
 }
@@ -96,11 +97,11 @@ func (oce *ObjectCollisionEntities) entityFromIndex(index int) *collisionEntity 
 }
 
 // indexFromName returns the index in the CollisionEntities class that corresponds to the given name.
-func (oce *ObjectCollisionEntities) indexFromName(name string) (int, error) {
+func (oce *ObjectCollisionEntities) indexFromName(name string) (int, bool) {
 	if index, ok := oce.indices[name]; ok {
-		return index, nil
+		return index, true
 	}
-	return -1, fmt.Errorf("collision entity %q not found", name)
+	return -1, false
 }
 
 func (oce *ObjectCollisionEntities) checkCollision(key, test *collisionEntity, reportDistances bool) (float64, error) {
@@ -223,15 +224,21 @@ func newCollisionGraph(
 	return cg, nil
 }
 
-// collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
-func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
+func (cg *collisionGraph) getIndices(keyName, testName string) (int, int, bool) {
 	i, iOk := cg.key.indexFromName(keyName)
 	j, jOk := cg.test.indexFromName(testName)
-	if cg.triangular && i > j {
-		i, j = j, i
-	}
-	if iOk == nil && jOk == nil && cg.adjacencies[i][j] >= -spatial.CollisionBuffer {
-		return true
+	return i, j, iOk && jOk
+}
+
+// collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
+func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
+	if i, j, ok := cg.getIndices(keyName, testName); ok {
+		if cg.triangular && i > j {
+			i, j = j, i
+		}
+		if cg.adjacencies[i][j] >= -spatial.CollisionBuffer {
+			return true
+		}
 	}
 	return false
 }
@@ -246,6 +253,31 @@ func (cg *collisionGraph) collisions() []Collision {
 		}
 	}
 	return collisions
+}
+
+func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (err error) {
+	if specification.name1 == specification.name2 {
+		return errors.Errorf("cannot add collision specification between entities with the same name: %s", specification.name1)
+	}
+	i, j, ok := cg.getIndices(specification.name1, specification.name2)
+	if !ok {
+		i, j, ok = cg.getIndices(specification.name2, specification.name1)
+	}
+	if ok {
+		if cg.triangular && i > j {
+			i, j = j, i
+		}
+		if specification.penetrationDepth > 0 {
+			cg.adjacencies[i][j] = math.NaN()
+		} else if math.IsNaN(cg.adjacencies[i][j]) {
+			cg.adjacencies[i][j], err = cg.test.checkCollision(cg.key.entityFromIndex(i), cg.test.entityFromIndex(j), cg.reportDistances)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return errors.Errorf("cannot add collision specification between entities with names: %s, %s", specification.name1, specification.name2)
 }
 
 // CollisionSystem is an object that checks for and records collisions between CollisionEntities.
@@ -311,4 +343,13 @@ func (cs *CollisionSystem) CollisionBetween(keyName, testName string) bool {
 		}
 	}
 	return false
+}
+
+func (cs *CollisionSystem) AddCollisionSpecification(specification *Collision) error {
+	for _, graph := range cs.graphs {
+		if err := graph.addCollisionSpecification(specification); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -76,7 +76,7 @@ func TestCheckCollisions(t *testing.T) {
 	}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
-	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
+	// case 3: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -122,4 +122,11 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 41.6}, {"xArm6:wrist_link", "xArm6:upper_arm", 48.1}}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
+
+	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
+	err = zeroPositionCG.AddCollisionSpecification(&expectedCollisions[1])
+	test.That(t, err, test.ShouldBeNil)
+	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
 }
