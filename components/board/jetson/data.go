@@ -1,7 +1,7 @@
 package jetson
 
 import (
-	"go.viam.com/rdk/components/board/commonsysfs"
+	"go.viam.com/rdk/components/board/genericlinux"
 )
 
 const (
@@ -13,11 +13,12 @@ const (
 	jetsonNano     = "jetson_nano"
 	jetsonTX2NX    = "jetson_tx2_NX"
 	jetsonOrin     = "jetson_orin"
+	jetsonOrinNX   = "jetson_orin_nx"
 )
 
-var boardInfoMappings = map[string]commonsysfs.BoardInformation{
+var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	claraAGXXavier: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -68,7 +69,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	},
 
 	jetsonNX: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{224: 148, 169: 118}, map[int]string{169: "PS.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 157, 169: 127}, map[int]string{169: "PT.05"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP5_SCLK", "", -1},
@@ -120,7 +121,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonXavier: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 			{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 			{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -187,7 +188,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	},
 
 	jetsonTX2NX: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 			{map[int]int{64: 28, 47: 23}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
 			{map[int]int{192: 72, 140: 62}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP1_SCLK", "", -1},
@@ -216,7 +217,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonTX2: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "PAUDIO_MCLK", "AUD_MCLK", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{192: 146, 140: 117}, map[int]string{140: "PT.02"}, "2200000.gpio", 11, 17, "PUART0_RTS", "UART1_RTS", "", -1},
@@ -295,7 +296,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonTX1: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "AUDIO_MCLK", "AUD_MCLK", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{-1: 162}, nil, "6000d000.gpio", 11, 17, "UART0_RTS", "UART1_RTS", "", -1},
@@ -328,7 +329,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonNano: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "GPIO9", "AUD_MCLK", "", -1},
 			{map[int]int{-1: 50}, nil, "6000d000.gpio", 11, 17, "UART1_RTS", "UART2_RTS", "", -1},
 			{map[int]int{-1: 79}, nil, "6000d000.gpio", 12, 18, "I2S0_SCLK", "DAP4_SCLK", "", -1},
@@ -361,7 +362,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		},
 	},
 	jetsonOrin: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
@@ -389,6 +390,35 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 		[]string{
 			"nvidia,p3737-0000+p3701-0000",
 			"nvidia,p3737-0000+p3701-0004",
+		},
+	},
+	jetsonOrinNX: {
+		[]genericlinux.PinDefinition{
+			{map[int]int{164: 144}, map[int]string{164: "PAC.06"}, "2200000.gpio", 7, 4, "GPIO09", "GP167", "", -1},
+			{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
+			{map[int]int{164: 50}, map[int]string{164: "PH.07"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "GP122", "", -1},
+			{map[int]int{164: 122}, map[int]string{164: "PY.00"}, "2200000.gpio", 13, 27, "SPI1_SCK", "GP36_SPI3_CLK", "", -1},
+			{map[int]int{164: 85}, map[int]string{164: "PN.01"}, "2200000.gpio", 15, 22, "GPIO12", "GP88_PWM1", "3280000.pwm", 0},
+			{map[int]int{164: 126}, map[int]string{164: "PY.04"}, "2200000.gpio", 16, 23, "SPI1_CS1", "GP40_SPI3_CS1_N", "", -1},
+			{map[int]int{164: 125}, map[int]string{164: "PY.03"}, "2200000.gpio", 18, 24, "SPI1_CS0", "GP39_SPI3_CS0_N", "", -1},
+			{map[int]int{164: 135}, map[int]string{164: "PZ.05"}, "2200000.gpio", 19, 10, "SPI0_MOSI", "GP49_SPI1_MOSI", "", -1},
+			{map[int]int{164: 134}, map[int]string{164: "PZ.04"}, "2200000.gpio", 21, 9, "SPI0_MISO", "GP48_SPI1_MISO", "", -1},
+			{map[int]int{164: 123}, map[int]string{164: "PY.01"}, "2200000.gpio", 22, 25, "SPI1_MISO", "GP37_SPI3_MISO", "", -1},
+			{map[int]int{164: 133}, map[int]string{164: "PZ.03"}, "2200000.gpio", 23, 11, "SPI0_SCK", "GP47_SPI1_CLK", "", -1},
+			{map[int]int{164: 136}, map[int]string{164: "PZ.06"}, "2200000.gpio", 24, 8, "SPI0_CS0", "GP50_SPI1_CS0_N", "", -1},
+			{map[int]int{164: 137}, map[int]string{164: "PZ.07"}, "2200000.gpio", 26, 7, "SPI0_CS1", "GP51_SPI1_CS1_N", "", -1},
+			{map[int]int{164: 105}, map[int]string{164: "PQ.05"}, "2200000.gpio", 29, 5, "GPIO01", "GP65", "", -1},
+			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 31, 6, "GPIO11", "GP66", "", -1},
+			{map[int]int{164: 41}, map[int]string{164: "PG.06"}, "2200000.gpio", 32, 12, "GPIO07", "GP113_PWM7", "", -1},
+			{map[int]int{164: 43}, map[int]string{164: "PH.00"}, "2200000.gpio", 33, 13, "GPIO13", "GP115", "32c0000.pwm", 0},
+			{map[int]int{164: 53}, map[int]string{164: "PI.02"}, "2200000.gpio", 35, 19, "I2S0_FS", "GP125", "", -1},
+			{map[int]int{164: 113}, map[int]string{164: "PR.05"}, "2200000.gpio", 36, 16, "UART1_CTS", "GP73_UART1_CTS_N", "", -1},
+			{map[int]int{164: 124}, map[int]string{164: "PY.02"}, "2200000.gpio", 37, 26, "SPI1_MOSI", "GP38_SPI3_MOSI", "", -1},
+			{map[int]int{164: 52}, map[int]string{164: "PI.01"}, "2200000.gpio", 38, 20, "I2S0_SDIN", "GP124", "", -1},
+			{map[int]int{164: 51}, map[int]string{164: "PI.00"}, "2200000.gpio", 40, 21, "I2S0_SDOUT", "GP123", "", -1},
+		},
+		[]string{
+			"nvidia,p3509-0000+p3767-0000",
 		},
 	},
 }

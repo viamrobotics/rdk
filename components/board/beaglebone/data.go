@@ -1,12 +1,12 @@
 package beaglebone
 
-import "go.viam.com/rdk/components/board/commonsysfs"
+import "go.viam.com/rdk/components/board/genericlinux"
 
 const bbAi = "bb_Ai64"
 
-var boardInfoMappings = map[string]commonsysfs.BoardInformation{
+var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	bbAi: {
-		PinDefinitions: []commonsysfs.PinDefinition{
+		PinDefinitions: []genericlinux.PinDefinition{
 			// GPIOChipRelativeIDs {NGPIO: LINENUM} -> {128: 93}
 			// PinNumberBoard {914} -> PinNameCVM3 "P9_14"
 			// Duplicate pins are commented out of the
