@@ -155,9 +155,9 @@ func newULN(ctx context.Context, b board.Board, mc Config, name string, logger g
 		m.in4 = in4
 	}
 
-	if err := m.Validate(); err != nil {
-		return nil, err
-	}
+	// if err := m.Validate(); err != nil {
+	// 	return nil, err
+	// }
 
 	m.startThread(ctx)
 	return m, nil
@@ -184,33 +184,33 @@ type uln2003 struct {
 }
 
 // validate if this config is valid.
-func (m *uln2003) Validate() error {
-	if m.theBoard == nil {
-		return errors.Errorf("need a board for motor (%s)", m.motorName)
-	}
+// func (m *uln2003) Validate() error {
+// 	if m.theBoard == nil {
+// 		return errors.Errorf("need a board for motor (%s)", m.motorName)
+// 	}
 
-	if m.rotationPerMinute == 0 {
-		return errors.Errorf("need to set 'rotation_per_minute' for motor (%s)", m.motorName)
-	}
+// 	if m.rotationPerMinute == 0 {
+// 		return errors.Errorf("need to set 'rotation_per_minute' for motor (%s)", m.motorName)
+// 	}
 
-	if m.in1 == nil {
-		return errors.Errorf("need a 'In1' pin for motor (%s)", m.motorName)
-	}
+// 	if m.in1 == nil {
+// 		return errors.Errorf("need a 'In1' pin for motor (%s)", m.motorName)
+// 	}
 
-	if m.in2 == nil {
-		return errors.Errorf("need a 'In2' pin for motor (%s)", m.motorName)
-	}
+// 	if m.in2 == nil {
+// 		return errors.Errorf("need a 'In2' pin for motor (%s)", m.motorName)
+// 	}
 
-	if m.in3 == nil {
-		return errors.Errorf("need a 'In3' pin for motor (%s)", m.motorName)
-	}
+// 	if m.in3 == nil {
+// 		return errors.Errorf("need a 'In3' pin for motor (%s)", m.motorName)
+// 	}
 
-	if m.in4 == nil {
-		return errors.Errorf("need a 'In4' pin for motor (%s)", m.motorName)
-	}
+// 	if m.in4 == nil {
+// 		return errors.Errorf("need a 'In4' pin for motor (%s)", m.motorName)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
