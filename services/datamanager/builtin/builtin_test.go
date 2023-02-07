@@ -106,12 +106,12 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
 }
 
-func TestDirectoryConfigurationDisabled(t *testing.T) {
+func TestLimitConfigurableDirectories(t *testing.T) {
 	dmsvc := newTestDataManager(t)
 	defer dmsvc.Close(context.Background())
 
 	config := setupConfig(t, enabledTabularCollectorConfigPath)
-	config.DisableDirectoryConfiguration = true
+	config.LimitConfigurableDirectories = true
 
 	err := dmsvc.Update(context.Background(), config)
 	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)
