@@ -435,3 +435,58 @@ func TestArmReconnection(t *testing.T) {
 	childCancel()
 	_ = ua.Close(ctx)
 }
+
+func TestUpdateAction(t *testing.T) {
+	var remote atomic.Bool
+
+	remote.Store(false)
+
+	statusBlob, err := os.ReadFile("armBlob")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger := golog.NewTestLogger(t)
+	parentCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ctx, childCancel := context.WithCancel(parentCtx)
+
+	closer, _, _, err := setupListeners(ctx, statusBlob, &remote)
+	test.That(t, err, test.ShouldBeNil)
+
+	cfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.3,
+			Host:                "localhost",
+			ArmHostedKinematics: false,
+		},
+	}
+
+	newCfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.5,
+			Host:                "localhost",
+			ArmHostedKinematics: false,
+		},
+	}
+
+	injectRobot := &inject.Robot{}
+
+	arm, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ua, ok := arm.(*URArm)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	obj, canUpdate := arm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	if canUpdate {
+		action := obj.UpdateAction(&newCfg)
+		test.That(t, action, test.ShouldEqual, config.None)
+	}
+
+	closer()
+	childCancel()
+	_ = ua.Close(ctx)
+}
