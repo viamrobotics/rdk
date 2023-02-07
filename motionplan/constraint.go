@@ -55,7 +55,7 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 		if err != nil {
 			return false, nil
 		}
-		pass, _ := c.CheckConstraints(interpC)
+		pass, _, _ := c.CheckConstraints(interpC)
 		if !pass {
 			if i > 1 {
 				return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
@@ -69,7 +69,7 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	if err != nil {
 		return false, nil
 	}
-	pass, _ := c.CheckConstraints(&ConstraintInput{
+	pass, _, _ := c.CheckConstraints(&ConstraintInput{
 		StartPos:   ci.EndPos,
 		EndPos:     ci.EndPos,
 		StartInput: ci.EndInput,
@@ -109,17 +109,21 @@ func (c *constraintHandler) Constraints() []string {
 }
 
 // CheckConstraints will check a given input against all constraints.
-func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64) {
+// Return values are:
+// -- a bool representing whether all constraints passed
+// -- if passing, a score representing the distance to a non-passing state. Inf(1) if failing.
+// -- if failing, a string naming the failed constraint.
+func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64, string) {
 	score := 0.
 
-	for _, cFunc := range c.constraints {
+	for name, cFunc := range c.constraints {
 		pass, cScore := cFunc(cInput)
 		if !pass {
-			return false, math.Inf(1)
+			return false, math.Inf(1), name
 		}
 		score += cScore
 	}
-	return true, score
+	return true, score, ""
 }
 
 // NewCollisionConstraint is a helper function for creating a collision Constraint that takes a frame and geometries
