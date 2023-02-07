@@ -196,6 +196,7 @@ func motionPlanInternal(ctx context.Context,
 			spatialmath.PoseToProtobuf(startPose),
 			wsPb,
 		)
+		logger.Debugf("motion config for this step: %v", opts[i])
 
 		sfPlanner, err := newPlanManager(sf, fs, logger, i)
 		if err != nil {
