@@ -1,14 +1,13 @@
 package genericlinux
 
 import (
-	"binary"
+	"encoding/binary"
 	"context"
-	"fmt"
 	"sync"
 
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
-	"periph.io/x/host"
+	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/components/board"
 )
@@ -22,23 +21,25 @@ type i2cBus struct {
 	mu       sync.Mutex
 }
 
-func NewI2cBus(deviceName string) (i2cBus, error) {
+func NewI2cBus(deviceName string) (*i2cBus, error) {
+	// We return a pointer to an i2cBus instead of an i2cBus itself so that we can return nil if
+	// something goes wrong.
 	bus, err := i2creg.Open(deviceName)
 	if err != nil {
 		return nil, err
 	}
-	return i2cBus{internal: bus}
+	return &i2cBus{internal: bus}, nil
 
 }
 
 // This lets the i2cBus type implement the board.I2C interface.
 func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
-	return &i2cHandle{device: i2c.Dev{Bus: bus.internal, Addr: addr}, mu: &bus.mu}, nil
+	return &i2cHandle{device: &i2c.Dev{Bus: bus.internal, Addr: uint16(addr)}, mu: &bus.mu}, nil
 }
 
 type i2cHandle struct {
-	device   i2c.Dev
+	device   *i2c.Dev // Will become nil if we close the connection
 	mu       *sync.Mutex // Points to the I2C bus' mutex
 }
 
@@ -69,7 +70,7 @@ func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, erro
 // This is a private helper function, used to implement the rest of the board.I2CHandle interface.
 func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	if w == nil {
-		w := []byte{}
+		w = []byte{}
 	}
 	fullW := make([]byte, len(w) + 1)
 	fullW[0] = register
@@ -118,4 +119,5 @@ func (h *i2cHandle) Close() error {
 	defer h.mu.Unlock() // Unlock the entire bus so someone else can use it
 	h.device = nil
 	// Don't close the bus itself: it should remain open for other handles to use
+	return nil
 }
