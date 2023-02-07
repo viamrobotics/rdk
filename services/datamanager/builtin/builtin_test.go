@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/spatialmath"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
@@ -25,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/internal"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
