@@ -440,20 +440,20 @@ func TestArmReconnection(t *testing.T) {
 
 func TestUpdateAction(t *testing.T) {
 	var remote atomic.Bool
-
 	remote.Store(false)
 
 	statusBlob, err := os.ReadFile("armBlob")
 	test.That(t, err, test.ShouldBeNil)
 
-	logger := golog.NewTestLogger(t)
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	ctx, childCancel := context.WithCancel(parentCtx)
+	defer childCancel()
 
 	closer, _, _, err := setupListeners(ctx, statusBlob, &remote)
 	test.That(t, err, test.ShouldBeNil)
+	defer closer()
 
 	cfg := config.Component{
 		Name: "testarm",
@@ -482,30 +482,27 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
-	injectRobot := &inject.Robot{}
-
-	ur5e, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	ua, ok := ur5e.(*URArm)
+	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	test.That(t, ok, test.ShouldBeTrue)
 
+	ur5e := &URArm{
+		speed:              attrs.Speed,
+		urHostedKinematics: attrs.ArmHostedKinematics,
+		host:               attrs.Host,
+	}
+
 	// scenario where we do not reconfigure
-	obj, canUpdate := ur5e.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
+	test.That(t, ur5e.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
 
 	// scenario where we have to configure
-	obj, canUpdate = ur5e.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
+	test.That(t, ur5e.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
 
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
-	reconfArm, err := arm.WrapWithReconfigurable(ua, resource.Name{})
+	reconfArm, err := arm.WrapWithReconfigurable(ur5e, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// scenario where we do not reconfigure
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	obj, canUpdate := reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
 
@@ -513,8 +510,4 @@ func TestUpdateAction(t *testing.T) {
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
-
-	defer closer()
-	defer childCancel()
-	_ = ua.Close(ctx)
 }
