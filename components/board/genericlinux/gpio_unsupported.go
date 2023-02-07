@@ -4,6 +4,7 @@ package genericlinux
 
 import (
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/components/board"
 )
 
@@ -14,5 +15,5 @@ func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) {
 }
 
 func gpioGetPin(pinName string) (board.GPIOPin, error) {
-	return nil, errors.Errorf("ioctl GPIO pins are not supported in a non-Linux environment")
+	return nil, errors.New("ioctl GPIO pins are not supported in a non-Linux environment")
 }
