@@ -41,8 +41,8 @@ func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 }
 
 type i2cHandle struct {
-	device *i2c.Dev    // Will become nil if we close the connection
-	mu     *sync.Mutex // Points to the I2C bus' mutex
+	device *i2c.Dev    // Will become nil if we Close() the handle
+	mu     *sync.Mutex // Points to the i2cBus' mutex
 }
 
 // This helps the i2cHandle struct implement the board.I2CHandle interface.
