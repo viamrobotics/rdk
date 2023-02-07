@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { displayError } from '../lib/error';
 import {
   StreamClient,
@@ -11,9 +12,11 @@ import {
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
+import { cameraStreamStates } from '../lib/camera-state';
 
 interface Props {
   cameraName: string;
+  parentName: string;
   showSwitch: boolean;
   showRefresh: boolean;
   resources: commonApi.ResourceName.AsObject[];
@@ -37,16 +40,31 @@ let camera = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let streamActive = false;
 
-const clearStreamContainer = (camName: string, elName: string) => {
-  const streamContainer = document.querySelector(
-    `[data-stream="${camName}"]`
-  );
-  if (elName === 'video') {
-    streamContainer?.querySelector('video')?.classList.add('hidden');
-    streamContainer?.querySelector('img')?.classList.remove('hidden');
-  } else {
-    streamContainer?.querySelector('img')?.classList.add('hidden');
-    streamContainer?.querySelector('video')?.classList.remove('hidden');
+const initStreamState = () => {
+  cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, { 
+    on: false,
+    live: true,
+    parent: props.parentName,
+    name: props.cameraName
+ });
+};
+
+const clearStreamContainer = () => {
+  for (let [key, value] of cameraStreamStates) {
+
+    const streamContainer = document.querySelector(
+      `[data-parent="${value.parent}"] [data-stream="${value.name}"]`
+    );
+
+    if (cameraStreamStates.get(key)?.live) {
+      console.log('live');
+      streamContainer?.querySelector('img')?.classList.add('hidden');
+      streamContainer?.querySelector('video')?.classList.remove('hidden');
+    } else {
+      console.log('not live');
+      streamContainer?.querySelector('img')?.classList.remove('hidden');
+      streamContainer?.querySelector('video')?.classList.add('hidden');
+    }
   }
 };
 
@@ -85,13 +103,17 @@ const viewFrame = async (cameraName: string) => {
   }
 
   const streamContainers = document.querySelectorAll(
-    `[data-stream="${cameraName}"]`
+    `[data-parent="${props.parentName}"] [data-stream="${cameraName}"]`
   );
+
   for (const streamContainer of streamContainers) {
-    const image = new Image();
-    image.src = URL.createObjectURL(blob);
-    streamContainer.querySelector('img')?.remove();
-    streamContainer.append(image);
+    if (!streamContainer.querySelector('img')) {
+      const image = new Image();
+      image.src = URL.createObjectURL(blob);
+      streamContainer.append(image);
+    } else {
+      streamContainer.setAttribute('src', URL.createObjectURL(blob))
+    }
   }
 };
 
@@ -132,20 +154,24 @@ const togglePCDExpand = () => {
 
 const selectCameraView = () => {
   clearFrameInterval();
-  const selectedInterval: number = selectedMap[refreshFrequency as keyof typeof selectedMap];
+  const selectedInterval: number = selectedMap[refreshFrequency as keyof typeof selectedMap];  
 
   if (refreshFrequency !== 'Live') {
-    clearStreamContainer(props.cameraName, 'video');
-    
-    viewCameraFrame(props.cameraName, selectedInterval);
     viewCamera(false);
-
-    return;
+  } else {
+    viewCamera(true);
   }
-
-  clearStreamContainer(props.cameraName, 'img');
+  
   viewCameraFrame(props.cameraName, selectedInterval);
-  viewCamera(true);
+
+  cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, { 
+    on: camera,
+    live: (refreshFrequency === 'Live' ? true : false) ,
+    parent: props.parentName,
+    name: props.cameraName
+  });
+
+  clearStreamContainer();
 };
 
 const toggleExpand = () => {
@@ -158,6 +184,7 @@ const toggleExpand = () => {
   } else {
     viewCamera(false);
   }
+  clearStreamContainer();
 };
 
 const refreshCamera = () => {
@@ -180,6 +207,10 @@ const exportScreenshot = async (cameraName: string) => {
 
   window.open(URL.createObjectURL(blob), '_blank');
 };
+
+onMounted(() => {
+  initStreamState();
+});
 </script>
 
 <template>

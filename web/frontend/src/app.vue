@@ -801,6 +801,7 @@ onMounted(async () => {
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :title="camera.name"
       class="camera"
+      data-parent="app"
     >
       <v-breadcrumbs
         slot="title"
@@ -810,6 +811,7 @@ onMounted(async () => {
       <CameraView
         :key="camera.name"
         :camera-name="camera.name"
+        parent-name="app"
         :client="client"
         :resources="resources"
         :show-switch=true
