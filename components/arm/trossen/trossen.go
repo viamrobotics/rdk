@@ -189,7 +189,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(a.model, joints)
+	return motionplan.ComputeOOBPosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -206,6 +206,10 @@ func (a *Arm) MoveToPosition(
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, a, jp.Values); err != nil {
+		return err
+	}
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 	if len(jp.Values) > len(a.JointOrder()) {
@@ -448,7 +452,11 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
+	positionDegs := a.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+		return err
+	}
+	return a.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.

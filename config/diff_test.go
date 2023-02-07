@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )
@@ -178,6 +179,7 @@ func TestDiffConfigs(t *testing.T) {
 				Removed:        &config.Config{},
 				ResourcesEqual: true,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -190,6 +192,7 @@ func TestDiffConfigs(t *testing.T) {
 				Removed:        &config.Config{},
 				ResourcesEqual: true,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -202,6 +205,7 @@ func TestDiffConfigs(t *testing.T) {
 				Removed:        &config.Config{},
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -214,6 +218,7 @@ func TestDiffConfigs(t *testing.T) {
 				Modified:       &config.ModifiedConfigDiff{},
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -226,6 +231,7 @@ func TestDiffConfigs(t *testing.T) {
 				Modified:       &config2,
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 		{
@@ -328,6 +334,7 @@ func TestDiffConfigs(t *testing.T) {
 				},
 				ResourcesEqual: false,
 				NetworkEqual:   true,
+				MediaEqual:     true,
 			},
 		},
 	} {
@@ -627,5 +634,45 @@ func TestDiffSanitize(t *testing.T) {
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Secret)
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.Credentials.Payload)
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.SignalingCreds.Payload)
+	}
+}
+
+func TestDiffMedia(t *testing.T) {
+	config1 := config.Config{}
+	config2 := config.Config{
+		Components: []config.Component{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "cam1",
+				Type:      camera.SubtypeName,
+				API:       camera.Subtype,
+				Model:     fakeModel,
+			},
+		},
+	}
+	for _, tc := range []struct {
+		Name       string
+		Leftcfg    config.Config
+		RightCfg   config.Config
+		MediaEqual bool
+	}{
+		{
+			"different media config",
+			config1,
+			config2,
+			false,
+		},
+		{
+			"same media config",
+			config2,
+			config2,
+			true,
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			diff, err := config.DiffConfigs(tc.Leftcfg, tc.RightCfg, true)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, diff.MediaEqual, test.ShouldEqual, tc.MediaEqual)
+		})
 	}
 }

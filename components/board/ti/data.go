@@ -1,12 +1,12 @@
 package ti
 
-import "go.viam.com/rdk/components/board/commonsysfs"
+import "go.viam.com/rdk/components/board/genericlinux"
 
 const tiTDA4VM = "ti_tda4vm"
 
-var boardInfoMappings = map[string]commonsysfs.BoardInformation{
+var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	tiTDA4VM: {
-		[]commonsysfs.PinDefinition{
+		[]genericlinux.PinDefinition{
 			{map[int]int{128: 84}, map[int]string{}, "600000.gpio", 3, 2, "GPIO0_84", "", "", -1},
 			{map[int]int{128: 83}, map[int]string{}, "600000.gpio", 5, 3, "GPIO0_83", "", "", -1},
 			{map[int]int{128: 7}, map[int]string{}, "600000.gpio", 7, 4, "GPIO0_7", "", "", -1},

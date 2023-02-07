@@ -6,7 +6,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/commonsysfs"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -39,10 +39,10 @@ func init() {
 		board.Subtype,
 		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf commonsysfs.Config
+			var conf genericlinux.Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&commonsysfs.Config{})
+		&genericlinux.Config{})
 
 	config.RegisterComponentAttributeMapConverter(
 		servo.Subtype,

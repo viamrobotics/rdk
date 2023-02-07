@@ -161,7 +161,12 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
+	// check that joint positions are not out of bounds
+	positionDegs := x.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs.Values); err != nil {
+		return err
+	}
+	return x.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // ModelFrame returns the dynamic frame of the model.

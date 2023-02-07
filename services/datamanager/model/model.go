@@ -104,7 +104,7 @@ func (m *modelManager) deploy(ctx context.Context, req *v1.DeployRequest) (*v1.D
 	return resp, nil
 }
 
-// Close all resources (goroutines) associated with modelManger.
+// Close all resources (goroutines) associated with modelManager.
 func (m *modelManager) Close() {
 	m.cancelFunc()
 	if m.conn != nil {
