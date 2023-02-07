@@ -409,7 +409,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	if cfg.LimitConfigurableDirectories && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
 		return errCaptureDirectoryConfigurationDisabled
 	}
-	svc.captureDir = svcConfig.CaptureDir
+	if svcConfig.CaptureDir != "" {
+		svc.captureDir = svcConfig.CaptureDir
+	}
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
