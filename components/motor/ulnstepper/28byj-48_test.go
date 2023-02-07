@@ -46,7 +46,6 @@ func Test1(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
-	mc.RotationPerMinute = 100
 
 	mm, err := newULN(b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldBeNil)

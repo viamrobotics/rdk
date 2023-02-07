@@ -51,10 +51,9 @@ type PinConfig struct {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins              PinConfig `json:"pins"`
-	BoardName         string    `json:"board"`
-	RotationPerMinute float64   `json:"rotation_per_minute"`
-	TicksPerRotation  int       `json:"ticks_per_rotation"`
+	Pins             PinConfig `json:"pins"`
+	BoardName        string    `json:"board"`
+	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -110,16 +109,11 @@ func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.M
 		return nil, errors.New("expected ticks_per_rotation to be greater than zero in config for motor")
 	}
 
-	if mc.RotationPerMinute == 0 {
-		return nil, errors.New("expected rotation_per_minute value greater than zero")
-	}
-
 	m := &uln2003{
-		theBoard:          b,
-		rotationPerMinute: mc.RotationPerMinute,
-		ticksPerRotation:  mc.TicksPerRotation,
-		logger:            logger,
-		motorName:         name,
+		theBoard:         b,
+		ticksPerRotation: mc.TicksPerRotation,
+		logger:           logger,
+		motorName:        name,
 	}
 
 	if mc.Pins.In1 != "" {
@@ -160,7 +154,6 @@ func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.M
 // struct is named after the controler uln2003.
 type uln2003 struct {
 	theBoard           board.Board
-	rotationPerMinute  float64
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin
 	logger             golog.Logger
@@ -199,7 +192,7 @@ func (m *uln2003) doCycle(ctx context.Context) error {
 		return err
 	}
 
-	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition, m.rotationPerMinute)
+	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 	if err != nil {
 		return fmt.Errorf("error stepping %w", err)
 	}
@@ -210,7 +203,7 @@ func (m *uln2003) doCycle(ctx context.Context) error {
 // doStep has to be locked to call.
 // Depending on the direction, doStep will either treverse the stepSequence array in ascending
 // or descending order.
-func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
+func (m *uln2003) doStep(ctx context.Context, forward bool) error {
 	if forward {
 		for tick := 0; tick < len(stepSequence); tick++ {
 			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
@@ -281,7 +274,12 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 // the motor will spin in the forward direction.
 func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if rpm == 0 {
-		rpm = m.rotationPerMinute
+		return motor.NewZeroRPMError()
+	}
+
+	if math.Abs(rpm) < 0.1 {
+		m.logger.Info("RPM is less than 0.1 threshold, stopping motor ")
+		return m.Stop(ctx, nil)
 	}
 
 	err := m.goForInternal(ctx, rpm, revolutions)
@@ -308,11 +306,6 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 
 	revolutions = math.Abs(revolutions)
 	rpm = math.Abs(rpm) * float64(d)
-
-	if math.Abs(rpm) < 0.1 {
-		m.logger.Info("RPM is less than 0.1 ", rpm)
-		return m.Stop(ctx, nil)
-	}
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
