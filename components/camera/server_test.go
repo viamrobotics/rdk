@@ -280,6 +280,33 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 	})
 
+	t.Run("GetImage with lazy default", func(t *testing.T) {
+		req := pb.GetImageRequest{
+			Name:     testCameraName,
+			MimeType: utils.MimeTypePNG,
+		}
+
+		testCases := []struct {
+			mimeType string
+			img      image.Image
+		}{
+			{mimeType: utils.MimeTypePNG, img: imgPng},
+			{mimeType: utils.MimeTypeJPEG, img: imgJpeg},
+			{mimeType: utils.MimeTypeRawRGBA, img: img},
+		}
+
+		for _, testCase := range testCases {
+			req.MimeType = testCase.mimeType
+			resp, err := cameraServer.GetImage(context.Background(), &req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp.MimeType, test.ShouldEqual, testCase.mimeType)
+			test.That(t, req.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(testCase.mimeType))
+
+			respImage, err := rimage.DecodeImage(context.Background(), resp.Image, testCase.mimeType)
+			test.That(t, respImage, test.ShouldResemble, testCase.img)
+		}
+	})
+
 	t.Run("RenderFrame", func(t *testing.T) {
 		_, err := cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)

@@ -79,6 +79,10 @@ func (s *subtypeServer) GetImage(
 		}
 	}
 
+	if _, hasLazyMIMEType := utils.CheckLazyMIMEType(req.MimeType); !hasLazyMIMEType {
+		req.MimeType = utils.WithLazyMIMEType(req.MimeType)
+	}
+
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {
 		return nil, err
