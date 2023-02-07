@@ -60,15 +60,6 @@ func (h *i2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	return buffer, nil
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
-func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
-	buffer, err := h.Read(ctx, 1)
-	if err != nil {
-		return 0, err
-	}
-	return buffer[0], nil
-}
-
 // This is a private helper function, used to implement the rest of the board.I2CHandle interface.
 func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	if w == nil {
@@ -78,6 +69,16 @@ func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	fullW[0] = register
 	copy(fullW[1:], w)
 	return h.device.Tx(fullW, r)
+}
+
+// This helps the i2cHandle struct implement the board.I2CHandle interface.
+func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
+	result := make([]byte, 1)
+	err := h.transactAtRegister(register, nil, result)
+	if err != nil {
+		return 0, err
+	}
+	return result[0], nil
 }
 
 // This helps the i2cHandle struct implement the board.I2CHandle interface.
