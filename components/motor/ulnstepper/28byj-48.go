@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -76,7 +75,7 @@ func init() {
 				return nil, err
 			}
 
-			return newULN(ctx, actualBoard, *motorConfig, config.Name, logger)
+			return newULN(actualBoard, *motorConfig, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, model, _motor)
@@ -106,7 +105,7 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newULN(ctx context.Context, b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
+func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
 	if mc.TicksPerRotation <= 0 {
 		return nil, errors.New("expected ticks_per_rotation to be greater than zero in config for motor")
 	}
@@ -155,7 +154,6 @@ func newULN(ctx context.Context, b board.Board, mc Config, name string, logger g
 		m.in4 = in4
 	}
 
-	m.startThread(ctx)
 	return m, nil
 }
 
@@ -169,11 +167,9 @@ type uln2003 struct {
 	motorName          string
 
 	// state
-	lock  sync.Mutex
-	opMgr operation.SingleOperationManager
+	lock sync.Mutex
 
 	stepPosition         int64
-	threadStarted        bool
 	targetStepPosition   int64
 	targetStepsPerSecond int64
 	generic.Unimplemented
@@ -182,18 +178,6 @@ type uln2003 struct {
 // SetPower is invalid for this motor.
 func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
-}
-
-func (m *uln2003) startThread(ctx context.Context) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if m.threadStarted {
-		return
-	}
-
-	m.threadStarted = true
-	go m.doRun(ctx)
 }
 
 // setStepperDelay calculates the wait time between each step taken.
@@ -205,32 +189,28 @@ func (m *uln2003) setStepperDelay(rpm float64) float64 {
 
 func (m *uln2003) doRun(ctx context.Context) {
 	for {
-		sleep, err := m.doCycle(ctx)
+		err := m.doCycle(ctx)
 		if err != nil {
 			m.logger.Info("error in uln2003 %w", err)
-		}
-
-		if !utils.SelectContextOrWait(ctx, sleep) {
-			return
 		}
 	}
 }
 
-func (m *uln2003) doCycle(ctx context.Context) (time.Duration, error) {
+func (m *uln2003) doCycle(ctx context.Context) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	if m.stepPosition == m.targetStepPosition {
 		err := m.enable(ctx, false)
-		return 5 * time.Millisecond, err
+		return err
 	}
 
 	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition, m.rotationPerMinute)
 	if err != nil {
-		return time.Second, fmt.Errorf("error stepping %w", err)
+		return fmt.Errorf("error stepping %w", err)
 	}
-	k := time.Duration(int64(time.Microsecond*1000*1000) / int64(math.Abs(float64(m.targetStepsPerSecond))))
-	return k, nil
+
+	return nil
 }
 
 // doStep has to be locked to call.
@@ -309,19 +289,17 @@ func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map
 	if rpm == 0 {
 		rpm = m.rotationPerMinute
 	}
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
 
 	err := m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrapf(err, " error in GoFor from motor (%s)", m.motorName)
 	}
 
 	if revolutions == 0 {
 		return nil
 	}
-
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+	m.doRun(ctx)
+	return nil
 }
 
 func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) error {
@@ -344,10 +322,6 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-
-	if !m.threadStarted {
-		return errors.New("thread not started")
-	}
 
 	m.targetStepPosition += int64(float64(d)*revolutions*float64(m.ticksPerRotation)) / 8
 	m.targetStepsPerSecond = int64(revolutions * float64(m.ticksPerRotation) / 60.0)

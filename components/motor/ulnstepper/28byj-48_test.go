@@ -27,28 +27,28 @@ func Test1(t *testing.T) {
 
 	// Create motor with no board and default config
 	t.Run("motor initializing test with no board and default config", func(t *testing.T) {
-		_, err := newULN(ctx, nil, mc, c.Name, logger)
+		_, err := newULN(nil, mc, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	// Create motor with board and default config
 	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
-		_, err := newULN(ctx, b, mc, c.Name, logger)
+		_, err := newULN(b, mc, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	mc.Pins = PinConfig{In1: "b", In2: "a", In3: "c", In4: "d"}
 
-	_, err := newULN(ctx, b, mc, c.Name, logger)
+	_, err := newULN(b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = newULN(ctx, b, mc, c.Name, logger)
+	_, err = newULN(b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
 	mc.RotationPerMinute = 100
 
-	mm, err := newULN(ctx, b, mc, c.Name, logger)
+	mm, err := newULN(b, mc, c.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	m := mm.(*uln2003)
