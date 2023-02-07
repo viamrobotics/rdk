@@ -1,10 +1,11 @@
 package genericlinux
 
 import (
-	"encoding/binary"
 	"context"
+	"encoding/binary"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
@@ -13,7 +14,9 @@ import (
 )
 
 func init() {
-	host.Init()
+	if _, err := host.Init(); err != nil {
+		golog.Global().Debugw("error initializing host", "error", err)
+	}
 }
 
 type i2cBus struct {
@@ -21,7 +24,7 @@ type i2cBus struct {
 	mu       sync.Mutex
 }
 
-func NewI2cBus(deviceName string) (*i2cBus, error) {
+func newI2cBus(deviceName string) (*i2cBus, error) {
 	// We return a pointer to an i2cBus instead of an i2cBus itself so that we can return nil if
 	// something goes wrong.
 	bus, err := i2creg.Open(deviceName)
@@ -29,7 +32,6 @@ func NewI2cBus(deviceName string) (*i2cBus, error) {
 		return nil, err
 	}
 	return &i2cBus{internal: bus}, nil
-
 }
 
 // This lets the i2cBus type implement the board.I2C interface.
@@ -39,8 +41,8 @@ func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 }
 
 type i2cHandle struct {
-	device   *i2c.Dev // Will become nil if we close the connection
-	mu       *sync.Mutex // Points to the I2C bus' mutex
+	device *i2c.Dev    // Will become nil if we close the connection
+	mu     *sync.Mutex // Points to the I2C bus' mutex
 }
 
 // This helps the i2cHandle struct implement the board.I2CHandle interface.
@@ -72,7 +74,7 @@ func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	if w == nil {
 		w = []byte{}
 	}
-	fullW := make([]byte, len(w) + 1)
+	fullW := make([]byte, len(w)+1)
 	fullW[0] = register
 	copy(fullW[1:], w)
 	return h.device.Tx(fullW, r)
@@ -96,7 +98,7 @@ func (h *i2cHandle) ReadWordData(ctx context.Context, register byte) (uint16, er
 // This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
 	w := make([]byte, 2)
-	binary.BigEndian.PutUint16(w[:], data)
+	binary.BigEndian.PutUint16(w, data)
 	return h.transactAtRegister(register, w, nil)
 }
 
