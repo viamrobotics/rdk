@@ -218,7 +218,7 @@ func (a *Arm) MoveToPosition(
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Values) > (len(a.jointOrder()) - 1) {
+	if len(jp.Values) > len(a.jointOrder()) {
 		return errors.New("passed in too many positions")
 	}
 
@@ -241,12 +241,10 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 		return &pb.JointPositions{}, err
 	}
 
-	numJoints := len(a.jointOrder()) - 1
+	numJoints := len(a.jointOrder())
 	positions := make([]float64, 0, numJoints)
-	for i, jointName := range a.jointOrder() {
-		if i != numJoints {
-			positions = append(positions, servoPosToValues(angleMap[jointName]))
-		}
+	for _, jointName := range a.jointOrder() {
+		positions = append(positions, servoPosToValues(angleMap[jointName]))
 	}
 
 	return &pb.JointPositions{Values: positions}, nil
@@ -335,20 +333,18 @@ func (a *Arm) Close() {
 		a.logger.Errorf("failed to get angles: %s", err)
 	}
 	alreadyAtSleep := true
-	for i, joint := range a.jointOrder() {
-		if i != (len(a.jointOrder()) - 1) {
-			if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
-				alreadyAtSleep = false
-			}
-		} else {
-			gripperPos, err := a.Joints["Gripper"][0].PresentPosition()
-			if err != nil {
-				a.logger.Errorf("failed to get gripper position on close: %s", err)
-			} else {
-				if gripperPos >= 2800 {
-					alreadyAtSleep = false
-				}
-			}
+	gripperIsOpen := true
+	for _, joint := range a.jointOrder() {
+		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
+			alreadyAtSleep = false
+		}
+	}
+	gripperPos, err := a.Joints["Gripper"][0].PresentPosition()
+	if err != nil {
+		a.logger.Errorf("failed to get gripper position on close: %s", err)
+	} else {
+		if gripperPos >= 2800 {
+			gripperIsOpen = false
 		}
 	}
 	if !alreadyAtSleep {
@@ -359,6 +355,12 @@ func (a *Arm) Close() {
 		err = a.SleepPosition(context.Background())
 		if err != nil {
 			a.logger.Errorf("Sleep pos error: %s", err)
+		}
+	}
+	if !gripperIsOpen {
+		err = a.OpenGripper(context.Background())
+		if err != nil {
+			a.logger.Errorf("gripper failed to open on arm component close: %s", err)
 		}
 	}
 	err = a.TorqueOff()
@@ -388,14 +390,14 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 }
 
 func (a *Arm) jointOrder() []string {
-	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot", "Gripper"}
+	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
 
 // PrintPositions prints positions of all servos.
 // TODO(pl): Print joint names, not just servo numbers.
 func (a *Arm) PrintPositions() error {
 	posString := ""
-	for i, s := range a.GetAllServos() {
+	for i, s := range a.GetAllServos(true) {
 		pos, err := s.PresentPosition()
 		if err != nil {
 			return err
@@ -406,10 +408,13 @@ func (a *Arm) PrintPositions() error {
 }
 
 // GetAllServos returns a slice containing all servos in the arm.
-func (a *Arm) GetAllServos() []*servo.Servo {
+func (a *Arm) GetAllServos(includeGripper bool) []*servo.Servo {
 	var servos []*servo.Servo
 	for _, joint := range a.jointOrder() {
 		servos = append(servos, a.Joints[joint]...)
+	}
+	if includeGripper {
+		servos = append(servos, a.Joints["Gripper"]...)
 	}
 	return servos
 }
@@ -425,7 +430,7 @@ func (a *Arm) GetServos(jointName string) []*servo.Servo {
 func (a *Arm) SetAcceleration(accel int) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(false) {
 		err := s.SetProfileAcceleration(accel)
 		if err != nil {
 			return err
@@ -439,7 +444,7 @@ func (a *Arm) SetAcceleration(accel int) error {
 func (a *Arm) SetVelocity(veloc int) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(false) {
 		err := s.SetProfileVelocity(veloc)
 		if err != nil {
 			return err
@@ -452,7 +457,7 @@ func (a *Arm) SetVelocity(veloc int) error {
 func (a *Arm) TorqueOn() error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(true) {
 		err := s.SetTorqueEnable(true)
 		if err != nil {
 			return err
@@ -465,7 +470,7 @@ func (a *Arm) TorqueOn() error {
 func (a *Arm) TorqueOff() error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(true) {
 		err := s.SetTorqueEnable(false)
 		if err != nil {
 			return err
@@ -499,9 +504,7 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
 	a.moveLock.Unlock()
-	gripperErr := a.OpenGripper(ctx)
-	waitErr := a.WaitForMovement(ctx)
-	return multierr.Combine(gripperErr, waitErr)
+	return a.WaitForMovement(ctx)
 }
 
 // GetMoveLock TODO.
@@ -520,9 +523,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 		}
 	}
 	a.moveLock.Unlock()
-	gripperErr := a.OpenGripper(ctx)
-	waitErr := a.WaitForMovement(ctx)
-	return multierr.Combine(gripperErr, waitErr)
+	return a.WaitForMovement(ctx)
 }
 
 // CurrentInputs TODO.
@@ -550,7 +551,7 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 			return ctx.Err()
 		}
 		allAtPos = true
-		for _, s := range a.GetAllServos() {
+		for _, s := range a.GetAllServos(true) {
 			isMoving, err := s.Moving()
 			if err != nil {
 				return err
@@ -650,8 +651,11 @@ func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error initializing servo %d", i)
 		}
-
-		err = setServoDefaults(newServo)
+		// Don't set the defaults for the gripper servo. REVISIT: don't set defaults
+		// for any servo? The arm should be shipped with the servos pre-configured
+		if i != servoCount {
+			err = setServoDefaults(newServo)
+		}
 		if err != nil {
 			return nil, err
 		}
