@@ -2,18 +2,25 @@ package arm_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
+	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -148,9 +155,13 @@ func TestCreateStatus(t *testing.T) {
 	_, err := arm.CreateStatus(context.Background(), "not an arm")
 	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedLocalInterfaceError("string"))
 
+	testPose := spatialmath.NewPose(
+		r3.Vector{-802.801508917897990613710135, -248.284077946287368376943050, 9.115758604150467903082244},
+		&spatialmath.R4AA{1.5810814917942602, 0.992515011486776, -0.0953988491934626, 0.07624310818669232},
+	)
 	status := &pb.Status{
-		EndPosition:    spatialmath.PoseToProtobuf(pose),
-		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
+		EndPosition:    spatialmath.PoseToProtobuf(testPose),
+		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 
@@ -164,16 +175,47 @@ func TestCreateStatus(t *testing.T) {
 	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
 		return true, nil
 	}
+	injectArm.ModelFrameFunc = func() referenceframe.Model {
+		model, _ := ur.Model("ur5e")
+		return model
+	}
 
 	t.Run("working", func(t *testing.T) {
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, status)
+		test.That(t, status1.IsMoving, test.ShouldResemble, status.IsMoving)
+		test.That(t, status1.JointPositions, test.ShouldResemble, status.JointPositions)
+		pose1 := spatialmath.NewPoseFromProtobuf(status1.EndPosition)
+		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
+		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 
 		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
 		status2, err := resourceSubtype.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status2, test.ShouldResemble, status)
+
+		statusMap, err := protoutils.InterfaceToMap(status2)
+		test.That(t, err, test.ShouldBeNil)
+
+		endPosMap, err := protoutils.InterfaceToMap(statusMap["end_position"])
+		test.That(t, err, test.ShouldBeNil)
+		pose3 := spatialmath.NewPose(
+			r3.Vector{endPosMap["x"].(float64), endPosMap["y"].(float64), endPosMap["z"].(float64)},
+			&spatialmath.OrientationVectorDegrees{
+				endPosMap["theta"].(float64), endPosMap["o_x"].(float64),
+				endPosMap["o_y"].(float64), endPosMap["o_z"].(float64),
+			},
+		)
+		test.That(t, spatialmath.PoseAlmostEqualEps(pose3, pose2, 0.01), test.ShouldBeTrue)
+
+		moving := statusMap["is_moving"].(bool)
+		test.That(t, moving, test.ShouldResemble, status.IsMoving)
+
+		jPosFace := statusMap["joint_positions"].(map[string]interface{})["values"].([]interface{})
+		jPos := []float64{
+			jPosFace[0].(float64), jPosFace[1].(float64), jPosFace[2].(float64),
+			jPosFace[3].(float64), jPosFace[4].(float64), jPosFace[5].(float64),
+		}
+		test.That(t, jPos, test.ShouldResemble, status.JointPositions.Values)
 	})
 
 	t.Run("not moving", func(t *testing.T) {
@@ -182,27 +224,22 @@ func TestCreateStatus(t *testing.T) {
 		}
 
 		status2 := &pb.Status{
-			EndPosition:    spatialmath.PoseToProtobuf(pose),
-			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3}},
+			EndPosition:    spatialmath.PoseToProtobuf(testPose),
+			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}},
 			IsMoving:       false,
 		}
 		status1, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, status2)
+		test.That(t, status1.IsMoving, test.ShouldResemble, status2.IsMoving)
+		test.That(t, status1.JointPositions, test.ShouldResemble, status2.JointPositions)
+		pose1 := spatialmath.NewPoseFromProtobuf(status1.EndPosition)
+		pose2 := spatialmath.NewPoseFromProtobuf(status2.EndPosition)
+		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 	})
 
 	t.Run("fail on JointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
 		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-			return nil, errFail
-		}
-		_, err = arm.CreateStatus(context.Background(), injectArm)
-		test.That(t, err, test.ShouldBeError, errFail)
-	})
-
-	t.Run("fail on EndPosition", func(t *testing.T) {
-		errFail := errors.New("can't get position")
-		injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)
@@ -343,6 +380,102 @@ func TestExtraOptions(t *testing.T) {
 
 	reconfArm1.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{"foo": "bar"})
 	test.That(t, actualArm1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+}
+
+func TestOOBArm(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := config.Component{
+		Name:  arm.Subtype.String(),
+		Model: resource.NewDefaultModel("ur5e"),
+		ConvertedAttributes: &fake.AttrConfig{
+			ArmModel: "ur5e",
+		},
+	}
+
+	notReal, err := fake.NewArm(cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectedArm := &inject.Arm{
+		LocalArm: notReal,
+	}
+
+	jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
+	injectedArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		return &jPositions, nil
+	}
+
+	// instantiate OOB arm
+	positions, err := injectedArm.JointPositions(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, positions, test.ShouldResemble, &jPositions)
+
+	t.Run("CreateStatus errors when OOB", func(t *testing.T) {
+		status, err := arm.CreateStatus(context.Background(), injectedArm)
+		test.That(t, status, test.ShouldBeNil)
+		stringCheck := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
+		test.That(t, err.Error(), test.ShouldEqual, stringCheck)
+	})
+
+	t.Run("EndPosition works when OOB", func(t *testing.T) {
+		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
+		pose, err := motionplan.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose, test.ShouldNotBeNil)
+	})
+
+	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
+		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
+		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
+		u := "cartesian movements are not allowed when arm joints are out of bounds"
+		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
+		s := strings.Join([]string{u, v}, ": ")
+		test.That(t, err.Error(), test.ShouldEqual, s)
+	})
+
+	t.Run("MoveToJointPositions fails if more OOB", func(t *testing.T) {
+		vals := []float64{0, 0, 0, 0, 0, 800}
+		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
+		test.That(t, err.Error(), test.ShouldEqual, "joint 5 needs to be within range [-360, 720] and cannot be moved to 800")
+	})
+
+	t.Run("GoToInputs fails if more OOB", func(t *testing.T) {
+		goal := []referenceframe.Input{{Value: 11}, {Value: 10}, {Value: 10}, {Value: 11}, {Value: 10}, {Value: 10}}
+		model := injectedArm.LocalArm.ModelFrame()
+		positionDegs := model.ProtobufFromInput(goal)
+		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, positionDegs.Values)
+		test.That(t, err.Error(), test.ShouldEqual, "joint 0 needs to be within range [-360, 360] and cannot be moved to 630.2535746439056")
+	})
+
+	t.Run("MoveToJointPositions works if more in bounds", func(t *testing.T) {
+		vals := []float64{0, 0, 0, 0, 0, 400}
+		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("MoveToJointPositions works if completely in bounds", func(t *testing.T) {
+		vals := []float64{0, 0, 0, 0, 0, 0}
+		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("MoveToJointPositions fails if causes OOB from IB", func(t *testing.T) {
+		vals := []float64{0, 0, 0, 0, 0, 400}
+		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
+		output := "joint 5 needs to be within range [-360, 360] and cannot be moved to 400"
+		test.That(t, err.Error(), test.ShouldEqual, output)
+	})
+
+	t.Run("MoveToPosition works when IB", func(t *testing.T) {
+		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
+		err := injectedArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("GoToInputs works when IB", func(t *testing.T) {
+		goal := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}, {Value: 0}, {Value: 0}, {Value: 0}}
+		err := injectedArm.GoToInputs(context.Background(), goal)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})

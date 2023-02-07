@@ -5,6 +5,8 @@ import (
 	"context"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime/pprof"
 	"time"
 
@@ -12,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -22,6 +23,8 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
+
+var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 // Arguments for the command.
 type Arguments struct {
@@ -56,8 +59,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	if argsParsed.Debug {
 		logConfig = golog.NewDebugLoggerConfig()
 	} else {
-		logConfig = golog.NewProductionLoggerConfig()
-		logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		logConfig = golog.NewDevelopmentLoggerConfig()
 	}
 	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
@@ -154,10 +156,15 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	}
 	cancel()
 
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
+		ctx, 90*time.Second, "server is taking a while to shutdown", s.logger)
+
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
 		s.logger.Errorw("error serving web", "error", err)
 	}
+	slowWatcherCancel()
+	<-slowWatcher
 
 	return err
 }
@@ -211,6 +218,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
 		out.UntrustedEnv = s.args.UntrustedEnv
+		out.PackagePath = path.Join(viamDotDir, "packages")
 		return out, nil
 	}
 
