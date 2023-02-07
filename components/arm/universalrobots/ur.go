@@ -4,7 +4,6 @@ package universalrobots
 import (
 	"bufio"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -107,6 +106,25 @@ type URArm struct {
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (ua *URArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	newCfg, ok := c.ConvertedAttributes.(*AttrConfig)
+	if ok {
+		if ua.speed != newCfg.Speed {
+			ua.speed = newCfg.Speed
+		}
+		if ua.host != newCfg.Host {
+			ua.host = newCfg.Host
+		}
+		if ua.urHostedKinematics != newCfg.ArmHostedKinematics {
+			ua.urHostedKinematics = newCfg.ArmHostedKinematics
+		}
+		return config.None
+	}
+	return config.Reconfigure
+}
 
 // Close TODO.
 func (ua *URArm) Close(ctx context.Context) error {
@@ -215,9 +233,8 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 						return
 					}
 				}
-			} else if err != nil && strings.Contains(err.Error(), "context cancelled") {
-				logger.Errorw("dashboard reader failed", "error", err)
 			} else if err != nil {
+				logger.Errorw("dashboard reader failed", "error", err)
 				return
 			}
 		}
@@ -250,9 +267,8 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 						return
 					}
 				}
-			} else if err != nil && strings.Contains(err.Error(), "context cancelled") {
-				logger.Errorw("reader failed", "error", err)
 			} else if err != nil {
+				logger.Errorw("reader failed", "error", err)
 				return
 			}
 		}
