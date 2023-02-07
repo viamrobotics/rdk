@@ -76,10 +76,11 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				i2cs = make(map[string]board.I2C, len(conf.I2Cs))
 				for _, i2cConf := range conf.I2Cs {
 					busNumber, err := strconv.Atoi(i2cConf.Bus)
+					bus, err := NewI2cBus(i2cConf.Bus)
 					if err != nil {
 						return nil, errors.Errorf("Malformed I2C bus number: %s", i2cConf.Bus)
 					}
-					i2cs[i2cConf.Name] = &i2cBus{number: busNumber, name: i2cConf.Name}
+					i2cs[i2cConf.Name] = &bus
 				}
 			}
 
