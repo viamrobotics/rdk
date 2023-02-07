@@ -82,21 +82,15 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 	for i, info := range all {
 		logger.Debugf("%s", info.ID)
 		logger.Debugf("\t labels: %v", info.Labels)
+		if pattern != nil && !pattern.MatchString(info.Labels[i]) {
+			if debug {
+				logger.Debug("\t skipping because of pattern")
+			}
+			continue
+		}
 		for _, p := range info.Properties {
 			logger.Debugf("\t %+v", p.Audio)
-			if pattern != nil && !pattern.MatchString(info.Labels[i]) {
-				if debug {
-					logger.Debug("\t skipping because of pattern")
-				}
-				continue
-			}
 			if p.Audio.ChannelCount > 0 {
-				if pattern != nil && !pattern.MatchString(info.Labels[i]) {
-					if debug {
-						logger.Debug("\t skipping because of pattern")
-					}
-					continue
-				}
 				s, err := tryMicrophoneOpen(info.Labels[i], gostream.DefaultConstraints, logger)
 				if err == nil {
 					if debug {
@@ -106,7 +100,8 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 					return s, nil
 				}
 				if debug {
-					logger.Debugf("\t %w", err)
+					logger.Debugw("cannot open driver with properties", "properties", p,
+						"error", err)
 				}
 			}
 		}
