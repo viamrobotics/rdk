@@ -1,5 +1,5 @@
-// Package ulnstepper implements a GPIO based stepper motor with uln2003 controler.
-package ulnstepper
+// Package stepper28byj48 implements a GPIO based stepper motor with uln2003 controler.
+package stepper28byj48
 
 import (
 	"context"
