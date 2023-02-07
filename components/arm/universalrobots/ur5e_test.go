@@ -20,9 +20,11 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -462,7 +464,7 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
-	newCfg := config.Component{
+	shouldNotReconfigureCfg := config.Component{
 		Name: "testarm",
 		ConvertedAttributes: &AttrConfig{
 			Speed:               0.5,
@@ -471,7 +473,7 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
-	lastCfg := config.Component{
+	shouldReconfigureCfg := config.Component{
 		Name: "testarm",
 		ConvertedAttributes: &AttrConfig{
 			Speed:               0.5,
@@ -482,29 +484,37 @@ func TestUpdateAction(t *testing.T) {
 
 	injectRobot := &inject.Robot{}
 
-	arm, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
+	ur5e, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ua, ok := arm.(*URArm)
+	ua, ok := ur5e.(*URArm)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// scenario where we do not reconfigure
-	obj, canUpdate := arm.(config.ComponentUpdate)
+	obj, canUpdate := ur5e.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
-	if canUpdate {
-		action := obj.UpdateAction(&newCfg)
-		test.That(t, action, test.ShouldEqual, config.None)
-	}
+	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
 
 	// scenario where we have to configure
-	obj, canUpdate = arm.(config.ComponentUpdate)
+	obj, canUpdate = ur5e.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
-	if canUpdate {
-		action := obj.UpdateAction(&lastCfg)
-		test.That(t, action, test.ShouldEqual, config.Reconfigure)
-	}
+	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
 
-	closer()
-	childCancel()
+	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
+	reconfArm, err := arm.WrapWithReconfigurable(ua, resource.Name{})
+	test.That(t, err, test.ShouldBeNil)
+
+	// scenario where we do not reconfigure
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
+
+	// scenario where we have to configure
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
+
+	defer closer()
+	defer childCancel()
 	_ = ua.Close(ctx)
 }
