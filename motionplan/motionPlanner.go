@@ -3,7 +3,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"sort"
 	"time"
@@ -425,12 +424,8 @@ IK:
 		if constraintFailCnt == 0 {
 			return nil, errIKSolve
 		}
-		errIKConstraint := "all IK solutions failed constraints. Failures: "
-		for failName, count := range failures {
-			errIKConstraint += fmt.Sprintf("{ %s: %.2f%% }, ", failName, 100*float64(count)/float64(constraintFailCnt))
-		}
 
-		return nil, errors.New(errIKConstraint)
+		return nil, genIKConstraintErr(failures, constraintFailCnt)
 	}
 
 	keys := make([]float64, 0, len(solutions))
