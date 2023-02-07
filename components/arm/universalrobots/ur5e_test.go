@@ -439,22 +439,6 @@ func TestArmReconnection(t *testing.T) {
 }
 
 func TestUpdateAction(t *testing.T) {
-	var remote atomic.Bool
-	remote.Store(false)
-
-	statusBlob, err := os.ReadFile("armBlob")
-	test.That(t, err, test.ShouldBeNil)
-
-	parentCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	ctx, childCancel := context.WithCancel(parentCtx)
-	defer childCancel()
-
-	closer, _, _, err := setupListeners(ctx, statusBlob, &remote)
-	test.That(t, err, test.ShouldBeNil)
-	defer closer()
-
 	cfg := config.Component{
 		Name: "testarm",
 		ConvertedAttributes: &AttrConfig{
