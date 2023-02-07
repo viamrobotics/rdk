@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -156,6 +157,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 	})
 
 	ua.activeBackgroundWorkers.Wait()
+	cancel()
 	closeConn()
 	return waitCtx.Err()
 }
