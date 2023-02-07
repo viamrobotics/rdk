@@ -61,6 +61,8 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
+
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string            `json:"name"`
@@ -405,7 +407,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	if cfg.DisableDirConfig && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
-		return errors.New("cannot change capture directory in untrusted environment")
+		return errCaptureDirectoryConfigurationDisabled
 	}
 	svc.captureDir = svcConfig.CaptureDir
 	svc.captureDisabled = svcConfig.CaptureDisabled

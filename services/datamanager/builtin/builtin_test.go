@@ -3,13 +3,14 @@ package builtin
 import (
 	"bytes"
 	"context"
-	"go.viam.com/rdk/spatialmath"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"go.viam.com/rdk/spatialmath"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -104,6 +105,17 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, GetDurationFromHz(1), test.ShouldEqual, time.Second)
 	test.That(t, GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
 	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
+}
+
+func TestDirectoryConfigurationDisabled(t *testing.T) {
+	dmsvc := newTestDataManager(t)
+	defer dmsvc.Close(context.Background())
+
+	config := setupConfig(t, enabledTabularCollectorConfigPath)
+	config.DisableDirConfig = true
+
+	err := dmsvc.Update(context.Background(), config)
+	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)
 }
 
 func getDataManagerConfig(config *config.Config) (*Config, error) {
