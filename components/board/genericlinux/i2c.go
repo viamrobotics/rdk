@@ -20,8 +20,11 @@ func init() {
 }
 
 type i2cBus struct {
-	internal i2c.BusCloser
-	mu       sync.Mutex
+	// Despite the type name BusCloser, this is the I2C bus itself (plus a way to close itself when
+	// it's done, though we never use that because we want to keep it open until the entire process
+	// exits)!
+	busCloser i2c.BusCloser
+	mu        sync.Mutex
 }
 
 func newI2cBus(deviceName string) (*i2cBus, error) {
@@ -31,13 +34,13 @@ func newI2cBus(deviceName string) (*i2cBus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &i2cBus{internal: bus}, nil
+	return &i2cBus{busCloser: bus}, nil
 }
 
 // This lets the i2cBus type implement the board.I2C interface.
 func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
-	return &i2cHandle{device: &i2c.Dev{Bus: bus.internal, Addr: uint16(addr)}, mu: &bus.mu}, nil
+	return &i2cHandle{device: &i2c.Dev{Bus: bus.busCloser, Addr: uint16(addr)}, mu: &bus.mu}, nil
 }
 
 type i2cHandle struct {
