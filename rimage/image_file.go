@@ -14,9 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
-
 	"github.com/lmittmann/ppm"
+	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	"github.com/pkg/errors"
 	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
@@ -271,13 +270,13 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 	}
 	switch mimeType {
 	case "":
-		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{})
+		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
 		if err != nil {
 			return nil, err
 		}
 		return img, nil
 	case ut.MimeTypeJPEG:
-		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{})
+		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
 		if err != nil {
 			return nil, err
 		}
@@ -334,11 +333,11 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		case *Image:
 			imgRGBA := image.NewRGBA(bounds)
 			ConvertToRGBA(imgRGBA, v)
-			if err := libjpeg.Encode(&buf, imgRGBA, &libjpeg.EncoderOptions{Quality: 75}); err != nil {
+			if err := libjpeg.Encode(&buf, imgRGBA, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}); err != nil {
 				return nil, err
 			}
 		default:
-			if err := libjpeg.Encode(&buf, img, &libjpeg.EncoderOptions{Quality: 75}); err != nil {
+			if err := libjpeg.Encode(&buf, img, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}); err != nil {
 				return nil, err
 			}
 		}
@@ -380,6 +379,7 @@ func fastConvertRGBA(dst *Image, src *image.RGBA) {
 	}
 }
 
+// ConvertToRGBA converts an rimage.Image type image to image.RGBA.
 func ConvertToRGBA(dst *image.RGBA, src *Image) {
 	for y := 0; y < src.height; y++ {
 		for x := 0; x < src.width; x++ {
