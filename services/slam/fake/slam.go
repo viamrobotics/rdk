@@ -112,23 +112,20 @@ func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string
 
 	substrings := strings.Split(string(data), " | ")
 
-	point, err := extract(strings.Split(substrings[0], " "))
+	rawXYZ, err := extract(strings.Split(substrings[0], " "))
 	if err != nil {
 		return nil, err
 	}
-	xyz := r3.Vector{X: point[0], Y: point[1], Z: point[2]}
+	xyz := r3.Vector{X: rawXYZ[0], Y: rawXYZ[1], Z: rawXYZ[2]}
 
-	orientations, err := extract(strings.Split(substrings[1], " "))
+	rawAA, err := extract(strings.Split(substrings[1], " "))
 	if err != nil {
 		return nil, err
 	}
 
-	ori := spatialmath.NewR4AA()
-	ori.RX = orientations[0]
-	ori.RY = orientations[1]
-	ori.RZ = orientations[2]
-	ori.Theta = orientations[3]
-	pose := spatialmath.NewPose(xyz, ori)
+	axisAngle := spatialmath.NewR4AA().AxisAngles()
+	axisAngle.RX, axisAngle.RY, axisAngle.RZ, axisAngle.Theta = rawAA[0], rawAA[1], rawAA[2], rawAA[3]
+	pose := spatialmath.NewPose(xyz, axisAngle)
 
 	pInFrame := referenceframe.NewPoseInFrame(name, pose)
 
