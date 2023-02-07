@@ -64,6 +64,7 @@ type SLAM struct {
 	dataCount int
 }
 
+// GetMap returns either a vision.Object or image.Image based on request mimeType.
 func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 	include bool, extra map[string]interface{},
 ) (string, image.Image, *vision.Object, error) {
@@ -104,6 +105,7 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 	return mimeType, img, vObj, nil
 }
 
+// Position returns a PoseInFrame of the robot's current location according to SLAM.
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf(positionTemplate, slamSvc.dataCount)))
 	if err != nil {
@@ -132,18 +134,7 @@ func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string
 	return pInFrame, nil
 }
 
-func extract(strings []string) ([]float64, error) {
-	elems := make([]float64, len(strings))
-	for i, v := range strings {
-		x, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return nil, err
-		}
-		elems[i] = x
-	}
-	return elems, nil
-}
-
+// GetInternalState returns the internal state of a slam algo. Curently the internal state of cartogropher.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
 	data, err := os.ReadFile(artifact.MustPath(fmt.Sprintf(internalStateTemplate, slamSvc.dataCount)))
 	if err != nil {
@@ -154,4 +145,16 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 
 func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
+}
+
+func extract(strings []string) ([]float64, error) {
+	elems := make([]float64, len(strings))
+	for i, v := range strings {
+		x, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return nil, err
+		}
+		elems[i] = x
+	}
+	return elems, nil
 }
