@@ -107,8 +107,8 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 }
 
 func newULN(ctx context.Context, b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
-	if mc.TicksPerRotation == 0 {
-		return nil, errors.New("expected ticks_per_rotation in config for motor")
+	if mc.TicksPerRotation <= 0 {
+		return nil, errors.New("expected ticks_per_rotation to be greater than zero in config for motor")
 	}
 
 	if mc.RotationPerMinute == 0 {
