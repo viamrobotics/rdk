@@ -176,10 +176,7 @@ type pwmSetting struct {
 
 func (b *sysfsBoard) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.spis[name]
-	if !ok {
-		return nil, false
-	}
-	return s, true
+	return s, ok
 }
 
 type spiBus struct {
@@ -227,10 +224,7 @@ func (sh *spiHandle) Close() error {
 
 func (b *sysfsBoard) I2CByName(name string) (board.I2C, bool) {
 	i, ok := b.i2cs[name]
-	if !ok {
-		return nil, false
-	}
-	return i, true
+	return i, ok
 }
 
 func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
