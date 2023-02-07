@@ -170,6 +170,7 @@ type uln2003 struct {
 	lock sync.Mutex
 
 	stepPosition         int64
+	stepperDelay         float64
 	targetStepPosition   int64
 	targetStepsPerSecond int64
 	generic.Unimplemented
@@ -178,13 +179,6 @@ type uln2003 struct {
 // SetPower is invalid for this motor.
 func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
-}
-
-// setStepperDelay calculates the wait time between each step taken.
-// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
-func (m *uln2003) setStepperDelay(rpm float64) float64 {
-	stepperDelay := 1 / ((rpm * 8) / 60)
-	return math.Max(stepperDelay, minStepDelay)
 }
 
 func (m *uln2003) doRun(ctx context.Context) {
@@ -244,7 +238,7 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 				return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
 			}
 		}
-		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
+		time.Sleep(time.Duration(m.stepperDelay))
 		m.stepPosition++
 	} else {
 		for tick := len(stepSequence) - 1; tick >= 0; tick-- {
@@ -274,7 +268,7 @@ func (m *uln2003) doStep(ctx context.Context, forward bool, rpm float64) error {
 				return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
 			}
 		}
-		time.Sleep(time.Duration(m.setStepperDelay(rpm)))
+		time.Sleep(time.Duration(m.stepperDelay))
 		m.stepPosition--
 	}
 
@@ -328,6 +322,10 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 	if m.targetStepsPerSecond == 0 {
 		m.targetStepsPerSecond = 1
 	}
+
+	// stepperDelay is the wait time between each step taken.
+	// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
+	m.stepperDelay = math.Max(1/((rpm*8)/60), minStepDelay)
 
 	return nil
 }
