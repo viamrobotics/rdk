@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -111,11 +112,12 @@ const waitBackgroundWorkersDur = 5 * time.Second
 // See config.UpdateActionType for more information.
 func (ua *URArm) UpdateAction(c *config.Component) config.UpdateActionType {
 	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		if ua.host != newCfg.Host {
+			return config.Reconfigure
+		}
 		ua.speed = newCfg.Speed
 		ua.urHostedKinematics = newCfg.ArmHostedKinematics
-		if ua.host == newCfg.Host {
-			return config.None
-		}
+		return config.None
 	}
 	return config.Reconfigure
 }
