@@ -471,6 +471,15 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
+	lastCfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.5,
+			Host:                "new",
+			ArmHostedKinematics: false,
+		},
+	}
+
 	injectRobot := &inject.Robot{}
 
 	arm, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
@@ -479,11 +488,20 @@ func TestUpdateAction(t *testing.T) {
 	ua, ok := arm.(*URArm)
 	test.That(t, ok, test.ShouldBeTrue)
 
+	// scenario where we do not reconfigure
 	obj, canUpdate := arm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	if canUpdate {
 		action := obj.UpdateAction(&newCfg)
 		test.That(t, action, test.ShouldEqual, config.None)
+	}
+
+	// scenario where we have to configure
+	obj, canUpdate = arm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	if canUpdate {
+		action := obj.UpdateAction(&lastCfg)
+		test.That(t, action, test.ShouldEqual, config.Reconfigure)
 	}
 
 	closer()

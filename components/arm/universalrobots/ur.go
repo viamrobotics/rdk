@@ -111,18 +111,12 @@ const waitBackgroundWorkersDur = 5 * time.Second
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
 // See config.UpdateActionType for more information.
 func (ua *URArm) UpdateAction(c *config.Component) config.UpdateActionType {
-	newCfg, ok := c.ConvertedAttributes.(*AttrConfig)
-	if ok {
-		if ua.speed != newCfg.Speed {
-			ua.speed = newCfg.Speed
+	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		ua.speed = newCfg.Speed
+		ua.urHostedKinematics = newCfg.ArmHostedKinematics
+		if ua.host == newCfg.Host {
+			return config.None
 		}
-		if ua.host != newCfg.Host {
-			ua.host = newCfg.Host
-		}
-		if ua.urHostedKinematics != newCfg.ArmHostedKinematics {
-			ua.urHostedKinematics = newCfg.ArmHostedKinematics
-		}
-		return config.None
 	}
 	return config.Reconfigure
 }
