@@ -107,6 +107,20 @@ type URArm struct {
 
 const waitBackgroundWorkersDur = 5 * time.Second
 
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (ua *URArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		if ua.host != newCfg.Host {
+			return config.Reconfigure
+		}
+		ua.speed = newCfg.Speed
+		ua.urHostedKinematics = newCfg.ArmHostedKinematics
+		return config.None
+	}
+	return config.Reconfigure
+}
+
 // Close TODO.
 func (ua *URArm) Close(ctx context.Context) error {
 	ua.cancel()
