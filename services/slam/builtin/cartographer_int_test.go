@@ -5,15 +5,18 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -22,25 +25,49 @@ const (
 	cartoSleepMs = 100
 )
 
-// Checks the cartographer position and map.
-func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
-	t.Helper()
-
-	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	// Typical values for 2D lidar are around (-0.004, 0.004, 0) +- (0.001, 0.001, 0)
-	t.Logf("Position point: (%v, %v, %v)",
-		position.Pose().Point().X, position.Pose().Point().Y, position.Pose().Point().Z)
-	// Typical values for 2D lidar are around (0, 0, -1), theta=0.001 +- 0.001
-	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v",
-		position.Pose().Orientation().AxisAngles().RX,
-		position.Pose().Orientation().AxisAngles().RY,
-		position.Pose().Orientation().AxisAngles().RZ,
-		position.Pose().Orientation().AxisAngles().Theta)
+// Checks the cartographer map and confirms there at least 100 map points.
+func testCartographerMap(t *testing.T, svc slam.Service) {
 	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	t.Logf("Pointcloud points: %v", pointcloud.Size())
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+}
+
+// Checks the cartographer position within a defined tolerance.
+func testCartographerPosition(t *testing.T, svc slam.Service) {
+	expectedPos := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
+	tolerancePos := 0.04
+	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
+	toleranceOri := 0.5
+
+	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+
+	actualPos := position.Pose().Point()
+	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
+	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
+	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
+	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
+
+	actualOri := position.Pose().Orientation().AxisAngles()
+	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
+	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
+	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
+	test.That(t, actualOri.RZ, test.ShouldBeBetween, expectedOri.RZ-toleranceOri, expectedOri.RZ+toleranceOri)
+	test.That(t, actualOri.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
+}
+
+// Checks the cartographer internal state.
+func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir string) {
+	internalState, err := svc.GetInternalState(context.Background(), "test")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Save the data from the call to GetInternalState for use in next test.
+	timeStamp := time.Now()
+	filename := filepath.Join(dataDir, "map", "map_data_"+timeStamp.UTC().Format(slamTimeFormat)+".pbstream")
+	err = os.WriteFile(filename, internalState, 0644)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
@@ -57,7 +84,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	t.Log("\n=== Testing online mode ===\n")
 
-	mapRate := 1
+	mapRate := 9999
 	deleteProcessedData := false
 	useLiveData := true
 
@@ -82,8 +109,21 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Wait for cartographer to finish processing data
+
+	// Make sure we initialize in mapping mode
 	logReader := svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Running in mapping mode") {
+			break
+		}
+
+		test.That(t, strings.Contains(line, "Running in updating mode"), test.ShouldBeFalse)
+		test.That(t, strings.Contains(line, "Running in localization only mode"), test.ShouldBeFalse)
+	}
+
+	// Wait for cartographer to finish processing data
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
 		cartographerIntLidarReleasePointCloudChan <- 1
@@ -91,13 +131,14 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
 		}
 	}
 
-	testCartographerPositionAndMap(t, svc)
+	testCartographerPosition(t, svc)
+	testCartographerMap(t, svc)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
@@ -117,14 +158,14 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	test.That(t, os.Remove(name+"/data/"+lastFileName), test.ShouldBeNil)
 	prevNumFiles -= 1
 
-	// Remove maps so that testing in offline mode will run in mapping mode,
-	// as opposed to updating mode.
-	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
+	// Check that no maps were generated during previous test
+	testCartographerDir(t, name, 0)
 
 	// Test offline mode using the data generated in the online test
 	t.Log("\n=== Testing offline mode ===\n")
 
 	useLiveData = false
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
@@ -142,20 +183,32 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Wait for cartographer to finish processing data
+	// Make sure we initialize in mapping mode
 	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Running in mapping mode") {
+			break
+		}
+		test.That(t, strings.Contains(line, "Running in updating mode"), test.ShouldBeFalse)
+		test.That(t, strings.Contains(line, "Running in localization only mode"), test.ShouldBeFalse)
+	}
+
+	// Wait for cartographer to finish processing data
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
 		if strings.Contains(line, "Passed sensor data to SLAM") {
-			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+			prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 		}
 		if strings.Contains(line, "Finished optimizing final map") {
 			break
 		}
 	}
 
-	testCartographerPositionAndMap(t, svc)
+	testCartographerPosition(t, svc)
+	testCartographerMap(t, svc)
 
 	// Sleep to ensure cartographer saves at least one map
 	time.Sleep(time.Second * time.Duration(*attrCfg.MapRateSec))
@@ -177,7 +230,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	testCartographerDir(t, name, 1)
 
 	// Test online mode using the map generated in the offline test
-	t.Log("\n=== Testing online mode in localization mode ===\n")
+	t.Log("\n=== Testing online localization mode ===\n")
 
 	mapRate = 0
 	deleteProcessedData = true
@@ -201,7 +254,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Make sure we initialize from a saved map
+	// Make sure we initialize in localization mode
 	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
@@ -222,18 +275,24 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
 		}
 	}
 
-	testCartographerPositionAndMap(t, svc)
+	testCartographerPosition(t, svc)
+	testCartographerMap(t, svc)
+
+	// Remove maps so that testing is done on the map generated by the internal map
+	test.That(t, resetFolder(name+"/map"), test.ShouldBeNil)
+
+	testCartographerInternalState(t, svc, name)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-	// Test that no new maps were generated
+	// Test that only the map present is the one generated by the GetInternalState call
 	testCartographerDir(t, name, 1)
 
 	// Don't clear out the directory, since we will re-use the maps for the next run
@@ -268,7 +327,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	svc, err = createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Make sure we initialize from a saved map
+	// Make sure we initialize in updating mode
 	logReader = svc.(testhelper.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
@@ -289,13 +348,16 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
 			if strings.Contains(line, "Passed sensor data to SLAM") {
-				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, len(attrCfg.Sensors) != 0, deleteProcessedData)
+				prevNumFiles = checkDeleteProcessedData(t, mode, name, prevNumFiles, deleteProcessedData, useLiveData)
 				break
 			}
+			test.That(t, strings.Contains(line, "Failed to open proto stream"), test.ShouldBeFalse)
+			test.That(t, strings.Contains(line, "Failed to read SerializationHeader"), test.ShouldBeFalse)
 		}
 	}
 
-	testCartographerPositionAndMap(t, svc)
+	testCartographerPosition(t, svc)
+	testCartographerMap(t, svc)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)

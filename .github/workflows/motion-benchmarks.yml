@@ -36,15 +36,25 @@ jobs:
         path: motion-testing
 
     - name: Run motion quality tests on main branch
+      shell: bash
+      env: 
+        URL: ${{ github.event.pull_request.base.repo.html_url }}
+        SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         cd motion-testing
-        go get -v -u go.viam.com/rdk@${{ github.event.pull_request.base.sha }}
+        go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
+        go mod tidy
         sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$BASELINE"
         
     - name: Run motion quality tests on PR branch
+      shell: bash
+      env: 
+        URL: ${{ github.event.pull_request.head.repo.html_url }}
+        SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         cd motion-testing
-        go get -v -u go.viam.com/rdk@${{ github.event.pull_request.head.sha }}
+        go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
+        go mod tidy
         sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$MODIFIED"
         
     - name: Print results

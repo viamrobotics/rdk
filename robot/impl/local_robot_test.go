@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"os"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +48,8 @@ import (
 	"go.viam.com/rdk/robot/client"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/packages"
+	putils "go.viam.com/rdk/robot/packages/testutils"
 	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
@@ -86,8 +88,6 @@ func TestConfig1(t *testing.T) {
 	bounds := pic.Bounds()
 
 	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
-
-	test.That(t, cfg.Components[0].Attributes["bar"], test.ShouldEqual, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")))
 }
 
 func TestConfigFake(t *testing.T) {
@@ -1785,6 +1785,70 @@ func TestConfigProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, logs.FilterField(zap.String("output", "heythere\n")).Len(), test.ShouldEqual, 1)
+}
+
+func TestConfigPackages(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+
+	packageDir := t.TempDir()
+
+	robotConfig := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+		},
+		Cloud: &config.Cloud{
+			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
+		},
+		PackagePath: packageDir,
+	}
+
+	r, err := robotimpl.New(ctx, robotConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	_, err = r.PackageManager().PackagePath("some-name-1")
+	test.That(t, err, test.ShouldEqual, packages.ErrPackageMissing)
+
+	robotConfig2 := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+			{
+				Name:    "some-name-2",
+				Package: "package-1",
+				Version: "v2",
+			},
+		},
+		Cloud: &config.Cloud{
+			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
+		},
+		PackagePath: packageDir,
+	}
+
+	fakePackageServer.StorePackage(robotConfig2.Packages...)
+	r.Reconfigure(ctx, robotConfig2)
+
+	path1, err := r.PackageManager().PackagePath("some-name-1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, "some-name-1"))
+
+	path2, err := r.PackageManager().PackagePath("some-name-2")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "some-name-2"))
 }
 
 func TestReconnectRemote(t *testing.T) {

@@ -13,10 +13,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/Masterminds/sprig"
@@ -169,10 +169,7 @@ func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 		}
 	}
 
-	// TODO(APP-1086): During rollout of weboauth feature we need to support the app returning only the 1 location secret.
-	if len(handlers) == 1 && hasLocationSecretHandler {
-		return true
-	} else if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+	if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
 		return true
 	}
 
@@ -341,19 +338,33 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if svc.modServer != nil {
 		return errors.New("module service already started")
 	}
-	oldMask := syscall.Umask(0o077)
-	dir, err := os.MkdirTemp("", "viam-module-*")
-	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
-	}
-	addr := dir + "/parent.sock"
-	svc.modAddr = addr
-	lis, err := net.Listen("unix", addr)
-	syscall.Umask(oldMask)
-	if err != nil {
-		return errors.WithMessage(err, "failed to listen")
-	}
 
+	var lis net.Listener
+	var addr string
+	if err := module.MakeSelfOwnedFilesFunc(func() error {
+		dir, err := os.MkdirTemp("", "viam-module-*")
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
+		}
+		addr = filepath.ToSlash(filepath.Join(dir, "parent.sock"))
+		if runtime.GOOS == "windows" {
+			// on windows, we need to craft a good enough looking URL for gRPC which
+			// means we need to take out the volume which will have the current drive
+			// be used. In a client server relationship for windows dialing, this must
+			// be known. That is, if this is a multi process UDS, then for the purposes
+			// of dialing without any resolver modifications to gRPC, they must initially
+			// agree on using the same drive.
+			addr = addr[2:]
+		}
+		svc.modAddr = addr
+		lis, err = net.Listen("unix", addr)
+		if err != nil {
+			return errors.WithMessage(err, "failed to listen")
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 	var (
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
@@ -466,7 +477,6 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		svc.logger.Warn("attempting to add stream before stream server is initialized. skipping this operation...")
 		return nil
 	}
 	videoSources := allVideoSourcesToDisplay(svc.r)
@@ -542,6 +552,12 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		config.Name = name
 		if isVideo {
 			config.AudioEncoderFactory = nil
+
+			if runtime.GOOS == "windows" {
+				// TODO(RSDK-1771): support video on windows
+				svc.logger.Warnw("not starting video stream since not supported on Windows yet", "name", name)
+				return streams, nil
+			}
 		} else {
 			config.VideoEncoderFactory = nil
 		}

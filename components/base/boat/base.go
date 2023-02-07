@@ -1,3 +1,5 @@
+//go:build !windows
+
 // Package boat implements a base for a boat with support for N motors in any position or angle
 // This is an Experimental package
 package boat

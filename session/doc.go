@@ -54,7 +54,7 @@ The API for session management is supported by four parts in Protobuf/gRPC
     bound to a session and may be safety monitored depending on the resource associated with the request.
  3. All methods in gRPC will be able to opt into safety monitoring via the common.v1.safety_heartbeat_monitored
     extension boolean. (see [common.proto] and [base.proto])
- 4. All responses to methods in gRPC may return a metadata header of of "viam-smrn" to indicate a list of resources
+ 4. All responses to methods in gRPC may return a metadata header of "viam-smrn" to indicate a list of resources
     that should be safety monitored in the event the caller has its own delegated session management.
 
 # SDK Client Implementation Notes

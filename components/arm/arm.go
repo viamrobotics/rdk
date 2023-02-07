@@ -4,6 +4,8 @@ package arm
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -59,6 +61,10 @@ func init() {
 const (
 	SubtypeName = resource.SubtypeName("arm")
 )
+
+// MTPoob is a string that all MoveToPosition errors should contain if the method is called
+// and there are joints which are out of bounds.
+const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
 
 var defaultArmPlannerOptions = map[string]interface{}{
 	"motion_profile": motionplan.LinearMotionProfile,
@@ -171,11 +177,12 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	endPosition, err := arm.EndPosition(ctx, nil)
+	jointPositions, err := arm.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	jointPositions, err := arm.JointPositions(ctx, nil)
+	model := arm.ModelFrame()
+	endPosition, err := motionplan.ComputePosition(model, jointPositions)
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +362,19 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 
 // Move is a helper function to abstract away movement for general arms.
 func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *referenceframe.WorldState) error {
+	joints, err := a.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	model := a.ModelFrame()
+	// check that joint positions are not out of bounds
+	_, err = motionplan.ComputePosition(model, joints)
+	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
+		return errors.New(MTPoob + ": " + err.Error())
+	} else if err != nil {
+		return err
+	}
+
 	solution, err := Plan(ctx, r, a, dst, worldState)
 	if err != nil {
 		return err
@@ -411,6 +431,35 @@ func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Inpu
 		err = a.GoToInputs(ctx, waypoint)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
+// in bounds or do not move the joint more out of bounds.
+func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []float64) error {
+	currentJointPos, err := a.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	checkPositions := currentJointPos.Values
+	model := a.ModelFrame()
+	joints := model.ModelConfig().Joints
+	for i, val := range desiredJoints {
+		max := joints[i].Max
+		min := joints[i].Min
+		currPosition := checkPositions[i]
+		// to make sure that val is a valid input
+		// it must either bring the joint more
+		// inbounds or keep the joint inbounds.
+		if currPosition > max {
+			max = currPosition
+		} else if currPosition < min {
+			min = currPosition
+		}
+		if val > max || val < min {
+			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val)
 		}
 	}
 	return nil

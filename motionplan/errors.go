@@ -1,9 +1,24 @@
 package motionplan
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
-var errIKSolve = errors.New("no IK solutions, check if goal outside workspace")
+var (
+	errIKSolve = errors.New("zero IK solutions produced, goal positions appears to be physically unreachable")
 
-var errPlannerFailed = errors.New("motion planner failed to find path")
+	errPlannerFailed = errors.New("motion planner failed to find path")
 
-var errNoPlannerOptions = errors.New("PlannerOptions are required but have not been specified")
+	errNoPlannerOptions = errors.New("PlannerOptions are required but have not been specified")
+
+	errIKConstraint = "all IK solutions failed constraints. Failures: "
+)
+
+func genIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
+	ikConstraintFailures := errIKConstraint
+	for failName, count := range failures {
+		ikConstraintFailures += fmt.Sprintf("{ %s: %.2f%% }, ", failName, 100*float64(count)/float64(constraintFailCnt))
+	}
+	return errors.New(ikConstraintFailures)
+}

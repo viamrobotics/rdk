@@ -77,9 +77,11 @@ type evaData struct {
 	// [0.0008628905634395778 0 0.0002876301878131926 0 -0.00038350690738298 0.0005752603756263852]
 	ServosPosition []float64 `json:"servos.telemetry.position"`
 
+	//nolint:dupword
 	// [53.369998931884766 43.75 43.869998931884766 43.869998931884766 51 48.619998931884766]
 	ServosTemperature []float64 `json:"servos.telemetry.temperature"`
 
+	//nolint:dupword
 	// [0 0 0 0 0 0]
 	ServosVelocity []float64 `json:"servos.telemetry.velocity"`
 
@@ -146,7 +148,7 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(e.model, joints)
+	return motionplan.ComputeOOBPosition(e.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -162,6 +164,10 @@ func (e *eva) MoveToPosition(
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions.Values); err != nil {
+		return err
+	}
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 
@@ -390,7 +396,11 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
+	positionDegs := e.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs.Values); err != nil {
+		return err
+	}
+	return e.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // Model returns the kinematics model of the eva arm, also has all Frame information.
