@@ -152,6 +152,22 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	return &xA, nil
 }
 
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (x *xArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	remoteAddr := x.conn.RemoteAddr().String()
+	currentHost := string([]rune(remoteAddr)[:len(remoteAddr)-4])
+	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		if currentHost != newCfg.Host {
+			return config.Reconfigure
+		}
+		x.speed = newCfg.Speed * math.Pi / 180
+		x.accel = newCfg.Acceleration * math.Pi / 180
+		return config.None
+	}
+	return config.Reconfigure
+}
+
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := x.JointPositions(ctx, nil)
 	if err != nil {
