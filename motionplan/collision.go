@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
+
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -345,6 +346,9 @@ func (cs *CollisionSystem) CollisionBetween(keyName, testName string) bool {
 	return false
 }
 
+// AddCollisionSpecification takes a Collision as an argument and either whitelists or blacklists collisions between the two entities.
+// Whether or not they are whitelisted or blacklisted depends on the value of the penetration depth of the given Collision.
+// If this value is positive the collision is whitelisted, otherwise it is blacklisted.
 func (cs *CollisionSystem) AddCollisionSpecification(specification *Collision) error {
 	for _, graph := range cs.graphs {
 		if err := graph.addCollisionSpecification(specification); err != nil {
