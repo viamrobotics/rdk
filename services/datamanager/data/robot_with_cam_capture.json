@@ -32,6 +32,13 @@
               "detector_name": "yellow_detector"
             },
             "type": "detections"
+          },
+          {
+            "attributes": {
+              "classifier_name": "my_classifier",
+	      "confidence_threshold": 0.2
+	    },
+            "type": "classifications"
           }
         ]
       },
