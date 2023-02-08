@@ -1025,7 +1025,7 @@ func TestMethodTimeout(t *testing.T) {
 		iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			deadline, deadlineSet := ctx.Deadline()
 			test.That(t, deadlineSet, test.ShouldBeTrue)
-			// Assert that deadline is between 9 and 10 minutes from now (some time will
+			// Assert that deadline is between 4 and 5 minutes from now (some time will
 			// have elapsed).
 			test.That(t, deadline, test.ShouldHappenBetween,
 				time.Now().Add(time.Minute*4), time.Now().Add(time.Minute*5))
