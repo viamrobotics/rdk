@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/config"
 )
 
-func Test1(t *testing.T) {
+func TestValid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger := golog.NewTestLogger(t)
 

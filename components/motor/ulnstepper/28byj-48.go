@@ -61,6 +61,23 @@ func (config *Config) Validate(path string) ([]string, error) {
 	if config.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
+
+	if config.Pins.In1 == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "In1")
+	}
+
+	if config.Pins.In2 == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "In2")
+	}
+
+	if config.Pins.In3 == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "In3")
+	}
+
+	if config.Pins.In4 == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "In4")
+	}
+
 	deps = append(deps, config.BoardName)
 	return deps, nil
 }
