@@ -651,7 +651,11 @@ func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error initializing servo %d", i)
 		}
-		err = setServoDefaults(newServo)
+		// Don't set the defaults for the gripper servo. REVISIT: don't set defaults
+		// for any servo? The arm should be shipped with the servos pre-configured
+		if i != servoCount {
+			err = setServoDefaults(newServo)
+		}
 		if err != nil {
 			return nil, err
 		}
