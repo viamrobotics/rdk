@@ -5,6 +5,7 @@ package bme280
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -484,7 +485,7 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 		if err != nil {
 			return 0, err
 		}
-		return (uint16(bytes[0])<<8 + uint16(bytes[1])), nil
+		return binary.BigEndian.Uint16(bytes), nil
 	}
 
 	// Note, some are signed, others are unsigned

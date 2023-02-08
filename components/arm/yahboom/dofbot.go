@@ -6,6 +6,7 @@ import (
 	"context"
 	// for embedding model file.
 	_ "embed"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"sync"
@@ -301,8 +302,8 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 
 	time.Sleep(3 * time.Millisecond)
 
-	res := (int(bytes[0]) << 8) + int(bytes[1])
-	return joints[joint-1].toValues(res), nil
+	res := binary.BigEndian.Uint16(bytes)
+	return joints[joint-1].toValues(int(res)), nil
 }
 
 // Stop is unimplemented for the dofbot.
