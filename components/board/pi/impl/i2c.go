@@ -86,7 +86,8 @@ func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, nu
 	return data, nil
 }
 
-func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
+func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
+	numBytes := len(data)
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
 		return errors.New("Cannot write more than 32 bytes from I2C")
 	}
