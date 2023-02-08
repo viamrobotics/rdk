@@ -479,7 +479,7 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 		return err
 	}
 
-	// Make a helper function to read 2 bytes from the handle and interpret it as a word.
+	// A helper function to read 2 bytes from the handle and interpret it as a word
 	readWord := func(register byte) (uint16, error) {
 		bytes, err := handle.ReadBlockData(ctx, register, 2)
 		if err != nil {
