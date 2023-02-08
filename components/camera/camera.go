@@ -3,7 +3,9 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
+	"runtime/debug"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -123,6 +125,9 @@ func NewFromReader(
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
 ) (Camera, error) {
+	fmt.Println("-----------new from reader----------")
+	debug.PrintStack()
+	fmt.Println("------------------------------------")
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}

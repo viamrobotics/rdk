@@ -25,6 +25,7 @@ const (
 	transformTypeOverlay         = transformType("overlay")
 	transformTypeUndistort       = transformType("undistort")
 	transformTypeDetections      = transformType("detections")
+	transformTypeClassifications = transformType("classifications")
 	transformTypeDepthEdges      = transformType("depth_edges")
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
@@ -132,6 +133,9 @@ func buildTransform(
 		return newDepthEdgesTransform(ctx, source, tr.Attributes)
 	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(ctx, source)
+	case transformTypeClassifications:
+		// Do nothing for now
+		return source, stream, nil
 	default:
 		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
