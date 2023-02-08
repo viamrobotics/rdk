@@ -164,7 +164,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 	usbPort := attributes.UsbPort
 	baudRate := attributes.BaudRate
 	if baudRate == 0 {
-		baudRate = 100000
+		baudRate = 1000000
 	}
 	servos, err := findServos(usbPort, baudRate)
 	if err != nil {
@@ -176,7 +176,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		return nil, err
 	}
 
-	return &Arm{
+	a := &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -190,7 +190,13 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		logger:   logger,
 		robot:    r,
 		model:    model,
-	}, nil
+	}
+	// start the arm in an open gripper state
+	err = a.OpenGripper(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "trossen arm failed to initialize, could not open gripper")
+	}
+	return a, nil
 }
 
 // EndPosition computes and returns the current cartesian position.
@@ -310,7 +316,6 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 
 // Stop stops the servos of the arm.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// RSDK-374: Implement Stop
 	a.opMgr.CancelRunning(ctx)
 	return multierr.Combine(
 		a.TorqueOff(),
@@ -349,10 +354,12 @@ func (a *Arm) Close() {
 		err = a.HomePosition(context.Background())
 		if err != nil {
 			a.logger.Errorf("Home position error: %s", err)
+			return
 		}
 		err = a.SleepPosition(context.Background())
 		if err != nil {
 			a.logger.Errorf("Sleep pos error: %s", err)
+			return
 		}
 	}
 	if !gripperIsOpen {
