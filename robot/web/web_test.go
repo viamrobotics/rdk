@@ -929,10 +929,6 @@ func TestRawClientOperation(t *testing.T) {
 		return []robot.Status{}, nil
 	}
 
-	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
-	}
-
 	checkOpID := func(md metadata.MD, expected bool) {
 		t.Helper()
 		if expected {
@@ -980,6 +976,75 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+}
+
+func TestMethodTimeout(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	t.Run("default timeout", func(t *testing.T) {
+		svc := web.New(ctx, iRobot, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+		err := svc.Start(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Use an injected status function to check that the default deadline was added
+		// to the context.
+		iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+			deadline, deadlineSet := ctx.Deadline()
+			test.That(t, deadlineSet, test.ShouldBeTrue)
+			// Assert that deadline is between 9 and 10 minutes from now (some time will
+			// have elapsed).
+			test.That(t, deadline, test.ShouldHappenBetween,
+				time.Now().Add(time.Minute*9), time.Now().Add(time.Minute*10))
+
+			return []robot.Status{}, nil
+		}
+
+		conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+		test.That(t, err, test.ShouldBeNil)
+		client := robotpb.NewRobotServiceClient(conn)
+
+		// Use GetStatus to call injected status function.
+		_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	})
+	t.Run("overridden timeout", func(t *testing.T) {
+		svc := web.New(ctx, iRobot, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+		err := svc.Start(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Use an injected status function to check that the default deadline was not
+		// added to the context, and the deadline passed to GetStatus was used instead.
+		iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+			deadline, deadlineSet := ctx.Deadline()
+			test.That(t, deadlineSet, test.ShouldBeTrue)
+			// Assert that deadline is between 9 and 10 minutes from now (some time will
+			// have elapsed).
+			test.That(t, deadline, test.ShouldHappenBetween,
+				time.Now().Add(time.Minute*4), time.Now().Add(time.Minute*5))
+			return []robot.Status{}, nil
+		}
+
+		conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+		test.That(t, err, test.ShouldBeNil)
+		client := robotpb.NewRobotServiceClient(conn)
+
+		// Use GetStatus and a context with a deadline to call injected status function.
+		overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	})
 }
 
 type echoServer struct {
