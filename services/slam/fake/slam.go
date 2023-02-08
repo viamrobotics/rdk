@@ -82,7 +82,7 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 			return "", nil, nil, err
 		}
 		defer utils.UncheckedErrorFunc(f.Close)
-		pc, err := pointcloud.ReadPCDToBasicOctree(f)
+		pc, err := pointcloud.ReadPCD(f)
 		if err != nil {
 			return "", nil, nil, err
 		}
