@@ -327,7 +327,7 @@ func (h *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 }
 
 // WriteBlockData writes the given bytes to the i2c channel.
-func (h *I2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
+func (h *I2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
 	return errors.New("finish me")
 }
 
