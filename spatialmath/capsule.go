@@ -112,14 +112,17 @@ func (c *capsule) AlmostEqual(g Geometry) bool {
 // Transform premultiplies the capsule pose with a transform, allowing the capsule to be moved in space.
 func (c *capsule) Transform(toPremultiply Pose) Geometry {
 	newPose := Compose(toPremultiply, c.pose)
+	segB := Compose(toPremultiply, NewPoseFromPoint(c.segB)).Point()
+	center := newPose.Point()
 	return &capsule{
 		pose:   newPose,
 		radius: c.radius,
 		length: c.length,
 		label:  c.label,
 		segA:   Compose(toPremultiply, NewPoseFromPoint(c.segA)).Point(),
-		segB:   Compose(toPremultiply, NewPoseFromPoint(c.segB)).Point(),
-		center: newPose.Point(),
+		segB:   segB,
+		center: center,
+		capVec: segB.Sub(center),
 	}
 }
 
