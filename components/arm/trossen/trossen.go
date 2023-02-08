@@ -644,7 +644,8 @@ func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 
 	network := network.New(serial)
 
-	// By default, Dynamixel servos come 1-indexed out of the box because reasons
+	// By default, Dynamixel servo IDs in the trossen arm come 1-indexed
+	// from the waist joint upwards
 	for i := 1; i <= servoCount; i++ {
 		// Get model ID of each servo
 		newServo, err := s_model.New(network, i)
