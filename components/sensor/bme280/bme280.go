@@ -479,12 +479,12 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 	}
 
 	// Make a helper function to read 2 bytes from the handle and interpret it as a word.
-	readWord := func(register byte) uint16, error {
+	readWord := func(register byte) (uint16, error) {
 		bytes, err := handle.ReadBlockData(ctx, register, 2)
 		if err != nil {
 			return 0, err
 		}
-		return (uint16(bytes[0]) << 8 + uint16(bytes[1])), nil
+		return (uint16(bytes[0])<<8 + uint16(bytes[1])), nil
 	}
 
 	// Note, some are signed, others are unsigned
@@ -528,7 +528,7 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 	} else {
 		return err
 	}
-	if calib, err := readword(bme280P6LSBReg); err == nil {
+	if calib, err := readWord(bme280P6LSBReg); err == nil {
 		s.calibration["digP6"] = int(int16(calib))
 	} else {
 		return err
