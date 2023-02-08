@@ -342,10 +342,8 @@ func (a *Arm) Close() {
 	gripperPos, err := a.Joints["Gripper"][0].PresentPosition()
 	if err != nil {
 		a.logger.Errorf("failed to get gripper position on close: %s", err)
-	} else {
-		if gripperPos >= 2800 {
-			gripperIsOpen = false
-		}
+	} else if gripperPos >= 2800 {
+		gripperIsOpen = false
 	}
 	if !alreadyAtSleep {
 		err = a.HomePosition(context.Background())
