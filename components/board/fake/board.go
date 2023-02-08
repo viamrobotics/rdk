@@ -326,11 +326,6 @@ func (h *I2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, er
 	return 0, errors.New("finish me")
 }
 
-// WriteWordData writes a word to the i2c channel.
-func (h *I2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
-	return errors.New("finish me")
-}
-
 // ReadBlockData reads the given number of bytes from the i2c channel.
 func (h *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	return nil, errors.New("finish me")
