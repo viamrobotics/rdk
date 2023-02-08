@@ -90,23 +90,25 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 		}
 		for _, p := range info.Properties {
 			logger.Debugf("\t %+v", p.Audio)
-			if p.Audio.ChannelCount > 0 {
-				s, err := tryMicrophoneOpen(info.Labels[i], gostream.DefaultConstraints, logger)
-				if err == nil {
-					if debug {
-						logger.Debug("\t USING")
-					}
-
-					return s, nil
-				}
+			if p.Audio.ChannelCount == 0 {
 				if debug {
-					logger.Debugw("cannot open driver with properties", "properties", p,
-						"error", err)
+					logger.Debug("\t skipping because audio channels are empty")
 				}
+				continue
+			}
+			s, err := tryMicrophoneOpen(info.Labels[i], gostream.DefaultConstraints, logger)
+			if err == nil {
+				if debug {
+					logger.Debug("\t USING")
+				}
+				return s, nil
+			}
+			if debug {
+				logger.Debugw("cannot open driver with properties", "properties", p,
+					"error", err)
 			}
 		}
 	}
-
 	return nil, errors.New("found no microphones")
 }
 
