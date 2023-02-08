@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/services/vision"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
-	"go.viam.com/rdk/vision/objectdetection"
 )
 
 // classifierAttrs is the attribute struct for classifiers (their name as found in the vision service).
@@ -27,9 +26,8 @@ type classifierAttrs struct {
 type classifierSource struct {
 	stream         gostream.VideoStream
 	classifierName string
-	// TODO: create this type
-	confFilter classification.Postprocessor
-	r          robot.Robot
+	confFilter     classification.Postprocessor
+	r              robot.Robot
 }
 
 func newClassificationsTransform(
@@ -57,7 +55,7 @@ func newClassificationsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
+	confFilter := classification.NewScoreFilter(attrs.ConfidenceThreshold)
 	classifier := &classifierSource{
 		gostream.NewEmbeddedVideoStream(source),
 		attrs.ClassifierName,
@@ -72,10 +70,10 @@ func newClassificationsTransform(
 func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::classifier::Read")
 	defer span.End()
-	// get the bounding boxes from the service
+
 	srv, err := vision.FirstFromRobot(cs.r)
 	if err != nil {
-		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
+		return nil, nil, fmt.Errorf("source_classifier can't find vision service: %w", err)
 	}
 	// get image from source camera
 	img, release, err := cs.stream.Next(ctx)
@@ -90,7 +88,6 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	}
 	// overlay labels on the source image
 	classifications = cs.confFilter(classifications)
-	// TODO: write this function
 	res, err := classification.Overlay(img, classifications)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not overlay labels: %w", err)
