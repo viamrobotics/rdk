@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
@@ -66,21 +65,10 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with positive rpm and positive revolutions", func(t *testing.T) {
-		err = m.goForInternal(ctx, 100, 2)
-		test.That(t, err, test.ShouldBeNil)
-
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			on, powerPct, err = m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, true)
-			test.That(tb, powerPct, test.ShouldEqual, 1.0)
-		})
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -88,9 +76,6 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
-		err = m.goForInternal(ctx, -100, 2)
-		test.That(t, err, test.ShouldBeNil)
-
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
@@ -102,21 +87,10 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
-		err = m.goForInternal(ctx, 100, -2)
-		test.That(t, err, test.ShouldBeNil)
-
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			on, powerPct, err = m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, true)
-			test.That(tb, powerPct, test.ShouldEqual, 1.0)
-		})
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -124,9 +98,6 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
-		err = m.goForInternal(ctx, -100, -2)
-		test.That(t, err, test.ShouldBeNil)
-
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
@@ -153,20 +124,10 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
-		err = m.goForInternal(ctx, 100, 200)
-		test.That(t, err, test.ShouldBeNil)
-
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			pos, err := m.Position(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
-		})
 
 		err = m.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)

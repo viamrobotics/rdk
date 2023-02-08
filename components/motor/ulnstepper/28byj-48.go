@@ -3,7 +3,6 @@ package stepper28byj48
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -169,35 +168,25 @@ type uln2003 struct {
 	generic.Unimplemented
 }
 
-// SetPower is invalid for this motor.
-func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
-}
-
 func (m *uln2003) doRun(ctx context.Context) {
 	for {
-		err := m.doCycle(ctx)
+		m.lock.Lock()
+		if m.stepPosition == m.targetStepPosition {
+			err := m.enable(ctx, false)
+			if err != nil {
+				m.logger.Info("error while enabling motor")
+			}
+			m.lock.Unlock()
+			break
+		}
+
+		err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
+		m.lock.Unlock()
 		if err != nil {
-			m.logger.Info("error in uln2003 %w", err)
+			m.logger.Info("error stepping %w", err)
+			break
 		}
 	}
-}
-
-func (m *uln2003) doCycle(ctx context.Context) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if m.stepPosition == m.targetStepPosition {
-		err := m.enable(ctx, false)
-		return err
-	}
-
-	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
-	if err != nil {
-		return fmt.Errorf("error stepping %w", err)
-	}
-
-	return nil
 }
 
 // doStep has to be locked to call.
@@ -206,65 +195,53 @@ func (m *uln2003) doCycle(ctx context.Context) error {
 func (m *uln2003) doStep(ctx context.Context, forward bool) error {
 	if forward {
 		for tick := 0; tick < len(stepSequence); tick++ {
-			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
-			if err1 != nil {
-				return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
-			}
-
-			time.Sleep(minDelayBetweenTicks)
-			err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
-			if err2 != nil {
-				return errors.Errorf("failed to set In2 with error in motor (%s)", m.motorName)
-			}
-
-			time.Sleep(minDelayBetweenTicks)
-
-			err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
-			if err3 != nil {
-				return errors.Errorf("failed to set In3 with error in motor (%s)", m.motorName)
-			}
-
-			time.Sleep(minDelayBetweenTicks)
-
-			err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
-			if err4 != nil {
-				return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
+			err := m.doTicks(ctx, tick)
+			if err != nil {
+				return err
 			}
 		}
 		time.Sleep(time.Duration(m.stepperDelay))
 		m.stepPosition++
 	} else {
 		for tick := len(stepSequence) - 1; tick >= 0; tick-- {
-			err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
-			if err1 != nil {
-				return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
-			}
-
-			time.Sleep(minDelayBetweenTicks)
-
-			err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
-			if err2 != nil {
-				return errors.Errorf("failed to set In2 with error in motor (%s)", m.motorName)
-			}
-
-			time.Sleep(minDelayBetweenTicks)
-
-			err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
-			if err3 != nil {
-				return errors.Errorf("failed to set In3 with error in motor (%s)", m.motorName)
-			}
-
-			time.Sleep(minDelayBetweenTicks)
-
-			err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
-			if err4 != nil {
-				return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
+			err := m.doTicks(ctx, tick)
+			if err != nil {
+				return err
 			}
 		}
 		time.Sleep(time.Duration(m.stepperDelay))
 		m.stepPosition--
 	}
 
+	return nil
+}
+
+// doTicks sets all 4 pins.
+func (m *uln2003) doTicks(ctx context.Context, tick int) error {
+	err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
+	if err1 != nil {
+		return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
+	}
+
+	time.Sleep(minDelayBetweenTicks)
+	err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
+	if err2 != nil {
+		return errors.Errorf("failed to set In2 with error in motor (%s)", m.motorName)
+	}
+
+	time.Sleep(minDelayBetweenTicks)
+
+	err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
+	if err3 != nil {
+		return errors.Errorf("failed to set In3 with error in motor (%s)", m.motorName)
+	}
+
+	time.Sleep(minDelayBetweenTicks)
+
+	err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
+	if err4 != nil {
+		return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
+	}
 	return nil
 }
 
@@ -282,19 +259,6 @@ func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map
 		return m.Stop(ctx, nil)
 	}
 
-	err := m.goForInternal(ctx, rpm, revolutions)
-	if err != nil {
-		return errors.Wrapf(err, " error in GoFor from motor (%s)", m.motorName)
-	}
-
-	if revolutions == 0 {
-		return nil
-	}
-	m.doRun(ctx)
-	return nil
-}
-
-func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
 		revolutions = 1000000.0
 	}
@@ -308,7 +272,6 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 	rpm = math.Abs(rpm) * float64(d)
 
 	m.lock.Lock()
-	defer m.lock.Unlock()
 
 	m.targetStepPosition += int64(float64(d)*revolutions*float64(m.ticksPerRotation)) / 8
 	m.targetStepsPerSecond = int64(revolutions * float64(m.ticksPerRotation) / 60.0)
@@ -320,6 +283,9 @@ func (m *uln2003) goForInternal(ctx context.Context, rpm, revolutions float64) e
 	// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
 	m.stepperDelay = math.Max(1/((rpm*8)/60), minStepDelay)
 
+	m.lock.Unlock()
+
+	m.doRun(ctx)
 	return nil
 }
 
@@ -339,6 +305,11 @@ func (m *uln2003) GoTo(ctx context.Context, rpm, positionRevolutions float64, ex
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *uln2003) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
+}
+
+// SetPower is invalid for this motor.
+func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
 }
 
 // Position reports the current step position of the motor. If it's not supported, the returned
