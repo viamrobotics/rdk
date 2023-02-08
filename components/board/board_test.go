@@ -672,10 +672,6 @@ func (m *mockI2CHandle) WriteByteData(ctx context.Context, register, data byte) 
 	return nil
 }
 
-func (m *mockI2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
-	return 0, nil
-}
-
 func (m *mockI2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	return []byte{}, nil
 }

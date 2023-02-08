@@ -294,15 +294,15 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 
 	time.Sleep(3 * time.Millisecond)
 
-	res, err := a.handle.ReadWordData(ctx, reg)
+	bytes, err := a.handle.ReadBlockData(ctx, reg, 2)
 	if err != nil {
 		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
-	res = (res >> 8 & 0xff) | (res << 8 & 0xff00)
-	return joints[joint-1].toValues(int(res)), nil
+	res := (int(bytes[0]) << 8) + int(bytes[1])
+	return joints[joint-1].toValues(res), nil
 }
 
 // Stop is unimplemented for the dofbot.
