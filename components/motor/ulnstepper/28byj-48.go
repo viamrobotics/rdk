@@ -85,12 +85,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
-			if err != nil {
-				return nil, err
-			}
-
-			return newULN(actualBoard, *motorConfig, config.Name, logger)
+			return newULN(deps, config, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, model, _motor)
@@ -105,22 +100,19 @@ func init() {
 	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
-	}
-	if motorConfig.BoardName == "" {
-		return nil, nil, errors.New("expected board name in config for motor")
-	}
-	b, err := board.FromDependencies(deps, motorConfig.BoardName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return b, motorConfig, nil
-}
+func newULN(deps registry.Dependencies, config config.Component, name string, logger golog.Logger) (motor.Motor, error) {
 
-func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
+	mc, ok := config.ConvertedAttributes.(*Config)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(mc, config.ConvertedAttributes)
+	}
+
+	b, err := board.FromDependencies(deps, mc.BoardName)
+
+	if err != nil {
+		return nil, errors.Wrap(err, " expected board name in config for motor")
+	}
+
 	if mc.TicksPerRotation <= 0 {
 		return nil, errors.New("expected ticks_per_rotation to be greater than zero in config for motor")
 	}
@@ -135,7 +127,7 @@ func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.M
 	if mc.Pins.In1 != "" {
 		in1, err := b.GPIOPinByName(mc.Pins.In1)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, " in In1 in motor (%s)", m.motorName)
 		}
 		m.in1 = in1
 	}
@@ -143,7 +135,7 @@ func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.M
 	if mc.Pins.In2 != "" {
 		in2, err := b.GPIOPinByName(mc.Pins.In2)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, " in In2 in motor (%s)", m.motorName)
 		}
 		m.in2 = in2
 	}
@@ -151,7 +143,7 @@ func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.M
 	if mc.Pins.In3 != "" {
 		in3, err := b.GPIOPinByName(mc.Pins.In3)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, " in In3 in motor (%s)", m.motorName)
 		}
 		m.in3 = in3
 	}
@@ -159,7 +151,7 @@ func newULN(b board.Board, mc Config, name string, logger golog.Logger) (motor.M
 	if mc.Pins.In4 != "" {
 		in4, err := b.GPIOPinByName(mc.Pins.In4)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, " in In4 in motor (%s)", m.motorName)
 		}
 		m.in4 = in4
 	}
@@ -210,6 +202,7 @@ func (m *uln2003) doRun(ctx context.Context) {
 // Depending on the direction, doStep will either treverse the stepSequence array in ascending
 // or descending order.
 func (m *uln2003) doStep(ctx context.Context, forward bool) error {
+
 	if forward {
 		for tick := 0; tick < len(stepSequence); tick++ {
 			err := m.doTicks(ctx, tick)
