@@ -469,11 +469,6 @@ func readFromCloud(
 		return nil, err
 	}
 
-	if cached {
-		logger.Debug("using cached config as is since there are no errors")
-		return cfg, nil
-	}
-
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
 	}
@@ -506,14 +501,8 @@ func readFromCloud(
 
 	logger.Debugw("tls data", "cert", tlsCertificate, "key", tlsPrivateKey)
 
-	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
-		logger.Debug("we should check for certificates")
+	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) && !cached {
 		checkForNewCert = true
-	}
-
-	if cached {
-		logger.Debug("JK, we cached a config - no need to grab new certs.")
-		checkForNewCert = false
 	}
 
 	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
@@ -565,15 +554,11 @@ func readFromCloud(
 
 	mergeCloudConfig(cfg)
 
-	logger.Debugw("about to store unprocessed config")
-
-	// // TODO: should we just store the merge config instead?
-	// unprocessedConfig.Cloud.TLSCertificate = tlsCertificate
-	// unprocessedConfig.Cloud.TLSPrivateKey = tlsPrivateKey
-
 	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
+
+	logger.Debug("cached merged config successfully")
 
 	return cfg, nil
 }
