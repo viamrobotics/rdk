@@ -1440,9 +1440,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -1575,9 +1575,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -1698,9 +1698,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -1822,9 +1822,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -1933,9 +1933,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eB.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

@@ -9,8 +9,8 @@ import (
 	"go.viam.com/test"
 )
 
-func nowNanosTest() uint64 {
-	return uint64(time.Now().UnixNano())
+func nowNanosTest() uint32 {
+	return uint32(time.Now().UnixMicro())
 }
 
 func TestBasicDigitalInterrupt1(t *testing.T) {
@@ -34,7 +34,7 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(2))
 
-	c := make(chan bool)
+	c := make(chan Tick)
 	i.AddCallback(c)
 
 	go func() { i.Tick(context.Background(), true, nowNanosTest()) }()
@@ -60,7 +60,7 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1))
 
-	c1 := make(chan bool)
+	c1 := make(chan Tick)
 	test.That(t, c1, test.ShouldNotBeNil)
 	i.AddCallback(c1)
 	var wg sync.WaitGroup
@@ -77,7 +77,8 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 		select {
 		case <-context.Background().Done():
 			return
-		case ret = <-c1:
+		case tick := <-c1:
+			ret = tick.High
 		}
 	}()
 	test.That(t, i.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
@@ -85,7 +86,7 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(2))
 	wg.Wait()
-	c2 := make(chan bool)
+	c2 := make(chan Tick)
 	test.That(t, c2, test.ShouldNotBeNil)
 	i.AddCallback(c2)
 	test.That(t, ret, test.ShouldBeTrue)
@@ -105,7 +106,8 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 		select {
 		case <-context.Background().Done():
 			return
-		case ret2 = <-c2:
+		case tick := <-c2:
+			ret2 = tick.High
 		}
 	}()
 	wg.Add(1)
@@ -138,7 +140,7 @@ func TestServoInterrupt(t *testing.T) {
 	s, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
 
-	now := uint64(0)
+	now := uint32(0)
 	for i := 0; i < 20; i++ {
 		test.That(t, s.Tick(context.Background(), true, now), test.ShouldBeNil)
 		now += 1500 * 1000 // this is what we measure
@@ -161,7 +163,7 @@ func TestServoInterruptWithPP(t *testing.T) {
 	s, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
 
-	now := uint64(0)
+	now := uint32(0)
 	for i := 0; i < 20; i++ {
 		test.That(t, s.Tick(context.Background(), true, now), test.ShouldBeNil)
 		now += 1500 * 1000 // this is what we measure

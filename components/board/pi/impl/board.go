@@ -585,7 +585,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	}
 	lastTick = rawTick
 
-	tick := (uint64(tickRollevers) * uint64(math.MaxUint32)) + uint64(rawTick)
+	tick := (uint32(tickRollevers) * uint32(math.MaxUint32)) + uint32(rawTick)
 
 	instanceMu.Lock()
 	defer instanceMu.Unlock()
@@ -601,7 +601,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(context.TODO(), high, tick*1000)
+		err := i.Tick(context.TODO(), high, tick)
 		if err != nil {
 			instance.logger.Error(err)
 		}

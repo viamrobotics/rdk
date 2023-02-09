@@ -15,6 +15,11 @@ import (
 // servo ticks.
 const ServoRollingAverageWindow = 10
 
+type Tick struct {
+	High              bool
+	TimestampMicroSec uint32
+}
+
 // A DigitalInterrupt represents a configured interrupt on the board that
 // when interrupted, calls the added callbacks. Post processors can also
 // be added to modify what Value ultimately returns.
@@ -25,23 +30,22 @@ type DigitalInterrupt interface {
 
 	// Tick is to be called either manually if the interrupt is a proxy to some real
 	// hardware interrupt or for tests.
-	// nanos is from an arbitrary point in time, but always increasing and always needs
-	// to be accurate. Using time.Now().UnixNano() would be acceptable, but is
-	// not required.
-	Tick(ctx context.Context, high bool, nanos uint64) error
+	// microseconds is from an arbitrary point in time, but always increasing and always needs
+	// to be accurate.
+	Tick(ctx context.Context, high bool, microseconds uint32) error
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
 	// Note(erd): not all interrupts can have callbacks so this should probably be a
 	// separate interface.
-	AddCallback(c chan bool)
+	AddCallback(c chan Tick)
 
 	// AddPostProcessor adds a post processor that should be used to modify
 	// what is returned by Value.
 	AddPostProcessor(pp PostProcessor)
 
 	// RemoveCallback removes a listener for interrupts
-	RemoveCallback(c chan bool)
+	RemoveCallback(c chan Tick)
 }
 
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
@@ -102,7 +106,7 @@ type BasicDigitalInterrupt struct {
 	cfg   DigitalInterruptConfig
 	count int64
 
-	callbacks []chan bool
+	callbacks []chan Tick
 
 	pp PostProcessor
 	mu sync.RWMutex
@@ -123,9 +127,9 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 }
 
 // Ticks is really just for testing.
-func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) error {
+func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint32) error {
 	for x := 0; x < num; x++ {
-		if err := i.Tick(ctx, true, now+uint64(x)); err != nil {
+		if err := i.Tick(ctx, true, now+uint32(x)); err != nil {
 			return err
 		}
 	}
@@ -133,7 +137,7 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 }
 
 // Tick records an interrupt and notifies any interested callbacks.
-func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64) error {
+func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, microseconds uint32) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
@@ -144,21 +148,22 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64)
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
-		case c <- high:
+		case c <- Tick{High: high, TimestampMicroSec: microseconds}:
+		default:
 		}
 	}
 	return nil
 }
 
 // AddCallback adds a listener for interrupts.
-func (i *BasicDigitalInterrupt) AddCallback(c chan bool) {
+func (i *BasicDigitalInterrupt) AddCallback(c chan Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
 }
 
 // RemoveCallback removes a listener for interrupts.
-func (i *BasicDigitalInterrupt) RemoveCallback(c chan bool) {
+func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	for id := range i.callbacks {
@@ -181,7 +186,7 @@ func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 // make meaning of these widths.
 type ServoDigitalInterrupt struct {
 	cfg  DigitalInterruptConfig
-	last uint64
+	last uint32
 	ra   *utils.RollingAverage
 	pp   PostProcessor
 }
@@ -204,7 +209,7 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 
 // Tick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
+func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint32) error {
 	diff := now - i.last
 	i.last = now
 
@@ -217,17 +222,17 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 		return nil
 	}
 
-	i.ra.Add(int(diff / 1000))
+	i.ra.Add(int(diff))
 	return nil
 }
 
 // AddCallback currently panics.
-func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
+func (i *ServoDigitalInterrupt) AddCallback(c chan Tick) {
 	panic("servos can't have callback")
 }
 
 // RemoveCallback currently panics.
-func (i *ServoDigitalInterrupt) RemoveCallback(c chan bool) {
+func (i *ServoDigitalInterrupt) RemoveCallback(c chan Tick) {
 	panic("servos can't have callback")
 }
 
