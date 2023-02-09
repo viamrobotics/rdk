@@ -168,7 +168,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBALazy)
 		test.That(t, resp.Image[rimage.RawRGBAHeaderLength:], test.ShouldResemble, img.Pix)
 
 		// ensure that empty mimetype request from color cam will return JPEG mimetype response
@@ -180,7 +180,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeJPEG)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypeJPEG))
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
 		// ensure that empty mimetype request from depth cam will return PNG mimetype response
@@ -192,7 +192,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawDepth)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypeRawDepth))
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
 		imageReleasedMu.Lock()
@@ -206,7 +206,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypePNG))
 		test.That(t, resp.Image, test.ShouldResemble, imgBuf.Bytes())
 
 		imageReleasedMu.Lock()
@@ -231,7 +231,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypePNG))
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 		decodedDepth, err := rimage.DecodeImage(
 			context.Background(),
@@ -254,7 +254,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypePNG))
 		test.That(t, resp.Image, test.ShouldResemble, depthBuf.Bytes())
 		// bad camera
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: failCameraName, MimeType: utils.MimeTypeRawRGBA})
@@ -269,7 +269,7 @@ func TestServer(t *testing.T) {
 			MimeType: utils.WithLazyMIMEType(wooMIME),
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.MimeType, test.ShouldEqual, wooMIME)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(wooMIME))
 		test.That(t, resp.Image, test.ShouldResemble, []byte{1, 2, 3})
 
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
@@ -280,30 +280,19 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 	})
 
-	t.Run("GetImage with lazy default", func(t *testing.T) {
-		req := pb.GetImageRequest{
-			Name:     testCameraName,
-			MimeType: utils.MimeTypePNG,
-		}
-
-		testCases := []struct {
-			mimeType string
-			img      image.Image
-		}{
-			{mimeType: utils.MimeTypePNG, img: imgPng},
-			{mimeType: utils.MimeTypeJPEG, img: imgJpeg},
-			{mimeType: utils.MimeTypeRawRGBA, img: img},
-		}
-
-		for _, testCase := range testCases {
-			req.MimeType = testCase.mimeType
-			resp, err := cameraServer.GetImage(context.Background(), &req)
+	t.Run("GetImage with +lazy default", func(t *testing.T) {
+		for _, mimeType := range []string{
+			utils.MimeTypePNG,
+			utils.MimeTypeJPEG,
+			utils.MimeTypeRawRGBA,
+		} {
+			resp, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+				Name:     testCameraName,
+				MimeType: mimeType,
+			})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp.MimeType, test.ShouldEqual, testCase.mimeType)
-			test.That(t, req.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(testCase.mimeType))
-
-			respImage, err := rimage.DecodeImage(context.Background(), resp.Image, testCase.mimeType)
-			test.That(t, respImage, test.ShouldResemble, testCase.img)
+			test.That(t, resp.Image, test.ShouldNotBeNil)
+			test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(mimeType))
 		}
 	})
 
@@ -319,7 +308,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.ContentType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypeJPEG))
 		test.That(t, resp.Data, test.ShouldResemble, imgBufJpeg.Bytes())
 
 		imageReleasedMu.Lock()
@@ -333,7 +322,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
+		test.That(t, resp.ContentType, test.ShouldEqual, utils.WithLazyMIMEType(utils.MimeTypePNG))
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
 		imageReleasedMu.Lock()
