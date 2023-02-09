@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -161,8 +162,9 @@ func (x *xArm) UpdateAction(c *config.Component) config.UpdateActionType {
 		if currentHost != newCfg.Host {
 			return config.Reconfigure
 		}
-		x.speed = newCfg.Speed * math.Pi / 180
-		x.accel = newCfg.Acceleration * math.Pi / 180
+
+		x.speed = float32(utils.DegToRad(float64(newCfg.Speed)))
+		x.accel = float32(utils.DegToRad(float64(newCfg.Acceleration)))
 		return config.None
 	}
 	return config.Reconfigure
