@@ -555,7 +555,6 @@ func readFromCloud(
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
-
 	return cfg, nil
 }
 
