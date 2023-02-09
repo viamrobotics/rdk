@@ -41,6 +41,8 @@ const (
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
+
+	mlFlagTags = "training_tags"
 )
 
 func main() {
@@ -507,6 +509,11 @@ func main() {
 								Usage: "tags filter. " +
 									"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 							},
+							&cli.StringSliceFlag{
+								Name:     mlFlagTags,
+								Required: true,
+								Usage:    "tags that the model should be trained on",
+							},
 						},
 						Action: MLCommand,
 					},
@@ -944,7 +951,6 @@ func DataCommand(c *cli.Context) error {
 
 func MLCommand(c *cli.Context) error {
 	filter, err := createDataFilter(c)
-	fmt.Println("created filter")
 	if err != nil {
 		return err
 	}
@@ -960,7 +966,7 @@ func MLCommand(c *cli.Context) error {
 		ModelName:      "aaron-test-name",
 		ModelVersion:   "some_version_1",
 		ModelType:      mlpb.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION,
-		Tags:           []string{"aaron-test-tag"},
+		Tags:           c.StringSlice(mlFlagTags),
 	}
 
 	resp, err := client.SubmitTrainingJob(context.Background(), req)
