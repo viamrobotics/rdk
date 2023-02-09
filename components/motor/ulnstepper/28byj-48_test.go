@@ -9,21 +9,25 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 )
 
 const (
-	testBoardName = "fake_28byj"
+	testBoardName = "fake_board"
 )
 
 func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
-	b := &fakeboard.Board{Name: testBoardName}
-	deps := registry.Dependencies(map[resource.Name]interface{}{board.Named(b.Name): b})
+	// opt 1
+	// deps := make(registry.Dependencies, 1)
+
+	// opt 2
+	deps := registry.Dependencies{
+		board.Named(testBoardName): testBoardName,
+	}
+
 	return deps
 }
 
@@ -31,12 +35,11 @@ func TestValid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger := golog.NewTestLogger(t)
 
-	mc := Config{}
+	mc := Config{BoardName: testBoardName}
 	c := config.Component{
 		Name:                "fake_28byj",
 		ConvertedAttributes: &mc,
 	}
-
 	deps := setupDependencies(t)
 
 	logger.Info(" printing DEP ", deps)
