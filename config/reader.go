@@ -498,7 +498,7 @@ func readFromCloud(
 		}
 	}
 
-	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) && !cached {
+	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
 		checkForNewCert = true
 	}
 
