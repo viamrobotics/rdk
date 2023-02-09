@@ -585,7 +585,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	}
 	lastTick = rawTick
 
-	tick := (uint32(tickRollevers) * uint32(math.MaxUint32)) + uint32(rawTick)
+	tick := (uint32(tickRollevers) * math.MaxUint32) + rawTick
 
 	instanceMu.Lock()
 	defer instanceMu.Unlock()
