@@ -13,7 +13,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	pb "go.viam.com/api/app/packages/v1"
+
+	// pb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -461,20 +462,20 @@ func newWithResources(
 		}
 	}()
 
-	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		var err error
-		r.cloudConn, err = config.CreateNewGRPCClient(ctx, cfg.Cloud, logger)
-		if err != nil {
-			return nil, err
-		}
-		r.packageManager, err = packages.NewCloudManager(pb.NewPackageServiceClient(r.cloudConn), cfg.PackagePath, logger)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		r.logger.Debug("Using no-op PackageManager when Cloud config is not available")
-		r.packageManager = packages.NewNoopManager()
-	}
+	// if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
+	// 	var err error
+	// 	r.cloudConn, err = config.CreateNewGRPCClient(ctx, cfg.Cloud, logger)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	r.packageManager, err = packages.NewCloudManager(pb.NewPackageServiceClient(r.cloudConn), cfg.PackagePath, logger)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// } else {
+	// 	r.logger.Debug("Using no-op PackageManager when Cloud config is not available")
+	// 	r.packageManager = packages.NewNoopManager()
+	// }
 
 	// start process manager early
 	if err := r.manager.processManager.Start(ctx); err != nil {
@@ -896,12 +897,12 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
-	// Sync Packages before reconfiguring rest of robot.
-	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
-	err = r.packageManager.Sync(ctx, newConfig.Packages)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
+	// // Sync Packages before reconfiguring rest of robot.
+	// // TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
+	// err = r.packageManager.Sync(ctx, newConfig.Packages)
+	// if err != nil {
+	// 	allErrs = multierr.Combine(allErrs, err)
+	// }
 
 	// First we remove resources and their children that are not in the graph.
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
@@ -948,9 +949,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	r.manager.completeConfig(ctx, r)
 	r.updateDefaultServices(ctx)
 
-	// cleanup unused packages after all old resources have been closed above. This ensures
-	// processes are shutdown before any files are deleted they are using.
-	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	// // cleanup unused packages after all old resources have been closed above. This ensures
+	// // processes are shutdown before any files are deleted they are using.
+	// allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
