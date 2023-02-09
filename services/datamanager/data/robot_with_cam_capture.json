@@ -20,33 +20,6 @@
           }
         }
       ]
-    },
-    {
-      "model": "transform",
-      "attributes": {
-        "stream": "color",
-        "source": "c1",
-        "pipeline": [
-          {
-            "attributes": {
-              "detector_name": "yellow_detector"
-            },
-            "type": "detections"
-          },
-          {
-            "attributes": {
-              "classifier_name": "my_classifier",
-	      "confidence_threshold": 0.2
-	    },
-            "type": "classifications"
-          }
-        ]
-      },
-      "depends_on": [
-        "c1"
-      ],
-      "name": "show-detections",
-      "type": "camera"
     }
   ],
   "services": [
@@ -55,34 +28,7 @@
       "type": "data_manager",
       "model": "builtin",
       "attributes": {
-        "capture_dir": "/tmp/capture",
-        "capture_disabled": true
-      }
-    },
-    {
-      "name": "vision",
-      "type": "vision",
-      "attributes": {
-        "register_models": [
-          {
-            "type": "color_detector",
-            "name": "yellow_detector",
-            "parameters": {
-              "segment_size_px": 100,
-              "hue_tolerance_pct": 0.06,
-              "detect_color": "#F9E076"
-            }
-          },
-	  {
-		  "name": "my_classifier",
-		  "type": "tflite_classifier",
-		  "parameters": {
-			  "model_path" : "/Users/devinhilly/Downloads/mobilenet_v1_1.0_224_quant_and_labels/mobilenet_v1_1.0_224_quant.tflite",
-			  "label_path": "/Users/devinhilly/Downloads/mobilenet_v1_1.0_224_quant_and_labels/labels_mobilenet_quant_v1_224.txt",
-			  "num_threads": 1
-		  }
-	  }
-        ]
+        "capture_dir": "/tmp/capture"
       }
     }
   ]
