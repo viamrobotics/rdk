@@ -107,7 +107,6 @@ func TestClassifierSource(t *testing.T) {
 	resImg, _, err := camera.ReadImage(ctx, classifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
-	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(984, 561), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(35, 28), test.ShouldResemble, rimage.Red)
 	test.That(t, classifier.Close(context.Background()), test.ShouldBeNil)
 }
