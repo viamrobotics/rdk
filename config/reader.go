@@ -555,7 +555,6 @@ func readFromCloud(
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
-	logger.Debug("cached merged config successfully")
 
 	return cfg, nil
 }
