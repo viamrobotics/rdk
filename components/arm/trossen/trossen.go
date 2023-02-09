@@ -282,12 +282,12 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 			}
 		} else {
 			atPos = true
-			a.logger.Debugf("reached open gripper position")
+			a.logger.Debug("reached open gripper position")
 		}
 	}
 	err = a.Joints["Gripper"][0].SetGoalPWM(0)
 	if err != nil {
-		a.logger.Debugf("gripper pwm set to 0")
+		a.logger.Debug("gripper pwm set to 0")
 	}
 	return err
 }
@@ -312,7 +312,7 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	a.logger.Debugf("gripper position at %d (after grab)", pos)
+	a.logger.Debug(fmt.Sprintf("gripper position at %d (after grab)", pos))
 	didGrab := true
 
 	// If servo position is less than 1500, it's closed and we grabbed nothing
