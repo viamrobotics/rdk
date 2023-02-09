@@ -247,7 +247,7 @@ func (nl *netLogger) backgroundWorker() {
 		err := nl.Sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
-			nl.loggerWithoutNet.Debugf("error logging to network: %s", err)
+			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
 		} else {
 			interval = normalInterval
 		}
