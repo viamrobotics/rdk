@@ -241,13 +241,11 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
-			// nolint:staticcheck
 			err := reader(cancelCtx, connReadRobotState, newArm, func() {
 				onDataOnce.Do(func() {
 					close(onData)
 				})
 			})
-			// nolint:staticcheck
 			if err != nil && (errors.Is(err, syscall.ECONNRESET) || os.IsTimeout(err)) {
 				for {
 					if err := cancelCtx.Err(); err != nil {
@@ -265,7 +263,6 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 						return
 					}
 				}
-				// nolint:staticcheck
 			} else if err != nil {
 				logger.Errorw("reader failed", "error", err)
 				return
@@ -573,7 +570,6 @@ func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *URArm) erro
 	}
 }
 
-// nolint:staticcheck
 func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) error {
 	for {
 		if err := ctx.Err(); err != nil {
