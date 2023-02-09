@@ -742,7 +742,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 	return nil
 }
 
-// updateResourceGraph using the difference between current config
+// updateResources using the difference between current config
 // and next we create resource wrappers to be consumed by completeConfig later on
 // Ideally at the end of this function we should have a complete graph representation of the configuration.
 func (manager *resourceManager) updateResources(
