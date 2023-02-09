@@ -373,22 +373,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
-	// Use the first unary interceptor to set a default timeout on the context
-	// if one is not already set.
-	unaryInterceptors = append(unaryInterceptors, func(
-		ctx context.Context,
-		req interface{},
-		info *googlegrpc.UnaryServerInfo,
-		handler googlegrpc.UnaryHandler,
-	) (interface{}, error) {
-		if _, deadlineSet := ctx.Deadline(); !deadlineSet {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, defaultMethodTimeout)
-			defer cancel()
-		}
-
-		return handler(ctx, req)
-	})
+	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
@@ -861,21 +846,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	// Use the first interceptor to set a default timeout on the context
 	// if one is not already set.
-	unaryInterceptors = append(unaryInterceptors, func(
-		ctx context.Context,
-		req interface{},
-		info *googlegrpc.UnaryServerInfo,
-		handler googlegrpc.UnaryHandler,
-	) (interface{}, error) {
-		if _, deadlineSet := ctx.Deadline(); !deadlineSet {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, defaultMethodTimeout)
-			defer cancel()
-		}
-
-		return handler(ctx, req)
-	})
-
+	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 		unaryInterceptors = append(unaryInterceptors, func(
@@ -1293,4 +1264,18 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		}
 		return stream.SendMsg(invokeResp)
 	}
+}
+
+// ensureTimeoutUnaryInterceptor sets a default timeout on the context if one is
+// not already set. To be called as the first unary server interceptor.
+func ensureTimeoutUnaryInterceptor(ctx context.Context, req interface{},
+	info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
+) (interface{}, error) {
+	if _, deadlineSet := ctx.Deadline(); !deadlineSet {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultMethodTimeout)
+		defer cancel()
+	}
+
+	return handler(ctx, req)
 }
