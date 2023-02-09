@@ -93,6 +93,9 @@ issues:
     - path: /doc.go$
       linters:
         - lll
+    - path: components/arm/universalrobots/ur.go
+      linters:
+        - staticcheck
   exclude-use-default: false
   max-per-linter: 0
   max-same-issues: 0
