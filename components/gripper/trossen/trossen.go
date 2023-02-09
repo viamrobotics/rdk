@@ -121,12 +121,12 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 
 // Stop is stops the gripper servo on the trossen arm.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
-	return g.trossenArm.Stop(ctx, extra)
+	return g.trossenArm.StopGripper(ctx)
 }
 
 // IsMoving returns whether the gripper is moving.
 func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
-	return g.trossenArm.IsMoving(ctx)
+	return g.trossenArm.GripperIsMoving(ctx)
 }
 
 // ModelFrame is unimplemented for Gripper.
