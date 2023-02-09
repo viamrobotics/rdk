@@ -499,7 +499,6 @@ func readFromCloud(
 		}
 	}
 
-	logger.Debugw("tls data", "cert", tlsCertificate, "key", tlsPrivateKey)
 
 	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) && !cached {
 		checkForNewCert = true
