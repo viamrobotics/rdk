@@ -231,7 +231,7 @@ func (mpu *mpu6050) writeByte(ctx context.Context, register, value byte) error {
 		}
 	}()
 
-	return handle.WriteBlockData(ctx, register, []byte{value})
+	return handle.WriteByteData(ctx, register, value)
 }
 
 // Given a value, scales it so that the range of int16s becomes the range of +/- maxValue.
