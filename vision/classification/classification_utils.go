@@ -9,13 +9,10 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// Overlay returns a color image with the classification labels and confidence scores overlaid on
+// Overlay returns a color image with the classification label and confidence score overlaid on
 // the original image.
-func Overlay(img image.Image, classifications Classifications) (image.Image, error) {
+func Overlay(img image.Image, label string, confidenceScore float64) (image.Image, error) {
 	gimg := gg.NewContextForImage(img)
-	for _, classification := range classifications {
-		// TODO: figure out where on the image the classifications should go if there are multiple
-		rimage.DrawString(gimg, fmt.Sprintf("%v: %v", classification.Label(), classification.Score()), image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
-	}
+	rimage.DrawString(gimg, fmt.Sprintf("%v: %v", label, confidenceScore), image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
 	return gimg.Image(), nil
 }

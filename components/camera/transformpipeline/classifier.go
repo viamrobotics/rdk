@@ -43,8 +43,6 @@ func newClassificationsTransform(
 		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 
-	// TODO: not really sure what's going on between here and where we construct the confidence
-	// filter
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -80,17 +78,26 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
-	// TODO: reconsider number of classifications
-	numClassifications := 1
-	classifications, err := srv.Classifications(ctx, img, cs.classifierName, numClassifications, map[string]interface{}{})
+	classifications, err := srv.Classifications(ctx, img, cs.classifierName, 1, map[string]interface{}{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get classifications: %w", err)
 	}
 	// overlay labels on the source image
 	classifications = cs.confFilter(classifications)
-	res, err := classification.Overlay(img, classifications)
+	if len(classifications) > 1 {
+		return nil, nil, fmt.Errorf("expected at most one classification, but got %v", len(classifications))
+	}
+	if len(classifications) == 0 {
+		return img, release, nil
+	}
+
+	res, err := classification.Overlay(img, classifications[0].Label(), classifications[0].Score())
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not overlay labels: %w", err)
+		return nil, nil, fmt.Errorf("could not overlay label: %w", err)
 	}
 	return res, release, nil
+}
+
+func (cs *classifierSource) Close(ctx context.Context) error {
+	return cs.stream.Close(ctx)
 }

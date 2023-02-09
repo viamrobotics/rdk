@@ -134,8 +134,7 @@ func buildTransform(
 	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(ctx, source)
 	case transformTypeClassifications:
-		// Do nothing for now
-		return source, stream, nil
+		return newClassificationsTransform(ctx, source, r, tr.Attributes)
 	default:
 		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
