@@ -7,7 +7,7 @@ import "github.com/pion/webrtc/v3"
 var DefaultWebRTCConfiguration = webrtc.Configuration{
 	ICEServers: []webrtc.ICEServer{
 		{
-			URLs: []string{"stun:global.stun.twilio.com:3478?transport=udp"},
+			URLs: []string{"stun:global.stun.twilio.com:3478"},
 		},
 	},
 }
