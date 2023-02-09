@@ -16,7 +16,7 @@ import (
 const ServoRollingAverageWindow = 10
 
 // Tick represents a signal received by an interrupt pin. This signal is communicated
-// via registered channel to the various drivers
+// via registered channel to the various drivers.
 type Tick struct {
 	High              bool
 	TimestampMicroSec uint32
