@@ -468,7 +468,6 @@ func readFromCloud(
 		}
 		return nil, err
 	}
-
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
 	}
