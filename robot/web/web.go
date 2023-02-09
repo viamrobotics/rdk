@@ -373,6 +373,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
+
 	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
 
 	opManager := svc.r.OperationManager()
@@ -844,9 +845,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
 
-	// Use the first interceptor to set a default timeout on the context
-	// if one is not already set.
 	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
+
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 		unaryInterceptors = append(unaryInterceptors, func(
