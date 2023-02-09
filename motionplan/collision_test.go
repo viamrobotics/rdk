@@ -66,8 +66,6 @@ func TestCheckCollisions(t *testing.T) {
 	expectedCollisions := []Collision{
 		{"robotCube222", "robotCube333", 1},
 		{"obstacleCube000", "robotCube000", 2},
-		{"iSCube000", "robotCube333", 1},
-		{"iSCube222", "robotCube333", 1},
 	}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
