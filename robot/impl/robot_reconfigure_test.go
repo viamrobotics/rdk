@@ -1441,7 +1441,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, c, test.ShouldEqual, 0)
 
 		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -1576,7 +1578,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, c, test.ShouldEqual, 0)
 
 		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -1699,7 +1703,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, c, test.ShouldEqual, 0)
 
 		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -1823,7 +1829,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, c, test.ShouldEqual, 0)
 
 		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eB.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -1934,7 +1942,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, c, test.ShouldEqual, 1)
 
 		test.That(t, eA.Tick(context.Background(), true, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eB.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
+		time.Sleep(1 * time.Millisecond)
 		test.That(t, eA.Tick(context.Background(), false, uint32(time.Now().UnixMicro())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
