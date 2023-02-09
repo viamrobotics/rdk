@@ -373,6 +373,23 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
+	// Use the first unary interceptor to set a default timeout on the context
+	// if one is not already set.
+	unaryInterceptors = append(unaryInterceptors, func(
+		ctx context.Context,
+		req interface{},
+		info *googlegrpc.UnaryServerInfo,
+		handler googlegrpc.UnaryHandler,
+	) (interface{}, error) {
+		if _, deadlineSet := ctx.Deadline(); !deadlineSet {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, defaultMethodTimeout)
+			defer cancel()
+		}
+
+		return handler(ctx, req)
+	})
+
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
