@@ -2,7 +2,7 @@ name: PR Test Label Manager
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ 'workflow-labels' ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
@@ -20,7 +20,9 @@ jobs:
           organization: viamrobotics
           username: ${{ github.event.sender.login }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Always remove label
+      - name: Remove label
+        if: |
+          steps.is_organization_member.outputs.result == 'false'
         uses: andymckay/labeler@1.0.4
         with:
           repo-token: ${{ secrets.PR_TOKEN }} 
