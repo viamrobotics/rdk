@@ -2,7 +2,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	mlpb "go.viam.com/api/app/mltraining/v1"
 	"log"
 	"os"
 	"time"
@@ -409,6 +411,104 @@ func main() {
 							},
 						},
 						Action: DeleteCommand,
+					},
+				},
+			},
+			{
+				Name:  "ml",
+				Usage: "work with ml",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "submit",
+						Usage: "submit ml training request",
+						UsageText: fmt.Sprintf("viam ml submit <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads, dataFlagTags),
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     dataFlagDestination,
+								Required: true,
+								Usage:    "output directory for downloaded data",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagDataType,
+								Required: true,
+								Usage:    "data type to be downloaded: either binary or tabular",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagOrgIDs,
+								Required: false,
+								Usage:    "orgs filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagLocationIDs,
+								Required: false,
+								Usage:    "locations filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagRobotID,
+								Required: false,
+								Usage:    "robot_id filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagPartID,
+								Required: false,
+								Usage:    "part_id filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagRobotName,
+								Required: false,
+								Usage:    "robot_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagPartName,
+								Required: false,
+								Usage:    "part_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentType,
+								Required: false,
+								Usage:    "component_type filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentModel,
+								Required: false,
+								Usage:    "component_model filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagComponentName,
+								Required: false,
+								Usage:    "component_name filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagMethod,
+								Required: false,
+								Usage:    "method filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagMimeTypes,
+								Required: false,
+								Usage:    "mime_types filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagStart,
+								Required: false,
+								Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+							},
+							&cli.StringFlag{
+								Name:     dataFlagEnd,
+								Required: false,
+								Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagTags,
+								Required: false,
+								Usage: "tags filter. " +
+									"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+							},
+						},
+						Action: MLCommand,
 					},
 				},
 			},
@@ -839,6 +939,36 @@ func DataCommand(c *cli.Context) error {
 	default:
 		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
 	}
+	return nil
+}
+
+func MLCommand(c *cli.Context) error {
+	filter, err := createDataFilter(c)
+	fmt.Println("created filter")
+	if err != nil {
+		return err
+	}
+
+	client, err := rdkcli.NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	req := &mlpb.SubmitTrainingJobRequest{
+		Filter:         filter,
+		OrganizationId: "1c614556-2ff9-4234-9a94-d59b0a6d3378",
+		ModelName:      "aaron-test-name",
+		ModelVersion:   "some_version_1",
+		ModelType:      mlpb.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION,
+		Tags:           []string{"aaron-test-tag"},
+	}
+
+	resp, err := client.SubmitTrainingJob(context.Background(), req)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	fmt.Println(resp)
 	return nil
 }
 

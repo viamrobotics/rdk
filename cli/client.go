@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	mlpb "go.viam.com/api/app/mltraining/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -40,6 +41,7 @@ type AppClient struct {
 	conf       *Config
 	client     apppb.AppServiceClient
 	dataClient datapb.DataServiceClient
+	mlClient   mlpb.MLTrainingServiceClient
 	baseURL    *url.URL
 	rpcOpts    []rpc.DialOption
 	authFlow   *authFlow
@@ -196,6 +198,8 @@ func (c *AppClient) ensureLoggedIn() error {
 
 	c.client = apppb.NewAppServiceClient(conn)
 	c.dataClient = datapb.NewDataServiceClient(conn)
+	fmt.Println("assigning ml client")
+	c.mlClient = mlpb.NewMLTrainingServiceClient(conn)
 	return nil
 }
 
