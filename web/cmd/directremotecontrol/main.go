@@ -6,7 +6,7 @@ a config file that looks like the following:
 		"webrtc_enabled": true,
 		"host": "something.0000000000.viam.cloud",
 		"webrtc_signaling_address": "https://app.viam.com:443",
-		"webrtc_additional_ice_servers": [{"credential":"cred","urls":"turn:global.turn.twilio.com:3478?transport=udp","username":"cred"}],
+		"webrtc_additional_ice_servers": [{"credential":"cred","urls":"turn:global.turn.twilio.com:3478","username":"cred"}],
 		"baked_auth": {
 			"authEntity": "something.0000000000.viam.cloud",
 			"creds": {
