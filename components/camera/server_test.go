@@ -266,7 +266,7 @@ func TestServer(t *testing.T) {
 		// we know its lazy if it's a mime we can't actually handle internally
 		resp, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
-			MimeType: utils.WithLazyMIMEType(wooMIME),
+			MimeType: wooMIME,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(wooMIME))
