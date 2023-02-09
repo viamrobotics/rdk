@@ -7,6 +7,7 @@ import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd.vue';
+import Slam2dRender from './slam-2d-render.vue';
 
 interface Props {
   name: string
@@ -195,6 +196,7 @@ const refreshPCDMap = () => {
               </div>
             </div>
           </div>
+          <Slam2dRender />
           <img
             v-if="showImage"
             :src="imageMap"
