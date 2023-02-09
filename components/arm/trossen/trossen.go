@@ -266,6 +266,7 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	a.logger.Debug("gripper pwm set to 150")
 
 	// We don't want to over-open
 	atPos := false
@@ -281,9 +282,13 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 			}
 		} else {
 			atPos = true
+			a.logger.Debugf("reached open gripper position")
 		}
 	}
 	err = a.Joints["Gripper"][0].SetGoalPWM(0)
+	if err != nil {
+		a.logger.Debugf("gripper pwm set to 0")
+	}
 	return err
 }
 
@@ -297,14 +302,17 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	a.logger.Debug("gripper pwm set to -350")
 	err = servo.WaitForMovementVar(a.Joints["Gripper"][0])
 	if err != nil {
-		return false, err
+		setPWMErr := a.Joints["Gripper"][0].SetGoalPWM(0)
+		return false, multierr.Combine(err, setPWMErr)
 	}
 	pos, err := a.Joints["Gripper"][0].PresentPosition()
 	if err != nil {
 		return false, err
 	}
+	a.logger.Debugf("gripper position at %d (after grab)", pos)
 	didGrab := true
 
 	// If servo position is less than 1500, it's closed and we grabbed nothing
@@ -312,6 +320,25 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 		didGrab = false
 	}
 	return didGrab, nil
+}
+
+// StopGripper stops the gripper servo
+func (a *Arm) StopGripper(ctx context.Context) error {
+	a.opMgr.CancelRunning(ctx)
+	err := a.Joints["Gripper"][0].SetTorqueEnable(false)
+	if err != nil {
+		return err
+	}
+	return a.Joints["Gripper"][0].SetTorqueEnable(true)
+}
+
+// GripperIsMoving returns whether the gripper servo is moving
+func (a *Arm) GripperIsMoving(ctx context.Context) (bool, error) {
+	isMovingInt, err := a.Joints["Gripper"][0].Moving()
+	if err != nil {
+		return false, err
+	}
+	return (isMovingInt == 1), nil
 }
 
 // Stop stops the servos of the arm.
@@ -329,13 +356,13 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Close will get the arm ready to be turned off.
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) error {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
 	angles, err := a.GetAllAngles()
 	if err != nil {
-		a.logger.Errorf("failed to get angles: %s", err)
+		return errors.Wrap(err, "failed to get angles on component close")
 	}
 	alreadyAtSleep := true
 	gripperIsOpen := true
@@ -347,31 +374,35 @@ func (a *Arm) Close() {
 	gripperPos, err := a.Joints["Gripper"][0].PresentPosition()
 	if err != nil {
 		a.logger.Errorf("failed to get gripper position on close: %s", err)
+		gripperIsOpen = true
 	} else if gripperPos >= 2800 {
 		gripperIsOpen = false
 	}
 	if !alreadyAtSleep {
 		err = a.HomePosition(context.Background())
 		if err != nil {
-			a.logger.Errorf("Home position error: %s", err)
-			return
+			return errors.Wrap(err, "home position error")
 		}
 		err = a.SleepPosition(context.Background())
 		if err != nil {
-			a.logger.Errorf("Sleep pos error: %s", err)
-			return
+			return errors.Wrap(err, "sleep position err")
 		}
+	} else {
+		a.logger.Debug("trossen arm already at sleep, proceeding to close component")
 	}
 	if !gripperIsOpen {
 		err = a.OpenGripper(context.Background())
 		if err != nil {
-			a.logger.Errorf("gripper failed to open on arm component close: %s", err)
+			a.logger.Errorf("gripper failed to open on component c,ose: %s", err)
 		}
+	} else {
+		a.logger.Debug("gripper already open, proceeding to close component")
 	}
 	err = a.TorqueOff()
 	if err != nil {
-		a.logger.Errorf("Torque off error: %s", err)
+		return errors.Wrap(err, "torque off error in close")
 	}
+	return nil
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position.
@@ -661,6 +692,8 @@ func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 		// for any servo? The arm should be shipped with the servos pre-configured
 		if i != servoCount {
 			err = setServoDefaults(newServo)
+		} else {
+			err = newServo.SetTorqueEnable(true)
 		}
 		if err != nil {
 			return nil, err
