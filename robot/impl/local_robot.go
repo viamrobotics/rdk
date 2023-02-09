@@ -13,8 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
-	// pb "go.viam.com/api/app/packages/v1"
+	// pb "go.viam.com/api/app/packages/v1".
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
