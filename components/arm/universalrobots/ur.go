@@ -107,6 +107,20 @@ type URArm struct {
 
 const waitBackgroundWorkersDur = 5 * time.Second
 
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (ua *URArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		if ua.host != newCfg.Host {
+			return config.Reconfigure
+		}
+		ua.speed = newCfg.Speed
+		ua.urHostedKinematics = newCfg.ArmHostedKinematics
+		return config.None
+	}
+	return config.Reconfigure
+}
+
 // Close TODO.
 func (ua *URArm) Close(ctx context.Context) error {
 	ua.cancel()
@@ -324,7 +338,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(ua.model, joints)
+	return motionplan.ComputeOOBPosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -355,6 +369,10 @@ func (ua *URArm) MoveToPosition(
 
 // MoveToJointPositions TODO.
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, ua, joints.Values); err != nil {
+		return err
+	}
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
@@ -469,7 +487,12 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
+	// check that joint positions are not out of bounds
+	positionDegs := ua.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {
+		return err
+	}
+	return ua.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
 // AddToLog TODO.

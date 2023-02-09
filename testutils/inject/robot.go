@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 )
 
@@ -52,8 +53,9 @@ type Robot struct {
 	ModuleAddressFunc       func() (string, error)
 	ModuleManagerFunc       func() modmaninterface.ModuleManager
 
-	ops     *operation.Manager
-	SessMgr session.Manager
+	ops        *operation.Manager
+	SessMgr    session.Manager
+	PackageMgr packages.Manager
 }
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
@@ -154,6 +156,17 @@ func (r *Robot) SessionManager() session.Manager {
 		return noopSessionManager{}
 	}
 	return r.SessMgr
+}
+
+// PackageManager calls the injected PackageManager or the real version.
+func (r *Robot) PackageManager() packages.Manager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+
+	if r.PackageMgr == nil {
+		return packages.NewNoopManager()
+	}
+	return r.PackageMgr
 }
 
 // Config calls the injected Config or the real version.
