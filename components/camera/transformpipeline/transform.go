@@ -77,6 +77,11 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 		&detectorAttrs{},
 		"Overlays object detections on the image. Can use any detector registered in the vision service.",
 	},
+	transformTypeClassifications: {
+		string(transformTypeClassifications),
+		&classifierAttrs{},
+		"Overlays image classifications on the image. Can use any classifier registered in the vision service.",
+	},
 	transformTypeDepthEdges: {
 		string(transformTypeDepthEdges),
 		&depthEdgesAttrs{},
