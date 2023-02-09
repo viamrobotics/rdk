@@ -20,20 +20,13 @@ jobs:
           organization: viamrobotics
           username: ${{ github.event.sender.login }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Remove label
-        if: |
-          steps.is_organization_member.outputs.result == 'false'
-        uses: andymckay/labeler@1.0.4
-        with:
-          repo-token: ${{ secrets.PR_TOKEN }} 
-          remove-labels: "safe to test"
       - name: Auto label org members
         if: |
           steps.is_organization_member.outputs.result == 'true'
         uses: andymckay/labeler@1.0.4
         with:
           repo-token: ${{ secrets.PR_TOKEN }} 
-          add-labels: "safe to test, viam-org"
+          add-labels: "viam-org"
       - name: Add Unsafe PR Comment
         if: |
           steps.is_organization_member.outputs.result == 'false'
@@ -41,3 +34,17 @@ jobs:
         with:
           recreate: true
           message: For security reasons, this PR must be labeled with `safe to test` in order for tests to run.
+      - name: Remove Safe to Test
+        if: |
+          steps.is_organization_member.outputs.result == 'false'
+        uses: andymckay/labeler@1.0.4
+        with:
+          repo-token: ${{ secrets.PR_TOKEN }} 
+          remove-labels: "safe to test"
+      - name: Mark Safe to Test # each label fires an event, so this must be done last for tests to work
+        if: |
+          steps.is_organization_member.outputs.result == 'true'
+        uses: andymckay/labeler@1.0.4
+        with:
+          repo-token: ${{ secrets.PR_TOKEN }} 
+          add-labels: "safe to test"
