@@ -1,4 +1,3 @@
-<!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
 
 import { threeInstance, resizeRendererToDisplaySize } from 'trzy';
