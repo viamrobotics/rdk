@@ -1,4 +1,4 @@
-package stepper28byj48
+package unipolarfivewirestepper
 
 import (
 	"context"
@@ -8,48 +8,63 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
+
+const (
+	testBoardName = "fake_28byj"
+)
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+	b := &fakeboard.Board{Name: testBoardName}
+	deps := registry.Dependencies(map[resource.Name]interface{}{board.Named(b.Name): b})
+	return deps
+}
 
 func TestValid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger := golog.NewTestLogger(t)
 
-	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
-
 	mc := Config{}
 	c := config.Component{
-		Name: "fake_28byj",
+		Name:                "fake_28byj",
+		ConvertedAttributes: &mc,
 	}
+
+	deps := setupDependencies(t)
+
+	logger.Info(" printing DEP ", deps)
 
 	// Create motor with no board and default config
 	t.Run("motor initializing test with no board and default config", func(t *testing.T) {
-		_, err := newULN(nil, mc, c.Name, logger)
+		_, err := new28byj(deps, c, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	// Create motor with board and default config
 	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
-		_, err := newULN(b, mc, c.Name, logger)
+		_, err := new28byj(deps, c, c.Name, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	mc.Pins = PinConfig{In1: "b", In2: "a", In3: "c", In4: "d"}
 
-	_, err := newULN(b, mc, c.Name, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = newULN(b, mc, c.Name, logger)
+	_, err := new28byj(deps, c, c.Name, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
 
-	mm, err := newULN(b, mc, c.Name, logger)
+	mm, err := new28byj(deps, c, c.Name, logger)
+	logger.Info("err is ", err)
 	test.That(t, err, test.ShouldBeNil)
 
-	m := mm.(*uln2003)
+	m := mm.(*uln28byj)
 
 	t.Run("motor test supports position reporting", func(t *testing.T) {
 		features, err := m.Properties(ctx, nil)

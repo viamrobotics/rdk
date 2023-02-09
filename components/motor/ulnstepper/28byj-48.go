@@ -1,5 +1,21 @@
-// Package stepper28byj48 implements a GPIO based stepper motor with uln2003 controler.
-package stepper28byj48
+// Package unipolarfivewirestepper implements a GPIO based
+// stepper motor (model: 28byj-48) with uln2003 controler.
+package unipolarfivewirestepper
+
+/*
+	Motor Name:  		28byj-48
+	Motor Controler: 	ULN2003
+	Datasheet:
+			ULN2003: 	https://www.makerguides.com/wp-content/uploads/2019/04/ULN2003-Datasheet.pdf
+			28byj-48:	https://components101.com/sites/default/files/component_datasheet/28byj48-step-motor-datasheet.pdf
+
+	This driver will drive the motor with half-step driving method (instead of full-step drive) for higher resolutions.
+	In half-step the current vector divides a circle into eight parts. The eight step switching sequence is shown in
+	stepSequence below. The motor takes 5.625*(1/64)° per step. For 360° the motor will take 4096 steps.
+
+	We set the minimum sleep time between steps to be 0.002s to prevent hardware damage. The motor also has a max speed
+	of 10-15 rpm at 5V.
+*/
 
 import (
 	"context"
@@ -27,7 +43,7 @@ var (
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 )
 
-// stepSequence contains high and low signal for uln2003 pins.
+// stepSequence contains switching signal for uln2003 pins.
 // Treversing through stepSequence once is one step.
 var stepSequence = [8][4]bool{
 	{true, false, false, true},
@@ -85,7 +101,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newULN(deps, config, config.Name, logger)
+			return new28byj(deps, config, config.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, model, _motor)
@@ -100,15 +116,13 @@ func init() {
 	)
 }
 
-func newULN(deps registry.Dependencies, config config.Component, name string, logger golog.Logger) (motor.Motor, error) {
-
+func new28byj(deps registry.Dependencies, config config.Component, name string, logger golog.Logger) (motor.Motor, error) {
 	mc, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(mc, config.ConvertedAttributes)
 	}
 
 	b, err := board.FromDependencies(deps, mc.BoardName)
-
 	if err != nil {
 		return nil, errors.Wrap(err, " expected board name in config for motor")
 	}
@@ -117,7 +131,7 @@ func newULN(deps registry.Dependencies, config config.Component, name string, lo
 		return nil, errors.New("expected ticks_per_rotation to be greater than zero in config for motor")
 	}
 
-	m := &uln2003{
+	m := &uln28byj{
 		theBoard:         b,
 		ticksPerRotation: mc.TicksPerRotation,
 		logger:           logger,
@@ -159,8 +173,8 @@ func newULN(deps registry.Dependencies, config config.Component, name string, lo
 	return m, nil
 }
 
-// struct is named after the controler uln2003.
-type uln2003 struct {
+// struct is named after the controler uln28byj.
+type uln28byj struct {
 	theBoard           board.Board
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin
@@ -177,7 +191,8 @@ type uln2003 struct {
 	generic.Unimplemented
 }
 
-func (m *uln2003) doRun(ctx context.Context) {
+// doRun runs the motor till it reaches target step position.
+func (m *uln28byj) doRun(ctx context.Context) {
 	for {
 		m.lock.Lock()
 		if m.stepPosition == m.targetStepPosition {
@@ -201,8 +216,7 @@ func (m *uln2003) doRun(ctx context.Context) {
 // doStep has to be locked to call.
 // Depending on the direction, doStep will either treverse the stepSequence array in ascending
 // or descending order.
-func (m *uln2003) doStep(ctx context.Context, forward bool) error {
-
+func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 	if forward {
 		for tick := 0; tick < len(stepSequence); tick++ {
 			err := m.doTicks(ctx, tick)
@@ -227,7 +241,7 @@ func (m *uln2003) doStep(ctx context.Context, forward bool) error {
 }
 
 // doTicks sets all 4 pins.
-func (m *uln2003) doTicks(ctx context.Context, tick int) error {
+func (m *uln28byj) doTicks(ctx context.Context, tick int) error {
 	err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
 	if err1 != nil {
 		return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
@@ -259,7 +273,7 @@ func (m *uln2003) doTicks(ctx context.Context, tick int) error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -302,7 +316,7 @@ func (m *uln2003) GoFor(ctx context.Context, rpm, revolutions float64, extra map
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *uln2003) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
@@ -313,46 +327,46 @@ func (m *uln2003) GoTo(ctx context.Context, rpm, positionRevolutions float64, ex
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *uln2003) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
 }
 
 // SetPower is invalid for this motor.
-func (m *uln2003) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
 }
 
 // Position reports the current step position of the motor. If it's not supported, the returned
 // data is undefined.
-func (m *uln2003) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *uln28byj) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return float64(m.stepPosition), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
-func (m *uln2003) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+func (m *uln28byj) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
 // IsMoving returns if the motor is currently moving.
-func (m *uln2003) IsMoving(ctx context.Context) (bool, error) {
+func (m *uln28byj) IsMoving(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.stepPosition != m.targetStepPosition, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *uln2003) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.enable(ctx, false)
 }
 
-func (m *uln2003) stop() {
+func (m *uln28byj) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.targetStepPosition = m.stepPosition
@@ -362,7 +376,7 @@ func (m *uln2003) stop() {
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
 // that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
 // redundant.
-func (m *uln2003) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *uln28byj) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
@@ -375,7 +389,7 @@ func (m *uln2003) IsPowered(ctx context.Context, extra map[string]interface{}) (
 }
 
 // enable sets pin value to true or false. If all pin set to false, motor will be idle.
-func (m *uln2003) enable(ctx context.Context, on bool) error {
+func (m *uln28byj) enable(ctx context.Context, on bool) error {
 	err := multierr.Combine(
 		m.in1.Set(ctx, on, nil),
 		m.in2.Set(ctx, on, nil),
