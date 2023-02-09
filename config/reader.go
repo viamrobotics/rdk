@@ -468,6 +468,12 @@ func readFromCloud(
 		}
 		return nil, err
 	}
+
+	if cached {
+		logger.Debug("using cached config as is since there are no errors")
+		return cfg, nil
+	}
+
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
 	}
@@ -497,6 +503,8 @@ func readFromCloud(
 			return nil, err
 		}
 	}
+
+	logger.Debugw("tls data", "cert", tlsCertificate, "key", tlsPrivateKey)
 
 	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
 		logger.Debug("we should check for certificates")
