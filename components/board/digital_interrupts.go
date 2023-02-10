@@ -16,7 +16,9 @@ import (
 const ServoRollingAverageWindow = 10
 
 // Tick represents a signal received by an interrupt pin. This signal is communicated
-// via registered channel to the various drivers.
+// via registered channel to the various drivers. The timestamp in microseconds of the
+// tick SHOULD ONLY BE USED FOR CALCULATING THE TIME ELAPSED BETWEEN CONSECUTIVE TICKS AND NOT
+// AS AN ABSOLUTE TIMESTAMP.
 type Tick struct {
 	High              bool
 	TimestampMicroSec uint32
