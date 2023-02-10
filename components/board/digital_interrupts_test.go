@@ -37,13 +37,18 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	c := make(chan Tick)
 	i.AddCallback(c)
 
-	go func() { i.Tick(context.Background(), true, nowNanosTest()) }()
+	timeMicroSec := nowNanosTest()
+	go func() { i.Tick(context.Background(), true, timeMicroSec) }()
+	time.Sleep(1 * time.Microsecond)
 	v := <-c
-	test.That(t, v, test.ShouldBeTrue)
+	test.That(t, v.High, test.ShouldBeTrue)
+	test.That(t, v.TimestampMicroSec, test.ShouldEqual, timeMicroSec)
 
-	go func() { i.Tick(context.Background(), true, nowNanosTest()) }()
+	timeMicroSec = nowNanosTest()
+	go func() { i.Tick(context.Background(), true, timeMicroSec) }()
 	v = <-c
-	test.That(t, v, test.ShouldBeTrue)
+	test.That(t, v.High, test.ShouldBeTrue)
+	test.That(t, v.TimestampMicroSec, test.ShouldEqual, timeMicroSec)
 }
 
 func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
@@ -143,9 +148,9 @@ func TestServoInterrupt(t *testing.T) {
 	now := uint32(0)
 	for i := 0; i < 20; i++ {
 		test.That(t, s.Tick(context.Background(), true, now), test.ShouldBeNil)
-		now += 1500 * 1000 // this is what we measure
+		now += 1500 // this is what we measure
 		test.That(t, s.Tick(context.Background(), false, now), test.ShouldBeNil)
-		now += 1000 * 1000 * 1000 // this is between measurements
+		now += 1000 * 1000 // this is between measurements
 	}
 
 	intVal, err := s.Value(context.Background(), nil)
@@ -166,9 +171,9 @@ func TestServoInterruptWithPP(t *testing.T) {
 	now := uint32(0)
 	for i := 0; i < 20; i++ {
 		test.That(t, s.Tick(context.Background(), true, now), test.ShouldBeNil)
-		now += 1500 * 1000 // this is what we measure
+		now += 1500 // this is what we measure
 		test.That(t, s.Tick(context.Background(), false, now), test.ShouldBeNil)
-		now += 1000 * 1000 * 1000 // this is between measurements
+		now += 1000 * 1000 // this is between measurements
 	}
 
 	intVal, err := s.Value(context.Background(), nil)
