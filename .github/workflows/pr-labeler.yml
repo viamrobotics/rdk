@@ -19,11 +19,17 @@ jobs:
         with:
           github-token: ${{ secrets.PR_TOKEN }}
           script: |
-            let isMember = await github.rest.orgs.checkMembershipForUser({
+            let prNumber = context.payload.pull_request && context.payload.pull_request.number;
+            let isMember = false
+
+            let orgResp = await github.rest.orgs.checkMembershipForUser({
               org: "viamrobotics",
               username: context.payload.sender.login
             });
-            let prNumber = context.payload.pull_request && context.payload.pull_request.number;
+
+            if orgResp.status == 204 {
+              isMember = true;
+            }
 
             if (isMember) {
               await github.rest.issues.addLabels({
@@ -59,4 +65,4 @@ jobs:
           message: For security reasons, this PR must be labeled with `safe to test` in order for tests to run.
 
       - name: "Echo output"
-        run: echo ${{ steps.labeler.outputs }}
+        run: echo ${{ steps.labeler.outputs.is_member }}
