@@ -20,14 +20,14 @@ jobs:
           github-token: ${{ secrets.PR_TOKEN }}
           script: |
             let prNumber = context.payload.pull_request && context.payload.pull_request.number;
-            let isMember = false
+            let isMember = false;
 
             let orgResp = await github.rest.orgs.checkMembershipForUser({
               org: "viamrobotics",
               username: context.payload.sender.login
             });
 
-            if orgResp.status == 204 {
+            if (orgResp.status === 204) {
               isMember = true;
             }
 
