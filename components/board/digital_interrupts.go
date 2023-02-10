@@ -151,7 +151,6 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, microsecond
 		case <-ctx.Done():
 			return errors.New("context cancelled")
 		case c <- Tick{High: high, TimestampMicroSec: microseconds}:
-		default:
 		}
 	}
 	return nil

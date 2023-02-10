@@ -55,6 +55,8 @@ func init() {
 type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
+	cancelCtx     context.Context
+	cancelFunc    context.CancelFunc
 	cfg           *genericlinux.Config
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
@@ -68,9 +70,10 @@ type piPigpio struct {
 }
 
 var (
-	pigpioInitialized bool
-	instanceMu        sync.Mutex
-	instances         = map[*piPigpio]struct{}{}
+	pigpioInitialized           bool
+	instanceMu                  sync.RWMutex
+	instances                   = map[*piPigpio]struct{}{}
+	instanceCtx, instanceCancel = context.WithCancel(context.TODO())
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
@@ -531,6 +534,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.mu.Unlock()
+	instanceCancel()
 	instanceMu.Lock()
 	if len(instances) == 1 {
 		terminate = true
@@ -587,8 +591,8 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 
 	tick := (uint32(tickRollevers) * math.MaxUint32) + rawTick
 
-	instanceMu.Lock()
-	defer instanceMu.Unlock()
+	instanceMu.RLock()
+	defer instanceMu.RUnlock()
 	for instance := range instances {
 		i := instance.interruptsHW[uint(gpio)]
 		if i == nil {
@@ -601,7 +605,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(context.TODO(), high, tick)
+		err := i.Tick(instanceCtx, high, tick)
 		if err != nil {
 			instance.logger.Error(err)
 		}
