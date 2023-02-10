@@ -13,9 +13,9 @@ jobs:
       github.event_name == 'pull_request_target' &&
       contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     steps:
-      - name: "Label PR"
+      - name: "Check Membership and Label PR"
         uses: actions/github-script@v6
-        id: labeler
+        id: check-membership
         with:
           github-token: ${{ secrets.PR_TOKEN }}
           script: |
@@ -53,12 +53,10 @@ jobs:
                 name: "safe to test"
               });
             }
-            let result = {is_member: isMember};
-            console.log(result);
-            return result;
+            return isMember;
 
       - name: Add Unsafe PR Comment
-        if: steps.labeler.outputs.is_member != true
+        if: steps.check-membership.outputs.result != true
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
