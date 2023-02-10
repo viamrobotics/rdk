@@ -33,6 +33,7 @@ jobs:
 
   npm_publish:
     uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    needs: test
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
