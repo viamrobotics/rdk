@@ -23,7 +23,7 @@ jobs:
             try {
               await github.rest.issues.removeLabel({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, name: "safe to test"});
             } catch (err) {
-              core.error(`Error ${err}, while trying to remove 'safe to test' label.`);
+              core.info(`Non-fatal error ${err}, while trying to remove 'safe to test' label.`);
             }
             let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: context.payload.sender.login});
             if (orgResp.status === 204) {
