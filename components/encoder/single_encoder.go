@@ -1,5 +1,13 @@
 package encoder
 
+/*
+	This driver implements a single-wire odometer, such as LM393, as an encoder. This allows the motor to determine its relative position.
+	This class of encoders requires a single digital interrupt pin.
+
+	This encoder must be connected to a motor (or another component that supports encoders) in order to record readings. 
+	The motor indicates in which direction it is spinning, thus indicating if the encoder should increment or decrement reading value.
+*/
+
 import (
 	"context"
 	"sync"
@@ -14,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var singlemodelname = resource.NewDefaultModel("single")
@@ -50,6 +59,7 @@ type DirectionAware interface {
 // SingleEncoder keeps track of a motor position using a rotary encoder.
 type SingleEncoder struct {
 	generic.Unimplemented
+	name     string
 	I        board.DigitalInterrupt
 	position int64
 	m        DirectionAware
@@ -76,11 +86,11 @@ func (cfg *SingleWireConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.Pins.I == "" {
-		return nil, errors.New("expected nonempty string for i")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i")
 	}
 
 	if len(cfg.BoardName) == 0 {
-		return nil, errors.New("expected nonempty board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, cfg.BoardName)
 
@@ -96,30 +106,31 @@ func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
 func NewSingleEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
-	cfg config.Component,
+	rawConfig config.Component,
 	logger golog.Logger,
 ) (*SingleEncoder, error) {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &SingleEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
-	if cfg, ok := cfg.ConvertedAttributes.(*SingleWireConfig); ok {
-		board, err := board.FromDependencies(deps, cfg.BoardName)
-		if err != nil {
-			return nil, err
-		}
 
-		e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
-		}
-
-		logger.Info("no direction attached to SingleEncoder yet. SingleEncoder will not take measurements until attached to encoded motor.")
-
-		e.Start(ctx)
-
-		return e, nil
+	cfg, ok := rawConfig.ConvertedAttributes.(*SingleWireConfig)
+	if !ok {
+		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
 	}
 
-	return nil, errors.New("encoder config for SingleEncoder is not valid")
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	e := &SingleEncoder{name: rawConfig.Name, logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
+
+	board, err := board.FromDependencies(deps, cfg.BoardName)
+	if err != nil {
+		return nil, err
+	}
+
+	e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
+	if !ok {
+		return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
+	}
+
+	e.Start(ctx)
+
+	return e, nil
 }
 
 // Start starts the SingleEncoder background thread.
@@ -143,10 +154,15 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 			}
 
 			if e.m != nil {
+				// There is a minor race condition here. Delays in interrupt processing may result in a
+				// DirectionMoving() value that is *currently* different from one that was used to drive
+				// the motor. This may result in ticks being lost or applied in the wrong direction.
 				dir := e.m.DirectionMoving()
 				if dir == 1 || dir == -1 {
 					atomic.AddInt64(&e.position, dir)
 				}
+			} else {
+				e.logger.Warn("%s: received tick for encoder that isn't connected to a motor, ignoring.", e.name)
 			}
 		}
 	}, e.activeBackgroundWorkers.Done)
@@ -159,7 +175,6 @@ func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interfa
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
-// to be its new zero position.
 func (e *SingleEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	offsetInt := int64(offset)
 	atomic.StoreInt64(&e.position, offsetInt)
