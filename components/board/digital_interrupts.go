@@ -5,7 +5,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/erh/scheme"
 	"github.com/pkg/errors"
 
@@ -150,7 +149,6 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, microsecond
 	for _, c := range i.callbacks {
 		select {
 		case <-ctx.Done():
-			golog.Global().Debug("HELLO I AM HERE")
 			return errors.New("context cancelled")
 		case c <- Tick{High: high, TimestampMicroSec: microseconds}:
 		}
