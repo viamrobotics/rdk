@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -49,6 +50,20 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	v = <-c
 	test.That(t, v.High, test.ShouldBeTrue)
 	test.That(t, v.TimestampMicroSec, test.ShouldEqual, timeMicroSec)
+
+	i.RemoveCallback(c)
+
+	c = make(chan Tick, 2)
+	i.AddCallback(c)
+	go func() {
+		i.Tick(context.Background(), true, uint32(math.MaxUint32)-1)
+		i.Tick(context.Background(), true, uint32(1))
+	}()
+	v = <-c
+	v1 := <-c
+	test.That(t, v.High, test.ShouldBeTrue)
+	test.That(t, v1.High, test.ShouldBeTrue)
+	test.That(t, v1.TimestampMicroSec-v.TimestampMicroSec, test.ShouldEqual, uint32(3))
 }
 
 func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
