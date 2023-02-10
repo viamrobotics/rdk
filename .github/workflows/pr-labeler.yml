@@ -2,7 +2,7 @@ name: PR Test Label Manager
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ 'main' ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
@@ -13,28 +13,31 @@ jobs:
       github.event_name == 'pull_request_target' &&
       contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     steps:
-      - name: Check if organization member
-        id: is_organization_member
-        uses: jamessingleton/is-organization-member@1.0.1
+      - name: "Check Membership and Label PR"
+        uses: actions/github-script@v6
+        id: check-membership
         with:
-          organization: viamrobotics
-          username: ${{ github.event.sender.login }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Always remove label
-        uses: andymckay/labeler@1.0.4
-        with:
-          repo-token: ${{ secrets.PR_TOKEN }} 
-          remove-labels: "safe to test"
-      - name: Auto label org members
-        if: |
-          steps.is_organization_member.outputs.result == 'true'
-        uses: andymckay/labeler@1.0.4
-        with:
-          repo-token: ${{ secrets.PR_TOKEN }} 
-          add-labels: "safe to test, viam-org"
+          github-token: ${{ secrets.PR_TOKEN }}
+          script: |
+            let prNumber = context.payload.pull_request && context.payload.pull_request.number;
+            try {
+              await github.rest.issues.removeLabel({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, name: "safe to test"});
+            } catch (err) {
+              core.info(`Non-fatal error ${err}, while trying to remove 'safe to test' label.`);
+            }
+            let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: context.payload.sender.login});
+            if (orgResp.status === 204) {
+              // pr owner is an org member
+              await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["viam-org"]});
+              await new Promise((r) => setTimeout(r, 2000));
+              // order of labeling events must be preserved, so two seperate calls
+              await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["safe to test"]});
+              return true;
+            }
+            return false;
+
       - name: Add Unsafe PR Comment
-        if: |
-          steps.is_organization_member.outputs.result == 'false'
+        if: steps.check-membership.outputs.result != 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
