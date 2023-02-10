@@ -17,7 +17,7 @@ jobs:
         uses: actions/github-script@v6
         id: labeler
         with:
-          github-token: {{ $secrets.PR_TOKEN }}
+          github-token: ${{ secrets.PR_TOKEN }}
           script: |
             let isMember = await github.rest.orgs.checkMembershipForUser({
               org: "viamrobotics",
