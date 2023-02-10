@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -182,7 +183,8 @@ type uln28byj struct {
 	motorName          string
 
 	// state
-	lock sync.Mutex
+	lock  sync.Mutex
+	opMgr operation.SingleOperationManager
 
 	stepPosition         int64
 	stepperDelay         float64
@@ -278,6 +280,9 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 		return motor.NewZeroRPMError()
 	}
 
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
 	if math.Abs(rpm) < 0.1 {
 		m.logger.Info("RPM is less than 0.1 threshold, stopping motor ")
 		return m.Stop(ctx, nil)
@@ -310,7 +315,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	m.lock.Unlock()
 
 	m.doRun(ctx)
-	return nil
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
