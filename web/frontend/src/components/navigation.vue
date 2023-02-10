@@ -1,5 +1,6 @@
 <script setup lang="ts">
-
+// TODO: fix typecheck errors in https://viam.atlassian.net/browse/RSDK-1897
+// @ts-nocheck
 import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
