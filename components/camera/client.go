@@ -60,12 +60,13 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	actualType, _ := utils.CheckLazyMIMEType(resp.MimeType)
-	if actualType != expectedType {
-		c.logger.Debugw("got different MIME type than what was asked for", "sent", expectedType, "received", actualType)
+	if resp.MimeType != expectedType {
+		c.logger.Debugw("got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
 	} else {
 		resp.MimeType = mimeType
 	}
+
+	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
 	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType)
 	if err != nil {
 		return nil, nil, err
