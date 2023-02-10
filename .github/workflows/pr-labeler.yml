@@ -26,21 +26,21 @@ jobs:
 
             if (isMember) {
               await github.rest.issues.addLabels({
-                org: "viamrobotics",
+                owner: "viamrobotics",
                 repo: "rdk",
                 issue_number: prNumber,
                 labels: ["viam-org"]
               });
               await new Promise((r) => setTimeout(r, 2000));
               await github.rest.issues.addLabels({
-                org: "viamrobotics",
+                owner: "viamrobotics",
                 repo: "rdk",
                 issue_number: prNumber,
                 labels: ["safe to test"]
               });
             } else {
               await github.rest.issues.removeLabel({
-                org: "viamrobotics",
+                owner: "viamrobotics",
                 repo: "rdk",
                 issue_number: prNumber,
                 name: "safe to test"
