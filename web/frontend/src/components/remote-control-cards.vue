@@ -101,8 +101,6 @@ const connectedFirstTime = new Promise<void>((resolve) => {
     connectedFirstTimeResolve = resolve;
 });
 
-const client = props.client;
-
 let appConnectionManager = $ref<{
     statuses: {
         resources: boolean;
@@ -184,7 +182,7 @@ const querySensors = () => {
     }
     const req = new sensorsApi.GetSensorsRequest();
     req.setName(sensorsName);
-    client.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
+    props.client.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
         if (err) {
             return displayError(err);
         }
@@ -267,7 +265,7 @@ const restartStatusStream = () => {
     streamReq.setResourceNamesList(names);
     streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-    statusStream = client.robotService.streamStatus(streamReq);
+    statusStream = props.client.robotService.streamStatus(streamReq);
 
     statusStream.on('data', (response) => {
         updateStatus(response.getStatusList());
@@ -291,7 +289,7 @@ const queryMetadata = () => {
         let resourcesChanged = false;
         let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-        client.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
+        props.client.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
             if (err) {
                 reject(err);
                 return;
@@ -350,7 +348,7 @@ const fetchCurrentOps = () => {
         const req = new robotApi.GetOperationsRequest();
 
         const now = Date.now();
-        client.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
+        props.client.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
                 reject(err);
                 return;
@@ -399,7 +397,7 @@ const fetchCurrentSessions = () => {
     return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
         const req = new robotApi.GetSessionsRequest();
 
-        client.robotService.getSessions(req, new grpc.Metadata(), (err, resp) => {
+        props.client.robotService.getSessions(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
                 if ((err as ServiceError).code === grpc.Code.Unimplemented) {
                     sessionsSupported = false;
@@ -528,7 +526,7 @@ const createAppConnectionManager = () => {
                 }
                 resourcesOnce = false;
 
-                await client.connect();
+                await props.client.connect();
                 await fetchCurrentOps();
                 lastStatusTS = Date.now();
                 console.log('reconnected');
@@ -602,7 +600,7 @@ const filteredInputControllerList = () => {
 const viewFrame = async (cameraName: string) => {
     let blob;
     try {
-        blob = await new CameraClient(client, cameraName).renderFrame(Camera.MimeType.JPEG);
+        blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
     } catch (error) {
         displayError(error as ServiceError);
         return;
@@ -648,7 +646,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     document.querySelector('#connecting')!.classList.remove('hidden');
 
     try {
-        await client.connect(authEntity, creds);
+        await props.client.connect(authEntity, creds);
     } catch (error) {
         console.error('failed to connect:', error);
         if (onError) {
