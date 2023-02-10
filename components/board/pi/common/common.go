@@ -29,16 +29,17 @@ type ServoConfig struct {
 func (config *ServoConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.Pin == "" {
-		return deps, utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("need pin for pi servo"))
 	}
 	if config.BoardName == "" {
-		return deps, utils.NewConfigValidationError(path,
+		return nil, utils.NewConfigValidationError(path,
 			errors.New("need the name of the board"))
 	}
 	deps = append(deps, config.BoardName)
 	return deps, nil
 }
+
 func init() {
 	config.RegisterComponentAttributeMapConverter(
 		board.Subtype,
