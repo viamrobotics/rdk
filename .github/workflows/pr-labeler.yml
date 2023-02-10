@@ -18,15 +18,33 @@ jobs:
         id: labeler
         with:
           script: |
-            let isMember = await github.rest.orgs.checkMembershipForUser({"viamrobotics", context.payload.event.sender.login});
-            let prNumber = context.payload.pull_request && context.payload.pull_request.number            
+            let isMember = await github.rest.orgs.checkMembershipForUser({
+              org: "viamrobotics",
+              username: context.payload.event.sender.login
+            });
+            let prNumber = context.payload.pull_request && context.payload.pull_request.number;
 
             if (isMember) {
-              await github.rest.issues.addLabels({viamrobotics, rdk, prNumber, ['viam-org']});
-              await new Promise(r => setTimeout(r, 2000));
-              await github.rest.issues.addLabels({viamrobotics, rdk, prNumber, ['safe to test']});
+              await github.rest.issues.addLabels({
+                org: "viamrobotics",
+                repo: "rdk",
+                issue_number: prNumber,
+                labels: ["viam-org"]
+              });
+              await new Promise((r) => setTimeout(r, 2000));
+              await github.rest.issues.addLabels({
+                org: "viamrobotics",
+                repo: "rdk",
+                issue_number: prNumber,
+                labels: ["safe to test"]
+              });
             } else {
-              await github.rest.issues.removeLabel({viamrobotics, rdk, prNumber, 'safe to test'});
+              await github.rest.issues.removeLabel({
+                org: "viamrobotics",
+                repo: "rdk",
+                issue_number: prNumber,
+                name: "safe to test"
+              });
             }
             return {is_member: isMember};
 
