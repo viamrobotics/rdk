@@ -16,13 +16,13 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-// classifierAttrs is the attribute struct for classifiers (their name as found in the vision service).
+// classifierAttrs is the attribute struct for classifiers.
 type classifierAttrs struct {
 	ClassifierName      string  `json:"classifier_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 }
 
-// classifierSource takes an image from the camera, and overlays the labels from the classifier.
+// classifierSource takes an image from the camera, and overlays a label from the classifier.
 type classifierSource struct {
 	stream         gostream.VideoStream
 	classifierName string
@@ -64,7 +64,9 @@ func newClassificationsTransform(
 	return cam, camera.ColorStream, err
 }
 
-// Read returns the image overlaid with the labels from the classification.
+// Read returns the image overlaid with at most one label from the classification. It overlays the
+// highest-confidence label along with the confidence score, as long as the score is above the
+// confidence threshold.
 func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::classifier::Read")
 	defer span.End()
@@ -82,7 +84,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get classifications: %w", err)
 	}
-	// overlay labels on the source image
+	// overlay label on the source image
 	classifications = cs.confFilter(classifications)
 	if len(classifications) > 1 {
 		return nil, nil, fmt.Errorf("expected at most one classification, but got %v", len(classifications))
