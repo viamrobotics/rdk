@@ -13,38 +13,26 @@ jobs:
       github.event_name == 'pull_request_target' &&
       contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     steps:
-      - name: Check if organization member
-        id: is_organization_member
-        uses: jamessingleton/is-organization-member@1.0.1
+      - name: "Label PR"
+        uses: actions/github-script@v6
+        id: labeler
         with:
-          organization: viamrobotics
-          username: ${{ github.event.sender.login }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Auto label org members
-        if: |
-          steps.is_organization_member.outputs.result == 'true'
-        uses: andymckay/labeler@1.0.4
-        with:
-          repo-token: ${{ secrets.PR_TOKEN }} 
-          add-labels: "viam-org"
+          script: |
+            let isMember = await github.rest.orgs.checkMembershipForUser({"viamrobotics", context.payload.event.sender.login});
+            let prNumber = context.payload.pull_request && context.payload.pull_request.number            
+
+            if (isMember) {
+              await github.rest.issues.addLabels({viamrobotics, rdk, prNumber, ['viam-org']});
+              await new Promise(r => setTimeout(r, 2000));
+              await github.rest.issues.addLabels({viamrobotics, rdk, prNumber, ['safe to test']});
+            } else {
+              await github.rest.issues.removeLabel({viamrobotics, rdk, prNumber, 'safe to test'});
+            }
+            return {is_member: isMember};
+
       - name: Add Unsafe PR Comment
-        if: |
-          steps.is_organization_member.outputs.result == 'false'
+        if: steps.labeler.outputs.is_member == 'false'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
           message: For security reasons, this PR must be labeled with `safe to test` in order for tests to run.
-      - name: Remove Safe to Test
-        if: |
-          steps.is_organization_member.outputs.result == 'false'
-        uses: andymckay/labeler@1.0.4
-        with:
-          repo-token: ${{ secrets.PR_TOKEN }} 
-          remove-labels: "safe to test"
-      - name: Mark Safe to Test # each label fires an event, so this must be done last for tests to work
-        if: |
-          steps.is_organization_member.outputs.result == 'true'
-        uses: andymckay/labeler@1.0.4
-        with:
-          repo-token: ${{ secrets.PR_TOKEN }} 
-          add-labels: "safe to test"
