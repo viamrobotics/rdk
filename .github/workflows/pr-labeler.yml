@@ -60,9 +60,3 @@ jobs:
 
       - name: "Echo output"
         run: echo ${{ steps.labeler.outputs }}
-      - name: Add Unsafe PR Comment
-        if: steps.labeler.outputs.is_member != true
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          recreate: true
-          message: For security reasons, this PR must be labeled with `safe to test` in order for tests to run.
