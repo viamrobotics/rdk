@@ -20,8 +20,12 @@ jobs:
           github-token: ${{ secrets.PR_TOKEN }}
           script: |
             let prNumber = context.payload.pull_request && context.payload.pull_request.number;
+            try {
+              await github.rest.issues.removeLabel({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, name: "safe to test"});
+            } catch (err) {
+              core.error(`Error ${err}, while trying to remove 'safe to test' label.`);
+            }
             let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: context.payload.sender.login});
-            await github.rest.issues.removeLabel({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, name: "safe to test"});
             if (orgResp.status === 204) {
               // pr owner is an org member
               await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["viam-org"]});
