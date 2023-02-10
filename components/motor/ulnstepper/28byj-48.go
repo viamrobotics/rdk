@@ -17,6 +17,9 @@ package unipolarfivewirestepper
 	of 10-15 rpm at 5V.
 */
 
+
+// opmgr not being used!
+
 import (
 	"context"
 	"math"
@@ -40,7 +43,6 @@ import (
 
 var (
 	model                = resource.NewDefaultModel("28byj48")
-	minStepDelay         = 0.002                  // minimum sleep time between steps
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 )
 
@@ -59,10 +61,10 @@ var stepSequence = [8][4]bool{
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
-	In1 string `json:"In1"`
-	In2 string `json:"In2"`
-	In3 string `json:"In3"`
-	In4 string `json:"In4"`
+	In1 string `json:"in1"`
+	In2 string `json:"in2"`
+	In3 string `json:"in3"`
+	In4 string `json:"in4"`
 }
 
 // Config describes the configuration of a motor.
@@ -187,9 +189,8 @@ type uln28byj struct {
 	opMgr operation.SingleOperationManager
 
 	stepPosition         int64
-	stepperDelay         float64
+	stepperDelay         time.Duration
 	targetStepPosition   int64
-	targetStepsPerSecond int64
 	generic.Unimplemented
 }
 
@@ -197,10 +198,13 @@ type uln28byj struct {
 func (m *uln28byj) doRun(ctx context.Context) {
 	for {
 		m.lock.Lock()
+
+		// This condition cannot be locked for the duration of the loop as
+		// Stop() modifies m.targetStepPosition to interrupt the run
 		if m.stepPosition == m.targetStepPosition {
-			err := m.enable(ctx, false)
+			err := m.setPins(ctx, [4]bool{false, false, false, false})
 			if err != nil {
-				m.logger.Info("error while enabling motor")
+				m.logger.Info("error while disabling motor")
 			}
 			m.lock.Unlock()
 			break
@@ -220,62 +224,46 @@ func (m *uln28byj) doRun(ctx context.Context) {
 // or descending order.
 func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 	if forward {
-		for tick := 0; tick < len(stepSequence); tick++ {
-			err := m.doTicks(ctx, tick)
-			if err != nil {
-				return err
-			}
-		}
-		time.Sleep(time.Duration(m.stepperDelay))
 		m.stepPosition++
 	} else {
-		for tick := len(stepSequence) - 1; tick >= 0; tick-- {
-			err := m.doTicks(ctx, tick)
-			if err != nil {
-				return err
-			}
-		}
-		time.Sleep(time.Duration(m.stepperDelay))
 		m.stepPosition--
 	}
+
+	nextStepSequence := 0
+	if (m.stepPosition < 0) {
+		nextStepSequence = 7 + int(m.stepPosition % 8)
+	} else {
+		nextStepSequence = int(m.stepPosition % 8)
+	}
+
+	err := m.setPins(ctx, stepSequence[nextStepSequence])
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Duration(m.stepperDelay))
 
 	return nil
 }
 
 // doTicks sets all 4 pins.
-func (m *uln28byj) doTicks(ctx context.Context, tick int) error {
-	err1 := m.in1.Set(ctx, stepSequence[tick][0], nil)
-	if err1 != nil {
-		return errors.Errorf("failed to set In1 with error in motor (%s)", m.motorName)
-	}
+// must be called in locked context
+func (m *uln28byj) setPins(ctx context.Context, pins [4]bool) error {
+	err := multierr.Combine(
+		m.in1.Set(ctx, pins[0], nil),
+		m.in2.Set(ctx, pins[1], nil),
+		m.in3.Set(ctx, pins[2], nil),
+		m.in4.Set(ctx, pins[3], nil),
+	)
 
-	time.Sleep(minDelayBetweenTicks)
-	err2 := m.in2.Set(ctx, stepSequence[tick][1], nil)
-	if err2 != nil {
-		return errors.Errorf("failed to set In2 with error in motor (%s)", m.motorName)
-	}
-
-	time.Sleep(minDelayBetweenTicks)
-
-	err3 := m.in3.Set(ctx, stepSequence[tick][2], nil)
-	if err3 != nil {
-		return errors.Errorf("failed to set In3 with error in motor (%s)", m.motorName)
-	}
-
-	time.Sleep(minDelayBetweenTicks)
-
-	err4 := m.in4.Set(ctx, stepSequence[tick][3], nil)
-	if err4 != nil {
-		return errors.Errorf("failed to set In4 with error in motor (%s)", m.motorName)
-	}
-	return nil
+	return err
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {	
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -288,9 +276,15 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 		return m.Stop(ctx, nil)
 	}
 
-	if revolutions == 0 {
-		revolutions = 1000000.0
-	}
+	m.lock.Lock()
+	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
+	m.lock.Unlock()
+
+	m.doRun(ctx)
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+}
+
+func (m *uln28byj) goMath(rpm float64, revolutions float64) (int64, time.Duration){
 	var d int64 = 1
 
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
@@ -300,22 +294,17 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	revolutions = math.Abs(revolutions)
 	rpm = math.Abs(rpm) * float64(d)
 
-	m.lock.Lock()
-
-	m.targetStepPosition += int64(float64(d)*revolutions*float64(m.ticksPerRotation)) / 8
-	m.targetStepsPerSecond = int64(revolutions * float64(m.ticksPerRotation) / 60.0)
-	if m.targetStepsPerSecond == 0 {
-		m.targetStepsPerSecond = 1
-	}
+	targetPosition := m.stepPosition + int64(float64(d)*revolutions*float64(m.ticksPerRotation))
 
 	// stepperDelay is the wait time between each step taken.
 	// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
-	m.stepperDelay = math.Max(1/((rpm*8)/60), minStepDelay)
+	stepperDelay := time.Duration(int64((1/(math.Abs(rpm) * float64(m.ticksPerRotation) / 60.0)) * 1000000)) * time.Microsecond
+	if stepperDelay < minDelayBetweenTicks {
+		m.logger.Debugf("Computed sleep time between ticks (%v) too short. Defaulting to %v", stepperDelay, minDelayBetweenTicks)
+		stepperDelay = minDelayBetweenTicks	
+	}
 
-	m.lock.Unlock()
-
-	m.doRun(ctx)
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+	return targetPosition, stepperDelay
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -326,7 +315,13 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 	if err != nil {
 		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
 	}
-	moveDistance := positionRevolutions - (curPos/float64(m.ticksPerRotation))/8
+	moveDistance := positionRevolutions - curPos
+
+	m.logger.Debugf("Moving %v ticks at %v rpm", moveDistance, rpm)
+
+	if moveDistance == 0 {
+		return nil
+	}
 
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
@@ -346,7 +341,7 @@ func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[str
 func (m *uln28byj) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return float64(m.stepPosition), nil
+	return float64(m.stepPosition)/float64(m.ticksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
@@ -365,17 +360,12 @@ func (m *uln28byj) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.enable(ctx, false)
-}
 
-func (m *uln28byj) stop() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	// Signals to doRun() to end the run
 	m.targetStepPosition = m.stepPosition
-	m.targetStepsPerSecond = 0
+	return nil
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
@@ -391,16 +381,4 @@ func (m *uln28byj) IsPowered(ctx context.Context, extra map[string]interface{}) 
 		percent = 1.0
 	}
 	return on, percent, err
-}
-
-// enable sets pin value to true or false. If all pin set to false, motor will be idle.
-func (m *uln28byj) enable(ctx context.Context, on bool) error {
-	err := multierr.Combine(
-		m.in1.Set(ctx, on, nil),
-		m.in2.Set(ctx, on, nil),
-		m.in3.Set(ctx, on, nil),
-		m.in4.Set(ctx, on, nil),
-	)
-
-	return err
 }
