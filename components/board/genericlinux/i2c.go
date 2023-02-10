@@ -43,17 +43,15 @@ func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	return &i2cHandle{device: &i2c.Dev{Bus: bus.closeableBus, Addr: uint16(addr)}, mu: &bus.mu}, nil
 }
 
-type i2cHandle struct {
+type i2cHandle struct { // Implements the board.I2CHandle interface
 	device *i2c.Dev    // Will become nil if we Close() the handle
 	mu     *sync.Mutex // Points to the i2cBus' mutex
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) Write(ctx context.Context, tx []byte) error {
 	return h.device.Tx(tx, nil)
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	buffer := make([]byte, count)
 	err := h.device.Tx(nil, buffer)
@@ -74,7 +72,6 @@ func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	return h.device.Tx(fullW, r)
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	result := make([]byte, 1)
 	err := h.transactAtRegister(register, nil, result)
@@ -84,12 +81,10 @@ func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, erro
 	return result[0], nil
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	return h.transactAtRegister(register, []byte{data}, nil)
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
 	result := make([]byte, 2)
 	err := h.transactAtRegister(register, nil, result)
@@ -99,14 +94,12 @@ func (h *i2cHandle) ReadWordData(ctx context.Context, register byte) (uint16, er
 	return binary.BigEndian.Uint16(result), nil
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
 	w := make([]byte, 2)
 	binary.BigEndian.PutUint16(w, data)
 	return h.transactAtRegister(register, w, nil)
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	result := make([]byte, numBytes)
 	err := h.transactAtRegister(register, nil, result)
@@ -116,7 +109,6 @@ func (h *i2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 	return result, nil
 }
 
-// This helps the i2cHandle struct implement the board.I2CHandle interface.
 func (h *i2cHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
 	return h.transactAtRegister(register, data, nil)
 }
