@@ -20,7 +20,7 @@ jobs:
           script: |
             let isMember = await github.rest.orgs.checkMembershipForUser({
               org: "viamrobotics",
-              username: context.payload.event.sender.login
+              username: context.payload.sender.login
             });
             let prNumber = context.payload.pull_request && context.payload.pull_request.number;
 
