@@ -17,6 +17,7 @@ jobs:
         uses: actions/github-script@v6
         id: labeler
         with:
+          token: {{ $secrets.PR_TOKEN }}
           script: |
             let isMember = await github.rest.orgs.checkMembershipForUser({
               org: "viamrobotics",
@@ -49,7 +50,7 @@ jobs:
             return {is_member: isMember};
 
       - name: Add Unsafe PR Comment
-        if: steps.labeler.outputs.is_member != 'true'
+        if: !steps.labeler.outputs.is_member
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
