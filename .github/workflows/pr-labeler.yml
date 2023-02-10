@@ -20,17 +20,17 @@ jobs:
           github-token: ${{ secrets.PR_TOKEN }}
           script: |
             let prNumber = context.payload.pull_request && context.payload.pull_request.number;
-            let isMember = false;
-            let orgResp = await github.rest.orgs.checkMembershipForUser({"viamrobotics", context.payload.sender.login});
-            if (orgResp.status === 204) {isMember = true;}
-            if (isMember) {
-              await github.rest.issues.addLabels({"viamrobotics", "rdk", prNumber, ["viam-org"]});
+            let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: context.payload.sender.login});
+            if (orgResp.status === 204) {
+              // pr owner is an org member
+              await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["viam-org"]});
               await new Promise((r) => setTimeout(r, 2000));
-              await github.rest.issues.addLabels({"viamrobotics", "rdk", prNumber, ["safe to test"]});
-            } else {
-              await github.rest.issues.removeLabel({"viamrobotics", "rdk", prNumber, "safe to test"});
+              // order of labeling events must be preserved, so two seperate calls
+              await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["safe to test"]});
+              return true;
             }
-            return isMember;
+            await github.rest.issues.removeLabel({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, name: "safe to test"});
+            return false;
 
       - name: Add Unsafe PR Comment
         if: steps.check-membership.outputs.result != 'true'
