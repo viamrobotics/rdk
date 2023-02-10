@@ -406,20 +406,20 @@ func TestClientLazyImage(t *testing.T) {
 	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG)
 	frame, _, err := camera.ReadImage(ctx, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, frame, test.ShouldNotHaveSameTypeAs, &rimage.LazyEncodedImage{})
-	compVal, _, err := rimage.CompareImages(img, frame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	// Should always lazily decode
+	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+	frameLazy := frame.(*rimage.LazyEncodedImage)
+	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	ctx = gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
 	frame, _, err = camera.ReadImage(ctx, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
-	frameLazy := frame.(*rimage.LazyEncodedImage)
+	frameLazy = frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypePNG)
-	compVal, _, err = rimage.CompareImages(img, frame)
+	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
