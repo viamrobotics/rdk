@@ -56,7 +56,7 @@ jobs:
             return isMember;
 
       - name: Add Unsafe PR Comment
-        if: steps.check-membership.outputs.result != true
+        if: steps.check-membership.outputs.result != 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
