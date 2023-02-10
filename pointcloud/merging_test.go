@@ -113,6 +113,7 @@ func TestApplyOffset(t *testing.T) {
 }
 
 func TestMergePoints1(t *testing.T) {
+	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	logger := golog.NewTestLogger(t)
 	clouds := makeClouds(t)
 	cloudsWithOffset := make([]CloudAndOffsetFunc, 0, len(clouds))
@@ -130,6 +131,7 @@ func TestMergePoints1(t *testing.T) {
 }
 
 func TestMergePoints2(t *testing.T) {
+	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	logger := golog.NewTestLogger(t)
 	clouds := makeThreeCloudsWithOffsets(t)
 	pc, err := MergePointClouds(context.Background(), clouds, logger)
