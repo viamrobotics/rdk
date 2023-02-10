@@ -2,7 +2,7 @@ name: PR Test Label Manager
 
 on:
   pull_request_target:
-    branches: [ 'workflow-labels' ] # revert before merge
+    branches: [ 'main' ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
