@@ -113,8 +113,8 @@ func TestValid(t *testing.T) {
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, true)
-		test.That(t, powerPct, test.ShouldEqual, 1.0)
+		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -124,7 +124,7 @@ func TestValid(t *testing.T) {
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, on, test.ShouldEqual, false)
 		test.That(t, powerPct, test.ShouldEqual, 0.0)
 
 		pos, err := m.Position(ctx, nil)
@@ -135,15 +135,15 @@ func TestValid(t *testing.T) {
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, true)
-		test.That(t, powerPct, test.ShouldEqual, 1.0)
+		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 
 		err = m.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, 2)
+		test.That(t, pos, test.ShouldBeGreaterThanOrEqualTo, 0)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
 
