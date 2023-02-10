@@ -17,9 +17,6 @@ package unipolarfivewirestepper
 	of 10-15 rpm at 5V.
 */
 
-
-// opmgr not being used!
-
 import (
 	"context"
 	"math"
@@ -49,6 +46,7 @@ var (
 // stepSequence contains switching signal for uln2003 pins.
 // Treversing through stepSequence once is one step.
 var stepSequence = [8][4]bool{
+	{false, false, false, true},
 	{true, false, false, true},
 	{true, false, false, false},
 	{true, true, false, false},
@@ -56,7 +54,6 @@ var stepSequence = [8][4]bool{
 	{false, true, true, false},
 	{false, false, true, false},
 	{false, false, true, true},
-	{false, false, false, true},
 }
 
 // PinConfig defines the mapping of where motor are wired.
@@ -188,9 +185,9 @@ type uln28byj struct {
 	lock  sync.Mutex
 	opMgr operation.SingleOperationManager
 
-	stepPosition         int64
-	stepperDelay         time.Duration
-	targetStepPosition   int64
+	stepPosition       int64
+	stepperDelay       time.Duration
+	targetStepPosition int64
 	generic.Unimplemented
 }
 
@@ -230,8 +227,8 @@ func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 	}
 
 	nextStepSequence := 0
-	if (m.stepPosition < 0) {
-		nextStepSequence = 7 + int(m.stepPosition % 8)
+	if m.stepPosition < 0 {
+		nextStepSequence = 7 + int(m.stepPosition%8)
 	} else {
 		nextStepSequence = int(m.stepPosition % 8)
 	}
@@ -247,7 +244,7 @@ func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 }
 
 // doTicks sets all 4 pins.
-// must be called in locked context
+// must be called in locked context.
 func (m *uln28byj) setPins(ctx context.Context, pins [4]bool) error {
 	err := multierr.Combine(
 		m.in1.Set(ctx, pins[0], nil),
@@ -263,7 +260,7 @@ func (m *uln28byj) setPins(ctx context.Context, pins [4]bool) error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {	
+func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -284,7 +281,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *uln28byj) goMath(rpm float64, revolutions float64) (int64, time.Duration){
+func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
 	var d int64 = 1
 
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
@@ -298,10 +295,10 @@ func (m *uln28byj) goMath(rpm float64, revolutions float64) (int64, time.Duratio
 
 	// stepperDelay is the wait time between each step taken.
 	// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
-	stepperDelay := time.Duration(int64((1/(math.Abs(rpm) * float64(m.ticksPerRotation) / 60.0)) * 1000000)) * time.Microsecond
+	stepperDelay := time.Duration(int64((1/(math.Abs(rpm)*float64(m.ticksPerRotation)/60.0))*1000000)) * time.Microsecond
 	if stepperDelay < minDelayBetweenTicks {
 		m.logger.Debugf("Computed sleep time between ticks (%v) too short. Defaulting to %v", stepperDelay, minDelayBetweenTicks)
-		stepperDelay = minDelayBetweenTicks	
+		stepperDelay = minDelayBetweenTicks
 	}
 
 	return targetPosition, stepperDelay
@@ -333,7 +330,7 @@ func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra 
 
 // SetPower is invalid for this motor.
 func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	return errors.Errorf("doesn't support raw power mode in motor (%s)", m.motorName)
+	return errors.Errorf("raw power not supported in stepper motor (%s)", m.motorName)
 }
 
 // Position reports the current step position of the motor. If it's not supported, the returned
@@ -341,7 +338,7 @@ func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[str
 func (m *uln28byj) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return float64(m.stepPosition)/float64(m.ticksPerRotation), nil
+	return float64(m.stepPosition) / float64(m.ticksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
