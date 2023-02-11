@@ -216,6 +216,7 @@ func TestDualServerSource(t *testing.T) {
 
 func TestServerError(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	//nolint:dogsled
 	router, _, _, _ := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
