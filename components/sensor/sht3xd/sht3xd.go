@@ -1,10 +1,13 @@
 // Package sht3xd implements a sht3x-d sensor for temperature and humidity
+// datasheet can be found at: https://cdn-shop.adafruit.com/product-files/2857/Sensirion_Humidity_SHT3x_Datasheet_digital-767294.pdf
+// example repo: https://github.com/esphome/esphome/tree/dev/esphome/components/sht3xd
 package sht3xd
 
 import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -19,7 +22,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("sht3xd")
+var modelname = resource.NewDefaultModel("sensiron-sht3xd")
 
 const (
 	defaultI2Caddr = 0x44
@@ -45,7 +48,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, config.Board)
 	if len(config.I2CBus) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
 }
@@ -124,7 +127,7 @@ type sht3xd struct {
 	name string
 }
 
-// Readings returns a list containing single item (current temperature).
+// Readings returns a list containing two items (current temperature and humidity).
 func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	tryRead := func() ([]byte, error) {
 		handle, err := s.bus.OpenHandle(s.addr)
@@ -164,13 +167,12 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	temp := 175.0*float64(tempRaw)/65535.0 - 45.0
 	humid := 100.0 * float64(humidRaw) / 65535.0
 	return map[string]interface{}{
-		"temperature_celsius":    temp,
-		"temperature_fahrenheit": temp*1.8 + 32,
-		"humidity":               humid,
+		"temperature_celsius": temp,
+		"humidity_pct_rh":     humid,
 	}, nil
 }
 
-// Readings returns a list containing single item (current temperature).
+// reset will reset the sensor.
 func (s *sht3xd) reset(ctx context.Context) error {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
@@ -178,5 +180,7 @@ func (s *sht3xd) reset(ctx context.Context) error {
 		return err
 	}
 	err = handle.Write(ctx, []byte{sht3xdCOMMANDSOFTRESET1, sht3xdCOMMANDSOFTRESET2})
+	// wait for chip reset cycle to complete
+	time.Sleep(1 * time.Millisecond)
 	return multierr.Append(err, handle.Close())
 }
