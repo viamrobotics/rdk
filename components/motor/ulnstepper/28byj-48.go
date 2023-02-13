@@ -230,7 +230,7 @@ func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 		return err
 	}
 
-	time.Sleep(time.Duration(m.stepperDelay))
+	time.Sleep(m.stepperDelay)
 
 	return nil
 }
