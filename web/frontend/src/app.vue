@@ -3,12 +3,12 @@
 import { Client } from '@viamrobotics/sdk';
 import RemoteControlCards from './components/remote-control-cards.vue';
 
-const host = window.host;
-const bakedAuth = window.bakedAuth;
-const supportedAuthTypes = window.supportedAuthTypes;
-const webrtcAdditionalICEServers = window.webrtcAdditionalICEServers;
-const webrtcEnabled = window.webrtcEnabled;
-const webrtcSignalingAddress = window.webrtcSignalingAddress;
+const { host } = window;
+const { bakedAuth } = window;
+const { supportedAuthTypes } = window;
+const { webrtcAdditionalICEServers } = window;
+const { webrtcEnabled } = window;
+const { webrtcSignalingAddress } = window;
 
 const rtcConfig = {
   iceServers: [
