@@ -57,22 +57,15 @@ func TestCheckCollisions(t *testing.T) {
 	obstacles["obstacleCube000"] = bc1.Transform(spatial.NewZeroPose())
 	obstacles["obstacleCube888"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{8, 8, 8}))
 	obstacles["obstacleCube999"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{9, 9, 9}))
-	interactionSpaces := make(map[string]spatial.Geometry)
-	interactionSpaces["iSCube000"] = bc1.Transform(spatial.NewZeroPose())
-	interactionSpaces["iSCube222"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
 	robotEntities, err := NewObjectCollisionEntities(robot)
 	test.That(t, err, test.ShouldBeNil)
 	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
 	test.That(t, err, test.ShouldBeNil)
-	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
-	test.That(t, err, test.ShouldBeNil)
-	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{obstacleEntities, spaceEntities}, true)
+	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{obstacleEntities}, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"robotCube222", "robotCube333", 1},
 		{"obstacleCube000", "robotCube000", 2},
-		{"iSCube000", "robotCube333", 1},
-		{"iSCube222", "robotCube333", 1},
 	}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
