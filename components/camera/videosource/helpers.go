@@ -24,8 +24,8 @@ import (
 func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	if !strings.Contains(detectedMimeType, "image") {
-		// TODO: image.RegisterFormat "text/plain" to parse error messages
-		return "", errors.Errorf("cannot decode content-type: %s", detectedMimeType)
+		errMsg := errors.Errorf("%s", string(data))
+		return "", errors.Wrapf(errMsg, "cannot decode image from MIME type '%s'", detectedMimeType)
 	}
 
 	requestedMime := gostream.MIMETypeHint(ctx, "")
