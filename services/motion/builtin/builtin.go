@@ -31,7 +31,7 @@ func init() {
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Servipce, logger golog.Logger) (motion.Service, error) {
 	return &builtIn{
 		r:      r,
 		logger: logger,

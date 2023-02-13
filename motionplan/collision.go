@@ -59,7 +59,7 @@ type collisionEntity struct {
 type CollisionEntities interface {
 	count() int
 	entityFromIndex(int) *collisionEntity
-	indexFromName(string) (int, bool)
+	indexFromName(string) int
 	checkCollision(*collisionEntity, *collisionEntity, bool) (float64, error)
 	reportCollisions([]float64) []int
 }
@@ -98,11 +98,12 @@ func (oce *ObjectCollisionEntities) entityFromIndex(index int) *collisionEntity 
 }
 
 // indexFromName returns the index in the CollisionEntities class that corresponds to the given name.
-func (oce *ObjectCollisionEntities) indexFromName(name string) (int, bool) {
+// a negative return value corresponds to an error
+func (oce *ObjectCollisionEntities) indexFromName(name string) int {
 	if index, ok := oce.indices[name]; ok {
-		return index, true
+		return index
 	}
-	return -1, false
+	return -1
 }
 
 func (oce *ObjectCollisionEntities) checkCollision(key, test *collisionEntity, reportDistances bool) (float64, error) {
@@ -226,9 +227,9 @@ func newCollisionGraph(
 }
 
 func (cg *collisionGraph) getIndices(keyName, testName string) (int, int, bool) {
-	i, iOk := cg.key.indexFromName(keyName)
-	j, jOk := cg.test.indexFromName(testName)
-	return i, j, iOk && jOk
+	i := cg.key.indexFromName(keyName)
+	j := cg.test.indexFromName(testName)
+	return i, j, i >= 0 && j >= 0
 }
 
 // collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
@@ -349,7 +350,7 @@ func (cs *CollisionSystem) CollisionBetween(keyName, testName string) bool {
 // AddCollisionSpecification takes a Collision as an argument and either whitelists or blacklists collisions between the two entities.
 // Whether or not they are whitelisted or blacklisted depends on the value of the penetration depth of the given Collision.
 // If this value is positive the collision is whitelisted, otherwise it is blacklisted.
-func (cs *CollisionSystem) AddCollisionSpecification(specification *Collision) error {
+func (cs *CollisionSystem) AddCollisionSpecificationToGraphs(specification *Collision) error {
 	for _, graph := range cs.graphs {
 		if err := graph.addCollisionSpecification(specification); err != nil {
 			return err

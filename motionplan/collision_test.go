@@ -76,7 +76,7 @@ func TestCheckCollisions(t *testing.T) {
 	}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
-	// case 3: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
+	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -124,13 +124,13 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
-	err = cs.AddCollisionSpecification(&expectedCollisions[1])
+	err = cs.AddCollisionSpecificationToGraphs(&expectedCollisions[1])
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
 
 	// case 4: add a collision specification to the collision system to disallow collisions between two geometries which always collide
 	newCollision := Collision{name1: "xArm6:upper_arm", name2: "xArm6:upper_forearm", penetrationDepth: -1}
-	err = cs.AddCollisionSpecification(&newCollision)
+	err = cs.AddCollisionSpecificationToGraphs(&newCollision)
 	test.That(t, err, test.ShouldBeNil)
 	newCollision.penetrationDepth = 75.7
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), []Collision{expectedCollisions[0], newCollision}), test.ShouldBeTrue)
