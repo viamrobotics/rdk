@@ -262,7 +262,17 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 	defer done()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	err := a.Joints["Gripper"][0].SetGoalPWM(150)
+
+	pos, err := a.Joints["Gripper"][0].PresentPosition()
+	if err != nil {
+		return errors.Wrap(err, "position retrieval failed when opening gripper")
+	}
+	if pos >= 2800 {
+		a.logger.Debug("gripper already open, returning")
+		return nil
+	}
+
+	err = a.Joints["Gripper"][0].SetGoalPWM(150)
 	if err != nil {
 		return err
 	}
@@ -274,7 +284,7 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 		var pos int
 		pos, err = a.Joints["Gripper"][0].PresentPosition()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "position retrieval failed when opening gripper")
 		}
 		if pos < 2800 {
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
