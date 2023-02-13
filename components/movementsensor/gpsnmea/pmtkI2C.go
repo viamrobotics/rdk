@@ -29,7 +29,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea bool
-	err         lastError
+	err         movementsensor.LastError
 
 	bus   board.I2C
 	addr  byte

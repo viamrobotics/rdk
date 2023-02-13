@@ -158,7 +158,7 @@ type RTKMovementSensor struct {
 	// Lock the mutex whenever you interact with ntripClient, or ntripStatus.
 	mu sync.Mutex
 
-	err lastError
+	err movementsensor.LastError
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string

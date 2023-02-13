@@ -79,7 +79,7 @@ type mpu6050 struct {
 	temperature        float64
 	linearAcceleration r3.Vector
 	// Stores the most recent error from the background goroutine
-	err lastError
+	err movementsensor.LastError
 
 	// Used to shut down the background goroutine which polls the sensor.
 	backgroundContext       context.Context

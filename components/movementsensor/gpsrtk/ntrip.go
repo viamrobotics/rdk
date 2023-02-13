@@ -11,6 +11,7 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -25,7 +26,7 @@ type ntripCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	err lastError
+	err movementsensor.LastError
 }
 
 // NtripInfo contains the information necessary to connect to a mountpoint.

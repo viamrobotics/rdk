@@ -71,18 +71,21 @@ var (
 	ErrMethodUnimplementedLinearAcceleration = errors.New("linear acceleration unimplemented")
 )
 
-type lastError struct {
+// LastError is an object that stores the most recent error
+type LastError struct {
 	err error
 	mu  sync.Mutex
 }
 
-func (le *lastError) Set(err error) {
+// Set stores an error to be retrieved later
+func (le *LastError) Set(err error) {
 	le.mu.Lock()
 	defer le.mu.Unlock()
 	le.err = err
 }
 
-func (le *lastError) Get() error {
+// Get returns the most-recently-stored error, and sets the stored error to nil
+func (le *LastError) Get() error {
 	le.mu.Lock()
 	defer le.mu.Unlock()
 
@@ -90,4 +93,3 @@ func (le *lastError) Get() error {
 	le.err = nil
 	return err
 }
-

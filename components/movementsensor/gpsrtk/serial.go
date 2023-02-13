@@ -11,6 +11,7 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/utils"
 )
@@ -24,7 +25,7 @@ type serialCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	err lastError
+	err movementsensor.LastError
 }
 
 type pipeReader struct {
