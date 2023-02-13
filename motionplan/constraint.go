@@ -131,7 +131,7 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 func NewCollisionConstraint(
 	frame referenceframe.Frame,
 	goodInput []referenceframe.Input,
-	obstacles, interactionSpaces map[string]spatial.Geometry,
+	obstacles map[string]spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) Constraint {
@@ -147,11 +147,7 @@ func NewCollisionConstraint(
 	if err != nil {
 		return nil
 	}
-	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
-	if err != nil {
-		return nil
-	}
-	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, true)
+	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities}, true)
 	if err != nil {
 		return nil
 	}
@@ -173,7 +169,7 @@ func NewCollisionConstraint(
 
 		cg, err := NewCollisionSystemFromReference(
 			internalEntities,
-			[]CollisionEntities{obstacleEntities, spaceEntities},
+			[]CollisionEntities{obstacleEntities},
 			zeroCG,
 			reportDistances,
 		)
@@ -229,7 +225,6 @@ func NewCollisionConstraintFromWorldState(
 		frame,
 		goodInputs,
 		worldState.Obstacles[0].Geometries(),
-		worldState.InteractionSpaces[0].Geometries(),
 		collisionSpecifications,
 		reportDistances,
 	), nil

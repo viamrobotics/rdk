@@ -3,7 +3,6 @@ package builtin
 import (
 	"bytes"
 	"context"
-	"go.viam.com/rdk/spatialmath"
 	"image"
 	"image/png"
 	"os"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/internal"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -104,6 +104,17 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, GetDurationFromHz(1), test.ShouldEqual, time.Second)
 	test.That(t, GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
 	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
+}
+
+func TestLimitConfigurableDirectories(t *testing.T) {
+	dmsvc := newTestDataManager(t)
+	defer dmsvc.Close(context.Background())
+
+	config := setupConfig(t, enabledTabularCollectorConfigPath)
+	config.LimitConfigurableDirectories = true
+
+	err := dmsvc.Update(context.Background(), config)
+	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)
 }
 
 func getDataManagerConfig(config *config.Config) (*Config, error) {
