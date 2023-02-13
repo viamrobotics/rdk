@@ -128,6 +128,7 @@ func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 
 	a := Dofbot{}
 	a.logger = logger
+	a.robot = r
 
 	b, err := board.FromRobot(r, attr.Board)
 	if err != nil {

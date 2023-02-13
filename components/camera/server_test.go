@@ -266,7 +266,7 @@ func TestServer(t *testing.T) {
 		// we know its lazy if it's a mime we can't actually handle internally
 		resp, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
-			MimeType: utils.WithLazyMIMEType(wooMIME),
+			MimeType: wooMIME,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.MimeType, test.ShouldEqual, wooMIME)
@@ -278,6 +278,23 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+	})
+
+	t.Run("GetImage with +lazy default", func(t *testing.T) {
+		for _, mimeType := range []string{
+			utils.MimeTypePNG,
+			utils.MimeTypeJPEG,
+			utils.MimeTypeRawRGBA,
+		} {
+			req := pb.GetImageRequest{
+				Name:     testCameraName,
+				MimeType: mimeType,
+			}
+			resp, err := cameraServer.GetImage(context.Background(), &req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp.Image, test.ShouldNotBeNil)
+			test.That(t, req.MimeType, test.ShouldEqual, utils.WithLazyMIMEType(mimeType))
+		}
 	})
 
 	t.Run("RenderFrame", func(t *testing.T) {

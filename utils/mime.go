@@ -40,6 +40,9 @@ const (
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.
 func WithLazyMIMEType(mimeType string) string {
+	if _, has := CheckLazyMIMEType(mimeType); has {
+		return mimeType
+	}
 	return fmt.Sprintf("%s+%s", mimeType, MimeTypeSuffixLazy)
 }
 

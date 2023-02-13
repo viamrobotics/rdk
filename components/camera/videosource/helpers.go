@@ -6,6 +6,7 @@ import (
 	"image"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -22,6 +23,10 @@ import (
 // detected by http.DetectContentType.
 func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
+	if !strings.Contains(detectedMimeType, "image") {
+		return "", errors.Errorf("cannot decode image from MIME type '%s'", detectedMimeType)
+	}
+
 	requestedMime := gostream.MIMETypeHint(ctx, "")
 	actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime)
 	if actualMime == utils.MimeTypeRawRGBA {
