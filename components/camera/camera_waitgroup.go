@@ -11,6 +11,10 @@ import (
 )
 
 // WaitGroupCamera is a wrapper for camera.Camera with a sync.WaitGroup.
+// WARNING: ActiveBackgroundWorkes is publicly available. WaitGroup must
+// be used with care to avoid deadlocks. The WaitGroup must be fully populated
+// before any goroutines are launched, and all routines must Signal
+// Done before Wait can return.
 type WaitGroupCamera struct {
 	Cam                     Camera
 	ActiveBackgroundWorkers sync.WaitGroup
