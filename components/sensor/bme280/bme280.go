@@ -481,11 +481,11 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 
 	// A helper function to read 2 bytes from the handle and interpret it as a word
 	readWord := func(register byte) (uint16, error) {
-		bytes, err := handle.ReadBlockData(ctx, register, 2)
+		rd, err := handle.ReadBlockData(ctx, register, 2)
 		if err != nil {
 			return 0, err
 		}
-		return binary.BigEndian.Uint16(bytes), nil
+		return binary.BigEndian.Uint16(rd), nil
 	}
 
 	// Note, some are signed, others are unsigned

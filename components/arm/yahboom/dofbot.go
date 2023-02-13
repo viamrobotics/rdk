@@ -295,14 +295,14 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 
 	time.Sleep(3 * time.Millisecond)
 
-	bytes, err := a.handle.ReadBlockData(ctx, reg, 2)
+	rd, err := a.handle.ReadBlockData(ctx, reg, 2)
 	if err != nil {
 		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
-	res := binary.BigEndian.Uint16(bytes)
+	res := binary.BigEndian.Uint16(rd)
 	return joints[joint-1].toValues(int(res)), nil
 }
 
