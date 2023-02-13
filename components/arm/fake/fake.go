@@ -35,9 +35,27 @@ type AttrConfig struct {
 	ArmModel string `json:"arm-model"`
 }
 
+func modelFromName(model, name string) (referenceframe.Model, error) {
+	switch resource.ModelName(model) {
+	case xarm.ModelName6DOF.Name:
+		return xarm.Model(name, 6)
+	case xarm.ModelName7DOF.Name:
+		return xarm.Model(name, 7)
+	case ur.ModelName.Name:
+		return ur.Model(name)
+	case yahboom.ModelName.Name:
+		return yahboom.Model(name)
+	case eva.ModelName.Name:
+		return eva.Model(name)
+	default:
+		return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", model)
+	}
+}
+
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
-	return nil
+	_, err := modelFromName(config.ArmModel, "")
+	return err
 }
 
 func init() {
@@ -63,24 +81,7 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var model referenceframe.Model
 	var err error
 	if cfg.ConvertedAttributes != nil {
-		converted := cfg.ConvertedAttributes.(*AttrConfig)
-
-		switch resource.ModelName(converted.ArmModel) {
-		case xarm.ModelName6DOF.Name:
-			model, err = xarm.Model(cfg.Name, 6)
-		case xarm.ModelName7DOF.Name:
-			model, err = xarm.Model(cfg.Name, 7)
-		case ur.ModelName.Name:
-			model, err = ur.Model(cfg.Name)
-		case yahboom.ModelName.Name:
-			model, err = yahboom.Model(cfg.Name)
-		case eva.ModelName.Name:
-			model, err = eva.Model(cfg.Name)
-		case ModelName.Name, "":
-			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
-		default:
-			return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", cfg.ConvertedAttributes.(*AttrConfig).ArmModel)
-		}
+		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
 	} else {
 		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 	}
