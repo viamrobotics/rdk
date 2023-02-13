@@ -229,15 +229,14 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	}
 
 	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 
 	// TODO(pl): make block configurable
 	block := false
 	for i, pos := range jp.Values {
 		a.JointTo(a.jointOrder()[i], degreeToServoPos(pos), block)
 	}
-
-	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	return a.waitForMovement(ctx)
 }
 
 // JointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
@@ -542,6 +541,7 @@ func (a *Arm) JointTo(jointName string, pos int, block bool) {
 // SleepPosition goes back to the sleep position, ready to turn off torque.
 func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 	sleepWait := false
 	a.JointTo("Waist", 2048, sleepWait)
 	a.JointTo("Shoulder", 840, sleepWait)
@@ -549,8 +549,7 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.JointTo("Wrist", 2509, sleepWait)
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
-	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	return a.waitForMovement(ctx)
 }
 
 // GetMoveLock TODO.
@@ -561,6 +560,7 @@ func (a *Arm) GetMoveLock() *sync.Mutex {
 // HomePosition goes to the home position.
 func (a *Arm) HomePosition(ctx context.Context) error {
 	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 
 	wait := false
 	for jointName := range a.Joints {
@@ -568,8 +568,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 			a.JointTo(jointName, 2048, wait)
 		}
 	}
-	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	return a.waitForMovement(ctx)
 }
 
 // CurrentInputs TODO.
@@ -586,10 +585,9 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
-// WaitForMovement takes some servos, and will block until the servos are done moving.
-func (a *Arm) WaitForMovement(ctx context.Context) error {
-	a.moveLock.Lock()
-	defer a.moveLock.Unlock()
+// waitForMovement takes some servos, and will block until the servos are done moving.
+// The arm's moveLock MUST be locked before calling this function.
+func (a *Arm) waitForMovement(ctx context.Context) error {
 	allAtPos := false
 
 	for !allAtPos {
