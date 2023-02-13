@@ -156,7 +156,7 @@ func NewCollisionConstraint(
 		return nil
 	}
 	for _, specification := range collisionSpecifications {
-		if err := zeroCG.AddCollisionSpecification(specification); err != nil {
+		if err := zeroCG.AddCollisionSpecificationToGraphs(specification); err != nil {
 			return nil
 		}
 	}
