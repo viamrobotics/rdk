@@ -32,16 +32,11 @@ var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	FailNew      bool   `json:"fail_new"`
-	FailValidate bool   `json:"fail_validate"`
-	ArmModel     string `json:"arm-model"`
+	ArmModel string `json:"arm-model"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
-	if config.FailValidate {
-		return errors.New("whoops! failed to validate")
-	}
 	return nil
 }
 
@@ -69,10 +64,6 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 	if cfg.ConvertedAttributes != nil {
 		converted := cfg.ConvertedAttributes.(*AttrConfig)
-
-		if converted.FailNew {
-			return nil, errors.New("whoops! failed to start up")
-		}
 
 		switch resource.ModelName(converted.ArmModel) {
 		case xarm.ModelName6DOF.Name:
