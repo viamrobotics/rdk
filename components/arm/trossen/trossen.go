@@ -228,11 +228,6 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 		return errors.New("passed in too many positions")
 	}
 
-	err := a.WaitForMovement(ctx)
-	if err != nil {
-		return errors.Wrap(err, "error waiting for previous servo movements")
-	}
-
 	a.moveLock.Lock()
 
 	// TODO(pl): make block configurable
@@ -265,10 +260,6 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 func (a *Arm) OpenGripper(ctx context.Context) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	err := a.WaitForMovement(ctx)
-	if err != nil {
-		return errors.Wrap(err, "error waiting for previous servo movements")
-	}
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 
@@ -283,7 +274,7 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 
 	err = a.Joints["Gripper"][0].SetGoalPWM(150)
 	if err != nil {
-		return errors.Wrap(err, "error setting opening pwm for gripper to 150")
+		return err
 	}
 	a.logger.Debug("gripper pwm set to 150")
 
@@ -306,22 +297,18 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 	}
 	err = a.Joints["Gripper"][0].SetGoalPWM(0)
 	if err != nil {
-		return errors.Wrap(err, "gripper pwm set to 0 failed")
+		a.logger.Debug("gripper pwm set to 0")
 	}
-	return nil
+	return err
 }
 
 // Grab closes the gripper.
 func (a *Arm) Grab(ctx context.Context) (bool, error) {
 	_, done := a.opMgr.New(ctx)
 	defer done()
-	err := a.WaitForMovement(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "error waiting for previous servo movements")
-	}
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	err = a.Joints["Gripper"][0].SetGoalPWM(-350)
+	err := a.Joints["Gripper"][0].SetGoalPWM(-350)
 	if err != nil {
 		return false, err
 	}
@@ -380,7 +367,6 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // Close will get the arm ready to be turned off.
 func (a *Arm) Close(ctx context.Context) error {
-	a.opMgr.CancelRunning(ctx)
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
