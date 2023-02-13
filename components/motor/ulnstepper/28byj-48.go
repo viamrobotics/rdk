@@ -193,7 +193,7 @@ func (m *uln28byj) doRun(ctx context.Context) {
 		if m.stepPosition == m.targetStepPosition {
 			err := m.setPins(ctx, [4]bool{false, false, false, false})
 			if err != nil {
-				m.logger.Info("error while disabling motor")
+				m.logger.Info("error while disabling motor (%s)", m.motorName)
 			}
 			m.lock.Unlock()
 			break
