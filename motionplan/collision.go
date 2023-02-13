@@ -98,7 +98,7 @@ func (oce *ObjectCollisionEntities) entityFromIndex(index int) *collisionEntity 
 }
 
 // indexFromName returns the index in the CollisionEntities class that corresponds to the given name.
-// a negative return value corresponds to an error
+// a negative return value corresponds to an error.
 func (oce *ObjectCollisionEntities) indexFromName(name string) int {
 	if index, ok := oce.indices[name]; ok {
 		return index
