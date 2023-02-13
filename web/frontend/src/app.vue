@@ -3,12 +3,12 @@
 import { Client } from '@viamrobotics/sdk';
 import RemoteControlCards from './components/remote-control-cards.vue';
 
-const host = $computed(() => `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`);
-const bakedAuth = $computed(() => window.bakedAuth);
-const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
-const webrtcAdditionalICEServers = $computed(() => window.webrtcAdditionalICEServers);
-const webrtcEnabled = $computed(() => window.webrtcEnabled);
-const webrtcSignalingAddress = $computed(() => window.webrtcSignalingAddress);
+const host = window.host;
+const bakedAuth = window.bakedAuth;
+const supportedAuthTypes = window.supportedAuthTypes;
+const webrtcAdditionalICEServers = window.webrtcAdditionalICEServers;
+const webrtcEnabled = window.webrtcEnabled;
+const webrtcSignalingAddress = window.webrtcSignalingAddress;
 
 const rtcConfig = {
   iceServers: [
@@ -22,7 +22,8 @@ if (webrtcAdditionalICEServers) {
   rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
 }
 
-const client = new Client(host, {
+const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+const client = new Client(impliedURL, {
   enabled: webrtcEnabled,
   host,
   signalingAddress: webrtcSignalingAddress,
