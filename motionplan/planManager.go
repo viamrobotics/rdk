@@ -364,7 +364,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// not yet fully supported, but could be used by cbirrt
 	getColDepth := false
 
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(pm.frame, pm.fs, worldState, seedMap, getColDepth)
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(pm.frame, pm.fs, worldState, seedMap, nil, getColDepth)
 	if err != nil {
 		return nil, err
 	}
