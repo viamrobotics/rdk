@@ -1,10 +1,11 @@
 name: NPM Publish
 
 on:
-  [workflow_call, workflow_dispatch]:
+  workflow_call:
     secrets:
         NPM_TOKEN:
           required: true
+  workflow_dispatch:
 
 jobs:
   publish:
