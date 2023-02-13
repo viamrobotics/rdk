@@ -162,14 +162,10 @@ func (x *xArm) UpdateAction(c *config.Component) config.UpdateActionType {
 		if currentHost != newCfg.Host {
 			return config.Reconfigure
 		}
-		if newCfg.Speed == 0 {
-			x.speed = float32(utils.DegToRad(float64(defaultSpeed)))
-		} else {
+		if newCfg.Speed != 0 {
 			x.speed = float32(utils.DegToRad(float64(newCfg.Speed)))
 		}
-		if newCfg.Acceleration == 0 {
-			x.accel = float32(utils.DegToRad(float64(defaultAcceleration)))
-		} else {
+		if newCfg.Acceleration != 0 {
 			x.accel = float32(utils.DegToRad(float64(newCfg.Acceleration)))
 		}
 		return config.None
