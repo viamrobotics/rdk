@@ -322,7 +322,7 @@ func (a *Arm) Grab(ctx context.Context) (bool, error) {
 	return didGrab, nil
 }
 
-// StopGripper stops the gripper servo
+// StopGripper stops the gripper servo.
 func (a *Arm) StopGripper(ctx context.Context) error {
 	a.opMgr.CancelRunning(ctx)
 	err := a.Joints["Gripper"][0].SetTorqueEnable(false)
@@ -332,7 +332,7 @@ func (a *Arm) StopGripper(ctx context.Context) error {
 	return a.Joints["Gripper"][0].SetTorqueEnable(true)
 }
 
-// GripperIsMoving returns whether the gripper servo is moving
+// GripperIsMoving returns whether the gripper servo is moving.
 func (a *Arm) GripperIsMoving(ctx context.Context) (bool, error) {
 	isMovingInt, err := a.Joints["Gripper"][0].Moving()
 	if err != nil {
