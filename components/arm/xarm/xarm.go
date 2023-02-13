@@ -3,7 +3,6 @@ package xarm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"errors"
