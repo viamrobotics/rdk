@@ -202,7 +202,7 @@ func TestCollisionConstraint(t *testing.T) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}, false))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, false))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
@@ -229,7 +229,7 @@ func BenchmarkCollisionConstraint(b *testing.B) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}, false))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, false))
 
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
