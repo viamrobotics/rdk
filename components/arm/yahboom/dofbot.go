@@ -169,7 +169,7 @@ func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
-	return motionplan.ComputePosition(a.model, joints)
+	return motionplan.ComputeOOBPosition(a.model, joints)
 }
 
 // MoveToPosition moves the arm to the given absolute position.
@@ -186,6 +186,11 @@ func (a *Dofbot) MoveToPosition(
 
 // MoveToJointPositions moves the arm's joints to the given positions.
 func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions, extra map[string]interface{}) error {
+	// check that joint positions are not out of bounds
+	if err := arm.CheckDesiredJointPositions(ctx, a, pos.Values); err != nil {
+		return err
+	}
+
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
 
@@ -436,6 +441,11 @@ func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	// check that joint positions are not out of bounds
+	positionDegs := a.model.ProtobufFromInput(goal)
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+		return err
+	}
 	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
