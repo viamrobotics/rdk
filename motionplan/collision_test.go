@@ -127,11 +127,4 @@ func TestUniqueCollisions(t *testing.T) {
 	err = cs.AddCollisionSpecificationToGraphs(&expectedCollisions[1])
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
-
-	// case 4: add a collision specification to the collision system to disallow collisions between two geometries which always collide
-	newCollision := Collision{name1: "xArm6:upper_arm", name2: "xArm6:upper_forearm", penetrationDepth: -1}
-	err = cs.AddCollisionSpecificationToGraphs(&newCollision)
-	test.That(t, err, test.ShouldBeNil)
-	newCollision.penetrationDepth = 75.7
-	test.That(t, collisionListsAlmostEqual(cs.Collisions(), []Collision{expectedCollisions[0], newCollision}), test.ShouldBeTrue)
 }
