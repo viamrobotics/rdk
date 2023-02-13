@@ -11,34 +11,34 @@ const webrtcEnabled = $computed(() => window.webrtcEnabled);
 const webrtcSignalingAddress = $computed(() => window.webrtcSignalingAddress);
 
 const rtcConfig = {
-    iceServers: [
-        {
-            urls: 'stun:global.stun.twilio.com:3478?transport=udp',
-        },
-    ],
+  iceServers: [
+    {
+      urls: 'stun:global.stun.twilio.com:3478?transport=udp',
+    },
+  ],
 };
 
 if (webrtcAdditionalICEServers) {
-    rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
+  rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
 }
 
 const client = new Client(host, {
-    enabled: webrtcEnabled,
-    host: host,
-    signalingAddress: webrtcSignalingAddress,
-    rtcConfig,
+  enabled: webrtcEnabled,
+  host,
+  signalingAddress: webrtcSignalingAddress,
+  rtcConfig,
 });
 
 </script>
 
 <template>
   <RemoteControlCards
-    :host=host
-    :baked-auth=bakedAuth
-    :supported-auth-types=supportedAuthTypes
-    :webrtc-enabled=webrtcEnabled
-    :client=client
-    />
+    :host="host"
+    :baked-auth="bakedAuth"
+    :supported-auth-types="supportedAuthTypes"
+    :webrtc-enabled="webrtcEnabled"
+    :client="client"
+  />
 </template>
 
 <style>
