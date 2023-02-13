@@ -99,12 +99,8 @@ func (config *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return new28byj(deps, config, logger)
-		},
-	}
-	registry.RegisterComponent(motor.Subtype, model, _motor)
+	registry.RegisterComponent(motor.Subtype, model, registry.Component{Constructor: new28byj})
+
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		model,
@@ -112,11 +108,10 @@ func init() {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{},
-	)
+		&Config{})
 }
 
-func new28byj(deps registry.Dependencies, config config.Component, logger golog.Logger) (motor.Motor, error) {
+func new28byj(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 	mc, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(mc, config.ConvertedAttributes)
@@ -124,7 +119,7 @@ func new28byj(deps registry.Dependencies, config config.Component, logger golog.
 
 	b, err := board.FromDependencies(deps, mc.BoardName)
 	if err != nil {
-		return nil, errors.Wrap(err, " expected board name in config for motor")
+		return nil, errors.Wrap(err, "expected board name in config for motor")
 	}
 
 	if mc.TicksPerRotation <= 0 {
@@ -140,25 +135,25 @@ func new28byj(deps registry.Dependencies, config config.Component, logger golog.
 
 	in1, err := b.GPIOPinByName(mc.Pins.In1)
 	if err != nil {
-		return nil, errors.Wrapf(err, " in In1 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in In1 in motor (%s)", m.motorName)
 	}
 	m.in1 = in1
 
 	in2, err := b.GPIOPinByName(mc.Pins.In2)
 	if err != nil {
-		return nil, errors.Wrapf(err, " in In2 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in In2 in motor (%s)", m.motorName)
 	}
 	m.in2 = in2
 
 	in3, err := b.GPIOPinByName(mc.Pins.In3)
 	if err != nil {
-		return nil, errors.Wrapf(err, " in In3 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in In3 in motor (%s)", m.motorName)
 	}
 	m.in3 = in3
 
 	in4, err := b.GPIOPinByName(mc.Pins.In4)
 	if err != nil {
-		return nil, errors.Wrapf(err, " in In4 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in In4 in motor (%s)", m.motorName)
 	}
 	m.in4 = in4
 
