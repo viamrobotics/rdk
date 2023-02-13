@@ -26,7 +26,6 @@ type i2cCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu sync.Mutex
 	err   movementsensor.LastError
 }
 
