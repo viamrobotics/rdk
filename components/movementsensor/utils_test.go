@@ -67,12 +67,12 @@ func TestGetHeading(t *testing.T) {
 }
 
 func TestNoErrors(t *testing.T) {
-	le := lastError{}
+	le := LastError{}
 	test.That(t, le.Get(), test.ShouldBeNil)
 }
 
 func TestOneError(t *testing.T) {
-	le := lastError{}
+	le := LastError{}
 
 	le.Set(errors.New("it's a test error"))
 	test.That(t, le.Get(), test.ShouldNotBeNil)
@@ -81,7 +81,7 @@ func TestOneError(t *testing.T) {
 }
 
 func TestTwoErrors(t *testing.T) {
-	le := lastError{}
+	le := LastError{}
 
 	le.Set(errors.New("first"))
 	le.Set(errors.New("second"))

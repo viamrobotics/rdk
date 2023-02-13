@@ -76,7 +76,7 @@ type adxl345 struct {
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
 	linearAcceleration r3.Vector
-	err                lastError
+	err                movementsensor.LastError
 
 	// Used to shut down the background goroutine which polls the sensor.
 	cancelContext           context.Context

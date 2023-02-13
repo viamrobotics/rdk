@@ -125,7 +125,7 @@ type rtkStation struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	err lastError
+	err movementsensor.LastError
 }
 
 type correctionSource interface {

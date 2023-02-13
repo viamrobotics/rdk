@@ -34,7 +34,7 @@ type SerialNMEAMovementSensor struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea bool
-	err         lastError
+	err         movementsensor.LastError
 
 	dev                io.ReadWriteCloser
 	path               string

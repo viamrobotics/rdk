@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
@@ -26,7 +27,7 @@ type i2cCorrectionSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	errMu sync.Mutex
-	err   lastError
+	err   movementsensor.LastError
 }
 
 func newI2CCorrectionSource(

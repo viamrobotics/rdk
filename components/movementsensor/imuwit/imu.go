@@ -86,7 +86,7 @@ type wit struct {
 	acceleration    r3.Vector
 	magnetometer    r3.Vector
 	numBadReadings  uint32
-	err             lastError
+	err             movementsensor.LastError
 
 	mu sync.Mutex
 
@@ -224,7 +224,7 @@ func NewWit(
 
 				if err != nil {
 					i.err.Set(err)
-					logger.Error(i.lastError)
+					logger.Error(err)
 				} else {
 					if len(line) != 11 {
 						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
