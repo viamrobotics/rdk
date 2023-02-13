@@ -257,10 +257,8 @@ func (cg *collisionGraph) collisions() []Collision {
 	return collisions
 }
 
+// addCollisionSpecification takes a Collision as an argument and either whitelists collisions between the two entities.
 func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (err error) {
-	if specification.name1 == specification.name2 {
-		return errors.Errorf("cannot add collision specification between entities with the same name: %s", specification.name1)
-	}
 	i, j, ok := cg.getIndices(specification.name1, specification.name2)
 	if !ok {
 		i, j, ok = cg.getIndices(specification.name2, specification.name1)
@@ -269,14 +267,7 @@ func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (e
 		if cg.triangular && i > j {
 			i, j = j, i
 		}
-		if specification.penetrationDepth > 0 {
-			cg.adjacencies[i][j] = math.NaN()
-		} else if math.IsNaN(cg.adjacencies[i][j]) {
-			cg.adjacencies[i][j], err = cg.test.checkCollision(cg.key.entityFromIndex(i), cg.test.entityFromIndex(j), cg.reportDistances)
-			if err != nil {
-				return err
-			}
-		}
+		cg.adjacencies[i][j] = math.NaN()
 		return nil
 	}
 	return errors.Errorf("cannot add collision specification between entities with names: %s, %s", specification.name1, specification.name2)
@@ -347,9 +338,7 @@ func (cs *CollisionSystem) CollisionBetween(keyName, testName string) bool {
 	return false
 }
 
-// AddCollisionSpecification takes a Collision as an argument and either whitelists or blacklists collisions between the two entities.
-// Whether or not they are whitelisted or blacklisted depends on the value of the penetration depth of the given Collision.
-// If this value is positive the collision is whitelisted, otherwise it is blacklisted.
+// AddCollisionSpecificationToGraphs takes a Collision as an argument and either whitelists collisions between the two entities.
 func (cs *CollisionSystem) AddCollisionSpecificationToGraphs(specification *Collision) error {
 	for _, graph := range cs.graphs {
 		if err := graph.addCollisionSpecification(specification); err != nil {
