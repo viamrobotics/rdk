@@ -56,21 +56,21 @@ func TestValid(t *testing.T) {
 
 	// Create motor with no board and default config
 	t.Run("motor initializing test with no board and default config", func(t *testing.T) {
-		_, err := new28byj(deps, c, c.Name, logger)
+		_, err := new28byj(deps, c, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	// Create motor with board and default config
 	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
-		_, err := new28byj(deps, c, c.Name, logger)
+		_, err := new28byj(deps, c, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-	_, err := new28byj(deps, c, c.Name, logger)
+	_, err := new28byj(deps, c, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
 
-	mm, err := new28byj(deps, c, c.Name, logger)
+	mm, err := new28byj(deps, c, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	m := mm.(*uln28byj)
