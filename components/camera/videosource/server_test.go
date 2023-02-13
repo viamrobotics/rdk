@@ -234,6 +234,7 @@ func TestServerError(t *testing.T) {
 	img, release, err := camera.ReadImage(lazyCtx, cam)
 
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "404")
 	test.That(t, img, test.ShouldBeNil)
 	test.That(t, release, test.ShouldBeNil)
 }
