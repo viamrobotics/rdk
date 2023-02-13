@@ -70,9 +70,7 @@ var OffAngles = map[string]float64{
 // Arm TODO.
 type Arm struct {
 	generic.Unimplemented
-	armMutex sync.RWMutex
 	Joints   map[string][]*servo.Servo
-	angles   map[string]float64
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	robot    robot.Robot
@@ -177,27 +175,21 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 	if err != nil {
 		return nil, err
 	}
-	joints := map[string][]*servo.Servo{
-		"Waist":       {servos[0]},
-		"Shoulder":    {servos[1], servos[2]},
-		"Elbow":       {servos[3], servos[4]},
-		"Forearm_rot": {servos[5]},
-		"Wrist":       {servos[6]},
-		"Wrist_rot":   {servos[7]},
-		"Gripper":     {servos[8]},
-	}
-	angles, err := getAllAngles(joints)
-	if err != nil {
-		return nil, err
-	}
 
 	a := &Arm{
-		Joints:   joints,
+		Joints: map[string][]*servo.Servo{
+			"Waist":       {servos[0]},
+			"Shoulder":    {servos[1], servos[2]},
+			"Elbow":       {servos[3], servos[4]},
+			"Forearm_rot": {servos[5]},
+			"Wrist":       {servos[6]},
+			"Wrist_rot":   {servos[7]},
+			"Gripper":     {servos[8]},
+		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
 		robot:    r,
 		model:    model,
-		angles:   angles,
 	}
 	// start the arm in an open gripper state
 	err = a.OpenGripper(context.Background())
@@ -244,24 +236,20 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	for i, pos := range jp.Values {
 		a.JointTo(a.jointOrder()[i], degreeToServoPos(pos), block)
 	}
-	moveErr := a.waitForMovement(ctx)
-	a.armMutex.Lock()
-	angles, anglesErr := getAllAngles(a.Joints)
-	if anglesErr == nil {
-		a.angles = angles
-	}
-	a.armMutex.Unlock()
-	return multierr.Combine(moveErr, anglesErr)
+	return a.waitForMovement(ctx)
 }
 
 // JointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	a.armMutex.RLock()
-	defer a.armMutex.RUnlock()
+	angleMap, err := a.GetAllAngles()
+	if err != nil {
+		return &pb.JointPositions{}, err
+	}
+
 	numJoints := len(a.jointOrder())
 	positions := make([]float64, 0, numJoints)
 	for _, jointName := range a.jointOrder() {
-		positions = append(positions, servoPosToValues(a.angles[jointName]))
+		positions = append(positions, servoPosToValues(angleMap[jointName]))
 	}
 
 	return &pb.JointPositions{Values: positions}, nil
@@ -381,7 +369,7 @@ func (a *Arm) Close(ctx context.Context) error {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
-	angles, err := getAllAngles(a.Joints)
+	angles, err := a.GetAllAngles()
 	if err != nil {
 		return errors.Wrap(err, "failed to get angles on component close")
 	}
@@ -426,10 +414,12 @@ func (a *Arm) Close(ctx context.Context) error {
 	return nil
 }
 
-// getAllAngles will return a map of the angles of each joint, denominated in servo position.
-func getAllAngles(joints map[string][]*servo.Servo) (map[string]float64, error) {
+// GetAllAngles will return a map of the angles of each joint, denominated in servo position.
+func (a *Arm) GetAllAngles() (map[string]float64, error) {
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 	angles := make(map[string]float64)
-	for jointName, servos := range joints {
+	for jointName, servos := range a.Joints {
 		angleSum := 0
 		for _, s := range servos {
 			pos, err := s.PresentPosition()
