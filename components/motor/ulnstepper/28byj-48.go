@@ -179,7 +179,7 @@ type uln28byj struct {
 }
 
 // doRun runs the motor till it reaches target step position.
-func (m *uln28byj) doRun(ctx context.Context) {
+func (m *uln28byj) doRun(ctx context.Context) error {
 	for {
 		m.lock.Lock()
 
@@ -188,7 +188,7 @@ func (m *uln28byj) doRun(ctx context.Context) {
 		if m.stepPosition == m.targetStepPosition {
 			err := m.setPins(ctx, [4]bool{false, false, false, false})
 			if err != nil {
-				m.logger.Info("error while disabling motor (%s)", m.motorName)
+				return errors.Wrapf(err, "error while disabling motor (%s)", m.motorName)
 			}
 			m.lock.Unlock()
 			break
@@ -197,10 +197,10 @@ func (m *uln28byj) doRun(ctx context.Context) {
 		err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 		m.lock.Unlock()
 		if err != nil {
-			m.logger.Info("error stepping %w", err)
-			break
+			return errors.Errorf("error stepping %v", err)
 		}
 	}
+	return nil
 }
 
 // doStep has to be locked to call.
@@ -264,7 +264,10 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
 	m.lock.Unlock()
 
-	m.doRun(ctx)
+	err := m.doRun(ctx)
+	if err != nil {
+		return errors.Errorf(" error while running motor %v", err)
+	}
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
