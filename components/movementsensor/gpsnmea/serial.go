@@ -34,8 +34,7 @@ type SerialNMEAMovementSensor struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea bool
-	errMu       sync.Mutex
-	lastError   error
+	err         lastError
 
 	dev                io.ReadWriteCloser
 	path               string
@@ -103,12 +102,6 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 	return g, err
 }
 
-func (g *SerialNMEAMovementSensor) setLastError(err error) {
-	g.errMu.Lock()
-	defer g.errMu.Unlock()
-	g.lastError = err
-}
-
 // Start begins reading nmea messages from module and updates gps data.
 func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
@@ -126,7 +119,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				line, err := r.ReadString('\n')
 				if err != nil {
 					g.logger.Errorf("can't read gps serial %s", err)
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 				// Update our struct's gps data in-place
@@ -140,7 +133,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 		}
 	})
 
-	return g.lastError
+	return g.err.Get()
 }
 
 // GetCorrectionInfo returns the serial path that takes in rtcm corrections and baudrate for reading.
@@ -155,9 +148,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	if g.data.location == nil {
 		return geo.NewPoint(0, 0), 0, errNilLocation
 	}
-	lastError := g.lastError
-	g.lastError = nil
-	return g.data.location, g.data.alt, lastError
+	return g.data.location, g.data.alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
