@@ -6,6 +6,7 @@ import (
 	"image/color"
 
 	"github.com/fogleman/gg"
+
 	"go.viam.com/rdk/rimage"
 )
 

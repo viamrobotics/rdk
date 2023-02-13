@@ -6,6 +6,10 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -13,9 +17,6 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 )
 
 func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {

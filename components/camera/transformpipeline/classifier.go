@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage/transform"
@@ -31,6 +32,7 @@ type classifierSource struct {
 	r              robot.Robot
 }
 
+//nolint:dupl
 func newClassificationsTransform(
 	ctx context.Context,
 	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
