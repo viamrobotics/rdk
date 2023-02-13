@@ -1,20 +1,19 @@
-package movementsensor_test
+package movementsensor
 
 import (
 	"testing"
 
 	"github.com/pkg/errors"
-	ms "go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/test"
 )
 
 func TestNoErrors(t *testing.T) {
-	le := ms.lastError{}
+	le := lastError{}
 	test.That(t, le.Get(), test.ShouldBeNil)
 }
 
 func TestOneError(t *testing.T) {
-	le := ms.lastError{}
+	le := lastError{}
 
 	le.Set(errors.New("it's a test error"))
 	test.That(t, le.Get(), test.ShouldNotBeNil)
@@ -23,7 +22,7 @@ func TestOneError(t *testing.T) {
 }
 
 func TestTwoErrors(t *testing.T) {
-	le := ms.lastError{}
+	le := lastError{}
 
 	le.Set(errors.New("first"))
 	le.Set(errors.New("second"))
