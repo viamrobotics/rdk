@@ -33,6 +33,7 @@ type AttrConfig struct {
 const (
 	defaultSpeed        = 20
 	defaultAcceleration = 50
+	defaultPort         = ":502"
 )
 
 type xArm struct {
@@ -123,7 +124,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		acceleration = defaultAcceleration
 	}
 
-	conn, err := net.Dial("tcp", armCfg.Host+":502")
+	conn, err := net.Dial("tcp", armCfg.Host+defaultPort)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +158,10 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 // See config.UpdateActionType for more information.
 func (x *xArm) UpdateAction(c *config.Component) config.UpdateActionType {
 	remoteAddr := x.conn.RemoteAddr().String()
-	currentHost := string([]rune(remoteAddr)[:len(remoteAddr)-4])
+
+	// here we remove the port from the remote address
+	// we do so because the remote address' port is not the same as defaultPort
+	currentHost := string([]rune(remoteAddr)[:len(remoteAddr)-len(defaultPort)])
 	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
 		if currentHost != newCfg.Host {
 			return config.Reconfigure
