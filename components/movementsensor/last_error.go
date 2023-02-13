@@ -4,18 +4,18 @@ import (
 	"sync"
 )
 
-type LastError struct {
+type lastError struct {
 	err error
 	mu  sync.Mutex
 }
 
-func (le *LastError) Set(err error) {
+func (le *lastError) Set(err error) {
 	le.mu.Lock()
 	defer le.mu.Unlock()
 	le.err = err
 }
 
-func (le *LastError) Get() error {
+func (le *lastError) Get() error {
 	le.mu.Lock()
 	defer le.mu.Unlock()
 
