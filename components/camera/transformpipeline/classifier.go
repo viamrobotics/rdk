@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -73,16 +74,16 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 
 	srv, err := vision.FirstFromRobot(cs.r)
 	if err != nil {
-		return nil, nil, fmt.Errorf("source_classifier can't find vision service: %w", err)
+		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
 	// get image from source camera
 	img, release, err := cs.stream.Next(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
+		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
 	classifications, err := srv.Classifications(ctx, img, cs.classifierName, 1, map[string]interface{}{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get classifications: %w", err)
+		return nil, nil, errors.Wrap(err, "could not get classifications")
 	}
 	// overlay label on the source image
 	classifications = cs.confFilter(classifications)
@@ -95,7 +96,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 
 	res, err := classification.Overlay(img, classifications[0].Label(), classifications[0].Score())
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not overlay label: %w", err)
+		return nil, nil, errors.Wrap(err, "could not overlay label")
 	}
 	return res, release, nil
 }
