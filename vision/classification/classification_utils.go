@@ -13,6 +13,6 @@ import (
 // the original image.
 func Overlay(img image.Image, label string, confidenceScore float64) (image.Image, error) {
 	gimg := gg.NewContextForImage(img)
-	rimage.DrawString(gimg, fmt.Sprintf("%v: %v", label, confidenceScore), image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
+	rimage.DrawString(gimg, fmt.Sprintf("%v: %.2f %%", label, confidenceScore*100.), image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
 	return gimg.Image(), nil
 }

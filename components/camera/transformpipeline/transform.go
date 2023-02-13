@@ -134,12 +134,12 @@ func buildTransform(
 		return newUndistortTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDetections:
 		return newDetectionsTransform(ctx, source, r, tr.Attributes)
+	case transformTypeClassifications:
+		return newClassificationsTransform(ctx, source, r, tr.Attributes)
 	case transformTypeDepthEdges:
 		return newDepthEdgesTransform(ctx, source, tr.Attributes)
 	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(ctx, source)
-	case transformTypeClassifications:
-		return newClassificationsTransform(ctx, source, r, tr.Attributes)
 	default:
 		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
