@@ -155,7 +155,7 @@ type RTKMovementSensor struct {
 	cancelFunc func()
 
 	activeBackgroundWorkers sync.WaitGroup
-	// Lock the mutex whenever you interact with ntripClient, or ntripStatus.
+	// Lock the mutex whenever you interact with ntripClient or ntripStatus.
 	mu sync.Mutex
 
 	err movementsensor.LastError
