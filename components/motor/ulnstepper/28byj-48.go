@@ -12,9 +12,6 @@ package unipolarfivewirestepper
 	This driver will drive the motor with half-step driving method (instead of full-step drive) for higher resolutions.
 	In half-step the current vector divides a circle into eight parts. The eight step switching sequence is shown in
 	stepSequence below. The motor takes 5.625*(1/64)° per step. For 360° the motor will take 4096 steps.
-
-	We set the minimum sleep time between steps to be 0.002s to prevent hardware damage. The motor also has a max speed
-	of 10-15 rpm at 5V.
 */
 
 import (
@@ -79,19 +76,19 @@ func (config *Config) Validate(path string) ([]string, error) {
 	}
 
 	if config.Pins.In1 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "In1")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "in1")
 	}
 
 	if config.Pins.In2 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "In2")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "in2")
 	}
 
 	if config.Pins.In3 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "In3")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "in3")
 	}
 
 	if config.Pins.In4 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "In4")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "in4")
 	}
 
 	deps = append(deps, config.BoardName)
@@ -135,25 +132,25 @@ func new28byj(ctx context.Context, deps registry.Dependencies, config config.Com
 
 	in1, err := b.GPIOPinByName(mc.Pins.In1)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in In1 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in in1 in motor (%s)", m.motorName)
 	}
 	m.in1 = in1
 
 	in2, err := b.GPIOPinByName(mc.Pins.In2)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in In2 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in in2 in motor (%s)", m.motorName)
 	}
 	m.in2 = in2
 
 	in3, err := b.GPIOPinByName(mc.Pins.In3)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in In3 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in in3 in motor (%s)", m.motorName)
 	}
 	m.in3 = in3
 
 	in4, err := b.GPIOPinByName(mc.Pins.In4)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in In4 in motor (%s)", m.motorName)
+		return nil, errors.Wrapf(err, "in in4 in motor (%s)", m.motorName)
 	}
 	m.in4 = in4
 
@@ -283,8 +280,6 @@ func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
 
 	targetPosition := m.stepPosition + int64(float64(d)*revolutions*float64(m.ticksPerRotation))
 
-	// stepperDelay is the wait time between each step taken.
-	// The minimum value is set to 0.002s, anything less then this can potentially damage the gears.
 	stepperDelay := time.Duration(int64((1/(math.Abs(rpm)*float64(m.ticksPerRotation)/60.0))*1000000)) * time.Microsecond
 	if stepperDelay < minDelayBetweenTicks {
 		m.logger.Debugf("Computed sleep time between ticks (%v) too short. Defaulting to %v", stepperDelay, minDelayBetweenTicks)
@@ -315,7 +310,10 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.stepPosition = int64(offset * float64(m.ticksPerRotation))
+	return nil
 }
 
 // SetPower is invalid for this motor.

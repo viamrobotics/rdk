@@ -3,6 +3,7 @@ package unipolarfivewirestepper
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -145,6 +146,91 @@ func TestValid(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldBeGreaterThanOrEqualTo, 0)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
+	})
+
+	cancel()
+}
+
+func TestFunctions(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	logger := golog.NewTestLogger(t)
+	deps := setupDependencies(t)
+
+	mc := Config{
+		Pins: PinConfig{
+			In1: "1",
+			In2: "2",
+			In3: "3",
+			In4: "4",
+		},
+		BoardName:        testBoardName,
+		TicksPerRotation: 100,
+	}
+
+	c := config.Component{
+		Name:                "fake_28byj",
+		ConvertedAttributes: &mc,
+	}
+	mm, err := new28byj(ctx, deps, c, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	m := mm.(*uln28byj)
+
+	t.Run("test goMath", func(t *testing.T) {
+		targetPos, stepperdelay := m.goMath(100, 100)
+		test.That(t, targetPos, test.ShouldEqual, 10000)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		targetPos, stepperdelay = m.goMath(-100, 100)
+		test.That(t, targetPos, test.ShouldEqual, -10000)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		targetPos, stepperdelay = m.goMath(-100, -100)
+		test.That(t, targetPos, test.ShouldEqual, 10000)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		targetPos, stepperdelay = m.goMath(-2, 50)
+		test.That(t, targetPos, test.ShouldEqual, -5000)
+		test.That(t, stepperdelay, test.ShouldEqual, (300 * time.Millisecond))
+
+		targetPos, stepperdelay = m.goMath(1, 400)
+		test.That(t, targetPos, test.ShouldEqual, 40000)
+		test.That(t, stepperdelay, test.ShouldEqual, (600 * time.Millisecond))
+
+		targetPos, stepperdelay = m.goMath(400, 2)
+		test.That(t, targetPos, test.ShouldEqual, 200)
+		test.That(t, stepperdelay, test.ShouldEqual, (1500 * time.Microsecond))
+
+		targetPos, stepperdelay = m.goMath(0, 2)
+		test.That(t, targetPos, test.ShouldEqual, 200)
+		test.That(t, stepperdelay, test.ShouldEqual, (100 * time.Microsecond))
+	})
+
+	t.Run("test position", func(t *testing.T) {
+		m.stepPosition = 3
+		pos, err := m.Position(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 0.03)
+
+		m.stepPosition = -3
+		pos, err = m.Position(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, -0.03)
+
+		m.stepPosition = 0
+		pos, err = m.Position(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 0)
+
+	})
+
+	t.Run("test GoFor", func(t *testing.T) {
+		err := m.GoFor(ctx, 0, 1, nil)
+		test.That(t, err, test.ShouldBeError)
+
+		err = m.GoFor(ctx, -.009, 1, nil)
+		test.That(t, err, test.ShouldBeNil)
+
 	})
 
 	cancel()
