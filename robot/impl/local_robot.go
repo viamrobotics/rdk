@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -666,6 +667,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies, error) {
 	deps := make(registry.Dependencies)
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
+    fmt.Printf("HIHIHIHI %#v", dep)
 		r, err := r.ResourceByName(dep)
 		if err != nil {
 			return nil, &registry.DependencyNotReadyError{Name: dep.Name}
