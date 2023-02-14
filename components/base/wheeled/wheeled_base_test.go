@@ -129,8 +129,8 @@ func TestWheelBaseMath(t *testing.T) {
 			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 
-		// err = base.WaitForMotorsToStop(ctx)
-		// test.That(t, err, test.ShouldBeNil)
+		err = base.WaitForMotorsToStop(ctx)
+		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
 			isOn, powerPct, err := m.IsPowered(ctx, nil)
