@@ -114,17 +114,20 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		model referenceframe.Model
 		err   error
 	)
-	// prefer to get model from path
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
-	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-	switch {
-	case modelPath != "":
-		model, err = modelFromPath(modelPath, cfg.Name)
-	case armModel != "":
-		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-	default:
+	if cfg.ConvertedAttributes != nil {
+		// prefer to get model from path
+		modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
+		armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+		switch {
+		case modelPath != "":
+			model, err = modelFromPath(modelPath, cfg.Name)
+		case armModel != "":
+			model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
+		}
+	} else {
 		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 	}
+
 	if err != nil {
 		return nil, err
 	}
