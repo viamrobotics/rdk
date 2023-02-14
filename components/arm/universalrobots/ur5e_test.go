@@ -159,11 +159,6 @@ func TestUseURHostedKinematics(t *testing.T) {
 	_, err = ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
-
-	// test obstacles will cause this to error
-	_, err = ur.useURHostedKinematics(&referenceframe.WorldState{InteractionSpaces: gifs}, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
 }
 
 type dhConstants struct {

@@ -1,4 +1,21 @@
-// Package mpu6050 implements the movementsensor interface for an MPU-6050 6-axis accelerometer.
+// Package mpu6050 implements the movementsensor interface for an MPU-6050 6-axis accelerometer. A
+// datasheet for this chip is at
+// https://components101.com/sites/default/files/component_datasheet/MPU6050-DataSheet.pdf and a
+// description of the I2C registers is at
+// https://download.datasheets.com/pdfs/2015/3/19/8/3/59/59/invse_/manual/5rm-mpu-6000a-00v4.2.pdf
+//
+// We support reading the accelerometer, gyroscope, and thermometer data off of the chip. We do not
+// yet support using the digital interrupt pin to notify on events (freefall, collision, etc.),
+// nor do we yet support using the secondary I2C connection to add an external clock or
+// magnetometer.
+//
+// The chip has two possible I2C addresses, which can be selected by wiring the AD0 pin to either
+// hot or ground:
+//   - if AD0 is wired to ground, it uses the default I2C address of 0x68
+//   - if AD0 is wired to hot, it uses the alternate I2C address of 0x69
+//
+// If you use the alternate address, your config file for this component must set its
+// "use_alternate_i2c_address" boolean to true.
 package mpu6050
 
 import (

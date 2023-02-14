@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -32,6 +33,7 @@ type AttrConfig struct {
 const (
 	defaultSpeed        = 20
 	defaultAcceleration = 50
+	defaultPort         = ":502"
 )
 
 type xArm struct {
@@ -122,7 +124,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		acceleration = defaultAcceleration
 	}
 
-	conn, err := net.Dial("tcp", armCfg.Host+":502")
+	conn, err := net.Dial("tcp", armCfg.Host+defaultPort)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +152,29 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	}
 
 	return &xA, nil
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (x *xArm) UpdateAction(c *config.Component) config.UpdateActionType {
+	remoteAddr := x.conn.RemoteAddr().String()
+
+	// here we remove the port from the remote address
+	// we do so because the remote address' port is not the same as defaultPort
+	currentHost := string([]rune(remoteAddr)[:len(remoteAddr)-len(defaultPort)])
+	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		if currentHost != newCfg.Host {
+			return config.Reconfigure
+		}
+		if newCfg.Speed > 0 {
+			x.speed = float32(utils.DegToRad(float64(newCfg.Speed)))
+		}
+		if newCfg.Acceleration > 0 {
+			x.accel = float32(utils.DegToRad(float64(newCfg.Acceleration)))
+		}
+		return config.None
+	}
+	return config.Reconfigure
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
