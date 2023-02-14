@@ -68,9 +68,9 @@ func (config *Config) Validate(path string) ([]string, error) {
 func init() {
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
+			return createWheeledBase(ctx, deps, cfg, logger)
 		},
 	}
 
@@ -95,7 +95,8 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr operation.SingleOperationManager
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
@@ -320,24 +321,30 @@ func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
-// CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(
+// createWheeledBase returns a new wheeled base defined by the given config.
+func createWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config *Config,
+	cfg config.Component,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
+	attr, ok := cfg.ConvertedAttributes.(*Config)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, &Config{})
+	}
+
 	base := &wheeledBase{
-		widthMm:              config.WidthMM,
-		wheelCircumferenceMm: config.WheelCircumferenceMM,
-		spinSlipFactor:       config.SpinSlipFactor,
+		widthMm:              attr.WidthMM,
+		wheelCircumferenceMm: attr.WheelCircumferenceMM,
+		spinSlipFactor:       attr.SpinSlipFactor,
+		logger:               logger,
 	}
 
 	if base.spinSlipFactor == 0 {
 		base.spinSlipFactor = 1
 	}
 
-	for _, name := range config.Left {
+	for _, name := range attr.Left {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
@@ -345,7 +352,7 @@ func CreateWheeledBase(
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range config.Right {
+	for _, name := range attr.Right {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
