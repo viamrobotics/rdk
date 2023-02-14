@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/lmittmann/ppm"
-
 	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	"github.com/pkg/errors"
 	"github.com/xfmoulet/qoi"
@@ -234,8 +233,6 @@ func CloneImage(img image.Image) *Image {
 // SaveImage takes an image.Image and saves it to a jpeg at the given
 // file location and also returns the location back.
 func SaveImage(pic image.Image, loc string) error {
-	//nolint:gosec
-
 	f, err := os.Create(loc)
 	if err != nil {
 		return errors.Wrapf(err, "can't save at location %s", loc)
@@ -250,13 +247,10 @@ func SaveImage(pic image.Image, loc string) error {
 	if err = EncodeJPEG(f, pic); err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
-	if err != nil {
-		return errors.Wrapf(err, "the 'image' will not encode")
-	}
 	return nil
 }
 
-// EncodeJPEG encode an image.Image in JPEG using libjpeg
+// EncodeJPEG encode an image.Image in JPEG using libjpeg.
 func EncodeJPEG(w io.Writer, src image.Image) error {
 	switch v := src.(type) {
 	case *Image:
@@ -266,6 +260,11 @@ func EncodeJPEG(w io.Writer, src image.Image) error {
 	default:
 		return libjpeg.Encode(w, src, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
 	}
+}
+
+// DecodeJPEG decode JPEG []bytes into an image.Image using libjpeg.
+func DecodeJPEG(r io.Reader) (img image.Image, err error) {
+	return libjpeg.Decode(r, &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
 }
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType
@@ -279,7 +278,7 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 	}
 	switch mimeType {
 	case "", ut.MimeTypeJPEG:
-		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
+		img, err := DecodeJPEG(bytes.NewReader(imgBytes))
 		if err != nil {
 			return nil, err
 		}

@@ -9,9 +9,10 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"go.viam.com/rdk/rimage/transform"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
@@ -21,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -145,7 +147,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 			if cancelableCtx.Err() != nil {
 				return
 			}
-			img, err := libjpeg.Decode(in, &libjpeg.DecoderOptions{})
+			img, err := rimage.DecodeJPEG(in)
 			if err != nil {
 				continue
 			}

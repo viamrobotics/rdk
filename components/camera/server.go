@@ -3,6 +3,7 @@ package camera
 import (
 	"bytes"
 	"context"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/gostream"
-	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 
@@ -54,7 +53,7 @@ func TestServer(t *testing.T) {
 
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
-	imgJpeg, err := libjpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()), &libjpeg.DecoderOptions{})
+	imgJpeg, err := rimage.DecodeJPEG(bytes.NewReader(imgBufJpeg.Bytes()))
 
 	test.That(t, err, test.ShouldBeNil)
 
