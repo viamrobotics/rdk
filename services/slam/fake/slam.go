@@ -3,15 +3,16 @@ package fake
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
@@ -22,6 +23,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -30,12 +32,15 @@ import (
 
 var model = resource.NewDefaultModel("fake")
 
+const fileImage = true
+
 const (
 	internalStateTemplate = "slam/example_cartographer_outputs/internal_state/internal_state_%d.pbstream"
 	maxDataCount          = 16
 	pcdTemplate           = "slam/example_cartographer_outputs/pointcloud/pointcloud_%d.pcd"
-	pngTemplate           = "slam/example_cartographer_outputs/image_map/image_map_%d.png"
-	positionTemplate      = "slam/example_cartographer_outputs/position/position_%d.txt"
+	// pcdTemplate           = "slam/example_cartographer_outputs/pointcloud/pointcloud_%d_no_color.pcd".
+	pngTemplate      = "slam/example_cartographer_outputs/image_map/image_map_%d.png"
+	positionTemplate = "slam/example_cartographer_outputs/position/position_%d.txt"
 )
 
 func init() {
@@ -49,7 +54,7 @@ func init() {
 				config config.Service,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return &SLAM{Name: config.Name, dataCount: 1}, nil
+				return &SLAM{Name: config.Name, dataCount: 13, logger: logger}, nil
 			},
 		},
 	)
@@ -62,6 +67,7 @@ type SLAM struct {
 	generic.Echo
 	Name      string
 	dataCount int
+	logger    golog.Logger
 }
 
 // GetMap returns either a vision.Object or image.Image based on request mimeType.
@@ -77,7 +83,9 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 
 	switch mimeType {
 	case rdkutils.MimeTypePCD:
-		f, err := os.Open(artifact.MustPath(fmt.Sprintf(pcdTemplate, slamSvc.dataCount)))
+		path := filepath.Join(".artifact/data", filepath.Clean(fmt.Sprintf(pcdTemplate, slamSvc.dataCount)))
+		slamSvc.logger.Debug("Reading " + path)
+		f, err := os.Open(path)
 		if err != nil {
 			return "", nil, nil, err
 		}
@@ -157,4 +165,47 @@ func extract(strings []string) ([]float64, error) {
 		elems[i] = x
 	}
 	return elems, nil
+}
+
+func getImage(ctx context.Context, slamSvc *SLAM) (*rimage.Image, error) {
+	slamSvc.logger.Debug("Returning an Image")
+
+	if fileImage {
+		path := artifact.MustPath(fmt.Sprintf(pngTemplate, slamSvc.dataCount))
+		slamSvc.logger.Debug("Returning image file: " + path)
+		return rimage.NewImageFromFile(path)
+	}
+	return projectImage(ctx, slamSvc)
+}
+
+func projectImage(ctx context.Context, slamSvc *SLAM) (*rimage.Image, error) {
+	path := artifact.MustPath(fmt.Sprintf(pcdTemplate, slamSvc.dataCount))
+	slamSvc.logger.Debug("Getting a pcd file: " + path)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+	pc, err := pointcloud.ReadPCD(f)
+	if err != nil {
+		return nil, err
+	}
+	vObj, err := vision.NewObject(pc)
+	if err != nil {
+		return nil, err
+	}
+
+	pInFrame, err := slamSvc.Position(ctx, slamSvc.Name, map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Project PointCloud and add robot position to resulting image
+	p := pInFrame.Pose()
+	ppRM := transform.NewParallelProjectionOntoXZWithRobotMarker(&p)
+	img, _, err := ppRM.PointCloudToRGBD(vObj.PointCloud)
+	if err != nil {
+		return nil, errors.Wrap(err, "issue projecting given pointcloud")
+	}
+	return img, err
 }
