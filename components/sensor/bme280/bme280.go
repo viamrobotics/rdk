@@ -485,7 +485,7 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 		if err != nil {
 			return 0, err
 		}
-		return binary.BigEndian.Uint16(rd), nil
+		return binary.LittleEndian.Uint16(rd), nil
 	}
 
 	// Note, some are signed, others are unsigned
