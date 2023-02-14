@@ -243,7 +243,6 @@ func SaveImage(pic image.Image, loc string) error {
 		}
 	}()
 
-	// Specify the quality, between 0-100
 	if err = EncodeJPEG(f, pic); err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
