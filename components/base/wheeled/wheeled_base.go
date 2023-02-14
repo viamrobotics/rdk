@@ -300,6 +300,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 }
 
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	base.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range base.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx, extra))
