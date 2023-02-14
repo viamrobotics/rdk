@@ -123,6 +123,8 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 			model, err = modelFromPath(modelPath, cfg.Name)
 		case armModel != "":
 			model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
+		default:
+			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 		}
 	} else {
 		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
