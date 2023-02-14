@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/vision/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -120,8 +121,19 @@ func FindFirstName(r robot.Robot) string {
 
 // FirstFromRobot returns the first vision service in this robot.
 func FirstFromRobot(r robot.Robot) (Service, error) {
-	name := FindFirstName(r)
-	return FromRobot(r, name)
+	return FirstFromRobotMain(r)
+}
+
+// FindFirstFromMain returns name of first vision service on this main robot.
+// This will specifically ignore remote resources
+func FirstFromRobotMain(r robot.Robot) (Service, error) {
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == Subtype && n.Remote == "" {
+			service, err := r.ResourceByName(n)
+			return service.(Service), err
+		}
+	}
+	return nil, errors.New("could not find service")
 }
 
 // VisModelType defines what vision models are known by the vision service.
