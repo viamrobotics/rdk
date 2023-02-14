@@ -195,7 +195,7 @@ func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, repor
 					return nil, err
 				}
 				// TODO: I'm not sure this is actually correct???
-				if !reportDistances && cg.adjacencies[i][j] > -spatial.CollisionBuffer {
+				if !reportDistances && cg.adjacencies[i][j]+spatial.CollisionBuffer >= 0 {
 					return cg, nil
 				}
 			}
@@ -228,8 +228,7 @@ func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
 		if cg.triangular && i > j {
 			i, j = j, i
 		}
-		// TODO: I'm not sure this is actually correct???
-		if cg.adjacencies[i][j] >= -spatial.CollisionBuffer {
+		if cg.adjacencies[i][j]+spatial.CollisionBuffer >= 0 {
 			return true
 		}
 	}
