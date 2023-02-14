@@ -20,7 +20,7 @@ const (
 	defaultPseudolinearTolerance = 0.8
 
 	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 1
+	defaultSolutionsToSeed = 49
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
