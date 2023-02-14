@@ -20,9 +20,11 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -155,11 +157,6 @@ func TestUseURHostedKinematics(t *testing.T) {
 
 	// test obstacles will cause this to error
 	_, err = ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
-
-	// test obstacles will cause this to error
-	_, err = ur.useURHostedKinematics(&referenceframe.WorldState{InteractionSpaces: gifs}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
 }
@@ -434,4 +431,62 @@ func TestArmReconnection(t *testing.T) {
 	closer()
 	childCancel()
 	_ = ua.Close(ctx)
+}
+
+func TestUpdateAction(t *testing.T) {
+	cfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.3,
+			Host:                "localhost",
+			ArmHostedKinematics: false,
+		},
+	}
+
+	shouldNotReconfigureCfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.5,
+			Host:                "localhost",
+			ArmHostedKinematics: false,
+		},
+	}
+
+	shouldReconfigureCfg := config.Component{
+		Name: "testarm",
+		ConvertedAttributes: &AttrConfig{
+			Speed:               0.5,
+			Host:                "new",
+			ArmHostedKinematics: false,
+		},
+	}
+
+	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	ur5e := &URArm{
+		speed:              attrs.Speed,
+		urHostedKinematics: attrs.ArmHostedKinematics,
+		host:               attrs.Host,
+	}
+
+	// scenario where we do not reconfigure
+	test.That(t, ur5e.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
+
+	// scenario where we have to configure
+	test.That(t, ur5e.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
+
+	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
+	reconfArm, err := arm.WrapWithReconfigurable(ur5e, resource.Name{})
+	test.That(t, err, test.ShouldBeNil)
+
+	// scenario where we do not reconfigure
+	obj, canUpdate := reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
+
+	// scenario where we have to configure
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
 }

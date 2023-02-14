@@ -551,7 +551,7 @@ func readFromCloud(
 
 	mergeCloudConfig(cfg)
 
-	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
+	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
