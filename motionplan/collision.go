@@ -156,7 +156,7 @@ func (oce *collisionEntities) indexFromName(name string) int {
 type collisionGraph struct {
 	x, y *collisionEntities
 
-	adjacencies [][]float64
+	distances [][]float64
 
 	// triangular is a bool that describes if the adjacencies matrix is triangular, which will be the case when set1 == set2
 	triangular bool
@@ -171,31 +171,30 @@ func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, repor
 	cg := &collisionGraph{
 		x:               x,
 		y:               y,
-		adjacencies:     make([][]float64, x.count()),
+		distances:       make([][]float64, x.count()),
 		triangular:      x == y,
 		reportDistances: reportDistances,
 	}
-	for i := range cg.adjacencies {
-		cg.adjacencies[i] = make([]float64, y.count())
+	for i := range cg.distances {
+		cg.distances[i] = make([]float64, y.count())
 		xi := x.entityFromIndex(i)
 		startIndex := 0
 		if cg.triangular {
 			startIndex = i + 1
 			for j := 0; j < startIndex; j++ {
-				cg.adjacencies[i][j] = math.NaN()
+				cg.distances[i][j] = math.NaN()
 			}
 		}
-		for j := startIndex; j < len(cg.adjacencies[i]); j++ {
+		for j := startIndex; j < len(cg.distances[i]); j++ {
 			yj := y.entityFromIndex(j)
 			if reference.collisionBetween(xi.name, yj.name) {
-				cg.adjacencies[i][j] = math.NaN() // represent previously seen collisions as NaNs
+				cg.distances[i][j] = math.NaN() // represent previously seen collisions as NaNs
 			} else {
-				cg.adjacencies[i][j], err = cg.checkCollision(xi, yj)
+				cg.distances[i][j], err = cg.checkCollision(xi, yj)
 				if err != nil {
 					return nil, err
 				}
-				// TODO: I'm not sure this is actually correct???
-				if !reportDistances && cg.adjacencies[i][j]+spatial.CollisionBuffer >= 0 {
+				if !reportDistances && cg.distances[i][j] <= spatial.CollisionBuffer {
 					return cg, nil
 				}
 			}
@@ -212,14 +211,13 @@ func (cg *collisionGraph) getIndices(xName, yName string) (int, int, bool) {
 
 func (cg *collisionGraph) checkCollision(x, y *collisionEntity) (float64, error) {
 	if cg.reportDistances {
-		distance, err := x.geometry.DistanceFrom(y.geometry)
-		return -distance, err // multiply distance by -1 so that weights of edges are positive
+		return x.geometry.DistanceFrom(y.geometry)
 	}
 	col, err := x.geometry.CollidesWith(y.geometry)
 	if col {
-		return 1, err
+		return -1, err
 	}
-	return -1, err
+	return 1, err
 }
 
 // collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
@@ -228,7 +226,7 @@ func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
 		if cg.triangular && i > j {
 			i, j = j, i
 		}
-		if cg.adjacencies[i][j]+spatial.CollisionBuffer >= 0 {
+		if cg.distances[i][j] <= spatial.CollisionBuffer {
 			return true
 		}
 	}
@@ -238,10 +236,10 @@ func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
 // collisions returns a list of all the Collisions as reported by test CollisionEntities' collisionReportFn.
 func (cg *collisionGraph) collisions() []Collision {
 	var collisions []Collision
-	for i := range cg.adjacencies {
-		for j := range cg.adjacencies[i] {
-			if cg.adjacencies[i][j] >= -spatial.CollisionBuffer {
-				collisions = append(collisions, Collision{cg.x.entityFromIndex(i).name, cg.y.entityFromIndex(j).name, cg.adjacencies[i][j]})
+	for i := range cg.distances {
+		for j := range cg.distances[i] {
+			if cg.distances[i][j] >= -spatial.CollisionBuffer {
+				collisions = append(collisions, Collision{cg.x.entityFromIndex(i).name, cg.y.entityFromIndex(j).name, cg.distances[i][j]})
 			}
 		}
 	}
