@@ -39,6 +39,7 @@ import (
 // https://docs.trossenrobotics.com/interbotix_xsarms_docs/specifications/vx300s.html
 // Specifications for wx250s (WidowX-250 6DOF):
 // https://docs.trossenrobotics.com/interbotix_xsarms_docs/specifications/wx250s.html
+// WARNING: This implementation is experimental and not currently stable.
 
 const servoCount = 9
 
@@ -296,9 +297,9 @@ func (a *Arm) OpenGripper(ctx context.Context) error {
 	}
 	err = a.Joints["Gripper"][0].SetGoalPWM(0)
 	if err != nil {
-		a.logger.Debug("gripper pwm set to 0")
+		return errors.Wrap(err, "failed to set gripper PWM to 0")
 	}
-	return err
+	return nil
 }
 
 // Grab closes the gripper.
