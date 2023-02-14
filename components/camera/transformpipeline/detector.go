@@ -31,7 +31,6 @@ type detectorSource struct {
 	r            robot.Robot
 }
 
-//nolint:dupl
 func newDetectionsTransform(
 	ctx context.Context,
 	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,

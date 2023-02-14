@@ -33,7 +33,6 @@ type classifierSource struct {
 	r                  robot.Robot
 }
 
-//nolint:dupl
 func newClassificationsTransform(
 	ctx context.Context,
 	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
