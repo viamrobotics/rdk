@@ -50,7 +50,7 @@ func TestServer(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	var imgBufJpeg bytes.Buffer
 
-	test.That(t, libjpeg.Encode(&imgBufJpeg, img, &libjpeg.EncoderOptions{Quality: 75}), test.ShouldBeNil)
+	test.That(t, rimage.EncodeJPEG(&imgBufJpeg, img), test.ShouldBeNil)
 
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)

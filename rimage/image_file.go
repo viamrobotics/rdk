@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/lmittmann/ppm"
+
 	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	"github.com/pkg/errors"
 	"github.com/xfmoulet/qoi"
@@ -174,14 +175,7 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	case ".png":
 		return png.Encode(f, img)
 	case ".jpg", ".jpeg":
-		switch v := img.(type) {
-		case *Image:
-			imgRGBA := image.NewRGBA(img.Bounds())
-			ConvertToRGBA(imgRGBA, v)
-			return libjpeg.Encode(f, imgRGBA, &libjpeg.EncoderOptions{Quality: 90})
-		default:
-			return libjpeg.Encode(f, img, &libjpeg.EncoderOptions{Quality: 90})
-		}
+		return EncodeJPEG(f, img)
 	case ".ppm":
 		return ppm.Encode(f, img)
 	case ".qoi":
@@ -241,6 +235,7 @@ func CloneImage(img image.Image) *Image {
 // file location and also returns the location back.
 func SaveImage(pic image.Image, loc string) error {
 	//nolint:gosec
+
 	f, err := os.Create(loc)
 	if err != nil {
 		return errors.Wrapf(err, "can't save at location %s", loc)
@@ -252,11 +247,25 @@ func SaveImage(pic image.Image, loc string) error {
 	}()
 
 	// Specify the quality, between 0-100
-	err = libjpeg.Encode(f, pic, &libjpeg.EncoderOptions{Quality: 90})
+	if err = EncodeJPEG(f, pic); err != nil {
+		return errors.Wrapf(err, "the 'image' will not encode")
+	}
 	if err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
 	return nil
+}
+
+// EncodeJPEG encode an image.Image in JPEG using libjpeg
+func EncodeJPEG(w io.Writer, src image.Image) error {
+	switch v := src.(type) {
+	case *Image:
+		imgRGBA := image.NewRGBA(src.Bounds())
+		ConvertToRGBA(imgRGBA, v)
+		return libjpeg.Encode(w, imgRGBA, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
+	default:
+		return libjpeg.Encode(w, src, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
+	}
 }
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType
@@ -269,13 +278,7 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 	switch mimeType {
-	case "":
-		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
-		if err != nil {
-			return nil, err
-		}
-		return img, nil
-	case ut.MimeTypeJPEG:
+	case "", ut.MimeTypeJPEG:
 		img, err := libjpeg.Decode(bytes.NewReader(imgBytes), &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
 		if err != nil {
 			return nil, err
@@ -329,17 +332,8 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	case ut.MimeTypeJPEG:
-		switch v := img.(type) {
-		case *Image:
-			imgRGBA := image.NewRGBA(bounds)
-			ConvertToRGBA(imgRGBA, v)
-			if err := libjpeg.Encode(&buf, imgRGBA, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}); err != nil {
-				return nil, err
-			}
-		default:
-			if err := libjpeg.Encode(&buf, img, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}); err != nil {
-				return nil, err
-			}
+		if err := EncodeJPEG(&buf, img); err != nil {
+			return nil, err
 		}
 	case ut.MimeTypeQOI:
 		if err := qoi.Encode(&buf, img); err != nil {
