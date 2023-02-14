@@ -5,6 +5,7 @@ import (
 	"context"
 	// for arm model.
 	_ "embed"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -32,7 +33,8 @@ var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ArmModel string `json:"arm-model"`
+	ModelPath string `json:"model-path"`
+	ArmModel  string `json:"arm-model"`
 }
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
@@ -47,15 +49,45 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return yahboom.Model(name)
 	case eva.ModelName.Name:
 		return eva.Model(name)
+	case "":
+		return nil, nil
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", model)
 	}
 }
 
+func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		model, err = referenceframe.ParseURDFFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		model, err = referenceframe.ParseModelJSONFile(modelPath, name)
+	case modelPath == "":
+		return model, nil
+	default:
+		return model, errors.New("unsupported kinematic model encoding file passed")
+	}
+	return model, err
+}
+
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
-	_, err := modelFromName(config.ArmModel, "")
-	return err
+	_, err1 := modelFromName(config.ArmModel, "")
+	_, err2 := modelFromPath(config.ModelPath, "")
+	switch {
+	case err1 != nil && err2 != nil:
+		return err2
+	case err1 == nil && err2 != nil:
+		return err2
+	case err2 == nil && err1 != nil:
+		return err1
+	default:
+		return nil
+	}
 }
 
 func init() {
@@ -78,11 +110,19 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	var model referenceframe.Model
-	var err error
-	if cfg.ConvertedAttributes != nil {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	// prefer to get model from path
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
+	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	switch {
+	case modelPath != "":
+		model, err = modelFromPath(modelPath, cfg.Name)
+	case armModel != "":
 		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-	} else {
+	default:
 		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 	}
 	if err != nil {
