@@ -2,7 +2,6 @@ package transformpipeline
 
 import (
 	"context"
-	"fmt"
 	"image"
 
 	"github.com/edaniels/gostream"
@@ -22,14 +21,16 @@ import (
 type classifierAttrs struct {
 	ClassifierName      string  `json:"classifier_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
+	MaxClassifications  *uint32 `json:"max_classifications"`
 }
 
-// classifierSource takes an image from the camera, and overlays a label from the classifier.
+// classifierSource takes an image from the camera, and overlays labels from the classifier.
 type classifierSource struct {
-	stream         gostream.VideoStream
-	classifierName string
-	confFilter     classification.Postprocessor
-	r              robot.Robot
+	stream             gostream.VideoStream
+	classifierName     string
+	maxClassifications uint32
+	confFilter         classification.Postprocessor
+	r                  robot.Robot
 }
 
 //nolint:dupl
@@ -57,9 +58,14 @@ func newClassificationsTransform(
 		cameraModel.Distortion = props.DistortionParams
 	}
 	confFilter := classification.NewScoreFilter(attrs.ConfidenceThreshold)
+	var maxClassifications uint32 = 1
+	if attrs.MaxClassifications != nil {
+		maxClassifications = *attrs.MaxClassifications
+	}
 	classifier := &classifierSource{
 		gostream.NewEmbeddedVideoStream(source),
 		attrs.ClassifierName,
+		maxClassifications,
 		confFilter,
 		r,
 	}
@@ -67,8 +73,8 @@ func newClassificationsTransform(
 	return cam, camera.ColorStream, err
 }
 
-// Read returns the image overlaid with at most one label from the classification. It overlays the
-// highest-confidence label along with the confidence score, as long as the score is above the
+// Read returns the image overlaid with at most max_classifications labels from the classification.
+// It overlays the labels along with the confidence scores, as long as the scores are above the
 // confidence threshold.
 func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::classifier::Read")
@@ -83,22 +89,15 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
-	classifications, err := srv.Classifications(ctx, img, cs.classifierName, 1, map[string]interface{}{})
+	classifications, err := srv.Classifications(ctx, img, cs.classifierName, int(cs.maxClassifications), map[string]interface{}{})
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get classifications")
 	}
-	// overlay label on the source image
+	// overlay labels on the source image
 	classifications = cs.confFilter(classifications)
-	if len(classifications) > 1 {
-		return nil, nil, fmt.Errorf("expected at most one classification, but got %v", len(classifications))
-	}
-	if len(classifications) == 0 {
-		return img, release, nil
-	}
-
-	res, err := classification.Overlay(img, classifications[0].Label(), classifications[0].Score())
+	res, err := classification.Overlay(img, classifications)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not overlay label")
+		return nil, nil, errors.Wrap(err, "could not overlay labels")
 	}
 	return res, release, nil
 }

@@ -47,6 +47,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 					"attributes": config.AttributeMap{
 						"classifier_name":      "object_classifier",
 						"confidence_threshold": 0.35,
+						"max_classifications":  5,
 					},
 				},
 			},
@@ -108,6 +109,9 @@ func TestClassifierSource(t *testing.T) {
 	resImg, _, err := camera.ReadImage(ctx, classifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
+	// Max classifications was 5, but this image gets classified with just 2 labels, so we
+	// test that each label is present.
 	test.That(t, ovImg.GetXY(35, 28), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(35, 59), test.ShouldResemble, rimage.Red)
 	test.That(t, classifier.Close(context.Background()), test.ShouldBeNil)
 }
