@@ -9,8 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"go.viam.com/rdk/rimage/transform"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	ffmpeg "github.com/u2takey/ffmpeg-go"

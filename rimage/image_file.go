@@ -233,7 +233,7 @@ func CloneImage(img image.Image) *Image {
 // SaveImage takes an image.Image and saves it to a jpeg at the given
 // file location and also returns the location back.
 func SaveImage(pic image.Image, loc string) error {
-	f, err := os.Create(loc)
+	f, err := os.Create(filepath.Clean(loc))
 	if err != nil {
 		return errors.Wrapf(err, "can't save at location %s", loc)
 	}
