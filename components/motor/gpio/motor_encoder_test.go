@@ -20,8 +20,8 @@ import (
 	"go.viam.com/rdk/config"
 )
 
-func nowMicrosTest() uint32 {
-	return uint32(time.Now().UnixMicro())
+func nowNanosTest() uint64 {
+	return uint64(time.Now().UnixNano())
 }
 
 type fakeDirectionAware struct {
@@ -99,16 +99,16 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, float32(1))
 		})
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 
 		_motor.SetPower(context.Background(), .25, nil)
-		test.That(t, interrupt.Ticks(context.Background(), 1000, nowMicrosTest()), test.ShouldBeNil) // go far!
+		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 	})
 
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
 		_motor.SetPower(context.Background(), .25, nil)
-		test.That(t, interrupt.Ticks(context.Background(), 1000, nowMicrosTest()), test.ShouldBeNil) // go far!
+		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 
 		// we should still be moving at the previous force
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -132,13 +132,13 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 1)
 		})
 
-		test.That(t, interrupt.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
@@ -162,13 +162,13 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, -1)
 		})
 
-		test.That(t, interrupt.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
@@ -191,13 +191,13 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, -1)
 		})
 
-		test.That(t, interrupt.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
@@ -221,13 +221,13 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 1)
 		})
 
-		test.That(t, interrupt.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
@@ -319,7 +319,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		encoder := th.Encoder
 		encoderB := th.EncoderB
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // bounce, we should do nothing
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // bounce, we should do nothing
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -336,13 +336,13 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		encoderB := th.EncoderB
 
 		// this should do nothing because it's the initial state
-		test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
 		})
-		test.That(t, encoderB.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil) // we go from state 00 -> 10
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // we go from state 00 -> 10
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -353,7 +353,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil) // 10 -> 11
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 10 -> 11
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -364,7 +364,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // 11 -> 01
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 11 -> 01
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -375,7 +375,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // 01 -> 00
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 01 -> 00
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -396,13 +396,13 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		encoderB := th.EncoderB
 
 		// this should do nothing because it's the initial state
-		test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
 		})
-		test.That(t, encoderB.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil) // we go from state 00 -> 10
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // we go from state 00 -> 10
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -413,7 +413,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil) // 10 -> 11
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 10 -> 11
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -424,7 +424,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // 11 -> 01
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 11 -> 01
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -435,7 +435,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // 01 -> 00
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 01 -> 00
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -446,7 +446,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil) // we go from state 00 -> 01
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // we go from state 00 -> 01
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -457,7 +457,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil) // 01 -> 11
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 01 -> 11
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -468,7 +468,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // 11 -> 10
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 11 -> 10
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -479,7 +479,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil) // 10 -> 00
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 10 -> 00
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
@@ -516,10 +516,10 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		})
 
 		for x := 0; x < 100; x++ {
-			test.That(t, encoderB.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
-			test.That(t, encoderA.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
-			test.That(t, encoderB.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil)
-			test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil)
+			test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+			test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+			test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+			test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		}
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -553,10 +553,10 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		})
 
 		for x := 0; x < 100; x++ {
-			test.That(t, encoderA.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil)
-			test.That(t, encoderB.Tick(context.Background(), false, nowMicrosTest()), test.ShouldBeNil)
-			test.That(t, encoderA.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
-			test.That(t, encoderB.Tick(context.Background(), true, nowMicrosTest()), test.ShouldBeNil)
+			test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+			test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+			test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+			test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		}
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

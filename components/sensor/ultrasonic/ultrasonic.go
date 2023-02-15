@@ -177,11 +177,11 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	}
 	// the first signal from the interrupt indicates that the sonic
 	// pulse has been sent
-	var timeA, timeB uint32
+	var timeA, timeB uint64
 	var tick board.Tick
 	select {
 	case tick = <-s.intChan:
-		timeB = tick.TimestampMicroSec
+		timeB = tick.TimestampNanosec
 	case <-s.cancelCtx.Done():
 		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
@@ -191,7 +191,7 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	// been received
 	select {
 	case tick = <-s.intChan:
-		timeA = tick.TimestampMicroSec
+		timeA = tick.TimestampNanosec
 	case <-s.cancelCtx.Done():
 		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
@@ -200,7 +200,7 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	// we calculate the distance to the nearest object based
 	// on the time interval between the sound and its echo
 	// and the speed of sound (343 m/s)
-	secondsElapsed := float64(timeA-timeB) / math.Pow10(6)
+	secondsElapsed := float64(timeA-timeB) / math.Pow10(9)
 	distMeters := secondsElapsed * 343.0 / 2.0
 	s.distanceChan <- distMeters
 	return nil

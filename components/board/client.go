@@ -237,7 +237,7 @@ func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]i
 	return resp.Value, nil
 }
 
-func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, microseconds uint32) error {
+func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	panic(errUnimplemented)
 }
 
