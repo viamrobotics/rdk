@@ -242,7 +242,6 @@ func (cg *collisionGraph) collisions() []Collision {
 	var collisions []Collision
 	for i := range cg.distances {
 		for j := range cg.distances[i] {
-			// TODO:
 			if cg.distances[i][j] <= spatial.CollisionBuffer {
 				collisions = append(collisions, Collision{cg.x.entityFromIndex(i).name, cg.y.entityFromIndex(j).name, cg.distances[i][j]})
 			}
