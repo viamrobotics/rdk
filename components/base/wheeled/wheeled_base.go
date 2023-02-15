@@ -16,12 +16,15 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
+
+const pollTimeMs = 100
 
 var modelname = resource.NewDefaultModel("wheeled")
 
@@ -95,13 +98,28 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr operation.SingleOperationManager
+	movementSensors   []movementsensor.MovementSensor
+	orientationSensor movementsensor.MovementSensor
+
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
+	if base.orientationSensor != nil {
+		base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
+		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
+	} else {
+		base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
+		return base.spin(ctx, angleDeg, degsPerSec)
+	}
+
+}
+
+func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64) error {
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := base.Stop(ctx, nil)
@@ -115,6 +133,91 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
+
+}
+
+func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
+
+	currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
+	if err != nil {
+		return err
+	}
+
+	errCounter := 0
+	targetYaw := calculatedDomainLimitedAngleError(angleDeg, currYaw)
+	timer := time.NewTicker(time.Duration(pollTimeMs * float64(time.Millisecond))) //~rename
+	for {
+
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-timer.C:
+		}
+		//~make into helper function and pass into timer case?
+		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
+		if err != nil {
+			errCounter++
+			if errCounter > 100 {
+				break
+			}
+			return err
+		}
+
+		errAngle := targetYaw - currYaw
+		base.logger.Debugf("currYaw: %.2f, errAngle:%.2f", currYaw, errAngle)
+
+		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
+		// poll the sensor for the current error in angle
+		if math.Abs(errAngle) < 5 || currYaw > calculatedDomainLimitedAngleError(targetYaw, 15) {
+			if err := base.Stop(ctx, nil); err != nil {
+				return err
+			}
+			break
+		}
+		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
+) (float64, error) {
+	orientation, err := ms.Orientation(ctx, extra)
+	if err != nil {
+		return 0, err
+	}
+	return rdkutils.RadToDeg(orientation.EulerAngles().Yaw), nil
+}
+
+// TODO: RSDK-1698, considers dealing with imus that
+// return values between -180 to 180 and 0-360 (probably components using our sensor filters).
+// current tests only consider -179 to 179 domain logic
+func calculatedDomainLimitedAngleError(target, current float64) float64 {
+	angle := target + current
+	// reduce the angle
+	angle = math.Mod(angle, 360)
+
+	// force it to be the positive remainder, so that 0 <= angle < 360
+	angle = math.Mod(angle+360, 360)
+
+	// force into the minimum absolute value residue class, so that -180 < angle <= 180
+	if angle > 180 {
+		angle -= 360
+	}
+
+	// handle case of IMUs not reporting -179 to 179 and skipping 180 degrees
+	if math.Abs(angle) == 180 {
+		angle -= 0.1
+	}
+
+	return angle
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
@@ -331,6 +434,7 @@ func CreateWheeledBase(
 		widthMm:              config.WidthMM,
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
 		spinSlipFactor:       config.SpinSlipFactor,
+		logger:               logger,
 	}
 
 	if base.spinSlipFactor == 0 {
