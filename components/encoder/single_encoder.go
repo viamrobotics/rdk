@@ -4,8 +4,16 @@ package encoder
 	This driver implements a single-wire odometer, such as LM393, as an encoder. This allows the motor to determine its relative position.
 	This class of encoders requires a single digital interrupt pin.
 
-	This encoder must be connected to a motor (or another component that supports encoders) in order to record readings. 
+	This encoder must be connected to a motor (or another component that supports encoders) in order to record readings.
 	The motor indicates in which direction it is spinning, thus indicating if the encoder should increment or decrement reading value.
+
+	Sample configuration:
+	{
+		"pins" : {
+			"i": 10
+		},
+		"board": "pi"
+	}
 */
 
 import (
