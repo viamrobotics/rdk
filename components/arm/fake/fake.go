@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-
 	// for arm model.
 	_ "embed"
 
@@ -28,10 +27,6 @@ import (
 // modelNameErr is the returned string when we want to use a path to
 // instantiate a model.
 const modelNameErr = "fake arm cannot be created, unsupported arm_model: "
-
-// customModelErr is the returned string when we want to use a path to
-// instantiate a model but no path was given.
-const customModelErr = "cannot have empty path if instantiating custom model"
 
 // attrCfgPopulationErr is the returned string if the AttrConfig's fields are fully populated.
 const attrCfgPopulationErr = "can only populate either ArmModel or ModelPath - not both"
@@ -66,7 +61,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case ModelName.Name:
 		return referenceframe.UnmarshalModelJSON(fakeModelJSON, name)
 	default:
-		return nil, errors.Errorf(modelNameErr, model)
+		return nil, errors.New(modelNameErr + model)
 	}
 }
 
