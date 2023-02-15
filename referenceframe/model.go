@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -273,4 +274,23 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 	}
 
 	return orderedTransforms, nil
+}
+
+// ModelFromPath returns a Model from a given path.
+func ModelFromPath(modelPath, name string) (Model, error) {
+	var (
+		model Model
+		err   error
+	)
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		model, err = ParseURDFFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		model, err = ParseModelJSONFile(modelPath, name)
+	// case modelPath == "":
+	// 	return model, nil
+	default:
+		return model, errors.New("unsupported kinematic model encoding file passed")
+	}
+	return model, err
 }
