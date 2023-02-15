@@ -29,7 +29,7 @@ type gpioPin struct {
 	pwmDutyCyclePct float64
 
 	mu        sync.Mutex
-	cancelCtx *context.Context
+	cancelCtx context.Context
 	waitGroup *sync.WaitGroup
 	logger    golog.Logger
 }
