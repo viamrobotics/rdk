@@ -5,11 +5,11 @@ import (
 	"context"
 	// for arm model.
 	_ "embed"
-	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
@@ -25,6 +25,14 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// customModelErr is the returned string when we want to use a path to
+// instantiate a model.
+const customModelErr = "using custom model"
+
+// customModelErr is the returned string when we want to use a path to
+// instantiate a model but no path was given.
+const customPathErr = "cannot have empty path"
+
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
 
@@ -33,11 +41,12 @@ var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ModelPath string `json:"model-path"`
 	ArmModel  string `json:"arm-model"`
+	ModelPath string `json:"model-path,omitempty"`
 }
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
+	var custom referenceframe.Model
 	switch resource.ModelName(model) {
 	case xarm.ModelName6DOF.Name:
 		return xarm.Model(name, 6)
@@ -49,44 +58,30 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return yahboom.Model(name)
 	case eva.ModelName.Name:
 		return eva.Model(name)
-	case "":
-		return nil, nil
+	case ModelName.Name:
+		return referenceframe.UnmarshalModelJSON(fakeModelJSON, name)
+	case "custom":
+		return custom, errors.New(customModelErr)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", model)
 	}
 }
 
-func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
-	var (
-		model referenceframe.Model
-		err   error
-	)
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		model, err = referenceframe.ParseURDFFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		model, err = referenceframe.ParseModelJSONFile(modelPath, name)
-	case modelPath == "":
-		return model, nil
-	default:
-		return model, errors.New("unsupported kinematic model encoding file passed")
-	}
-	return model, err
-}
-
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
-	_, err1 := modelFromName(config.ArmModel, "")
-	_, err2 := modelFromPath(config.ModelPath, "")
+	var err error
+	if config.ArmModel == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "arm-name")
+	}
+	_, err = modelFromName(config.ArmModel, "")
 	switch {
-	case err1 != nil && err2 != nil:
-		return err2
-	case err1 == nil && err2 != nil:
-		return err2
-	case err2 == nil && err1 != nil:
-		return err1
+	case err.Error() == customModelErr && config.ModelPath == "":
+		return errors.New(customPathErr)
+	case err.Error() == customModelErr && config.ModelPath != "":
+		_, err = referenceframe.ModelFromPath(config.ModelPath, "")
+		return err
 	default:
-		return nil
+		return err
 	}
 }
 
@@ -115,21 +110,17 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		err   error
 	)
 	if cfg.ConvertedAttributes != nil {
-		// prefer to get model from path
 		modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
 		armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
 		switch {
-		case modelPath != "":
-			model, err = modelFromPath(modelPath, cfg.Name)
 		case armModel != "":
 			model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-		default:
-			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
+		case modelPath != "":
+			model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 		}
 	} else {
 		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 	}
-
 	if err != nil {
 		return nil, err
 	}
