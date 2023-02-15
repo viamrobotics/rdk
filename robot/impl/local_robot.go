@@ -463,13 +463,20 @@ func newWithResources(
 
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
 		var err error
-		r.cloudConn, err = config.CreateNewGRPCClient(ctx, cfg.Cloud, logger)
-		if err != nil {
-			return nil, err
-		}
-		r.packageManager, err = packages.NewCloudManager(pb.NewPackageServiceClient(r.cloudConn), cfg.PackagePath, logger)
-		if err != nil {
-			return nil, err
+		timeOutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		r.cloudConn, err = config.CreateNewGRPCClient(timeOutCtx, cfg.Cloud, logger)
+		cancel()
+		if err == nil {
+			r.packageManager, err = packages.NewCloudManager(pb.NewPackageServiceClient(r.cloudConn), cfg.PackagePath, logger)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			if !errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+			r.logger.Debug("Using no-op PackageManager when internet not available")
+			r.packageManager = packages.NewNoopManager()
 		}
 	} else {
 		r.logger.Debug("Using no-op PackageManager when Cloud config is not available")
