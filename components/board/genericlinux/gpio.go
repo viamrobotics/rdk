@@ -171,7 +171,6 @@ func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
-	return 0, errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
