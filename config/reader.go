@@ -551,9 +551,10 @@ func readFromCloud(
 
 	mergeCloudConfig(cfg)
 
-	logger.Infow("configs before caching", "unprocessed", unprocessedConfig, "merged", cfg)
+	unprocessedConfig.Cloud.TLSCertificate = tlsCertificate
+	unprocessedConfig.Cloud.TLSPrivateKey = tlsPrivateKey
 
-	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
+	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
