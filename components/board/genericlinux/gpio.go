@@ -29,7 +29,7 @@ type gpioPin struct {
 	pwmDutyCyclePct float64
 
 	mu        sync.Mutex
-	cancelCtx context.Context
+	cancelCtx *context.Context
 	waitGroup *sync.WaitGroup
 	logger    golog.Logger
 }
@@ -109,14 +109,11 @@ func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (resu
 func (pin *gpioPin) startSoftwarePWM() {
 	if pin.pwmRunning {
 		// We're already running a software PWM loop, we don't need another.
-		pin.logger.Info("not starting pwm loop that's already started")
 		return
 	}
-	pin.logger.Info("starting pwm loop!")
 	pin.pwmRunning = true
 	pin.waitGroup.Add(1)
 	goutils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
-	pin.logger.Info("finished starting pwm loop!")
 }
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
@@ -126,7 +123,6 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		// Before we modify the pin, check if we should stop running
 		if !pin.pwmRunning {
 			pin.mu.Unlock()
-			pin.logger.Info("exiting pwm loop because we're suposed to stop")
 			return false
 		}
 
@@ -136,8 +132,6 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		}
 		duration := time.Duration(float64(time.Second) * dutyCycle / float64(pin.pwmFreqHz))
 
-		pin.logger.Infof("duration is %v", duration)
-		pin.logger.Infof("setting pin to %v", shouldBeOn)
 		pin.setInternal(shouldBeOn)
 		pin.mu.Unlock()
 
@@ -146,14 +140,10 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 
 func (pin *gpioPin) softwarePwmLoop() {
 	for {
-		pin.logger.Info("pwm loop turn on...")
 		if !pin.halfPwmCycle(true) {
-			pin.logger.Info("pwm loop exiting after turning on")
 			return
 		}
-		pin.logger.Info("pwm loop turn off...")
 		if !pin.halfPwmCycle(false) {
-			pin.logger.Info("pwm loop exiting after turning off")
 			return
 		}
 	}
