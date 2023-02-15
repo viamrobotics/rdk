@@ -337,10 +337,10 @@ func (m *cloudManager) downloadFileFromGCSURL(ctx context.Context, url string, p
 	contentType := resp.Header.Get("Content-Type")
 	checksum := getGoogleHash(resp.Header, "crc32c")
 
-	//nolint:gosec // safe
 	if err := os.Mkdir(filepath.Dir(downloadPath), 0o700); err != nil {
 		return checksum, contentType, err
 	}
+	//nolint:gosec // safe
 	out, err := os.Create(downloadPath)
 	if err != nil {
 		return checksum, contentType, err
