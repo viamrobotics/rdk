@@ -8,4 +8,5 @@ import (
 	_ "go.viam.com/rdk/components/sensor/ds18b20"
 	_ "go.viam.com/rdk/components/sensor/fake"
 	_ "go.viam.com/rdk/components/sensor/ultrasonic"
+	_ "go.viam.com/rdk/components/sensor/wifi"
 )
