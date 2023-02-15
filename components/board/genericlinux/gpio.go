@@ -28,8 +28,9 @@ type gpioPin struct {
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
 
-	mu  sync.Mutex
+	mu        sync.Mutex
 	cancelCtx context.Context
+	waitGroup *sync.WaitGroup
 }
 
 // This is a private helper function that should only be called when the mutex is locked. It sets
@@ -110,8 +111,8 @@ func (pin *gpioPin) startSoftwarePWM() {
 		return
 	}
 	pin.pwmRunning = true
-	// TODO: capture panics
-	go pin.softwarePwmLoop()
+	pin.waitGroup.Add(1)
+	goutils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
 }
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
