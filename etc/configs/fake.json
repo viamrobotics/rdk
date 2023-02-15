@@ -92,6 +92,11 @@
             "model": "fake"
         },
         {
+            "name": "wifi1",
+            "type": "sensor",
+            "model": "wifi"
+        },
+        {
             "name": "servo1",
             "type": "servo",
             "model": "fake"
