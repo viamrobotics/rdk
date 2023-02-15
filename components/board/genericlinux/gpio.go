@@ -7,7 +7,6 @@ package genericlinux
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -129,12 +128,12 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		if !shouldBeOn {
 			dutyCycle = 1 - dutyCycle
 		}
-		duration := time.Duration(time.Second / int64(pin.pwmFreqHz) * dutyCycle)
+		duration := time.Duration(dutyCycle / float64(pin.pwmFreqHz)) * time.Second
 
 		pin.setInternal(shouldBeOn)
 		pin.mu.Unlock()
 
-		return utils.SelectContextOrWait(pin.ctx, duration)
+		return goutils.SelectContextOrWait(pin.cancelCtx, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop() {
