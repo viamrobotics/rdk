@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+
 	// for arm model.
 	_ "embed"
 
@@ -75,6 +76,8 @@ func (config *AttrConfig) Validate(path string) error {
 	}
 	_, err = modelFromName(config.ArmModel, "")
 	switch {
+	case err == nil:
+		return err
 	case err.Error() == customModelErr && config.ModelPath == "":
 		return errors.New(customPathErr)
 	case err.Error() == customModelErr && config.ModelPath != "":
