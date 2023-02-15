@@ -716,7 +716,7 @@ func (m *mockDigitalInterrupt) Value(ctx context.Context, extra map[string]inter
 	return 0, nil
 }
 
-func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, microseconds uint32) error {
+func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	return nil
 }
 func (m *mockDigitalInterrupt) AddCallback(c chan board.Tick)           {}

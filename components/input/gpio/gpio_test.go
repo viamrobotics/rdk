@@ -266,7 +266,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		err := s.b.Digitals["interrupt1"].Tick(s.ctx, true, uint32(time.Now().UnixMicro()))
+		err := s.b.Digitals["interrupt1"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -278,7 +278,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 1)
 		})
 
-		err = s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint32(time.Now().UnixMicro()))
+		err = s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -299,9 +299,9 @@ func TestGPIOInput(t *testing.T) {
 
 		// this loop must complete within the debounce time
 		for i := 0; i < 20; i++ {
-			err := s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint32(time.Now().UnixMicro()))
+			err := s.b.Digitals["interrupt1"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			err = s.b.Digitals["interrupt1"].Tick(s.ctx, true, uint32(time.Now().UnixMicro()))
+			err = s.b.Digitals["interrupt1"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
 		}
 
@@ -323,7 +323,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint32(time.Now().UnixMicro()))
+		err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -335,7 +335,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, 1)
 		})
 
-		err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint32(time.Now().UnixMicro()))
+		err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -355,9 +355,9 @@ func TestGPIOInput(t *testing.T) {
 		iterations := 50
 
 		for i := 0; i < iterations; i++ {
-			err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint32(time.Now().UnixMicro()))
+			err := s.b.Digitals["interrupt2"].Tick(s.ctx, true, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint32(time.Now().UnixMicro()))
+			err = s.b.Digitals["interrupt2"].Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
 		}
 

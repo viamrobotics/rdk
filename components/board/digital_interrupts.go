@@ -16,12 +16,12 @@ import (
 const ServoRollingAverageWindow = 10
 
 // Tick represents a signal received by an interrupt pin. This signal is communicated
-// via registered channel to the various drivers. The timestamp in microseconds of the
+// via registered channel to the various drivers. The timestamp in nanoseconds of the
 // tick SHOULD ONLY BE USED FOR CALCULATING THE TIME ELAPSED BETWEEN CONSECUTIVE TICKS AND NOT
 // AS AN ABSOLUTE TIMESTAMP.
 type Tick struct {
-	High              bool
-	TimestampMicroSec uint32
+	High             bool
+	TimestampNanosec uint64
 }
 
 // A DigitalInterrupt represents a configured interrupt on the board that
@@ -34,9 +34,9 @@ type DigitalInterrupt interface {
 
 	// Tick is to be called either manually if the interrupt is a proxy to some real
 	// hardware interrupt or for tests.
-	// microseconds is from an arbitrary point in time, but always increasing and always needs
+	// nanoseconds is from an arbitrary point in time, but always increasing and always needs
 	// to be accurate.
-	Tick(ctx context.Context, high bool, microseconds uint32) error
+	Tick(ctx context.Context, high bool, nanoseconds uint64) error
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
@@ -131,9 +131,9 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 }
 
 // Ticks is really just for testing.
-func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint32) error {
+func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) error {
 	for x := 0; x < num; x++ {
-		if err := i.Tick(ctx, true, now+uint32(x)); err != nil {
+		if err := i.Tick(ctx, true, now+uint64(x)); err != nil {
 			return err
 		}
 	}
@@ -141,7 +141,7 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint32) 
 }
 
 // Tick records an interrupt and notifies any interested callbacks.
-func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, microseconds uint32) error {
+func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
@@ -152,7 +152,7 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, microsecond
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
-		case c <- Tick{High: high, TimestampMicroSec: microseconds}:
+		case c <- Tick{High: high, TimestampNanosec: nanoseconds}:
 		}
 	}
 	return nil
@@ -189,7 +189,7 @@ func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 // make meaning of these widths.
 type ServoDigitalInterrupt struct {
 	cfg  DigitalInterruptConfig
-	last uint32
+	last uint64
 	ra   *utils.RollingAverage
 	pp   PostProcessor
 }
@@ -212,7 +212,7 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 
 // Tick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint32) error {
+func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
 	diff := now - i.last
 	i.last = now
 
@@ -225,7 +225,7 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint32)
 		return nil
 	}
 
-	i.ra.Add(int(diff))
+	i.ra.Add(int(diff) / 1000)
 	return nil
 }
 
