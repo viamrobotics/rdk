@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
@@ -16,11 +17,16 @@ import (
 )
 
 type gpioPin struct {
-	// These values should both be considered immutable. The mutex is only here so that the use of
-	// the multiple calls to the gpio package don't have race conditions.
+	// These values should both be considered immutable.
 	devicePath string
 	offset     uint32
 	line       *gpio.Line
+
+	// These values are mutable. Lock the mutex when interacting with them.
+	pwmRunning      bool
+	pwmFreqHz       uint
+	pwmDutyCyclePct float64
+
 	mu         sync.Mutex
 }
 
@@ -56,6 +62,14 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 		return err
 	}
 
+	pin.pwmRunning = false
+	return pin.setInternal(isHigh)
+}
+
+// This function assumes you've already locked the mutex. It does not modify pwmRunning because we
+// might be setting the pin because we're using it as a GPIO pin, or we might be setting it in a
+// software PWM loop.
+func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 	var value byte
 	if isHigh {
 		value = 1
@@ -71,6 +85,8 @@ func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (resu
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	pin.pwmRunning = false
+
 	if err := pin.openGpioFd(); err != nil {
 		return false, err
 	}
@@ -84,24 +100,84 @@ func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (resu
 	return (value != 0), nil
 }
 
+// Lock the mutex before calling this! We'll spin up a background goroutine to create a PWM signal
+// in software, if one isn't already running.
+func (pin *gpioPin) startSoftwarePWM() {
+	if pin.pwmRunning {
+		// We're already running a software PWM loop, we don't need another.
+		return
+	}
+	pin.pwmRunning = true
+	// TODO: capture panics
+	go pin.softwarePwmLoop()
+}
+
+func (pin *gpioPin) softwarePwmLoop() {
+	for {
+		pin.mu.Lock()
+		shouldContinue := pin.pwmRunning
+		pin.mu.Unlock()
+		if !shouldContinue {
+			return
+		}
+
+		period := time.Duration(time.Second / int64(pin.pwmFreqHz)
+
+		pin.mu.Lock()
+		pin.setInternal(true)
+		pin.mu.Unlock()
+
+		// TODO: wake on cancel
+		time.sleep(period * pin.pwmDutyCyclePct)
+
+		pin.mu.Lock()
+		pin.setInternal(false)
+		pin.mu.Unlock()
+
+		// TODO: wake on cancel
+		time.sleep(period * (1.0 - pin.pwmDutyCyclePct))
+	}
+}
+
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return math.NaN(), errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+
+	return pin.pwmDutyCyclePct, nil
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
-	return errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+
+	pin.pwmDutyCyclePct = dutyCyclePct
+	if pin.pwmDutyCyclePct != 0 && pin.pwmFreqHz != 0 && !pin.pwmRunning {
+		pin.startSoftwarePWM()
+	}
+	return nil
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	return 0, errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+
+	return pin.pwmFreqHz, nil
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
-	return errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+
+	pin.pwmFreqHz = freqHz
+	if pin.pwmDutyCyclePct != 0 && pin.pwmFreqHz != 0 && !pin.pwmRunning {
+		pin.startSoftwarePWM()
+	}
+	return nil
 }
 
 func (pin *gpioPin) Close() error {
