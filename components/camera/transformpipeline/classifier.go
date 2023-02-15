@@ -21,7 +21,7 @@ import (
 type classifierAttrs struct {
 	ClassifierName      string  `json:"classifier_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
-	MaxClassifications  *uint32 `json:"max_classifications"`
+	MaxClassifications  uint32  `json:"max_classifications"`
 }
 
 // classifierSource takes an image from the camera, and overlays labels from the classifier.
@@ -58,8 +58,8 @@ func newClassificationsTransform(
 	}
 	confFilter := classification.NewScoreFilter(attrs.ConfidenceThreshold)
 	var maxClassifications uint32 = 1
-	if attrs.MaxClassifications != nil {
-		maxClassifications = *attrs.MaxClassifications
+	if attrs.MaxClassifications != 0 {
+		maxClassifications = attrs.MaxClassifications
 	}
 	classifier := &classifierSource{
 		gostream.NewEmbeddedVideoStream(source),
