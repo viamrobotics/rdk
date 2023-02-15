@@ -3,6 +3,7 @@ package gpio
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -106,8 +107,9 @@ type Motor struct {
 	dirFlip                  bool
 	motorName                string
 
-	opMgr  operation.SingleOperationManager
-	logger golog.Logger
+	opMgr   operation.SingleOperationManager
+	logger  golog.Logger
+	stateMu sync.RWMutex
 
 	generic.Unimplemented
 }
@@ -131,6 +133,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
 	if math.Abs(powerPct) <= 0.001 {
+		m.on = false
 		m.powerPct = 0.0
 		if m.EnablePinLow != nil {
 			errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))

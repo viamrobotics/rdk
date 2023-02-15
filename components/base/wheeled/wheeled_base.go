@@ -122,7 +122,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
-	base.logger.Debugf("received a MoveStraight with distanceMM:%.2f, mmPerSec:%.2f", distanceMm, mmPerSec)
+	base.logger.Debugf("received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
@@ -150,7 +150,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
-	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil && !errors.Is(err, context.Canceled) {
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
