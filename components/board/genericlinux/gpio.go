@@ -113,29 +113,29 @@ func (pin *gpioPin) startSoftwarePWM() {
 	}
 	pin.pwmRunning = true
 	pin.waitGroup.Add(1)
-	goutils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
+	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
 }
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
 // until we're supposed to shut down). We return whether we should continue the software PWM cycle.
 func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
-		pin.mu.Lock()
-		// Before we modify the pin, check if we should stop running
-		if !pin.pwmRunning {
-			pin.mu.Unlock()
-			return false
-		}
-
-		dutyCycle := pin.pwmDutyCyclePct
-		if !shouldBeOn {
-			dutyCycle = 1 - dutyCycle
-		}
-		duration := time.Duration(float64(time.Second) * dutyCycle / float64(pin.pwmFreqHz))
-
-		pin.setInternal(shouldBeOn)
+	pin.mu.Lock()
+	// Before we modify the pin, check if we should stop running
+	if !pin.pwmRunning {
 		pin.mu.Unlock()
+		return false
+	}
 
-		return goutils.SelectContextOrWait(pin.cancelCtx, duration)
+	dutyCycle := pin.pwmDutyCyclePct
+	if !shouldBeOn {
+		dutyCycle = 1 - dutyCycle
+	}
+	duration := time.Duration(float64(time.Second) * dutyCycle / float64(pin.pwmFreqHz))
+
+	pin.setInternal(shouldBeOn)
+	pin.mu.Unlock()
+
+	return utils.SelectContextOrWait(pin.cancelCtx, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop() {
