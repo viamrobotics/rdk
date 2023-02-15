@@ -139,20 +139,21 @@ func NewCollisionConstraint(
 	if err != nil && len(zeroVols.Geometries()) == 0 {
 		return nil // no geometries defined for frame
 	}
-	internalEntities, err := NewObjectCollisionEntities(zeroVols.Geometries())
+	internalEntities, err := NewCollisionEntities(zeroVols.Geometries())
 	if err != nil {
 		return nil
 	}
-	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
+	obstacleEntities, err := NewCollisionEntities(obstacles)
 	if err != nil {
 		return nil
 	}
-	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities}, true)
+
+	zeroCG, err := newCollisionGraph(internalEntities, obstacleEntities, nil, true)
 	if err != nil {
 		return nil
 	}
 	for _, specification := range collisionSpecifications {
-		if err := zeroCG.AddCollisionSpecificationToGraphs(specification); err != nil {
+		if err := zeroCG.addCollisionSpecification(specification); err != nil {
 			return nil
 		}
 	}
@@ -162,22 +163,17 @@ func NewCollisionConstraint(
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		internalEntities, err := NewObjectCollisionEntities(internal.Geometries())
+		internalEntities, err := NewCollisionEntities(internal.Geometries())
 		if err != nil {
 			return false, 0
 		}
 
-		cg, err := NewCollisionSystemFromReference(
-			internalEntities,
-			[]CollisionEntities{obstacleEntities},
-			zeroCG,
-			reportDistances,
-		)
+		cg, err := newCollisionGraph(internalEntities, obstacleEntities, zeroCG, reportDistances)
 		if err != nil {
 			return false, 0
 		}
 
-		collisions := cg.Collisions()
+		collisions := cg.collisions()
 		if len(collisions) > 0 {
 			return false, 0
 		}

@@ -98,7 +98,7 @@ func (oce *collisionEntities) indexFromName(name string) int {
 
 // func (oce *collisionEntities) checkCollision(key, test *collisionEntity, reportDistances bool) (float64, error) {
 // 	if reportDistances {
-// 		distance, err := key.geometry.DistanceFrom(test.geometry)
+// 		distance, err := key.geomtry.DistanceFrom(test.geometry)
 // 		return -distance, err // multiply distance by -1 so that weights of edges are positive
 // 	}
 // 	col, err := key.geometry.CollidesWith(test.geometry)
@@ -153,7 +153,11 @@ func (oce *collisionEntities) indexFromName(name string) int {
 // }
 
 // collisionGraph is an implementation of an undirected graph used to track collisions between two set of CollisionEntities.
-type collisionGraph struct {
+
+// TODO: make separate struct for the obj (a part of the robot ) vs obstacle graph
+// TODO: add comments to each field inside collisionGraph
+type collisionGraph struct { // this is treated as the obj vs obj graph
+
 	x, y *collisionEntities
 
 	distances [][]float64
@@ -187,7 +191,7 @@ func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, repor
 		}
 		for j := startIndex; j < len(cg.distances[i]); j++ {
 			yj := y.entityFromIndex(j)
-			if reference.collisionBetween(xi.name, yj.name) {
+			if reference != nil && reference.collisionBetween(xi.name, yj.name) {
 				cg.distances[i][j] = math.NaN() // represent previously seen collisions as NaNs
 			} else {
 				cg.distances[i][j], err = cg.checkCollision(xi, yj)
@@ -238,7 +242,8 @@ func (cg *collisionGraph) collisions() []Collision {
 	var collisions []Collision
 	for i := range cg.distances {
 		for j := range cg.distances[i] {
-			if cg.distances[i][j] >= -spatial.CollisionBuffer {
+			// TODO:
+			if cg.distances[i][j] <= spatial.CollisionBuffer {
 				collisions = append(collisions, Collision{cg.x.entityFromIndex(i).name, cg.y.entityFromIndex(j).name, cg.distances[i][j]})
 			}
 		}
@@ -256,7 +261,7 @@ func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (e
 		if cg.triangular && i > j {
 			i, j = j, i
 		}
-		cg.adjacencies[i][j] = math.NaN()
+		cg.distances[i][j] = math.NaN()
 		return nil
 	}
 	return errors.Errorf("cannot add collision specification between entities with names: %s, %s", specification.name1, specification.name2)
@@ -325,14 +330,4 @@ func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (e
 // 		}
 // 	}
 // 	return false
-// }
-
-// // AddCollisionSpecificationToGraphs takes a Collision as an argument and either whitelists collisions between the two entities.
-// func (cs *CollisionSystem) AddCollisionSpecificationToGraphs(specification *Collision) error {
-// 	for _, graph := range cs.graphs {
-// 		if err := graph.addCollisionSpecification(specification); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
 // }
