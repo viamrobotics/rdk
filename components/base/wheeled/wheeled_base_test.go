@@ -43,7 +43,8 @@ func TestWheelBaseMath(t *testing.T) {
 			WheelCircumferenceMM: 1000,
 			Left:                 []string{"fl-m", "bl-m"},
 			Right:                []string{"fr-m", "br-m"},
-		}}
+		},
+	}
 	deps, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
@@ -316,7 +317,8 @@ func TestWheeledBaseConstructor(t *testing.T) {
 			WheelCircumferenceMM: 1000,
 			Left:                 []string{"fl-m", "bl-m"},
 			Right:                []string{"fr-m", "br-m"},
-		}}
+		},
+	}
 	deps, err := compCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
