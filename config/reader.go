@@ -550,7 +550,7 @@ func readFromCloud(
 	}
 
 	mergeCloudConfig(cfg)
-
+	// TODO(RSDK-1960): add more tests around config caching
 	unprocessedConfig.Cloud.TLSCertificate = tlsCertificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tlsPrivateKey
 
