@@ -174,7 +174,8 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		// poll the sensor for the current error in angle
-		if math.Abs(errAngle) < 5 || currYaw > calculatedDomainLimitedAngleError(targetYaw, 15) {
+		// also check if we've overshot our target by fifteen degrees
+		if math.Abs(errAngle) < 5 || baseOvershot(currYaw, targetYaw, 15) {
 			if err := base.Stop(ctx, nil); err != nil {
 				return err
 			}
@@ -218,6 +219,10 @@ func calculatedDomainLimitedAngleError(target, current float64) float64 {
 	}
 
 	return angle
+}
+
+func baseOvershot(currentYaw, targetYaw, allowedAngle float64) bool {
+	return math.Abs(currentYaw) > math.Abs(calculatedDomainLimitedAngleError(targetYaw, allowedAngle))
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
