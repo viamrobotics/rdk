@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// unsupportedFileType is returned if we try to build a model from an inproper extension
+// unsupportedFileType is returned if we try to build a model from an inproper extension.
 const unsupportedFileType = `only files with .json and .urdf file extensions are supported`
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
