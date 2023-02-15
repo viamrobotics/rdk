@@ -315,13 +315,38 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
 		return reconfigurable, nil
 	}
+	reconfigurable := newReconfigurable(c, name)
+
+	if mon, ok := c.(LivenessMonitor); ok {
+		mon.Monitor(func() {
+			reconfigurable.mu.Lock()
+			defer reconfigurable.mu.Unlock()
+			reconfigurable.reconfigureKnownCamera(newReconfigurable(c, name))
+		})
+	}
+
+	return reconfigurable, nil
+}
+
+func newReconfigurable(c Camera, name resource.Name) *reconfigurableCamera {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &reconfigurableCamera{
 		name:      name,
 		actual:    c,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-	}, nil
+	}
+}
+
+// A LivenessMonitor is responsible for monitoring the liveness of a camera. An example
+// is connectivity. Since the model itself knows best about how to maintain this state,
+// the reconfigurable offers a safe way to notify if a state needs to be reset due
+// to some exceptional event (like a reconnect).
+// It is expected that the monitoring code is tied to the lifetime of the resource
+// and once the resource is closed, so should the monitor. That is, it should
+// no longer send any resets once a Close on its associated resource has returned.
+type LivenessMonitor interface {
+	Monitor(notifyReset func())
 }
 
 var (
@@ -390,6 +415,7 @@ func (c *reconfigurableCamera) Stream(
 	stream := &reconfigurableCameraStream{
 		c:           c,
 		errHandlers: errHandlers,
+		cancelCtx:   c.cancelCtx,
 	}
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
@@ -405,6 +431,7 @@ type reconfigurableCameraStream struct {
 	c           *reconfigurableCamera
 	errHandlers []gostream.ErrorHandler
 	stream      gostream.VideoStream
+	cancelCtx   context.Context
 }
 
 func (cs *reconfigurableCameraStream) init(ctx context.Context) error {
@@ -417,7 +444,7 @@ func (cs *reconfigurableCameraStream) Next(ctx context.Context) (image.Image, fu
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	if cs.stream == nil || cs.c.cancelCtx.Err() != nil {
+	if cs.stream == nil || cs.cancelCtx.Err() != nil {
 		if err := func() error {
 			cs.c.mu.Lock()
 			defer cs.c.mu.Unlock()
@@ -470,19 +497,27 @@ func (c *reconfigurableCamera) DoCommand(ctx context.Context, cmd map[string]int
 }
 
 // Reconfigure reconfigures the resource.
-func (c *reconfigurableCamera) Reconfigure(_ context.Context, newCamera resource.Reconfigurable) error {
+func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resource.Reconfigurable) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	actual, ok := newCamera.(*reconfigurableCamera)
 	if !ok {
 		return utils.NewUnexpectedTypeError(c, newCamera)
 	}
+	if err := viamutils.TryClose(ctx, c.actual); err != nil {
+		golog.Global().Errorw("error closing old", "error", err)
+	}
+	c.reconfigureKnownCamera(actual)
+	return nil
+}
+
+// assumes lock is held.
+func (c *reconfigurableCamera) reconfigureKnownCamera(newCamera *reconfigurableCamera) {
 	c.cancel()
 	// reset
-	c.actual = actual.actual
-	c.cancelCtx = actual.cancelCtx
-	c.cancel = actual.cancel
-	return nil
+	c.actual = newCamera.actual
+	c.cancelCtx = newCamera.cancelCtx
+	c.cancel = newCamera.cancel
 }
 
 // UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
