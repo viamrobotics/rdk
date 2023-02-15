@@ -375,23 +375,23 @@ func (gp periphGpioPin) PWM(ctx context.Context, extra map[string]interface{}) (
 func (b *sysfsBoard) startSoftwarePWMLoop(gp periphGpioPin) {
 	b.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		b.softwarePWMLoop(b.cancelCtx, gp, gp.pinName)
+		b.softwarePWMLoop(b.cancelCtx, gp)
 	}, b.activeBackgroundWorkers.Done)
 }
 
-func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin, pinName string) {
+func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin) {
 	for {
 		cont := func() bool {
 			b.mu.RLock()
 			defer b.mu.RUnlock()
-			pwmSetting, ok := b.pwms[pinName]
+			pwmSetting, ok := b.pwms[gp.pinName]
 			if !ok {
 				b.logger.Debug("pwm setting deleted; stopping")
 				return false
 			}
 
 			if err := gp.set(true); err != nil {
-				b.logger.Errorw("error setting pin", "pin_name", pinName, "error", err)
+				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
 				return true
 			}
 			onPeriod := time.Duration(
@@ -401,7 +401,7 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin, pinN
 				return false
 			}
 			if err := gp.set(false); err != nil {
-				b.logger.Errorw("error setting pin", "pin_name", pinName, "error", err)
+				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
 				return true
 			}
 			offPeriod := pwmSetting.frequency.Period() - onPeriod
