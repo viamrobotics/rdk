@@ -134,8 +134,10 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		if !shouldBeOn {
 			dutyCycle = 1 - dutyCycle
 		}
-		duration := time.Duration(dutyCycle / float64(pin.pwmFreqHz)) * time.Second
+		duration := time.Duration(float64(time.Second) * dutyCycle / float64(pin.pwmFreqHz))
 
+		pin.logger.Infof("duration is %v", duration)
+		pin.logger.Infof("setting pin to %v", shouldBeOn)
 		pin.setInternal(shouldBeOn)
 		pin.mu.Unlock()
 
