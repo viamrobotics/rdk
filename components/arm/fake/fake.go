@@ -24,15 +24,15 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// modelNameErr is the returned string when we want to use a path to
+// errModelName is the returned string when we want to use a path to
 // instantiate a model.
-const modelNameErr = "fake arm cannot be created, unsupported arm_model: "
+const errModelName = "fake arm cannot be created, unsupported arm_model: "
 
-// attrCfgPopulationErr is the returned string if the AttrConfig's fields are fully populated.
-const attrCfgPopulationErr = "can only populate either ArmModel or ModelPath - not both"
+// errAttrCfgPopulation is the returned string if the AttrConfig's fields are fully populated.
+const errAttrCfgPopulation = "can only populate either ArmModel or ModelPath - not both"
 
-// attrCfgMissingErr is the returned string if the AttrConfig's fields are empty.
-const attrCfgMissingErr = "one of ArmModel or ModelPath must be populated"
+// errAttrCfgMissing is the returned string if the AttrConfig's fields are empty.
+const errAttrCfgMissing = "one of ArmModel or ModelPath must be populated"
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
@@ -42,7 +42,7 @@ var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ArmModel  string `json:"arm-model"`
+	ArmModel  string `json:"arm-model,omitempty"`
 	ModelPath string `json:"model-path,omitempty"`
 }
 
@@ -61,7 +61,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case ModelName.Name:
 		return referenceframe.UnmarshalModelJSON(fakeModelJSON, name)
 	default:
-		return nil, errors.New(modelNameErr + model)
+		return nil, errors.New(errModelName + model)
 	}
 }
 
@@ -70,9 +70,7 @@ func (config *AttrConfig) Validate(path string) error {
 	var err error
 	switch {
 	case config.ArmModel != "" && config.ModelPath != "":
-		return errors.New(attrCfgPopulationErr)
-	case config.ArmModel == "" && config.ModelPath == "":
-		return errors.New(attrCfgMissingErr)
+		return errors.New(errAttrCfgPopulation)
 	case config.ArmModel != "" && config.ModelPath == "":
 		_, err = modelFromName(config.ArmModel, "")
 	case config.ArmModel == "" && config.ModelPath != "":
@@ -105,17 +103,17 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		model referenceframe.Model
 		err   error
 	)
-	if cfg.ConvertedAttributes != nil {
-		modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
-		armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-		switch {
-		case armModel != "":
-			model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-		case modelPath != "":
-			model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
-		}
-	} else {
-		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
+
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
+	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	switch {
+	case armModel != "":
+		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
+	case modelPath != "":
+		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
+	}
+	if model == nil {
+		return nil, errors.New(errAttrCfgMissing)
 	}
 	if err != nil {
 		return nil, err
