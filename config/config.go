@@ -78,7 +78,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Debug(errors.Wrap(err, "Module config error, starting robot without module: "+c.Modules[idx].Name))
+			golog.Global().Error(errors.Wrap(err, "Module config error, starting robot without module: "+c.Modules[idx].Name))
 		}
 	}
 
@@ -87,7 +87,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Debug(errors.Wrap(err, "Remote config error, starting robot without remote: "+c.Remotes[idx].Name))
+			golog.Global().Error(errors.Wrap(err, "Remote config error, starting robot without remote: "+c.Remotes[idx].Name))
 		}
 	}
 
@@ -98,7 +98,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			golog.Global().Debug(errors.Wrap(err, "Component config error, starting robot without component: "+c.Components[idx].Name))
+			golog.Global().Error(errors.Wrap(err, "Component config error, starting robot without component: "+c.Components[idx].Name))
 		} else {
 			c.Components[idx].ImplicitDependsOn = dependsOn
 		}
@@ -109,7 +109,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Debug(errors.Wrap(err, "Process config error, starting robot without process: "+c.Processes[idx].Name))
+			golog.Global().Error(errors.Wrap(err, "Process config error, starting robot without process: "+c.Processes[idx].Name))
 		}
 	}
 
@@ -119,7 +119,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			golog.Global().Debug(errors.Wrap(err, "Service config error, starting robot without service: "+c.Services[idx].Name))
+			golog.Global().Error(errors.Wrap(err, "Service config error, starting robot without service: "+c.Services[idx].Name))
 		} else {
 			c.Services[idx].ImplicitDependsOn = dependsOn
 		}
@@ -139,7 +139,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			golog.Global().Debug(errors.Wrap(err, "Package config error, starting robot without package: "+c.Packages[idx].Name))
+			golog.Global().Error(errors.Wrap(err, "Package config error, starting robot without package: "+c.Packages[idx].Name))
 		}
 	}
 
