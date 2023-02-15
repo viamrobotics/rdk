@@ -140,7 +140,10 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 	return nil
 }
 
-// Tick records an interrupt and notifies any interested callbacks.
+// Tick records an interrupt and notifies any interested callbacks. The nanoseconds
+// represent the time in nanoseconds since boot. Depending on board implementation there may be a
+// wraparound in values past 4294967295000 nanoseconds (~72 minutes) if the value
+// was originally in microseconds as a 32-bit integer
 func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
@@ -225,7 +228,7 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 		return nil
 	}
 
-	i.ra.Add(int(diff) / 1000)
+	i.ra.Add(int(diff / 1000))
 	return nil
 }
 
