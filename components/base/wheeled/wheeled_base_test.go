@@ -350,3 +350,31 @@ func TestValidate(t *testing.T) {
 	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestAngleCalculations(t *testing.T) {
+	for _, tc := range []struct {
+		QuadrantName string
+		Added        float64
+		Current      float64
+		Expected     float64
+	}{
+		{"acute-CCW-quadrant1", 10, 10, 20},
+		{"acute-CCW-quadrant2", 10, 95, 105},
+		{"acute-CCW-quadrant3", 10, 175, -175},
+		{"acute-CCW-quadrant4", 10, 275, -75},
+		{"obtuse-CCW-quadrant2", 110, 10, 120},
+		{"obtuse-CCW-quadrant3", 110, 80, -170},
+		{"obtuse-CCW-quadrant4", 110, 170, -80},
+		{"acute-CW-quadrant4", -20, 10, -10},
+		{"acute-CW-quadrant3", -20, -80, -100},
+		{"acute-CW-quadrant2", -20, -170, 170},
+		{"ninetey-CCW-quadrant1", 10, 80, 90},
+		{"oneeighty-CCW-quadrant2", 10, 170, 179.9},
+		{"oneeighty-CW-quadrants2", -10, -170, 179.9},
+	} {
+		t.Run(tc.QuadrantName, func(t *testing.T) {
+			calculated := calculatedDomainLimitedAngleError(tc.Added, tc.Current)
+			test.That(t, calculated, test.ShouldAlmostEqual, tc.Expected)
+		})
+	}
+}
