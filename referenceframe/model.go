@@ -15,6 +15,9 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// unsupportedFileType is returned if we try to build a model from an inproper extension
+const unsupportedFileType = `only files with .json and .urdf file extensions are supported`
+
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
 type ModelFramer interface {
 	ModelFrame() Model
@@ -287,10 +290,8 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 		model, err = ParseURDFFile(modelPath, name)
 	case strings.HasSuffix(modelPath, ".json"):
 		model, err = ParseModelJSONFile(modelPath, name)
-	// case modelPath == "":
-	// 	return model, nil
 	default:
-		return model, errors.New("unsupported kinematic model encoding file passed")
+		return model, errors.New(unsupportedFileType)
 	}
 	return model, err
 }
