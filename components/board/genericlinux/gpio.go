@@ -13,6 +13,7 @@ import (
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/utils"
 )
 
@@ -27,7 +28,8 @@ type gpioPin struct {
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
 
-	mu         sync.Mutex
+	mu  sync.Mutex
+	cancelCtx context.Context
 }
 
 // This is a private helper function that should only be called when the mutex is locked. It sets
@@ -113,25 +115,25 @@ func (pin *gpioPin) startSoftwarePWM() {
 }
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
-// until we're supposed to shut down). We return whether we should continue a software PWM cycle
+// until we're supposed to shut down). We return whether we should continue the software PWM cycle.
 func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		pin.mu.Lock()
-		period := time.Duration(time.Second / int64(pin.pwmFreqHz)
-		dutyCycle := pin.pwmDutyCyclePct
-		if !shouldBeOn {
-			dutyCycle = 1 - dutyCycle
-		}
 		// Before we modify the pin, check if we should stop running
 		if !pin.pwmRunning {
 			pin.mu.Unlock()
 			return false
 		}
+
+		dutyCycle := pin.pwmDutyCyclePct
+		if !shouldBeOn {
+			dutyCycle = 1 - dutyCycle
+		}
+		duration := time.Duration(time.Second / int64(pin.pwmFreqHz) * dutyCycle)
+
 		pin.setInternal(shouldBeOn)
 		pin.mu.Unlock()
 
-		// TODO: wake on cancel
-		time.sleep(period * dutyCycle)
-		return true
+		return utils.SelectContextOrWait(pin.ctx, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop() {
