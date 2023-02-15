@@ -39,6 +39,9 @@
            "name": "pieceArm",
             "type": "arm",
             "model": "fake",
+            "attributes": {
+                "arm-model": "fake"
+            },
             "frame": {
                 "parent": "base",
                 "translation": {
