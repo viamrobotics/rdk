@@ -117,7 +117,7 @@ func TestModuleFunctions(t *testing.T) {
 		err = utils.TryClose(ctx, rMotor)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Test that GetParentResouce will refresh resources on the parent
+		// Test that GetParentResource will refresh resources on the parent
 		cfg.Components = append(cfg.Components, config.Component{
 			Name:  "motor2",
 			API:   resource.NewSubtype("rdk", "component", "motor"),
