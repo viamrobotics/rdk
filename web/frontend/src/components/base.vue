@@ -2,12 +2,12 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { onClickOutside } from '@vueuse/core';
-import { BaseClient, Client, type ServiceError, commonApi, StreamClient } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
+import CameraView from './camera.vue';
 import { rcLogConditionally } from '../lib/log';
-import { cameraStreamStates, baseStreamStates } from '../lib/camera-state';
 
 interface Props {
   name: string;
@@ -29,39 +29,42 @@ type MovementTypes = 'Continuous' | 'Discrete'
 type MovementModes = 'Straight' | 'Spin'
 type SpinTypes = 'Clockwise' | 'Counterclockwise'
 type Directions = 'Forwards' | 'Backwards'
+type View = 'Stacked' | 'Grid'
 
 const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const root = $ref<HTMLElement>();
 
-let selectedItem = $ref<Tabs>('Keyboard');
+const refreshFrequency = $ref('Live');
+const selectedMap = {
+  Live: -1,
+  'Manual Refresh': 0,
+  'Every 30 Seconds': 30,
+  'Every 10 Seconds': 10,
+  'Every Second': 1,
+} as const;
+const triggerRefresh = $ref(false);
+
+let selectedView = $ref<View>('Stacked');
+const openCameras = $ref<Record<string, boolean | undefined>>({});
+let selectedMode = $ref<Tabs>('Keyboard');
 let movementMode = $ref<MovementModes>('Straight');
 let movementType = $ref<MovementTypes>('Continuous');
 let direction = $ref<Directions>('Forwards');
 let spinType = $ref<SpinTypes>('Clockwise');
 const increment = $ref(1000);
-// straight mm/s
-const speed = $ref(300);
-// deg/s
-const spinSpeed = $ref(90);
-const angle = $ref(180);
-
-let selectCameras = $ref('');
-
+const speed = $ref(300); // straight mm/s
+const spinSpeed = $ref(90); // deg/s
+const angle = $ref(0);
 const power = $ref(50);
 
 const pressed = new Set<Keys>();
 let stopped = true;
 
 const keyboardStates = $ref({
-  tempDisable: false,
   isActive: false,
 });
 
-const initStreamState = () => {
-  for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
-    baseStreamStates.set(value.name, false);
-  }
-};
+const resources = $computed(() => filterResources(props.resources, 'rdk', 'component', 'camera'));
 
 const resetDiscreteState = () => {
   movementMode = 'Straight';
@@ -194,46 +197,14 @@ const baseRun = async () => {
   }
 };
 
-const viewPreviewCamera = (values: string) => {
-  const streams = new StreamClient(props.client);
-  for (const [key] of baseStreamStates) {
-    if (values.split(',').includes(key)) {
-      try {
-        // Only add stream if other components have not already
-        if (!cameraStreamStates.get(key) && !baseStreamStates.get(key)) {
-          streams.add(key);
-        }
-      } catch (error) {
-        displayError(error as ServiceError);
-        return;
-      }
-      baseStreamStates.set(key, true);
-    } else if (baseStreamStates.get(key) === true) {
-      try {
-        // Only remove stream if other components are not using the stream
-        if (!cameraStreamStates.get(key)) {
-          streams.remove(key);
-        }
-      } catch (error) {
-        displayError(error as ServiceError);
-        return;
-      }
-      baseStreamStates.set(key, false);
-    }
-  }
+const handleViewSelect = (viewMode: View) => {
+  selectedView = viewMode;
 };
 
-const handleTabSelect = (tab: Tabs) => {
-  selectedItem = tab;
+const handleTabSelect = (controlMode: Tabs) => {
+  selectedMode = controlMode;
 
-  /*
-   * deselect options from select cameras select
-   * TODO: handle better with xstate and reactivate on return
-   */
-  selectCameras = '';
-  viewPreviewCamera(selectCameras);
-
-  if (tab === 'Discrete') {
+  if (controlMode === 'Discrete') {
     resetDiscreteState();
   }
 };
@@ -243,10 +214,6 @@ const handleVisibilityChange = () => {
     pressed.clear();
     stop();
   }
-};
-
-const tempDisableKeyboard = (disableKeyboard: boolean) => {
-  keyboardStates.tempDisable = disableKeyboard;
 };
 
 const handleToggle = () => {
@@ -268,8 +235,11 @@ onClickOutside($$(root), () => {
 });
 
 onMounted(() => {
-  initStreamState();
   window.addEventListener('visibilitychange', handleVisibilityChange);
+
+  for (const camera of resources) {
+    openCameras[camera.name] = false;
+  }
 });
 
 onUnmounted(() => {
@@ -297,149 +267,109 @@ onUnmounted(() => {
         @click="stop"
       />
 
-      <div class="border border-t-0 border-black pt-2">
-        <v-tabs
-          tabs="Keyboard, Discrete"
-          :selected="selectedItem"
-          @input="handleTabSelect($event.detail.value)"
-        />
+      <div class="flex gap-4 border border-t-0 border-black">
+        <div class="flex flex-col gap-4 p-4 min-w-fit">
+          <h2 class="font-bold">
+            Motor Controls
+          </h2>
+          <v-radio
+            label="Control Mode"
+            options="Keyboard, Discrete"
+            :selected="selectedMode"
+            @input="handleTabSelect($event.detail.value)"
+          />
 
-        <div
-          v-if="selectedItem === 'Keyboard'"
-          class="h-auto p-4"
-        >
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div class="flex flex-col gap-4">
-              <KeyboardInput
-                :is-active="keyboardStates.isActive"
-                :temp-disable="keyboardStates.tempDisable"
-                @keydown="handleKeyDown"
-                @keyup="handleKeyUp"
-                @toggle="handleToggle"
-                @update-keyboard-state="isOn => { handleUpdateKeyboardState(isOn) }"
-              />
-              <v-slider
-                id="power"
-                class="pt-2 w-full max-w-xs"
-                :min="0"
-                :max="100"
-                :step="1"
-                suffix="%"
-                label="Power %"
-                :value="power"
-                @input="power = $event.detail.value"
-              />
-            </div>
-            <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
-              <v-multiselect
-                v-model="selectCameras"
-                class="mb-4"
-                clearable="false"
-                placeholder="Select Cameras"
-                aria-label="Select Cameras"
-                :options="
-                  filterResources(resources, 'rdk', 'component', 'camera')
-                    .map(({ name }) => name)
-                    .join(',')
-                "
-                @input="viewPreviewCamera($event.detail.value)"
-                @focus="tempDisableKeyboard(true)"
-                @blur="tempDisableKeyboard(false)"
-              />
-              <template
-                v-for="basecamera in filterResources(
-                  resources,
-                  'rdk',
-                  'component',
-                  'camera'
-                )"
-                :key="basecamera.name"
-              >
-                <div
-                  v-if="basecamera"
-                  :data-stream-preview="basecamera.name"
-                  :class="{ 'hidden': !baseStreamStates.get(basecamera.name) }"
-                />
-              </template>
-            </div>
+          <div v-if="selectedMode === 'Keyboard'">
+            <KeyboardInput
+              :is-active="keyboardStates.isActive"
+              @keydown="handleKeyDown"
+              @keyup="handleKeyUp"
+              @toggle="handleToggle"
+              @update-keyboard-state="isOn => { handleUpdateKeyboardState(isOn) }"
+            />
+            <v-slider
+              id="power"
+              class="pt-2 w-full max-w-xs"
+              :min="0"
+              :max="100"
+              :step="1"
+              suffix="%"
+              label="Power %"
+              :value="power"
+              @input="power = $event.detail.value"
+            />
           </div>
-        </div>
-        <div
-          v-if="selectedItem === 'Discrete'"
-          class="flex gap-4 p-4"
-        >
-          <div class="mb-4 grow">
+
+          <div
+            v-if="selectedMode === 'Discrete'"
+            class="flex flex-col gap-4"
+          >
             <v-radio
               label="Movement Mode"
               options="Straight, Spin"
               :selected="movementMode"
               @input="setMovementMode($event.detail.value)"
             />
-            <div class="flex flex-wrap items-center gap-2 pt-4">
-              <v-radio
-                v-if="movementMode === 'Straight'"
-                label="Movement Type"
-                options="Continuous, Discrete"
-                :selected="movementType"
-                @input="setMovementType($event.detail.value)"
-              />
-              <v-radio
-                v-if="movementMode === 'Straight'"
-                label="Direction"
-                options="Forwards, Backwards"
-                :selected="direction"
-                @input="setDirection($event.detail.value)"
-              />
+            <v-radio
+              v-if="movementMode === 'Straight'"
+              label="Movement Type"
+              options="Continuous, Discrete"
+              :selected="movementType"
+              @input="setMovementType($event.detail.value)"
+            />
+            <v-radio
+              v-if="movementMode === 'Straight'"
+              label="Direction"
+              options="Forwards, Backwards"
+              :selected="direction"
+              @input="setDirection($event.detail.value)"
+            />
+            <v-input
+              v-if="movementMode === 'Straight'"
+              type="number"
+              :value="speed"
+              label="Speed (mm/sec)"
+              @input="speed = $event.detail.value"
+            />
+            <div
+              v-if="movementMode === 'Straight'"
+              :class="{ 'pointer-events-none opacity-50': movementType === 'Continuous' }"
+            >
               <v-input
-                v-if="movementMode === 'Straight'"
                 type="number"
-                :value="speed"
-                label="Speed (mm/sec)"
-                @input="speed = $event.detail.value"
+                :value="increment"
+                :readonly="movementType === 'Continuous' ? 'true' : 'false'"
+                label="Distance (mm)"
+                @input="increment = $event.detail.value"
               />
-              <div
-                v-if="movementMode === 'Straight'"
-                :class="{ 'pointer-events-none opacity-50': movementType === 'Continuous' }"
-              >
-                <v-input
-                  type="number"
-                  :value="increment"
-                  :readonly="movementType === 'Continuous' ? 'true' : 'false'"
-                  label="Distance (mm)"
-                  @input="increment = $event.detail.value"
-                />
-              </div>
-              <v-input
-                v-if="movementMode === 'Spin'"
-                type="number"
-                :value="spinSpeed"
-                label="Speed (deg/sec)"
-                @input="spinSpeed = $event.detail.value"
-              />
-              <v-radio
-                v-if="movementMode === 'Spin'"
-                label="Movement Type"
-                options="Clockwise, Counterclockwise"
-                :selected="spinType"
-                @input="setSpinType($event.detail.value)"
-              />
-              <div
-                v-if="movementMode === 'Spin'"
-                class="w-72 pl-6"
-              >
-                <v-slider
-                  :min="0"
-                  :max="360"
-                  :step="90"
-                  suffix="°"
-                  label="Angle"
-                  :value="angle"
-                  @input="angle = $event.detail.value"
-                />
-              </div>
             </div>
-          </div>
-          <div class="self-end">
+            <v-input
+              v-if="movementMode === 'Spin'"
+              type="number"
+              :value="spinSpeed"
+              label="Speed (deg/sec)"
+              @input="spinSpeed = $event.detail.value"
+            />
+            <v-radio
+              v-if="movementMode === 'Spin'"
+              label="Movement Type"
+              options="Clockwise, Counterclockwise"
+              :selected="spinType"
+              @input="setSpinType($event.detail.value)"
+            />
+            <div
+              v-if="movementMode === 'Spin'"
+            >
+              <v-slider
+                :min="0"
+                :max="360"
+                :step="90"
+                suffix="°"
+                label="Angle"
+                :value="angle"
+                @input="angle = $event.detail.value"
+              />
+            </div>
             <v-button
               icon="play-circle-filled"
               variant="success"
@@ -447,6 +377,74 @@ onUnmounted(() => {
               @click="baseRun()"
             />
           </div>
+
+          <hr class="my-4 border-t border-gray-400">
+
+          <h2 class="font-bold">
+            Live Feeds
+          </h2>
+
+          <v-radio
+            label="View"
+            options="Stacked, Grid"
+            :selected="selectedView"
+            @input="handleViewSelect($event.detail.value)"
+          />
+
+          <div
+            v-if="resources"
+            class="flex flex-col gap-2"
+          >
+            <template
+              v-for="camera in resources"
+            >
+              <v-switch
+                :label="camera.name"
+                :value="openCameras[camera.name] ? 'on' : 'off'"
+                @input="openCameras[camera.name] = !openCameras[camera.name]"
+              />
+            </template>
+
+            <div class="flex items-end gap-2 mt-2">
+              <v-select
+                v-model="refreshFrequency"
+                label="Refresh frequency"
+                aria-label="Refresh frequency"
+                :options="Object.keys(selectedMap).join(',')"
+              />
+
+              <v-button
+                :class="refreshFrequency === 'Live' ? 'invisible' : ''"
+                icon="refresh"
+                label="Refresh"
+                @click="triggerRefresh = !triggerRefresh"
+              />
+            </div>
+          </div>
+        </div>
+        <div
+          data-parent="base"
+          class="grid gap-4 border-l border-black p-4"
+          :class="selectedView === 'Stacked' ? 'grid-cols-1' : 'grid-cols-2 gap-4'"
+        >
+          <!-- ******* CAMERAS *******  -->
+          <template
+            v-for="camera in resources"
+            :key="`base ${camera.name}`"
+            data-parent="app"
+          >
+            <CameraView
+              v-show="openCameras[camera.name]"
+              :camera-name="camera.name"
+              parent-name="base"
+              :client="client"
+              :resources="resources"
+              :show-refresh="true"
+              :show-export-screenshot="false"
+              :refresh-rate="refreshFrequency"
+              :trigger-refresh="triggerRefresh"
+            />
+          </template>
         </div>
       </div>
     </v-collapse>

@@ -10,8 +10,6 @@ import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import {
-  Camera,
-  CameraClient,
   Client,
   ResponseStream,
   ServiceError,
@@ -34,6 +32,7 @@ import AudioInput from './components/audio-input.vue';
 import Base from './components/base.vue';
 import Board from './components/board.vue';
 import CameraView from './components/camera.vue';
+import PCDView from './components/pcd.vue';
 import OperationsSessions from './components/operations-sessions.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
@@ -74,18 +73,28 @@ const errors = $ref<Record<string, boolean>>({});
 let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
-let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: robotApi.Operation.AsObject, elapsed: number }[]>([]);
 let currentSessions = $ref<robotApi.Session.AsObject[]>([]);
 let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resourcesOnce = false;
+const openCameras = $ref<Record<string, boolean | undefined>>({});
 let errorMessage = $ref('');
 let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
+
+const refreshFrequency = $ref('Live');
+const triggerRefresh = $ref(false);
+const selectedMap = {
+  Live: -1,
+  'Manual Refresh': 0,
+  'Every 30 Seconds': 30,
+  'Every 10 Seconds': 10,
+  'Every Second': 1,
+} as const;
 
 const rtcConfig = {
   iceServers: [
@@ -603,46 +612,6 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewFrame = async (cameraName: string) => {
-  let blob;
-  try {
-    blob = await new CameraClient(client, cameraName).renderFrame(Camera.MimeType.JPEG);
-  } catch (error) {
-    displayError(error as ServiceError);
-    return;
-  }
-
-  const streamContainers = document.querySelectorAll(
-    `[data-stream="${cameraName}"]`
-  );
-  for (const streamContainer of streamContainers) {
-    const image = new Image();
-    image.src = URL.createObjectURL(blob);
-    streamContainer.querySelector('img')?.remove();
-    streamContainer.append(image);
-  }
-};
-
-const clearFrameInterval = () => {
-  window.clearInterval(cameraFrameIntervalId);
-};
-
-const viewCameraFrame = (cameraName: string, time: number) => {
-  clearFrameInterval();
-
-  // Live
-  if (time === -1) {
-    return;
-  }
-
-  viewFrame(cameraName);
-  if (time > 0) {
-    cameraFrameIntervalId = window.setInterval(() => {
-      viewFrame(cameraName);
-    }, Number(time) * 1000);
-  }
-};
-
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
@@ -697,6 +666,10 @@ onMounted(async () => {
   appConnectionManager.start();
 
   addResizeListeners();
+
+  for (const camera of resources) {
+    openCameras[camera.name] = false;
+  }
 });
 
 </script>
@@ -840,15 +813,67 @@ onMounted(async () => {
     />
 
     <!-- ******* CAMERAS *******  -->
-    <CameraView
+    <v-collapse
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
-      :key="camera.name"
-      :camera-name="camera.name"
-      :client="client"
-      :resources="resources"
-      @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
-      @clear-interval="clearFrameInterval"
-    />
+      :title="camera.name"
+      class="camera"
+      data-parent="app"
+    >
+      <v-breadcrumbs
+        slot="title"
+        crumbs="camera"
+      />
+
+      <div class="flex flex-col gap-4 border-x border-b border-black p-4">
+        <v-switch
+          :label="camera.name"
+          :value="openCameras[camera.name] ? 'on' : 'off'"
+          @input="openCameras[camera.name] = !openCameras[camera.name]"
+        />
+
+        <div
+          v-if="openCameras[camera.name]"
+          class="flex flex-wrap items-end gap-2"
+        >
+          <v-select
+            v-model="refreshFrequency"
+            class="w-fit"
+            label="Refresh frequency"
+            aria-label="Refresh frequency"
+            :options="Object.keys(selectedMap).join(',')"
+          />
+
+          <v-button
+            v-if="refreshFrequency !== 'Live'"
+            icon="refresh"
+            label="Refresh"
+            @click="triggerRefresh = !triggerRefresh"
+          />
+        </div>
+
+        <CameraView
+          v-show="openCameras[camera.name]"
+          :key="camera.name"
+          :camera-name="camera.name"
+          parent-name="app"
+          :client="client"
+          :resources="resources"
+          :show-export-screenshot="true"
+          :refresh-rate="refreshFrequency"
+          :trigger-refresh="triggerRefresh"
+        />
+
+        <PCDView
+          :key="camera.name"
+          :camera-name="camera.name"
+          parent-name="app"
+          :client="client"
+          :resources="resources"
+          :show-switch="true"
+          :show-refresh="true"
+        />
+      </div>
+    </v-collapse>
 
     <!-- ******* NAVIGATION ******* -->
     <Navigation

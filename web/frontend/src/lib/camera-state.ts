@@ -1,2 +1,7 @@
-export const baseStreamStates = new Map<string, boolean>();
-export const cameraStreamStates = new Map<string, boolean>();
+interface StreamState {
+  'on' : boolean,
+  'live' : boolean,
+  'name' : string
+}
+
+export const cameraStreamStates = new Map<string, StreamState>();
