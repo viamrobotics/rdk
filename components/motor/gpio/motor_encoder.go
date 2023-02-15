@@ -119,6 +119,7 @@ func newEncodedMotor(
 		maxPowerPct:             motorConfig.MaxPowerPct,
 		logger:                  logger,
 		loop:                    nil,
+		motorName:               config.Name,
 	}
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
@@ -173,6 +174,8 @@ type EncodedMotor struct {
 
 	startedRPMMonitor   bool
 	startedRPMMonitorMu *sync.Mutex
+
+	motorName string
 
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
@@ -482,6 +485,7 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	m.opMgr.New(ctx)
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -566,6 +570,7 @@ func (m *EncodedMotor) off(ctx context.Context) error {
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.off(ctx)
