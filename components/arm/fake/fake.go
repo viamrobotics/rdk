@@ -55,14 +55,12 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 func (config *AttrConfig) Validate(path string) error {
 	var err error
 	switch {
-	case config.ArmModel != "" && config.ModelFilePath != "":
-		return errAttrCfgPopulation
 	case config.ArmModel != "" && config.ModelFilePath == "":
 		_, err = modelFromName(config.ArmModel, "")
 	case config.ArmModel == "" && config.ModelFilePath != "":
 		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
 	default:
-		return nil
+		return errAttrCfgPopulation
 	}
 	return err
 }
