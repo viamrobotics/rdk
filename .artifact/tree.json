@@ -51260,6 +51260,20 @@
         "size": 1209633
       }
     },
+    "classification": {
+      "keyboard.jpg": {
+        "hash": "90790cb342b79585a67dc2e4ad5d8be6",
+        "size": 88663
+      },
+      "object_classifier.tflite": {
+        "hash": "947c25596dab54a519e08a3d7dfaf6fd",
+        "size": 4276352
+      },
+      "object_labels.txt": {
+        "hash": "676108d9cc1b66d994e122053a99940a",
+        "size": 10484
+      }
+    },
     "keypoints": {
       "chess.jpg": {
         "hash": "66c0c0baa3b39ac23f90e7f0493e5d55",

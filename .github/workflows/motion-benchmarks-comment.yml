@@ -25,9 +25,10 @@ jobs:
       - name: Restore Environment
         run: cat pr.env >> "${GITHUB_ENV}"
 
-      - name: Add Coverage PR Comment
+      - name: Add Motion Benchmarks Comment
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          header: motion-benchmark
           number: ${{ env.PR_NUMBER }}
           recreate: true
           path: motion-testing/results/motion-benchmarks.md
