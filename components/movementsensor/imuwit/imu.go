@@ -227,11 +227,9 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				if err != nil {
 					imu.lastError = err
 					logger.Error(imu.lastError)
-				} else {
-					if len(line) != 11 {
-						imu.numBadReadings++
-						return
-					}
+				} else if len(line) != 11 {
+					imu.numBadReadings++
+					return
 				}
 				imu.lastError = imu.parseWIT(line)
 			}()
