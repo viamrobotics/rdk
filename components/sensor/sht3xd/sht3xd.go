@@ -22,7 +22,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("sensiron-sht3xd")
+var modelname = resource.NewDefaultModel("sensirion-sht3xd")
 
 const (
 	defaultI2Caddr = 0x44
@@ -168,7 +168,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	humid := 100.0 * float64(humidRaw) / 65535.0
 	return map[string]interface{}{
 		"temperature_celsius": temp,
-		"humidity_pct_rh":     humid,
+		"relative_humidity_pct":     humid, \\ TODO: RSDK-1903
 	}, nil
 }
 
