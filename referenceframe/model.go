@@ -8,11 +8,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/spatialmath"
 )
+
+// errUnsupportedFileType is returned if we try to build a model from an inproper extension.
+const errUnsupportedFileType = "only files with .json and .urdf file extensions are supported"
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
 type ModelFramer interface {
@@ -273,4 +277,21 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 	}
 
 	return orderedTransforms, nil
+}
+
+// ModelFromPath returns a Model from a given path.
+func ModelFromPath(modelPath, name string) (Model, error) {
+	var (
+		model Model
+		err   error
+	)
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		model, err = ParseURDFFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		model, err = ParseModelJSONFile(modelPath, name)
+	default:
+		return model, errors.New(errUnsupportedFileType)
+	}
+	return model, err
 }
