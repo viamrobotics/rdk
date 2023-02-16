@@ -100,3 +100,80 @@ func TestSafetyMonitoring(t *testing.T) {
 
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
+
+func TestConnectStopsBase(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	gamepadName := input.Named("barf")
+	gamepad, err := webgamepad.NewController(ctx, nil, config.Component{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	myBaseName := base.Named("warf")
+	injectBase := &inject.Base{LocalBase: &fake.Base{}}
+	myBase, err := base.WrapWithReconfigurable(injectBase, myBaseName)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("connect", func(t *testing.T) {
+		// Use an injected Stop function and a channel to ensure stop is called on
+		// connect.
+		stop := make(chan struct{})
+		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			close(stop)
+			return nil
+		}
+
+		svc, err := builtin.NewBuiltIn(ctx, registry.Dependencies{
+			gamepadName: gamepad,
+			myBaseName:  myBase,
+		}, config.Service{
+			ConvertedAttributes: &builtin.Config{
+				BaseName:            myBaseName.Name,
+				InputControllerName: gamepadName.Name,
+			},
+		}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		type triggerer interface {
+			TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+		}
+		test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
+			Event:   input.Connect,
+			Control: input.AbsoluteHat0X,
+		}, nil), test.ShouldBeNil)
+
+		<-stop
+		test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	})
+	t.Run("disconnect", func(t *testing.T) {
+		// Use an injected Stop function and a channel to ensure stop is called on
+		// disconnect.
+		stop := make(chan struct{})
+		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			close(stop)
+			return nil
+		}
+
+		svc, err := builtin.NewBuiltIn(ctx, registry.Dependencies{
+			gamepadName: gamepad,
+			myBaseName:  myBase,
+		}, config.Service{
+			ConvertedAttributes: &builtin.Config{
+				BaseName:            myBaseName.Name,
+				InputControllerName: gamepadName.Name,
+			},
+		}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		type triggerer interface {
+			TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+		}
+		test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
+			Event:   input.Disconnect,
+			Control: input.AbsoluteHat0X,
+		}, nil), test.ShouldBeNil)
+
+		<-stop
+		test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	})
+}
