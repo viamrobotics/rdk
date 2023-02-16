@@ -155,9 +155,10 @@ type RTKMovementSensor struct {
 	cancelFunc func()
 
 	activeBackgroundWorkers sync.WaitGroup
-	// Lock the mutex whenever you interact with lastError, ntripClient, or ntripStatus.
-	mu        sync.Mutex
-	lastError error
+	// Lock the mutex whenever you interact with ntripClient or ntripStatus.
+	mu sync.Mutex
+
+	err movementsensor.LastError
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string
@@ -250,14 +251,7 @@ func newRTKMovementSensor(
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g, g.lastError
-}
-
-func (g *RTKMovementSensor) setLastError(err error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.lastError = err
+	return g, g.err.Get()
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
@@ -275,9 +269,7 @@ func (g *RTKMovementSensor) Start() error {
 		utils.PanicCapturingGo(func() { g.ReceiveAndWriteI2C(g.cancelCtx) })
 	}
 
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.lastError
+	return g.err.Get()
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -314,7 +306,7 @@ func (g *RTKMovementSensor) Connect(casterAddr, user, pwd string, maxAttempts in
 	defer g.mu.Unlock()
 
 	g.ntripClient.Client = c
-	return g.lastError
+	return g.err.Get()
 }
 
 // GetStream attempts to connect to ntrip streak until successful connection or timeout.
@@ -355,7 +347,7 @@ func (g *RTKMovementSensor) GetStream(mountPoint string, maxAttempts int) error 
 	defer g.mu.Unlock()
 
 	g.ntripClient.Stream = rc
-	return g.lastError
+	return g.err.Get()
 }
 
 // ReceiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the MovementSensor through I2C protocol.
@@ -364,7 +356,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	defer g.activeBackgroundWorkers.Done()
 	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
@@ -376,7 +368,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Errorf("can't open gps i2c %s", err)
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
@@ -392,19 +384,19 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		g.logger.Debug("failed to set NMEA output")
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 	err = handle.Write(ctx, cmd220)
 	if err != nil {
 		g.logger.Debug("failed to set NMEA update rate")
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
 	err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
@@ -415,7 +407,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
 	if err != nil {
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 	wI2C := addChk(buf[:n])
@@ -424,7 +416,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	err = handle.Write(ctx, wI2C)
 	if err != nil {
 		g.logger.Errorf("i2c handle write failed %s", err)
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
@@ -439,7 +431,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
-			g.setLastError(err)
+			g.err.Set(err)
 			return
 		default:
 		}
@@ -448,7 +440,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 		handle, err := g.bus.OpenHandle(g.addr)
 		if err != nil {
 			g.logger.Errorf("can't open gps i2c %s", err)
-			g.setLastError(err)
+			g.err.Set(err)
 			return
 		}
 
@@ -462,7 +454,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 
@@ -472,7 +464,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 				buf = make([]byte, 1100)
 				n, err := g.ntripClient.Stream.Read(buf)
 				if err != nil {
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 				wI2C := addChk(buf[:n])
@@ -481,7 +473,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 
 				if err != nil {
 					g.logger.Errorf("i2c handle write failed %s", err)
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 
@@ -496,7 +488,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 		err = handle.Close()
 		if err != nil {
 			g.logger.Debug("failed to close handle: %s", err)
-			g.setLastError(err)
+			g.err.Set(err)
 			return
 		}
 	}
@@ -508,7 +500,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 	defer g.activeBackgroundWorkers.Done()
 	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
@@ -528,7 +520,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 	g.correctionWriter, err = slib.Open(options)
 	if err != nil {
 		g.logger.Errorf("serial.Open: %v", err)
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
@@ -536,7 +528,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 
 	err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
-		g.setLastError(err)
+		g.err.Set(err)
 		return
 	}
 
@@ -566,7 +558,7 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 
@@ -585,15 +577,16 @@ func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.ntripStatus, g.lastError
+	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return &geo.Point{}, 0, g.lastError
+		return &geo.Point{}, 0, lastError
 	}
 	g.mu.Unlock()
 
@@ -603,9 +596,10 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 // LinearVelocity passthrough.
 func (g *RTKMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return r3.Vector{}, g.lastError
+		return r3.Vector{}, lastError
 	}
 	g.mu.Unlock()
 
@@ -614,8 +608,9 @@ func (g *RTKMovementSensor) LinearVelocity(ctx context.Context, extra map[string
 
 // LinearAcceleration passthrough.
 func (g *RTKMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	if g.lastError != nil {
-		return r3.Vector{}, g.lastError
+	lastError := g.err.Get()
+	if lastError != nil {
+		return r3.Vector{}, lastError
 	}
 	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
 }
@@ -623,9 +618,10 @@ func (g *RTKMovementSensor) LinearAcceleration(ctx context.Context, extra map[st
 // AngularVelocity passthrough.
 func (g *RTKMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return spatialmath.AngularVelocity{}, g.lastError
+		return spatialmath.AngularVelocity{}, lastError
 	}
 	g.mu.Unlock()
 
@@ -635,9 +631,10 @@ func (g *RTKMovementSensor) AngularVelocity(ctx context.Context, extra map[strin
 // CompassHeading passthrough.
 func (g *RTKMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return 0, g.lastError
+		return 0, lastError
 	}
 	g.mu.Unlock()
 
@@ -647,9 +644,10 @@ func (g *RTKMovementSensor) CompassHeading(ctx context.Context, extra map[string
 // Orientation passthrough.
 func (g *RTKMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return spatialmath.NewZeroOrientation(), g.lastError
+		return spatialmath.NewZeroOrientation(), lastError
 	}
 	g.mu.Unlock()
 
@@ -659,9 +657,10 @@ func (g *RTKMovementSensor) Orientation(ctx context.Context, extra map[string]in
 // ReadFix passthrough.
 func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return 0, g.lastError
+		return 0, lastError
 	}
 	g.mu.Unlock()
 
@@ -671,9 +670,10 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 // Properties passthrough.
 func (g *RTKMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return &movementsensor.Properties{}, g.lastError
+		return &movementsensor.Properties{}, lastError
 	}
 	g.mu.Unlock()
 
@@ -683,9 +683,10 @@ func (g *RTKMovementSensor) Properties(ctx context.Context, extra map[string]int
 // Accuracy passthrough.
 func (g *RTKMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.Lock()
-	if g.lastError != nil {
+	lastError := g.err.Get()
+	if lastError != nil {
 		defer g.mu.Unlock()
-		return map[string]float32{}, g.lastError
+		return map[string]float32{}, lastError
 	}
 	g.mu.Unlock()
 
@@ -742,5 +743,5 @@ func (g *RTKMovementSensor) Close() error {
 	}
 
 	g.logger.Debug("closed rtk gps")
-	return g.lastError
+	return g.err.Get()
 }
