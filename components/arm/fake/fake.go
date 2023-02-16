@@ -3,8 +3,6 @@ package fake
 
 import (
 	"context"
-	// for arm model.
-	_ "embed"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -24,9 +22,9 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// errModelName is the returned string when we want to use a path to
+// errArmModelUnsupported is the returned string when we want to use a path to
 // instantiate a model.
-const errModelName = "fake arm cannot be created, unsupported arm_model: "
+const errArmModelUnsupported = "fake arm cannot be created, unsupported arm_model: "
 
 // errAttrCfgPopulation is the returned string if the AttrConfig's fields are fully populated.
 const errAttrCfgPopulation = "can only populate either ArmModel or ModelPath - not both"
@@ -36,9 +34,6 @@ const errAttrCfgMissing = "one of ArmModel or ModelPath must be populated"
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
-
-//nolint:go-staticcheck // go:embed fake_model.json
-var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -59,7 +54,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case eva.ModelName.Name:
 		return eva.Model(name)
 	default:
-		return nil, errors.New(errModelName + model)
+		return nil, errors.New(errArmModelUnsupported + model)
 	}
 }
 
