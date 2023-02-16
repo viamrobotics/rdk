@@ -296,7 +296,11 @@ func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error
 	if err != nil {
 		return 0, fmt.Errorf("error opening i2c handle for reading joint %v", joint)
 	}
-	defer handle.Close()
+	defer func() {
+		if err := handle.Close(); err != nil {
+			a.logger.Error(err)
+		}
+	}()
 	err = handle.WriteByteData(ctx, reg, 0)
 	if err != nil {
 		return 0, fmt.Errorf("error requesting joint %v from register %v: %w", joint, reg, err)
