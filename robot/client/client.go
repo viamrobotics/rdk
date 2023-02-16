@@ -125,7 +125,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 
-	if err := rc.CheckConnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
 		return status.Error(codes.Unavailable, err.Error())
 	}
@@ -145,7 +145,7 @@ type handleDisconnectClientStream struct {
 }
 
 func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
-	if err := cs.RobotClient.CheckConnected(); err != nil {
+	if err := cs.RobotClient.checkConnected(); err != nil {
 		return status.Error(codes.Unavailable, err.Error())
 	}
 
@@ -171,7 +171,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 
-	if err := rc.CheckConnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
@@ -276,6 +276,13 @@ func (rc *RobotClient) SetParentNotifier(f func()) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	rc.notifyParent = f
+}
+
+// Connected exposes whether a robot client is connected to the remote.
+func (rc *RobotClient) Connected() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	return rc.connected
 }
 
 // Changed watches for whether the remote has changed.
@@ -454,8 +461,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	return rc.conn.Close()
 }
 
-// Checks if robot client is connected.
-func (rc *RobotClient) CheckConnected() error {
+func (rc *RobotClient) checkConnected() error {
 	if !rc.connected {
 		return rc.notConnectedToRemoteError()
 	}
@@ -488,7 +494,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	rc.mu.RLock()
-	if err := rc.CheckConnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		rc.mu.RUnlock()
 		return nil, err
 	}
@@ -602,7 +608,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	if err := rc.CheckConnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		return err
 	}
 	return rc.updateResources(ctx, updateReasonRefresh)
@@ -679,7 +685,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	if err := rc.CheckConnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource names", "error", err)
 		return nil
 	}
@@ -698,7 +704,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 func (rc *RobotClient) ResourceRPCSubtypes() []resource.RPCSubtype {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	if err := rc.CheckConnected(); err != nil {
+	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource types", "error", err)
 		return nil
 	}
