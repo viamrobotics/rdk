@@ -23,7 +23,7 @@ import (
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	ModelFilePath string `json:"model-path"`
-	ArmModel      string `json:"arm-model"`
+	ArmName       string `json:"arm-name"`
 }
 
 var model = resource.NewDefaultModel("wrapper_arm")
@@ -31,10 +31,10 @@ var model = resource.NewDefaultModel("wrapper_arm")
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.ArmModel == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-model")
+	if cfg.ArmName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
-	deps = append(deps, cfg.ArmModel)
+	deps = append(deps, cfg.ArmName)
 	return deps, nil
 }
 
@@ -72,7 +72,7 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 	if err != nil {
 		return nil, err
 	}
-	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmModel)
+	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmName)
 	if err != nil {
 		return nil, err
 	}
