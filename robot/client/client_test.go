@@ -739,19 +739,19 @@ func TestClientDisconnect(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()
 
-	test.That(t, client.CheckConnected(), test.ShouldBeNil)
+	test.That(t, client.Connected(), test.ShouldBeTrue)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	gServer.Stop()
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
-	test.That(t, client.CheckConnected(), test.ShouldBeError)
+	test.That(t, client.Connected(), test.ShouldBeFalse)
 	timeSinceStart := time.Since(start)
 	test.That(t, timeSinceStart, test.ShouldBeBetweenOrEqual, dur, 4*dur)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeError, client.CheckConnected())
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
 }
 
 func TestClientUnaryDisconnectHandler(t *testing.T) {
@@ -1000,7 +1000,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeError, client.CheckConnected())
+	test.That(t, err, test.ShouldBeError, client.checkConnected())
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
@@ -1014,7 +1014,7 @@ func TestClientReconnect(t *testing.T) {
 	defer gServer2.Stop()
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
-	test.That(t, client.CheckConnected(), test.ShouldBeNil)
+	test.That(t, client.Connected(), test.ShouldBeTrue)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
