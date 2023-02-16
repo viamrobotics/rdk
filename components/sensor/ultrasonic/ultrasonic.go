@@ -3,6 +3,7 @@ package ultrasonic
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -98,7 +99,7 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 		s.timeoutMs = 1000
 	}
 
-	s.intChan = make(chan bool)
+	s.intChan = make(chan board.Tick)
 	s.readingChan = make(chan bool)
 	s.errChan = make(chan error)
 	s.distanceChan = make(chan float64)
@@ -116,7 +117,7 @@ type Sensor struct {
 	config                  *AttrConfig
 	echoInterrupt           board.DigitalInterrupt
 	triggerPin              board.GPIOPin
-	intChan                 chan bool
+	intChan                 chan board.Tick
 	timeoutMs               uint
 	readingChan             chan bool
 	distanceChan            chan float64
@@ -176,10 +177,11 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	}
 	// the first signal from the interrupt indicates that the sonic
 	// pulse has been sent
-	var timeA, timeB time.Time
+	var timeA, timeB uint64
+	var tick board.Tick
 	select {
-	case <-s.intChan:
-		timeB = time.Now()
+	case tick = <-s.intChan:
+		timeB = tick.TimestampNanosec
 	case <-s.cancelCtx.Done():
 		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
@@ -188,8 +190,8 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	// the second signal from the interrupt indicates that the echo has
 	// been received
 	select {
-	case <-s.intChan:
-		timeA = time.Now()
+	case tick = <-s.intChan:
+		timeA = tick.TimestampNanosec
 	case <-s.cancelCtx.Done():
 		return s.namedError(errors.New("ultrasonic: context canceled"))
 	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
@@ -198,7 +200,8 @@ func (s *Sensor) measureDistance(ctx context.Context) error {
 	// we calculate the distance to the nearest object based
 	// on the time interval between the sound and its echo
 	// and the speed of sound (343 m/s)
-	distMeters := timeA.Sub(timeB).Seconds() * 343.0 / 2.0
+	secondsElapsed := float64(timeA-timeB) / math.Pow10(9)
+	distMeters := secondsElapsed * 343.0 / 2.0
 	s.distanceChan <- distMeters
 	return nil
 }

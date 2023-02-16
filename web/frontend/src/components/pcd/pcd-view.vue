@@ -12,10 +12,10 @@ import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { filterResources } from '../lib/resource';
-import { toast } from '../lib/toast';
+import { filterResources } from '../../lib/resource';
+import { toast } from '../../lib/toast';
 import { Client, commonApi, motionApi } from '@viamrobotics/sdk';
-import InfoButton from './info-button.vue';
+import InfoButton from '../info-button.vue';
 
 interface Props {
   resources: commonApi.ResourceName.AsObject[]

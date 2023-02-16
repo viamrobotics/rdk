@@ -4,7 +4,7 @@ import {
   Client,
   commonApi,
 } from '@viamrobotics/sdk';
-import { toast } from '../lib/toast';
+import { toast } from '../../lib/toast';
 import PCD from './pcd-view.vue';
 
 interface Props {

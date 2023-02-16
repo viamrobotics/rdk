@@ -31,8 +31,7 @@ import Arm from './components/arm.vue';
 import AudioInput from './components/audio-input.vue';
 import Base from './components/base.vue';
 import Board from './components/board.vue';
-import CameraView from './components/camera.vue';
-import PCDView from './components/pcd.vue';
+import CamerasList from './components/camera/cameras-list.vue';
 import OperationsSessions from './components/operations-sessions.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
@@ -78,23 +77,12 @@ let currentSessions = $ref<robotApi.Session.AsObject[]>([]);
 let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resourcesOnce = false;
-const openCameras = $ref<Record<string, boolean | undefined>>({});
 let errorMessage = $ref('');
 let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
-
-const refreshFrequency = $ref('Live');
-const triggerRefresh = $ref(false);
-const selectedMap = {
-  Live: -1,
-  'Manual Refresh': 0,
-  'Every 30 Seconds': 30,
-  'Every 10 Seconds': 10,
-  'Every Second': 1,
-} as const;
 
 const rtcConfig = {
   iceServers: [
@@ -666,10 +654,6 @@ onMounted(async () => {
   appConnectionManager.start();
 
   addResizeListeners();
-
-  for (const camera of resources) {
-    openCameras[camera.name] = false;
-  }
 });
 
 </script>
@@ -813,67 +797,11 @@ onMounted(async () => {
     />
 
     <!-- ******* CAMERAS *******  -->
-    <v-collapse
-      v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
-      :title="camera.name"
-      class="camera"
-      data-parent="app"
-    >
-      <v-breadcrumbs
-        slot="title"
-        crumbs="camera"
-      />
-
-      <div class="flex flex-col gap-4 border-x border-b border-black p-4">
-        <v-switch
-          :label="camera.name"
-          :value="openCameras[camera.name] ? 'on' : 'off'"
-          @input="openCameras[camera.name] = !openCameras[camera.name]"
-        />
-
-        <div
-          v-if="openCameras[camera.name]"
-          class="flex flex-wrap items-end gap-2"
-        >
-          <v-select
-            v-model="refreshFrequency"
-            class="w-fit"
-            label="Refresh frequency"
-            aria-label="Refresh frequency"
-            :options="Object.keys(selectedMap).join(',')"
-          />
-
-          <v-button
-            v-if="refreshFrequency !== 'Live'"
-            icon="refresh"
-            label="Refresh"
-            @click="triggerRefresh = !triggerRefresh"
-          />
-        </div>
-
-        <CameraView
-          v-show="openCameras[camera.name]"
-          :key="camera.name"
-          :camera-name="camera.name"
-          parent-name="app"
-          :client="client"
-          :resources="resources"
-          :show-export-screenshot="true"
-          :refresh-rate="refreshFrequency"
-          :trigger-refresh="triggerRefresh"
-        />
-
-        <PCDView
-          :key="camera.name"
-          :camera-name="camera.name"
-          parent-name="app"
-          :client="client"
-          :resources="resources"
-          :show-switch="true"
-          :show-refresh="true"
-        />
-      </div>
-    </v-collapse>
+    <CamerasList
+      parent-name="app"
+      :client="client"
+      :resources="filterResources(resources, 'rdk', 'component', 'camera')"
+    />
 
     <!-- ******* NAVIGATION ******* -->
     <Navigation
