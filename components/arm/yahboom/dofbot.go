@@ -37,8 +37,6 @@ var ModelName = resource.NewDefaultModel("yahboom-dofbot")
 //go:embed dofbot.json
 var modeljson []byte
 
-const i2cAddr = 0x15
-
 // Model returns the kinematics model of the yahboom arm, also has all Frame information.
 func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, name)
@@ -110,7 +108,7 @@ func init() {
 // Dofbot implements a yahboom dofbot arm.
 type Dofbot struct {
 	generic.Unimplemented
-	bus     board.I2C
+	handle  board.I2CHandle
 	model   referenceframe.Model
 	robot   robot.Robot
 	mu      sync.Mutex
@@ -145,7 +143,10 @@ func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
-	a.bus = i2c
+	a.handle, err = i2c.OpenHandle(0x15)
+	if err != nil {
+		return nil, err
+	}
 
 	a.model, err = Model(config.Name)
 	if err != nil {
@@ -266,7 +267,7 @@ func (a *Dofbot) moveJointInLock(ctx context.Context, joint int, degrees float64
 	buf[3] = 0
 	buf[4] = 0xFF
 
-	return board.WriteToBus(ctx, a.bus, i2cAddr, buf)
+	return a.handle.Write(ctx, buf)
 }
 
 // JointPositions returns the current joint positions of the arm.
@@ -292,19 +293,14 @@ func (a *Dofbot) getJointPositionsInLock(ctx context.Context) (*componentpb.Join
 
 func (a *Dofbot) readJointInLock(ctx context.Context, joint int) (float64, error) {
 	reg := byte(0x30 + joint)
-	handle, err := a.bus.OpenHandle(i2cAddr)
-	if err != nil {
-		return 0, fmt.Errorf("error opening i2c handle for reading joint %v", joint)
-	}
-	defer handle.Close()
-	err = handle.WriteByteData(ctx, reg, 0)
+	err := a.handle.WriteByteData(ctx, reg, 0)
 	if err != nil {
 		return 0, fmt.Errorf("error requesting joint %v from register %v: %w", joint, reg, err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
 
-	rd, err := handle.ReadBlockData(ctx, reg, 2)
+	rd, err := a.handle.ReadBlockData(ctx, reg, 2)
 	if err != nil {
 		return 0, fmt.Errorf("error reading joint %v from register %v: %w", joint, reg, err)
 	}
@@ -328,7 +324,7 @@ func (a *Dofbot) turnOffTorque(ctx context.Context) error {
 
 	buf[0] = byte(0x1A)
 	buf[1] = byte(0x00)
-	return board.WriteToBus(ctx, a.bus, i2cAddr, buf)
+	return a.handle.Write(ctx, buf)
 }
 
 func (a *Dofbot) turnOnTorque(ctx context.Context) error {
@@ -337,7 +333,7 @@ func (a *Dofbot) turnOnTorque(ctx context.Context) error {
 	buf[0] = byte(0x1A)
 	buf[1] = byte(0x01)
 
-	return board.WriteToBus(ctx, a.bus, i2cAddr, buf)
+	return a.handle.Write(ctx, buf)
 }
 
 // GripperStop is unimplemented for the dofbot.
@@ -452,4 +448,9 @@ func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 		return err
 	}
 	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
+}
+
+// Close closes the arm.
+func (a *Dofbot) Close() error {
+	return a.handle.Close()
 }
