@@ -3,7 +3,10 @@
         {
             "name": "test_arm",
             "type": "arm",
-            "model": "fake"
+            "model": "fake",
+            "attributes": {
+                "model-path": "components/arm/fake/fake_model.json"
+            }
         },
         {
             "name": "test_base",
@@ -98,15 +101,6 @@
         {
             "name": "test_vision",
             "type": "vision"
-        },
-        {
-            "name": "test_slam",
-            "type": "slam",
-            "attributes": {
-                "algorithm" : "test",
-                "data_dir": "path",
-                "config_params": {"mode" : "mode"}
-            }
         },
         {
             "name": "test_motion",

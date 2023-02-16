@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -2481,15 +2482,21 @@ func TestRemoteRobotsGold(t *testing.T) {
 	localConfig := &config.Config{
 		Components: []config.Component{
 			{
-				Name:      "arm1",
-				Model:     resource.NewDefaultModel("fake"),
+				Name:  "arm1",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"foo:pieceGripper"},
 			},
 			{
-				Name:      "arm2",
-				Model:     resource.NewDefaultModel("fake"),
+				Name:  "arm2",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
 				DependsOn: []string{"bar:pieceArm"},

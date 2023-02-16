@@ -96,7 +96,7 @@ type mpu6050 struct {
 	temperature        float64
 	linearAcceleration r3.Vector
 	// Stores the most recent error from the background goroutine
-	lastError error
+	err movementsensor.LastError
 
 	// Used to shut down the background goroutine which polls the sensor.
 	backgroundContext       context.Context
@@ -184,9 +184,7 @@ func NewMpu6050(
 				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
 				if err != nil {
 					sensor.logger.Infof("error reading MPU6050 sensor: '%s'", err)
-					sensor.mu.Lock()
-					sensor.lastError = err
-					sensor.mu.Unlock()
+					sensor.err.Set(err)
 					continue
 				}
 
@@ -289,9 +287,7 @@ func toLinearAcceleration(data []byte) r3.Vector {
 func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
-	lastError := mpu.lastError
-	mpu.lastError = nil
-	return mpu.angularVelocity, lastError
+	return mpu.angularVelocity, mpu.err.Get()
 }
 
 func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -302,9 +298,7 @@ func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]inte
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
 
-	lastError := mpu.lastError
-	mpu.lastError = nil
-
+	lastError := mpu.err.Get()
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
@@ -336,10 +330,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	readings["temperature_celsius"] = mpu.temperature
 	readings["angular_velocity"] = mpu.angularVelocity
 
-	// Return the last error, if there was one, and clear it.
-	lastError := mpu.lastError
-	mpu.lastError = nil
-	return readings, lastError
+	return readings, mpu.err.Get()
 }
 
 func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {

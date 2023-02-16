@@ -65,7 +65,7 @@ func newDetectionsTransform(
 	return cam, camera.ColorStream, err
 }
 
-// Next returns the image overlaid with the detection bounding boxes.
+// Read returns the image overlaid with the detection bounding boxes.
 func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::detector::Read")
 	defer span.End()

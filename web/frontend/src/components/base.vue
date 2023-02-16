@@ -6,7 +6,7 @@ import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
-import CameraView from './camera.vue';
+import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 
 interface Props {
@@ -34,7 +34,7 @@ type View = 'Stacked' | 'Grid'
 const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const root = $ref<HTMLElement>();
 
-const refreshFrequency = $ref('Live');
+const refreshFrequency = $ref('Every Second');
 const selectedMap = {
   Live: -1,
   'Manual Refresh': 0,
@@ -44,16 +44,21 @@ const selectedMap = {
 } as const;
 const triggerRefresh = $ref(false);
 
-let selectedView = $ref<View>('Stacked');
 const openCameras = $ref<Record<string, boolean | undefined>>({});
+let selectedView = $ref<View>('Stacked');
 let selectedMode = $ref<Tabs>('Keyboard');
 let movementMode = $ref<MovementModes>('Straight');
 let movementType = $ref<MovementTypes>('Continuous');
 let direction = $ref<Directions>('Forwards');
 let spinType = $ref<SpinTypes>('Clockwise');
+let disableRefresh = $ref(true);
+let disableViews = $ref(true);
+
 const increment = $ref(1000);
-const speed = $ref(300); // straight mm/s
-const spinSpeed = $ref(90); // deg/s
+// straight mm/s
+const speed = $ref(300);
+// deg/s
+const spinSpeed = $ref(90);
 const angle = $ref(0);
 const power = $ref(50);
 
@@ -199,6 +204,15 @@ const baseRun = async () => {
 
 const handleViewSelect = (viewMode: View) => {
   selectedView = viewMode;
+
+  let liveCameras = 0;
+  for (const camera of resources) {
+    if (openCameras[camera.name]) {
+      liveCameras += 1;
+    }
+  }
+  disableViews = liveCameras > 1;
+
 };
 
 const handleTabSelect = (controlMode: Tabs) => {
@@ -228,6 +242,18 @@ const handleToggle = () => {
 
 const handleUpdateKeyboardState = (on:boolean) => {
   keyboardStates.isActive = on;
+};
+
+const handleSwitch = (cameraName: string) => {
+  openCameras[cameraName] = !openCameras[cameraName];
+
+  for (const camera of resources) {
+    if (openCameras[camera.name]) {
+      disableRefresh = false;
+      return;
+    }
+  }
+  disableRefresh = true;
 };
 
 onClickOutside($$(root), () => {
@@ -267,7 +293,7 @@ onUnmounted(() => {
         @click="stop"
       />
 
-      <div class="flex gap-4 border border-t-0 border-black">
+      <div class="flex flex-wrap sm:flex-nowrap gap-4 border border-t-0 border-black">
         <div class="flex flex-col gap-4 p-4 min-w-fit">
           <h2 class="font-bold">
             Motor Controls
@@ -388,6 +414,7 @@ onUnmounted(() => {
             label="View"
             options="Stacked, Grid"
             :selected="selectedView"
+            :disable="disableViews ? 'true' : 'false'"
             @input="handleViewSelect($event.detail.value)"
           />
 
@@ -397,11 +424,13 @@ onUnmounted(() => {
           >
             <template
               v-for="camera in resources"
+              :key="camera.name"
             >
               <v-switch
                 :label="camera.name"
+                :aria-label="`Refresh frequency for ${camera.name}`"
                 :value="openCameras[camera.name] ? 'on' : 'off'"
-                @input="openCameras[camera.name] = !openCameras[camera.name]"
+                @input="handleSwitch(camera.name)"
               />
             </template>
 
@@ -411,12 +440,14 @@ onUnmounted(() => {
                 label="Refresh frequency"
                 aria-label="Refresh frequency"
                 :options="Object.keys(selectedMap).join(',')"
+                :disabled="disableRefresh ? 'true' : 'false'"
               />
 
               <v-button
                 :class="refreshFrequency === 'Live' ? 'invisible' : ''"
                 icon="refresh"
                 label="Refresh"
+                :disabled="disableRefresh ? 'true' : 'false'"
                 @click="triggerRefresh = !triggerRefresh"
               />
             </div>
@@ -424,16 +455,15 @@ onUnmounted(() => {
         </div>
         <div
           data-parent="base"
-          class="grid gap-4 border-l border-black p-4"
-          :class="selectedView === 'Stacked' ? 'grid-cols-1' : 'grid-cols-2 gap-4'"
+          class="justify-start gap-4 sm:border-l border-black p-4"
+          :class="selectedView === 'Stacked' ? 'flex flex-col' : 'grid grid-cols-2 gap-4'"
         >
           <!-- ******* CAMERAS *******  -->
           <template
             v-for="camera in resources"
             :key="`base ${camera.name}`"
-            data-parent="app"
           >
-            <CameraView
+            <Camera
               v-show="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"

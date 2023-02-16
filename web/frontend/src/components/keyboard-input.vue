@@ -121,7 +121,7 @@ onUnmounted(() => {
       :value="props.isActive ? 'on' : 'off'"
       @input="toggleKeyboard($event.detail.value)"
     />
-    <div class="flex gap-2">
+    <div class="flex gap-2 justify-center">
       <div
         v-for="(lineKeys, index) in keysLayout"
         :key="index"

@@ -268,19 +268,20 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 	if !ok {
 		return fmt.Errorf("can't find DigitalInterrupt (%s)", intName)
 	}
-	intChan := make(chan bool)
-	interrupt.AddCallback(intChan)
+	tickChan := make(chan board.Tick)
+	interrupt.AddCallback(tickChan)
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(intChan)
+		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
 			select {
 			case <-ctx.Done():
 				return
-			case val = <-intChan:
+			case tick := <-tickChan:
+				val = tick.High
 			}
 
 			if cfg.Invert {

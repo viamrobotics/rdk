@@ -8,14 +8,16 @@
                 "base1"
             ],
             "attributes": {
-                "fail_new": true,
-                "one": 2
+                "arm-model": ""
             }
         },
         {
             "name": "arm2",
             "type": "arm",
             "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            },
             "depends_on": [
                 "base2"
             ]

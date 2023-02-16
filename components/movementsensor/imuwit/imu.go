@@ -86,7 +86,7 @@ type wit struct {
 	acceleration    r3.Vector
 	magnetometer    r3.Vector
 	numBadReadings  uint32
-	lastError       error
+	err             movementsensor.LastError
 
 	mu sync.Mutex
 
@@ -100,7 +100,7 @@ type wit struct {
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return imu.angularVelocity, imu.lastError
+	return imu.angularVelocity, imu.err.Get()
 }
 
 func (imu *wit) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -112,21 +112,21 @@ func (imu *wit) LinearVelocity(ctx context.Context, extra map[string]interface{}
 func (imu *wit) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return &imu.orientation, imu.lastError
+	return &imu.orientation, imu.err.Get()
 }
 
 // LinearAcceleration returns linear acceleration in mm_per_sec_per_sec.
 func (imu *wit) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return imu.acceleration, imu.lastError
+	return imu.acceleration, imu.err.Get()
 }
 
 // GetMagnetometer returns magnetic field in gauss.
 func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return imu.magnetometer, imu.lastError
+	return imu.magnetometer, imu.err.Get()
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
@@ -223,15 +223,15 @@ func NewWit(
 				defer i.mu.Unlock()
 
 				if err != nil {
-					i.lastError = err
-					logger.Error(i.lastError)
+					i.err.Set(err)
+					logger.Error(err)
 				} else {
 					if len(line) != 11 {
 						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
 						i.numBadReadings++
 						return
 					}
-					i.lastError = i.parseWIT(line)
+					i.err.Set(i.parseWIT(line))
 				}
 			}()
 		}
@@ -312,5 +312,5 @@ func (imu *wit) Close() error {
 	}
 
 	imu.logger.Debug("Closed wit motion imu")
-	return imu.lastError
+	return imu.err.Get()
 }

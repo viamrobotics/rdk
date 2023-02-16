@@ -84,13 +84,38 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 	if reconfigurable, ok := i.(*reconfigurableAudioInput); ok {
 		return reconfigurable, nil
 	}
+	reconfigurable := newReconfigurable(i, name)
+
+	if mon, ok := i.(LivenessMonitor); ok {
+		mon.Monitor(func() {
+			reconfigurable.mu.Lock()
+			defer reconfigurable.mu.Unlock()
+			reconfigurable.reconfigureKnownAudioInput(newReconfigurable(i, name))
+		})
+	}
+
+	return reconfigurable, nil
+}
+
+func newReconfigurable(i AudioInput, name resource.Name) *reconfigurableAudioInput {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &reconfigurableAudioInput{
 		name:      name,
 		actual:    i,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-	}, nil
+	}
+}
+
+// A LivenessMonitor is responsible for monitoring the liveness of an audio input. An example
+// is connectivity. Since the model itself knows best about how to maintain this state,
+// the reconfigurable offers a safe way to notify if a state needs to be reset due
+// to some exceptional event (like a reconnect).
+// It is expected that the monitoring code is tied to the lifetime of the resource
+// and once the resource is closed, so should the monitor. That is, it should
+// no longer send any resets once a Close on its associated resource has returned.
+type LivenessMonitor interface {
+	Monitor(notifyReset func())
 }
 
 var (
@@ -301,12 +326,17 @@ func (i *reconfigurableAudioInput) Reconfigure(ctx context.Context, newAudioInpu
 	if err := viamutils.TryClose(ctx, i.actual); err != nil {
 		golog.Global().Errorw("error closing old", "error", err)
 	}
+	i.reconfigureKnownAudioInput(actual)
+	return nil
+}
+
+// assumes lock is held.
+func (i *reconfigurableAudioInput) reconfigureKnownAudioInput(newAudioInput *reconfigurableAudioInput) {
 	i.cancel()
 	// reset
-	i.actual = actual.actual
-	i.cancelCtx = actual.cancelCtx
-	i.cancel = actual.cancel
-	return nil
+	i.actual = newAudioInput.actual
+	i.cancelCtx = newAudioInput.cancelCtx
+	i.cancel = newAudioInput.cancel
 }
 
 // UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
