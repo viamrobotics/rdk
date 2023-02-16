@@ -4,6 +4,7 @@ package wifi
 import (
 	"context"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -47,13 +48,23 @@ type wifi struct {
 
 // Readings returns Wifi strength statistics.
 func (s *wifi) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	cmd := "cat /proc/net/wireless | awk 'NR > 2 { print $3\",\"$4\",\"$5 }'"
+	cmd := "cat /proc/net/wireless | awk 'NR > 2 { print $3 $4 $5 }'"
 	out, err := exec.Command("bash", "-c", cmd).Output()
-	stats := strings.SplitN(strings.TrimSpace(string(out)), ",", 3)
 
-	link := stats[0]
-	level := stats[1]
-	noise := stats[2]
+	stats := strings.SplitN(strings.TrimSpace(string(out)), ".", 3)
+
+	link, err := strconv.ParseInt(stats[0], 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	level, err := strconv.ParseInt(stats[1], 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	noise, err := strconv.ParseInt(stats[2], 10, 32)
+	if err != nil {
+		return nil, err
+	}
 
 	if err != nil {
 		return nil, err
