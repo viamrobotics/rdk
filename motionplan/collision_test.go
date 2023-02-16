@@ -45,8 +45,7 @@ func TestCollisionListsEqual(t *testing.T) {
 func TestCheckCollisions(t *testing.T) {
 	// case 1: small collection of custom geometries, expecting:
 	//      - collisions reported between robot and obstacles
-	//      - no collision between two robot geometries
-	//      - no collision between two obstacle geometries
+	//      - no collision between two obstacle geometries or robot geometries
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 	robot := make(map[string]spatial.Geometry)

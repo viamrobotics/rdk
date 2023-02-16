@@ -78,19 +78,19 @@ func NewCollisionEntities(geometries map[string]spatial.Geometry) (*collisionEnt
 }
 
 // count returns the number of collisionEntities in a CollisionEntities class.
-func (oce *collisionEntities) count() int {
-	return len(oce.entities)
+func (ce *collisionEntities) count() int {
+	return len(ce.entities)
 }
 
 // entityFromIndex returns the entity in the CollisionEntities class that corresponds to the given index.
-func (oce *collisionEntities) entityFromIndex(index int) *collisionEntity {
-	return oce.entities[index]
+func (ce *collisionEntities) entityFromIndex(index int) *collisionEntity {
+	return ce.entities[index]
 }
 
 // indexFromName returns the index in the CollisionEntities class that corresponds to the given name.
 // a negative return value corresponds to an error.
-func (oce *collisionEntities) indexFromName(name string) int {
-	if index, ok := oce.indices[name]; ok {
+func (ce *collisionEntities) indexFromName(name string) int {
+	if index, ok := ce.indices[name]; ok {
 		return index
 	}
 	return -1
@@ -152,18 +152,11 @@ func (oce *collisionEntities) indexFromName(name string) int {
 // 	return collisionIndices
 // }
 
-// collisionGraph is an implementation of an undirected graph used to track collisions between two set of CollisionEntities.
-
-// TODO: make separate struct for the obj (a part of the robot ) vs obstacle graph
-// TODO: add comments to each field inside collisionGraph
-type collisionGraph struct { // this is treated as the obj vs obj graph
-
+// TODO: comments
+type collisionGraph struct {
 	x, y *collisionEntities
 
 	distances [][]float64
-
-	// triangular is a bool that describes if the adjacencies matrix is triangular, which will be the case when set1 == set2
-	triangular bool
 
 	reportDistances bool
 }
@@ -176,18 +169,15 @@ func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, repor
 		x:               x,
 		y:               y,
 		distances:       make([][]float64, x.count()),
-		triangular:      x == y,
 		reportDistances: reportDistances,
 	}
+	triangular := x == y
 	for i := range cg.distances {
 		cg.distances[i] = make([]float64, y.count())
 		xi := x.entityFromIndex(i)
 		startIndex := 0
-		if cg.triangular {
+		if triangular {
 			startIndex = i + 1
-			for j := 0; j < startIndex; j++ {
-				cg.distances[i][j] = math.NaN()
-			}
 		}
 		for j := startIndex; j < len(cg.distances[i]); j++ {
 			yj := y.entityFromIndex(j)
@@ -201,6 +191,9 @@ func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, repor
 				if !reportDistances && cg.distances[i][j] <= spatial.CollisionBuffer {
 					return cg, nil
 				}
+			}
+			if triangular {
+				cg.distances[j][i] = cg.distances[i][j]
 			}
 		}
 	}
@@ -227,9 +220,6 @@ func (cg *collisionGraph) checkCollision(x, y *collisionEntity) (float64, error)
 // collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
 func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
 	if i, j, ok := cg.getIndices(keyName, testName); ok {
-		if cg.triangular && i > j {
-			i, j = j, i
-		}
 		if cg.distances[i][j] <= spatial.CollisionBuffer {
 			return true
 		}
@@ -257,76 +247,8 @@ func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (e
 		i, j, ok = cg.getIndices(specification.name2, specification.name1)
 	}
 	if ok {
-		if cg.triangular && i > j {
-			i, j = j, i
-		}
 		cg.distances[i][j] = math.NaN()
 		return nil
 	}
 	return errors.Errorf("cannot add collision specification between entities with names: %s, %s", specification.name1, specification.name2)
 }
-
-// CollisionSystem is an object that checks for and records collisions between CollisionEntities.
-// type CollisionSystem struct {
-// 	graphs []*collisionGraph
-// }
-
-// NewCollisionSystemFromReference creates a new collision system that checks for collisions
-// between the entities in the key CollisionEntities and the entities in each of the optional CollisionEntities
-// a reference CollisionSystem can also be specified, and edges between entities that exist in this reference system will
-// not be duplicated in the newly constructed system.
-// func NewCollisionSystemFromReference(
-// 	key *ObjectCollisionEntities,
-// 	optional []CollisionEntities,
-// 	reference *CollisionSystem,
-// 	reportDistances bool,
-// ) (*CollisionSystem, error) {
-// 	cs := &CollisionSystem{make([]*collisionGraph, 0)}
-// 	graph, err := newCollisionGraph(key, key, reference, reportDistances)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	cs.graphs = append(cs.graphs, graph)
-// 	if !reportDistances {
-// 		if len(cs.Collisions()) > 0 {
-// 			return cs, nil
-// 		}
-// 	}
-
-// 	for i := range optional {
-// 		graph, err = newCollisionGraph(key, optional[i], reference, reportDistances)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		cs.graphs = append(cs.graphs, graph)
-// 		if !reportDistances && len(cs.Collisions()) > 0 {
-// 			return cs, nil
-// 		}
-// 	}
-// 	return cs, nil
-// }
-
-// // NewCollisionSystem creates a new collision system that checks for collisions
-// // between the entities in the key CollisionEntities and the entities in each of the optional CollisionEntities.
-// func NewCollisionSystem(key *ObjectCollisionEntities, optional []CollisionEntities, reportDistances bool) (*CollisionSystem, error) {
-// 	return NewCollisionSystemFromReference(key, optional, &CollisionSystem{}, reportDistances)
-// }
-
-// // Collisions returns a list of all the reported collisions in the CollisionSystem.
-// func (cs *CollisionSystem) Collisions() []Collision {
-// 	var collisions []Collision
-// 	for _, graph := range cs.graphs {
-// 		collisions = append(collisions, graph.collisions()...)
-// 	}
-// 	return collisions
-// }
-
-// // CollisionBetween returns a bool describing if a collision between the two named entities was reported in the CollisionSystem.
-// func (cs *CollisionSystem) CollisionBetween(keyName, testName string) bool {
-// 	for _, graph := range cs.graphs {
-// 		if graph.collisionBetween(keyName, testName) {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
