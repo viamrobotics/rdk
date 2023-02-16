@@ -5,11 +5,9 @@ package imuwit
 import (
 	"bufio"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -198,45 +196,47 @@ func NewWit(
 	i.port = port
 
 	portReader := bufio.NewReader(port)
+	i.startUpdateLoop(ctx, portReader, logger)
 
-	ctx, i.cancelFunc = context.WithCancel(context.Background())
-	i.activeBackgroundWorkers.Add(1)
+	return &i, nil
+}
+
+func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+	ctx, imu.cancelFunc = context.WithCancel(context.Background())
+	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(port.Close)
-		defer i.activeBackgroundWorkers.Done()
+		defer utils.UncheckedErrorFunc(imu.port.Close)
+		defer imu.activeBackgroundWorkers.Done()
 
 		for {
 			if ctx.Err() != nil {
 				return
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 
 			line, err := portReader.ReadString('U')
 
-			// Randomly sample logging until we have better log level control
-			//nolint:gosec
-			if rand.Intn(100) < 3 {
-				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
-			}
-
 			func() {
-				i.mu.Lock()
-				defer i.mu.Unlock()
+				imu.mu.Lock()
+				defer imu.mu.Unlock()
 
 				if err != nil {
-					i.lastError = err
-					logger.Error(i.lastError)
+					imu.lastError = err
+					logger.Error(imu.lastError)
 				} else {
 					if len(line) != 11 {
-						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
-						i.numBadReadings++
+						imu.numBadReadings++
 						return
 					}
-					i.lastError = i.parseWIT(line)
 				}
+				imu.lastError = imu.parseWIT(line)
 			}()
 		}
 	})
-	return &i, nil
 }
 
 func scale(a, b byte, r float64) float64 {
@@ -303,14 +303,8 @@ func (imu *wit) Close() error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
-
-	if imu.port != nil {
-		if err := imu.port.Close(); err != nil {
-			return err
-		}
-		imu.port = nil
-	}
-
+	// resource_manager's TryClose now closes input/output Readers by calling Close on its
+	// driver's Close functions
 	imu.logger.Debug("Closed wit motion imu")
 	return imu.lastError
 }
