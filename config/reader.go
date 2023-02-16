@@ -550,8 +550,11 @@ func readFromCloud(
 	}
 
 	mergeCloudConfig(cfg)
+	// TODO(RSDK-1960): add more tests around config caching
+	unprocessedConfig.Cloud.TLSCertificate = tlsCertificate
+	unprocessedConfig.Cloud.TLSPrivateKey = tlsPrivateKey
 
-	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
+	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 

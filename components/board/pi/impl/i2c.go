@@ -72,22 +72,6 @@ func (s *piPigpioI2CHandle) WriteByteData(ctx context.Context, register, data by
 	return nil
 }
 
-func (s *piPigpioI2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
-	res := C.i2cReadWordData(s.handle, C.uint(register))
-	if res < 0 {
-		return 0, errors.Errorf("error in ReadWordData (%d)", res)
-	}
-	return uint16(res & 0xFFFF), nil
-}
-
-func (s *piPigpioI2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
-	res := C.i2cWriteWordData(s.handle, C.uint(register), C.uint(data))
-	if res != 0 {
-		return errors.Errorf("error in WriteWordData (%d)", res)
-	}
-	return nil
-}
-
 func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
 		return nil, errors.New("Cannot read more than 32 bytes from I2C")
@@ -102,7 +86,8 @@ func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, nu
 	return data, nil
 }
 
-func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
+func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
+	numBytes := len(data)
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
 		return errors.New("Cannot write more than 32 bytes from I2C")
 	}

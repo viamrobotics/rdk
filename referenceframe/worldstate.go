@@ -11,8 +11,8 @@ import (
 
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
-	Obstacles, InteractionSpaces []*GeometriesInFrame
-	Transforms                   []*LinkInFrame
+	Obstacles  []*GeometriesInFrame
+	Transforms []*LinkInFrame
 }
 
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
@@ -35,19 +35,14 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	if err != nil {
 		return nil, err
 	}
-	interactionSpaces, err := convertProtoGeometries(proto.GetInteractionSpaces())
-	if err != nil {
-		return nil, err
-	}
 	transforms, err := LinkInFramesFromTransformsProtobuf(proto.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
 
 	return &WorldState{
-		Obstacles:         obstacles,
-		InteractionSpaces: interactionSpaces,
-		Transforms:        transforms,
+		Obstacles:  obstacles,
+		Transforms: transforms,
 	}, nil
 }
 
@@ -67,9 +62,8 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 	}
 
 	return &commonpb.WorldState{
-		Obstacles:         convertGeometriesToProto(worldState.Obstacles),
-		InteractionSpaces: convertGeometriesToProto(worldState.InteractionSpaces),
-		Transforms:        transforms,
+		Obstacles:  convertGeometriesToProto(worldState.Obstacles),
+		Transforms: transforms,
 	}, nil
 }
 
@@ -101,12 +95,7 @@ func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*
 	if err != nil {
 		return nil, err
 	}
-	interactionSpaces, err := transformGeometriesToWorldFrame(ws.InteractionSpaces)
-	if err != nil {
-		return nil, err
-	}
 	return &WorldState{
-		Obstacles:         []*GeometriesInFrame{obstacles},
-		InteractionSpaces: []*GeometriesInFrame{interactionSpaces},
+		Obstacles: []*GeometriesInFrame{obstacles},
 	}, nil
 }
