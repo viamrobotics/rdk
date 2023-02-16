@@ -28,16 +28,17 @@ var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 // Arguments for the command.
 type Arguments struct {
-	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile                 string `flag:"config,usage=robot config file"`
-	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
-	Debug                      bool   `flag:"debug"`
-	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
-	Version                    bool   `flag:"version,usage=print version"`
-	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
-	WebRTC                     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
-	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
-	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
+	AllowInsecureCreds           bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
+	ConfigFile                   string `flag:"config,usage=robot config file"`
+	CPUProfile                   string `flag:"cpuprofile,usage=write cpu profile to file"`
+	Debug                        bool   `flag:"debug"`
+	LimitConfigurableDirectories bool   `flag:"limit-configurable-directories,usage=limit which directories users can configure for storing data on-robot"` //nolint:lll
+	SharedDir                    string `flag:"shareddir,usage=web resource directory"`
+	Version                      bool   `flag:"version,usage=print version"`
+	WebProfile                   bool   `flag:"webprofile,usage=include profiler in http server"`
+	WebRTC                       bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	RevealSensitiveConfigDiffs   bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
+	UntrustedEnv                 bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 }
 
 type robotServer struct {
@@ -217,6 +218,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.Debug = s.args.Debug || cfg.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
+		out.LimitConfigurableDirectories = s.args.LimitConfigurableDirectories
 		out.UntrustedEnv = s.args.UntrustedEnv
 		out.PackagePath = path.Join(viamDotDir, "packages")
 		return out, nil

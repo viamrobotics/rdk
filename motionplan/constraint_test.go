@@ -169,12 +169,13 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	// lastGood.StartInput should pass constraints, while lastGood.EndInput should fail`
 	lastGood.Frame = sf
-	pass, _ := opt.CheckConstraints(lastGood)
+	pass, _, _ := opt.CheckConstraints(lastGood)
 	test.That(t, pass, test.ShouldBeTrue)
 	lastGood.StartInput = lastGood.EndInput
 	lastGood.StartPos = nil
-	pass, _ = opt.CheckConstraints(lastGood)
+	pass, _, failName := opt.CheckConstraints(lastGood)
 	test.That(t, pass, test.ShouldBeFalse)
+	test.That(t, failName, test.ShouldEqual, "whiteboard")
 }
 
 func TestCollisionConstraint(t *testing.T) {
@@ -182,11 +183,12 @@ func TestCollisionConstraint(t *testing.T) {
 	cases := []struct {
 		input    []frame.Input
 		expected bool
+		failName string
 	}{
-		{zeroPos, true},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true},
-		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false},
+		{zeroPos, true, ""},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
+		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, "collision"},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, "collision"},
 	}
 
 	// define external obstacles
@@ -200,13 +202,14 @@ func TestCollisionConstraint(t *testing.T) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}, false))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, nil, false))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
+			response, _, failName := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
+			test.That(t, failName, test.ShouldEqual, c.failName)
 		})
 	}
 }
@@ -226,7 +229,7 @@ func BenchmarkCollisionConstraint(b *testing.B) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}, false))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, nil, false))
 
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
@@ -235,7 +238,7 @@ func BenchmarkCollisionConstraint(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		b1, _ = handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
+		b1, _, _ = handler.CheckConstraints(&ConstraintInput{StartInput: frame.FloatsToInputs(rfloats), Frame: model})
 	}
 	bt = b1
 }
