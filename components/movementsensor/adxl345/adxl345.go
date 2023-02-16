@@ -88,7 +88,7 @@ type adxl345 struct {
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
 	linearAcceleration r3.Vector
-	lastError          error
+	err                movementsensor.LastError
 
 	// Used to shut down the background goroutine which polls the sensor.
 	cancelContext           context.Context
@@ -173,7 +173,7 @@ func NewAdxl345(
 				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
 				if err != nil {
 					sensor.mu.Lock()
-					sensor.lastError = err
+					sensor.err.Set(err)
 					sensor.mu.Unlock()
 					continue
 				}
@@ -266,8 +266,7 @@ func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interf
 func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-	lastError := adxl.lastError
-	adxl.lastError = nil
+	lastError := adxl.err.Get()
 
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -295,11 +294,7 @@ func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{})
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-
-	// We're going to return the most recent error, if any, and then clear it.
-	lastError := adxl.lastError
-	adxl.lastError = nil
-	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, lastError
+	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, adxl.err.Get()
 }
 
 func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {

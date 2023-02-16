@@ -3,6 +3,7 @@ package movementsensor
 import (
 	"errors"
 	"math"
+	"sync"
 
 	geo "github.com/kellydunn/golang-geo"
 
@@ -69,3 +70,26 @@ var (
 	// ErrMethodUnimplementedLinearAcceleration returns error if Linear Acceleration is unimplemented.
 	ErrMethodUnimplementedLinearAcceleration = errors.New("linear acceleration unimplemented")
 )
+
+// LastError is an object that stores the most recent error.
+type LastError struct {
+	err error
+	mu  sync.Mutex
+}
+
+// Set stores an error to be retrieved later.
+func (le *LastError) Set(err error) {
+	le.mu.Lock()
+	defer le.mu.Unlock()
+	le.err = err
+}
+
+// Get returns the most-recently-stored error, and sets the stored error to nil.
+func (le *LastError) Get() error {
+	le.mu.Lock()
+	defer le.mu.Unlock()
+
+	err := le.err
+	le.err = nil
+	return err
+}
