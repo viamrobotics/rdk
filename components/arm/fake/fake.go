@@ -37,13 +37,13 @@ const errAttrCfgMissing = "one of ArmModel or ModelPath must be populated"
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
 
-//go:embed fake_model.json
+//nolint:go-staticcheck // go:embed fake_model.json
 var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ArmModel  string `json:"arm-model,omitempty"`
-	ModelPath string `json:"model-path,omitempty"`
+	ArmModel      string `json:"arm-model,omitempty"`
+	ModelFilePath string `json:"model-path,omitempty"`
 }
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
@@ -58,8 +58,6 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return yahboom.Model(name)
 	case eva.ModelName.Name:
 		return eva.Model(name)
-	case ModelName.Name:
-		return referenceframe.UnmarshalModelJSON(fakeModelJSON, name)
 	default:
 		return nil, errors.New(errModelName + model)
 	}
@@ -69,12 +67,12 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 func (config *AttrConfig) Validate(path string) error {
 	var err error
 	switch {
-	case config.ArmModel != "" && config.ModelPath != "":
+	case config.ArmModel != "" && config.ModelFilePath != "":
 		return errors.New(errAttrCfgPopulation)
-	case config.ArmModel != "" && config.ModelPath == "":
+	case config.ArmModel != "" && config.ModelFilePath == "":
 		_, err = modelFromName(config.ArmModel, "")
-	case config.ArmModel == "" && config.ModelPath != "":
-		_, err = referenceframe.ModelFromPath(config.ModelPath, "")
+	case config.ArmModel == "" && config.ModelFilePath != "":
+		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
 	}
 	return err
 }
@@ -104,15 +102,16 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		err   error
 	)
 
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
 	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
 	switch {
+	case armModel != "" && modelPath != "":
+		return nil, errors.New(errAttrCfgPopulation)
 	case armModel != "":
 		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
-	}
-	if model == nil {
+	default:
 		return nil, errors.New(errAttrCfgMissing)
 	}
 	if err != nil {
