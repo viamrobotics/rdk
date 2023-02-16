@@ -22,15 +22,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// errArmModelUnsupported is the returned string when we want to use a path to
-// instantiate a model.
-const errArmModelUnsupported = "fake arm cannot be created, unsupported arm_model: "
-
 // errAttrCfgPopulation is the returned string if the AttrConfig's fields are fully populated.
 const errAttrCfgPopulation = "can only populate either ArmModel or ModelPath - not both"
-
-// errAttrCfgMissing is the returned string if the AttrConfig's fields are empty.
-const errAttrCfgMissing = "one of ArmModel or ModelPath must be populated"
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
@@ -54,7 +47,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case eva.ModelName.Name:
 		return eva.Model(name)
 	default:
-		return nil, errors.New(errArmModelUnsupported + model)
+		return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", model)
 	}
 }
 
@@ -107,7 +100,7 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		return nil, errors.New(errAttrCfgMissing)
+		return nil, errors.New("one of ArmModel or ModelPath must be populated")
 	}
 	if err != nil {
 		return nil, err
