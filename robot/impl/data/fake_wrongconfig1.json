@@ -40,7 +40,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "arm-model": "fake"
+                "model-path": "../../components/arm/fake/fake_model.json"
             },
             "frame": {
                 "parent": "world",
