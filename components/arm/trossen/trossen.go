@@ -33,6 +33,16 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// This is an implementation of the Arm API for Trossen arm models
+// vx300s and wx250s ONLY (these codenames can be found at https://docs.trossenrobotics.com/interbotix_xsarms_docs/)
+// Specifications for vx300s (ViperX-300 6DOF):
+// https://docs.trossenrobotics.com/interbotix_xsarms_docs/specifications/vx300s.html
+// Specifications for wx250s (WidowX-250 6DOF):
+// https://docs.trossenrobotics.com/interbotix_xsarms_docs/specifications/wx250s.html
+// WARNING: This implementation is experimental and not currently stable.
+
+const servoCount = 9
+
 var (
 	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
 	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
@@ -98,21 +108,17 @@ func getPortMutex(port string) *sync.Mutex {
 
 // AttrConfig is used for converting Arm config attributes.
 type AttrConfig struct {
-	UsbPort       string `json:"serial_path"`
-	BaudRate      int    `json:"serial_baud_rate"`
-	ArmServoCount int    `json:"arm_servo_count"`
+	UsbPort  string `json:"serial_path"`
+	BaudRate int    `json:"serial_baud_rate,omitempty"`
+	// NOTE: ArmServoCount is currently unused because both
+	// supported arms are 9 servo arms - GV
+	ArmServoCount int `json:"arm_servo_count,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if len(config.UsbPort) == 0 {
-		return errors.New("expected nonempty serial_path")
-	}
-	if config.BaudRate == 0 {
-		return errors.New("expected nonempty serial_baud_rate")
-	}
-	if config.ArmServoCount == 0 {
-		return errors.New("expected nonempty arm_servo_count")
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	return nil
@@ -157,7 +163,11 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		return nil, rdkutils.NewUnexpectedTypeError(attributes, cfg.ConvertedAttributes)
 	}
 	usbPort := attributes.UsbPort
-	servos, err := findServos(usbPort, attributes.BaudRate, attributes.ArmServoCount)
+	baudRate := attributes.BaudRate
+	if baudRate == 0 {
+		baudRate = 1000000
+	}
+	servos, err := findServos(usbPort, baudRate)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +177,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		return nil, err
 	}
 
-	return &Arm{
+	a := &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -175,12 +185,19 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 			"Forearm_rot": {servos[5]},
 			"Wrist":       {servos[6]},
 			"Wrist_rot":   {servos[7]},
+			"Gripper":     {servos[8]},
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
 		robot:    r,
 		model:    model,
-	}, nil
+	}
+	// start the arm in an open gripper state
+	err = a.OpenGripper(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "trossen arm failed to initialize, could not open gripper")
+	}
+	return a, nil
 }
 
 // EndPosition computes and returns the current cartesian position.
@@ -212,20 +229,19 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	}
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	if len(jp.Values) > len(a.JointOrder()) {
+	if len(jp.Values) > len(a.jointOrder()) {
 		return errors.New("passed in too many positions")
 	}
 
 	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 
 	// TODO(pl): make block configurable
 	block := false
 	for i, pos := range jp.Values {
-		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
+		a.JointTo(a.jointOrder()[i], degreeToServoPos(pos), block)
 	}
-
-	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	return a.waitForMovement(ctx)
 }
 
 // JointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
@@ -235,17 +251,113 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 		return &pb.JointPositions{}, err
 	}
 
-	positions := make([]float64, 0, len(a.JointOrder()))
-	for _, jointName := range a.JointOrder() {
+	numJoints := len(a.jointOrder())
+	positions := make([]float64, 0, numJoints)
+	for _, jointName := range a.jointOrder() {
 		positions = append(positions, servoPosToValues(angleMap[jointName]))
 	}
 
 	return &pb.JointPositions{Values: positions}, nil
 }
 
-// Stop is unimplemented for trossen.
+// OpenGripper opens the gripper.
+func (a *Arm) OpenGripper(ctx context.Context) error {
+	ctx, done := a.opMgr.New(ctx)
+	defer done()
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
+
+	pos, err := a.Joints["Gripper"][0].PresentPosition()
+	if err != nil {
+		return errors.Wrap(err, "position retrieval failed when opening gripper")
+	}
+	if pos >= 2800 {
+		a.logger.Debug("gripper already open, returning")
+		return nil
+	}
+
+	err = a.Joints["Gripper"][0].SetGoalPWM(150)
+	if err != nil {
+		return err
+	}
+	a.logger.Debug("gripper pwm set to 150")
+
+	// We don't want to over-open
+	atPos := false
+	for !atPos {
+		var pos int
+		pos, err = a.Joints["Gripper"][0].PresentPosition()
+		if err != nil {
+			return errors.Wrap(err, "position retrieval failed when opening gripper")
+		}
+		if pos < 2800 {
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+				return ctx.Err()
+			}
+		} else {
+			atPos = true
+			a.logger.Debug("reached open gripper position")
+		}
+	}
+	err = a.Joints["Gripper"][0].SetGoalPWM(0)
+	if err != nil {
+		return errors.Wrap(err, "failed to set gripper PWM to 0")
+	}
+	return nil
+}
+
+// Grab closes the gripper.
+func (a *Arm) Grab(ctx context.Context) (bool, error) {
+	_, done := a.opMgr.New(ctx)
+	defer done()
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
+	err := a.Joints["Gripper"][0].SetGoalPWM(-350)
+	if err != nil {
+		return false, err
+	}
+	a.logger.Debug("gripper pwm set to -350")
+	err = servo.WaitForMovementVar(a.Joints["Gripper"][0])
+	if err != nil {
+		setPWMErr := a.Joints["Gripper"][0].SetGoalPWM(0)
+		return false, multierr.Combine(err, setPWMErr)
+	}
+	pos, err := a.Joints["Gripper"][0].PresentPosition()
+	if err != nil {
+		return false, err
+	}
+	a.logger.Debug(fmt.Sprintf("gripper position at %d (after grab)", pos))
+	didGrab := true
+
+	// If servo position is less than 1500, it's closed and we grabbed nothing
+	if pos < 1500 {
+		didGrab = false
+	}
+	return didGrab, nil
+}
+
+// StopGripper stops the gripper servo.
+func (a *Arm) StopGripper(ctx context.Context) error {
+	a.opMgr.CancelRunning(ctx)
+	err := a.Joints["Gripper"][0].SetTorqueEnable(false)
+	if err != nil {
+		return err
+	}
+	return a.Joints["Gripper"][0].SetTorqueEnable(true)
+}
+
+// GripperIsMoving returns whether the gripper servo is moving.
+func (a *Arm) GripperIsMoving(ctx context.Context) (bool, error) {
+	isMovingInt, err := a.Joints["Gripper"][0].Moving()
+	if err != nil {
+		return false, err
+	}
+	return (isMovingInt == 1), nil
+}
+
+// Stop stops the servos of the arm.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// RSDK-374: Implement Stop
+	a.opMgr.CancelRunning(ctx)
 	return multierr.Combine(
 		a.TorqueOff(),
 		a.TorqueOn(),
@@ -258,34 +370,53 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Close will get the arm ready to be turned off.
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) error {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
 	angles, err := a.GetAllAngles()
 	if err != nil {
-		a.logger.Errorf("failed to get angles: %s", err)
+		return errors.Wrap(err, "failed to get angles on component close")
 	}
 	alreadyAtSleep := true
-	for _, joint := range a.JointOrder() {
+	gripperIsOpen := true
+	for _, joint := range a.jointOrder() {
 		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
 			alreadyAtSleep = false
 		}
 	}
+	gripperPos, err := a.Joints["Gripper"][0].PresentPosition()
+	if err != nil {
+		a.logger.Errorf("failed to get gripper position on close: %s", err)
+		gripperIsOpen = true
+	} else if gripperPos >= 2800 {
+		gripperIsOpen = false
+	}
 	if !alreadyAtSleep {
 		err = a.HomePosition(context.Background())
 		if err != nil {
-			a.logger.Errorf("Home position error: %s", err)
+			return errors.Wrap(err, "home position error")
 		}
 		err = a.SleepPosition(context.Background())
 		if err != nil {
-			a.logger.Errorf("Sleep pos error: %s", err)
+			return errors.Wrap(err, "sleep position err")
 		}
+	} else {
+		a.logger.Debug("trossen arm already at sleep, proceeding to close component")
+	}
+	if !gripperIsOpen {
+		err = a.OpenGripper(context.Background())
+		if err != nil {
+			a.logger.Errorf("gripper failed to open on component c,ose: %s", err)
+		}
+	} else {
+		a.logger.Debug("gripper already open, proceeding to close component")
 	}
 	err = a.TorqueOff()
 	if err != nil {
-		a.logger.Errorf("Torque off error: %s", err)
+		return errors.Wrap(err, "torque off error in close")
 	}
+	return nil
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position.
@@ -308,8 +439,7 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 	return angles, nil
 }
 
-// JointOrder TODO.
-func (a *Arm) JointOrder() []string {
+func (a *Arm) jointOrder() []string {
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
 
@@ -317,7 +447,7 @@ func (a *Arm) JointOrder() []string {
 // TODO(pl): Print joint names, not just servo numbers.
 func (a *Arm) PrintPositions() error {
 	posString := ""
-	for i, s := range a.GetAllServos() {
+	for i, s := range a.GetAllServos(true) {
 		pos, err := s.PresentPosition()
 		if err != nil {
 			return err
@@ -328,10 +458,13 @@ func (a *Arm) PrintPositions() error {
 }
 
 // GetAllServos returns a slice containing all servos in the arm.
-func (a *Arm) GetAllServos() []*servo.Servo {
+func (a *Arm) GetAllServos(includeGripper bool) []*servo.Servo {
 	var servos []*servo.Servo
-	for _, joint := range a.JointOrder() {
+	for _, joint := range a.jointOrder() {
 		servos = append(servos, a.Joints[joint]...)
+	}
+	if includeGripper {
+		servos = append(servos, a.Joints["Gripper"]...)
 	}
 	return servos
 }
@@ -347,7 +480,7 @@ func (a *Arm) GetServos(jointName string) []*servo.Servo {
 func (a *Arm) SetAcceleration(accel int) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(false) {
 		err := s.SetProfileAcceleration(accel)
 		if err != nil {
 			return err
@@ -361,7 +494,7 @@ func (a *Arm) SetAcceleration(accel int) error {
 func (a *Arm) SetVelocity(veloc int) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(false) {
 		err := s.SetProfileVelocity(veloc)
 		if err != nil {
 			return err
@@ -374,7 +507,7 @@ func (a *Arm) SetVelocity(veloc int) error {
 func (a *Arm) TorqueOn() error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(true) {
 		err := s.SetTorqueEnable(true)
 		if err != nil {
 			return err
@@ -387,7 +520,7 @@ func (a *Arm) TorqueOn() error {
 func (a *Arm) TorqueOff() error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
-	for _, s := range a.GetAllServos() {
+	for _, s := range a.GetAllServos(true) {
 		err := s.SetTorqueEnable(false)
 		if err != nil {
 			return err
@@ -413,6 +546,7 @@ func (a *Arm) JointTo(jointName string, pos int, block bool) {
 // SleepPosition goes back to the sleep position, ready to turn off torque.
 func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 	sleepWait := false
 	a.JointTo("Waist", 2048, sleepWait)
 	a.JointTo("Shoulder", 840, sleepWait)
@@ -420,8 +554,7 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.JointTo("Wrist", 2509, sleepWait)
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
-	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	return a.waitForMovement(ctx)
 }
 
 // GetMoveLock TODO.
@@ -432,13 +565,15 @@ func (a *Arm) GetMoveLock() *sync.Mutex {
 // HomePosition goes to the home position.
 func (a *Arm) HomePosition(ctx context.Context) error {
 	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 
 	wait := false
 	for jointName := range a.Joints {
-		a.JointTo(jointName, 2048, wait)
+		if jointName != "Gripper" {
+			a.JointTo(jointName, 2048, wait)
+		}
 	}
-	a.moveLock.Unlock()
-	return a.WaitForMovement(ctx)
+	return a.waitForMovement(ctx)
 }
 
 // CurrentInputs TODO.
@@ -459,10 +594,9 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return a.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-// WaitForMovement takes some servos, and will block until the servos are done moving.
-func (a *Arm) WaitForMovement(ctx context.Context) error {
-	a.moveLock.Lock()
-	defer a.moveLock.Unlock()
+// waitForMovement takes some servos, and will block until the servos are done moving.
+// The arm's moveLock MUST be locked before calling this function.
+func (a *Arm) waitForMovement(ctx context.Context) error {
 	allAtPos := false
 
 	for !allAtPos {
@@ -470,7 +604,7 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 			return ctx.Err()
 		}
 		allAtPos = true
-		for _, s := range a.GetAllServos() {
+		for _, s := range a.GetAllServos(true) {
 			isMoving, err := s.Moving()
 			if err != nil {
 				return err
@@ -540,12 +674,9 @@ func setServoDefaults(newServo *servo.Servo) error {
 
 // findServos finds the specified number of Dynamixel servos on the specified USB port
 // we are going to hardcode some USB parameters that we will literally never want to change.
-func findServos(usbPort string, baudRate, armServoCount int) ([]*servo.Servo, error) {
+func findServos(usbPort string, baudRate int) ([]*servo.Servo, error) {
 	if baudRate == 0 {
 		return nil, errors.New("non-zero serial_baud_rate expected")
-	}
-	if armServoCount == 0 {
-		return nil, errors.New("non-zero arm_servo_coun expected")
 	}
 
 	options := serial.OpenOptions{
@@ -566,20 +697,27 @@ func findServos(usbPort string, baudRate, armServoCount int) ([]*servo.Servo, er
 
 	network := network.New(serial)
 
-	// By default, Dynamixel servos come 1-indexed out of the box because reasons
-	for i := 1; i <= armServoCount; i++ {
+	// By default, Dynamixel servo IDs in the trossen arm come 1-indexed
+	// from the waist joint upwards
+	for i := 1; i <= servoCount; i++ {
 		// Get model ID of each servo
 		newServo, err := s_model.New(network, i)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error initializing servo %d", i)
 		}
-
-		err = setServoDefaults(newServo)
+		// Don't set the defaults for the gripper servo. REVISIT: don't set defaults
+		// for any servo? The arm should be shipped with the servos pre-configured
+		if i != servoCount {
+			err = setServoDefaults(newServo)
+		} else {
+			err = newServo.SetTorqueEnable(true)
+		}
 		if err != nil {
 			return nil, err
 		}
 
 		servos = append(servos, newServo)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	return servos, nil

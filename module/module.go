@@ -197,6 +197,12 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (int
 	if err := m.connectParent(ctx); err != nil {
 		return nil, err
 	}
+
+	// Refresh parent to ensure it has the most up-to-date resources before calling
+	// ResourceByName.
+	if err := m.parent.Refresh(ctx); err != nil {
+		return nil, err
+	}
 	return m.parent.ResourceByName(name)
 }
 
