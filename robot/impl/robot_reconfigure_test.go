@@ -2483,9 +2483,9 @@ func TestRemoteRobotsGold(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("ur5e"),
+				Model: resource.NewDefaultModel("fake"),
 				ConvertedAttributes: &fake.AttrConfig{
-					ArmModel: "ur5e",
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
@@ -2493,9 +2493,9 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 			{
 				Name:  "arm2",
-				Model: resource.NewDefaultModel("ur5e"),
+				Model: resource.NewDefaultModel("fake"),
 				ConvertedAttributes: &fake.AttrConfig{
-					ArmModel: "ur5e",
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      arm.SubtypeName,
