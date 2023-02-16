@@ -178,6 +178,12 @@ type uln28byj struct {
 // doRun runs the motor till it reaches target step position.
 func (m *uln28byj) doRun(ctx context.Context) error {
 	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
 		m.lock.Lock()
 
 		// This condition cannot be locked for the duration of the loop as
@@ -223,7 +229,6 @@ func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 	}
 
 	time.Sleep(m.stepperDelay)
-
 	return nil
 }
 
@@ -265,7 +270,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	if err != nil {
 		return errors.Errorf(" error while running motor %v", err)
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+	return nil
 }
 
 func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
@@ -347,8 +352,6 @@ func (m *uln28byj) IsMoving(ctx context.Context) (bool, error) {
 func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-
-	// Signals to doRun() to end the run
 	m.targetStepPosition = m.stepPosition
 	return nil
 }
