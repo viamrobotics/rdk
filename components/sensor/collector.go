@@ -40,7 +40,7 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
 		var records []ReadingRecord
-		values, err := sensorResource.Readings(ctx, nil) // TODO: pass in something here from the config rather than nil?
+		values, err := sensorResource.Readings(ctx, nil) // TODO (RSDK-1972): pass in something here from the config rather than nil?
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
