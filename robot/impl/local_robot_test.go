@@ -1946,7 +1946,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	// check if the original arm can still be called
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
+	test.That(t, remoteRobotClient.CheckConnected(), test.ShouldBeNil)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 5)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
@@ -2071,7 +2071,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	// check if the original arm can't be called anymore
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
+	test.That(t, remoteRobotClient.CheckConnected(), test.ShouldBeNil)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 5)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
