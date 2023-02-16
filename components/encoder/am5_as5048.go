@@ -129,7 +129,8 @@ type AS5048 struct {
 	positionOffset          float64
 	rotations               int
 	connectionType          string
-	i2cHandle               board.I2CHandle
+	i2cBus                  board.I2C
+	i2cAddr                 byte
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
@@ -166,11 +167,8 @@ func newAS5048Encoder(
 		if !exists {
 			return nil, errors.Errorf("unable to find I2C bus: %s", attr.I2CBus)
 		}
-		i2cHandle, err := i2c.OpenHandle(byte(attr.I2CAddr))
-		if err != nil {
-			return nil, err
-		}
-		res.i2cHandle = i2cHandle
+		res.i2cBus = i2c
+		res.i2cAddr = byte(attr.I2CAddr)
 	}
 	if err := res.startPositionLoop(ctx); err != nil {
 		return nil, err
@@ -202,13 +200,13 @@ func (enc *AS5048) startPositionLoop(ctx context.Context) error {
 func (enc *AS5048) readPosition(ctx context.Context) (float64, error) {
 	// retrieve the 8 most significant bits of the 14-bit resolution
 	// position
-	msB, err := enc.i2cHandle.ReadByteData(ctx, byte(0xFE))
+	msB, err := board.ReadByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
 	if err != nil {
 		return 0, err
 	}
 	// retrieve the 6 least significant bits of as a byte (where
 	// the front two bits are irrelevant)
-	lsB, err := enc.i2cHandle.ReadByteData(ctx, byte(0xFF))
+	lsB, err := board.ReadByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFF))
 	if err != nil {
 		return 0, err
 	}
@@ -274,29 +272,29 @@ func (enc *AS5048) Reset(
 	// on the struct
 	enc.positionOffset = offset
 	enc.position = 0.0 + offset
-	currentMSB, err := enc.i2cHandle.ReadByteData(ctx, byte(0xFE))
+	currentMSB, err := board.ReadByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
 	if err != nil {
 		return err
 	}
-	currentLSB, err := enc.i2cHandle.ReadByteData(ctx, byte(0xFF))
+	currentLSB, err := board.ReadByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFF))
 	if err != nil {
 		return err
 	}
 	// clear current zero position
-	err = enc.i2cHandle.WriteByteData(ctx, byte(0x16), byte(0))
+	err = board.WriteByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), byte(0))
 	if err != nil {
 		return err
 	}
-	err = enc.i2cHandle.WriteByteData(ctx, byte(0x17), byte(0))
+	err = board.WriteByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x17), byte(0))
 	if err != nil {
 		return err
 	}
 	// write current position to zero register
-	err = enc.i2cHandle.WriteByteData(ctx, byte(0x16), currentMSB)
+	err = board.WriteByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), currentMSB)
 	if err != nil {
 		return err
 	}
-	err = enc.i2cHandle.WriteByteData(ctx, byte(0x17), currentLSB)
+	err = board.WriteByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x17), currentLSB)
 	if err != nil {
 		return err
 	}
