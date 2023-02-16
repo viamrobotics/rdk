@@ -23,7 +23,7 @@
             "name": "pieceArm",
             "type": "arm",
             "attributes": {
-                "arm-model": "fake"
+                "model-path": "../../components/arm/fake/fake_model.json"
             }
         }
     ]

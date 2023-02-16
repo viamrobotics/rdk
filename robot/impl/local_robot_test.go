@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -1295,18 +1296,27 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				Name:      "arm1",
 				Type:      arm.SubtypeName,
 				Model:     fakeModel,
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm2",
 				Type:      arm.SubtypeName,
 				Model:     fakeModel,
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "pieceArm",
 				Type:      arm.SubtypeName,
 				Model:     fakeModel,
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
 			},
 		},
 		Services: []config.Service{},
