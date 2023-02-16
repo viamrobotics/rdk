@@ -22,8 +22,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// errAttrCfgPopulation is the returned string if the AttrConfig's fields are fully populated.
-const errAttrCfgPopulation = "can only populate either ArmModel or ModelPath - not both"
+// errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
+var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
@@ -56,11 +56,13 @@ func (config *AttrConfig) Validate(path string) error {
 	var err error
 	switch {
 	case config.ArmModel != "" && config.ModelFilePath != "":
-		return errors.New(errAttrCfgPopulation)
+		return errAttrCfgPopulation
 	case config.ArmModel != "" && config.ModelFilePath == "":
 		_, err = modelFromName(config.ArmModel, "")
 	case config.ArmModel == "" && config.ModelFilePath != "":
 		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
+	default:
+		return nil
 	}
 	return err
 }
@@ -94,13 +96,13 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
 	switch {
 	case armModel != "" && modelPath != "":
-		return nil, errors.New(errAttrCfgPopulation)
+		err = errAttrCfgPopulation
 	case armModel != "":
 		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		return nil, errors.New("one of ArmModel or ModelPath must be populated")
+		err = errors.New("one of ArmModel or ModelPath must be populated")
 	}
 	if err != nil {
 		return nil, err
