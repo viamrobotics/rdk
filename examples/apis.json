@@ -18,7 +18,7 @@
     },
     "args": {
         "base": "context.Background()",
-        "board": "\"16\"",
+        "board": "",
         "camera": "context.Background()",
         "motor": "context.Background()",
         "sensor": "context.Background(), map[string]interface{}{}",
