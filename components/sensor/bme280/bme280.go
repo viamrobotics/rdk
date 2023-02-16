@@ -5,6 +5,7 @@ package bme280
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -478,63 +479,72 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 		return err
 	}
 
+	// A helper function to read 2 bytes from the handle and interpret it as a word
+	readWord := func(register byte) (uint16, error) {
+		rd, err := handle.ReadBlockData(ctx, register, 2)
+		if err != nil {
+			return 0, err
+		}
+		return binary.LittleEndian.Uint16(rd), nil
+	}
+
 	// Note, some are signed, others are unsigned
-	if calib, err := handle.ReadWordData(ctx, bme280T1LSBReg); err == nil {
+	if calib, err := readWord(bme280T1LSBReg); err == nil {
 		s.calibration["digT1"] = int(calib)
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280T2LSBReg); err == nil {
+	if calib, err := readWord(bme280T2LSBReg); err == nil {
 		s.calibration["digT2"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280T3LSBReg); err == nil {
+	if calib, err := readWord(bme280T3LSBReg); err == nil {
 		s.calibration["digT3"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P1LSBReg); err == nil {
+	if calib, err := readWord(bme280P1LSBReg); err == nil {
 		s.calibration["digP1"] = int(calib)
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P2LSBReg); err == nil {
+	if calib, err := readWord(bme280P2LSBReg); err == nil {
 		s.calibration["digP2"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P3LSBReg); err == nil {
+	if calib, err := readWord(bme280P3LSBReg); err == nil {
 		s.calibration["digP3"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P4LSBReg); err == nil {
+	if calib, err := readWord(bme280P4LSBReg); err == nil {
 		s.calibration["digP4"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P5LSBReg); err == nil {
+	if calib, err := readWord(bme280P5LSBReg); err == nil {
 		s.calibration["digP5"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P6LSBReg); err == nil {
+	if calib, err := readWord(bme280P6LSBReg); err == nil {
 		s.calibration["digP6"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P7LSBReg); err == nil {
+	if calib, err := readWord(bme280P7LSBReg); err == nil {
 		s.calibration["digP7"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P8LSBReg); err == nil {
+	if calib, err := readWord(bme280P8LSBReg); err == nil {
 		s.calibration["digP8"] = int(int16(calib))
 	} else {
 		return err
 	}
-	if calib, err := handle.ReadWordData(ctx, bme280P9LSBReg); err == nil {
+	if calib, err := readWord(bme280P9LSBReg); err == nil {
 		s.calibration["digP9"] = int(int16(calib))
 	} else {
 		return err
@@ -546,7 +556,7 @@ func (s *bme280) setupCalibration(ctx context.Context) error {
 	}
 	s.calibration["digH1"] = int(calib)
 
-	if calib, err := handle.ReadWordData(ctx, bme280H2LSBReg); err == nil {
+	if calib, err := readWord(bme280H2LSBReg); err == nil {
 		s.calibration["digH2"] = int(int16(calib))
 	} else {
 		return err

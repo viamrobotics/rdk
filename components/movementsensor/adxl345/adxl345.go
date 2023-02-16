@@ -1,7 +1,19 @@
 // Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer attached
-// to the I2C bus of the robot (the chip supports communicating over SPI as well, but this package
-// does not support that interface). The manual for this chip is available at:
+// to an I2C bus on the robot (the chip supports communicating over SPI as well, but this package
+// does not support that interface). The datasheet for this chip is available at:
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
+//
+// We support reading the accelerometer data off of the chip. We do not yet support using the
+// digital interrupt pins to notify on events (freefall, collision, etc.).
+//
+// Because we only support I2C interaction, the CS pin must be wired to hot (which tells the chip
+// which communication interface to use). The chip has two possible I2C addresses, which can be
+// selected by wiring the SDO pin to either hot or ground:
+//   - if SDO is wired to ground, it uses the default I2C address of 0x53
+//   - if SDO is wired to hot, it uses the alternate I2C address of 0x1D
+//
+// If you use the alternate address, your config file for this component must set its
+// "use_alternate_i2c_address" boolean to true.
 package adxl345
 
 import (
@@ -31,7 +43,7 @@ var modelName = resource.NewDefaultModel("accel-adxl345")
 type AttrConfig struct {
 	BoardName              string `json:"board"`
 	I2cBus                 string `json:"i2c_bus"`
-	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address"`
+	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
