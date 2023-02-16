@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1989,6 +1990,9 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Name:      "arm1",
 		Type:      arm.SubtypeName,
 		Model:     fakeModel,
+		ConvertedAttributes: &fake.AttrConfig{
+			ModelFilePath: "../../components/arm/fake/fake_model.json",
+		},
 	}
 	cfg := config.Config{
 		Components: []config.Component{armConfig},
