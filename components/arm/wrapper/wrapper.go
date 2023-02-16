@@ -22,8 +22,8 @@ import (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ModelPath string `json:"model-path"`
-	ArmName   string `json:"arm-name"`
+	ModelFilePath string `json:"model-path"`
+	ArmModel      string `json:"arm-model"`
 }
 
 var model = resource.NewDefaultModel("wrapper_arm")
@@ -31,10 +31,10 @@ var model = resource.NewDefaultModel("wrapper_arm")
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.ArmName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-name")
+	if cfg.ArmModel == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-model")
 	}
-	deps = append(deps, cfg.ArmName)
+	deps = append(deps, cfg.ArmModel)
 	return deps, nil
 }
 
@@ -67,12 +67,12 @@ type Arm struct {
 
 // NewWrapperArm returns a wrapper component for another arm.
 func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
 	model, err := referenceframe.ModelFromPath(modelPath, cfg.Name)
 	if err != nil {
 		return nil, err
 	}
-	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmName)
+	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmModel)
 	if err != nil {
 		return nil, err
 	}
