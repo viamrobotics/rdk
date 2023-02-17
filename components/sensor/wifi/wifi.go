@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
@@ -19,6 +20,8 @@ import (
 )
 
 var modelname = resource.NewDefaultModel("wifi")
+
+const wirelessInfoPath string = "/proc/net/wireless"
 
 func init() {
 	registry.RegisterComponent(
@@ -30,56 +33,56 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newWifi(ctx, deps, config.Name, logger)
+			return newWifi(ctx, deps, config.Name, logger, wirelessInfoPath)
 		}})
 }
-
-const wirelessInfoPath string = "/proc/net/wireless"
 
 func newWifi(
 	ctx context.Context,
 	deps registry.Dependencies,
 	name string,
 	logger golog.Logger,
+	path string,
 ) (sensor.Sensor, error) {
-	if _, err := os.Stat(wirelessInfoPath); err != nil {
-		return nil, err
+	if _, err := os.Stat(path); err != nil {
+		return nil, errors.Wrap(err, "wifi readings not supported on this system")
 	}
-	return &wifi{logger: logger}, nil
+	return &wifi{logger: logger, path: path}, nil
 }
 
 type wifi struct {
 	generic.Unimplemented
 	logger golog.Logger
+
+	path string // for testing
 }
 
 // Readings returns Wifi strength statistics.
-func (s *wifi) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	cmd := fmt.Sprintf("cat %s | awk 'NR > 2 { print $3 $4 $5 }'", wirelessInfoPath)
+func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	cmd := fmt.Sprintf("cat %s | awk 'NR > 2 { print $3 $4 $5 }'", sensor.path)
 	out, err := exec.Command("bash", "-c", cmd).Output()
+	if err != nil {
+		return nil, err
+	}
 
 	stats := strings.SplitN(strings.TrimSpace(string(out)), ".", 3)
 
 	link, err := strconv.ParseInt(stats[0], 10, 32)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid reading")
 	}
 	level, err := strconv.ParseInt(stats[1], 10, 32)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid reading")
 	}
 	noise, err := strconv.ParseInt(stats[2], 10, 32)
 	if err != nil {
-		return nil, err
-	}
-
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid reading")
 	}
 
 	return map[string]interface{}{
-		"link":  link,
-		"level": level,
-		"noise": noise,
+		"link":  int(link),
+		"level": int(level),
+		"noise": int(noise),
 	}, nil
 }
