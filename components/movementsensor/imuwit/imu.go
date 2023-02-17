@@ -18,8 +18,11 @@ Other models that connect over serial may work, but we ask the user to defer to 
 in that case as well. Wit-motion currently has 48 gyro/inclinometer/imu models with varied levels of
 driver commonality
 */
+<<<<<<< HEAD
 
 // Package imuwit implements wit imus.
+=======
+>>>>>>> 2d8acdb182e13c8998c3717a469e59d682995a41
 package imuwit
 
 import (
