@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func TestFakeSLAMPosition(t *testing.T) {
-	slamSvc := &SLAM{Name: "test"}
+	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 	pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pInFrame.Parent(), test.ShouldEqual, slamSvc.Name)
@@ -32,7 +33,7 @@ func TestFakeSLAMPosition(t *testing.T) {
 }
 
 func TestFakeSLAMGetInternalState(t *testing.T) {
-	slamSvc := &SLAM{Name: "test"}
+	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 	data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
@@ -43,13 +44,13 @@ func TestFakeSLAMGetInternalState(t *testing.T) {
 
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map advances the test data", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test"}
+		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypePCD, slamSvc, extra)
 	})
 
 	t.Run("Test getting a JPEG map advances the test data", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test"}
+		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypeJPEG, slamSvc, extra)
 	})
@@ -59,7 +60,7 @@ func TestFakeSLAMGetMap(t *testing.T) {
 	extra := map[string]interface{}{}
 
 	t.Run("Test getting valid JPEG map", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test"}
+		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 		pInFrame := referenceframe.NewPoseInFrame(
 			slamSvc.Name,
 			spatialmath.NewPose(
@@ -86,7 +87,7 @@ func TestFakeSLAMGetMap(t *testing.T) {
 	})
 
 	t.Run("Test getting invalid PNG map", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test"}
+		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 		pInFrame := referenceframe.NewPoseInFrame(
 			slamSvc.Name,
 			spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0},
