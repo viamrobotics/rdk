@@ -127,11 +127,7 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 			extra,
 		)
 
-		switch mimeType {
-		case rdkutils.MimeTypePCD:
-			getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
-		}
-
+		getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
 		test.That(t, err, test.ShouldBeNil)
 	}
 
@@ -159,13 +155,10 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 
 	supportedMimeTypes := []string{rdkutils.MimeTypePCD, rdkutils.MimeTypeJPEG}
 	test.That(t, supportedMimeTypes, test.ShouldContain, mimeType)
-	switch mimeType {
-	case rdkutils.MimeTypePCD:
-		getMapResultsFirst := getMapPcdResults[len(getMapPcdResults)/2:]
-		getMapResultsLast := getMapPcdResults[:len(getMapPcdResults)/2]
-		test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
-		test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
-	}
+	getMapResultsFirst := getMapPcdResults[len(getMapPcdResults)/2:]
+	getMapResultsLast := getMapPcdResults[:len(getMapPcdResults)/2]
+	test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
+	test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
 }
 
 func reverse[T any](slice []T) []T {
