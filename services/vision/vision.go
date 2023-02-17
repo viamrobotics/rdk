@@ -119,14 +119,14 @@ func FindFirstName(r robot.Robot) string {
 	return ""
 }
 
-// FirstFromRobot returns the first vision service in this robot.
+// FirstFromRobot returns the first vision service on this robot.
 func FirstFromRobot(r robot.Robot) (Service, error) {
-	return FirstFromRobotMain(r)
+	return FirstFromLocalRobot(r) 
 }
 
 // FirstFromRobotMain returns the first vision service on this main robot.
 // This will specifically ignore remote resources.
-func FirstFromRobotMain(r robot.Robot) (Service, error) {
+func FirstFromLocalRobot(r robot.Robot) (Service, error) {
 	for _, n := range r.ResourceNames() {
 		if n.Subtype == Subtype && !n.ContainsRemoteNames() {
 			service, err := r.ResourceByName(n)
