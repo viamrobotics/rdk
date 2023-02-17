@@ -608,9 +608,6 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	if err := rc.checkConnected(); err != nil {
-		return err
-	}
 	return rc.updateResources(ctx, updateReasonRefresh)
 }
 
