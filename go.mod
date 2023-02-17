@@ -21,8 +21,8 @@ require (
 	github.com/docker/go-units v0.4.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
-	github.com/edaniels/golog v0.0.0-20230120214506-446e2f5ee348
-	github.com/edaniels/gostream v0.0.0-20230203175206-c19e25b4f689
+	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
+	github.com/edaniels/gostream v0.0.0-20230217173133-d1a1fe96076e
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -87,7 +87,7 @@ require (
 	go.viam.com/utils v0.1.12-0.20230209141255-1720c1ace253
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.3.0
-	golang.org/x/tools v0.5.0
+	golang.org/x/tools v0.6.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.11.0
 	google.golang.org/genproto v0.0.0-20230202175211-008b39050e57
@@ -379,7 +379,7 @@ require (
 	go.uber.org/goleak v1.2.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20220827204233-334a2380cb91 // indirect
-	golang.org/x/mod v0.7.0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/oauth2 v0.3.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
