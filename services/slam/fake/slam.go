@@ -50,7 +50,7 @@ func init() {
 				config config.Service,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return &SLAM{Name: config.Name, dataCount: -1, logger: logger}, nil
+				return &SLAM{Name: config.Name, logger: logger}, nil
 			},
 		},
 	)
