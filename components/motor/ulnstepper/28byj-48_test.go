@@ -266,86 +266,59 @@ func TestState(t *testing.T) {
 	}
 	mm, _ := new28byj(ctx, deps, c, logger)
 	m := mm.(*uln28byj)
-	m.logger.Info("passed m")
 
 	t.Run("test state", func(t *testing.T) {
 		m.stepPosition = 9
-
-		err := m.doStep(ctx, true)
-		test.That(t, err, test.ShouldBeNil)
 		b := m.theBoard
+		var pin1Arr []bool
+		var pin2Arr []bool
+		var pin3Arr []bool
+		var pin4Arr []bool
 
-		arrstep2 := [4]bool{
-			true,
-			false,
-			false,
-			false,
+		arrIn1 := []bool{true, true, false, false, false, false, false, true}
+		arrIn2 := []bool{false, true, true, true, false, false, false, false}
+		arrIn3 := []bool{false, false, false, true, true, true, false, false}
+		arrIn4 := []bool{false, false, false, false, false, true, true, true}
+
+		for i := 0; i < 8; i++ {
+			// moving forward.
+			err := m.doStep(ctx, true)
+			test.That(t, err, test.ShouldBeNil)
+
+			PinOut1, err := b.GPIOPinByName("1")
+			test.That(t, err, test.ShouldBeNil)
+			pinStruct, ok := PinOut1.(*mockGPIOPin)
+			test.That(t, ok, test.ShouldBeTrue)
+			pin1Arr = pinStruct.pinStates
+
+			PinOut2, err := b.GPIOPinByName("2")
+			test.That(t, err, test.ShouldBeNil)
+			pinStruct2, ok := PinOut2.(*mockGPIOPin)
+			test.That(t, ok, test.ShouldBeTrue)
+			pin2Arr = pinStruct2.pinStates
+
+			PinOut3, err := b.GPIOPinByName("3")
+			test.That(t, err, test.ShouldBeNil)
+			pinStruct3, ok := PinOut3.(*mockGPIOPin)
+			test.That(t, ok, test.ShouldBeTrue)
+			pin3Arr = pinStruct3.pinStates
+
+			PinOut4, err := b.GPIOPinByName("4")
+			test.That(t, err, test.ShouldBeNil)
+			pinStruct4, ok := PinOut4.(*mockGPIOPin)
+			test.That(t, ok, test.ShouldBeTrue)
+			pin4Arr = pinStruct4.pinStates
 		}
 
-		pinOutput, err := b.GPIOPinByName(mc.Pins.In1)
-		test.That(t, err, test.ShouldBeNil)
-		pinStruct, ok := pinOutput.(*mockGPIOPin)
-		test.That(t, ok, test.ShouldBeTrue)
-		currstate := pinStruct.pinStates
-		test.That(t, currstate[0], test.ShouldEqual, arrstep2[0])
+		m.logger.Info("pin1Arr ", pin1Arr)
+		m.logger.Info("pin2Arr ", pin2Arr)
+		m.logger.Info("pin3Arr ", pin3Arr)
+		m.logger.Info("pin4Arr ", pin4Arr)
 
-		pinOutput2, err := b.GPIOPinByName("2")
-		test.That(t, err, test.ShouldBeNil)
-		pinStruct, ok = pinOutput2.(*mockGPIOPin)
-		test.That(t, ok, test.ShouldBeTrue)
-		currstate2 := pinStruct.pinStates
-		test.That(t, currstate2[0], test.ShouldEqual, arrstep2[1])
-
-		pinOutput3, err := b.GPIOPinByName("3")
-		test.That(t, err, test.ShouldBeNil)
-		pinStruct, ok = pinOutput3.(*mockGPIOPin)
-		test.That(t, ok, test.ShouldBeTrue)
-		currstate2 = pinStruct.pinStates
-		test.That(t, currstate2[0], test.ShouldEqual, arrstep2[2])
-
-		pinOutput4, err := b.GPIOPinByName("4")
-		test.That(t, err, test.ShouldBeNil)
-		pinStruct, ok = pinOutput4.(*mockGPIOPin)
-		test.That(t, ok, test.ShouldBeTrue)
-		currstate3 := pinStruct.pinStates
-		test.That(t, currstate3[0], test.ShouldEqual, arrstep2[3])
-
-		err = m.doStep(ctx, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		// arr_step3 := [4]bool{
-		// 	true,
-		// 	true,
-		// 	false,
-		// 	false,
-		// }
-
-		// pinOutput, _ = b.GPIOPinByName("1")
-		// pinStruct, ok = pinOutput.(*mockGPIOPin)
-		// test.That(t, ok, test.ShouldBeTrue)
-		// curr_state = pinStruct.pinStates
-		// test.That(t, curr_state[0], test.ShouldEqual, arr_step3[0])
-
-		// pinOutput2, err = b.GPIOPinByName("2")
-		// test.That(t, err, test.ShouldBeNil)
-		// pinStruct, ok = pinOutput2.(*mockGPIOPin)
-		// test.That(t, ok, test.ShouldBeTrue)
-		// curr_state2 = pinStruct.pinStates
-		// test.That(t, curr_state2[0], test.ShouldEqual, arr_step3[1])
-
-		// pinOutput3, err = b.GPIOPinByName("3")
-		// test.That(t, err, test.ShouldBeNil)
-		// pinStruct, ok = pinOutput3.(*mockGPIOPin)
-		// test.That(t, ok, test.ShouldBeTrue)
-		// curr_state2 = pinStruct.pinStates
-		// test.That(t, curr_state2[0], test.ShouldEqual, arr_step3[2])
-
-		// pinOutput4, err = b.GPIOPinByName("4")
-		// test.That(t, err, test.ShouldBeNil)
-		// pinStruct, ok = pinOutput4.(*mockGPIOPin)
-		// test.That(t, ok, test.ShouldBeTrue)
-		// curr_state3 = pinStruct.pinStates
-		// test.That(t, curr_state3[0], test.ShouldEqual, arr_step3[3])
+		test.That(t, pin1Arr, test.ShouldResemble, arrIn1)
+		test.That(t, pin2Arr, test.ShouldResemble, arrIn2)
+		test.That(t, pin3Arr, test.ShouldResemble, arrIn3)
+		test.That(t, pin4Arr, test.ShouldResemble, arrIn4)
 	})
 
 	cancel()
@@ -358,6 +331,5 @@ type mockGPIOPin struct {
 
 func (m *mockGPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	m.pinStates = append(m.pinStates, high)
-	golog.Global().Info(m.pinStates)
 	return nil
 }
