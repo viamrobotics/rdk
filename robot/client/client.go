@@ -255,18 +255,15 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	}
 
 	if checkConnectedTime > 0 && reconnectTime > 0 {
-		var refresh bool
-		if checkConnectedTime == refreshTime {
-			refresh = true
-		} else {
-			refresh = false
-		}
+		refresh := checkConnectedTime == refreshTime
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime, refresh)
 		}, rc.activeBackgroundWorkers.Done)
 
-		if refresh == true {
+		// If checkConnection() is running refresh, there is no need to create a separate
+		// RefreshEvery thread, so end the function here.
+		if refresh {
 			return rc, nil
 		}
 	}
@@ -414,7 +411,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
-				if refresh == true {
+				if refresh {
 					if err := rc.Refresh(ctx); err != nil {
 						return err
 					}
