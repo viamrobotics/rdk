@@ -36,9 +36,9 @@ func TestEulerAnglesConversion(t *testing.T) {
 	expectedEA := EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi}
 	q := quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883}
 	endEa := QuatToEulerAngles(q)
-	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
-	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
 	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
+	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
+	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
 	q2 := endEa.Quaternion()
 	quatCompare(t, q, q2)
 
