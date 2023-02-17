@@ -1,5 +1,23 @@
 // Package imuwit implements wit imus.
-// Tested on the HWT901B and BWT901CL models. Other WT901-based models may work too.
+
+/*
+Sensor Manufacturer:  		Wit- motion
+Supported Sensor Models: 	HWT901B, BWT901, BWT61CL
+User Manuals:
+
+	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view  || Tested
+	BWT901:	https://drive.google.com/file/d/18bScCGO5vVZYcEeNKjXNtjnT8OVlrHGI/view   || Tested
+	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view || Tested
+
+This driver will connect to all the sensors using a usb connection given as a serial path
+using a default baud rate of 115200.
+The default baud rate can be used to connect to all models, only the HWT901B's baud rate is changeable
+we ask the user to defer to the datasheet if any baud rate changes are required for their application.
+
+Other models that connect over serial may work, but we ask the user to defer to wit-motion's datasheet
+in that case as well. Wit-motion currently has 48 gyro/inclinometer/imu models with varied levels of
+driver commonality
+*/
 package imuwit
 
 import (
@@ -161,7 +179,7 @@ func NewWit(
 	}
 
 	options := slib.OpenOptions{
-		BaudRate:        9600,
+		BaudRate:        115200,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -201,10 +219,18 @@ func NewWit(
 }
 
 func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
-	ctx, imu.cancelFunc = context.WithCancel(context.Background())
+	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(imu.port.Close)
+		defer utils.UncheckedErrorFunc(func() error {
+			if imu.port != nil {
+				if err := imu.port.Close(); err != nil {
+					return err
+				}
+				imu.port = nil
+			}
+			return nil
+		})
 		defer imu.activeBackgroundWorkers.Done()
 
 		for {
@@ -310,8 +336,6 @@ func (imu *wit) Close() error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
-	// resource_manager's TryClose now closes input/output Readers by calling Close on its
-	// driver's Close functions
 	imu.logger.Debug("Closed wit motion imu")
 	return imu.err.Get()
 }
