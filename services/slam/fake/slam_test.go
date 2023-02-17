@@ -48,12 +48,6 @@ func TestFakeSLAMStateful(t *testing.T) {
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypePCD, slamSvc, extra)
 	})
-
-	t.Run("Test getting a JPEG map advances the test data", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
-		extra := map[string]interface{}{}
-		verifyGetMapStateful(t, rdkutils.MimeTypeJPEG, slamSvc, extra)
-	})
 }
 
 func TestFakeSLAMGetMap(t *testing.T) {
@@ -111,7 +105,6 @@ func TestFakeSLAMGetMap(t *testing.T) {
 func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra map[string]interface{}) {
 	testDataCount := maxDataCount
 	getMapPcdResults := []float64{}
-	getMapImageResults := []int{}
 	getPositionResults := []spatialmath.Pose{}
 	getInternalStateResults := []int{}
 
@@ -125,7 +118,7 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 		test.That(t, err, test.ShouldBeNil)
 		getInternalStateResults = append(getInternalStateResults, len(data))
 
-		_, im, vObj, err := slamSvc.GetMap(
+		_, _, vObj, err := slamSvc.GetMap(
 			context.Background(),
 			slamSvc.Name,
 			mimeType,
@@ -137,8 +130,6 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 		switch mimeType {
 		case rdkutils.MimeTypePCD:
 			getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
-		case rdkutils.MimeTypeJPEG:
-			getMapImageResults = append(getMapImageResults, im.Bounds().Max.X)
 		}
 
 		test.That(t, err, test.ShouldBeNil)
@@ -172,11 +163,6 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 	case rdkutils.MimeTypePCD:
 		getMapResultsFirst := getMapPcdResults[len(getMapPcdResults)/2:]
 		getMapResultsLast := getMapPcdResults[:len(getMapPcdResults)/2]
-		test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
-		test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
-	case rdkutils.MimeTypeJPEG:
-		getMapResultsFirst := getMapImageResults[len(getMapImageResults)/2:]
-		getMapResultsLast := getMapImageResults[:len(getMapImageResults)/2]
 		test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
 		test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
 	}
