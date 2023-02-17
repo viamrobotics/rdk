@@ -19,8 +19,9 @@ func TestFakeSLAMPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pInFrame.Parent(), test.ShouldEqual, slamSvc.Name)
 
-	expectedPoint := r3.Vector{X: 1.8607751801785188, Y: 34.26593374183797, Z: 0}
-	test.That(t, pInFrame.Pose().Point(), test.ShouldResemble, expectedPoint)
+	test.That(t, pInFrame.Pose().Point().X, test.ShouldBeBetween, 1.860775180178, 1.860775180179)
+	test.That(t, pInFrame.Pose().Point().Y, test.ShouldBeBetween, 34.26593374183, 34.26593374184)
+	test.That(t, pInFrame.Pose().Point().Z, test.ShouldEqual, 0)
 
 	expectedOri := spatialmath.NewR4AA()
 	expectedOri.RZ = -1
