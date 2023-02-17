@@ -158,10 +158,10 @@ func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
 
-func extract(strings []string) ([]float64, error) {
-	elems := make([]float64, len(strings))
-	for i, v := range strings {
-		x, err := strconv.ParseFloat(v, 64)
+func extract(s []string) ([]float64, error) {
+	elems := make([]float64, len(s))
+	for i, v := range s {
+		x, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
 		if err != nil {
 			return nil, err
 		}
