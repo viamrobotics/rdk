@@ -3,6 +3,8 @@ package wifi
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -32,12 +34,17 @@ func init() {
 		}})
 }
 
+const wirelessInfoPath string = "/proc/net/wireless"
+
 func newWifi(
 	ctx context.Context,
 	deps registry.Dependencies,
 	name string,
 	logger golog.Logger,
 ) (sensor.Sensor, error) {
+	if _, err := os.Stat(wirelessInfoPath); err != nil {
+		return nil, err
+	}
 	return &wifi{logger: logger}, nil
 }
 
@@ -48,7 +55,7 @@ type wifi struct {
 
 // Readings returns Wifi strength statistics.
 func (s *wifi) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	cmd := "cat /proc/net/wireless | awk 'NR > 2 { print $3 $4 $5 }'"
+	cmd := fmt.Sprintf("cat %s | awk 'NR > 2 { print $3 $4 $5 }'", wirelessInfoPath)
 	out, err := exec.Command("bash", "-c", cmd).Output()
 
 	stats := strings.SplitN(strings.TrimSpace(string(out)), ".", 3)
@@ -70,7 +77,6 @@ func (s *wifi) Readings(ctx context.Context, extra map[string]interface{}) (map[
 		return nil, err
 	}
 
-	s.logger.Infof("stats: %v", string(out))
 	return map[string]interface{}{
 		"link":  link,
 		"level": level,
