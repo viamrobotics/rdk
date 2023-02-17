@@ -143,7 +143,7 @@ func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string
 	return pInFrame, nil
 }
 
-// GetInternalState returns the internal state of a slam algo. Curently the internal state of cartogropher.
+// GetInternalState returns the internal state of a slam algo. Currently the internal state of cartogropher.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, slamSvc.dataCount)))
 	slamSvc.logger.Debug("Reading " + path)
@@ -154,6 +154,8 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 	return data, nil
 }
 
+// incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting
+// with it at a time.
 func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
