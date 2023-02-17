@@ -12,6 +12,7 @@ import (
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board"
 )
@@ -123,4 +124,21 @@ func gpioGetPin(pinName string) (board.GPIOPin, error) {
 		return nil, errors.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
 	}
 	return pin, nil
+}
+
+// We keep all gpio.Line objects open indefinitely, so that the GPIO pins hold their state for as
+// long as the structs are around. However, if the board goes out of scope (for example, because
+// the config file has been updated and we need to create a new board), we need to make sure we
+// don't leak file descriptors. So, have a way to close them all at the end.
+func gpioCloseAll() error {
+	var err error
+	for _, pin := range pins {
+		pin.mu.Lock()
+		if pin.line != nil {
+			err = multierr.Combine(err, pin.line.Close())
+			pin.line = nil
+		}
+		pin.mu.Unlock()
+	}
+	return err
 }
