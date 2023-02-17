@@ -10,10 +10,10 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -201,13 +201,5 @@ func (s *subtypeServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	res, err := camera.DoCommand(ctx, req.Command.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	pbRes, err := protoutils.StructToStructPb(res)
-	if err != nil {
-		return nil, err
-	}
-	return &commonpb.DoCommandResponse{Result: pbRes}, nil
+	return protoutils.DoFromResourceServer(ctx, camera, req)
 }

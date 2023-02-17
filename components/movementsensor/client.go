@@ -6,9 +6,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
-	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -167,16 +165,5 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := vprotoutils.StructToStructPb(cmd)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

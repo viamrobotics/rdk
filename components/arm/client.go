@@ -6,12 +6,12 @@ import (
 	"errors"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -143,18 +143,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := protoutils.StructToStructPb(cmd)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {

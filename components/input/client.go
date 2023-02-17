@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	rprotoutils "go.viam.com/rdk/protoutils"
 )
 
 // client implements InputControllerServiceClient.
@@ -358,16 +359,5 @@ func (c *client) Close() error {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := protoutils.StructToStructPb(cmd)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
