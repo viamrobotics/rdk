@@ -7,8 +7,6 @@ import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd.vue';
-import Slam2dRender from './slam-2d-render.vue';
-// import { mdiApplication } from '@mdi/js';
 
 interface Props {
   name: string
@@ -24,14 +22,12 @@ const selectedImageValue = $ref('manual');
 const selectedPCDValue = $ref('manual');
 let imageMap = $ref('');
 let pointcloud = $ref<Uint8Array | undefined>();
-let pose = $ref<commonApi.Pose | undefined>();
-const show2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
 let slamImageIntervalId = -1;
 let slamPCDIntervalId = -1;
 
 const viewSLAMPCDMap = (name: string) => {
-  return nextTick(() => {
+  nextTick(() => {
     const req = new slamApi.GetMapRequest();
     req.setName(name);
     req.setMimeType('pointcloud/pcd');
@@ -43,19 +39,6 @@ const viewSLAMPCDMap = (name: string) => {
       }
       const pcObject = response!.getPointCloud()!;
       pointcloud = pcObject.getPointCloud_asU8();
-    });
-  });
-};
-
-const viewSLAMPose = (name: string) => {
-  return nextTick(() => {
-    const req = new slamApi.GetPositionRequest();
-    req.setName(name);
-    props.client.slamService.getPosition(req, new grpc.Metadata(), (error, res) => {
-      if (error) {
-        return displayError(error);
-      }
-      pose = res!.getPose()!.getPose()!;
     });
   });
 };
@@ -76,31 +59,17 @@ const viewSLAMImageMap = (name: string) => {
   });
 };
 
-const refresh2d = async (name: string) => {
-  console.log("refresh2d");
-  const posePromise = viewSLAMPose(name);
-  const mapPromise = viewSLAMPCDMap(name);
-  await posePromise;
-  await mapPromise;
-  console.log("refresh2d complete");
-};
-
-const updateSLAMImageRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+const updateSLAMImageRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
   window.clearInterval(slamImageIntervalId);
 
   if (time === 'manual') {
     viewSLAMImageMap(name);
-    refresh2d(name);
-
   } else if (time === 'off') {
     // do nothing
   } else {
     viewSLAMImageMap(name);
-
-    refresh2d(name);
     slamImageIntervalId = window.setInterval(() => {
       viewSLAMImageMap(name);
-      refresh2d(name);
     }, Number.parseFloat(time) * 1000);
   }
 };
@@ -138,8 +107,7 @@ const selectSLAMPCDRefreshFrequency = () => {
   updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
 };
 
-// eslint-disable-next-line require-await
-const refreshImageMap = async () => {
+const refreshImageMap = () => {
   updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
 };
 
@@ -222,19 +190,11 @@ const refreshPCDMap = () => {
                   v-if="showImage"
                   icon="refresh"
                   label="Refresh"
-                  @click="refreshImageMap"
+                  @click="refreshImageMap()"
                 />
               </div>
             </div>
           </div>
-          <Slam2dRender
-            v-if="show2d"
-            :pointcloud="pointcloud"
-            :pose="pose"
-            :name="name"
-            :resources="resources"
-            :client="client"
-          />
           <img
             v-if="showImage"
             :src="imageMap"
