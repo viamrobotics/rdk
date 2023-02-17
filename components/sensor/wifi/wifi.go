@@ -28,22 +28,16 @@ func init() {
 		sensor.Subtype,
 		modelname,
 		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			_ context.Context,
+			_ registry.Dependencies,
+			_ config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newWifi(ctx, deps, config.Name, logger, wirelessInfoPath)
+			return newWifi(logger, wirelessInfoPath)
 		}})
 }
 
-func newWifi(
-	ctx context.Context,
-	deps registry.Dependencies,
-	name string,
-	logger golog.Logger,
-	path string,
-) (sensor.Sensor, error) {
+func newWifi(logger golog.Logger, path string) (sensor.Sensor, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, errors.Wrap(err, "wifi readings not supported on this system")
 	}
