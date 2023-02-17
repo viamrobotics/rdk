@@ -64,7 +64,7 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 		value = 0
 	}
 
-	return pin.line.SetValues([]byte{value})
+	return pin.line.SetValue(value)
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
