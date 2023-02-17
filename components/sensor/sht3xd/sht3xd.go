@@ -167,8 +167,8 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	temp := 175.0*float64(tempRaw)/65535.0 - 45.0
 	humid := 100.0 * float64(humidRaw) / 65535.0
 	return map[string]interface{}{
-		"temperature_celsius": temp,
-		"relative_humidity_pct":     humid, \\ TODO: RSDK-1903
+		"temperature_celsius":   temp,
+		"relative_humidity_pct": humid, // TODO: RSDK-1903
 	}, nil
 }
 
