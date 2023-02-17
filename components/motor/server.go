@@ -5,7 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/motor/v1"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/subtype"
@@ -182,4 +184,23 @@ func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingReque
 		return nil, err
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	motor, err := server.getMotor(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	res, err := motor.DoCommand(ctx, req.Command.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	pbRes, err := protoutils.StructToStructPb(res)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }

@@ -12,8 +12,6 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/rdk/components/generic"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -186,7 +184,18 @@ func (c *client) ModelAttributes() ModelAttributes {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.info.name, cmd)
+	command, err := protoutils.StructToStructPb(cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
+		Name:    c.info.name,
+		Command: command,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
 }
 
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface

@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -59,5 +59,16 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	command, err := protoutils.StructToStructPb(cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
+		Name:    c.name,
+		Command: command,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
 }

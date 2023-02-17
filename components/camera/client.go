@@ -10,11 +10,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -195,7 +196,18 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	command, err := protoutils.StructToStructPb(cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
+		Name:    c.name,
+		Command: command,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
 }
 
 func (c *client) Close(ctx context.Context) error {
