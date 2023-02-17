@@ -14,7 +14,6 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -38,23 +37,10 @@ type AttrConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
-	isValid := false
-
 	// Validating serial path
 	if cfg.Port == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
-
-	// Validating baud rate
-	for _, val := range baudRateList {
-		if val == cfg.BaudRate {
-			isValid = true
-		}
-	}
-	if !isValid {
-		return utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
-	}
-
 	return nil
 }
 
@@ -182,8 +168,21 @@ func NewWit(
 	}
 
 	options.PortName = conf.Port
-	if conf.BaudRate > 0 {
+
+	// Validating baud rate
+	isValid := false
+	for _, val := range baudRateList {
+		if val == conf.BaudRate {
+			isValid = true
+		}
+	}
+
+	if conf.BaudRate > 0 && isValid {
 		options.BaudRate = uint(conf.BaudRate)
+	} else {
+		logger.Warnf(
+			"no valid serial_baud_rate set, seeting to default of 9600, baud rate of wit imus are: %v", baudRateList,
+		)
 	}
 
 	var i wit
