@@ -2,8 +2,6 @@ package board
 
 import (
 	"context"
-
-	"github.com/edaniels/golog"
 )
 
 // I2C represents a shareable I2C bus on the board.
@@ -42,34 +40,4 @@ func (reg *I2CRegister) ReadByteData(ctx context.Context) (byte, error) {
 // WriteByteData writes a byte to the I2C channel register.
 func (reg *I2CRegister) WriteByteData(ctx context.Context, data byte) error {
 	return reg.Handle.WriteByteData(ctx, reg.Register, data)
-}
-
-// ReadByteDataFromBus opens a handle for the bus adhoc to perform a single read
-// and returns the result. The handle is closed at the end.
-func ReadByteDataFromBus(ctx context.Context, bus I2C, addr, register byte) (byte, error) {
-	i2cHandle, err := bus.OpenHandle(addr)
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if err := i2cHandle.Close(); err != nil {
-			golog.Global().Error(err)
-		}
-	}()
-	return i2cHandle.ReadByteData(ctx, register)
-}
-
-// WriteByteDataToBus opens a handle for the bus adhoc to perform a single write.
-// The handle is closed at the end.
-func WriteByteDataToBus(ctx context.Context, bus I2C, addr, register, data byte) error {
-	i2cHandle, err := bus.OpenHandle(addr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := i2cHandle.Close(); err != nil {
-			golog.Global().Error(err)
-		}
-	}()
-	return i2cHandle.WriteByteData(ctx, register, data)
 }
