@@ -38,7 +38,6 @@ const (
 	internalStateTemplate = "slam/example_cartographer_outputs/internal_state/internal_state_%d.pbstream"
 	maxDataCount          = 16
 	pcdTemplate           = "slam/example_cartographer_outputs/pointcloud/pointcloud_%d.pcd"
-	// pcdTemplate           = "slam/example_cartographer_outputs/pointcloud/pointcloud_%d_no_color.pcd".
 	pngTemplate      = "slam/example_cartographer_outputs/image_map/image_map_%d.png"
 	positionTemplate = "slam/example_cartographer_outputs/position/position_%d.txt"
 )
