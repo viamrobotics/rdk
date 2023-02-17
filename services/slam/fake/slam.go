@@ -70,8 +70,7 @@ type SLAM struct {
 func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 	include bool, extra map[string]interface{},
 ) (string, image.Image, *vision.Object, error) {
-	// Increment data after getMap call
-	defer slamSvc.incrementDataCount()
+	slamSvc.incrementDataCount()
 
 	var err error
 	var img image.Image
