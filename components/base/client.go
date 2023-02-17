@@ -10,8 +10,6 @@ import (
 	pb "go.viam.com/api/component/base/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/rdk/components/generic"
 )
 
 // client implements BaseServiceClient.
@@ -114,7 +112,18 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	command, err := protoutils.StructToStructPb(cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
+		Name:    c.name,
+		Command: command,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
