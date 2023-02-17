@@ -5,10 +5,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+
+	rprotoutils "go.viam.com/rdk/protoutils"
 )
 
 // client implements MotorServiceClient.
@@ -138,18 +139,7 @@ func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := protoutils.StructToStructPb(cmd)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {

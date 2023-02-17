@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -209,13 +209,5 @@ func (s *subtypeServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	res, err := b.DoCommand(ctx, req.Command.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	pbRes, err := protoutils.StructToStructPb(res)
-	if err != nil {
-		return nil, err
-	}
-	return &commonpb.DoCommandResponse{Result: pbRes}, nil
+	return protoutils.DoFromResourceServer(ctx, b, req)
 }

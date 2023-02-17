@@ -6,8 +6,8 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
-	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -72,13 +72,5 @@ func (server *subtypeServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	res, err := poseTracker.DoCommand(ctx, req.Command.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	pbRes, err := protoutils.StructToStructPb(res)
-	if err != nil {
-		return nil, err
-	}
-	return &commonpb.DoCommandResponse{Result: pbRes}, nil
+	return protoutils.DoFromResourceServer(ctx, poseTracker, req)
 }
