@@ -1,6 +1,6 @@
-// Package unipolarfivewirestepper implements a GPIO based
+// Package uln28byj implements a GPIO based
 // stepper motor (model: 28byj-48) with uln2003 controler.
-package unipolarfivewirestepper
+package uln28byj
 
 /*
 	Motor Name:  		28byj-48
@@ -12,6 +12,9 @@ package unipolarfivewirestepper
 	This driver will drive the motor with half-step driving method (instead of full-step drive) for higher resolutions.
 	In half-step the current vector divides a circle into eight parts. The eight step switching sequence is shown in
 	stepSequence below. The motor takes 5.625*(1/64)° per step. For 360° the motor will take 4096 steps.
+
+    The motor can run at a max speed of ~146rpm. Though it is recommended to not run the motor at max speed as it can
+	damage the gears.
 */
 
 import (
