@@ -477,4 +477,9 @@ func (b *sysfsBoard) Close() {
 	b.cancelFunc()
 	b.mu.Unlock()
 	b.activeBackgroundWorkers.Wait()
+	if !b.usePeriphGpio {
+		if err := gpioCloseAll(); err != nil {
+			b.logger.Error(err)
+		}
+	}
 }
