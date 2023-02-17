@@ -3,9 +3,8 @@ package wifi
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -37,10 +36,13 @@ func init() {
 		}})
 }
 
+var re *regexp.Regexp
+
 func newWifi(logger golog.Logger, path string) (sensor.Sensor, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, errors.Wrap(err, "wifi readings not supported on this system")
 	}
+	re = regexp.MustCompile("\r?\n")
 	return &wifi{logger: logger, path: path}, nil
 }
 
@@ -53,23 +55,22 @@ type wifi struct {
 
 // Readings returns Wifi strength statistics.
 func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	cmd := fmt.Sprintf("cat %s | awk 'NR > 2 { print $3 $4 $5 }'", sensor.path)
-	out, err := exec.Command("bash", "-c", cmd).Output()
+	dump, err := os.ReadFile(sensor.path)
 	if err != nil {
 		return nil, err
 	}
+	lines := re.Split(string(dump), 3)
+	fields := strings.Fields(lines[len(lines)-1])
 
-	stats := strings.SplitN(strings.TrimSpace(string(out)), ".", 3)
-
-	link, err := strconv.ParseInt(stats[0], 10, 32)
+	link, err := strconv.ParseInt(strings.TrimRight(fields[2], "."), 10, 32)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid reading")
 	}
-	level, err := strconv.ParseInt(stats[1], 10, 32)
+	level, err := strconv.ParseInt(strings.TrimRight(fields[3], "."), 10, 32)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid reading")
 	}
-	noise, err := strconv.ParseInt(stats[2], 10, 32)
+	noise, err := strconv.ParseInt(fields[4], 10, 32)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid reading")
 	}
