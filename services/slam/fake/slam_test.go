@@ -19,6 +19,8 @@ func TestFakeSLAMPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pInFrame.Parent(), test.ShouldEqual, slamSvc.Name)
 
+  // These test ranges as I observed different floating point values
+  // between M1 mac hosts and amd64 hosts for the same test data.
 	test.That(t, pInFrame.Pose().Point().X, test.ShouldBeBetween, 1.860775180178, 1.860775180179)
 	test.That(t, pInFrame.Pose().Point().Y, test.ShouldBeBetween, 34.26593374183, 34.26593374184)
 	test.That(t, pInFrame.Pose().Point().Z, test.ShouldEqual, 0)
