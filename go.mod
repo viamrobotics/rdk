@@ -33,7 +33,7 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-gnss/rtcm v0.0.3
-	github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737
+	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
 	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
