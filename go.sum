@@ -448,8 +448,8 @@ github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V
 github.com/go-logfmt/logfmt v0.5.0/go.mod h1:wCYkCAKZfumFQihp8CzCvQ3paCTfi41vtzG1KdI/P7A=
 github.com/go-logfmt/logfmt v0.5.1/go.mod h1:WYhtIu8zTZfxdn5+rREduYbwxfcBr/Vr6KEVveWlfTs=
 github.com/go-logr/logr v0.1.0/go.mod h1:ixOQHD9gLJUVQQ2ZOR7zLEifBX6tGkNJF4QyIY7sIas=
-github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737 h1:DNL8Yg5ns224JuSMYbMeO/UA29OUhgbHl93wa2BwKnQ=
-github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737/go.mod h1:crLzNxWuUkZODn9zme0coCcBvPQrM3hnbQWR3uolF8o=
+github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5 h1:JlR5qQ/dy4NPpeKld/CJR6cIcL0ll4OQ7ieylY5kJ20=
+github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5/go.mod h1:crLzNxWuUkZODn9zme0coCcBvPQrM3hnbQWR3uolF8o=
 github.com/go-ole/go-ole v1.2.4/go.mod h1:XCwSNxSkXRo4vlyPy93sltvi/qJq0jqQhjqQNIwKuxM=
 github.com/go-pdf/fpdf v0.5.0/go.mod h1:HzcnA+A23uwogo0tp9yU+l3V+KXhiESpt1PMayhOh5M=
 github.com/go-pdf/fpdf v0.6.0 h1:MlgtGIfsdMEEQJr2le6b/HNr1ZlQwxyWr77r2aj2U/8=
