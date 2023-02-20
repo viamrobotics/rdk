@@ -7,6 +7,8 @@ package encoder
 	This encoder must be connected to a motor (or another component that supports encoders) in order to record readings.
 	The motor indicates in which direction it is spinning, thus indicating if the encoder should increment or decrement reading value.
 
+	Resetting a position must set the position to an int64. A floating point input will be rounded.
+
 	Sample configuration:
 	{
 		"pins" : {
@@ -18,6 +20,7 @@ package encoder
 
 import (
 	"context"
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -117,7 +120,6 @@ func NewSingleEncoder(
 	rawConfig config.Component,
 	logger golog.Logger,
 ) (*SingleEncoder, error) {
-
 	cfg, ok := rawConfig.ConvertedAttributes.(*SingleWireConfig)
 	if !ok {
 		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
@@ -182,9 +184,9 @@ func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interfa
 	return float64(res), nil
 }
 
-// Reset sets the current position of the motor (adjusted by a given offset)
+// Reset sets the current position of the motor (adjusted by a given offset).
 func (e *SingleEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	offsetInt := int64(offset)
+	offsetInt := int64(math.Round(offset))
 	atomic.StoreInt64(&e.position, offsetInt)
 	return nil
 }
