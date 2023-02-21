@@ -126,49 +126,72 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score, ""
 }
 
-// NewCollisionConstraint is a helper function for creating a collision Constraint that takes a frame and geometries
-// representing obstacles and interaction spaces and will construct a collision avoidance constraint from them.
 func NewCollisionConstraint(
 	frame referenceframe.Frame,
-	goodInput []referenceframe.Input,
-	obstacles map[string]spatial.Geometry,
+	fs referenceframe.FrameSystem,
+	worldState *referenceframe.WorldState,
+	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
-) Constraint {
-	zeroVols, err := frame.Geometries(goodInput)
-	if err != nil && len(zeroVols.Geometries()) == 0 {
-		return nil // no geometries defined for frame
+) (Constraint, error) {
+	// extract inputs corresponding to the frame
+	var goodInputs []referenceframe.Input
+	var err error
+	switch f := frame.(type) {
+	case *solverFrame:
+		goodInputs, err = f.mapToSlice(observationInput)
+	default:
+		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
 	}
-	internalEntities, err := NewCollisionEntities(zeroVols.Geometries())
 	if err != nil {
-		return nil
-	}
-	obstacleEntities, err := NewCollisionEntities(obstacles)
-	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	zeroCG, err := newCollisionGraph(internalEntities, obstacleEntities, nil, true)
+	// create robot collision entities
+	zeroVols, err := frame.Geometries(goodInputs)
+	if err != nil && len(zeroVols.Geometries()) == 0 {
+		return nil, err // no geometries defined for frame
+	}
+	internalEntities, err := newCollisionEntities(zeroVols.Geometries())
 	if err != nil {
-		return nil
+		return nil, err
+	}
+
+	// create obstacle collision entities
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldState, err = worldState.ToWorldFrame(fs, observationInput)
+	if err != nil {
+		return nil, err
+	}
+	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
+	obstacleEntities, err := newCollisionEntities(worldState.Obstacles[0].Geometries())
+	if err != nil {
+		return nil, err
+	}
+
+	zeroCS, err := newCollisionSystem(internalEntities, obstacleEntities, nil, true)
+	if err != nil {
+		return nil, err
 	}
 	for _, specification := range collisionSpecifications {
-		if err := zeroCG.addCollisionSpecification(specification); err != nil {
-			return nil
+		if err := zeroCS.addCollisionSpecification(specification); err != nil {
+			return nil, err
 		}
 	}
 
+	// create constraint from reference collision graph
 	constraint := func(cInput *ConstraintInput) (bool, float64) {
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		internalEntities, err := NewCollisionEntities(internal.Geometries())
+		internalEntities, err := newCollisionEntities(internal.Geometries())
 		if err != nil {
 			return false, 0
 		}
 
-		cg, err := newCollisionGraph(internalEntities, obstacleEntities, zeroCG, reportDistances)
+		cg, err := newCollisionSystem(internalEntities, obstacleEntities, zeroCS, reportDistances)
 		if err != nil {
 			return false, 0
 		}
@@ -186,44 +209,7 @@ func NewCollisionConstraint(
 		}
 		return true, sum
 	}
-	return constraint
-}
-
-// NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a set of initial states.
-func NewCollisionConstraintFromWorldState(
-	frame referenceframe.Frame,
-	fs referenceframe.FrameSystem,
-	worldState *referenceframe.WorldState,
-	observationInput map[string][]referenceframe.Input,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
-) (Constraint, error) {
-	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldState, err := worldState.ToWorldFrame(fs, observationInput)
-	if err != nil {
-		return nil, err
-	}
-
-	// extract inputs corresponding to the frame
-	var goodInputs []referenceframe.Input
-	switch f := frame.(type) {
-	case *solverFrame:
-		goodInputs, err = f.mapToSlice(observationInput)
-	default:
-		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCollisionConstraint(
-		frame,
-		goodInputs,
-		worldState.Obstacles[0].Geometries(),
-		collisionSpecifications,
-		reportDistances,
-	), nil
+	return constraint, nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the

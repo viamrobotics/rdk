@@ -62,7 +62,7 @@ type collisionEntities struct {
 	indices  map[string]int
 }
 
-func NewCollisionEntities(geometries map[string]spatial.Geometry) (*collisionEntities, error) {
+func newCollisionEntities(geometries map[string]spatial.Geometry) (*collisionEntities, error) {
 	entities := make([]*collisionEntity, len(geometries))
 	indices := make(map[string]int, len(geometries))
 	size := 0
@@ -95,28 +95,6 @@ func (ce *collisionEntities) indexFromName(name string) int {
 	}
 	return -1
 }
-
-// func (oce *collisionEntities) checkCollision(key, test *collisionEntity, reportDistances bool) (float64, error) {
-// 	if reportDistances {
-// 		distance, err := key.geomtry.DistanceFrom(test.geometry)
-// 		return -distance, err // multiply distance by -1 so that weights of edges are positive
-// 	}
-// 	col, err := key.geometry.CollidesWith(test.geometry)
-// 	if col {
-// 		return 1, err
-// 	}
-// 	return -1, err
-// }
-
-// func (oce *collisionEntities) reportCollisions(distances []float64) []int {
-// 	var collisionIndices []int
-// 	for i := range distances {
-// 		if distances[i] >= -spatial.CollisionBuffer {
-// 			collisionIndices = append(collisionIndices, i)
-// 		}
-// 	}
-// 	return collisionIndices
-// }
 
 // spaceCollisionEntities is an implementation of CollisionEntities for entities that do not occupy physical space but
 // represent an area in which other entities should be encompassed by.
@@ -153,31 +131,50 @@ func (ce *collisionEntities) indexFromName(name string) int {
 // }
 
 // TODO: comments
-type collisionGraph struct {
+type entityGraph struct {
 	x, y *collisionEntities
 
 	distances [][]float64
 
+	// triangular is a bool that describes if the adjacencies matrix is triangular, which will be the case when x ==y
+	triangular bool
+
 	reportDistances bool
 }
 
-// newCollisionGraph instantiates a collisionGraph object and checks for collisions between the key and test sets of CollisionEntities
-// collisions that are reported in the reference CollisionSystem argument will be ignore and not stored as edges in the graph.
-func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, reportDistances bool) (*collisionGraph, error) {
-	var err error
-	cg := &collisionGraph{
+func newEntityGraph(x, y *collisionEntities, reportDistances bool) *entityGraph {
+	return &entityGraph{
 		x:               x,
 		y:               y,
 		distances:       make([][]float64, x.count()),
 		reportDistances: reportDistances,
+		triangular:      x == y,
 	}
-	triangular := x == y
+}
+
+func (cg *entityGraph) getIndices(xName, yName string) (int, int, bool) {
+	i := cg.x.indexFromName(xName)
+	j := cg.y.indexFromName(yName)
+	return i, j, i >= 0 && j >= 0
+}
+
+type collisionGraph struct {
+	entityGraph
+}
+
+// newCollisionGraph instantiates a collisionGraph object and checks for collisions between the key and test sets of CollisionEntities
+// collisions that are reported in the reference CollisionSystem argument will be ignore and not stored as edges in the graph.
+func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, reportDistances bool) (cg *collisionGraph, err error) {
+	cg = &collisionGraph{*newEntityGraph(x, y, reportDistances)}
 	for i := range cg.distances {
 		cg.distances[i] = make([]float64, y.count())
 		xi := x.entityFromIndex(i)
 		startIndex := 0
-		if triangular {
+		if cg.triangular {
 			startIndex = i + 1
+			for j := 0; j < startIndex; j++ {
+				cg.distances[i][j] = math.NaN()
+			}
 		}
 		for j := startIndex; j < len(cg.distances[i]); j++ {
 			yj := y.entityFromIndex(j)
@@ -192,18 +189,9 @@ func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, repor
 					return cg, nil
 				}
 			}
-			if triangular {
-				cg.distances[j][i] = cg.distances[i][j]
-			}
 		}
 	}
 	return cg, nil
-}
-
-func (cg *collisionGraph) getIndices(xName, yName string) (int, int, bool) {
-	i := cg.x.indexFromName(xName)
-	j := cg.y.indexFromName(yName)
-	return i, j, i >= 0 && j >= 0
 }
 
 func (cg *collisionGraph) checkCollision(x, y *collisionEntity) (float64, error) {
@@ -220,6 +208,9 @@ func (cg *collisionGraph) checkCollision(x, y *collisionEntity) (float64, error)
 // collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
 func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
 	if i, j, ok := cg.getIndices(keyName, testName); ok {
+		if cg.triangular && i > j {
+			i, j = j, i
+		}
 		if cg.distances[i][j] <= spatial.CollisionBuffer {
 			return true
 		}
@@ -240,15 +231,58 @@ func (cg *collisionGraph) collisions() []Collision {
 	return collisions
 }
 
-// addCollisionSpecification takes a Collision as an argument and either whitelists collisions between the two entities.
-func (cg *collisionGraph) addCollisionSpecification(specification *Collision) (err error) {
-	i, j, ok := cg.getIndices(specification.name1, specification.name2)
+// ignoreCollision finds the specified collision and marks it as something never to check for or report
+func (cg *collisionGraph) ignoreCollision(toIgnore *Collision) (err error) {
+	i, j, ok := cg.getIndices(toIgnore.name1, toIgnore.name2)
 	if !ok {
-		i, j, ok = cg.getIndices(specification.name2, specification.name1)
+		i, j, ok = cg.getIndices(toIgnore.name2, toIgnore.name1)
 	}
-	if ok {
-		cg.distances[i][j] = math.NaN()
-		return nil
+	if !ok {
+		return errors.Errorf("cannot add collision specification between entities with names: %s, %s", toIgnore.name1, toIgnore.name2)
 	}
-	return errors.Errorf("cannot add collision specification between entities with names: %s, %s", specification.name1, specification.name2)
+	if cg.triangular && i > j {
+		i, j = j, i
+	}
+	cg.distances[i][j] = math.NaN()
+	return nil
+}
+
+type collisionSystem struct {
+	graphs []*collisionGraph
+}
+
+func newCollisionSystem(robot, obstacle *collisionEntities, reference *collisionSystem, reportDistances bool) (*collisionSystem, error) {
+	var selfCGreference, obstacleCGreference *collisionGraph
+	if reference != nil {
+		selfCGreference = reference.graphs[0]
+		obstacleCGreference = reference.graphs[1]
+	}
+	selfCG, err := newCollisionGraph(robot, robot, selfCGreference, reportDistances)
+	if err != nil {
+		return nil, err
+	}
+	obstacleCG, err := newCollisionGraph(robot, obstacle, obstacleCGreference, reportDistances)
+	if err != nil {
+		return nil, err
+	}
+	return &collisionSystem{[]*collisionGraph{selfCG, obstacleCG}}, err
+}
+
+// collisions returns a list of all the reported collisions in the collisionSystem.
+func (cs *collisionSystem) collisions() (collisions []Collision) {
+	for _, graph := range cs.graphs {
+		collisions = append(collisions, graph.collisions()...)
+	}
+	return collisions
+}
+
+// addCollisionSpecification takes a Collision as an argument and sets its underlying collisionGraphs to ignore it.
+// If no collisionGraphs have a corresponding entity pair, then an error will be thrown
+func (cs *collisionSystem) addCollisionSpecification(specification *Collision) (err error) {
+	for _, graph := range cs.graphs {
+		if err = graph.ignoreCollision(specification); err == nil {
+			return nil
+		}
+	}
+	return err
 }

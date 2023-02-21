@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"math/rand"
-	"strconv"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -12,6 +11,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -166,8 +166,15 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	model, err := frame.NewMobile2DFrame("mobile-base", limits, physicalGeometry)
+	modelName := "mobile-base"
+	model, err := frame.NewMobile2DFrame(modelName, limits, physicalGeometry)
 	if err != nil {
+		return nil, err
+	}
+
+	// add it to the frame system
+	fs := frame.NewEmptySimpleFrameSystem("test")
+	if err := fs.AddFrame(model, fs.Frame(frame.World)); err != nil {
 		return nil, err
 	}
 
@@ -176,21 +183,22 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	worldState := &frame.WorldState{
+		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, map[string]spatialmath.Geometry{"b": box})},
+	}
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
-	toMap := func(geometries []spatialmath.Geometry) map[string]spatialmath.Geometry {
-		geometryMap := make(map[string]spatialmath.Geometry, 0)
-		for i, geometry := range geometries {
-			geometryMap[strconv.Itoa(i)] = geometry
-		}
-		return geometryMap
+	startInput := frame.StartPositions(fs)
+	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90.})
+	collisionConstraint, err := NewCollisionConstraint(model, fs, worldState, startInput, nil, false)
+	if err != nil {
+		return nil, err
 	}
-	startInput := frame.FloatsToInputs([]float64{-90., 90.})
-	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatialmath.Geometry{box}), nil, false))
+	opt.AddConstraint("collision", collisionConstraint)
 
 	return &planConfig{
-		Start:      startInput,
+		Start:      startInput[modelName],
 		Goal:       spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0}),
 		RobotFrame: model,
 		Options:    opt,
@@ -204,9 +212,19 @@ func simpleXArmMotion() (*planConfig, error) {
 		return nil, err
 	}
 
+	// add it to the frame system
+	fs := frame.NewEmptySimpleFrameSystem("test")
+	if err := fs.AddFrame(xarm, fs.Frame(frame.World)); err != nil {
+		return nil, err
+	}
+
 	// setup planner options
 	opt := newBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil, false))
+	collisionConstraint, err := NewCollisionConstraint(xarm, fs, &frame.WorldState{}, frame.StartPositions(fs), nil, false)
+	if err != nil {
+		return nil, err
+	}
+	opt.AddConstraint("collision", collisionConstraint)
 
 	return &planConfig{
 		Start:      home7,
@@ -222,10 +240,18 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
+	if err = fs.AddFrame(ur5e, fs.Frame(referenceframe.World)); err != nil {
+		return nil, err
+	}
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil, false))
+	collisionConstraint, err := NewCollisionConstraint(ur5e, fs, &referenceframe.WorldState{}, frame.StartPositions(fs), nil, false)
+	if err != nil {
+		return nil, err
+	}
+	opt.AddConstraint("collision", collisionConstraint)
 
 	return &planConfig{
 		Start:      home6,

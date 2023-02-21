@@ -57,9 +57,9 @@ func TestCheckCollisions(t *testing.T) {
 	obstacles["obstacleCube000"] = bc1.Transform(spatial.NewZeroPose())
 	obstacles["obstacleCube444"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{4, 4, 4}))
 	obstacles["obstacleCube666"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{6, 6, 6}))
-	robotEntities, err := NewCollisionEntities(robot)
+	robotEntities, err := newCollisionEntities(robot)
 	test.That(t, err, test.ShouldBeNil)
-	obstacleEntities, err := NewCollisionEntities(obstacles)
+	obstacleEntities, err := newCollisionEntities(obstacles)
 	test.That(t, err, test.ShouldBeNil)
 	cg, err := newCollisionGraph(robotEntities, obstacleEntities, nil, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -75,7 +75,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := m.Geometries(make([]frame.Input, len(m.DoF())))
 	test.That(t, gf, test.ShouldNotBeNil)
-	robotEntities, err = NewCollisionEntities(gf.Geometries())
+	robotEntities, err = newCollisionEntities(gf.Geometries())
 	test.That(t, err, test.ShouldBeNil)
 	cg, err = newCollisionGraph(robotEntities, robotEntities, nil, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -90,7 +90,7 @@ func TestUniqueCollisions(t *testing.T) {
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	internalEntities, err := NewCollisionEntities(internalGeometries.Geometries())
+	internalEntities, err := newCollisionEntities(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
 	zeroPositionCG, err := newCollisionGraph(internalEntities, internalEntities, nil, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -99,7 +99,7 @@ func TestUniqueCollisions(t *testing.T) {
 	input[0] = frame.Input{Value: 1}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	internalEntities, err = NewCollisionEntities(internalGeometries.Geometries())
+	internalEntities, err = newCollisionEntities(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
 	cg, err := newCollisionGraph(internalEntities, internalEntities, zeroPositionCG, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -109,7 +109,7 @@ func TestUniqueCollisions(t *testing.T) {
 	input[4] = frame.Input{Value: 2}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	internalEntities, err = NewCollisionEntities(internalGeometries.Geometries())
+	internalEntities, err = newCollisionEntities(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
 	cg, err = newCollisionGraph(internalEntities, internalEntities, zeroPositionCG, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -117,7 +117,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, collisionListsAlmostEqual(cg.collisions(), expectedCollisions), test.ShouldBeTrue)
 
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
-	err = cg.addCollisionSpecification(&expectedCollisions[1])
+	err = cg.ignoreCollision(&expectedCollisions[1])
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cg.collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
 }

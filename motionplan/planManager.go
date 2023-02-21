@@ -360,11 +360,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	opt.extra = planningOpts
 
-	// set this to true to get collision penetration depth
-	// not yet fully supported, but could be used by cbirrt
+	// set this to true to get collision penetration depth - not yet fully supported, but could be used by cbirrt
 	getColDepth := false
 
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(pm.frame, pm.fs, worldState, seedMap, nil, getColDepth)
+	collisionConstraint, err := NewCollisionConstraint(pm.frame, pm.fs, worldState, seedMap, nil, getColDepth)
 	if err != nil {
 		return nil, err
 	}
