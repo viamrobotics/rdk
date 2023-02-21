@@ -16,7 +16,9 @@ import (
 const ServoRollingAverageWindow = 10
 
 // Tick represents a signal received by an interrupt pin. This signal is communicated
-// via registered channel to the various drivers. The timestamp in nanoseconds of the
+// via registered channel to the various drivers. Depending on board implementation there may be a
+// wraparound in timestamp values past 4294967295000 nanoseconds (~72 minutes) if the value
+// was originally in microseconds as a 32-bit integer. The timestamp in nanoseconds of the
 // tick SHOULD ONLY BE USED FOR CALCULATING THE TIME ELAPSED BETWEEN CONSECUTIVE TICKS AND NOT
 // AS AN ABSOLUTE TIMESTAMP.
 type Tick struct {
@@ -140,10 +142,8 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 	return nil
 }
 
-// Tick records an interrupt and notifies any interested callbacks. The nanoseconds
-// represent the time in nanoseconds since boot. Depending on board implementation there may be a
-// wraparound in values past 4294967295000 nanoseconds (~72 minutes) if the value
-// was originally in microseconds as a 32-bit integer.
+// Tick records an interrupt and notifies any interested callbacks. See comment on
+// the DigitalInterrupt interface for caveats
 func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
