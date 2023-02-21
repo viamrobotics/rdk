@@ -1,6 +1,6 @@
 package gpio
 
-var ServoErrorMap = map[int32]string{
+var ServoErrorMap = map[int]string{
 	-1:   "PI_INIT_FAILED",                        // gpioInitialise failed
 	-2:   "PI_BAD_USER_GPIO",                      // GPIO not 0-31
 	-3:   "PI_BAD_GPIO",                           // GPIO not 0-53
