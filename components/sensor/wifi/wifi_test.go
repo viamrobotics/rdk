@@ -40,7 +40,8 @@ func TestReadings(t *testing.T) {
 		`Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
  face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
 IFACE0: XXXX   58.  -52.  -256        X      X      X      X  XXXXX        X
-IFACE1: XXXX   59.  -51.  -257        X      X      X      X  XXXXX        X`)
+IFACE1: XXXX   59.  -51.  -257        X      X      X      X  XXXXX        X
+`)
 	test.That(t, err, test.ShouldBeNil)
 
 	sensor, err := newWifi(logger, file.Name())
