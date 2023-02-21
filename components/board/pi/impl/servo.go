@@ -24,8 +24,10 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-var holdTime = 250000000 // 250ms in nanoseconds
-var servoDefaultMaxRotation = 180
+var (
+	holdTime                = 250000000 // 250ms in nanoseconds
+	servoDefaultMaxRotation = 180
+)
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -167,14 +169,14 @@ func (s *piPigpioServo) Position(ctx context.Context, extra map[string]interface
 
 // angleToPulseWidth changes the input angle in degrees
 // into the corresponding pulsewidth value in microsecond
-func angleToPulseWidth(angle int, maxRotation int) int {
+func angleToPulseWidth(angle, maxRotation int) int {
 	pulseWidth := 500 + (2000 * angle / maxRotation)
 	return pulseWidth
 }
 
 // pulseWidthToAngle changes the pulsewidth value in microsecond
 // to the corresponding angle in degrees
-func pulseWidthToAngle(pulseWidth int, maxRotation int) int {
+func pulseWidthToAngle(pulseWidth, maxRotation int) int {
 	angle := maxRotation * (pulseWidth + 1 - 500) / 2000
 	return angle
 }
