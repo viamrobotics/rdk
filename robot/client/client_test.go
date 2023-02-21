@@ -510,10 +510,15 @@ func TestClientRefresh(t *testing.T) {
 		logger,
 		WithRefreshEvery(dur),
 	)
+	test.That(t, callCountSubtypes, test.ShouldEqual, 1)
+	test.That(t, callCountNames, test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
 	<-calledEnough
 	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*dur)
 	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
+	// during this duration, the client refreshed 4 additional times
+	test.That(t, callCountSubtypes, test.ShouldEqual, 5)
+	test.That(t, callCountNames, test.ShouldEqual, 6)
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
@@ -577,12 +582,8 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	oldCallCountSubtypes := callCountSubtypes
-	oldCallCountNames := callCountNames
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
-	test.That(t, callCountSubtypes, test.ShouldEqual, oldCallCountSubtypes+1)
-	test.That(t, callCountNames, test.ShouldEqual, oldCallCountNames+1)
 	client, err = New(
 		context.Background(),
 		listener.Addr().String(),
@@ -642,12 +643,8 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
-	oldCallCountSubtypes = callCountSubtypes
-	oldCallCountNames = callCountNames
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
-	test.That(t, callCountSubtypes, test.ShouldEqual, oldCallCountSubtypes+1)
-	test.That(t, callCountNames, test.ShouldEqual, oldCallCountNames+1)
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
