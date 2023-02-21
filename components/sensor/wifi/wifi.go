@@ -77,7 +77,7 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 
 	return map[string]interface{}{
 		"link":  int(link),
-		"level": int(level),
-		"noise": int(noise),
+		"level_dB": int(level),
+		"noise_dB": int(noise),
 	}, nil
 }

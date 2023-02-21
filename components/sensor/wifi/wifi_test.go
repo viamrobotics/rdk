@@ -47,9 +47,9 @@ XXXXXXXXX: XXXX   58.  -52.  -256        X      X      X      X  XXXXX        X`
 	readings, err := sensor.Readings(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[string]interface{}{
-		"link":  int(58),
-		"level": int(-52),
-		"noise": int(-256),
+		"link":     int(58),
+		"level_dB": int(-52),
+		"noise_dB": int(-256),
 	}
 	test.That(t, readings, test.ShouldResemble, expected)
 }
