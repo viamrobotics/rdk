@@ -60,7 +60,7 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 	}
 
 	result := make(map[string]interface{})
-	lines := strings.Split(string(dump), "\n")
+	lines := strings.Split(strings.TrimSpace(string(dump)), "\n")
 	for i, line := range lines {
 		if i < 2 {
 			continue
