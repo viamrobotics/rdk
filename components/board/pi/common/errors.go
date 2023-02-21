@@ -1,4 +1,4 @@
-package pi
+package picommon
 
 // PiGPIOErrorMap maps the error codes to the human readable error names. This can be found at the pigpio C interface.
 var PiGPIOErrorMap = map[int]string{
