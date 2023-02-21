@@ -1602,6 +1602,12 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	test.That(t, client, test.ShouldNotBeNil)
 	test.That(t, callCount, test.ShouldEqual, 1)
 
+	gServer.Stop()
+	test.That(t, <-client.Changed(), test.ShouldBeTrue)
+	test.That(t, client.Connected(), test.ShouldBeFalse)
+	err = client.Refresh(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to remote robot")
+
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }

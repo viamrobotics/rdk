@@ -11,9 +11,9 @@ type DigitalInterrupt struct {
 	board.DigitalInterrupt
 	ValueFunc            func(ctx context.Context, extra map[string]interface{}) (int64, error)
 	valueCap             []interface{}
-	TickFunc             func(ctx context.Context, high bool, nanos uint64) error
+	TickFunc             func(ctx context.Context, high bool, nanoseconds uint64) error
 	tickCap              []interface{}
-	AddCallbackFunc      func(c chan bool)
+	AddCallbackFunc      func(c chan board.Tick)
 	AddPostProcessorFunc func(pp board.PostProcessor)
 }
 
@@ -36,12 +36,12 @@ func (d *DigitalInterrupt) ValueCap() []interface{} {
 }
 
 // Tick calls the injected Tick or the real version.
-func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
-	d.tickCap = []interface{}{ctx, high, nanos}
+func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
+	d.tickCap = []interface{}{ctx, high, nanoseconds}
 	if d.TickFunc == nil {
-		return d.DigitalInterrupt.Tick(ctx, high, nanos)
+		return d.DigitalInterrupt.Tick(ctx, high, nanoseconds)
 	}
-	return d.TickFunc(ctx, high, nanos)
+	return d.TickFunc(ctx, high, nanoseconds)
 }
 
 // TickCap returns the last parameters received by Tick, and then clears them.
@@ -54,7 +54,7 @@ func (d *DigitalInterrupt) TickCap() []interface{} {
 }
 
 // AddCallback calls the injected AddCallback or the real version.
-func (d *DigitalInterrupt) AddCallback(c chan bool) {
+func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
 	if d.AddCallbackFunc == nil {
 		d.DigitalInterrupt.AddCallback(c)
 		return

@@ -70,6 +70,19 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 					spis[spiConf.Name] = &spiBus{bus: spiConf.BusSelect}
 				}
 			}
+
+			var i2cs map[string]board.I2C
+			if len(conf.I2Cs) != 0 {
+				i2cs = make(map[string]board.I2C, len(conf.I2Cs))
+				for _, i2cConf := range conf.I2Cs {
+					bus, err := newI2cBus(i2cConf.Bus)
+					if err != nil {
+						return nil, errors.Errorf("Malformed I2C bus number: %s", i2cConf.Bus)
+					}
+					i2cs[i2cConf.Name] = bus
+				}
+			}
+
 			var analogs map[string]board.AnalogReader
 			if len(conf.Analogs) != 0 {
 				analogs = make(map[string]board.AnalogReader, len(conf.Analogs))
@@ -95,6 +108,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				spis:          spis,
 				analogs:       analogs,
 				pwms:          map[string]pwmSetting{},
+				i2cs:          i2cs,
 				usePeriphGpio: usePeriphGpio,
 				logger:        logger,
 				cancelCtx:     cancelCtx,
@@ -146,6 +160,7 @@ type sysfsBoard struct {
 	spis          map[string]*spiBus
 	analogs       map[string]board.AnalogReader
 	pwms          map[string]pwmSetting
+	i2cs          map[string]board.I2C
 	usePeriphGpio bool
 	logger        golog.Logger
 
@@ -161,10 +176,7 @@ type pwmSetting struct {
 
 func (b *sysfsBoard) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.spis[name]
-	if !ok {
-		return nil, false
-	}
-	return s, true
+	return s, ok
 }
 
 type spiBus struct {
@@ -211,8 +223,8 @@ func (sh *spiHandle) Close() error {
 }
 
 func (b *sysfsBoard) I2CByName(name string) (board.I2C, bool) {
-	b.logger.Warn("I2C is not currently supported on sysfs boards.")
-	return nil, false
+	i, ok := b.i2cs[name]
+	return i, ok
 }
 
 func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
@@ -237,7 +249,14 @@ func (b *sysfsBoard) SPINames() []string {
 }
 
 func (b *sysfsBoard) I2CNames() []string {
-	return nil
+	if len(b.i2cs) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(b.i2cs))
+	for k := range b.i2cs {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (b *sysfsBoard) AnalogReaderNames() []string {

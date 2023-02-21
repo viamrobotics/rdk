@@ -654,7 +654,7 @@ const errURHostedKinematics = "cannot use UR hosted kinematics with obstacles or
 func (ua *URArm) useURHostedKinematics(worldState *referenceframe.WorldState, extra map[string]interface{}) (bool, error) {
 	// function to error out if trying to use world state with hosted kinematics
 	checkWorldState := func(usingHostedKinematics bool) (bool, error) {
-		if usingHostedKinematics && worldState != nil && (len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0) {
+		if usingHostedKinematics && worldState != nil && len(worldState.Obstacles) != 0 {
 			return false, errors.New(errURHostedKinematics)
 		}
 		return usingHostedKinematics, nil
