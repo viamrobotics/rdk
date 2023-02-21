@@ -651,19 +651,19 @@ func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context, extra map[st
 	return r.actual.Value(ctx, extra)
 }
 
-func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Tick(ctx, high, nanos)
+	return r.actual.Tick(ctx, high, nanoseconds)
 }
 
-func (r *reconfigurableDigitalInterrupt) AddCallback(c chan bool) {
+func (r *reconfigurableDigitalInterrupt) AddCallback(c chan Tick) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.AddCallback(c)
 }
 
-func (r *reconfigurableDigitalInterrupt) RemoveCallback(c chan bool) {
+func (r *reconfigurableDigitalInterrupt) RemoveCallback(c chan Tick) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.RemoveCallback(c)
