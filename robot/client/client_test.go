@@ -577,8 +577,8 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	oldCallCountSubtypes = callCountSubtypes
-	oldCallCountNames = callCountNames
+	oldCallCountSubtypes := callCountSubtypes
+	oldCallCountNames := callCountNames
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
 	test.That(t, callCountSubtypes, test.ShouldEqual, oldCallCountSubtypes+1)
