@@ -4,7 +4,6 @@ package wifi
 import (
 	"context"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -36,13 +35,10 @@ func init() {
 		}})
 }
 
-var re *regexp.Regexp
-
 func newWifi(logger golog.Logger, path string) (sensor.Sensor, error) {
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.ReadFile(path); err != nil {
 		return nil, errors.Wrap(err, "wifi readings not supported on this system")
 	}
-	re = regexp.MustCompile("\r?\n")
 	return &wifi{logger: logger, path: path}, nil
 }
 
@@ -59,7 +55,7 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	lines := re.Split(string(dump), 3)
+	lines := strings.Split(string(dump), "\n")
 	fields := strings.Fields(lines[len(lines)-1])
 
 	link, err := strconv.ParseInt(strings.TrimRight(fields[2], "."), 10, 32)
