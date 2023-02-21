@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package wifi implements a wifi strength sensor
 package wifi
 
