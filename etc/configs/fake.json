@@ -94,7 +94,7 @@
         {
             "name": "wifi1",
             "type": "sensor",
-            "model": "wifi"
+            "model": "linux-wifi"
         },
         {
             "name": "servo1",

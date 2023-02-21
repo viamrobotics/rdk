@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("wifi")
+var modelname = resource.NewDefaultModel("linux-wifi")
 
 const wirelessInfoPath string = "/proc/net/wireless"
 
