@@ -478,22 +478,25 @@ func TestClientRefresh(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 
-	var callCount int
+	var callCountSubtypes int
+	var callCountNames int
 	calledEnough := make(chan struct{})
 
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+		callCountSubtypes++
+		return nil
+	}
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		if callCount == 5 {
+		if callCountNames == 5 {
 			close(calledEnough)
 		}
-		callCount++
+		callCountNames++
 
-		if callCount >= 5 {
+		if callCountNames >= 5 {
 			return finalResources
 		}
 		return emptyResources
 	}
-
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)
@@ -574,8 +577,12 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
+	oldCallCountSubtypes = callCountSubtypes
+	oldCallCountNames = callCountNames
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
+	test.That(t, callCountSubtypes, test.ShouldEqual, oldCallCountSubtypes+1)
+	test.That(t, callCountNames, test.ShouldEqual, oldCallCountNames+1)
 	client, err = New(
 		context.Background(),
 		listener.Addr().String(),
@@ -635,8 +642,12 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
+	oldCallCountSubtypes = callCountSubtypes
+	oldCallCountNames = callCountNames
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+	test.That(t, callCountSubtypes, test.ShouldEqual, oldCallCountSubtypes+1)
+	test.That(t, callCountNames, test.ShouldEqual, oldCallCountNames+1)
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
