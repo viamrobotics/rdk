@@ -1,26 +1,24 @@
 // Package imuwit implements wit imus.
+package imuwit
 
 /*
-Sensor Manufacturer:  		Wit- motion
+Sensor Manufacturer:  		Wit-motion
 Supported Sensor Models: 	HWT901B, BWT901, BWT61CL
-User Manuals:
+Tested Sensor Models and User Manuals:
 
-	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view  || Tested
-	BWT901:	https://drive.google.com/file/d/18bScCGO5vVZYcEeNKjXNtjnT8OVlrHGI/view   || Tested
-	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view || Tested
+	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view
+	BWT901:	https://drive.google.com/file/d/18bScCGO5vVZYcEeNKjXNtjnT8OVlrHGI/view
+	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view
 
 This driver will connect to all the sensors using a usb connection given as a serial path
 using a default baud rate of 115200.
-The default baud rate can be used to connect to all models, only the HWT901B's baud rate is changeable
-we ask the user to defer to the datasheet if any baud rate changes are required for their application.
+The default baud rate can be used to connect to all models. Only the HWT901B's baud rate is changeable.
+We ask the user to refer to the datasheet if any baud rate changes are required for their application.
 
-Other models that connect over serial may work, but we ask the user to defer to wit-motion's datasheet
+Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
 in that case as well. Wit-motion currently has 48 gyro/inclinometer/imu models with varied levels of
-driver commonality
+driver commonality.
 */
-
-// Package imuwit implements wit imus.
-package imuwit
 
 import (
 	"bufio"
@@ -201,7 +199,7 @@ func NewWit(
 		options.BaudRate = uint(conf.BaudRate)
 	} else {
 		logger.Warnf(
-			"no valid serial_baud_rate set, seeting to default of 9600, baud rate of wit imus are: %v", baudRateList,
+			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}
 
@@ -227,6 +225,7 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 		defer utils.UncheckedErrorFunc(func() error {
 			if imu.port != nil {
 				if err := imu.port.Close(); err != nil {
+					imu.port = nil
 					return err
 				}
 				imu.port = nil
