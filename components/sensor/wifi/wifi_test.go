@@ -36,7 +36,8 @@ func TestReadings(t *testing.T) {
 	logger := golog.NewLogger("testlog")
 
 	file := createWirelessInfoFile(t)
-	_, err := file.WriteString(`Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+	_, err := file.WriteString(
+		`Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
  face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
 XXXXXXXXX: XXXX   58.  -52.  -256        X      X      X      X  XXXXX        X`)
 	test.That(t, err, test.ShouldBeNil)
