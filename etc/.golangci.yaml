@@ -93,6 +93,11 @@ issues:
     - path: /doc.go$
       linters:
         - lll
+    # TODO(RSDK-1053): reenable the staticcheck linter for this directory
+    # once deprecated API is no longer used.
+    - path: services/slam/
+      linters:
+        - staticcheck
   exclude-use-default: false
   max-per-linter: 0
   max-same-issues: 0
