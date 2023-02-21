@@ -3,12 +3,18 @@
         {
             "name": "arm1",
             "type": "arm",
-            "model": "fake"
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            }
         },
         {
             "name": "arm2",
             "type": "arm",
-            "model": "fake"
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            }
         },
         {
             "name": "m1",

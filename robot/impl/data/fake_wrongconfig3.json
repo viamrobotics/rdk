@@ -39,6 +39,9 @@
            "name": "pieceArm",
             "type": "arm",
             "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            },
             "frame": {
                 "parent": "world",
                 "translation": {

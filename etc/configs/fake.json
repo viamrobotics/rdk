@@ -7,7 +7,10 @@
         {
             "name": "arm1",
             "type": "arm",
-            "model": "fake"
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            }
         },
         {
             "name": "audio_input1",
@@ -128,6 +131,11 @@
                 "movement_sensor": "movement_sensor1",
                 "base": "base1"
             }
-        }
+        },
+        {
+            "name": "slam1",
+            "type": "slam",
+            "model": "fake"
+        }       
     ]
 }

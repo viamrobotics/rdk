@@ -303,6 +303,14 @@ func (svc *builtIn) start(ctx context.Context) error {
 		svc.processEvent(ctx, state, event)
 	}
 
+	connect := func(ctx context.Context, event input.Event) {
+		onlyOneAtATime.Lock()
+		defer onlyOneAtATime.Unlock()
+
+		// Connect and Disconnect events should both stop the arm completely.
+		svc.arm.Stop(ctx, map[string]interface{}{})
+	}
+
 	controls, err := svc.inputController.Controls(ctx, map[string]interface{}{})
 	if err != nil {
 		return err
@@ -315,6 +323,16 @@ func (svc *builtIn) start(ctx context.Context) error {
 			control,
 			[]input.EventType{input.ButtonChange, input.PositionChangeAbs},
 			remoteCtl,
+			map[string]interface{}{},
+		)
+		if err != nil {
+			return err
+		}
+		err = svc.inputController.RegisterControlCallback(
+			ctx,
+			control,
+			[]input.EventType{input.Connect, input.Disconnect},
+			connect,
 			map[string]interface{}{},
 		)
 		if err != nil {

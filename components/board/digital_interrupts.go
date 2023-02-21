@@ -15,6 +15,17 @@ import (
 // servo ticks.
 const ServoRollingAverageWindow = 10
 
+// Tick represents a signal received by an interrupt pin. This signal is communicated
+// via registered channel to the various drivers. Depending on board implementation there may be a
+// wraparound in timestamp values past 4294967295000 nanoseconds (~72 minutes) if the value
+// was originally in microseconds as a 32-bit integer. The timestamp in nanoseconds of the
+// tick SHOULD ONLY BE USED FOR CALCULATING THE TIME ELAPSED BETWEEN CONSECUTIVE TICKS AND NOT
+// AS AN ABSOLUTE TIMESTAMP.
+type Tick struct {
+	High             bool
+	TimestampNanosec uint64
+}
+
 // A DigitalInterrupt represents a configured interrupt on the board that
 // when interrupted, calls the added callbacks. Post processors can also
 // be added to modify what Value ultimately returns.
@@ -25,23 +36,22 @@ type DigitalInterrupt interface {
 
 	// Tick is to be called either manually if the interrupt is a proxy to some real
 	// hardware interrupt or for tests.
-	// nanos is from an arbitrary point in time, but always increasing and always needs
-	// to be accurate. Using time.Now().UnixNano() would be acceptable, but is
-	// not required.
-	Tick(ctx context.Context, high bool, nanos uint64) error
+	// nanoseconds is from an arbitrary point in time, but always increasing and always needs
+	// to be accurate.
+	Tick(ctx context.Context, high bool, nanoseconds uint64) error
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
 	// Note(erd): not all interrupts can have callbacks so this should probably be a
 	// separate interface.
-	AddCallback(c chan bool)
+	AddCallback(c chan Tick)
 
 	// AddPostProcessor adds a post processor that should be used to modify
 	// what is returned by Value.
 	AddPostProcessor(pp PostProcessor)
 
 	// RemoveCallback removes a listener for interrupts
-	RemoveCallback(c chan bool)
+	RemoveCallback(c chan Tick)
 }
 
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
@@ -102,7 +112,7 @@ type BasicDigitalInterrupt struct {
 	cfg   DigitalInterruptConfig
 	count int64
 
-	callbacks []chan bool
+	callbacks []chan Tick
 
 	pp PostProcessor
 	mu sync.RWMutex
@@ -132,8 +142,9 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 	return nil
 }
 
-// Tick records an interrupt and notifies any interested callbacks.
-func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64) error {
+// Tick records an interrupt and notifies any interested callbacks. See comment on
+// the DigitalInterrupt interface for caveats.
+func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
@@ -144,21 +155,21 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64)
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
-		case c <- high:
+		case c <- Tick{High: high, TimestampNanosec: nanoseconds}:
 		}
 	}
 	return nil
 }
 
 // AddCallback adds a listener for interrupts.
-func (i *BasicDigitalInterrupt) AddCallback(c chan bool) {
+func (i *BasicDigitalInterrupt) AddCallback(c chan Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
 }
 
 // RemoveCallback removes a listener for interrupts.
-func (i *BasicDigitalInterrupt) RemoveCallback(c chan bool) {
+func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	for id := range i.callbacks {
@@ -222,12 +233,12 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 }
 
 // AddCallback currently panics.
-func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
+func (i *ServoDigitalInterrupt) AddCallback(c chan Tick) {
 	panic("servos can't have callback")
 }
 
 // RemoveCallback currently panics.
-func (i *ServoDigitalInterrupt) RemoveCallback(c chan bool) {
+func (i *ServoDigitalInterrupt) RemoveCallback(c chan Tick) {
 	panic("servos can't have callback")
 }
 

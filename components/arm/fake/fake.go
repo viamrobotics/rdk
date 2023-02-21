@@ -3,8 +3,6 @@ package fake
 
 import (
 	"context"
-	// for arm model.
-	_ "embed"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -24,25 +22,52 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
+var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
+
+// errAttrCfgMissing is the returned error if the AttrConfig's fields are empty.
+var errAttrCfgMissing = errors.New("one of ArmModel or ModelPath must be populated")
+
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
 
-//go:embed fake_model.json
-var fakeModelJSON []byte
-
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	FailNew      bool   `json:"fail_new"`
-	FailValidate bool   `json:"fail_validate"`
-	ArmModel     string `json:"arm-model"`
+	ArmModel      string `json:"arm-model,omitempty"`
+	ModelFilePath string `json:"model-path,omitempty"`
+}
+
+func modelFromName(model, name string) (referenceframe.Model, error) {
+	switch resource.ModelName(model) {
+	case xarm.ModelName6DOF.Name:
+		return xarm.Model(name, 6)
+	case xarm.ModelName7DOF.Name:
+		return xarm.Model(name, 7)
+	case ur.ModelName.Name:
+		return ur.Model(name)
+	case yahboom.ModelName.Name:
+		return yahboom.Model(name)
+	case eva.ModelName.Name:
+		return eva.Model(name)
+	default:
+		return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", model)
+	}
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
-	if config.FailValidate {
-		return errors.New("whoops! failed to validate")
+	var err error
+	switch {
+	case config.ArmModel != "" && config.ModelFilePath != "":
+		err = errAttrCfgPopulation
+	case config.ArmModel != "" && config.ModelFilePath == "":
+		_, err = modelFromName(config.ArmModel, "")
+	case config.ArmModel == "" && config.ModelFilePath != "":
+		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
+	default:
+		err = errAttrCfgMissing
 	}
-	return nil
+	return err
 }
 
 func init() {
@@ -65,33 +90,22 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	var model referenceframe.Model
-	var err error
-	if cfg.ConvertedAttributes != nil {
-		converted := cfg.ConvertedAttributes.(*AttrConfig)
+	var (
+		model referenceframe.Model
+		err   error
+	)
 
-		if converted.FailNew {
-			return nil, errors.New("whoops! failed to start up")
-		}
-
-		switch resource.ModelName(converted.ArmModel) {
-		case xarm.ModelName6DOF.Name:
-			model, err = xarm.Model(cfg.Name, 6)
-		case xarm.ModelName7DOF.Name:
-			model, err = xarm.Model(cfg.Name, 7)
-		case ur.ModelName.Name:
-			model, err = ur.Model(cfg.Name)
-		case yahboom.ModelName.Name:
-			model, err = yahboom.Model(cfg.Name)
-		case eva.ModelName.Name:
-			model, err = eva.Model(cfg.Name)
-		case ModelName.Name, "":
-			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
-		default:
-			return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", cfg.ConvertedAttributes.(*AttrConfig).ArmModel)
-		}
-	} else {
-		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	switch {
+	case armModel != "" && modelPath != "":
+		err = errAttrCfgPopulation
+	case armModel != "":
+		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
+	case modelPath != "":
+		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
+	default:
+		err = errAttrCfgMissing
 	}
 	if err != nil {
 		return nil, err

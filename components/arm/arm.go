@@ -402,7 +402,7 @@ func Plan(
 	// PlanRobotMotion needs a frame system which contains the frame being solved for
 	if fs.Frame(armName) == nil {
 		if worldState != nil {
-			if len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0 || len(worldState.Transforms) != 0 {
+			if len(worldState.Obstacles) != 0 || len(worldState.Transforms) != 0 {
 				return nil, errors.New("arm must be in frame system to use worldstate")
 			}
 		}

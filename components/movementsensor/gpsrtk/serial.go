@@ -11,6 +11,7 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/utils"
 )
@@ -24,8 +25,7 @@ type serialCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu     sync.Mutex
-	lastError error
+	err movementsensor.LastError
 }
 
 type pipeReader struct {
@@ -95,14 +95,7 @@ func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger
 		return nil, err
 	}
 
-	return s, s.lastError
-}
-
-func (s *serialCorrectionSource) setLastError(err error) {
-	s.errMu.Lock()
-	defer s.errMu.Unlock()
-
-	s.lastError = err
+	return s, s.err.Get()
 }
 
 // Start reads correction data from the serial port and sends it into the correctionReader.
@@ -125,7 +118,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			err := w.Close()
 			if err != nil {
 				s.logger.Errorf("Unable to close writer: %s", err)
-				s.setLastError(err)
+				s.err.Set(err)
 				return
 			}
 			return
@@ -135,7 +128,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			s.logger.Errorf("Error reading RTCM message: %s", err)
-			s.setLastError(err)
+			s.err.Set(err)
 			return
 		}
 
@@ -148,7 +141,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			_, err := w.Write(byteMsg)
 			if err != nil {
 				s.logger.Errorf("Error writing RTCM message: %s", err)
-				s.setLastError(err)
+				s.err.Set(err)
 				return
 			}
 		}
@@ -161,7 +154,7 @@ func (s *serialCorrectionSource) Reader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return s.correctionReader, s.lastError
+	return s.correctionReader, s.err.Get()
 }
 
 // Close shuts down the serialCorrectionSource and closes s.port.
@@ -185,5 +178,5 @@ func (s *serialCorrectionSource) Close() error {
 		s.correctionReader = nil
 	}
 
-	return s.lastError
+	return s.err.Get()
 }

@@ -237,15 +237,15 @@ func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]i
 	return resp.Value, nil
 }
 
-func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
+func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddCallback(c chan bool) {
+func (dic *digitalInterruptClient) AddCallback(c chan Tick) {
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) RemoveCallback(c chan bool) {
+func (dic *digitalInterruptClient) RemoveCallback(c chan Tick) {
 	panic(errUnimplemented)
 }
 

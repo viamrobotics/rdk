@@ -1,0 +1,36 @@
+{
+    "functions": {
+        "base": "IsMoving",
+        "board": "GPIOPinByName",
+        "camera": "Properties",
+        "motor": "IsMoving",
+        "sensor": "Readings",
+        "servo": "Position",
+        "arm": "EndPosition",
+        "audio": "MediaProperties",
+        "gantry": "Lengths",
+        "gripper": "IsMoving",
+        "input_controller": "Controls",
+        "movement_sensor": "Properties",
+        "pose_tracker": "Poses",
+        "motion": "GetPose",
+        "vision": "DetectorNames"
+    },
+    "args": {
+        "base": "context.Background()",
+        "board": "",
+        "camera": "context.Background()",
+        "motor": "context.Background()",
+        "sensor": "context.Background(), map[string]interface{}{}",
+        "servo": "context.Background(), map[string]interface{}{}",
+        "arm": "context.Background(), map[string]interface{}{}",
+        "audio": "MediaProperties",
+        "gantry": "context.Background(), map[string]interface{}{}",
+        "gripper": "context.Background()",
+        "input_controller": "context.Background(), map[string]interface{}{}",
+        "movement_sensor": "context.Background(), map[string]interface{}{}",
+        "pose_tracker": "",
+        "motion": "",
+        "vision": "context.Background(), map[string]interface{}{}"
+    }
+}
