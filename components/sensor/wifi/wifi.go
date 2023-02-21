@@ -67,7 +67,6 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 		}
 		iface, readings, err := sensor.readingsByInterface(line)
 		if err != nil {
-			// TODO: support partial readings?
 			return nil, err
 		}
 		result[iface] = readings
