@@ -4,6 +4,7 @@ package wifi
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -36,7 +37,7 @@ func init() {
 }
 
 func newWifi(logger golog.Logger, path string) (sensor.Sensor, error) {
-	if _, err := os.ReadFile(path); err != nil {
+	if _, err := os.ReadFile(filepath.Clean(path)); err != nil {
 		return nil, errors.Wrap(err, "wifi readings not supported on this system")
 	}
 	return &wifi{logger: logger, path: path}, nil
@@ -92,8 +93,8 @@ func (sensor *wifi) readingsByInterface(line string) (string, map[string]interfa
 	}
 
 	return iface, map[string]interface{}{
-		"link_quality":     int(link),
-		"level_dB": int(level),
-		"noise_dB": int(noise),
+		"link_quality": int(link),
+		"level_dB":     int(level),
+		"noise_dB":     int(noise),
 	}, nil
 }
