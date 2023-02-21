@@ -122,15 +122,15 @@ func MessageToProtoV1(msg interface{}) protov1.Message {
 	return nil
 }
 
-// ServiceDoCommander is a service that allows the execution of DoCommand.
-type ServiceDoCommander interface {
+// ClientDoCommander is a gRPC client that allows the execution of DoCommand.
+type ClientDoCommander interface {
 	// DoCommand sends/receives arbitrary commands
 	DoCommand(ctx context.Context, in *commonpb.DoCommandRequest,
 		opts ...grpc.CallOption) (*commonpb.DoCommandResponse, error)
 }
 
 // DoFromResourceClient is a helper to allow DoCommand() calls from any client.
-func DoFromResourceClient(ctx context.Context, svc ServiceDoCommander, name string,
+func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name string,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	command, err := protoutils.StructToStructPb(cmd)
@@ -147,14 +147,8 @@ func DoFromResourceClient(ctx context.Context, svc ServiceDoCommander, name stri
 	return resp.Result.AsMap(), nil
 }
 
-// ResourceDoCommander is a resource that allows the execution of DoCommand.
-type ResourceDoCommander interface {
-	// DoCommand sends/receives arbitrary data
-	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-}
-
 // DoFromResourceServer is a helper to allow DoCommand() calls from any server.
-func DoFromResourceServer(ctx context.Context, resource ResourceDoCommander,
+func DoFromResourceServer(ctx context.Context, resource resource.Generic,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	res, err := resource.DoCommand(ctx, req.Command.AsMap())
