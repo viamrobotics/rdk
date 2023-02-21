@@ -80,7 +80,7 @@ func (sensor *wifi) readingsByInterface(line string) (string, map[string]interfa
 
 	link, err := strconv.ParseInt(strings.TrimRight(fields[2], "."), 10, 32)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "invalid link reading")
+		return "", nil, errors.Wrap(err, "invalid link quality reading")
 	}
 	level, err := strconv.ParseInt(strings.TrimRight(fields[3], "."), 10, 32)
 	if err != nil {
@@ -92,7 +92,7 @@ func (sensor *wifi) readingsByInterface(line string) (string, map[string]interfa
 	}
 
 	return iface, map[string]interface{}{
-		"link":     int(link),
+		"link_quality":     int(link),
 		"level_dB": int(level),
 		"noise_dB": int(noise),
 	}, nil

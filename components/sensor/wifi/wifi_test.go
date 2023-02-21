@@ -50,14 +50,14 @@ IFACE1: XXXX   59.  -51.  -257        X      X      X      X  XXXXX        X`)
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[string]interface{}{
 		"IFACE0": map[string]interface{}{
-			"link":     int(58),
-			"level_dB": int(-52),
-			"noise_dB": int(-256),
+			"link_quality": int(58),
+			"level_dB":     int(-52),
+			"noise_dB":     int(-256),
 		},
 		"IFACE1": map[string]interface{}{
-			"link":     int(59),
-			"level_dB": int(-51),
-			"noise_dB": int(-257),
+			"link_quality": int(59),
+			"level_dB":     int(-51),
+			"noise_dB":     int(-257),
 		},
 	}
 
