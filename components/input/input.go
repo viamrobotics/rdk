@@ -204,15 +204,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Controller, erro
 
 // FromRobot is a helper for getting the named input controller from the given Robot.
 func FromRobot(r robot.Robot, name string) (Controller, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Controller)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Controller](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.
