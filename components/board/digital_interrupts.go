@@ -143,7 +143,7 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 }
 
 // Tick records an interrupt and notifies any interested callbacks. See comment on
-// the DigitalInterrupt interface for caveats
+// the DigitalInterrupt interface for caveats.
 func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
