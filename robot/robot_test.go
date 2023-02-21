@@ -97,6 +97,5 @@ func TestResourceFromRobot(t *testing.T) {
 
 type mock struct {
 	arm.Arm
-	Name        string
-	reconfCount int
+	Name string
 }
