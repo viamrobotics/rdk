@@ -1,7 +1,11 @@
 {
-  "name": "rdk-web",
-  "version": "0.1.0",
+  "name": "@viamrobotics/remote-control",
+  "version": "0.1.28",
   "license": "Apache-2.0",
+  "files": [
+    "src/components/**/*.vue",
+    "src/lib/**/*.ts"
+  ],
   "dependencies": {
     "@fontsource/space-mono": "^4.5.10",
     "@improbable-eng/grpc-web": "^0.13.0",
