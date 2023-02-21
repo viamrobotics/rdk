@@ -55,23 +55,43 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
+
+	result := make(map[string]interface{})
 	lines := strings.Split(string(dump), "\n")
-	fields := strings.Fields(lines[len(lines)-1])
+	for i, line := range lines {
+		if i < 2 {
+			continue
+		}
+		iface, readings, err := sensor.readingsByInterface(line)
+		if err != nil {
+			// TODO: support partial readings?
+			return nil, err
+		}
+		result[iface] = readings
+	}
+
+	return result, nil
+}
+
+func (sensor *wifi) readingsByInterface(line string) (string, map[string]interface{}, error) {
+	fields := strings.Fields(line)
+
+	iface := strings.TrimRight(fields[0], ":")
 
 	link, err := strconv.ParseInt(strings.TrimRight(fields[2], "."), 10, 32)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid link reading")
+		return "", nil, errors.Wrap(err, "invalid link reading")
 	}
 	level, err := strconv.ParseInt(strings.TrimRight(fields[3], "."), 10, 32)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid wifi level reading")
+		return "", nil, errors.Wrap(err, "invalid wifi level reading")
 	}
 	noise, err := strconv.ParseInt(fields[4], 10, 32)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid wifi noise reading")
+		return "", nil, errors.Wrap(err, "invalid wifi noise reading")
 	}
 
-	return map[string]interface{}{
+	return iface, map[string]interface{}{
 		"link":     int(link),
 		"level_dB": int(level),
 		"noise_dB": int(noise),
