@@ -75,7 +75,7 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 	return result, nil
 }
 
-func (sensor *wifi) readingsByInterface(line string) (string, map[string]interface{}, error) {
+func (sensor *wifi) readingsByInterface(line string) (string, map[string]int, error) {
 	fields := strings.Fields(line)
 
 	iface := strings.TrimRight(fields[0], ":")
@@ -93,7 +93,7 @@ func (sensor *wifi) readingsByInterface(line string) (string, map[string]interfa
 		return "", nil, errors.Wrap(err, "invalid wifi noise reading")
 	}
 
-	return iface, map[string]interface{}{
+	return iface, map[string]int{
 		"link_quality": int(link),
 		"level_dB":     int(level),
 		"noise_dB":     int(noise),
