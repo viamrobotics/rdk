@@ -284,9 +284,8 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	return defaultFileExt
 }
 
-// GetAllReadings returns all readings in the file at filePath.
-func GetAllReadings(filePath string) ([]*v1.SensorData, error) {
-	var readings []*v1.SensorData
+// SensorDataFromFilePath returns all readings in the file at filePath.
+func SensorDataFromFilePath(filePath string) ([]*v1.SensorData, error) {
 	//nolint:gosec
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -297,15 +296,22 @@ func GetAllReadings(filePath string) ([]*v1.SensorData, error) {
 		return nil, err
 	}
 
+	return SensorDataFromFile(dcFile)
+}
+
+// SensorDataFromFile returns all readings in f.
+func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
+	f.Reset()
+	var ret []*v1.SensorData
 	for {
-		next, err := dcFile.ReadNext()
-		if errors.Is(err, io.EOF) {
-			break
-		}
+		next, err := f.ReadNext()
 		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
 			return nil, err
 		}
-		readings = append(readings, next)
+		ret = append(ret, next)
 	}
-	return readings, nil
+	return ret, nil
 }
