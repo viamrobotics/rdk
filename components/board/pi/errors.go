@@ -1,7 +1,7 @@
-package gpio
+package pi
 
-// ServoErrorMap maps the error codes to the human readable error names. This can be found at the pigpio C interface.
-var ServoErrorMap = map[int]string{
+// PiGPIOErrorMap maps the error codes to the human readable error names. This can be found at the pigpio C interface.
+var PiGPIOErrorMap = map[int]string{
 	-1:   "PI_INIT_FAILED: gpioInitialise failed",
 	-2:   "PI_BAD_USER_GPIO: GPIO not 0-31",
 	-3:   "PI_BAD_GPIO: GPIO not 0-53",

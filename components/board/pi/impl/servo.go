@@ -16,10 +16,10 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board/pi"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/components/servo/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
@@ -61,7 +61,7 @@ func init() {
 				if attr.StartPos == nil {
 					setPos := C.gpioServo(theServo.pin, C.uint(1500)) // a 1500ms pulsewidth positions the servo at 90 degrees
 					errorCode := int(setPos)
-					errorMessage, exists := gpio.ServoErrorMap[errorCode]
+					errorMessage, exists := pi.PiGPIOErrorMap[errorCode]
 					if exists {
 						return nil, errors.Errorf("gpioServo failed with %s", errorMessage)
 					}
@@ -71,7 +71,7 @@ func init() {
 				} else {
 					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos))))
 					errorCode := int(setPos)
-					errorMessage, exists := gpio.ServoErrorMap[errorCode]
+					errorMessage, exists := pi.PiGPIOErrorMap[errorCode]
 					if exists {
 						return nil, errors.Errorf("gpioServo failed with %s", errorMessage)
 					}
@@ -191,7 +191,7 @@ func (s *piPigpioServo) Stop(ctx context.Context, extra map[string]interface{}) 
 	defer done()
 	getPos := C.gpioServo(s.pin, C.uint(0))
 	errorCode := int(getPos)
-	errorMessage, exists := gpio.ServoErrorMap[errorCode]
+	errorMessage, exists := pi.PiGPIOErrorMap[errorCode]
 	if exists {
 		return errors.Errorf("gpioServo failed with %s", errorMessage)
 	}
