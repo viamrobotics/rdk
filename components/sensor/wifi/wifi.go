@@ -64,15 +64,15 @@ func (sensor *wifi) Readings(ctx context.Context, extra map[string]interface{}) 
 
 	link, err := strconv.ParseInt(strings.TrimRight(fields[2], "."), 10, 32)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid reading")
+		return nil, errors.Wrap(err, "invalid link reading")
 	}
 	level, err := strconv.ParseInt(strings.TrimRight(fields[3], "."), 10, 32)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid reading")
+		return nil, errors.Wrap(err, "invalid wifi level reading")
 	}
 	noise, err := strconv.ParseInt(fields[4], 10, 32)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid reading")
+		return nil, errors.Wrap(err, "invalid wifi noise reading")
 	}
 
 	return map[string]interface{}{
