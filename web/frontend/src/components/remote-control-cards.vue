@@ -58,7 +58,7 @@ import {
 
 interface Props {
   host: string;
-  bakedAuth: {
+  bakedAuth?: {
     authEntity: string;
     creds: Credentials;
   },
@@ -79,7 +79,7 @@ const relevantSubtypesForStatus = [
 ];
 
 const password = $ref<string>('');
-const bakedAuth = $computed(() => props.bakedAuth);
+const bakedAuth = $computed(() => props.bakedAuth || {} as {authEntity: string, creds: Credentials});
 const supportedAuthTypes = $computed(() => props.supportedAuthTypes);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});

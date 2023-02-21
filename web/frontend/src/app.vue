@@ -11,11 +11,6 @@ const {
   webrtcEnabled,
   webrtcSignalingAddress,
 } = window;
-const { bakedAuth } = window;
-const { supportedAuthTypes } = window;
-const { webrtcAdditionalICEServers } = window;
-const { webrtcEnabled } = window;
-const { webrtcSignalingAddress } = window;
 
 const rtcConfig = {
   iceServers: [
