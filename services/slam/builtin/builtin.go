@@ -39,10 +39,10 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
-	slamConfig "go.viam.com/rdk/services/slam/internal/config"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/utils"
 )
 
