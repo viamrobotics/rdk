@@ -1,6 +1,6 @@
 <!-- eslint-disable multiline-comment-style -->
 <script setup lang="ts">
-
+// @ts-nocheck TODO: fix typecheck errors in https://viam.atlassian.net/browse/RSDK-1897
 /**
  * @TODO: No disposing of THREE resources currently.
  * This is causing memory leaks.
