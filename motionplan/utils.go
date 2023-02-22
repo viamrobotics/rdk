@@ -117,7 +117,7 @@ func stepsToNodes(steps [][]referenceframe.Input) []node {
 }
 
 type resultPromise struct {
-	steps [][]referenceframe.Input
+	steps  [][]referenceframe.Input
 	future chan *rrtPlanReturn
 }
 
@@ -138,6 +138,7 @@ func (r *resultPromise) result(ctx context.Context) ([][]referenceframe.Input, e
 				return nil, planReturn.err()
 			}
 			return planReturn.toInputs(), nil
+		default:
 		}
 	}
 }

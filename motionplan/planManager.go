@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -76,7 +77,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	var goals []spatialmath.Pose
 	var opts []*plannerOptions
-	
+
 	// Viability check; ensure that the waypoint is not impossible to reach
 	_, err = pm.getSolutions(ctx, goalPos, seed)
 	if err != nil {
@@ -115,25 +116,24 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to plan path for valid goal: %w", err)
 	}
 	return resultSlices, nil
 }
 
 // planAtomicWaypoints will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning
 // the next motion as soon as its starting point is known. This is responsible for repeatedly calling planSingleAtomicWaypoint for each
-// intermediate waypoint. Waypoints here refer to points that the software has generated to 
+// intermediate waypoint. Waypoints here refer to points that the software has generated to.
 func (pm *planManager) planAtomicWaypoints(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	opts []*plannerOptions,
 ) ([][]referenceframe.Input, error) {
-	
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
-	
+
 	// try to solve each goal, one at a time
 	for i, goal := range goals {
 		// Check if ctx is done between each waypoint
@@ -142,7 +142,7 @@ func (pm *planManager) planAtomicWaypoints(
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		opt := opts[i]
 		if opt == nil {
 			opt = newBasicPlannerOptions()
@@ -155,9 +155,9 @@ func (pm *planManager) planAtomicWaypoints(
 		seed = newseed
 		resultPromises = append(resultPromises, future)
 	}
-	
+
 	resultSlices := [][]referenceframe.Input{}
-	
+
 	// All goals have been submitted for solving. Reconstruct in order
 	for _, future := range resultPromises {
 		steps, err := future.result(ctx)
@@ -166,7 +166,7 @@ func (pm *planManager) planAtomicWaypoints(
 		}
 		resultSlices = append(resultSlices, steps...)
 	}
-	
+
 	return resultSlices, nil
 }
 
@@ -184,17 +184,17 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	if seed, ok := opt.extra["rseed"].(int); ok {
 		//nolint: gosec
 		randseed = rand.New(rand.NewSource(int64(seed)))
-	} else{
+	} else {
 		//nolint: gosec
 		randseed = rand.New(rand.NewSource(int64(pm.randseed.Int())))
 	}
-	
+
 	pathPlanner, err := opt.PlannerConstructor(
 		pm.frame,
 		randseed,
 		pm.logger,
 		opt,
-		)
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -205,7 +205,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
 		utils.PanicCapturingGo(func() {
-			pm.planParallelRRTMotion(ctx, goal, seed, opt, parPlan, endpointPreview, solutionChan, nil)
+			pm.planParallelRRTMotion(ctx, goal, seed, opt, parPlan, endpointPreview, solutionChan, maps)
 		})
 		for {
 			select {
@@ -213,7 +213,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 				return nil, nil, ctx.Err()
 			default:
 			}
-			
+
 			// If we received a preview of the final configuration, start solving the next atomic waypoint using that as a seed
 			// The resultPromise with the solution will be stored for later
 			select {
@@ -239,7 +239,6 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// Update seed for the next waypoint to be the final configuration of this waypoint
 		seed = steps[len(steps)-1]
 		return seed, &resultPromise{steps: steps}, nil
-		
 	}
 }
 
@@ -259,13 +258,13 @@ func (pm *planManager) planParallelRRTMotion(
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
 		planSeed := initRRTSolutions(ctx, pathPlanner, goal, seed)
-		if planSeed.planerr != nil || planSeed.steps != nil{
+		if planSeed.planerr != nil || planSeed.steps != nil {
 			solutionChan <- planSeed
 			return
 		}
 		maps = planSeed.maps
 	}
-	
+
 	// publish endpoint of plan if it is known
 	var nextSeed node
 	if len(maps.goalMap) == 1 {
@@ -278,11 +277,11 @@ func (pm *planManager) planParallelRRTMotion(
 			endpointPreview = nil
 		}
 	}
-	
+
 	// This ctx is used exclusively for the running of the new planner and timing it out.
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
 	defer cancel()
-	
+
 	plannerChan := make(chan *rrtPlanReturn, 1)
 
 	// start the planner
@@ -325,14 +324,14 @@ func (pm *planManager) planParallelRRTMotion(
 					skipFallback = true
 				}
 			}
-			
+
 			// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 			smoothChan := make(chan []node, 1)
 			utils.PanicCapturingGo(func() {
 				smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 			})
 			var alternateFuture *resultPromise
-			
+
 			// Run fallback only if we don't have a very good path
 			if !skipFallback && opt.Fallback != nil {
 				_, alternateFuture, err = pm.planSingleAtomicWaypoint(
@@ -346,11 +345,11 @@ func (pm *planManager) planParallelRRTMotion(
 					alternateFuture = nil
 				}
 			}
-			
+
 			// Receive the newly smoothed path from our original solve, and score it
 			finalSteps.steps = <-smoothChan
 			_, score := goodPlan(finalSteps, opt)
-			
+
 			// If we ran a fallback, retrieve the result and compare to the smoothed path
 			if alternateFuture != nil {
 				alternate, err := alternateFuture.result(ctx)
@@ -366,7 +365,7 @@ func (pm *planManager) planParallelRRTMotion(
 					}
 				}
 			}
-			
+
 			solutionChan <- finalSteps
 			return
 
