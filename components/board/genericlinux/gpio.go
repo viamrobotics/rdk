@@ -106,39 +106,29 @@ func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[strin
 	return errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 }
 
-var pins map[string]*gpioPin
+func (pin *gpioPin) Close() err {
+	// We keep the gpio.Line object open indefinitely, so it holds its state for as long as this
+	// struct is around. This function is a way to close it when we're about to go out of scope, so
+	// we don't leak file descriptors.
+	if pin.line == nil {
+		return nil // Never opened, no need to close
+	}
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) {
-	pins = make(map[string]*gpioPin)
+	pin.mu.Lock()
+	defer pin.mu.Unlock()
+	err = pin.line.Close()
+	pin.line = nil
+	return err
+}
+
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]*gpioPin {
+	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
+		fmt.Printf("creating pin %d...\n", pin)
 		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 		}
 	}
-}
-
-func gpioGetPin(pinName string) (board.GPIOPin, error) {
-	pin, ok := pins[pinName]
-	if !ok {
-		return nil, errors.Errorf("Cannot set GPIO for unknown pin: %s", pinName)
-	}
-	return pin, nil
-}
-
-// We keep all gpio.Line objects open indefinitely, so that the GPIO pins hold their state for as
-// long as the structs are around. However, if the board goes out of scope (for example, because
-// the config file has been updated and we need to create a new board), we need to make sure we
-// don't leak file descriptors. So, have a way to close them all at the end.
-func gpioCloseAll() error {
-	var err error
-	for _, pin := range pins {
-		pin.mu.Lock()
-		if pin.line != nil {
-			err = multierr.Combine(err, pin.line.Close())
-			pin.line = nil
-		}
-		pin.mu.Unlock()
-	}
-	return err
+	return pins
 }
