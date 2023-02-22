@@ -8,6 +8,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	// register cameras for testing.
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -15,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -539,4 +541,28 @@ func TestServerGetClassifications(t *testing.T) {
 	test.That(t, resp2.Classifications, test.ShouldHaveLength, 10)
 	test.That(t, resp2.Classifications[0].ClassName, test.ShouldResemble, "291")
 	test.That(t, resp2.Classifications[0].Confidence, test.ShouldBeGreaterThan, 0.82)
+}
+
+func TestServerDoCommand(t *testing.T) {
+	resourceMap := map[resource.Name]interface{}{
+		vision.Named(testSvcName1): &inject.VisionService{
+			DoCommandFunc: generic.EchoFunc,
+		},
+	}
+	server, err := newServer(resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	doCommandRequest := &commonpb.DoCommandRequest{
+		Name:    testSvcName1,
+		Command: cmd,
+	}
+	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that do command response is an echoed request.
+	respMap := doCommandResponse.Result.AsMap()
+	test.That(t, respMap["command"], test.ShouldResemble, "test")
+	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
 }

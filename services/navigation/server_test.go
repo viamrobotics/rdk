@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/subtype"
@@ -400,4 +401,29 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_MANUAL)
 	})
+}
+
+func TestServerDoCommand(t *testing.T) {
+	resourceMap := map[resource.Name]interface{}{
+		navigation.Named(testSvcName1): &inject.NavigationService{
+			DoCommandFunc: generic.EchoFunc,
+		},
+	}
+	injectSubtypeSvc, err := subtype.New(resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+	server := navigation.NewServer(injectSubtypeSvc)
+
+	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	doCommandRequest := &commonpb.DoCommandRequest{
+		Name:    testSvcName1,
+		Command: cmd,
+	}
+	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that do command response is an echoed request.
+	respMap := doCommandResponse.Result.AsMap()
+	test.That(t, respMap["command"], test.ShouldResemble, "test")
+	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
 }

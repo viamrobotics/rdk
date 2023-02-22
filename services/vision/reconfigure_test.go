@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
@@ -59,10 +60,27 @@ func TestReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
 }
 
+func TestDoCommand(t *testing.T) {
+	svc := &mock1{name: testSvcName1}
+
+	resp, err := svc.DoCommand(context.Background(), generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, generic.TestCommand)
+	test.That(t, svc.cmd, test.ShouldResemble, generic.TestCommand)
+}
+
 type mock1 struct {
 	vision.Service
 	name        string
 	reconfCount int
+	cmd         map[string]interface{}
+}
+
+func (m *mock1) DoCommand(_ context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	m.cmd = cmd
+	return cmd, nil
 }
 
 func (m *mock1) Close(ctx context.Context) error {
