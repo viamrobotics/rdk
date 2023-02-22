@@ -5,9 +5,11 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 )
@@ -106,4 +108,15 @@ func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 		return nil, err
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (s *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	gantry, err := s.getGantry(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, gantry, req)
 }

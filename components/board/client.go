@@ -13,7 +13,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
+	rprotoutils "go.viam.com/rdk/protoutils"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -186,7 +186,7 @@ func (c *client) ModelAttributes() ModelAttributes {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.info.name, cmd)
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.info.name, cmd)
 }
 
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface
