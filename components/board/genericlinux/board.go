@@ -479,7 +479,7 @@ func (b *sysfsBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
-func (b *sysfsBoard) Close() {
+func (b *sysfsBoard) Close() error {
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()
@@ -487,12 +487,12 @@ func (b *sysfsBoard) Close() {
 
 	// For non-Periph boards, shut down all our open pins so we don't leak file descriptors
 	if b.usePeriphGpio {
-		return
+		return nil
 	}
+
+	var err error
 	for _, pin := range b.gpios {
-		err := pin.Close()
-		if err != nil {
-			b.logger.Error(err)
-		}
+		err = multierr.Combine(err, pin.Close())
 	}
+	return err
 }
