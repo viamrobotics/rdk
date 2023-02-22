@@ -190,15 +190,15 @@ func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStre
 	}
 	for {
 		chunk, err := f()
-		if err == io.EOF {
+
+		switch err {
+		case io.EOF:
 			stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
 			return nil
-		}
-
-		if err != nil {
+		case nil:
+			stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
+		default:
 			return err
 		}
-
-		stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
 	}
 }
