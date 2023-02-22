@@ -14,6 +14,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -67,6 +68,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 }
 
 type builtIn struct {
+	generic.Unimplemented
 	r      robot.Robot
 	modReg modelMap
 	logger golog.Logger

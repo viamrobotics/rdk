@@ -59,6 +59,7 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	resource.Generic
 }
 
 var (
@@ -136,6 +137,14 @@ func (svc *reconfigurableMotionService) GetPose(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
+func (svc *reconfigurableMotionService) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableMotionService) Close(ctx context.Context) error {

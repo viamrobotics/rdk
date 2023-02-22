@@ -58,6 +58,7 @@ type Service interface {
 	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
+	resource.Generic
 }
 
 var (
@@ -154,6 +155,14 @@ func (svc *reconfigurableNavigation) RemoveWaypoint(ctx context.Context, id prim
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.RemoveWaypoint(ctx, id, extra)
+}
+
+func (svc *reconfigurableNavigation) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableNavigation) Close(ctx context.Context) error {

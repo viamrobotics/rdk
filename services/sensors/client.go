@@ -78,3 +78,7 @@ func (c *client) Readings(ctx context.Context, sensorNames []resource.Name, extr
 	}
 	return readings, nil
 }
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}

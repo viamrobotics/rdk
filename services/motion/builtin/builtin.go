@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -39,6 +40,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 }
 
 type builtIn struct {
+	generic.Unimplemented
 	r      robot.Robot
 	logger golog.Logger
 }

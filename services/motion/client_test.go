@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
@@ -123,6 +124,14 @@ func TestClient(t *testing.T) {
 			test.That(t, spatialmath.PoseAlmostEqual(tf.Pose(), receivedTf.Pose()), test.ShouldBeTrue)
 		}
 		test.That(t, receivedTransforms, test.ShouldNotBeNil)
+
+		// DoCommand
+		injectMS.DoCommandFunc = generic.EchoFunc
+		resp, err := client.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

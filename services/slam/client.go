@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/pointcloud"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -145,4 +146,11 @@ func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, err
 	internalState := resp.GetInternalState()
 
 	return internalState, nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::DoCommand")
+	defer span.End()
+
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

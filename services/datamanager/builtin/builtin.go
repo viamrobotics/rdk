@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
@@ -94,6 +95,7 @@ type Config struct {
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
+	generic.Unimplemented
 	r                           robot.Robot
 	cfg                         *config.Config
 	logger                      golog.Logger
