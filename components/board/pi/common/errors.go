@@ -1,5 +1,7 @@
 package picommon
 
+import "github.com/pkg/errors"
+
 // PiGPIOErrorMap maps the error codes to the human readable error names. This can be found at the pigpio C interface.
 var PiGPIOErrorMap = map[int]string{
 	-1:   "PI_INIT_FAILED: gpioInitialise failed",
@@ -148,4 +150,13 @@ var PiGPIOErrorMap = map[int]string{
 	-144: "PI_CMD_INTERRUPTED: Used by Python",
 	-145: "PI_NOT_ON_BCM2711: not available on BCM2711",
 	-146: "PI_ONLY_ON_BCM2711: only available on BCM271",
+}
+
+func ConvertErrorCodeToMessage(errorCode int, message string) error {
+	errorMessage, exists := PiGPIOErrorMap[errorCode]
+	if exists {
+		return errors.Errorf("%s: %s", message, errorMessage)
+	} else {
+		return errors.Errorf("%s: %d", message, errorCode)
+	}
 }
