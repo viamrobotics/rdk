@@ -8,6 +8,7 @@ import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
+import { selectedMap } from '../lib/camera-state';
 
 interface Props {
   name: string;
@@ -35,13 +36,6 @@ const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcL
 const root = $ref<HTMLElement>();
 
 const refreshFrequency = $ref('Every Second');
-const selectedMap = {
-  Live: -1,
-  'Manual Refresh': 0,
-  'Every 30 Seconds': 30,
-  'Every 10 Seconds': 10,
-  'Every Second': 1,
-} as const;
 const triggerRefresh = $ref(false);
 
 const openCameras = $ref<Record<string, boolean | undefined>>({});

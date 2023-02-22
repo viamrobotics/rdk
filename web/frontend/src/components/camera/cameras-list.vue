@@ -6,6 +6,7 @@ import type {
 
 import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
+import { selectedMap } from '../../lib/camera-state';
 
 interface Props {
   resources: commonApi.ResourceName.AsObject[],
@@ -18,13 +19,6 @@ const openCameras = $ref<Record<string, boolean | undefined>>({});
 const refreshFrequency = $ref<Record<string, string | undefined>>({});
 
 const triggerRefresh = $ref(false);
-const selectedMap = {
-  Live: -1,
-  'Manual Refresh': 0,
-  'Every 30 Seconds': 30,
-  'Every 10 Seconds': 10,
-  'Every Second': 1,
-} as const;
 
 const setupCamera = (cameraName: string) => {
   openCameras[cameraName] = !openCameras[cameraName];
