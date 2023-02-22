@@ -41,9 +41,9 @@
                 "r": 65.0,
                 "l": 550.0,
                 "translation": {
-                    "x": 0,
-                    "y": 130,
-                    "z": 212.5
+                    "x": -212.5,
+                    "y": -130,
+                    "z": 0
                 },
                 "orientation": {
                     "type": "ov_degrees",
@@ -68,9 +68,9 @@
                 "r": 50.0,
                 "l": 490.0,
                 "translation": {
-                    "x": 0,
+                    "x": -196.1,
                     "y": 0,
-                    "z": 196.1
+                    "z": 0
                 },
                 "orientation": {
                     "type": "ov_degrees",
@@ -96,8 +96,8 @@
                 "l": 230.0,
                 "translation": {
                     "x": 0,
-                    "y": 0,
-                    "z": 66.65
+                    "y": -66.65,
+                    "z": 0
                 },
                 "orientation": {
                     "type": "ov_degrees",
@@ -124,7 +124,7 @@
                 "translation": {
                     "x": 0,
                     "y": 0,
-                    "z": 49.85
+                    "z": -49.85
                 },
                 "orientation": {
                     "type": "ov_degrees",
@@ -159,8 +159,8 @@
                 "l": 170.0,
                 "translation": {
                     "x": 0,
-                    "y": 0,
-                    "z": 49.85
+                    "y": -49.85,
+                    "z": 0
                 },
                 "orientation": {
                     "type": "ov_degrees",
