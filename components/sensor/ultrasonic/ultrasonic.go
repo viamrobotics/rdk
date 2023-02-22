@@ -103,15 +103,6 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
 	}
-	s.echoInterrupt.AddCallback(s.ticksChan)
-	// we consume ticks in case setting it to low initially prompts an
-	// unintended reading from the sensor
-	for i := 0; i < 2; i++ {
-		select {
-		case <-s.ticksChan:
-		default:
-		}
-	}
 
 	return s, nil
 }
@@ -140,6 +131,8 @@ func (s *Sensor) namedError(err error) error {
 func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.echoInterrupt.AddCallback(s.ticksChan)
+	defer s.echoInterrupt.RemoveCallback(s.ticksChan)
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse
@@ -183,6 +176,5 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 // Close remove interrupt callback of ultrasonic sensor.
 func (s *Sensor) Close() error {
 	s.cancelFunc()
-	s.echoInterrupt.RemoveCallback(s.ticksChan)
 	return nil
 }
