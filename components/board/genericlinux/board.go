@@ -155,13 +155,13 @@ func init() {
 
 type sysfsBoard struct {
 	generic.Unimplemented
-	mu            sync.RWMutex
-	gpioMappings  map[int]GPIOBoardMapping
-	spis          map[string]*spiBus
-	analogs       map[string]board.AnalogReader
-	pwms          map[string]pwmSetting
-	i2cs          map[string]board.I2C
-	logger        golog.Logger
+	mu           sync.RWMutex
+	gpioMappings map[int]GPIOBoardMapping
+	spis         map[string]*spiBus
+	analogs      map[string]board.AnalogReader
+	pwms         map[string]pwmSetting
+	i2cs         map[string]board.I2C
+	logger       golog.Logger
 
 	usePeriphGpio bool
 	gpios         map[string]*gpioPin // Only used for non-periph.io pins
@@ -321,10 +321,10 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	}
 	// Otherwise, the pins are stored in b.gpios.
 	pin, ok := b.gpios[pinName]
-    if !ok {
-        return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
-    }
-    return pin, nil
+	if !ok {
+		return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
+	}
+	return pin, nil
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
