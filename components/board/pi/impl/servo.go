@@ -77,7 +77,7 @@ func init() {
 						return nil, ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				} else {
-					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos))))
+					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos), int(theServo.maxRotation))))
 					errorCode := int(setPos)
 					if errorCode != 0 {
 						return nil, ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
