@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/components/generic"
+	rprotoutils "go.viam.com/rdk/protoutils"
 )
 
 // client implements InputControllerServiceClient.
@@ -359,5 +359,5 @@ func (c *client) Close() error {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

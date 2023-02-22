@@ -199,15 +199,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
 
 // FromRobot is a helper for getting the named board from the given Robot.
 func FromRobot(r robot.Robot, name string) (Board, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Board)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Board](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.

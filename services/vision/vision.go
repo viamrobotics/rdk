@@ -106,15 +106,7 @@ func Named(name string) resource.Name {
 
 // FromRobot is a helper for getting the named vision service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	resource, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, utils.NewResourceNotFoundError(Named(name))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
 // FindFirstName returns name of first vision service found.

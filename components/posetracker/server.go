@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -61,4 +62,15 @@ func (server *subtypeServer) GetPoses(
 	return &pb.GetPosesResponse{
 		BodyPoses: poseInFrameProtoStructs,
 	}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	poseTracker, err := server.getPoseTracker(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, poseTracker, req)
 }

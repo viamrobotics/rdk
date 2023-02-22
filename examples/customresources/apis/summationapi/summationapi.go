@@ -31,15 +31,7 @@ func Named(name string) resource.Name {
 
 // FromRobot is a helper for getting the named Summation from the given Robot.
 func FromRobot(r robot.Robot, name string) (Summation, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Summation)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Summation](r, Named(name))
 }
 
 func init() {
@@ -154,7 +146,6 @@ func (s *subtypeServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumRes
 	return &pb.SumResponse{Sum: resp}, nil
 }
 
-
 func newClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Summation {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
@@ -187,7 +178,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Summation {
 
 func (c *client) Sum(ctx context.Context, nums []float64) (float64, error) {
 	resp, err := c.client.Sum(ctx, &pb.SumRequest{
-		Name: c.name,
+		Name:    c.name,
 		Numbers: nums,
 	})
 	if err != nil {

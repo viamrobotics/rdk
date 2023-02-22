@@ -25,11 +25,16 @@ var (
 )
 
 func setupInjectRobot() *inject.Robot {
+	arm3 := &mock{Name: "arm3"}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Name == "arm2" {
 			return nil, rutils.NewResourceNotFoundError(name)
 		}
+		if name.Name == "arm3" {
+			return arm3, nil
+		}
+
 		return "here", nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -72,4 +77,25 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names = robot.NamesBySubtype(r, arm.Subtype)
 	test.That(t, utils.NewStringSet(names...), test.ShouldResemble, utils.NewStringSet(testutils.ExtractNames(armNames...)...))
+}
+
+func TestResourceFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	res, err := robot.ResourceFromRobot[arm.Arm](r, arm.Named("arm3"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	res, err = robot.ResourceFromRobot[arm.Arm](r, arm.Named("arm5"))
+	test.That(t, err, test.ShouldBeError, robot.NewUnimplementedInterfaceError[arm.Arm]("string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = robot.ResourceFromRobot[arm.Arm](r, arm.Named("arm2"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named("arm2")))
+	test.That(t, res, test.ShouldBeNil)
+}
+
+type mock struct {
+	arm.Arm
+	Name string
 }

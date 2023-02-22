@@ -181,7 +181,7 @@ func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra ma
 
 // Orientation orientation.
 func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return nil, movementsensor.ErrMethodUnimplementedOrientation
+	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading 0->360.

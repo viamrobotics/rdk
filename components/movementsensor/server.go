@@ -160,3 +160,14 @@ func (s *subtypeServer) GetLinearAcceleration(
 		LinearAcceleration: protoutils.ConvertVectorR3ToProto(la),
 	}, nil
 }
+
+// DoCommand receives arbitrary commands.
+func (s *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	msDevice, err := s.getMovementSensor(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, msDevice, req)
+}

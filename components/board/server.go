@@ -5,8 +5,10 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -197,4 +199,15 @@ func (s *subtypeServer) GetDigitalInterruptValue(
 		return nil, err
 	}
 	return &pb.GetDigitalInterruptValueResponse{Value: val}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (s *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	b, err := s.getBoard(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, b, req)
 }
