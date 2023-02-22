@@ -116,7 +116,21 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 // GetPointCloudMap returns a callback function which returns the next chunk of the slam map as bytes in pcd format.
 // Currently the slam algo is cartogropher.
 func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented")
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, slamSvc.dataCount)))
+	slamSvc.logger.Debug("Reading " + path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	f := func() ([]byte, error) {
+		chunk := make([]byte, 64*1024)
+		_, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+		}
+		return chunk, err
+	}
+	return f, nil
 }
 
 // Position returns a PoseInFrame of the robot's current location according to SLAM.
@@ -163,7 +177,21 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 // GetInternalStateStream returns a callback function which returns the next chunk of the slam algo's internal state.
 // Currently the internal state of cartogropher.
 func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented")
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, slamSvc.dataCount)))
+	slamSvc.logger.Debug("Reading " + path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	f := func() ([]byte, error) {
+		chunk := make([]byte, 64*1024)
+		_, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+		}
+		return chunk, err
+	}
+	return f, nil
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting

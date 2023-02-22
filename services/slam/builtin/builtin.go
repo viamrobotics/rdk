@@ -575,7 +575,7 @@ func (slamSvc *builtIn) GetMap(
 	return mimeType, imData, vObj, nil
 }
 
-// GetPointCloudMap forwards the request for the SLAM algorithms's pointcloud map. 
+// GetPointCloudMap forwards the request for the SLAM algorithms's pointcloud map.
 // returns a callback function which returns the next chunk of the pointcloud map.
 func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMap")
@@ -594,7 +594,7 @@ func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context, name string) (func
 			return nil, err
 		}
 
-		return chunk.GetPointCloudPcdChunk(), err
+		return chunk.GetPointCloudPcdChunk(), nil
 	}
 
 	return f, err
@@ -617,7 +617,7 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 	return internalState, err
 }
 
-// GetInternalStateStream forwards the request for the SLAM algorithms's internal state. 
+// GetInternalStateStream forwards the request for the SLAM algorithms's internal state.
 // returns a callback function which returns the next chunk of the internal state.
 func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
@@ -636,7 +636,7 @@ func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string)
 			return nil, err
 		}
 
-		return chunk.GetInternalStateChunk(), err
+		return chunk.GetInternalStateChunk(), nil
 	}
 
 	return f, err
