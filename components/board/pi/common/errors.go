@@ -152,6 +152,7 @@ var PiGPIOErrorMap = map[int]string{
 	-146: "PI_ONLY_ON_BCM2711: only available on BCM271",
 }
 
+// given message and error code returns a human-readable string
 func ConvertErrorCodeToMessage(errorCode int, message string) error {
 	errorMessage, exists := PiGPIOErrorMap[errorCode]
 	if exists {
