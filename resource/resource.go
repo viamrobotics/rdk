@@ -403,3 +403,9 @@ func StopResource(ctx context.Context, res interface{}, extra map[string]interfa
 
 	return nil
 }
+
+// Generic is a resource that allows the execution of DoCommand.
+type Generic interface {
+	// DoCommand sends/receives arbitrary data
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+}
