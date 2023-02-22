@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"image/jpeg"
+	"io"
 
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
@@ -140,4 +141,64 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 	return &pb.GetInternalStateResponse{
 		InternalState: internalState,
 	}, nil
+}
+
+// GetInternalStateStream
+func (server *subtypeServer) GetPointcloudMap(req *pb.GetPointCloudMapStreamRequest, stream pb.SLAMService_GetPointCloudMapStreamServer) error {
+  ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointcloudMap")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetPointCloudMap(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+	for {
+		chunk, err := f()
+		if err == io.EOF {
+			stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
+	}
+}
+
+// GetInternalStateStream
+func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest, stream pb.SLAMService_GetInternalStateStreamServer) error {
+  ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalStateStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetInternalStateStream(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+	for {
+		chunk, err := f()
+		if err == io.EOF {
+			stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
+	}
 }
