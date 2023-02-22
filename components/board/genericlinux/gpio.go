@@ -26,22 +26,29 @@ type gpioPin struct {
 // This is a private helper function that should only be called when the mutex is locked. It sets
 // pin.line to a valid struct or returns an error.
 func (pin *gpioPin) openGpioFd() error {
+	fmt.Printf("starting openGpioFd, pin.line is ->%v<-\n", pin.line)
 	if pin.line != nil {
+		fmt.Println("line is already opened! Skip the rest")
 		return nil // If the pin is already opened, don't re-open it.
 	}
 
+	fmt.Println("opening chip...")
 	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
 		return err
 	}
-	defer func() { err = chip.Close() }()
+	fmt.Println("chip opened!")
+	defer func() { err = chip.Close()
+fmt.Println("deferred chip closing")}()
 
 	// The 0 just means the default value for this pin is off. We'll set it to the intended value
 	// in Set(), below.
+	fmt.Println("opening line...")
 	line, err := chip.OpenLine(pin.offset, 0, gpio.Output, "viam-gpio")
 	if err != nil {
 		return err
 	}
+	fmt.Printf("line opened, it is now ->%v<-!\n", line)
 	pin.line = line
 	return nil
 }
@@ -51,9 +58,11 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	fmt.Println("About to try to open FD...")
 	if err := pin.openGpioFd(); err != nil {
 		return err
 	}
+	fmt.Println("successfully opened FD!")
 
 	var value byte
 	if isHigh {
@@ -62,6 +71,7 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 		value = 0
 	}
 
+	fmt.Println("About to call line.SetValue...")
 	return pin.line.SetValue(value)
 }
 
@@ -119,11 +129,11 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]gpioPin {
-	pins := make(map[string]gpioPin)
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]*gpioPin {
+	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
 		fmt.Printf("creating pin %d...\n", pin)
-		pins[fmt.Sprintf("%d", pin)] = gpioPin{
+		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 		}
