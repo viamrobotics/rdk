@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"io"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
@@ -143,8 +144,11 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 	}, nil
 }
 
-// GetInternalStateStream
-func (server *subtypeServer) GetPointcloudMap(req *pb.GetPointCloudMapStreamRequest, stream pb.SLAMService_GetPointCloudMapStreamServer) error {
+// GetInternalStateStream.
+func (server *subtypeServer) GetPointcloudMap(
+	req *pb.GetPointCloudMapStreamRequest,
+	stream pb.SLAMService_GetPointCloudMapStreamServer,
+) error {
 	ctx := context.Background()
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointcloudMap")
 	defer span.End()
@@ -159,22 +163,28 @@ func (server *subtypeServer) GetPointcloudMap(req *pb.GetPointCloudMapStreamRequ
 		return err
 	}
 	for {
-		chunk, err := f()
+		rawChunk, err := f()
 
-		switch err {
-		case io.EOF:
-			stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
+		if errors.Is(err, io.EOF) {
 			return nil
-		case nil:
-			stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
-		default:
+		}
+
+		if err != nil {
+			return err
+		}
+
+		chunk := &pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
 			return err
 		}
 	}
 }
 
-// GetInternalStateStream
-func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest, stream pb.SLAMService_GetInternalStateStreamServer) error {
+// GetInternalStateStream.
+func (server *subtypeServer) GetInternalStateStream(
+	req *pb.GetInternalStateStreamRequest,
+	stream pb.SLAMService_GetInternalStateStreamServer,
+) error {
 	ctx := context.Background()
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalStateStream")
 	defer span.End()
@@ -189,15 +199,18 @@ func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStre
 		return err
 	}
 	for {
-		chunk, err := f()
+		rawChunk, err := f()
 
-		switch err {
-		case io.EOF:
-			stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
+		if errors.Is(err, io.EOF) {
 			return nil
-		case nil:
-			stream.Send(&pb.GetInternalStateStreamResponse{InternalStateChunk: chunk})
-		default:
+		}
+
+		if err != nil {
+			return err
+		}
+
+		chunk := &pb.GetInternalStateStreamResponse{InternalStateChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
 			return err
 		}
 	}
