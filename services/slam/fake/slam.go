@@ -113,6 +113,12 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 	return mimeType, img, vObj, nil
 }
 
+// GetPointCloudMap returns a callback function which returns the next chunk of the slam map as bytes in pcd format.
+// Currently the slam algo is cartogropher.
+func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	return nil, errors.New("unimplemented")
+}
+
 // Position returns a PoseInFrame of the robot's current location according to SLAM.
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, slamSvc.dataCount)))
@@ -152,6 +158,12 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 		return nil, err
 	}
 	return data, nil
+}
+
+// GetInternalStateStream returns a callback function which returns the next chunk of the slam algo's internal state.
+// Currently the internal state of cartogropher.
+func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	return nil, errors.New("unimplemented")
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting

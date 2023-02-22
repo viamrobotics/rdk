@@ -575,6 +575,31 @@ func (slamSvc *builtIn) GetMap(
 	return mimeType, imData, vObj, nil
 }
 
+// GetPointCloudMap forwards the request for the SLAM algorithms's pointcloud map. 
+// returns a callback function which returns the next chunk of the pointcloud map.
+func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMap")
+	defer span.End()
+
+	req := &pb.GetPointCloudMapStreamRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetPointCloudMapStream(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting the GetPointCloudMap from the SLAM client")
+	}
+
+	f := func() ([]byte, error) {
+		chunk, err := resp.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		return chunk.GetPointCloudPcdChunk(), err
+	}
+
+	return f, err
+}
+
 // GetInternalState forwards the request for the SLAM algorithms's internal state. Once a response is received, it is returned
 // to the user.
 func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]byte, error) {
@@ -590,6 +615,31 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 
 	internalState := resp.GetInternalState()
 	return internalState, err
+}
+
+// GetInternalStateStream forwards the request for the SLAM algorithms's internal state. 
+// returns a callback function which returns the next chunk of the internal state.
+func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
+	defer span.End()
+
+	req := &pb.GetInternalStateStreamRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetInternalStateStream(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")
+	}
+
+	f := func() ([]byte, error) {
+		chunk, err := resp.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		return chunk.GetInternalStateChunk(), err
+	}
+
+	return f, err
 }
 
 // NewBuiltIn returns a new slam service for the given robot.

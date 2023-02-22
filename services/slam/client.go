@@ -130,6 +130,31 @@ func (c *client) GetMap(
 	return mimeType, imageData, vObject, nil
 }
 
+// GetPointCloudMap creates a request, calls the slam service GetPointCloudMapStream
+// returns a callback function which returns the next chunk.
+func (c *client) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMap")
+	defer span.End()
+
+	req := &pb.GetPointCloudMapStreamRequest{Name: name}
+
+	resp, err := c.client.GetPointCloudMapStream(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	f := func() ([]byte, error) {
+		chunk, err := resp.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		return chunk.GetPointCloudPcdChunk(), err
+	}
+
+	return f, nil
+}
+
 // GetInternalState creates a request, calls the slam service GetInternalState, and parses the response into bytes.
 func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalState")
@@ -145,4 +170,29 @@ func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, err
 	internalState := resp.GetInternalState()
 
 	return internalState, nil
+}
+
+// GetInternalStateStream creates a request, calls the slam service GetInternalStateStream, returns a callback function
+// which returns the next chunk.
+func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalStateStream")
+	defer span.End()
+
+	req := &pb.GetInternalStateStreamRequest{Name: name}
+
+	resp, err := c.client.GetInternalStateStream(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	f := func() ([]byte, error) {
+		chunk, err := resp.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		return chunk.GetInternalStateChunk(), err
+	}
+
+	return f, nil
 }
