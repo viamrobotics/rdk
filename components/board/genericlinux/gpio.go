@@ -12,6 +12,7 @@ import (
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 )
 
 type gpioPin struct {
@@ -34,7 +35,7 @@ func (pin *gpioPin) openGpioFd() error {
 	if err != nil {
 		return err
 	}
-	defer func() { err = chip.Close()
+	defer utils.UncheckedErrorFunc(chip.Close)
 
 	// The 0 just means the default value for this pin is off. We'll set it to the intended value
 	// in Set(), below.
