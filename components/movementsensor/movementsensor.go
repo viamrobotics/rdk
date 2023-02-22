@@ -85,7 +85,7 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitide (mm)
+	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (mm)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // mm / sec
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // radians / sec
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
@@ -150,12 +150,13 @@ func NamesFromRobot(r robot.Robot) []string {
 func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
-	pos, altitide, err := g.Position(ctx, extra)
+	pos, altitude, err := g.Position(ctx, extra)
 	if err != nil && !errors.Is(err, ErrMethodUnimplementedPosition) {
 		return nil, err
 	}
+
 	readings["position"] = pos
-	readings["altitide"] = altitide
+	readings["altitude"] = altitude
 
 	vel, err := g.LinearVelocity(ctx, extra)
 	if err != nil && !errors.Is(err, ErrMethodUnimplementedLinearVelocity) {
