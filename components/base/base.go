@@ -128,7 +128,11 @@ func DependencyTypeError(name string, actual interface{}) error {
 
 // FromRobot is a helper for getting the named base from the given Robot.
 func FromRobot(r robot.Robot, name string) (Base, error) {
-	return robot.ResourceFromRobot[Base](r, Named(name))
+	base, err := robot.ResourceFromRobot[Base](r, Named(name))
+	if err != nil {
+		return nil, err
+	}
+	return *base, nil
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.

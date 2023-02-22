@@ -31,7 +31,12 @@ func Named(name string) resource.Name {
 
 // FromRobot is a helper for getting the named Summation from the given Robot.
 func FromRobot(r robot.Robot, name string) (Summation, error) {
-	return robot.ResourceFromRobot[Summation](r, Named(name))
+	summation, err := robot.ResourceFromRobot[Summation](r, Named(name))
+	if err != nil {
+		return nil, err
+
+	}
+	return *summation, nil
 }
 
 func init() {
