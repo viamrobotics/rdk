@@ -89,11 +89,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 
 // FromRobot is a helper for getting the named motion service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	motion, err := robot.ResourceFromRobot[Service](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *motion, nil
+	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
 type reconfigurableMotionService struct {

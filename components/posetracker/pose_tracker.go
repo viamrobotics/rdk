@@ -81,11 +81,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
-	poseTracker, err := robot.ResourceFromRobot[PoseTracker](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *poseTracker, nil
+	return robot.ResourceFromRobot[PoseTracker](r, Named(name))
 }
 
 // Readings is a helper for getting all readings from a PoseTracker.

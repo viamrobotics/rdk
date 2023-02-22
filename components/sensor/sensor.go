@@ -77,11 +77,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, error) {
-	sensor, err := robot.ResourceFromRobot[Sensor](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *sensor, nil
+	return robot.ResourceFromRobot[Sensor](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.

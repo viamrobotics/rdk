@@ -124,11 +124,7 @@ var (
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gripper, error) {
-	arm, err := robot.ResourceFromRobot[Gripper](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *arm, nil
+	return robot.ResourceFromRobot[Gripper](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

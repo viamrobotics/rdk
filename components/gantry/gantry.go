@@ -121,11 +121,7 @@ func DependencyTypeError(name string, actual interface{}) error {
 
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
-	gantry, err := robot.ResourceFromRobot[Gantry](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *gantry, nil
+	return robot.ResourceFromRobot[Gantry](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.

@@ -232,16 +232,17 @@ func ResourceFromProtoMessage(
 }
 
 // ResourceFromRobot returns a resource from a robot.
-func ResourceFromRobot[T any](robot Robot, name resource.Name) (*T, error) {
+func ResourceFromRobot[T any](robot Robot, name resource.Name) (T, error) {
+	var zero T
 	res, err := robot.ResourceByName(name)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
 
 	part, ok := res.(T)
 
 	if !ok {
-		return nil, NewUnimplementedInterfaceError[T](res)
+		return zero, NewUnimplementedInterfaceError[T](res)
 	}
-	return &part, nil
+	return part, nil
 }
