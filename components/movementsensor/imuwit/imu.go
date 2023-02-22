@@ -47,7 +47,7 @@ import (
 
 var model = resource.NewDefaultModel("imu-wit")
 
-var baudRateList = [...]int{115200, 9600}
+var baudRateList = [...]int{115200, 9600, 0}
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
