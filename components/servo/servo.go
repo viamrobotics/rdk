@@ -98,11 +98,7 @@ func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 
 // FromRobot is a helper for getting the named servo from the given Robot.
 func FromRobot(r robot.Robot, name string) (Servo, error) {
-	servo, err := robot.ResourceFromRobot[Servo](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *servo, nil
+	return robot.ResourceFromRobot[Servo](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all servo names from the given Robot.

@@ -140,11 +140,7 @@ func FromDependencies(deps registry.Dependencies, name string) (AudioInput, erro
 
 // FromRobot is a helper for getting the named audio input from the given Robot.
 func FromRobot(r robot.Robot, name string) (AudioInput, error) {
-	audioInput, err := robot.ResourceFromRobot[AudioInput](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *audioInput, nil
+	return robot.ResourceFromRobot[AudioInput](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all audio input names from the given Robot.

@@ -130,11 +130,7 @@ func DependencyTypeError(name string, actual interface{}) error {
 
 // FromRobot is a helper for getting the named MovementSensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
-	movementSensor, err := robot.ResourceFromRobot[MovementSensor](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *movementSensor, nil
+	return robot.ResourceFromRobot[MovementSensor](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all MovementSensor names from the given Robot.

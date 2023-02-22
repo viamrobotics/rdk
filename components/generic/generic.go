@@ -99,11 +99,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 
 // FromRobot is a helper for getting the named Generic from the given Robot.
 func FromRobot(r robot.Robot, name string) (Generic, error) {
-	generic, err := robot.ResourceFromRobot[Generic](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *generic, nil
+	return robot.ResourceFromRobot[Generic](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all generic names from the given Robot.

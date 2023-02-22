@@ -371,11 +371,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
 func FromRobot(r robot.Robot, name string) (Camera, error) {
-	camera, err := robot.ResourceFromRobot[Camera](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *camera, nil
+	return robot.ResourceFromRobot[Camera](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.

@@ -155,11 +155,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {
-	arm, err := robot.ResourceFromRobot[Arm](r, Named(name))
-	if err != nil {
-		return nil, err
-	}
-	return *arm, nil
+	return robot.ResourceFromRobot[Arm](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
