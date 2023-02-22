@@ -145,7 +145,7 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 
 // GetInternalStateStream
 func (server *subtypeServer) GetPointcloudMap(req *pb.GetPointCloudMapStreamRequest, stream pb.SLAMService_GetPointCloudMapStreamServer) error {
-  ctx := context.Background()
+	ctx := context.Background()
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointcloudMap")
 	defer span.End()
 
@@ -160,22 +160,22 @@ func (server *subtypeServer) GetPointcloudMap(req *pb.GetPointCloudMapStreamRequ
 	}
 	for {
 		chunk, err := f()
-		if err == io.EOF {
+
+		switch err {
+		case io.EOF:
 			stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
 			return nil
-		}
-
-		if err != nil {
+		case nil:
+			stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
+		default:
 			return err
 		}
-
-		stream.Send(&pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: chunk})
 	}
 }
 
 // GetInternalStateStream
 func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest, stream pb.SLAMService_GetInternalStateStreamServer) error {
-  ctx := context.Background()
+	ctx := context.Background()
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalStateStream")
 	defer span.End()
 
