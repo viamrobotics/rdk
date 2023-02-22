@@ -693,7 +693,7 @@ onMounted(async () => {
   addResizeListeners();
 });
 
-onUnmounted(async () => {
+onUnmounted(() => {
   appConnectionManager.stop();
 });
 
