@@ -12,9 +12,6 @@ import (
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-
-	"go.viam.com/rdk/components/board"
 )
 
 type gpioPin struct {
@@ -106,26 +103,27 @@ func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[strin
 	return errors.New("PWM stuff is not supported on ioctl GPIO pins yet")
 }
 
-func (pin *gpioPin) Close() err {
+func (pin *gpioPin) Close() error {
 	// We keep the gpio.Line object open indefinitely, so it holds its state for as long as this
 	// struct is around. This function is a way to close it when we're about to go out of scope, so
 	// we don't leak file descriptors.
-	if pin.line == nil {
-		return nil // Never opened, no need to close
-	}
-
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
-	err = pin.line.Close()
+
+	if pin.line == nil {
+		return nil // Never opened, so no need to close
+	}
+
+	err := pin.line.Close()
 	pin.line = nil
 	return err
 }
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]*gpioPin {
-	pins := make(map[string]*gpioPin)
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]gpioPin {
+	pins := make(map[string]gpioPin)
 	for pin, mapping := range gpioMappings {
 		fmt.Printf("creating pin %d...\n", pin)
-		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
+		pins[fmt.Sprintf("%d", pin)] = gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 		}

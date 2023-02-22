@@ -111,7 +111,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				// We currently have two implementations of GPIO pins on these boards: one using
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
-				b.gpios := gpioInitialize(gpioMappings) // Defined in gpio.go
+				b.gpios = gpioInitialize(gpioMappings) // Defined in gpio.go
 			}
 			return &b, nil
 		}})
@@ -324,7 +324,7 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
     if !ok {
         return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
     }
-    return pin, nil
+    return &pin, nil
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
