@@ -23,7 +23,7 @@ type ServoConfig struct {
 	StartPos    *float64 `json:"starting_position_degs,omitempty"`
 	HoldPos     *bool    `json:"hold_position,omitempty"` // defaults True. False holds for 500 ms then disables servo
 	BoardName   string   `json:"board"`
-	MaxRotation int      `json:"max_rotation_deg,omitempty"` //describes max position the servo could reach in degrees as specified by the data sheet. Defaults to 180
+	MaxRotation int      `json:"max_rotation_deg,omitempty"` // describes max position the servo could reach in degrees as specified by the data sheet. Defaults to 180
 }
 
 // Validate ensures all parts of the config are valid.
