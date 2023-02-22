@@ -94,7 +94,7 @@
         {
             "name": "wifi1",
             "type": "sensor",
-            "model": "linux-wifi"
+            "model": "viam-labs:sensor:linux-wifi"
         },
         {
             "name": "servo1",
@@ -133,6 +133,12 @@
                 "movement_sensor": "movement_sensor1",
                 "base": "base1"
             }
+        }
+    ],
+    "modules": [
+        {
+            "executable_path": "./bin/wifi",
+            "name": "wifisensor"
         }
     ]
 }
