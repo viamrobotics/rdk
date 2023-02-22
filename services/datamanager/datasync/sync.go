@@ -156,7 +156,9 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			return uploadDataCaptureFile(ctx, s.client, f, s.partID)
+			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
+			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+			return err
 		},
 	)
 	if uploadErr != nil {
@@ -181,7 +183,9 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			return uploadArbitraryFile(ctx, s.client, f, s.partID)
+			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
+			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			return err
 		},
 	)
 	if uploadErr != nil {
@@ -269,7 +273,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
