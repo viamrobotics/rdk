@@ -7,10 +7,7 @@
         {
             "name": "arm1",
             "type": "arm",
-            "model": "fake",
-            "attributes": {
-                "model-path": "../../components/arm/fake/fake_model.json"
-            }
+            "model": "fake"
         },
         {
             "name": "audio_input1",
