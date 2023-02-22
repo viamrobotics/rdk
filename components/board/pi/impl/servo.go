@@ -61,6 +61,12 @@ func init() {
 				if theServo.maxRotation == 0 {
 					theServo.maxRotation = uint32(servoDefaultMaxRotation)
 				}
+				if theServo.maxRotation < theServo.min {
+					return nil, errors.New("maxRotation is less than minimum")
+				}
+				if theServo.maxRotation < theServo.max {
+					return nil, errors.New("maxRotation is less than maximum")
+				}
 
 				theServo.pinname = attr.Pin
 
