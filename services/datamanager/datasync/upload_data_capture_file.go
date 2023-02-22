@@ -2,9 +2,7 @@ package datasync
 
 import (
 	"context"
-	"io"
 
-	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -12,8 +10,7 @@ import (
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
 	md := f.ReadMetadata()
-	f.Reset()
-	sensorData, err := getAllSensorData(f)
+	sensorData, err := datacapture.SensorDataFromFile(f)
 	if err != nil {
 		return err
 	}
@@ -44,19 +41,4 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 
 	return nil
-}
-
-func getAllSensorData(f *datacapture.File) ([]*v1.SensorData, error) {
-	var ret []*v1.SensorData
-	for {
-		next, err := f.ReadNext()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		ret = append(ret, next)
-	}
-	return ret, nil
 }
