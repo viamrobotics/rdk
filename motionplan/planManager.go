@@ -76,6 +76,12 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	var goals []spatialmath.Pose
 	var opts []*plannerOptions
+	
+	// Viability check; ensure that the waypoint is not impossible to reach
+	_, err = pm.getSolutions(ctx, goalPos, seed)
+	if err != nil {
+		return nil, err
+	}
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
@@ -107,244 +113,265 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 	opts = append(opts, opt)
 
-	resultSlices, err := pm.planMotion(ctx, goals, seed, opts, nil, 0)
+	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, opts)
 	if err != nil {
 		return nil, err
 	}
 	return resultSlices, nil
 }
 
-// planMotion will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning the next
-// motion as soon as its starting point is known.
-func (pm *planManager) planMotion(
+// planAtomicWaypoints will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning
+// the next motion as soon as its starting point is known. This is responsible for repeatedly calling planSingleAtomicWaypoint for each
+// intermediate waypoint. Waypoints here refer to points that the software has generated to 
+func (pm *planManager) planAtomicWaypoints(
 	ctx context.Context,
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	opts []*plannerOptions,
-	maps *rrtMaps,
-	iter int,
 ) ([][]referenceframe.Input, error) {
-	var err error
-	goal := goals[iter]
-	opt := opts[iter]
-	if opt == nil {
-		opt = newBasicPlannerOptions()
-	}
-
-	// Build planner
-	var pathPlanner motionPlanner
-	if seed, ok := opt.extra["rseed"].(int); ok {
-		//nolint: gosec
-		pathPlanner, err = opt.PlannerConstructor(
-			pm.frame,
-			rand.New(rand.NewSource(int64(seed))),
-			pm.logger,
-			opt,
-		)
-	} else {
-		//nolint: gosec
-		pathPlanner, err = opt.PlannerConstructor(
-			pm.frame,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-			pm.logger,
-			opt,
-		)
-	}
-	if err != nil {
-		return nil, err
-	}
-	remainingSteps := [][]referenceframe.Input{}
-
-	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
-	if maps == nil {
-		planSeed := initRRTSolutions(ctx, pathPlanner, goal, seed)
-		if planSeed.planerr != nil {
-			return nil, planSeed.planerr
+	
+	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
+	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
+	resultPromises := []*resultPromise{}
+	
+	// try to solve each goal, one at a time
+	for i, goal := range goals {
+		// Check if ctx is done between each waypoint
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
 		}
-		if planSeed.steps != nil {
-			if iter+1 < len(goals) {
-				// in this case, we create the next step (and thus the remaining steps) and the
-				// step from our iteration hangs out in the buffer until we're done with it
-				remainingSteps, err = pm.planMotion(
-					ctx,
-					goals,
-					planSeed.steps[len(planSeed.steps)-1].Q(),
-					opts,
-					nil,
-					iter+1,
-				)
-				if err != nil {
-					return nil, err
-				}
-			}
-			results := append(planSeed.toInputs(), remainingSteps...)
-			return results, nil
+		
+		opt := opts[i]
+		if opt == nil {
+			opt = newBasicPlannerOptions()
 		}
-
-		maps = planSeed.maps
-	}
-
-	planctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
-	defer cancel()
-
-	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
-		// publish endpoint of plan if it is known
-		var nextSeed node
-		if len(maps.goalMap) == 1 {
-			pm.logger.Debug("found early final solution")
-			for key := range maps.goalMap {
-				nextSeed = key
-			}
-		}
-		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
-		endpointPreview := make(chan node, 1)
-		solutionChan := make(chan *rrtPlanReturn, 1)
-		utils.PanicCapturingGo(func() {
-			if nextSeed == nil {
-				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{maps, endpointPreview, solutionChan})
-			} else {
-				endpointPreview <- nextSeed
-				parPlan.rrtBackgroundRunner(planctx, goal, seed, &rrtParallelPlannerShared{maps, nil, solutionChan})
-			}
-		})
-
-		for {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			select {
-			case nextSeed = <-endpointPreview:
-				// Got a solution preview, start solving the next motion in a new thread.
-				if iter+1 < len(goals) {
-					// In this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = pm.planMotion(ctx, goals, nextSeed.Q(), opts, nil, iter+1)
-					if err != nil {
-						return nil, err
-					}
-				}
-				for {
-					// Get the step from this runner invocation, and return everything in order.
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					default:
-					}
-
-					select {
-					case finalSteps := <-solutionChan:
-						if finalSteps.err() != nil {
-							return nil, finalSteps.err()
-						}
-						results := append(finalSteps.toInputs(), remainingSteps...)
-						return results, nil
-					default:
-					}
-				}
-			case finalSteps := <-solutionChan:
-				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-
-				nextSeed := finalSteps.maps
-
-				// default to fallback; will unset if we have a good path
-				goodSolution := false
-
-				// If there was no error, check path quality. If sufficiently good, move on
-				if finalSteps.err() == nil {
-					if opt.Fallback != nil {
-						if ok, score := goodPlan(finalSteps, opt); ok {
-							pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.cost)
-							goodSolution = true
-						} else {
-							pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.cost)
-
-							// If we have a connected but bad path, we recreate new IK solutions and start from scratch
-							// rather than seeding with a completed, known-bad tree
-							nextSeed = nil
-							opt.Fallback.MaxSolutions = opt.MaxSolutions
-						}
-					} else {
-						goodSolution = true
-					}
-				}
-				smoothChan := make(chan []node, 1)
-				utils.PanicCapturingGo(func() {
-					smoothChan <- parPlan.smoothPath(ctx, finalSteps.steps)
-				})
-				smoothingDone := false
-				// Run fallback only if we don't have a very good path
-				if !goodSolution {
-					// If we have a fallback, then it should be run
-					if opt.Fallback != nil {
-						alternate, err := pm.planMotion(
-							ctx,
-							[]spatialmath.Pose{goal},
-							seed,
-							[]*plannerOptions{opt.Fallback},
-							nextSeed,
-							iter,
-						)
-						// This will allow smoothing to run in parallel with the fallback
-						finalSteps.steps = <-smoothChan
-						smoothingDone = true
-						_, score := goodPlan(finalSteps, opt)
-						if err == nil {
-							// If the fallback successfully found a path, check if it is better than our smoothed previous path.
-							// The fallback should emerge pre-smoothed, so that should be a non-issue
-							altCost := EvaluatePlan(alternate, opt.DistanceFunc)
-							if altCost < score {
-								pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
-								finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
-							} else {
-								pm.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
-							}
-						}
-					}
-				}
-				// If the fallback wasn't done, we need to get the smoothed path out of the channel
-				if !smoothingDone {
-					finalSteps.steps = <-smoothChan
-				}
-
-				if finalSteps.err() != nil {
-					return nil, finalSteps.err()
-				}
-
-				if iter+1 < len(goals) {
-					// in this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the buffer until we're done with it
-					remainingSteps, err = pm.planMotion(
-						ctx,
-						goals,
-						finalSteps.steps[len(finalSteps.steps)-1].Q(),
-						opts,
-						nil,
-						iter+1,
-					)
-					if err != nil {
-						return nil, err
-					}
-				}
-				results := append(finalSteps.toInputs(), remainingSteps...)
-				return results, nil
-			default:
-			}
-		}
-	} else {
-		resultSlicesRaw, err := pathPlanner.plan(planctx, goal, seed)
+		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
+		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, opt, nil)
 		if err != nil {
 			return nil, err
 		}
-		if iter < len(goals)-2 {
-			// in this case, we create the next step (and thus the remaining steps)
-			remainingSteps, err = pm.planMotion(ctx, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, nil, iter+1)
-			if err != nil {
-				return nil, err
+		seed = newseed
+		resultPromises = append(resultPromises, future)
+	}
+	
+	resultSlices := [][]referenceframe.Input{}
+	
+	// All goals have been submitted for solving. Reconstruct in order
+	for _, future := range resultPromises {
+		steps, err := future.result(ctx)
+		if err != nil {
+			return nil, err
+		}
+		resultSlices = append(resultSlices, steps...)
+	}
+	
+	return resultSlices, nil
+}
+
+// planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
+// planner if supported, or ignored if not.
+func (pm *planManager) planSingleAtomicWaypoint(
+	ctx context.Context,
+	goal spatialmath.Pose,
+	seed []referenceframe.Input,
+	opt *plannerOptions,
+	maps *rrtMaps,
+) ([]referenceframe.Input, *resultPromise, error) {
+	// Build planner
+	var randseed *rand.Rand
+	if seed, ok := opt.extra["rseed"].(int); ok {
+		//nolint: gosec
+		randseed = rand.New(rand.NewSource(int64(seed)))
+	} else{
+		//nolint: gosec
+		randseed = rand.New(rand.NewSource(int64(pm.randseed.Int())))
+	}
+	
+	pathPlanner, err := opt.PlannerConstructor(
+		pm.frame,
+		randseed,
+		pm.logger,
+		opt,
+		)
+	if err != nil {
+		return nil, nil, err
+	}
+	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
+		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
+		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
+		// for this solve will be rectified at the end.
+		endpointPreview := make(chan node, 1)
+		solutionChan := make(chan *rrtPlanReturn, 1)
+		utils.PanicCapturingGo(func() {
+			pm.planParallelRRTMotion(ctx, goal, seed, opt, parPlan, endpointPreview, solutionChan, nil)
+		})
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			default:
+			}
+			
+			// If we received a preview of the final configuration, start solving the next atomic waypoint using that as a seed
+			// The resultPromise with the solution will be stored for later
+			select {
+			case nextSeed := <-endpointPreview:
+				return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
+			case planReturn := <-solutionChan:
+				if planReturn.planerr != nil {
+					return nil, nil, planReturn.planerr
+				}
+				steps := planReturn.toInputs()
+				return steps[len(steps)-1], &resultPromise{steps: steps}, nil
+			default:
 			}
 		}
-		return append(resultSlicesRaw, remainingSteps...), nil
+	} else {
+		// This ctx is used exclusively for the running of the new planner and timing it out.
+		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
+		defer cancel()
+		steps, err := pathPlanner.plan(plannerctx, goal, seed)
+		if err != nil {
+			return nil, nil, err
+		}
+		// Update seed for the next waypoint to be the final configuration of this waypoint
+		seed = steps[len(steps)-1]
+		return seed, &resultPromise{steps: steps}, nil
+		
+	}
+}
+
+// planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver. It will handle fallbacks
+// as necessary.
+func (pm *planManager) planParallelRRTMotion(
+	ctx context.Context,
+	goal spatialmath.Pose,
+	seed []referenceframe.Input,
+	opt *plannerOptions,
+	pathPlanner rrtParallelPlanner,
+	endpointPreview chan node,
+	solutionChan chan *rrtPlanReturn,
+	maps *rrtMaps,
+) {
+	var err error
+	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
+	if maps == nil {
+		planSeed := initRRTSolutions(ctx, pathPlanner, goal, seed)
+		if planSeed.planerr != nil || planSeed.steps != nil{
+			solutionChan <- planSeed
+			return
+		}
+		maps = planSeed.maps
+	}
+	
+	// publish endpoint of plan if it is known
+	var nextSeed node
+	if len(maps.goalMap) == 1 {
+		pm.logger.Debug("only one IK solution, returning endpoint preview")
+		for key := range maps.goalMap {
+			nextSeed = key
+		}
+		if endpointPreview != nil {
+			endpointPreview <- nextSeed
+			endpointPreview = nil
+		}
+	}
+	
+	// This ctx is used exclusively for the running of the new planner and timing it out.
+	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(opt.Timeout*float64(time.Second)))
+	defer cancel()
+	
+	plannerChan := make(chan *rrtPlanReturn, 1)
+
+	// start the planner
+	utils.PanicCapturingGo(func() {
+		pathPlanner.rrtBackgroundRunner(plannerctx, goal, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
+	})
+
+	// Wait for results from the planner. This will also handle calling the fallback if needed, and will ultimately return the best path
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		select {
+		case finalSteps := <-plannerChan:
+			// We didn't get a solution preview (possible error), so we get and process the full step set and error.
+
+			mapSeed := finalSteps.maps
+
+			// default to fallback; will unset if we have a good path
+			skipFallback := false
+
+			// If there was no error, check path quality. If sufficiently good, move on.
+			// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
+			if finalSteps.err() == nil {
+				if opt.Fallback != nil {
+					if ok, score := goodPlan(finalSteps, opt); ok {
+						pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.cost)
+						skipFallback = true
+					} else {
+						pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.cost)
+
+						// If we have a connected but bad path, we recreate new IK solutions and start from scratch
+						// rather than seeding with a completed, known-bad tree
+						mapSeed = nil
+						opt.Fallback.MaxSolutions = opt.MaxSolutions
+					}
+				} else {
+					skipFallback = true
+				}
+			}
+			
+			// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
+			smoothChan := make(chan []node, 1)
+			utils.PanicCapturingGo(func() {
+				smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
+			})
+			var alternateFuture *resultPromise
+			
+			// Run fallback only if we don't have a very good path
+			if !skipFallback && opt.Fallback != nil {
+				_, alternateFuture, err = pm.planSingleAtomicWaypoint(
+					ctx,
+					goal,
+					seed,
+					opt.Fallback,
+					mapSeed,
+				)
+				if err != nil {
+					alternateFuture = nil
+				}
+			}
+			
+			// Receive the newly smoothed path from our original solve, and score it
+			finalSteps.steps = <-smoothChan
+			_, score := goodPlan(finalSteps, opt)
+			
+			// If we ran a fallback, retrieve the result and compare to the smoothed path
+			if alternateFuture != nil {
+				alternate, err := alternateFuture.result(ctx)
+				if err != nil {
+					// If the fallback successfully found a path, check if it is better than our smoothed previous path.
+					// The fallback should emerge pre-smoothed, so that should be a non-issue
+					altCost := EvaluatePlan(alternate, opt.DistanceFunc)
+					if altCost < score {
+						pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
+						finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
+					} else {
+						pm.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
+					}
+				}
+			}
+			
+			solutionChan <- finalSteps
+			return
+
+		default:
+		}
 	}
 }
 
