@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -40,11 +41,18 @@ func TestComplexModule(t *testing.T) {
 			test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
 	}()
 
-	// Build a binary server and run it. This seperate process avoids having custom APIs (imported above) in the parent server.
+	// Build a binary server and module. This seperate process avoids having custom APIs (imported above) in the parent server.
 	// Compiling is needed because "go run ..." doesn't pass signals. https://github.com/golang/go/issues/40467
+	// Precompiling also avoids some timeout issues when building takes too long.
+	builder := exec.Command("bash", "-c", "make -s server && cd examples/customresources/demos/complexmodule && go build .")
+	builder.Dir = utils.ResolveFile("")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "make server && exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
 		CWD: utils.ResolveFile("./"),
 		Log: true,
 	}, logger)
