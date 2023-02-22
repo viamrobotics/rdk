@@ -4,6 +4,7 @@ package imuwit
 /*
 Sensor Manufacturer:  		Wit-motion
 Supported Sensor Models: 	HWT901B, BWT901, BWT61CL
+Supported OS: Linux Debian GNU/Linux 11 (bullseye)
 Tested Sensor Models and User Manuals:
 
 	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view
@@ -179,13 +180,12 @@ func NewWit(
 	}
 
 	options := slib.OpenOptions{
+		PortName:        conf.Port,
 		BaudRate:        115200,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
-
-	options.PortName = conf.Port
 
 	// Validating baud rate
 	isValid := false
@@ -203,16 +203,15 @@ func NewWit(
 		)
 	}
 
-	var i wit
-	i.logger = logger
+	i := wit{logger: logger}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
-	port, err := slib.Open(options)
+	var err error
+	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
 	}
-	i.port = port
 
-	portReader := bufio.NewReader(port)
+	portReader := bufio.NewReader(i.port)
 	i.startUpdateLoop(ctx, portReader, logger)
 
 	return &i, nil
