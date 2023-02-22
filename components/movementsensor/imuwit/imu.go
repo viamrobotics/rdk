@@ -12,12 +12,12 @@ Tested Sensor Models and User Manuals:
 	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view
 
 This driver will connect to all the sensors using a usb connection given as a serial path
-using a default baud rate of 115200.
+using a default baud rate of 115200. We allow baud rate values of: 9600, 115200
 The default baud rate can be used to connect to all models. Only the HWT901B's baud rate is changeable.
 We ask the user to refer to the datasheet if any baud rate changes are required for their application.
 
 Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
-in that case as well. Wit-motion currently has 48 gyro/inclinometer/imu models with varied levels of
+in that case as well. As of Feb 2023, Wit-motion has 48 gyro/inclinometer/imu models with varied levels of
 driver commonality.
 */
 
@@ -33,6 +33,7 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -60,6 +61,18 @@ func (cfg *AttrConfig) Validate(path string) error {
 	if cfg.Port == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
+
+	// Validating baud rate
+	isValid := false
+	for _, val := range baudRateList {
+		if val == cfg.BaudRate {
+			isValid = true
+		}
+	}
+	if !isValid {
+		return utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+	}
+
 	return nil
 }
 
@@ -187,15 +200,7 @@ func NewWit(
 		MinimumReadSize: 1,
 	}
 
-	// Validating baud rate
-	isValid := false
-	for _, val := range baudRateList {
-		if val == conf.BaudRate {
-			isValid = true
-		}
-	}
-
-	if conf.BaudRate > 0 && isValid {
+	if conf.BaudRate > 0 {
 		options.BaudRate = uint(conf.BaudRate)
 	} else {
 		logger.Warnf(
@@ -255,8 +260,9 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				} else if len(line) != 11 {
 					imu.numBadReadings++
 					return
+				} else {
+					imu.err.Set(imu.parseWIT(line))
 				}
-				imu.err.Set(imu.parseWIT(line))
 			}()
 		}
 	})
