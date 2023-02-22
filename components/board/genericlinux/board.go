@@ -56,13 +56,6 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
 
-			if !usePeriphGpio {
-				// We currently have two implementations of GPIO pins on these boards: one using
-				// libraries from periph.io and one using an ioctl approach. If we're using the
-				// latter, we need to initialize it here.
-				gpioInitialize(gpioMappings)
-			}
-
 			var spis map[string]*spiBus
 			if len(conf.SPIs) != 0 {
 				spis = make(map[string]*spiBus, len(conf.SPIs))
@@ -103,7 +96,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 			}
 
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			return &sysfsBoard{
+			b := sysfsBoard{
 				gpioMappings:  gpioMappings,
 				spis:          spis,
 				analogs:       analogs,
@@ -113,7 +106,14 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				logger:        logger,
 				cancelCtx:     cancelCtx,
 				cancelFunc:    cancelFunc,
-			}, nil
+			}
+			if !usePeriphGpio {
+				// We currently have two implementations of GPIO pins on these boards: one using
+				// libraries from periph.io and one using an ioctl approach. If we're using the
+				// latter, we need to initialize it here.
+				b.gpios := gpioInitialize(gpioMappings) // Defined in gpio.go
+			}
+			return &b, nil
 		}})
 	config.RegisterComponentAttributeMapConverter(
 		board.Subtype,
@@ -161,8 +161,10 @@ type sysfsBoard struct {
 	analogs       map[string]board.AnalogReader
 	pwms          map[string]pwmSetting
 	i2cs          map[string]board.I2C
-	usePeriphGpio bool
 	logger        golog.Logger
+
+	usePeriphGpio bool
+	gpios         map[string]gpioPin // Only used for non-periph.io pins
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -317,7 +319,12 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if b.usePeriphGpio {
 		return b.periphGPIOPinByName(pinName)
 	}
-	return gpioGetPin(pinName) // implemented in gpio.go
+	// Otherwise, the pins are stored in b.gpios.
+	pin, ok := b.gpios[pinName]
+    if !ok {
+        return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
+    }
+    return pin, nil
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
@@ -473,12 +480,19 @@ func (b *sysfsBoard) ModelAttributes() board.ModelAttributes {
 }
 
 func (b *sysfsBoard) Close() {
+	fmt.Println("closing the board...")
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()
 	b.activeBackgroundWorkers.Wait()
-	if !b.usePeriphGpio {
-		if err := gpioCloseAll(); err != nil {
+
+	// For non-Periph boards, shut down all our open pins so we don't leak file descriptors
+	if b.usePeriphGpio {
+		return
+	}
+	for _, pin := range b.gpios {
+		err := pin.Close()
+		if err != nil {
 			b.logger.Error(err)
 		}
 	}
