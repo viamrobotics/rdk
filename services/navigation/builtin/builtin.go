@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -131,6 +132,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 }
 
 type builtIn struct {
+	generic.Unimplemented
 	mu    sync.RWMutex
 	store navigation.NavStore
 	mode  navigation.Mode

@@ -77,6 +77,7 @@ type Service interface {
 		map[string]interface{},
 	) (string, image.Image, *vision.Object, error)
 	GetInternalState(ctx context.Context, name string) ([]byte, error)
+	resource.Generic
 }
 
 type reconfigurableSlam struct {
@@ -115,6 +116,14 @@ func (svc *reconfigurableSlam) GetInternalState(ctx context.Context, name string
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetInternalState(ctx, name)
+}
+
+func (svc *reconfigurableSlam) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableSlam) Close(ctx context.Context) error {
