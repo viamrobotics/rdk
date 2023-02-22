@@ -166,7 +166,7 @@ var PiGPIOErrorMap = map[int]string{
 }
 
 // ConvertErrorCodeToMessage returns a human-readable string based on the error code.
-func convertErrorCodeToMessage(errorCode int, message string) error {
+func ConvertErrorCodeToMessage(errorCode int, message string) error {
 	errorMessage, exists := PiGPIOErrorMap[errorCode]
 	if exists {
 		return errors.Errorf("%s: %s", message, errorMessage)
