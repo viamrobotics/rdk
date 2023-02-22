@@ -9,7 +9,7 @@ import {
   commonApi,
   ServiceError,
 } from '@viamrobotics/sdk';
-import { cameraStreamStates } from '../../lib/camera-state';
+import { cameraStreamStates, selectedMap } from '../../lib/camera-state';
 
 interface Props {
   cameraName: string;
@@ -20,14 +20,6 @@ interface Props {
   refreshRate: string | undefined;
   triggerRefresh: boolean;
 }
-
-const selectedMap = {
-  Live: -1,
-  'Manual Refresh': 0,
-  'Every 30 Seconds': 30,
-  'Every 10 Seconds': 10,
-  'Every Second': 1,
-} as const;
 
 const props = defineProps<Props>();
 
