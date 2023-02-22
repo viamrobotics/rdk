@@ -164,7 +164,7 @@ type sysfsBoard struct {
 	logger        golog.Logger
 
 	usePeriphGpio bool
-	gpios         map[string]gpioPin // Only used for non-periph.io pins
+	gpios         map[string]*gpioPin // Only used for non-periph.io pins
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -324,7 +324,7 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
     if !ok {
         return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
     }
-    return &pin, nil
+    return pin, nil
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
