@@ -480,7 +480,6 @@ func (b *sysfsBoard) ModelAttributes() board.ModelAttributes {
 }
 
 func (b *sysfsBoard) Close() {
-	fmt.Println("closing the board...")
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()
