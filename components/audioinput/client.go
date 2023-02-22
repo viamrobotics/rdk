@@ -15,7 +15,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/protoutils"
 )
 
 // client is an audio input client.
@@ -169,7 +169,7 @@ func (c *client) MediaProperties(ctx context.Context) (prop.Audio, error) {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
 func (c *client) Close(ctx context.Context) error {
