@@ -105,7 +105,7 @@ var PiGPIOErrorMap = map[int]string{
 	C.PI_BAD_POINTER:      "PI_BAD_POINTER: bad (NULL) pointer",
 	C.PI_NO_AUX_SPI:       "PI_NO_AUX_SPI: no auxiliary SPI on Pi A or B",
 	C.PI_NOT_PWM_GPIO:     "PI_NOT_PWM_GPIO: GPIO is not in use for PWM",
-	C.PI_NOT_SERVO_GPI:    "PI_NOT_SERVO_GPI: GPIO is not in use for servo pulses",
+	C.PI_NOT_SERVO_GPIO:   "PI_NOT_SERVO_GPIO: GPIO is not in use for servo pulses",
 	C.PI_NOT_HCLK_GPIO:    "PI_NOT_HCLK_GPIO: GPIO has no hardware clock",
 	C.PI_NOT_HPWM_GPIO:    "PI_NOT_HPWM_GPIO: GPIO has no hardware PWM",
 	C.PI_BAD_HPWM_FREQ:    "PI_BAD_HPWM_FREQ: invalid hardware PWM frequency",
