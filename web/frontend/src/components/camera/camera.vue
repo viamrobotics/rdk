@@ -52,14 +52,14 @@ const viewCamera = async (isOn: boolean) => {
   const streams = new StreamClient(props.client);
 
   streams.on('track', (event) => {
-    let [ eventStream ] = event.streams;
+    let [eventStream] = event.streams;
     eventStream = event.streams[0];
     if (!eventStream) {
       throw new Error('expected event stream to exist');
     }
     videoEl.srcObject = eventStream;
   });
-  
+
   if (props.refreshRate === 'Live') {
     if (cameraStreamStates.get(`${props.parentName}-${props.cameraName}`)?.live) {
       return;
