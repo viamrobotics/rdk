@@ -10,8 +10,6 @@ import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { addResizeListeners } from '../lib/resize';
 import {
-  Camera,
-  CameraClient,
   Client,
   ResponseStream,
   ServiceError,
@@ -33,7 +31,7 @@ import Arm from './arm.vue';
 import AudioInput from './audio-input.vue';
 import Base from './base.vue';
 import Board from './board.vue';
-import CameraView from './camera.vue';
+import CamerasList from './camera/cameras-list.vue';
 import OperationsSessions from './operations-sessions.vue';
 import DoCommand from './do-command.vue';
 import Gantry from './gantry.vue';
@@ -88,7 +86,6 @@ const errors = $ref<Record<string, boolean>>({});
 let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
-let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: robotApi.Operation.AsObject, elapsed: number }[]>([]);
 let currentSessions = $ref<robotApi.Session.AsObject[]>([]);
 let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
@@ -597,46 +594,6 @@ const filteredInputControllerList = () => {
   });
 };
 
-const viewFrame = async (cameraName: string) => {
-  let blob;
-  try {
-    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
-  } catch (error) {
-    displayError(error as ServiceError);
-    return;
-  }
-
-  const streamContainers = document.querySelectorAll(
-    `[data-stream="${cameraName}"]`
-  );
-  for (const streamContainer of streamContainers) {
-    const image = new Image();
-    image.src = URL.createObjectURL(blob);
-    streamContainer.querySelector('img')?.remove();
-    streamContainer.append(image);
-  }
-};
-
-const clearFrameInterval = () => {
-  window.clearInterval(cameraFrameIntervalId);
-};
-
-const viewCameraFrame = (cameraName: string, time: number) => {
-  clearFrameInterval();
-
-  // Live
-  if (time === -1) {
-    return;
-  }
-
-  viewFrame(cameraName);
-  if (time > 0) {
-    cameraFrameIntervalId = window.setInterval(() => {
-      viewFrame(cameraName);
-    }, Number(time) * 1000);
-  }
-};
-
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
@@ -834,14 +791,10 @@ onMounted(async () => {
     />
 
     <!-- ******* CAMERAS *******  -->
-    <CameraView
-      v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
-      :key="camera.name"
-      :camera-name="camera.name"
+    <CamerasList
+      parent-name="app"
       :client="client"
-      :resources="resources"
-      @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
-      @clear-interval="clearFrameInterval"
+      :resources="filterResources(resources, 'rdk', 'component', 'camera')"
     />
 
     <!-- ******* NAVIGATION ******* -->
