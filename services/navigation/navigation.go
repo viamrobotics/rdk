@@ -83,7 +83,11 @@ func Named(name string) resource.Name {
 
 // FromRobot is a helper for getting the named navigation service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	service, err := robot.ResourceFromRobot[Service](r, Named(name))
+	if err != nil {
+		return nil, err
+	}
+	return *service, nil
 }
 
 // Config describes how to configure the service.
