@@ -156,7 +156,6 @@ func ConvertErrorCodeToMessage(errorCode int, message string) error {
 	errorMessage, exists := PiGPIOErrorMap[errorCode]
 	if exists {
 		return errors.Errorf("%s: %s", message, errorMessage)
-	} else {
-		return errors.Errorf("%s: %d", message, errorCode)
 	}
+	return errors.Errorf("%s: %d", message, errorCode)
 }
