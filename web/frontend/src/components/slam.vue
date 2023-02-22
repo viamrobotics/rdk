@@ -26,19 +26,49 @@ let pointcloud = $ref<Uint8Array | undefined>();
 let slamImageIntervalId = -1;
 let slamPCDIntervalId = -1;
 
+const concatArrayU8 = (arrays: Uint8Array[]) => {
+  const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
+  const result = new Uint8Array(totalLength);
+  let length = 0;
+  for (const array of arrays) {
+    result.set(array, length);
+    length += array.length;
+  }
+
+  return result;
+};
+
 const viewSLAMPCDMap = (name: string) => {
   nextTick(() => {
-    const req = new slamApi.GetMapRequest();
+    const req = new slamApi.GetPointCloudMapStreamRequest();
     req.setName(name);
-    req.setMimeType('pointcloud/pcd');
-
     rcLogConditionally(req);
-    props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
-      if (error) {
-        return displayError(error);
+
+    const chunks: Uint8Array[] = [];
+    const getPointCloudMapStream = props.client.slamService.getPointCloudMapStream(req);
+
+    getPointCloudMapStream.on('data', (res) => {
+      const chunk = res.getPointCloudPcdChunk_asU8();
+      chunks.push(chunk);
+    });
+
+    getPointCloudMapStream.on('status', (status) => {
+      if (status && status.code !== 0) {
+        const error = {
+          message: status.details,
+          code: status.code,
+          metadata: status.metadata,
+        };
+        displayError(error);
       }
-      const pcObject = response!.getPointCloud()!;
-      pointcloud = pcObject.getPointCloud_asU8();
+    });
+
+    getPointCloudMapStream.on('end', (end) => {
+      if (end && end.code !== 0) {
+        // the error will be logged in the 'status' callback
+        return;
+      }
+      pointcloud = concatArrayU8(chunks);
     });
   });
 };

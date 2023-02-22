@@ -145,12 +145,12 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 }
 
 // GetInternalStateStream.
-func (server *subtypeServer) GetPointcloudMap(
+func (server *subtypeServer) GetPointCloudMapStream(
 	req *pb.GetPointCloudMapStreamRequest,
 	stream pb.SLAMService_GetPointCloudMapStreamServer,
 ) error {
 	ctx := context.Background()
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointcloudMap")
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMapStream")
 	defer span.End()
 
 	svc, err := server.service(req.Name)
