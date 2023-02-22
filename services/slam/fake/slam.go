@@ -116,6 +116,7 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 // GetPointCloudMap returns a callback function which returns the next chunk of the slam map as bytes in pcd format.
 // Currently the slam algo is cartogropher.
 func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	slamSvc.incrementDataCount()
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, slamSvc.dataCount)))
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
