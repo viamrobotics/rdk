@@ -162,7 +162,6 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		},
 	)
 	if uploadErr != nil {
-		s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", uploadErr)
 		err := f.Close()
 		if err != nil {
 			s.logger.Errorw("error closing file", "error", err)
@@ -189,7 +188,6 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		},
 	)
 	if uploadErr != nil {
-		s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", uploadErr)
 		err := f.Close()
 		if err != nil {
 			s.logger.Errorw("error closing file", "error", err)
@@ -273,7 +271,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
