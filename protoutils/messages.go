@@ -2,12 +2,15 @@
 package protoutils
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/golang/geo/r3"
 	//nolint:staticcheck
 	protov1 "github.com/golang/protobuf/proto"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -117,4 +120,44 @@ func MessageToProtoV1(msg interface{}) protov1.Message {
 		return v
 	}
 	return nil
+}
+
+// ClientDoCommander is a gRPC client that allows the execution of DoCommand.
+type ClientDoCommander interface {
+	// DoCommand sends/receives arbitrary commands
+	DoCommand(ctx context.Context, in *commonpb.DoCommandRequest,
+		opts ...grpc.CallOption) (*commonpb.DoCommandResponse, error)
+}
+
+// DoFromResourceClient is a helper to allow DoCommand() calls from any client.
+func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name string,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	command, err := protoutils.StructToStructPb(cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := svc.DoCommand(ctx, &commonpb.DoCommandRequest{
+		Name:    name,
+		Command: command,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
+}
+
+// DoFromResourceServer is a helper to allow DoCommand() calls from any server.
+func DoFromResourceServer(ctx context.Context, resource resource.Generic,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	res, err := resource.DoCommand(ctx, req.Command.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	pbRes, err := protoutils.StructToStructPb(res)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }

@@ -86,15 +86,7 @@ func DependencyTypeError(name string, actual interface{}) error {
 
 // FromRobot is a helper for getting the named encoder from the given Robot.
 func FromRobot(r robot.Robot, name string) (Encoder, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Encoder)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Encoder](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all encoder names from the given Robot.
