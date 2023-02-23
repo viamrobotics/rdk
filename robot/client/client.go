@@ -254,17 +254,24 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		reconnectTime = *rOpts.reconnectEvery
 	}
 
+	if checkConnectedTime > 0 && reconnectTime > 0 {
+		refresh := checkConnectedTime == refreshTime
+		rc.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(func() {
+			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime, refresh)
+		}, rc.activeBackgroundWorkers.Done)
+
+		// If checkConnection() is running refresh, there is no need to create a separate
+		// RefreshEvery thread, so end the function here.
+		if refresh {
+			return rc, nil
+		}
+	}
+
 	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, refreshTime)
-		}, rc.activeBackgroundWorkers.Done)
-	}
-
-	if checkConnectedTime > 0 && reconnectTime > 0 {
-		rc.activeBackgroundWorkers.Add(1)
-		utils.ManagedGo(func() {
-			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -379,7 +386,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context, reason updateR
 }
 
 // checkConnection either checks if the client is still connected, or attempts to reconnect to the remote.
-func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnectEvery time.Duration) {
+func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnectEvery time.Duration, refresh bool) {
 	for {
 		var waitTime time.Duration
 		if rc.connected {
@@ -404,8 +411,14 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
-				if _, _, err := rc.resources(ctx); err != nil {
-					return err
+				if refresh {
+					if err := rc.Refresh(ctx); err != nil {
+						return err
+					}
+				} else {
+					if _, _, err := rc.resources(ctx); err != nil {
+						return err
+					}
 				}
 				return nil
 			}

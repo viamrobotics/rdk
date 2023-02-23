@@ -14,6 +14,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -158,6 +159,13 @@ func TestClientWorkingService(t *testing.T) {
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
+
+		// test do command
+		workingSLAMService.DoCommandFunc = generic.EchoFunc
+		resp, err := workingDialedClient.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

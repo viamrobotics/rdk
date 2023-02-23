@@ -42,6 +42,8 @@ type VisionService struct {
 	AddSegmenterFunc         func(ctx context.Context, cfg vision.VisModelConfig, extra map[string]interface{}) error
 	RemoveSegmenterFunc      func(ctx context.Context, segmenterName string, extra map[string]interface{}) error
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
+	DoCommandFunc            func(ctx context.Context,
+		cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // GetModelParameterSchema calls the injected ModelParameters or the real variant.
@@ -176,4 +178,14 @@ func (vs *VisionService) RemoveSegmenter(ctx context.Context, segmenterName stri
 		return vs.Service.RemoveSegmenter(ctx, segmenterName, extra)
 	}
 	return vs.RemoveSegmenterFunc(ctx, segmenterName, extra)
+}
+
+// DoCommand calls the injected DoCommand or the real variant.
+func (vs *VisionService) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	if vs.DoCommandFunc == nil {
+		return vs.Service.DoCommand(ctx, cmd)
+	}
+	return vs.DoCommandFunc(ctx, cmd)
 }
