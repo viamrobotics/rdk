@@ -6,7 +6,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [ 'ml/github-build-static' ]
+    branches: [ 'main' ]
     paths-ignore:
       - 'README.md'
     tags:
@@ -27,7 +27,7 @@ jobs:
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@ml/github-build-static
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@ml/github-build-static 
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
