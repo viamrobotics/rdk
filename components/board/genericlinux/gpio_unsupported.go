@@ -8,12 +8,14 @@ import (
 	"go.viam.com/rdk/components/board"
 )
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) {
-	// Don't even log anything here: if someone is running in a non-Linux environment, things
-	// should work fine as long as they don't try using ioctl, and the log would be an unnecessary
-	// warning.
+type gpioPin struct {
+	// This struct is implemented in the Linux version. We have a dummy struct here just to get
+	// things to compile on non-Linux environments.
 }
 
-func gpioGetPin(pinName string) (board.GPIOPin, error) {
-	return nil, errors.New("ioctl GPIO pins are not supported in a non-Linux environment")
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]*gpioPin {
+	// Don't even log anything here: if someone is running in a non-Linux environment, things
+	// should work fine as long as they don't try using these pins, and the log would be an
+	// unnecessary warning.
+	return map[string]*gpioPin{}
 }
