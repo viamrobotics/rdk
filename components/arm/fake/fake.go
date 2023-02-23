@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
@@ -29,9 +30,6 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
-
-//go:embed fake_model.json
-var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -107,8 +105,8 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return the fake arm
-		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
+		// if no arm model is specified, we return the ur5e
+		model, err = referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), cfg.Name)
 	}
 	if err != nil {
 		return nil, err
