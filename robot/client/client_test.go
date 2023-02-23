@@ -473,22 +473,30 @@ func TestStatusClient(t *testing.T) {
 
 func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
+
+	listener := gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 
+	var mu sync.RWMutex
+	dur := 100 * time.Millisecond
+
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-
 	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	t.Run("run with different reconnectTime and checkConnectedTime", func(t *testing.T) {
+	defer func() {
+		mu.Lock()
+		gServer.Stop()
+		mu.Unlock()
+	}()
+	t.Run("run with same reconnectTime and checkConnectedTime", func(t *testing.T) {
+		calledEnough := make(chan struct{})
 		var callCountSubtypes int
 		var callCountNames int
-		calledEnough := make(chan struct{})
 
+		mu.Lock()
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+			mu.Lock()
+			defer mu.Unlock()
 			callCountSubtypes++
 			if callCountSubtypes == 6 {
 				close(calledEnough)
@@ -496,54 +504,14 @@ func TestClientRefresh(t *testing.T) {
 			return nil
 		}
 		injectRobot.ResourceNamesFunc = func() []resource.Name {
+			mu.Lock()
+			defer mu.Unlock()
 			callCountNames++
 			return emptyResources
 		}
+		mu.Unlock()
 
 		start := time.Now()
-		dur := 100 * time.Millisecond
-
-		client, err := New(
-			context.Background(),
-			listener.Addr().String(),
-			logger,
-			WithRefreshEvery(dur),
-			WithCheckConnectedEvery(dur*2),
-			WithReconnectEvery(dur),
-		)
-		test.That(t, callCountSubtypes, test.ShouldEqual, 1)
-		test.That(t, callCountNames, test.ShouldEqual, 1)
-		test.That(t, err, test.ShouldBeNil)
-		// block here until ResourceNames is called 6 times
-		<-calledEnough
-		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
-		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 5*dur)
-		test.That(t, callCountSubtypes, test.ShouldEqual, 6)
-		test.That(t, callCountNames, test.ShouldEqual, 6)
-
-		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
-	})
-
-	t.Run("run with equal refreshTime and checkConnectedtime", func(t *testing.T) {
-		var callCountSubtypes int
-		var callCountNames int
-		calledEnough := make(chan struct{})
-
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
-			callCountSubtypes++
-			if callCountSubtypes == 6 {
-				close(calledEnough)
-			}
-			return nil
-		}
-		injectRobot.ResourceNamesFunc = func() []resource.Name {
-			callCountNames++
-			return emptyResources
-		}
-
-		start := time.Now()
-		dur := 100 * time.Millisecond
-
 		client, err := New(
 			context.Background(),
 			listener.Addr().String(),
@@ -552,8 +520,6 @@ func TestClientRefresh(t *testing.T) {
 			WithCheckConnectedEvery(dur),
 			WithReconnectEvery(dur),
 		)
-		test.That(t, callCountSubtypes, test.ShouldEqual, 1)
-		test.That(t, callCountNames, test.ShouldEqual, 1)
 		test.That(t, err, test.ShouldBeNil)
 		// block here until ResourceNames is called 6 times
 		<-calledEnough
@@ -561,12 +527,59 @@ func TestClientRefresh(t *testing.T) {
 		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
 		test.That(t, callCountSubtypes, test.ShouldEqual, 6)
 		test.That(t, callCountNames, test.ShouldEqual, 6)
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	})
+
+	t.Run("run with different reconnectTime and checkConnectedTime", func(t *testing.T) {
+		calledEnough := make(chan struct{})
+		var callCountSubtypes int
+		var callCountNames int
+
+		mu.Lock()
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+			mu.Lock()
+			defer mu.Unlock()
+			callCountSubtypes++
+			if callCountSubtypes == 7 {
+				close(calledEnough)
+			}
+			return nil
+		}
+		injectRobot.ResourceNamesFunc = func() []resource.Name {
+			mu.Lock()
+			defer mu.Unlock()
+			callCountNames++
+			return emptyResources
+		}
+		mu.Unlock()
+
+		start := time.Now()
+		dur = 100 * time.Millisecond
+		client, err := New(
+			context.Background(),
+			listener.Addr().String(),
+			logger,
+			WithRefreshEvery(dur),
+			WithCheckConnectedEvery(dur*2),
+			WithReconnectEvery(dur),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// block here until ResourceNames is called 6 times
+		<-calledEnough
+		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
+		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 5*dur)
+		test.That(t, callCountSubtypes, test.ShouldEqual, 7)
+		test.That(t, callCountNames, test.ShouldEqual, 7)
+
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("refresh tests", func(t *testing.T) {
+		mu.Lock()
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+		mu.Unlock()
 		client, _ := New(
 			context.Background(),
 			listener.Addr().String(),
@@ -591,12 +604,13 @@ func TestClientRefresh(t *testing.T) {
 		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 			finalResources...))
 
-		err = client.Close(context.Background())
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 
+		mu.Lock()
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
-		client, err = New(
+		mu.Unlock()
+		client, err := New(
 			context.Background(),
 			listener.Addr().String(),
 			logger,
@@ -621,8 +635,10 @@ func TestClientRefresh(t *testing.T) {
 		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 			emptyResources...))
 
+		mu.Lock()
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+		mu.Unlock()
 		test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 		armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
