@@ -76,21 +76,6 @@ func newCollisionEntities(geometries map[string]spatial.Geometry) (*collisionEnt
 	return &collisionEntities{entities, &indices}, nil
 }
 
-func (ce *collisionEntities) updateEntities(geometries map[string]spatial.Geometry) (*collisionEntities, error) {
-	if len(geometries) != len(ce.entities) {
-		return nil, errors.New("error creating CollisionEntities, mismatched number of elements")
-	}
-	entities := make([]*collisionEntity, len(geometries))
-	for name, geometry := range geometries {
-		if i := ce.indexFromName(name); i >= 0 {
-			entities[i] = &collisionEntity{name, geometry}
-		} else {
-			return nil, errors.Errorf("error creating CollisionEntities, could not find geometry with name: %s", name)
-		}
-	}
-	return &collisionEntities{entities, ce.indices}, nil
-}
-
 // count returns the number of collisionEntities in a CollisionEntities class.
 func (ce *collisionEntities) count() int {
 	return len(ce.entities)
@@ -108,10 +93,6 @@ func (ce *collisionEntities) indexFromName(name string) int {
 		return index
 	}
 	return -1
-}
-
-func (ce *collisionEntities) equivalentOrdering(other *collisionEntities) bool {
-	return ce.indices == other.indices
 }
 
 // TODO: comments
