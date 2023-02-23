@@ -39,6 +39,6 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@ml/github-build-static
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
