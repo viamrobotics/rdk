@@ -377,6 +377,7 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	gitlab.com/bosi/decorder v0.2.3 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
+	go.viam.com/slam v0.1.22 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/mod v0.8.0 // indirect

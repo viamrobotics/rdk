@@ -1,7 +1,7 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
 
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import type { Credentials } from '@viamrobotics/rpc';
@@ -648,6 +648,10 @@ onMounted(async () => {
   appConnectionManager.start();
 
   addResizeListeners();
+});
+
+onUnmounted(() => {
+  appConnectionManager.stop();
 });
 
 </script>
