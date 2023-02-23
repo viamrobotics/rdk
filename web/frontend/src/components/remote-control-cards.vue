@@ -599,7 +599,7 @@ const nonEmpty = (object: object) => {
 };
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: (reason?: unknown) => void) => {
-  console.debug('connecting');
+  console.debug('connecting. michael branch');
   document.querySelector('#connecting')!.classList.remove('hidden');
 
   try {
@@ -614,7 +614,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     return;
   }
 
-  console.debug('connected');
+  console.debug('connected. michael branch');
   document.querySelector('#pre-app')!.classList.add('hidden');
   disableAuthElements = false;
   connectedOnce = true;
