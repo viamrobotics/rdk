@@ -22,7 +22,7 @@ func (p *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, 
 	return false, errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
 }
 func (p *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return math.NaN, errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
+	return math.NaN(), errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
 }
 func (p *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	return errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
@@ -31,6 +31,9 @@ func (p *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (ui
 	return 0, errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
 }
 func (p *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	return errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
+}
+func (p *gpioPin) Close() error {
 	return errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
 }
 
