@@ -89,3 +89,14 @@ func (server *subtypeServer) GetReadings(
 
 	return &pb.GetReadingsResponse{Readings: readingsP}, nil
 }
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, svc, req)
+}
