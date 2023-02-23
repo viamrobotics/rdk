@@ -3,6 +3,8 @@ package fake
 
 import (
 	"context"
+	// for arm model.
+	_ "embed"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -27,6 +29,9 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
+
+//go:embed fake_model.json
+var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -61,6 +66,8 @@ func (config *AttrConfig) Validate(path string) error {
 		_, err = modelFromName(config.ArmModel, "")
 	case config.ArmModel == "" && config.ModelFilePath != "":
 		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
+	default:
+		err = nil
 	}
 	return err
 }
@@ -100,8 +107,8 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return empty one with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(cfg.Name)
+		// if no arm model is specified, we return the fake arm
+		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 	}
 	if err != nil {
 		return nil, err
