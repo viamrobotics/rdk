@@ -121,3 +121,17 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
 }
+
+func TestXArm7(t *testing.T) {
+	// zero position of xArm7 arm - should have number of collisions = to number of geometries - 1
+	// no external geometries considered, self collision only
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	gf, _ := m.Geometries(make([]frame.Input, len(m.DoF())))
+	test.That(t, gf, test.ShouldNotBeNil)
+	robotEntities, err := NewObjectCollisionEntities(gf.Geometries())
+	test.That(t, err, test.ShouldBeNil)
+	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{}, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 5)
+}
