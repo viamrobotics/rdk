@@ -37,7 +37,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	// add parsing to filter out corrupted data
 	ind := strings.Index(line, "$G")
 	if ind == -1 {
-		line = ""
+		return nil
 	} else {
 		line = line[ind:]
 	}
