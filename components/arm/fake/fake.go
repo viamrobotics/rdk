@@ -3,8 +3,6 @@ package fake
 
 import (
 	"context"
-	// for arm model.
-	_ "embed"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
