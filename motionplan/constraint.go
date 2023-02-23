@@ -186,11 +186,6 @@ func newCollisionConstraint(
 		return nil, err
 	}
 
-	// if obstacleEntities are nil, treat the internal entities as the obstacleEntities
-	if obstacleEntities == nil {
-		obstacleEntities = internalEntities
-	}
-
 	// create the reference collisionGraph
 	zeroCG, err := newCollisionGraph(internalEntities, obstacleEntities, nil, true)
 	if err != nil {
@@ -208,7 +203,7 @@ func newCollisionConstraint(
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		internalEntities, err := internalEntities.updateEntities(internal.Geometries())
+		internalEntities, err := newCollisionEntities(internal.Geometries())
 		if err != nil {
 			return false, 0
 		}

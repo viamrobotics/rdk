@@ -12,7 +12,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	"github.com/viamrobotics/visualization"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -188,8 +187,8 @@ func TestCollisionConstraints(t *testing.T) {
 	}{
 		{zeroPos, true, ""},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
-		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, "collision"},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, "collision"},
+		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, defaultObstacleConstraintName},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, defaultSelfCollisionConstraintName},
 	}
 
 	// define external obstacles
@@ -207,7 +206,7 @@ func TestCollisionConstraints(t *testing.T) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, true)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, false)
 	test.That(t, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
 	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, true)
@@ -217,7 +216,7 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			visualization.VisualizeScene(model, c.input, worldState)
+			// visualization.VisualizeScene(model, c.input, worldState)
 			response, _, failName := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)

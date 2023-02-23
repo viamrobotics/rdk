@@ -136,7 +136,7 @@ func newEntityGraph(x, y *collisionEntities, reportDistances bool) *entityGraph 
 		y:               y,
 		distances:       distances,
 		reportDistances: reportDistances,
-		triangular:      x.equivalentOrdering(y),
+		triangular:      x == y,
 	}
 }
 
@@ -153,6 +153,10 @@ type collisionGraph struct {
 // newCollisionGraph instantiates a collisionGraph object and checks for collisions between the key and test sets of CollisionEntities
 // collisions that are reported in the reference CollisionSystem argument will be ignore and not stored as edges in the graph.
 func newCollisionGraph(x, y *collisionEntities, reference *collisionGraph, reportDistances bool) (cg *collisionGraph, err error) {
+	if y == nil {
+		y = x
+	}
+
 	cg = &collisionGraph{*newEntityGraph(x, y, reportDistances)}
 	for i := range cg.distances {
 		xi := x.entityFromIndex(i)

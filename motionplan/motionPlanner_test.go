@@ -371,7 +371,12 @@ func TestArmObstacleSolve(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, "all IK solutions failed constraints. Failures: { defaultCollisionConstraint: 100.00% }, ")
+	test.That(
+		t,
+		err.Error(),
+		test.ShouldEqual,
+		"all IK solutions failed constraints. Failures: { "+defaultObstacleConstraintName+": 100.00% }, ",
+	)
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
