@@ -555,7 +555,6 @@ func TestClientRefresh(t *testing.T) {
 		mu.Unlock()
 
 		start := time.Now()
-		dur = 100 * time.Millisecond
 		client, err := New(
 			context.Background(),
 			listener.Addr().String(),
@@ -565,7 +564,7 @@ func TestClientRefresh(t *testing.T) {
 			WithReconnectEvery(dur),
 		)
 		test.That(t, err, test.ShouldBeNil)
-		// block here until ResourceNames is called 6 times
+		// block here until ResourceNames is called 7 times
 		<-calledEnough
 		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
 		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 5*dur)
