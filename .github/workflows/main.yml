@@ -6,7 +6,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [ 'main' ]
+    branches: [ 'ml/github-build-static' ]
     paths-ignore:
       - 'README.md'
     tags:
