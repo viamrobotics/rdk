@@ -74,13 +74,13 @@ func init() {
 					setPos := C.gpioServo(theServo.pin, C.uint(1500)) // a 1500ms pulsewidth positions the servo at 90 degrees
 					errorCode := int(setPos)
 					if errorCode != 0 {
-						return nil, ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
+						return nil, picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				} else {
 					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos), int(theServo.maxRotation))))
 					errorCode := int(setPos)
 					if errorCode != 0 {
-						return nil, ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
+						return nil, picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				}
 				if attr.HoldPos == nil || *attr.HoldPos {
@@ -196,7 +196,7 @@ func (s *piPigpioServo) Stop(ctx context.Context, extra map[string]interface{}) 
 	getPos := C.gpioServo(s.pin, C.uint(0))
 	errorCode := int(getPos)
 	if errorCode != 0 {
-		return ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
+		return picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 	}
 	return nil
 }
