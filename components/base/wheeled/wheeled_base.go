@@ -164,7 +164,6 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 			return nil
 		case <-timer.C:
 		}
-		//~make into helper function and pass into timer case?
 		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
 		if err != nil {
 			errCounter++
@@ -175,7 +174,6 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		}
 
 		errAngle := targetYaw - currYaw
-		base.logger.Debugf("currYaw: %.2f, errAngle:%.2f", currYaw, errAngle)
 
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		// poll the sensor for the current error in angle
