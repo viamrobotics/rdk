@@ -708,9 +708,9 @@ func (m *mockDigitalInterrupt) Value(ctx context.Context, extra map[string]inter
 	return 0, nil
 }
 
-func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	return nil
 }
-func (m *mockDigitalInterrupt) AddCallback(c chan bool)                 {}
-func (m *mockDigitalInterrupt) RemoveCallback(c chan bool)              {}
+func (m *mockDigitalInterrupt) AddCallback(c chan board.Tick)           {}
+func (m *mockDigitalInterrupt) RemoveCallback(c chan board.Tick)        {}
 func (m *mockDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {}

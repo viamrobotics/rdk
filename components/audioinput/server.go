@@ -15,12 +15,14 @@ import (
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -316,4 +318,15 @@ func (s *subtypeServer) Record(
 		ContentType: "audio/wav",
 		Data:        rd,
 	}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (s *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	audioInput, err := s.getAudioInput(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, audioInput, req)
 }
