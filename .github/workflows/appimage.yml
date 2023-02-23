@@ -53,6 +53,11 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
+    - name: Build Web Artifacts (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      run: |
+        make build-web
+
     - name: Build and Package (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage')
       run: |
