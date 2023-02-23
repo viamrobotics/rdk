@@ -7,6 +7,7 @@ import (
 	"context"
 	"image/jpeg"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
@@ -140,4 +141,21 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 	return &pb.GetInternalStateResponse{
 		InternalState: internalState,
 	}, nil
+}
+
+// GetPointCloudMapStream calls the callback function returned from the request to the slam service's
+// GetPointCloudMapStream and sends the chunk of the current pointcloud map to the provided stream
+func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStreamRequest,
+	stream pb.SLAMService_GetPointCloudMapStreamServer,
+) error {
+	return errors.New("unimplemented stub")
+}
+
+// GetInternalStateStream calls the callback function returned from the request to the slam service's
+// GetInternalStateStream and sends the chunk of the current internal state of the slam algo to the
+// provided stream
+func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest,
+	stream pb.SLAMService_GetInternalStateStreamServer,
+) error {
+	return errors.New("unimplemented stub")
 }
