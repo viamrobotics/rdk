@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "license": "Apache-2.0",
   "files": [
     "src/components/**/*.vue",
