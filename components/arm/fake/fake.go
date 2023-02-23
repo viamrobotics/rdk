@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
@@ -62,8 +61,6 @@ func (config *AttrConfig) Validate(path string) error {
 		_, err = modelFromName(config.ArmModel, "")
 	case config.ArmModel == "" && config.ModelFilePath != "":
 		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
-	default:
-		err = nil
 	}
 	return err
 }
@@ -103,8 +100,8 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return the ur5e
-		model, err = referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), cfg.Name)
+		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
+		model = referenceframe.NewSimpleModel(cfg.Name)
 	}
 	if err != nil {
 		return nil, err
