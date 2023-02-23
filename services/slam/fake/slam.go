@@ -155,13 +155,13 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 }
 
 // GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
-// map when called.
+// map.
 func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
 	return nil, errors.New("unimplemented stub")
 }
 
-// GetPointCloudMapStream returns a callback function which will return the next chunk of the current internal
-// state of the slam algo when called.
+// GetInternalStateStream returns a callback function which will return the next chunk of the current internal
+// state of the slam algo.
 func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
 	return nil, errors.New("unimplemented stub")
 }

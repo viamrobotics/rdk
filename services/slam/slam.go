@@ -79,6 +79,7 @@ type Service interface {
 	GetInternalState(ctx context.Context, name string) ([]byte, error)
 	GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error)
+	resource.Generic
 }
 
 type reconfigurableSlam struct {
@@ -129,6 +130,14 @@ func (svc *reconfigurableSlam) GetInternalStateStream(ctx context.Context, name 
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetInternalStateStream(ctx, name)
+}
+
+func (svc *reconfigurableSlam) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableSlam) Close(ctx context.Context) error {

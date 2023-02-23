@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -143,19 +144,32 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 	}, nil
 }
 
-// GetPointCloudMapStream calls the callback function returned from the request to the slam service's
-// GetPointCloudMapStream and sends the chunk of the current pointcloud map to the provided stream
+// GetPointCloudMapStream returns the slam service's slam algo's current map state in PCD format as
+// a stream of byte chunks.
 func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStreamRequest,
 	stream pb.SLAMService_GetPointCloudMapStreamServer,
 ) error {
 	return errors.New("unimplemented stub")
 }
 
-// GetInternalStateStream calls the callback function returned from the request to the slam service's
-// GetInternalStateStream and sends the chunk of the current internal state of the slam algo to the
-// provided stream
+// GetInternalStateStream returns the internal state of the slam service's slam algo in a stream of
+// byte chunks.
 func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest,
 	stream pb.SLAMService_GetInternalStateStreamServer,
 ) error {
 	return errors.New("unimplemented stub")
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::DoCommand")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, svc, req)
 }
