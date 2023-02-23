@@ -156,7 +156,7 @@ var PiGPIOErrorMap = map[int]string{
 	-3999: "PI_CUSTOM_ERR_999",
 }
 
-// ConvertErrorCodeToMessage converts error code to a human-readable string
+// ConvertErrorCodeToMessage converts error code to a human-readable string.
 func ConvertErrorCodeToMessage(errorCode int, message string) error {
 	errorMessage, exists := PiGPIOErrorMap[errorCode]
 	if exists {
