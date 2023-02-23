@@ -126,10 +126,39 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score, ""
 }
 
-func NewCollisionConstraint(
+func newSelfCollisionConstraint(
 	frame referenceframe.Frame,
+	observationInput map[string][]referenceframe.Input,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+) (Constraint, error) {
+	return newCollisionConstraint(frame, nil, observationInput, collisionSpecifications, reportDistances)
+}
+
+func newObstacleConstraint(frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
 	worldState *referenceframe.WorldState,
+	observationInput map[string][]referenceframe.Input,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+) (Constraint, error) {
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldState, err := worldState.ToWorldFrame(fs, observationInput)
+	if err != nil {
+		return nil, err
+	}
+	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
+	obstacleEntities, err := newCollisionEntities(worldState.Obstacles[0].Geometries())
+	if err != nil {
+		return nil, err
+	}
+	return newCollisionConstraint(frame, obstacleEntities, observationInput, collisionSpecifications, reportDistances)
+}
+
+func newCollisionConstraint(
+	frame referenceframe.Frame,
+	obstacleEntities *collisionEntities,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
@@ -157,25 +186,18 @@ func NewCollisionConstraint(
 		return nil, err
 	}
 
-	// create obstacle collision entities
-	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldState, err = worldState.ToWorldFrame(fs, observationInput)
-	if err != nil {
-		return nil, err
-	}
-	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	obstacleEntities, err := newCollisionEntities(worldState.Obstacles[0].Geometries())
-	if err != nil {
-		return nil, err
+	// if obstacleEntities are nil, treat the internal entities as the obstacleEntities
+	if obstacleEntities == nil {
+		obstacleEntities = internalEntities
 	}
 
-	zeroCS, err := newCollisionSystem(internalEntities, obstacleEntities, nil, true)
+	// create the reference collisionGraph
+	zeroCG, err := newCollisionGraph(internalEntities, obstacleEntities, nil, true)
 	if err != nil {
 		return nil, err
 	}
 	for _, specification := range collisionSpecifications {
-		if err := zeroCS.addCollisionSpecification(specification); err != nil {
+		if err := zeroCG.addCollisionSpecification(specification); err != nil {
 			return nil, err
 		}
 	}
@@ -186,12 +208,12 @@ func NewCollisionConstraint(
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		internalEntities, err := newCollisionEntities(internal.Geometries())
+		internalEntities, err := internalEntities.updateEntities(internal.Geometries())
 		if err != nil {
 			return false, 0
 		}
 
-		cg, err := newCollisionSystem(internalEntities, obstacleEntities, zeroCS, reportDistances)
+		cg, err := newCollisionGraph(internalEntities, obstacleEntities, zeroCG, reportDistances)
 		if err != nil {
 			return false, 0
 		}

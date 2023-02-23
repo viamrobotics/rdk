@@ -117,7 +117,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, collisionListsAlmostEqual(cg.collisions(), expectedCollisions), test.ShouldBeTrue)
 
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
-	err = cg.ignoreCollision(&expectedCollisions[1])
+	err = cg.addCollisionSpecification(&expectedCollisions[1])
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cg.collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
 }

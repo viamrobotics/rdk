@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"github.com/viamrobotics/visualization"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -178,7 +179,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, failName, test.ShouldEqual, "whiteboard")
 }
 
-func TestCollisionConstraint(t *testing.T) {
+func TestCollisionConstraints(t *testing.T) {
 	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
@@ -206,13 +207,17 @@ func TestCollisionConstraint(t *testing.T) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	collisionConstraint, err := NewCollisionConstraint(model, fs, worldState, frame.StartPositions(fs), nil, false)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, true)
 	test.That(t, err, test.ShouldBeNil)
-	handler.AddConstraint("collision", collisionConstraint)
+	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
+	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, true)
+	test.That(t, err, test.ShouldBeNil)
+	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			visualization.VisualizeScene(model, c.input, worldState)
 			response, _, failName := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)
@@ -222,7 +227,7 @@ func TestCollisionConstraint(t *testing.T) {
 
 var bt bool
 
-func BenchmarkCollisionConstraint(b *testing.B) {
+func BenchmarkCollisionConstraints(b *testing.B) {
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
@@ -238,10 +243,12 @@ func BenchmarkCollisionConstraint(b *testing.B) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(b, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	collisionConstraint, err := NewCollisionConstraint(model, fs, worldState, frame.StartPositions(fs), nil, false)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, false)
 	test.That(b, err, test.ShouldBeNil)
-	handler.AddConstraint("collision", collisionConstraint)
-
+	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
+	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, false)
+	test.That(b, err, test.ShouldBeNil)
+	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
 	var n int

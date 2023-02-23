@@ -363,11 +363,17 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// set this to true to get collision penetration depth - not yet fully supported, but could be used by cbirrt
 	getColDepth := false
 
-	collisionConstraint, err := NewCollisionConstraint(pm.frame, pm.fs, worldState, seedMap, nil, getColDepth)
+	// add collision constraints
+	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, seedMap, nil, getColDepth)
 	if err != nil {
 		return nil, err
 	}
-	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
+	obstacleConstraint, err := newObstacleConstraint(pm.frame, pm.fs, worldState, seedMap, nil, getColDepth)
+	if err != nil {
+		return nil, err
+	}
+	opt.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
+	opt.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
