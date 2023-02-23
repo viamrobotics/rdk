@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"image/jpeg"
+	"io"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -149,7 +150,37 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStreamRequest,
 	stream pb.SLAMService_GetPointCloudMapStreamServer,
 ) error {
-	return errors.New("unimplemented stub")
+	ctx := context.Background()
+
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMapStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetPointCloudMapStream(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		chunk := &pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
 }
 
 // GetInternalStateStream returns the internal state of the slam service's slam algo in a stream of

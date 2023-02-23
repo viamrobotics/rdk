@@ -152,7 +152,26 @@ func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, err
 // GetPointCloudMapStream creates a request, calls the slam service GetPointCloudMapStream and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
 func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMapStream")
+	defer span.End()
+
+	req := &pb.GetInternalStateStreamRequest{Name: name}
+
+	resp, err := c.client.GetInternalStateStream(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	f := func() ([]byte, error) {
+		chunk, err := resp.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		return chunk.GetInternalStateChunk(), err
+	}
+
+	return f, nil
 }
 
 // GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback

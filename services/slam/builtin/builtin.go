@@ -600,7 +600,23 @@ func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string)
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMapStream")
 	defer span.End()
 
-	return nil, errors.New("unimplemented stub")
+	req := &pb.GetPointCloudMapStreamRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetPointCloudMapStream(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting the GetPointCloudMap from the SLAM client")
+	}
+
+	f := func() ([]byte, error) {
+		chunk, err := resp.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		return chunk.GetPointCloudPcdChunk(), nil
+	}
+
+	return f, err
 }
 
 // GetInternalStateStream creates a request, calls the slam algorithms GetInternalStateStream endpoint and returns a callback
