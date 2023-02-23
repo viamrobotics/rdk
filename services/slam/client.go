@@ -9,6 +9,7 @@ import (
 	"image/jpeg"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/protoutils"
@@ -146,6 +147,18 @@ func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, err
 	internalState := resp.GetInternalState()
 
 	return internalState, nil
+}
+
+// GetPointCloudMapStream creates a request, calls the slam service GetPointCloudMapStream and returns a callback
+// function which will return the next chunk of the current pointcloud map when called.
+func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	return nil, errors.New("unimplemented stub")
+}
+
+// GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback
+// function which will return the next chunk of the current internal state of the slam algo when called.
+func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	return nil, errors.New("unimplemented stub")
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
