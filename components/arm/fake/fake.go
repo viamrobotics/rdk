@@ -106,7 +106,7 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
 		// if no arm model is specified, we return the ur5e
-		model, err = referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), cfg.Name)
+		model, err = referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), cfg.Name)
 	}
 	if err != nil {
 		return nil, err
