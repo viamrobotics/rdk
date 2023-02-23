@@ -163,7 +163,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			var actReadings []*v1.SensorData
 			files := getAllFiles(tmpDir)
 			for _, file := range files {
-				fileReadings, err := datacapture.GetAllReadings(filepath.Join(tmpDir, file.Name()))
+				fileReadings, err := datacapture.SensorDataFromFilePath(filepath.Join(tmpDir, file.Name()))
 				test.That(t, err, test.ShouldBeNil)
 				actReadings = append(actReadings, fileReadings...)
 			}

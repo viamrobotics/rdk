@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/protoutils"
 )
 
@@ -49,5 +48,5 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

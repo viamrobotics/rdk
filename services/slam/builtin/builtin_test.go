@@ -37,7 +37,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	slamConfig "go.viam.com/rdk/services/slam/internal/config"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -609,63 +608,6 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	closeOutSLAMService(t, name)
-}
-
-func TestArgumentInputs(t *testing.T) {
-
-	logger := golog.NewTestLogger(t)
-
-	t.Run("Testing delete_data_process evaluation", func(t *testing.T) {
-		// No delete_processed_data
-		deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, nil, false)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, nil, true)
-		test.That(t, deleteProcessedData, test.ShouldBeTrue)
-
-		// False delete_processed_data
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_false, false)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_false, true)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		// True delete_processed_data
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_true, false)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_true, true)
-		test.That(t, deleteProcessedData, test.ShouldBeTrue)
-	})
-
-	t.Run("Testing use_live_data evaluation", func(t *testing.T) {
-		// No use_live_data
-		useLiveData, err := slamConfig.DetermineUseLiveData(logger, nil, []string{})
-		test.That(t, err, test.ShouldBeError, slamConfig.SLAMConfigError("use_live_data is a required input parameter"))
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, nil, []string{"camera"})
-		test.That(t, err, test.ShouldBeError, slamConfig.SLAMConfigError("use_live_data is a required input parameter"))
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		// False use_live_data
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_false, []string{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_false, []string{"camera"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		// True use_live_data
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_true, []string{})
-		test.That(t, err, test.ShouldBeError, slamConfig.SLAMConfigError("sensors field cannot be empty when use_live_data is set to true"))
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_true, []string{"camera"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, useLiveData, test.ShouldBeTrue)
-	})
 }
 
 func TestCartographerNew(t *testing.T) {

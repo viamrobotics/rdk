@@ -156,8 +156,8 @@ func (e *IncrementalEncoder) Start(ctx context.Context) {
 	// 0 -> same state
 	// x -> impossible state
 
-	chanA := make(chan bool)
-	chanB := make(chan bool)
+	chanA := make(chan board.Tick)
+	chanB := make(chan board.Tick)
 
 	e.A.AddCallback(chanA)
 	e.B.AddCallback(chanB)
@@ -184,19 +184,19 @@ func (e *IncrementalEncoder) Start(ctx context.Context) {
 			default:
 			}
 
-			var level bool
+			var tick board.Tick
 
 			select {
 			case <-e.CancelCtx.Done():
 				return
-			case level = <-chanA:
+			case tick = <-chanA:
 				aLevel = 0
-				if level {
+				if tick.High {
 					aLevel = 1
 				}
-			case level = <-chanB:
+			case tick = <-chanB:
 				bLevel = 0
-				if level {
+				if tick.High {
 					bLevel = 1
 				}
 			}

@@ -25,9 +25,6 @@ import (
 // errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
 var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
 
-// errAttrCfgMissing is the returned error if the AttrConfig's fields are empty.
-var errAttrCfgMissing = errors.New("one of ArmModel or ModelPath must be populated")
-
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
 
@@ -64,8 +61,6 @@ func (config *AttrConfig) Validate(path string) error {
 		_, err = modelFromName(config.ArmModel, "")
 	case config.ArmModel == "" && config.ModelFilePath != "":
 		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
-	default:
-		err = errAttrCfgMissing
 	}
 	return err
 }
@@ -105,7 +100,8 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		err = errAttrCfgMissing
+		// if no arm model is specified, we return empty one with 0 dof and 0 spatial transformation
+		model = referenceframe.NewSimpleModel(cfg.Name)
 	}
 	if err != nil {
 		return nil, err

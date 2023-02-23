@@ -226,7 +226,7 @@ func TestReadings(t *testing.T) {
 
 	readings1, err := movementsensor.Readings(context.Background(), actualMovementSensor1, make(map[string]interface{}))
 	allReadings := map[string]interface{}{
-		"altitide":            alt,
+		"altitude":            alt,
 		"angular_velocity":    ang,
 		"compass":             compass,
 		"linear_velocity":     speed,
