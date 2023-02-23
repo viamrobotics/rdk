@@ -12,6 +12,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -140,4 +141,18 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 	return &pb.GetInternalStateResponse{
 		InternalState: internalState,
 	}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::DoCommand")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, svc, req)
 }

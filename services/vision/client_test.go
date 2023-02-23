@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
@@ -344,6 +345,13 @@ func TestInjectedServiceClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		// DoCommand
+		injectVision.DoCommandFunc = generic.EchoFunc
+		resp, err := workingDialedClient.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), workingDialedClient), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

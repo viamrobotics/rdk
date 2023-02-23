@@ -46,6 +46,7 @@ type Readings struct {
 type Service interface {
 	Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
 	Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]Readings, error)
+	resource.Generic
 }
 
 var (
@@ -124,6 +125,14 @@ func (svc *reconfigurableSensors) Readings(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Readings(ctx, sensorNames, extra)
+}
+
+func (svc *reconfigurableSensors) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableSensors) Close(ctx context.Context) error {

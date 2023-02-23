@@ -473,231 +473,193 @@ func TestStatusClient(t *testing.T) {
 
 func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
+
+	listener := gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 
-	var callCount int
-	calledEnough := make(chan struct{})
-
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		if callCount == 5 {
-			close(calledEnough)
-		}
-		callCount++
-
-		if callCount >= 5 {
-			return finalResources
-		}
-		return emptyResources
-	}
+	var mu sync.RWMutex
+	dur := 100 * time.Millisecond
 
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-
 	go gServer.Serve(listener)
-	defer gServer.Stop()
+	defer func() {
+		mu.Lock()
+		gServer.Stop()
+		mu.Unlock()
+	}()
+	t.Run("run with same reconnectTime and checkConnectedTime", func(t *testing.T) {
+		calledEnough := make(chan struct{})
+		var callCountSubtypes int
+		var callCountNames int
 
-	start := time.Now()
-	dur := 100 * time.Millisecond
-	client, err := New(
-		context.Background(),
-		listener.Addr().String(),
-		logger,
-		WithRefreshEvery(dur),
-	)
-	test.That(t, err, test.ShouldBeNil)
-	<-calledEnough
-	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*dur)
-	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
+		mu.Lock()
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+			mu.Lock()
+			defer mu.Unlock()
+			callCountSubtypes++
+			if callCountSubtypes == 6 {
+				close(calledEnough)
+			}
+			return nil
+		}
+		injectRobot.ResourceNamesFunc = func() []resource.Name {
+			mu.Lock()
+			defer mu.Unlock()
+			callCountNames++
+			return emptyResources
+		}
+		mu.Unlock()
 
-	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
-	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
-	boardNames := []resource.Name{board.Named("board2"), board.Named("board3")}
-	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
-	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
-	motorNames := []resource.Name{motor.Named("motor2"), motor.Named("motor3")}
-	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
+		start := time.Now()
+		client, err := New(
+			context.Background(),
+			listener.Addr().String(),
+			logger,
+			WithRefreshEvery(dur),
+			WithCheckConnectedEvery(dur),
+			WithReconnectEvery(dur),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// block here until ResourceNames is called 6 times
+		<-calledEnough
+		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*dur)
+		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
+		test.That(t, callCountSubtypes, test.ShouldEqual, 6)
+		test.That(t, callCountNames, test.ShouldEqual, 6)
 
-	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t,
-		utils.NewStringSet(arm.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(base.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(board.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(camera.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(gripper.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(motor.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(sensor.NamesFromRobot(client)...),
-		test.ShouldBeEmpty,
-	)
-	test.That(t,
-		utils.NewStringSet(servo.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
-	)
-	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
-		testutils.ConcatResourceNames(
-			armNames,
-			baseNames,
-			boardNames,
-			cameraNames,
-			gripperNames,
-			motorNames,
-			servoNames,
-		)...))
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	})
 
-	err = client.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("run with different reconnectTime and checkConnectedTime", func(t *testing.T) {
+		calledEnough := make(chan struct{})
+		var callCountSubtypes int
+		var callCountNames int
 
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
-	client, err = New(
-		context.Background(),
-		listener.Addr().String(),
-		logger,
-		WithRefreshEvery(dur),
-	)
-	test.That(t, err, test.ShouldBeNil)
+		mu.Lock()
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+			mu.Lock()
+			defer mu.Unlock()
+			callCountSubtypes++
+			if callCountSubtypes == 7 {
+				close(calledEnough)
+			}
+			return nil
+		}
+		injectRobot.ResourceNamesFunc = func() []resource.Name {
+			mu.Lock()
+			defer mu.Unlock()
+			callCountNames++
+			return emptyResources
+		}
+		mu.Unlock()
 
-	armNames = []resource.Name{arm.Named("arm1")}
-	baseNames = []resource.Name{base.Named("base1")}
-	boardNames = []resource.Name{board.Named("board1"), board.Named("board3")}
-	cameraNames = []resource.Name{camera.Named("camera1")}
-	gripperNames = []resource.Name{gripper.Named("gripper1")}
+		start := time.Now()
+		client, err := New(
+			context.Background(),
+			listener.Addr().String(),
+			logger,
+			WithRefreshEvery(dur),
+			WithCheckConnectedEvery(dur*2),
+			WithReconnectEvery(dur),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// block here until ResourceNames is called 7 times
+		<-calledEnough
+		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
+		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 5*dur)
+		test.That(t, callCountSubtypes, test.ShouldEqual, 7)
+		test.That(t, callCountNames, test.ShouldEqual, 7)
 
-	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t,
-		utils.NewStringSet(arm.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(base.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(board.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(camera.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(gripper.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
-	)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	})
 
-	test.That(t,
-		utils.NewStringSet(sensor.NamesFromRobot(client)...),
-		test.ShouldBeEmpty,
-	)
-	test.That(t,
-		utils.NewStringSet(servo.NamesFromRobot(client)...),
-		test.ShouldBeEmpty,
-	)
+	t.Run("refresh tests", func(t *testing.T) {
+		mu.Lock()
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+		mu.Unlock()
+		client, _ := New(
+			context.Background(),
+			listener.Addr().String(),
+			logger,
+		)
 
-	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
-		testutils.ConcatResourceNames(
-			armNames,
-			baseNames,
-			boardNames,
-			cameraNames,
-			gripperNames,
-		)...))
+		armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+		baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
 
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
-	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(arm.NamesFromRobot(client)...),
+			test.ShouldResemble,
+			utils.NewStringSet(testutils.ExtractNames(armNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(base.NamesFromRobot(client)...),
+			test.ShouldResemble,
+			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+		)
 
-	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
-	baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
-	boardNames = []resource.Name{board.Named("board2"), board.Named("board3")}
-	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
-	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+			finalResources...))
 
-	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t,
-		utils.NewStringSet(arm.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(base.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(board.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(camera.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(gripper.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(motor.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(sensor.NamesFromRobot(client)...),
-		test.ShouldBeEmpty,
-	)
-	test.That(t,
-		utils.NewStringSet(servo.NamesFromRobot(client)...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
-	)
-	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
-		testutils.ConcatResourceNames(
-			armNames,
-			baseNames,
-			boardNames,
-			cameraNames,
-			gripperNames,
-			motorNames,
-			servoNames,
-		)...))
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 
-	err = client.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+		mu.Lock()
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
+		mu.Unlock()
+		client, err := New(
+			context.Background(),
+			listener.Addr().String(),
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		armNames = []resource.Name{arm.Named("arm1")}
+		baseNames = []resource.Name{base.Named("base1")}
+
+		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(arm.NamesFromRobot(client)...),
+			test.ShouldResemble,
+			utils.NewStringSet(testutils.ExtractNames(armNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(base.NamesFromRobot(client)...),
+			test.ShouldResemble,
+			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+		)
+
+		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+			emptyResources...))
+
+		mu.Lock()
+		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+		mu.Unlock()
+		test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+
+		armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+		baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
+
+		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(arm.NamesFromRobot(client)...),
+			test.ShouldResemble,
+			utils.NewStringSet(testutils.ExtractNames(armNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(base.NamesFromRobot(client)...),
+			test.ShouldResemble,
+			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+		)
+
+		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+			finalResources...))
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	})
 }
 
 func TestClientDisconnect(t *testing.T) {
