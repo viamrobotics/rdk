@@ -373,7 +373,7 @@ func TestAngleCalculations(t *testing.T) {
 		{"oneeighty-CW-quadrants2", -10, -170, 179.9},
 	} {
 		t.Run(tc.QuadrantName, func(t *testing.T) {
-			calculated := calculatedDomainLimitedAngleError(tc.Added, tc.Current)
+			calculated := addAnglesInDomain(tc.Added, tc.Current)
 			test.That(t, calculated, test.ShouldAlmostEqual, tc.Expected)
 		})
 	}

@@ -24,7 +24,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const pollTimeMs = 100
+const yawPollTimeMs = 100
 
 var modelname = resource.NewDefaultModel("wheeled")
 
@@ -145,8 +145,13 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	}
 
 	errCounter := 0
-	targetYaw := calculatedDomainLimitedAngleError(angleDeg, currYaw)
-	timer := time.NewTicker(time.Duration(pollTimeMs * float64(time.Millisecond))) //~rename
+	targetYaw := addAnglesInDomain(angleDeg, currYaw)
+	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) //~rename
+
+	if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
+		return err
+	}
+
 	for {
 
 		select {
@@ -181,9 +186,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 			}
 			break
 		}
-		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
-			return err
-		}
+
 	}
 	return nil
 }
@@ -200,7 +203,7 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 // TODO: RSDK-1698, considers dealing with imus that
 // return values between -180 to 180 and 0-360 (probably components using our sensor filters).
 // current tests only consider -179 to 179 domain logic
-func calculatedDomainLimitedAngleError(target, current float64) float64 {
+func addAnglesInDomain(target, current float64) float64 {
 	angle := target + current
 	// reduce the angle
 	angle = math.Mod(angle, 360)
@@ -222,7 +225,7 @@ func calculatedDomainLimitedAngleError(target, current float64) float64 {
 }
 
 func baseOvershot(currentYaw, targetYaw, allowedAngle float64) bool {
-	return math.Abs(currentYaw) > math.Abs(calculatedDomainLimitedAngleError(targetYaw, allowedAngle))
+	return math.Abs(currentYaw) > math.Abs(addAnglesInDomain(targetYaw, allowedAngle))
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
