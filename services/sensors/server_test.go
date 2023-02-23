@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -177,4 +178,28 @@ func TestServerGetReadings(t *testing.T) {
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
+}
+
+func TestServerDoCommand(t *testing.T) {
+	resourceMap := map[resource.Name]interface{}{
+		sensors.Named(testSvcName1): &inject.SensorsService{
+			DoCommandFunc: generic.EchoFunc,
+		},
+	}
+	server, err := newServer(resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	doCommandRequest := &commonpb.DoCommandRequest{
+		Name:    testSvcName1,
+		Command: cmd,
+	}
+	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that do command response is an echoed request.
+	respMap := doCommandResponse.Result.AsMap()
+	test.That(t, respMap["command"], test.ShouldResemble, "test")
+	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
 }

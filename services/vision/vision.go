@@ -75,6 +75,7 @@ type Service interface {
 	AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
 	RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
+	resource.Generic
 }
 
 var (
@@ -258,6 +259,14 @@ func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, extra)
+}
+
+func (svc *reconfigurableVision) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableVision) Close(ctx context.Context) error {

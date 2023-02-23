@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/pointcloud"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -413,4 +414,11 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 		}
 	}
 	return objects, nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::DoCommand")
+	defer span.End()
+
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
