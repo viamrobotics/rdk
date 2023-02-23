@@ -2,12 +2,6 @@
 
 package genericlinux
 
-import (
-	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/components/board"
-)
-
 type gpioPin struct {
 	// This struct is implemented in the Linux version. We have a dummy struct here just to get
 	// things to compile on non-Linux environments.
