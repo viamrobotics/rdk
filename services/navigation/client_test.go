@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -161,6 +162,14 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedPoint, test.ShouldResemble, point)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		// test do command
+		workingNavigationService.DoCommandFunc = generic.EchoFunc
+		resp, err := workingNavClient.DoCommand(context.Background(), generic.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
