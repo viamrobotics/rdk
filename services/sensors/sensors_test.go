@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -108,17 +109,34 @@ func TestReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
 }
 
+func TestDoCommand(t *testing.T) {
+	svc := &mock{name: testSvcName1}
+
+	resp, err := svc.DoCommand(context.Background(), generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, generic.TestCommand)
+	test.That(t, svc.cmd, test.ShouldResemble, generic.TestCommand)
+}
+
 type mock struct {
 	sensors.Service
 
 	sensorsCount int
 	name         string
 	reconfCount  int
+	cmd          map[string]interface{}
 }
 
 func (m *mock) Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
 	m.sensorsCount++
 	return names, nil
+}
+
+func (m *mock) DoCommand(_ context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	m.cmd = cmd
+	return cmd, nil
 }
 
 func (m *mock) Close(ctx context.Context) error {

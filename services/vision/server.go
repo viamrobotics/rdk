@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -422,4 +423,18 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		protoSegs = append(protoSegs, ps)
 	}
 	return protoSegs, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::DoCommand")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, svc, req)
 }

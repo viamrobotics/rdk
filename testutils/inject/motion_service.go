@@ -26,6 +26,8 @@ type MotionService struct {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	DoCommandFunc func(ctx context.Context,
+		cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Move calls the injected Move or the real variant.
@@ -68,4 +70,14 @@ func (mgs *MotionService) GetPose(
 		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 	}
 	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
+// DoCommand calls the injected DoCommand or the real variant.
+func (mgs *MotionService) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	if mgs.DoCommandFunc == nil {
+		return mgs.Service.DoCommand(ctx, cmd)
+	}
+	return mgs.DoCommandFunc(ctx, cmd)
 }
