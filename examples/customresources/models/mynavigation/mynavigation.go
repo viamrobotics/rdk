@@ -9,6 +9,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -40,9 +41,10 @@ func newNav(ctx context.Context, deps registry.Dependencies, cfg config.Service,
 }
 
 type navSvc struct {
-	mu sync.RWMutex
-	loc *geo.Point
-	logger golog.Logger
+	generic.Unimplemented
+	mu        sync.RWMutex
+	loc       *geo.Point
+	logger    golog.Logger
 	waypoints []navigation.Waypoint
 }
 
@@ -93,8 +95,8 @@ func (svc *navSvc) Reconfigure(ctx context.Context, cfg config.Service) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.loc = geo.NewPoint(
-			cfg.Attributes.Float64("lat", -48.876667),
-			cfg.Attributes.Float64("long", -123.393333),
+		cfg.Attributes.Float64("lat", -48.876667),
+		cfg.Attributes.Float64("long", -123.393333),
 	)
 	return nil
 }
