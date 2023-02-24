@@ -11,7 +11,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
@@ -49,7 +48,7 @@ func newOneAxis(
 	deps registry.Dependencies,
 	cfg config.Component,
 	logger golog.Logger,
-) (gantry.LocalGantry, error) {
+) (*oneAxis, error) {
 	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
@@ -83,7 +82,7 @@ func newOneAxis(
 		board:           board,
 	}
 
-	oAx.model, err = oAx.createModel(conf.Axis)
+	err = oAx.createModel(conf.Axis)
 	if err != nil {
 		return oAx, err
 	}
@@ -91,7 +90,7 @@ func newOneAxis(
 	return oAx, nil
 }
 
-func (g *oneAxis) createModel(axis r3.Vector) (referenceframe.Model, error) {
+func (g *oneAxis) createModel(axis r3.Vector) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var errs error
@@ -105,12 +104,13 @@ func (g *oneAxis) createModel(axis r3.Vector) (referenceframe.Model, error) {
 	errs = multierr.Combine(errs, err)
 
 	if errs != nil {
-		return nil, errs
+		return errs
 	}
 
 	m.OrdTransforms = append(m.OrdTransforms, f)
+	g.model = m
 
-	return m, errs
+	return errs
 }
 
 func (g *oneAxis) linearToRotational(positions float64) float64 {

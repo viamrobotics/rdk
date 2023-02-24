@@ -53,12 +53,12 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if len(cfg.Motor) == 0 {
-		return nil, errors.New("cannot find motor for gantry")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "motor")
 	}
 	deps = append(deps, cfg.Motor)
 
 	if cfg.LengthMm <= 0 {
-		return nil, errors.New("each axis needs a non-zero and positive length")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "length_mm")
 	}
 
 	if len(cfg.LimitSwitchPins) == 0 && len(cfg.Board) > 0 {
@@ -66,16 +66,17 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	}
 
 	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {
-		return nil, errors.New("cannot find board for gantry")
+		return nil, errors.New("gantries with limit_pins require a board to sense limit hits")
+	} else {
+		deps = append(deps, cfg.Board)
 	}
-	deps = append(deps, cfg.Board)
 
 	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
-		return nil, errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits")
+		return nil, errors.New("the one-axis gantry has one limit switch axis, needs pulley radius to set position limits")
 	}
 
 	if len(cfg.LimitSwitchPins) > 0 && cfg.LimitPinEnabled == nil {
-		return nil, errors.New("limit pin enabled muist be set to true or false")
+		return nil, errors.New("limit pin enabled must be set to true or false")
 	}
 
 	if cfg.Axis.X == 0 && cfg.Axis.Y == 0 && cfg.Axis.Z == 0 {
@@ -111,9 +112,9 @@ func setUpGantry(
 	cfg config.Component,
 	logger golog.Logger,
 ) (interface{}, error) {
-	// sets up a single axis that assumes motor can be used alone to
-	// set up limits, range and knows absolute position along the axis
-	g, err := newOneAxis(ctx, deps, cfg, logger)
+	// sets up a single axis that uses the motor to set the gantry limits and range
+	// the motor is position reporting and can return the absolute position along its axis
+	oAx, err := newOneAxis(ctx, deps, cfg, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -121,11 +122,6 @@ func setUpGantry(
 	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
-	}
-
-	oAx, ok := g.(*oneAxis)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(&oneAxis{}, oAx)
 	}
 
 	switch len(conf.LimitSwitchPins) {
@@ -138,19 +134,15 @@ func setUpGantry(
 	default:
 		// sets up a gantry that requires polling of external sensors, in this case limit switches
 		// to find position limits and gantry range
-		g, err := newLimitSwitchGantry(ctx, cfg, logger, oAx)
+		lAx, err := newLimitSwitchGantry(ctx, cfg, logger, oAx)
 		if err != nil {
 			return nil, err
 		}
 
-		lAx, ok := g.(*limitSwitchGantry)
-		if !ok {
-			return nil, rdkutils.NewUnexpectedTypeError(&limitSwitchGantry{}, lAx)
-		}
 		if err = lAx.homeWithLimSwitch(ctx, conf.LimitSwitchPins); err != nil {
 			return nil, err
 		}
-		return g, nil
+		return lAx, nil
 	}
 }
 
@@ -163,8 +155,8 @@ type limitSwitchGantry struct {
 	limitHitMu      sync.Mutex
 	limitsPolled    bool
 
-	mu     sync.Mutex
-	logger golog.Logger
+	instanceMu sync.Mutex
+	logger     golog.Logger
 	generic.Unimplemented
 }
 
@@ -174,7 +166,7 @@ func newLimitSwitchGantry(
 	cfg config.Component,
 	logger golog.Logger,
 	oneAxis *oneAxis,
-) (gantry.LocalGantry, error) {
+) (*limitSwitchGantry, error) {
 	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
@@ -303,9 +295,9 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 		return err
 	}
 
-	np := len(g.limitSwitchPins)
+	np := len(limSwitchPins)
 	var positionB float64
-	switch len(limSwitchPins) {
+	switch np {
 	case 1:
 		if g.oAx.lengthMm == 0.0 || g.oAx.mmPerRevolution == 0.0 {
 			return errDimensionsNotFound(g.oAx.name, g.oAx.lengthMm, g.oAx.mmPerRevolution)
@@ -321,7 +313,7 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 		return errBadNumLimitSwitches(g.oAx.name, np)
 	}
 
-	g.oAx.logger.Debugf("positionA: %0.2f positionB: %0.2f", positionA, positionB)
+	g.oAx.logger.Debugf("finished homing gantry with positionA: %0.2f positionB: %0.2f", positionA, positionB)
 
 	g.oAx.positionLimits = []float64{positionA, positionB}
 
@@ -330,7 +322,11 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 	}
 
 	// Go backwards so limit stops are not hit.
-	x := g.oAx.linearToRotational(0.9 * (g.oAx.gantryRange + positionA))
+	target := 0.9
+	if len(limSwitchPins) == 1 {
+		target = 0.1 // We're near the start, not the end when homing a gantry with a single limit pin
+	}
+	x := g.oAx.linearToRotational(target*(g.oAx.gantryRange) + positionA)
 	err = g.oAx.motor.GoTo(ctx, g.oAx.rpm, x, nil)
 	if err != nil {
 		return err
@@ -339,8 +335,8 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 }
 
 func (g *limitSwitchGantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.Position(ctx, extra)
 }
 
@@ -350,41 +346,42 @@ func (g *limitSwitchGantry) MoveToPosition(
 	worldstate *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.MoveToPosition(ctx, positionsMm, worldstate, extra)
 }
 
 func (g *limitSwitchGantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.Lengths(ctx, extra)
 }
 
 func (g *limitSwitchGantry) Stop(ctx context.Context, extra map[string]interface{}) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.Stop(ctx, extra)
 }
 
 func (g *limitSwitchGantry) ModelFrame() referenceframe.Model {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.ModelFrame()
 }
 
 func (g *limitSwitchGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.CurrentInputs(ctx)
 }
 
 func (g *limitSwitchGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.instanceMu.Lock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.GoToInputs(ctx, goal)
 }
 
 func (g *limitSwitchGantry) IsMoving(ctx context.Context) (bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	defer g.instanceMu.Unlock()
 	return g.oAx.IsMoving(ctx)
 }
