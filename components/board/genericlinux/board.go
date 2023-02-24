@@ -112,7 +112,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
 				b.gpios = gpioInitialize( // Defined in gpio.go
-					gpioMappings, b.cancelCtx, &b.activeBackgroundWorkers, b.logger)
+					b.cancelCtx, gpioMappings, &b.activeBackgroundWorkers, b.logger)
 			}
 			return &b, nil
 		}})

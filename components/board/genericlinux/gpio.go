@@ -218,7 +218,7 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping, cancelCtx context.Context,
+func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
 	waitGroup *sync.WaitGroup, logger golog.Logger) map[string]*gpioPin {
 	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
