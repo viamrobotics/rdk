@@ -40,6 +40,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -609,7 +610,7 @@ func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string)
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
 	defer span.End()
 
-	return slam.HelperGetInternalStateCallback(ctx, name, slamSvc.clientAlgo)
+	return grpchelper.HelperGetInternalStateCallback(ctx, name, slamSvc.clientAlgo)
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
