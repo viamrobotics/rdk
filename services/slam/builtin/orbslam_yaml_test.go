@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -116,7 +117,12 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with good camera and defined params", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
+		reservePort, err := utils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		attrCfgGood.Port = "localhost:" + strconv.Itoa(reservePort)
+		grpcServer, err := setupTestGRPCServer(t, attrCfgGood.Port)
+		test.That(t, err, test.ShouldBeNil)
+		time.Sleep(time.Millisecond * 1)
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -153,7 +159,11 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with previous map and good camera", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
+		reservePort, err := utils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		attrCfgGood.Port = "localhost:" + strconv.Itoa(reservePort)
+		grpcServer, err := setupTestGRPCServer(t, attrCfgGood.Port)
+		test.That(t, err, test.ShouldBeNil)
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -178,7 +188,11 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with high dataRateMs", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGoodHighDataRateMs.Port)
+		reservePort, err := utils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		attrCfgGoodHighDataRateMs.Port = "localhost:" + strconv.Itoa(reservePort)
+		grpcServer, err := setupTestGRPCServer(t, attrCfgGoodHighDataRateMs.Port)
+		test.That(t, err, test.ShouldBeNil)
 		svc, err := createSLAMService(t, attrCfgGoodHighDataRateMs, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
