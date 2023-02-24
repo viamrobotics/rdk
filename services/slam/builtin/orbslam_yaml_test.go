@@ -122,7 +122,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		attrCfgGood.Port = "localhost:" + strconv.Itoa(reservePort)
 		grpcServer, err := setupTestGRPCServer(t, attrCfgGood.Port)
 		test.That(t, err, test.ShouldBeNil)
-		time.Sleep(time.Millisecond * 1)
+
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
