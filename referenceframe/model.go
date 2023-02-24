@@ -160,7 +160,7 @@ func (m *SimpleModel) DoF() []Limit {
 	}
 	m.lock.RUnlock()
 
-	limits := []Limit{}
+	limits := make([]Limit, 0, len(m.OrdTransforms))
 	for _, transform := range m.OrdTransforms {
 		if len(transform.DoF()) > 0 {
 			limits = append(limits, transform.DoF()...)
