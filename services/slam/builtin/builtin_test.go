@@ -108,8 +108,6 @@ func setupTestGRPCServer(t *testing.T, port string) (*grpc.Server, error) {
 	}
 	gServer2 := grpc.NewServer()
 	go gServer2.Serve(listener2)
-	// Added sleep for debugging
-	// time.Sleep(time.Millisecond * 1)
 	return gServer2, nil
 }
 
