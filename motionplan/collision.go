@@ -86,7 +86,7 @@ func newCollisionGraph(x, y map[string]spatial.Geometry, reference *collisionGra
 			if _, ok := cg.distances[yName][xName]; ok || xGeometry == yGeometry {
 				continue
 			}
-			if reference != nil && (reference.collisionBetween(xName, yName) || reference.collisionBetween(yName, xName)) {
+			if reference != nil && reference.collisionBetween(xName, yName) {
 				distance = math.NaN() // represent previously seen collisions as NaNs
 			} else if distance, err = cg.checkCollision(xGeometry, yGeometry); err != nil {
 				return nil, err
@@ -112,11 +112,14 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error)
 }
 
 // collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
-func (cg *collisionGraph) collisionBetween(xName, yName string) bool {
-	if distance, ok := cg.distances[xName][yName]; ok && distance <= spatial.CollisionBuffer {
-		return true
+func (cg *collisionGraph) collisionBetween(name1, name2 string) bool {
+	distance, ok := cg.distances[name1][name2]
+	if !ok {
+		if distance, ok = cg.distances[name2][name1]; !ok {
+			return false
+		}
 	}
-	return false
+	return distance <= spatial.CollisionBuffer
 }
 
 // collisions returns a list of all the Collisions as reported by test CollisionEntities' collisionReportFn.
