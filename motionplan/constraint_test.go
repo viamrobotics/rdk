@@ -216,7 +216,6 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			// visualization.VisualizeScene(model, c.input, worldState)
 			response, _, failName := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)

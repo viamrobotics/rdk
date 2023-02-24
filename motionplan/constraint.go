@@ -149,16 +149,12 @@ func newObstacleConstraint(frame referenceframe.Frame,
 		return nil, err
 	}
 	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	obstacleEntities, err := newCollisionEntities(worldState.Obstacles[0].Geometries())
-	if err != nil {
-		return nil, err
-	}
-	return newCollisionConstraint(frame, obstacleEntities, observationInput, collisionSpecifications, reportDistances)
+	return newCollisionConstraint(frame, worldState.Obstacles[0].Geometries(), observationInput, collisionSpecifications, reportDistances)
 }
 
 func newCollisionConstraint(
 	frame referenceframe.Frame,
-	obstacleEntities *collisionEntities,
+	obstacles map[string]spatial.Geometry,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
@@ -181,20 +177,14 @@ func newCollisionConstraint(
 	if err != nil && len(zeroVols.Geometries()) == 0 {
 		return nil, err // no geometries defined for frame
 	}
-	internalEntities, err := newCollisionEntities(zeroVols.Geometries())
-	if err != nil {
-		return nil, err
-	}
 
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(internalEntities, obstacleEntities, nil, true)
+	zeroCG, err := newCollisionGraph(zeroVols.Geometries(), obstacles, nil, true)
 	if err != nil {
 		return nil, err
 	}
 	for _, specification := range collisionSpecifications {
-		if err := zeroCG.addCollisionSpecification(specification); err != nil {
-			return nil, err
-		}
+		zeroCG.addCollisionSpecification(specification)
 	}
 
 	// create constraint from reference collision graph
@@ -203,12 +193,8 @@ func newCollisionConstraint(
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		internalEntities, err := newCollisionEntities(internal.Geometries())
-		if err != nil {
-			return false, 0
-		}
 
-		cg, err := newCollisionGraph(internalEntities, obstacleEntities, zeroCG, reportDistances)
+		cg, err := newCollisionGraph(internal.Geometries(), obstacles, zeroCG, reportDistances)
 		if err != nil {
 			return false, 0
 		}
