@@ -203,7 +203,6 @@ func runtimeServiceValidation(
 	var err error
 	paths := make([]string, 0, 1)
 	startTime := time.Now()
-
 	// TODO 05/05/2022: This will be removed once GRPC data transfer is available as the responsibility for
 	// calling the right algorithms (Next vs NextPointCloud) will be held by the slam libraries themselves
 	// Note: if GRPC data transfer is delayed to after other algorithms (or user custom algos) are being
@@ -221,11 +220,9 @@ func runtimeServiceValidation(
 		default:
 			return errors.Errorf("invalid slam algorithm %q", slamSvc.slamLib.AlgoName)
 		}
-
 		if err == nil {
 			break
 		}
-
 		// This takes about 5 seconds, so the timeout should be sufficient.
 		if time.Since(startTime) >= time.Duration(cameraValidationMaxTimeoutSec)*time.Second {
 			return errors.Wrap(err, "error getting data in desired mode")
@@ -234,14 +231,12 @@ func runtimeServiceValidation(
 			return ctx.Err()
 		}
 	}
-
 	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
 	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
 		if err = slamSvc.orbGenYAML(ctx, cams[0]); err != nil {
 			return errors.Wrap(err, "error generating .yaml config")
 		}
 	}
-
 	for _, path := range paths {
 		if err := os.RemoveAll(path); err != nil {
 			return errors.Wrap(err, "error removing generated file during validation")
@@ -596,22 +591,18 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
-
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-
 	cameraName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
-
 	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
-
 	var port string
 	if svcConfig.Port == "" {
 		port = localhost0
@@ -637,7 +628,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	} else {
 		mapRate = *svcConfig.MapRateSec
 	}
-
 	useLiveData, err := slamConfig.DetermineUseLiveData(logger, svcConfig.UseLiveData, svcConfig.Sensors)
 	if err != nil {
 		return nil, err
@@ -680,24 +670,19 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 			}
 		}
 	}()
-
 	if err := runtimeServiceValidation(cancelCtx, cams, camStreams, slamSvc); err != nil {
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
-
 	slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
-
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
 	}
-
 	client, clientClose, err := setupGRPCConnection(ctx, slamSvc.port, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error with initial grpc client to slam algorithm")
 	}
 	slamSvc.clientAlgo = client
 	slamSvc.clientAlgoClose = clientClose
-
 	success = true
 	return slamSvc, nil
 }
