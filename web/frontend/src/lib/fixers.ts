@@ -37,7 +37,14 @@ export const fixArmStatus = (old: {
       }
     );
   }
-  if(old.joint_positions.values !== undefined){
+  if (old.joint_positions.values === undefined) {
+    newStatus.joint_pieces.push(
+      {
+        joint: 0,
+        jointValue: 100,
+      }
+    );
+  } else {
     for (let j = 0; j < old.joint_positions.values.length; j += 1) {
       newStatus.joint_pieces.push(
         {
@@ -46,13 +53,6 @@ export const fixArmStatus = (old: {
         }
       );
     }
-  } else {
-    newStatus.joint_pieces.push(
-      {
-        joint: 0,
-        jointValue: 100 || 0,
-      }
-    );
   }
 
   return newStatus;
