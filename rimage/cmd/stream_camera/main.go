@@ -87,7 +87,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func viewCamera(ctx context.Context, attrs videosource.WebcamAttrs, port int, debug bool, logger golog.Logger) error {
-	webcam, err := videosource.NewWebcamSource(ctx, &attrs, logger)
+	webcam, err := videosource.NewWebcamSource(ctx, "camera", &attrs, logger)
 	if err != nil {
 		return err
 	}

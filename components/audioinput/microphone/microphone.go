@@ -121,5 +121,6 @@ func tryMicrophoneOpen(
 	if err != nil {
 		return nil, err
 	}
+	// TODO(XXX): implement LivenessMonitor
 	return audioinput.NewFromSource(source)
 }

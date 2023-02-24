@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -143,7 +143,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {

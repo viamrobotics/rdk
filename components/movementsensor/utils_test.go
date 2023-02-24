@@ -1,6 +1,7 @@
 package movementsensor
 
 import (
+	"errors"
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -63,4 +64,28 @@ func TestGetHeading(t *testing.T) {
 	test.That(t, bearing, test.ShouldAlmostEqual, 235.6498, 1e-3)
 	test.That(t, heading, test.ShouldAlmostEqual, 325.6498, 1e-3)
 	test.That(t, standardBearing, test.ShouldAlmostEqual, -124.3501, 1e-3)
+}
+
+func TestNoErrors(t *testing.T) {
+	le := LastError{}
+	test.That(t, le.Get(), test.ShouldBeNil)
+}
+
+func TestOneError(t *testing.T) {
+	le := LastError{}
+
+	le.Set(errors.New("it's a test error"))
+	test.That(t, le.Get(), test.ShouldNotBeNil)
+	// We got the error, so it shouldn't be in here any more.
+	test.That(t, le.Get(), test.ShouldBeNil)
+}
+
+func TestTwoErrors(t *testing.T) {
+	le := LastError{}
+
+	le.Set(errors.New("first"))
+	le.Set(errors.New("second"))
+
+	err := le.Get()
+	test.That(t, err.Error(), test.ShouldEqual, "second")
 }

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/datamanager/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/subtype"
@@ -82,4 +84,28 @@ func TestServerSync(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServerDoCommand(t *testing.T) {
+	resourceMap := map[resource.Name]interface{}{
+		datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
+			DoCommandFunc: generic.EchoFunc,
+		},
+	}
+	server, err := newServer(resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	doCommandRequest := &commonpb.DoCommandRequest{
+		Name:    testDataManagerServiceName,
+		Command: cmd,
+	}
+	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that do command response is an echoed request.
+	respMap := doCommandResponse.Result.AsMap()
+	test.That(t, respMap["command"], test.ShouldResemble, "test")
+	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
 }

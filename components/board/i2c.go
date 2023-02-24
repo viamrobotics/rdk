@@ -19,11 +19,8 @@ type I2CHandle interface {
 	ReadByteData(ctx context.Context, register byte) (byte, error)
 	WriteByteData(ctx context.Context, register, data byte) error
 
-	ReadWordData(ctx context.Context, register byte) (uint16, error)
-	WriteWordData(ctx context.Context, register byte, data uint16) error
-
 	ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error)
-	WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error
+	WriteBlockData(ctx context.Context, register byte, data []byte) error
 
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
@@ -43,14 +40,4 @@ func (reg *I2CRegister) ReadByteData(ctx context.Context) (byte, error) {
 // WriteByteData writes a byte to the I2C channel register.
 func (reg *I2CRegister) WriteByteData(ctx context.Context, data byte) error {
 	return reg.Handle.WriteByteData(ctx, reg.Register, data)
-}
-
-// ReadWordData reads a word from the I2C channel register.
-func (reg *I2CRegister) ReadWordData(ctx context.Context) (uint16, error) {
-	return reg.Handle.ReadWordData(ctx, reg.Register)
-}
-
-// WriteWordData writes a word to the I2C channel register.
-func (reg *I2CRegister) WriteWordData(ctx context.Context, data uint16) error {
-	return reg.Handle.WriteWordData(ctx, reg.Register, data)
 }

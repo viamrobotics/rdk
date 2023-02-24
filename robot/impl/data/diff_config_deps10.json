@@ -4,6 +4,9 @@
             "name": "arm1",
             "type": "arm",
             "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            },
             "depends_on": [
                 "base1"
             ]
@@ -12,6 +15,9 @@
             "name": "arm2",
             "type": "arm",
             "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            },
             "depends_on": [
                 "base2"
             ]

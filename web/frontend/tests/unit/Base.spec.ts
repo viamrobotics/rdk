@@ -1,7 +1,7 @@
 import { enableAutoDestroy, mount } from "@vue/test-utils";
 import Base from "@/components/Base.vue";
 import ViamIcon from "@/components/ViamIcon.vue";
-import KeyboardInput from "@/components/KeyboardInput.vue";
+import KeyboardInput from "@/components/KeyboardInput";
 
 describe("Base", () => {
   enableAutoDestroy(afterEach);

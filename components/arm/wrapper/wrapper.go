@@ -3,8 +3,6 @@ package wrapper
 
 import (
 	"context"
-	"errors"
-	"strings"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
@@ -24,8 +22,8 @@ import (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ModelPath string `json:"model-path"`
-	ArmName   string `json:"arm-name"`
+	ModelFilePath string `json:"model-path"`
+	ArmName       string `json:"arm-name"`
 }
 
 var model = resource.NewDefaultModel("wrapper_arm")
@@ -69,20 +67,8 @@ type Arm struct {
 
 // NewWrapperArm returns a wrapper component for another arm.
 func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	var (
-		model referenceframe.Model
-		err   error
-	)
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelPath
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		model, err = referenceframe.ParseURDFFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
-	case strings.HasSuffix(modelPath, ".json"):
-		model, err = referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
-	default:
-		return nil, errors.New("unsupported kinematic model encoding file passed")
-	}
-
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+	model, err := referenceframe.ModelFromPath(modelPath, cfg.Name)
 	if err != nil {
 		return nil, err
 	}

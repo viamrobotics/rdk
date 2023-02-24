@@ -29,8 +29,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea bool
-	errMu       sync.Mutex
-	lastError   error
+	err         movementsensor.LastError
 
 	bus   board.I2C
 	addr  byte
@@ -85,14 +84,7 @@ func NewPmtkI2CGPSNMEA(
 	if err := g.Start(ctx); err != nil {
 		return nil, err
 	}
-	return g, g.lastError
-}
-
-func (g *PmtkI2CNMEAMovementSensor) setLastError(err error) {
-	g.errMu.Lock()
-	defer g.errMu.Unlock()
-
-	g.lastError = err
+	return g, g.err.Get()
 }
 
 // Start begins reading nmea messages from module and updates gps data.
@@ -144,14 +136,14 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 				handle, err := g.bus.OpenHandle(g.addr)
 				if err != nil {
 					g.logger.Errorf("can't open gps i2c handle: %s", err)
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 				buffer, err := handle.Read(ctx, 1024)
 				hErr := handle.Close()
 				if hErr != nil {
 					g.logger.Errorf("failed to close handle: %s", hErr)
-					g.setLastError(err)
+					g.err.Set(err)
 					return
 				}
 				if err != nil {
@@ -180,7 +172,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 		}
 	})
 
-	return g.lastError
+	return g.err.Get()
 }
 
 // GetBusAddr returns the bus and address that takes in rtcm corrections.
@@ -192,21 +184,21 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.location, g.data.alt, g.lastError
+	return g.data.location, g.data.alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
 func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.lastError
+	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.err.Get()
 }
 
 // LinearVelocity returns the current speed of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.err.Get()
 }
 
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
@@ -230,7 +222,7 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, g.lastError
+	return 0, g.err.Get()
 }
 
 // Orientation not supporter.
@@ -245,14 +237,14 @@ func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[st
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
-	}, g.lastError
+	}, nil
 }
 
 // ReadFix returns quality.
 func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.fixQuality, g.lastError
+	return g.data.fixQuality, g.err.Get()
 }
 
 // Readings will use return all of the MovementSensor Readings.
@@ -277,7 +269,7 @@ func (g *PmtkI2CNMEAMovementSensor) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 
-	return g.lastError
+	return g.err.Get()
 }
 
 // PMTK checksums commands by XORing together each byte.

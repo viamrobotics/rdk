@@ -199,15 +199,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
 
 // FromRobot is a helper for getting the named board from the given Robot.
 func FromRobot(r robot.Robot, name string) (Board, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Board)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Board](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.
@@ -651,19 +643,19 @@ func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context, extra map[st
 	return r.actual.Value(ctx, extra)
 }
 
-func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Tick(ctx, high, nanos)
+	return r.actual.Tick(ctx, high, nanoseconds)
 }
 
-func (r *reconfigurableDigitalInterrupt) AddCallback(c chan bool) {
+func (r *reconfigurableDigitalInterrupt) AddCallback(c chan Tick) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.AddCallback(c)
 }
 
-func (r *reconfigurableDigitalInterrupt) RemoveCallback(c chan bool) {
+func (r *reconfigurableDigitalInterrupt) RemoveCallback(c chan Tick) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.RemoveCallback(c)

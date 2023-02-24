@@ -2,7 +2,6 @@ package genericlinux
 
 import (
 	"context"
-	"encoding/binary"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -85,21 +84,6 @@ func (h *i2cHandle) WriteByteData(ctx context.Context, register, data byte) erro
 	return h.transactAtRegister(register, []byte{data}, nil)
 }
 
-func (h *i2cHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
-	result := make([]byte, 2)
-	err := h.transactAtRegister(register, nil, result)
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint16(result), nil
-}
-
-func (h *i2cHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
-	w := make([]byte, 2)
-	binary.BigEndian.PutUint16(w, data)
-	return h.transactAtRegister(register, w, nil)
-}
-
 func (h *i2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	result := make([]byte, numBytes)
 	err := h.transactAtRegister(register, nil, result)
@@ -109,7 +93,7 @@ func (h *i2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 	return result, nil
 }
 
-func (h *i2cHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
+func (h *i2cHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
 	return h.transactAtRegister(register, data, nil)
 }
 

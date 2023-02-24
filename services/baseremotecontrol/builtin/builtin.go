@@ -34,6 +34,7 @@ const (
 	arrowControl
 	droneControl
 )
+
 var Subtype = baseremotecontrol.Subtype
 
 func init() {
@@ -194,6 +195,9 @@ func (svc *builtIn) start(ctx context.Context) error {
 	connect := func(ctx context.Context, event input.Event) {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
+
+		// Connect and Disconnect events should both stop the base completely.
+		svc.base.Stop(ctx, map[string]interface{}{})
 
 		if !updateLastEvent(event) {
 			return

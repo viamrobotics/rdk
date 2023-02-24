@@ -100,7 +100,7 @@ func TestCaptureQueue(t *testing.T) {
 			// Validate correct values were written.
 			var actCaptures []*v1.SensorData
 			for i := 0; i < len(completeFiles); i++ {
-				c, err := GetAllReadings(completeFiles[i])
+				c, err := SensorDataFromFilePath(completeFiles[i])
 				test.That(t, err, test.ShouldBeNil)
 				actCaptures = append(actCaptures, c...)
 			}

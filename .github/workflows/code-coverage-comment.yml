@@ -24,6 +24,7 @@ jobs:
       - name: Add Coverage PR Comment
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          header: code-coverage
           number: ${{ env.PR_NUMBER }}
           recreate: true
           path: code-coverage-results.md
@@ -32,6 +33,7 @@ jobs:
         if: ${{ env.APPIMAGE }}
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          header: AppImage
           number: ${{ env.PR_NUMBER }}
           recreate: true
           message: |

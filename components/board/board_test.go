@@ -672,19 +672,11 @@ func (m *mockI2CHandle) WriteByteData(ctx context.Context, register, data byte) 
 	return nil
 }
 
-func (m *mockI2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
-	return 0, nil
-}
-
-func (m *mockI2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
-	return nil
-}
-
 func (m *mockI2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (m *mockI2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
+func (m *mockI2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
 	return nil
 }
 
@@ -716,9 +708,9 @@ func (m *mockDigitalInterrupt) Value(ctx context.Context, extra map[string]inter
 	return 0, nil
 }
 
-func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	return nil
 }
-func (m *mockDigitalInterrupt) AddCallback(c chan bool)                 {}
-func (m *mockDigitalInterrupt) RemoveCallback(c chan bool)              {}
+func (m *mockDigitalInterrupt) AddCallback(c chan board.Tick)           {}
+func (m *mockDigitalInterrupt) RemoveCallback(c chan board.Tick)        {}
 func (m *mockDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {}

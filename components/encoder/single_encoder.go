@@ -124,7 +124,7 @@ func NewSingleEncoder(
 
 // Start starts the SingleEncoder background thread.
 func (e *SingleEncoder) Start(ctx context.Context) {
-	encoderChannel := make(chan bool)
+	encoderChannel := make(chan board.Tick)
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {

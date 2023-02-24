@@ -127,3 +127,88 @@ func TestSafetyMonitoring(t *testing.T) {
 
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
+
+func TestConnectStopsArm(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	gamepadName := input.Named("barf")
+	gamepad, err := webgamepad.NewController(ctx, nil, config.Component{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	myArmName := arm.Named("warf")
+	fakeArm, err := fakearm.NewArm(
+		config.Component{
+			Name:                arm.Subtype.String(),
+			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: string(xarm.ModelName6DOF.Name)},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	injectArm := &inject.Arm{LocalArm: fakeArm}
+	myArm, err := arm.WrapWithReconfigurable(injectArm, myArmName)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("connect", func(t *testing.T) {
+		// Use an injected Stop function and a channel to ensure stop is called on
+		// connect.
+		stop := make(chan struct{})
+		injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			close(stop)
+			return nil
+		}
+
+		svc, err := builtin.NewBuiltIn(ctx, registry.Dependencies{
+			gamepadName: gamepad,
+			myArmName:   myArm,
+		}, config.Service{
+			ConvertedAttributes: &builtin.ServiceConfig{
+				ArmName:             myArmName.Name,
+				InputControllerName: gamepadName.Name,
+			},
+		}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		type triggerer interface {
+			TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+		}
+		test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
+			Event:   input.Connect,
+			Control: input.AbsoluteHat0X,
+		}, nil), test.ShouldBeNil)
+
+		<-stop
+		test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	})
+	t.Run("disconnect", func(t *testing.T) {
+		// Use an injected Stop function and a channel to ensure stop is called on
+		// disconnect.
+		stop := make(chan struct{})
+		injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			close(stop)
+			return nil
+		}
+
+		svc, err := builtin.NewBuiltIn(ctx, registry.Dependencies{
+			gamepadName: gamepad,
+			myArmName:   myArm,
+		}, config.Service{
+			ConvertedAttributes: &builtin.ServiceConfig{
+				ArmName:             myArmName.Name,
+				InputControllerName: gamepadName.Name,
+			},
+		}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		type triggerer interface {
+			TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+		}
+		test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
+			Event:   input.Disconnect,
+			Control: input.AbsoluteHat0X,
+		}, nil), test.ShouldBeNil)
+
+		<-stop
+		test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	})
+}

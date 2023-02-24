@@ -11,6 +11,7 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -25,8 +26,7 @@ type ntripCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu     sync.Mutex
-	lastError error
+	err movementsensor.LastError
 }
 
 // NtripInfo contains the information necessary to connect to a mountpoint.
@@ -61,7 +61,7 @@ func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger 
 	n.info = ntripInfoComp
 
 	n.logger.Debug("Returning n")
-	return n, n.lastError
+	return n, n.err.Get()
 }
 
 func newNtripInfo(cfg *NtripAttrConfig, logger golog.Logger) (*NtripInfo, error) {
@@ -125,7 +125,7 @@ func (n *ntripCorrectionSource) Connect() error {
 
 	n.logger.Debug("Connected to NTRIP caster")
 
-	return n.lastError
+	return n.err.Get()
 }
 
 // GetStream attempts to connect to ntrip stream until successful connection or timeout.
@@ -161,14 +161,7 @@ func (n *ntripCorrectionSource) GetStream() error {
 
 	n.logger.Debug("Connected to stream")
 
-	return n.lastError
-}
-
-func (n *ntripCorrectionSource) setLastError(err error) {
-	n.errMu.Lock()
-	defer n.errMu.Unlock()
-
-	n.lastError = err
+	return n.err.Get()
 }
 
 // Start connects to the ntrip caster and stream and sends filtered correction data into the correctionReader.
@@ -177,7 +170,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
 	if err != nil {
-		n.setLastError(err)
+		n.err.Set(err)
 		return
 	}
 
@@ -191,7 +184,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 
 	err = n.GetStream()
 	if err != nil {
-		n.setLastError(err)
+		n.err.Set(err)
 		return
 	}
 
@@ -214,7 +207,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 				n.logger.Debug("No message... reconnecting to stream...")
 				err = n.GetStream()
 				if err != nil {
-					n.setLastError(err)
+					n.err.Set(err)
 					return
 				}
 
@@ -233,7 +226,7 @@ func (n *ntripCorrectionSource) Reader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return n.correctionReader, n.lastError
+	return n.correctionReader, n.err.Get()
 }
 
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
@@ -263,5 +256,5 @@ func (n *ntripCorrectionSource) Close() error {
 		n.info.Stream = nil
 	}
 
-	return n.lastError
+	return n.err.Get()
 }

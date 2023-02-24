@@ -1,0 +1,12 @@
+{
+    "components": [
+        {
+            "name": "gripper",
+            "type": "gripper",
+            "model": "trossen-wx250s",
+            "attributes": {
+                "arm": "gripper_arm"
+            }
+        }
+    ]
+}
