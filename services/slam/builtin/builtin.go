@@ -594,6 +594,24 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 	return internalState, err
 }
 
+// GetPointCloudMapStream creates a request, calls the slam algorithms GetPointCloudMapStream endpoint and returns a callback
+// function which will return the next chunk of the current pointcloud map.
+func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMapStream")
+	defer span.End()
+
+	return nil, errors.New("unimplemented stub")
+}
+
+// GetInternalStateStream creates a request, calls the slam algorithms GetInternalStateStream endpoint and returns a callback
+// function which will return the next chunk of the current internal state of the slam algo.
+func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
+	defer span.End()
+
+	return nil, errors.New("unimplemented stub")
+}
+
 // NewBuiltIn returns a new slam service for the given robot.
 func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
