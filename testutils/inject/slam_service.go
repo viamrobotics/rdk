@@ -56,10 +56,10 @@ func (slamSvc *SLAMService) GetInternalState(ctx context.Context, name string) (
 
 // GetPointCloudMapStream calls the injected GetPointCloudMapStream or the real version.
 func (slamSvc *SLAMService) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	if slamSvc.GetInternalStateFunc == nil {
+	if slamSvc.GetPointCloudMapStreamFunc == nil {
 		return slamSvc.Service.GetPointCloudMapStream(ctx, name)
 	}
-	return slamSvc.GetPointCloudMapStream(ctx, name)
+	return slamSvc.GetPointCloudMapStreamFunc(ctx, name)
 }
 
 // GetInternalStateStream calls the injected GetInternalStateStream or the real version.

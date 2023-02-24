@@ -34,6 +34,7 @@ import (
 const (
 	testSlamServiceName  = "slam1"
 	testSlamServiceName2 = "slam2"
+	chunkSizeServer      = 100
 )
 
 type StreamServerMock struct {
@@ -130,12 +131,11 @@ func TestWorkingServer(t *testing.T) {
 		cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
 		pcd, err := os.ReadFile(cloudPath)
 		test.That(t, err, test.ShouldBeNil)
-		chunkSize := 100
 
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			f := func() ([]byte, error) {
-				buf := make([]byte, chunkSize)
+				buf := make([]byte, chunkSizeServer)
 				if _, err := reader.Read(buf); err != nil {
 					return nil, err
 				}

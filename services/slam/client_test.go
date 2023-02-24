@@ -2,16 +2,20 @@
 package slam_test
 
 import (
+	"bytes"
 	"context"
 	"image"
+	"io"
 	"math"
 	"net"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -29,11 +33,12 @@ import (
 )
 
 var (
-	nameSucc = "viam"
-	nameFail = "maiv"
+	nameSucc        = "viam"
+	nameFail        = "maiv"
+	chunkSizeClient = 100
 )
 
-func TestClientWorkingService(t *testing.T) {
+func TestWorkingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -45,6 +50,10 @@ func TestClientWorkingService(t *testing.T) {
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
 	pcSucc := &vision.Object{}
 	pcSucc.PointCloud = pointcloud.New()
+	pcdPath := artifact.MustPath("slam/mock_lidar/0.pcd")
+	pcd, err := os.ReadFile(pcdPath)
+	test.That(t, err, test.ShouldBeNil)
+
 	err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 	imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -68,6 +77,21 @@ func TestClientWorkingService(t *testing.T) {
 			return mimeType, nil, pcSucc, nil
 		}
 		return mimeType, imSucc, nil, nil
+	}
+
+	workingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		reader := bytes.NewReader(pcd)
+		f := func() ([]byte, error) {
+			buf := make([]byte, chunkSizeClient)
+			if _, err := reader.Read(buf); err != nil {
+				return nil, err
+			}
+			if _, err = reader.Seek(0, io.SeekCurrent); err != nil {
+				return nil, err
+			}
+			return buf, err
+		}
+		return f, nil
 	}
 
 	workingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
@@ -126,6 +150,13 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
+		// test get point cloud map stream state
+		f, err := workingSLAMClient.GetPointCloudMapStream(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		fullBytes, err := helperChunkToFull(f)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes[:len(pcd)], test.ShouldResemble, pcd)
+
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
@@ -154,6 +185,13 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		// test get point cloud map stream state
+		f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		fullBytes, err := helperChunkToFull(f)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes[:len(pcd)], test.ShouldResemble, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -193,6 +231,13 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get point cloud map stream state
+		f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		fullBytes, err := helperChunkToFull(f)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes[:len(pcd)], test.ShouldResemble, pcd)
+
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
@@ -202,7 +247,7 @@ func TestClientWorkingService(t *testing.T) {
 	})
 }
 
-func TestClientFailingService(t *testing.T) {
+func TestFailingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -230,6 +275,13 @@ func TestClientFailingService(t *testing.T) {
 		include bool, extra map[string]interface{},
 	) (string, image.Image, *vision.Object, error) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
+	}
+
+	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		f := func() ([]byte, error) {
+			return nil, errors.New(" failure during callback")
+		}
+		return f, errors.New("failure during get pointcloud map stream")
 	}
 
 	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
@@ -270,6 +322,12 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
+		// test get map
+		f, err := failingSLAMClient.GetPointCloudMapStream(context.Background(), nameFail)
+		fullBytes, err := helperChunkToFull(f)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map stream")
+		test.That(t, fullBytes, test.ShouldBeNil)
+
 		// test get internal state
 		internalState, err := failingSLAMClient.GetInternalState(context.Background(), nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
@@ -277,4 +335,20 @@ func TestClientFailingService(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created
+func helperChunkToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+
+		if err == io.EOF {
+			return fullBytes, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		fullBytes = append(fullBytes, chunk...)
+	}
 }

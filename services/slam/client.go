@@ -155,9 +155,9 @@ func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func(
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMapStream")
 	defer span.End()
 
-	req := &pb.GetInternalStateStreamRequest{Name: name}
+	req := &pb.GetPointCloudMapStreamRequest{Name: name}
 
-	resp, err := c.client.GetInternalStateStream(ctx, req)
+	resp, err := c.client.GetPointCloudMapStream(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func(
 			return nil, err
 		}
 
-		return chunk.GetInternalStateChunk(), err
+		return chunk.GetPointCloudPcdChunk(), err
 	}
 
 	return f, nil
