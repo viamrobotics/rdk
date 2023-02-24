@@ -185,7 +185,7 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.data.location == nil {
-		return geo.NewPoint(0, 0), 0, errors.New("No valid reading of location has occured yet, using default value of lat:0, long: 0")
+		return geo.NewPoint(0, 0), 0, errNilLocation
 	}
 	return g.data.location, g.data.alt, g.err.Get()
 }
