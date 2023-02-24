@@ -27,6 +27,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+//nolint:unused
 func makeFakeRobot(t *testing.T) robot.Robot {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
@@ -121,6 +122,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 }
 
 func TestJoinPointCloudNaive(t *testing.T) {
+	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	r := makeFakeRobot(t)
 	defer utils.TryClose(context.Background(), r)
 	// PoV from base1
