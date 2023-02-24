@@ -29,18 +29,11 @@ FAIL=0
 wait $PID1 || let "FAIL+=1"
 wait $PID2 || let "FAIL+=2"
 
-echo "HEY WE FINISHED"
-
 cat json.log json2.log | go run ./etc/analyzetests/main.go
 
-echo "HEY WE ANALYZING1"
-
 if [ "$FAIL" != "0" ]; then
-	echo "HEY WE FAILED $FAIL"
 	exit $FAIL
 fi
-
-echo "HEY WE ANALYZING2"
 
 cat coverage.txt coverage2.txt | go run ./etc/analyzecoverage/main.go
 
