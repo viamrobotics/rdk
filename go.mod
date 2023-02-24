@@ -85,7 +85,7 @@ require (
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/slam v0.1.22
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.14-0.20230224015753-7432a5950fed
+	go.viam.com/utils v0.1.14-0.20230224020838-ae6ef46cc4ae
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.3.0
 	golang.org/x/tools v0.6.0
