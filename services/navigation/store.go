@@ -180,7 +180,7 @@ func NewMongoDBNavigationStore(ctx context.Context, config map[string]interface{
 	}
 
 	waypoints := mongoClient.Database(MongoDBNavStoreDBName).Collection(MongoDBNavStoreWaypointsCollName)
-	if err := mongoutils.EnsureIndexes(waypoints, mongoDBNavStoreIndexes...); err != nil {
+	if err := mongoutils.EnsureIndexes(ctx, waypoints, mongoDBNavStoreIndexes...); err != nil {
 		return nil, err
 	}
 

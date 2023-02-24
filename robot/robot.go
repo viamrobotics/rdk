@@ -32,6 +32,11 @@ func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*LocalRobot)(nil), actual)
 }
 
+// NewUnimplementedInterfaceError generic is used when there is a failed interface check.
+func NewUnimplementedInterfaceError[T any](actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((*T)(nil), actual)
+}
+
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
@@ -224,4 +229,20 @@ func ResourceFromProtoMessage(
 		return nil, resource.Name{}, err
 	}
 	return res, fqName, nil
+}
+
+// ResourceFromRobot returns a resource from a robot.
+func ResourceFromRobot[T any](robot Robot, name resource.Name) (T, error) {
+	var zero T
+	res, err := robot.ResourceByName(name)
+	if err != nil {
+		return zero, err
+	}
+
+	part, ok := res.(T)
+
+	if !ok {
+		return zero, NewUnimplementedInterfaceError[T](res)
+	}
+	return part, nil
 }

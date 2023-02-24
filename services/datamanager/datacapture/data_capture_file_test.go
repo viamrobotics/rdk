@@ -5,6 +5,7 @@ import (
 
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -92,4 +93,31 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
 		})
 	}
+}
+
+// TestReadCorruptedFile ensures that if a file ends with invalid data (which can occur if a robot is killed uncleanly
+// during a write, e.g. if the power is cut), the file is still successfully read up until that point.
+func TestReadCorruptedFile(t *testing.T) {
+	dir := t.TempDir()
+	md := &v1.DataCaptureMetadata{
+		Type: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+	}
+	f, err := NewFile(dir, md)
+	test.That(t, err, test.ShouldBeNil)
+	numReadings := 100
+	for i := 0; i < numReadings; i++ {
+		err := f.WriteNext(&v1.SensorData{
+			Metadata: &v1.SensorMetadata{},
+			Data:     &v1.SensorData_Struct{Struct: &structpb.Struct{}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+	}
+	_, err = f.writer.Write([]byte("invalid data"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.writer.Flush(), test.ShouldBeNil)
+
+	// Should still be able to successfully read all the successfully written data.
+	sd, err := SensorDataFromFilePath(f.GetPath())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(sd), test.ShouldEqual, numReadings)
 }

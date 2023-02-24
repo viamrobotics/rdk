@@ -119,8 +119,7 @@ type cameramono struct {
 	result                  result
 	stream                  gostream.VideoStream
 	mu                      sync.RWMutex
-	errMu                   sync.RWMutex
-	lastErr                 error
+	err                     movementsensor.LastError
 }
 
 type result struct {
@@ -170,16 +169,9 @@ func newCameraMono(
 	co.stream = gostream.NewEmbeddedVideoStream(cam)
 
 	err = co.backgroundWorker(co.stream, conf.MotionConfig)
-	co.setLastError(err)
+	co.err.Set(err)
 
-	return co, co.lastErr
-}
-
-func (co *cameramono) setLastError(err error) {
-	co.errMu.Lock()
-	defer co.errMu.Unlock()
-
-	co.lastErr = err
+	return co, co.err.Get()
 }
 
 func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometry.MotionEstimationConfig) error {
@@ -189,14 +181,14 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 		sT := time.Now()
 		sImg, _, err := stream.Next(co.cancelCtx)
 		if err != nil && errors.Is(err, context.Canceled) {
-			co.setLastError(err)
+			co.err.Set(err)
 			return
 		}
 		for {
 			eT := time.Now()
 			eImg, _, err := stream.Next(co.cancelCtx)
 			if err != nil {
-				co.setLastError(err)
+				co.err.Set(err)
 				return
 			}
 
@@ -205,7 +197,7 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 			if moreThanZero {
 				co.motion, err = co.extractMovementFromOdometer(rimage.ConvertImage(sImg), rimage.ConvertImage(eImg), dt, cfg)
 				if err != nil {
-					co.setLastError(err)
+					co.err.Set(err)
 					co.logger.Error(err)
 					continue
 				}
@@ -220,7 +212,7 @@ func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometr
 			sT = eT
 		}
 	}, co.activeBackgroundWorkers.Done)
-	return co.lastErr
+	return co.err.Get()
 }
 
 func (co *cameramono) extractMovementFromOdometer(
@@ -271,7 +263,7 @@ func (co *cameramono) Close() {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
 	err := co.stream.Close(co.cancelCtx)
-	co.setLastError(err)
+	co.err.Set(err)
 }
 
 // Position gets the position of the moving object calculated by visual odometry.
