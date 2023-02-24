@@ -37,12 +37,20 @@ export const fixArmStatus = (old: {
       }
     );
   }
-
-  for (let j = 0; j < old.joint_positions.values.length; j += 1) {
+  if(old.joint_positions.values !== undefined){
+    for (let j = 0; j < old.joint_positions.values.length; j += 1) {
+      newStatus.joint_pieces.push(
+        {
+          joint: j,
+          jointValue: old.joint_positions.values[j] || 0,
+        }
+      );
+    }
+  } else {
     newStatus.joint_pieces.push(
       {
-        joint: j,
-        jointValue: old.joint_positions.values[j] || 0,
+        joint: 0,
+        jointValue: 100 || 0,
       }
     );
   }
