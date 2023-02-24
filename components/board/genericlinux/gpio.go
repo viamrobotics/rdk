@@ -101,20 +101,23 @@ func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (resu
 
 // Lock the mutex before calling this! We'll spin up a background goroutine to create a PWM signal
 // in software, if we're supposed to and one isn't already running.
-func (pin *gpioPin) startSoftwarePWM() {
+func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started already.
 		pin.pwmRunning = false
-		return
+		// If we used to have both parameters set but no longer do, turn off the pin!
+		return pin.setInternal(false)
 	}
 	if pin.pwmRunning {
-		return // We're already running a software PWM loop for this pin, so we don't need another.
+		// We're already running a software PWM loop for this pin, so we don't need another.
+		return nil
 	}
 
 	// Otherwise, we'll actually start running.
 	pin.pwmRunning = true
 	pin.waitGroup.Add(1)
 	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
+	return nil
 }
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
@@ -180,8 +183,7 @@ func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[
 	defer pin.mu.Unlock()
 
 	pin.pwmDutyCyclePct = dutyCyclePct
-	pin.startSoftwarePWM()
-	return nil
+	return pin.startSoftwarePWM()
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
@@ -198,8 +200,7 @@ func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[strin
 	defer pin.mu.Unlock()
 
 	pin.pwmFreqHz = freqHz
-	pin.startSoftwarePWM()
-	return nil
+	return pin.startSoftwarePWM()
 }
 
 func (pin *gpioPin) Close() error {
