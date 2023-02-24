@@ -179,7 +179,6 @@ func ConvertImageToGray16(img image.Image) (*image.Gray16, error) {
 	case *image.Gray:
 		return gray8ToGray16(ii), nil
 	default:
-		// slowest option
 		return nil, errors.Errorf("don't know how to make image.Gray16 from %T", img)
 	}
 }
