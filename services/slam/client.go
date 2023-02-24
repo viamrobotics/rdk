@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -158,7 +159,7 @@ func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func(
 // GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
 func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return HelperGetInternalStateCallback(ctx, name, c.client)
+	return grpchelper.HelperGetInternalStateCallback(ctx, name, c.client)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
