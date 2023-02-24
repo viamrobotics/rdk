@@ -37,6 +37,8 @@ export const fixArmStatus = (old: {
       }
     );
   }
+  // this conditional is in place so the RC card renders when
+  // the fake arm is not using any kinematics file
   if (old.joint_positions.values === undefined) {
     newStatus.joint_pieces.push(
       {
