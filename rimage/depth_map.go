@@ -4,11 +4,11 @@ import (
 	"context"
 	"image"
 	"image/color"
-	"image/draw"
 	"image/png"
 	"io"
 	"math"
 
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
@@ -133,30 +133,12 @@ func ConvertImageToDepthMap(ctx context.Context, img image.Image) (*DepthMap, er
 	case *image.Gray:
 		return gray8ToDepthMap(ii), nil
 	default:
-		// convert the image format to grayscale, and interpret the pixels as 1mm depth
-		return convertToGray16ThenDepthMap(ii), nil
+		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
 }
 
-// convertToGray16ThenDepthMap creates a Depthmap from any image that can be converted to gray scale.
-// Will not give real depth values if the grayscale values were not encoding depth in the first place.
-// This is a slow function of last resort.
-func convertToGray16ThenDepthMap(img image.Image) *DepthMap {
-	bounds := img.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
-	dm := NewEmptyDepthMap(width, height)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			c := img.At(x, y)
-			z := color.Gray16Model.Convert(c).(color.Gray16).Y
-			dm.Set(x, y, Depth(z))
-		}
-	}
-	return dm
-}
-
-// gray8ToDepthMap dumps the 8 bits to the lower register of the 16bit pixel. i.e. 0001 1000 -> 0000 0000 0001 1000.
-// Using the default color model would copy the lower register bits to the higher register, i.e. 0001 1000 -> 0001 1000 0001 1000.
+// gray8ToDepthMap dumps the 8 bits to the lower register of the 16bit pixel. i.e. 0x15 -> 0x0015.
+// Using the default color model would copy the lower register bits to the higher register, i.e. 0x15 -> 0x1515.
 func gray8ToDepthMap(img *image.Gray) *DepthMap {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
@@ -198,14 +180,11 @@ func ConvertImageToGray16(img image.Image) (*image.Gray16, error) {
 		return gray8ToGray16(ii), nil
 	default:
 		// slowest option
-		result := image.NewGray16(img.Bounds())
-		draw.Draw(result, result.Bounds(), img, img.Bounds().Min, draw.Src)
-		return result, nil
+		return nil, errors.Errorf("don't know how to make image.Gray16 from %T", img)
 	}
 }
 
-// gray8ToGray16 dumps the 8 bits to the lower register of the 16bit pixel. i.e. 0001 1000 -> 0000 0000 0001 1000.
-// Using the default color model would copy the lower register bits to the higher register, i.e. 0001 1000 -> 0001 1000 0001 1000.
+// gray8ToGray16 applies an 8bit shift to the color and puts it in a image.Gray16.
 func gray8ToGray16(img *image.Gray) *image.Gray16 {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
