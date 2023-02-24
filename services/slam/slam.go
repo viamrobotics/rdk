@@ -83,6 +83,7 @@ type Service interface {
 	resource.Generic
 }
 
+// HelperGetInternalStateCallback helps a client request the internal state stream from a SLAM server.
 func HelperGetInternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetInternalStateStreamRequest{Name: name}
 
