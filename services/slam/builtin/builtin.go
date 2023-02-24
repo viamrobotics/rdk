@@ -609,7 +609,7 @@ func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string)
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
 	defer span.End()
 
-	return nil, errors.New("unimplemented stub")
+	return slam.HelperGetInternalStateCallback(ctx, name, slamSvc.clientAlgo)
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
