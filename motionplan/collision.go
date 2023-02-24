@@ -46,39 +46,67 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 	return true
 }
 
-// TODO: comments
+// geometryGraph is a struct that stores distance relationships between sets of geometries
 type geometryGraph struct {
+	// x and y are the two sets of geometries, each of which will be compared to the geometries in the other set
 	x, y map[string]spatial.Geometry
 
+	// distances is the data structure to store the distance relationships between two named geometries
+	// can be acessed as distances[name1][name2] to get the distance between name1 and name2
 	distances map[string]map[string]float64
-
-	reportDistances bool
 }
 
+// newGeometryGraph instantiates a geometryGraph with the x and y geometry sets
 func newGeometryGraph(x, y map[string]spatial.Geometry, reportDistances bool) geometryGraph {
 	distances := make(map[string]map[string]float64)
 	for name := range x {
 		distances[name] = make(map[string]float64)
 	}
 	return geometryGraph{
-		x:               x,
-		y:               y,
-		distances:       distances,
-		reportDistances: reportDistances,
+		x:         x,
+		y:         y,
+		distances: distances,
 	}
+}
+
+func (gg *geometryGraph) setDistance(toSet *Collision) {
+	if _, ok := gg.distances[toSet.name1][toSet.name2]; ok {
+		gg.distances[toSet.name1][toSet.name2] = toSet.penetrationDepth
+	} else if _, ok := gg.distances[toSet.name2][toSet.name1]; ok {
+		gg.distances[toSet.name2][toSet.name1] = toSet.penetrationDepth
+	}
+}
+
+func (cg *collisionGraph) getDistance(name1, name2 string) (float64, bool) {
+	if distance, ok := cg.distances[name1][name2]; ok {
+		return distance, true
+	}
+	if distance, ok := cg.distances[name2][name1]; ok {
+		return distance, true
+	}
+	return 0, false
 }
 
 type collisionGraph struct {
 	geometryGraph
+
+	// reportDistances is a bool that determines how the collisionGraph will report collisions
+	//    - true:  all distances will be determined and numerically reported
+	//    - flase: collisions will be reported as bools, not numerically. Upon finding a collision, will exit early
+	reportDistances bool
 }
 
-// newCollisionGraph instantiates a collisionGraph object and checks for collisions between the key and test sets of CollisionEntities
+// newCollisionGraph instantiates a collisionGraph object and checks for collisions between the x and y sets of geometries
 // collisions that are reported in the reference CollisionSystem argument will be ignore and not stored as edges in the graph.
+// if the set y is nil, the graph will be instantiated with the set x in its place
 func newCollisionGraph(x, y map[string]spatial.Geometry, reference *collisionGraph, reportDistances bool) (cg *collisionGraph, err error) {
 	if y == nil {
 		y = x
 	}
-	cg = &collisionGraph{newGeometryGraph(x, y, reportDistances)}
+	cg = &collisionGraph{
+		geometryGraph:   newGeometryGraph(x, y, reportDistances),
+		reportDistances: reportDistances,
+	}
 
 	var distance float64
 	for xName, xGeometry := range cg.x {
@@ -87,13 +115,12 @@ func newCollisionGraph(x, y map[string]spatial.Geometry, reference *collisionGra
 				continue
 			}
 			if reference != nil && reference.collisionBetween(xName, yName) {
-				distance = math.NaN() // represent previously seen collisions as NaNs
-			} else if distance, err = cg.checkCollision(xGeometry, yGeometry); err != nil {
-				return nil, err
-			}
-			cg.distances[xName][yName] = distance
-			if !reportDistances && distance <= spatial.CollisionBuffer {
-				return cg, nil
+				cg.distances[xName][yName] = math.NaN() // represent previously seen collisions as NaNs
+			} else if distance, err = cg.checkCollision(xGeometry, yGeometry); err == nil {
+				cg.distances[xName][yName] = distance
+				if !reportDistances && distance <= spatial.CollisionBuffer {
+					return cg, nil
+				}
 			}
 		}
 	}
@@ -113,13 +140,10 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error)
 
 // collisionBetween returns a bool describing if the collisionGraph has an edge between the two entities that are specified by name.
 func (cg *collisionGraph) collisionBetween(name1, name2 string) bool {
-	distance, ok := cg.distances[name1][name2]
-	if !ok {
-		if distance, ok = cg.distances[name2][name1]; !ok {
-			return false
-		}
+	if distance, ok := cg.getDistance(name1, name2); ok {
+		return distance <= spatial.CollisionBuffer
 	}
-	return distance <= spatial.CollisionBuffer
+	return false
 }
 
 // collisions returns a list of all the Collisions as reported by test CollisionEntities' collisionReportFn.
@@ -140,9 +164,6 @@ func (cg *collisionGraph) collisions() []Collision {
 
 // ignoreCollision finds the specified collision and marks it as something never to check for or report
 func (cg *collisionGraph) addCollisionSpecification(specification *Collision) {
-	if _, ok := cg.distances[specification.name1][specification.name2]; ok {
-		cg.distances[specification.name1][specification.name2] = math.NaN()
-	} else if _, ok := cg.distances[specification.name2][specification.name1]; ok {
-		cg.distances[specification.name2][specification.name1] = math.NaN()
-	}
+	specification.penetrationDepth = math.NaN()
+	cg.setDistance(specification)
 }
