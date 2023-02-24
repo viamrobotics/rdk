@@ -158,7 +158,7 @@ func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func(
 // GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
 func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	return HelperGetInternalStateCallback(ctx, name, c.client)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
