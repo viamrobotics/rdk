@@ -603,6 +603,8 @@ func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string)
 	req := &pb.GetPointCloudMapStreamRequest{Name: name}
 
 	resp, err := slamSvc.clientAlgo.GetPointCloudMapStream(ctx, req)
+	// If there is an issue with the SLAM algo but a gRPC server is present, the stream client returned will not
+	// fail until data is requested
 	if err != nil {
 		return nil, errors.Wrap(err, "getting the GetPointCloudMapStream client from SLAM failed")
 	}

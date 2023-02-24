@@ -32,7 +32,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-var (
+const (
 	nameSucc        = "viam"
 	nameFail        = "maiv"
 	chunkSizeClient = 100
@@ -82,14 +82,15 @@ func TestWorkingClient(t *testing.T) {
 	workingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(pcd)
 		f := func() ([]byte, error) {
-			buf := make([]byte, chunkSizeClient)
-			if _, err := reader.Read(buf); err != nil {
+			clientBuffer := make([]byte, chunkSizeClient)
+			n, err := reader.Read(clientBuffer)
+			if err != nil {
 				return nil, err
 			}
 			if _, err = reader.Seek(0, io.SeekCurrent); err != nil {
 				return nil, err
 			}
-			return buf, err
+			return clientBuffer[:n], err
 		}
 		return f, nil
 	}
@@ -150,12 +151,13 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
-		// test get point cloud map stream state
+		// test get point cloud map stream
 		f, err := workingSLAMClient.GetPointCloudMapStream(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		fullBytes, err := helperChunkToFull(f)
+		test.That(t, f, test.ShouldNotBeNil)
+		fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes[:len(pcd)], test.ShouldResemble, pcd)
+		test.That(t, fullBytes, test.ShouldResemble, pcd)
 
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
@@ -186,12 +188,13 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		// test get point cloud map stream state
+		// test get point cloud map stream
 		f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		fullBytes, err := helperChunkToFull(f)
+		test.That(t, f, test.ShouldNotBeNil)
+		fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes[:len(pcd)], test.ShouldResemble, pcd)
+		test.That(t, fullBytes, test.ShouldResemble, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -231,12 +234,15 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		// test get point cloud map stream state
+		// test get point cloud map stream
 		f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		fullBytes, err := helperChunkToFull(f)
+		test.That(t, f, test.ShouldNotBeNil)
+		fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes[:len(pcd)], test.ShouldResemble, pcd)
+		test.That(t, fullBytes, test.ShouldResemble, pcd)
+
+		// Add check of if it converts to pointcloud
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -322,9 +328,9 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
-		// test get map
+		// test get pointcloud map stream
 		f, err := failingSLAMClient.GetPointCloudMapStream(context.Background(), nameFail)
-		fullBytes, err := helperChunkToFull(f)
+		fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map stream")
 		test.That(t, fullBytes, test.ShouldBeNil)
 
@@ -337,13 +343,12 @@ func TestFailingClient(t *testing.T) {
 	})
 }
 
-// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created
-func helperChunkToFull(f func() ([]byte, error)) ([]byte, error) {
+// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
+func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
 		chunk, err := f()
-
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return fullBytes, nil
 		}
 		if err != nil {

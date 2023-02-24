@@ -18,8 +18,7 @@ type SLAMService struct {
 	GetInternalStateFunc       func(ctx context.Context, name string) ([]byte, error)
 	GetPointCloudMapStreamFunc func(ctx context.Context, name string) (func() ([]byte, error), error)
 	GetInternalStateStreamFunc func(ctx context.Context, name string) (func() ([]byte, error), error)
-	DoCommandFunc              func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+	DoCommandFunc              func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Position calls the injected PositionFunc or the real version.
