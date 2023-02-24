@@ -6,13 +6,16 @@ import (
 	"errors"
 	"image"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
@@ -107,6 +110,32 @@ func TestServer(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 	})
 
+	t.Run("working get point cloud map stream function", func(t *testing.T) {
+
+		type a interface {
+			grpc.ServerStream
+			Send(*pb.GetPointCloudMapStreamResponse) error
+		}
+
+		// Add artifact from path
+		cloudPath := artifact.MustPath("pointcloud/test.las")
+		pcSuccBytes, err := os.ReadFile(cloudPath)
+
+		pcSucc := pointcloud.New()
+		test.That(t, err, test.ShouldBeNil)
+
+		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+			return nil, nil
+		}
+
+		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{
+			Name: testSlamServiceName,
+		}
+		b := a.(*pb.SLAMService_GetPointCloudMapStreamServer)
+		err := slamServer.GetPointCloudMapStream(reqPointCloudMapStream, a)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("working get internal state functions", func(t *testing.T) {
 		internalStateSucc := []byte{1, 2, 3, 4}
 		injectSvc.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
@@ -171,16 +200,19 @@ func TestServer(t *testing.T) {
 	t.Run("failing on improper service interface", func(t *testing.T) {
 		improperImplErr := slam.NewUnimplementedInterfaceError("string")
 
+		// Get position
 		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
 		getPositionResp, err := slamServer.GetPosition(context.Background(), getPositionReq)
 		test.That(t, getPositionResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
+		// Get map
 		getMapReq := &pb.GetMapRequest{Name: testSlamServiceName}
 		getMapResp, err := slamServer.GetMap(context.Background(), getMapReq)
 		test.That(t, getMapResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
+		// Get internal state
 		getInternalStateReq := &pb.GetInternalStateRequest{Name: testSlamServiceName}
 		getInternalStateResp, err := slamServer.GetInternalState(context.Background(), getInternalStateReq)
 		test.That(t, getInternalStateResp, test.ShouldBeNil)
@@ -211,6 +243,7 @@ func TestServer(t *testing.T) {
 			return pSucc, nil
 		}
 
+		// Get position
 		reqPos := &pb.GetPositionRequest{
 			Name: testSlamServiceName,
 		}
