@@ -265,13 +265,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 			}
 		})
 	}
-	a := []int{}
-	func() {
-		// defer func() {
-		// 	println(recover())
-		// }()
-		_ = a[1]
-	}()
 
 	streamConfig := makeStreamConfig()
 
