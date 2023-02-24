@@ -349,7 +349,7 @@ func TestArmObstacleSolve(t *testing.T) {
 		t,
 		err.Error(),
 		test.ShouldEqual,
-		"failed to plan path for valid goal: all IK solutions failed constraints. Failures: { defaultCollisionConstraint: 100.00% }, ",
+		"all IK solutions failed constraints. Failures: { defaultCollisionConstraint: 100.00% }, ",
 	)
 }
 
