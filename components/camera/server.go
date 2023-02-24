@@ -91,12 +91,20 @@ func (s *subtypeServer) GetImage(
 			release()
 		}
 	}()
-
 	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
+	// if returned img is a LazyEncodedImage, it may have changed the MIMEType
+	if lazy, ok := img.(*rimage.LazyEncodedImage); ok {
+		lazyMIME := lazy.MIMEType()
+		if lazyMIME != actualMIME {
+			s.logger.Debugw("got different MIME type than what was asked for", "requested", actualMIME, "received", lazyMIME)
+		}
+		actualMIME = lazyMIME
+	}
+
 	resp := pb.GetImageResponse{
 		MimeType: actualMIME,
 	}
-	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
+	outBytes, err := rimage.EncodeImage(ctx, img, actualMIME)
 	if err != nil {
 		return nil, err
 	}
