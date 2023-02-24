@@ -108,6 +108,7 @@ func setupTestGRPCServer(t *testing.T, port string) (*grpc.Server, error) {
 	}
 	gServer2 := grpc.NewServer()
 	go gServer2.Serve(listener2)
+
 	return gServer2, nil
 }
 
@@ -638,6 +639,7 @@ func TestCartographerNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
+
 		grpcServer.Stop()
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	})
@@ -965,6 +967,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
+
 	port1, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	attrCfg := &builtin.AttrConfig{
@@ -1057,6 +1060,7 @@ func TestEndpointFailures(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
+
 	port1, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	attrCfg := &builtin.AttrConfig{
@@ -1110,6 +1114,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("Test online SLAM process with default parameters", func(t *testing.T) {
+
 		port1, err := utils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
 		attrCfg := &builtin.AttrConfig{
@@ -1155,6 +1160,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	})
 
 	t.Run("Test offline SLAM process with default parameters", func(t *testing.T) {
+
 		port1, err := utils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
 		attrCfg := &builtin.AttrConfig{
@@ -1207,6 +1213,7 @@ func TestSLAMProcessFail(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
+
 	port1, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	attrCfg := &builtin.AttrConfig{
