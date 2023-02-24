@@ -62,12 +62,12 @@ func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
 	deps, err := fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "motor")
 
 	fakecfg.Motor = motorName
 	deps, err = fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "non-zero and positive")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "length_mm")
 
 	fakecfg.LengthMm = 1.0
 	fakecfg.LimitSwitchPins = []string{}
@@ -84,7 +84,7 @@ func TestValidate(t *testing.T) {
 	fakecfg.LimitSwitchPins = []string{"1"}
 	deps, err = fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
 
 	fakecfg.Board = "board"
 	deps, err = fakecfg.Validate("path")
