@@ -619,7 +619,12 @@ func New(
 	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
-func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
+func (r *localRobot) newService(ctx context.Context, config config.Service) (res interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("panic creating resource: %v", r)
+		}
+	}()
 	rName := config.ResourceName()
 	f := registry.ServiceLookup(rName.Subtype, config.Model)
 	// If service model/type not found then print list of valid models they can choose from
@@ -676,7 +681,12 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 	return deps, nil
 }
 
-func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
+func (r *localRobot) newResource(ctx context.Context, config config.Component) (res interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("panic creating resource: %v", r)
+		}
+	}()
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
