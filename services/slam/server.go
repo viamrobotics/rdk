@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"image/jpeg"
+	"io"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -157,7 +158,35 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest,
 	stream pb.SLAMService_GetInternalStateStreamServer,
 ) error {
-	return errors.New("unimplemented stub")
+	ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalStateStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetInternalStateStream(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		chunk := &pb.GetInternalStateStreamResponse{InternalStateChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
 }
 
 // DoCommand receives arbitrary commands.
