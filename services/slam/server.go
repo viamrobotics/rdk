@@ -165,6 +165,7 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 		return err
 	}
 
+	// Channel buffer can be used here to optimize for latency
 	for {
 		rawChunk, err := f()
 

@@ -6,16 +6,13 @@ import (
 	"errors"
 	"image"
 	"math"
-	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
@@ -112,28 +109,39 @@ func TestServer(t *testing.T) {
 
 	t.Run("working get point cloud map stream function", func(t *testing.T) {
 
-		type a interface {
-			grpc.ServerStream
-			Send(*pb.GetPointCloudMapStreamResponse) error
-		}
-
 		// Add artifact from path
-		cloudPath := artifact.MustPath("pointcloud/test.las")
-		pcSuccBytes, err := os.ReadFile(cloudPath)
+		//cloudPath := artifact.MustPath("pointcloud/test.las")
+		//pcSuccBytes, err := os.ReadFile(cloudPath)
+		//test.That(t, err, test.ShouldBeNil)
+		//chunkSize := 100
 
-		pcSucc := pointcloud.New()
-		test.That(t, err, test.ShouldBeNil)
+		pcSuccBytes := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+		chunkSize := 1
 
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
-			return nil, nil
+			ch := make(chan []byte)
+
+			// Add data to channel
+			for i := 0; i < len(pcSuccBytes); i += chunkSize {
+				ch <- pcSuccBytes[i : i+chunkSize]
+			}
+
+			// Callback function
+			f := func() ([]byte, error) {
+				return <-ch, nil
+			}
+
+			return f, nil
 		}
 
 		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{
 			Name: testSlamServiceName,
 		}
-		b := a.(*pb.SLAMService_GetPointCloudMapStreamServer)
+		b := *pb.SLAMService_GetPointCloudMapStreamServer
 		err := slamServer.GetPointCloudMapStream(reqPointCloudMapStream, a)
 		test.That(t, err, test.ShouldBeNil)
+
+		// Close ch (?)
 	})
 
 	t.Run("working get internal state functions", func(t *testing.T) {
