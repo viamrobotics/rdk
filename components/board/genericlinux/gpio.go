@@ -12,8 +12,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
-	"github.com/pkg/errors"
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/utils"
 )
 
@@ -205,12 +203,15 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]*gpioPin {
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping, cancelCtx context.Context, waitGroup *sync.WaitGroup, logger golog.Logger) map[string]*gpioPin {
 	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
 		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
+			cancelCtx:  cancelCtx,
+			waitGroup:  waitGroup,
+			logger:     logger,
 		}
 	}
 	return pins
