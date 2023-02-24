@@ -68,9 +68,8 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 	return pin.setInternal(isHigh)
 }
 
-// This function assumes you've already locked the mutex. It does not modify pwmRunning because we
-// might be setting the pin because we're using it as a GPIO pin, or we might be setting it in a
-// software PWM loop.
+// This function assumes you've already locked the mutex. It sets the value of a pin without
+// changing whether the pin is part of a PWM loop.
 func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 	var value byte
 	if isHigh {
@@ -87,8 +86,6 @@ func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (resu
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	pin.pwmRunning = false
-
 	if err := pin.openGpioFd(); err != nil {
 		return false, err
 	}
@@ -103,12 +100,18 @@ func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (resu
 }
 
 // Lock the mutex before calling this! We'll spin up a background goroutine to create a PWM signal
-// in software, if one isn't already running.
+// in software, if we're supposed to and one isn't already running.
 func (pin *gpioPin) startSoftwarePWM() {
-	if pin.pwmRunning {
-		// We're already running a software PWM loop, we don't need another.
+	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
+		// We don't have both parameters set up. Stop any PWM loop we might have started already.
+		pin.pwmRunning = false
 		return
 	}
+	if pin.pwmRunning {
+		return // We're already running a software PWM loop for this pin, so we don't need another.
+	}
+
+	// Otherwise, we'll actually start running.
 	pin.pwmRunning = true
 	pin.waitGroup.Add(1)
 	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
@@ -117,22 +120,35 @@ func (pin *gpioPin) startSoftwarePWM() {
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
 // until we're supposed to shut down). We return whether we should continue the software PWM cycle.
 func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
-	pin.mu.Lock()
-	// Before we modify the pin, check if we should stop running
-	if !pin.pwmRunning {
-		pin.mu.Unlock()
+	// Make local copies of these, then release the mutex
+	var dutyCycle float64
+	var freqHz uint
+
+	// We encapsulate some of this code into its own function, to ensure that the mutex is unlocked
+	// at the appropriate time even if we return early.
+	shouldContinue := func() bool {
+		pin.mu.Lock()
+		defer pin.mu.Unlock()
+		// Before we modify the pin, check if we should stop running
+		if !pin.pwmRunning {
+			return false
+		}
+
+		dutyCycle = pin.pwmDutyCyclePct
+		freqHz = pin.pwmFreqHz
+
+		pin.setInternal(shouldBeOn)
+		return true
+	}()
+
+	if !shouldContinue {
 		return false
 	}
 
-	dutyCycle := pin.pwmDutyCyclePct
 	if !shouldBeOn {
 		dutyCycle = 1 - dutyCycle
 	}
-	duration := time.Duration(float64(time.Second) * dutyCycle / float64(pin.pwmFreqHz))
-
-	pin.setInternal(shouldBeOn)
-	pin.mu.Unlock()
-
+	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
 	return utils.SelectContextOrWait(pin.cancelCtx, duration)
 }
 
@@ -161,9 +177,7 @@ func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[
 	defer pin.mu.Unlock()
 
 	pin.pwmDutyCyclePct = dutyCyclePct
-	if pin.pwmDutyCyclePct != 0 && pin.pwmFreqHz != 0 && !pin.pwmRunning {
-		pin.startSoftwarePWM()
-	}
+	pin.startSoftwarePWM()
 	return nil
 }
 
@@ -181,9 +195,7 @@ func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[strin
 	defer pin.mu.Unlock()
 
 	pin.pwmFreqHz = freqHz
-	if pin.pwmDutyCyclePct != 0 && pin.pwmFreqHz != 0 && !pin.pwmRunning {
-		pin.startSoftwarePWM()
-	}
+	pin.startSoftwarePWM()
 	return nil
 }
 
