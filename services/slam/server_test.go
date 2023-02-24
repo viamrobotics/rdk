@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
@@ -30,6 +31,23 @@ const (
 	testSlamServiceName  = "slam1"
 	testSlamServiceName2 = "slam2"
 )
+
+type StreamMock struct {
+	grpc.ServerStream
+	ch chan []byte
+}
+
+func (m *StreamMock) Send(chunk *pb.GetPointCloudMapStreamResponse) error {
+	b := chunk.PointCloudPcdChunk
+	m.ch <- b
+	return nil
+}
+
+func makeStreamMock() *StreamMock {
+	return &StreamMock{
+		ch: make(chan []byte, 10),
+	}
+}
 
 func TestServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
@@ -137,8 +155,9 @@ func TestServer(t *testing.T) {
 		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{
 			Name: testSlamServiceName,
 		}
-		b := *pb.SLAMService_GetPointCloudMapStreamServer
-		err := slamServer.GetPointCloudMapStream(reqPointCloudMapStream, a)
+
+		b := makeStreamMock()
+		err := slamServer.GetPointCloudMapStream(reqPointCloudMapStream, b)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Close ch (?)
