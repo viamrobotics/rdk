@@ -111,7 +111,8 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				// We currently have two implementations of GPIO pins on these boards: one using
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
-				b.gpios = gpioInitialize(gpioMappings) // Defined in gpio.go
+				b.gpios = gpioInitialize( // Defined in gpio.go
+					gpioMappings, b.cancelCtx, &b.activeBackgroundWorkers, b.logger)
 			}
 			return &b, nil
 		}})
