@@ -162,7 +162,7 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 
 	f, err := svc.GetPointCloudMapStream(ctx, req.Name)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getting callback function from GetPointCloudMapStream encountered an issue")
 	}
 
 	// Channel buffer can be used here to optimize for latency
@@ -174,7 +174,7 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 		}
 
 		if err != nil {
-			return err
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
 		}
 
 		chunk := &pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: rawChunk}
