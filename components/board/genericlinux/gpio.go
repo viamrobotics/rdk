@@ -64,8 +64,6 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]inter
 		return err
 	}
 
-	fmt.Printf("Setting pin to %v\n", isHigh)
-
 	pin.pwmRunning = false
 	return pin.setInternal(isHigh)
 }
@@ -162,8 +160,6 @@ func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	fmt.Printf("Setting duty cycle to %f\n", dutyCyclePct)
-
 	pin.pwmDutyCyclePct = dutyCyclePct
 	if pin.pwmDutyCyclePct != 0 && pin.pwmFreqHz != 0 && !pin.pwmRunning {
 		pin.startSoftwarePWM()
@@ -183,8 +179,6 @@ func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (
 func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
-
-	fmt.Printf("Setting frequency to %d\n", freqHz)
 
 	pin.pwmFreqHz = freqHz
 	if pin.pwmDutyCyclePct != 0 && pin.pwmFreqHz != 0 && !pin.pwmRunning {
