@@ -641,14 +641,11 @@ func TestCartographerNew(t *testing.T) {
 	})
 
 	t.Run("New cartographer service with lidar that errors during call to NextPointCloud", func(t *testing.T) {
-		port1, err := utils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"bad_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:" + strconv.Itoa(port1),
 			UseLiveData:   &_true,
 		}
 
@@ -660,14 +657,11 @@ func TestCartographerNew(t *testing.T) {
 	})
 
 	t.Run("New cartographer service with camera without NextPointCloud implementation", func(t *testing.T) {
-		port1, err := utils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:" + strconv.Itoa(port1),
 			UseLiveData:   &_true,
 		}
 
@@ -766,14 +760,11 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
-		port1, err := utils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_depth_camera", "good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:" + strconv.Itoa(port1),
 			UseLiveData:   &_true,
 		}
 
