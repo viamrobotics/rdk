@@ -36,6 +36,9 @@ const (
 
 	// MimeTypeDefault used if mimetype cannot be inferred.
 	MimeTypeDefault = "application/octet-stream"
+
+	// MimeTypeEmpty used for delegating the choice of MimeType to the driver .
+	MimeTypeEmpty = ""
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.
