@@ -137,7 +137,10 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		dutyCycle = pin.pwmDutyCyclePct
 		freqHz = pin.pwmFreqHz
 
-		pin.setInternal(shouldBeOn)
+		// If there's an error turning the pin on or off, don't stop the whole loop. Hopefully we
+		// can toggle it next time. However, log any errors so that we notice if there are a bunch
+		// of them.
+		utils.UncheckedErrorFunc(func() error { return pin.setInternal(shouldBeOn) })
 		return true
 	}()
 
@@ -215,7 +218,8 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping, cancelCtx context.Context, waitGroup *sync.WaitGroup, logger golog.Logger) map[string]*gpioPin {
+func gpioInitialize(gpioMappings map[int]GPIOBoardMapping, cancelCtx context.Context,
+	waitGroup *sync.WaitGroup, logger golog.Logger) map[string]*gpioPin {
 	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
 		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
