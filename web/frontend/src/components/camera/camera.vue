@@ -49,7 +49,6 @@ const viewCamera = async (isOn: boolean) => {
     if (!eventStream) {
       throw new Error('expected event stream to exist');
     }
-    console.log('eventStream',eventStream);
     videoEl.srcObject = eventStream;
   });
 
