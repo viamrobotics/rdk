@@ -99,32 +99,25 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 		s.timeoutMs = 1000
 	}
 
-	s.intChan = make(chan board.Tick)
-	s.readingChan = make(chan bool)
-	s.errChan = make(chan error)
-	s.distanceChan = make(chan float64)
+	s.ticksChan = make(chan board.Tick, 2)
 	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
 	}
-	s.startUpdateLoop(ctx)
+
 	return s, nil
 }
 
 // Sensor ultrasonic sensor.
 type Sensor struct {
-	mu                      sync.Mutex
-	Name                    string
-	config                  *AttrConfig
-	echoInterrupt           board.DigitalInterrupt
-	triggerPin              board.GPIOPin
-	intChan                 chan board.Tick
-	timeoutMs               uint
-	readingChan             chan bool
-	distanceChan            chan float64
-	errChan                 chan error
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	mu            sync.Mutex
+	Name          string
+	config        *AttrConfig
+	echoInterrupt board.DigitalInterrupt
+	triggerPin    board.GPIOPin
+	ticksChan     chan board.Tick
+	timeoutMs     uint
+	cancelCtx     context.Context
+	cancelFunc    func()
 	generic.Unimplemented
 }
 
@@ -134,96 +127,54 @@ func (s *Sensor) namedError(err error) error {
 	)
 }
 
-func (s *Sensor) startUpdateLoop(ctx context.Context) {
-	s.activeBackgroundWorkers.Add(1)
-	rdkutils.ManagedGo(
-		func() {
-			s.echoInterrupt.AddCallback(s.intChan)
-			defer s.echoInterrupt.RemoveCallback(s.intChan)
-			for {
-				select {
-				case <-s.cancelCtx.Done():
-					return
-				case <-s.readingChan:
-					// a call to Readings has occurred so we request a distance
-					// reading from the sensor and send it to the distance channel
-					if err := s.measureDistance(ctx); err != nil {
-						s.errChan <- err
-					}
-				// we must consume any signals from the interrupt that occur
-				// outside of a call to readings, otherwise we will potentially
-				// block callback code for *all* interrupts (see the implementation
-				// of pigpioInterruptCallback in components/board/pi/impl/board.go)
-				case <-s.intChan:
-				}
-			}
-		},
-		s.activeBackgroundWorkers.Done,
-	)
-}
-
-func (s *Sensor) measureDistance(ctx context.Context) error {
+// Readings returns the calculated distance.
+func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.echoInterrupt.AddCallback(s.ticksChan)
+	defer s.echoInterrupt.RemoveCallback(s.ticksChan)
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse
 	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
-		return s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to high"))
+		return nil, s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to high"))
 	}
 	rdkutils.SelectContextOrWait(ctx, time.Microsecond*10)
 	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
-		return s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to low"))
+		return nil, s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to low"))
 	}
 	// the first signal from the interrupt indicates that the sonic
-	// pulse has been sent
-	var timeA, timeB uint64
+	// pulse has been sent and the second indicates that the echo has been received
 	var tick board.Tick
-	select {
-	case tick = <-s.intChan:
-		timeB = tick.TimestampNanosec
-	case <-s.cancelCtx.Done():
-		return s.namedError(errors.New("ultrasonic: context canceled"))
-	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return s.namedError(errors.New("timed out waiting for signal that sound pulse was emitted"))
+	ticks := make([]board.Tick, 2)
+	for i := 0; i < 2; i++ {
+		var signalStr string
+		if i == 0 {
+			signalStr = "sound pulse was emitted"
+		} else {
+			signalStr = "echo was received"
+		}
+		select {
+		case tick = <-s.ticksChan:
+			ticks[i] = tick
+		case <-s.cancelCtx.Done():
+			return nil, s.namedError(errors.New("ultrasonic: context canceled"))
+		case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
+			return nil, s.namedError(errors.Errorf("timed out waiting for signal that %s", signalStr))
+		}
 	}
-	// the second signal from the interrupt indicates that the echo has
-	// been received
-	select {
-	case tick = <-s.intChan:
-		timeA = tick.TimestampNanosec
-	case <-s.cancelCtx.Done():
-		return s.namedError(errors.New("ultrasonic: context canceled"))
-	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return s.namedError(errors.New("timed out waiting for signal that echo was received"))
-	}
+	timeB := ticks[0].TimestampNanosec
+	timeA := ticks[1].TimestampNanosec
 	// we calculate the distance to the nearest object based
 	// on the time interval between the sound and its echo
 	// and the speed of sound (343 m/s)
 	secondsElapsed := float64(timeA-timeB) / math.Pow10(9)
 	distMeters := secondsElapsed * 343.0 / 2.0
-	s.distanceChan <- distMeters
-	return nil
-}
-
-// Readings returns the calculated distance.
-func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	s.readingChan <- true
-	select {
-	case <-ctx.Done():
-		return nil, s.namedError(errors.New("ultrasonic: context canceled"))
-	case dist := <-s.distanceChan:
-		return map[string]interface{}{"distance": dist}, nil
-	case err := <-s.errChan:
-		return nil, err
-	case <-time.After(time.Millisecond * time.Duration(s.timeoutMs)):
-		return nil, s.namedError(errors.New("timeout waiting for measureDistance"))
-	}
+	return map[string]interface{}{"distance": distMeters}, nil
 }
 
 // Close remove interrupt callback of ultrasonic sensor.
 func (s *Sensor) Close() error {
 	s.cancelFunc()
-	s.activeBackgroundWorkers.Wait()
 	return nil
 }

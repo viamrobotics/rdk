@@ -197,7 +197,6 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	var cloudRestartCheckerActive chan struct{}
 	rpcDialer := rpc.NewCachedDialer()
@@ -207,6 +206,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		}
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
+	defer cancel()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	processConfig := func(in *config.Config) (*config.Config, error) {

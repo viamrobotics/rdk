@@ -1725,6 +1725,81 @@ func TestUpdateConfig(t *testing.T) {
 	}()
 }
 
+func TestResourceCreationPanic(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	r, err := New(ctx, &config.Config{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	manager := managerForDummyRobot(r)
+	defer func() {
+		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
+		test.That(t, utils.TryClose(ctx, r), test.ShouldBeNil)
+	}()
+
+	t.Run("component", func(t *testing.T) {
+		subtypeName := resource.SubtypeName("testComponentSubtype")
+
+		subtype := resource.NewSubtype(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			subtypeName,
+		)
+		model := resource.NewDefaultModel("test")
+
+		registry.RegisterComponent(subtype, model, registry.Component{
+			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Component, logger golog.Logger) (interface{}, error) {
+				panic("hello")
+			},
+		})
+
+		svc1 := config.Component{
+			Name:      "test",
+			Model:     model,
+			Namespace: resource.ResourceNamespaceRDK,
+			Type:      subtypeName,
+		}
+
+		local, ok := r.(*localRobot)
+		test.That(t, ok, test.ShouldBeTrue)
+		_, err = manager.processComponent(ctx, svc1.ResourceName(), svc1, nil, local)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
+	})
+
+	t.Run("service", func(t *testing.T) {
+		subtypeName := resource.SubtypeName("testServiceSubtype")
+
+		subtype := resource.NewSubtype(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeService,
+			subtypeName,
+		)
+
+		registry.RegisterService(subtype, resource.DefaultServiceModel, registry.Service{
+			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+				panic("hello")
+			},
+		})
+
+		registry.RegisterResourceSubtype(subtype, registry.ResourceSubtype{
+			Reconfigurable: WrapWithReconfigurable,
+		})
+
+		svc1 := config.Service{
+			Name:      "",
+			Model:     resource.DefaultServiceModel,
+			Namespace: resource.ResourceNamespaceRDK,
+			Type:      subtypeName,
+		}
+
+		local, ok := r.(*localRobot)
+		test.That(t, ok, test.ShouldBeTrue)
+		_, err = manager.processService(ctx, svc1, nil, local)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
+	})
+}
+
 var _ = resource.Reconfigurable(&mock{})
 
 func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
