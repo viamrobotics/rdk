@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -116,7 +117,9 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with good camera and defined params", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
+		grpcServer, port := setupTestGRPCServer(t)
+		attrCfgGood.Port = "localhost:" + strconv.Itoa(port)
+
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -153,7 +156,9 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with previous map and good camera", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
+		grpcServer, port := setupTestGRPCServer(t)
+		attrCfgGood.Port = "localhost:" + strconv.Itoa(port)
+
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -178,7 +183,9 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with high dataRateMs", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGoodHighDataRateMs.Port)
+		grpcServer, port := setupTestGRPCServer(t)
+		attrCfgGoodHighDataRateMs.Port = "localhost:" + strconv.Itoa(port)
+
 		svc, err := createSLAMService(t, attrCfgGoodHighDataRateMs, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 

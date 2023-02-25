@@ -1,13 +1,16 @@
 package shell
 
 import (
+	"context"
 	"errors"
 	"io"
 
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/shell/v1"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -109,4 +112,15 @@ func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 			return srv.Context().Err()
 		}
 	}
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, svc, req)
 }
