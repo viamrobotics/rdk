@@ -360,6 +360,9 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			// agree on using the same drive.
 			addr = addr[2:]
 		}
+		if len(addr) > module.MaxSocketAddressLength {
+			return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", module.MaxSocketAddressLength, addr)
+		}
 		svc.modAddr = addr
 		lis, err = net.Listen("unix", addr)
 		if err != nil {

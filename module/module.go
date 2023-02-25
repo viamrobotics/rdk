@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -30,6 +31,15 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/subtype"
 )
+
+// MaxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
+var MaxSocketAddressLength = 103
+
+func init() {
+	if runtime.GOOS == "linux" {
+		MaxSocketAddressLength = 107
+	}
+}
 
 // HandlerMap is the format for api->model pairs that the module will service.
 // Ex: mymap["rdk:component:motor"] = ["acme:marine:thruster", "acme:marine:outboard"].

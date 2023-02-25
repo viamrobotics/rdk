@@ -261,6 +261,9 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 func (m *module) startProcess(ctx context.Context, parentAddr string, logger golog.Logger) error {
 	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
+	if len(m.addr) > modlib.MaxSocketAddressLength {
+		return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", modlib.MaxSocketAddressLength, m.addr)
+	}
 
 	pcfg := pexec.ProcessConfig{
 		ID:   m.name,
