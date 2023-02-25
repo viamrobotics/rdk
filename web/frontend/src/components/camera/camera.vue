@@ -49,14 +49,11 @@ const viewCamera = async (isOn: boolean) => {
     if (!eventStream) {
       throw new Error('expected event stream to exist');
     }
+    console.log('eventStream',eventStream);
     videoEl.srcObject = eventStream;
   });
 
   if (props.refreshRate === 'Live') {
-    if (cameraStreamStates.get(`${props.parentName}-${props.cameraName}`)?.live) {
-      return;
-    }
-
     cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
       on: isOn,
       live: true,
@@ -188,22 +185,20 @@ watch(() => props.triggerRefresh, () => {
     </template>
 
     <video
-      v-show="props.refreshRate === 'Live'"
+      v-show="refreshRate === 'Live'"
       ref="videoEl"
       muted
       autoplay
       controls="false"
       playsinline
       :aria-label="`${cameraName} stream`"
-      :class="{ hidden: !cameraOn }"
       class="clear-both h-fit transition-all duration-300 ease-in-out"
     />
 
     <img
-      v-show="props.refreshRate !== 'Live'"
+      v-show="refreshRate !== 'Live'"
       ref="imgEl"
       :aria-label="`${cameraName} stream`"
-      :class="{ hidden: props.refreshRate === 'Live' }"
     >
   </div>
 </template>
