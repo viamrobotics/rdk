@@ -640,7 +640,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (res
 	}
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 
-	// If MaxInstance equals zero then there is not limit on the number of services
+	// If MaxInstance equals zero then there is not a limit on the number of services
 	if c.MaxInstance != 0 {
 		if err := r.checkMaxInstance(rName.Subtype, c.MaxInstance); err != nil {
 			return nil, err
