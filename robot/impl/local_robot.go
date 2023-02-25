@@ -622,7 +622,7 @@ func New(
 func (r *localRobot) newService(ctx context.Context, config config.Service) (res interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Errorf("panic creating resource: %v", r)
+			err = errors.Wrap(errors.Errorf("%v", r), "panic creating service")
 		}
 	}()
 	rName := config.ResourceName()
@@ -684,7 +684,7 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (res interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Errorf("panic creating resource: %v", r)
+			err = errors.Wrap(errors.Errorf("%v", r), "panic creating resource")
 		}
 	}()
 	rName := config.ResourceName()

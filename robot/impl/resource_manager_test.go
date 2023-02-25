@@ -1750,7 +1750,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		registry.RegisterComponent(subtype, model, registry.Component{
 			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Component, logger golog.Logger) (interface{}, error) {
-				panic("panic")
+				panic("hello")
 			},
 		})
 
@@ -1764,8 +1764,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 		_, err = manager.processComponent(ctx, svc1.ResourceName(), svc1, nil, local)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "panic")
-
+		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 
 	t.Run("service", func(t *testing.T) {
@@ -1779,7 +1778,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		registry.RegisterService(subtype, resource.DefaultServiceModel, registry.Service{
 			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-				panic("panic")
+				panic("hello")
 			},
 		})
 
@@ -1793,7 +1792,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 		_, err = manager.processService(ctx, svc1, nil, local)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "panic")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 }
 
