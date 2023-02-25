@@ -11,7 +11,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -240,8 +239,8 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	fs := referenceframe.NewEmptySimpleFrameSystem("test")
-	if err = fs.AddFrame(ur5e, fs.Frame(referenceframe.World)); err != nil {
+	fs := frame.NewEmptySimpleFrameSystem("test")
+	if err = fs.AddFrame(ur5e, fs.Frame(frame.World)); err != nil {
 		return nil, err
 	}
 

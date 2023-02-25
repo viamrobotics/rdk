@@ -206,7 +206,7 @@ func TestCollisionConstraints(t *testing.T) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, false)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
 	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, true)

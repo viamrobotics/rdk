@@ -19,7 +19,7 @@ const (
 	defaultOptimalityMultiple = 2.0
 	defaultFallbackTimeout    = 1.5
 
-	// set this to true to get collision penetration depth, which is useful for debugging
+	// set this to true to get collision penetration depth, which is useful for debugging.
 	getCollisionDepth = false
 )
 
@@ -364,11 +364,11 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt.extra = planningOpts
 
 	// add collision constraints
-	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, seedMap, nil, getCollisionDepth)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, seedMap, []*Collision{}, getCollisionDepth)
 	if err != nil {
 		return nil, err
 	}
-	obstacleConstraint, err := newObstacleConstraint(pm.frame, pm.fs, worldState, seedMap, nil, getCollisionDepth)
+	obstacleConstraint, err := newObstacleConstraint(pm.frame, pm.fs, worldState, seedMap, []*Collision{}, getCollisionDepth)
 	if err != nil {
 		return nil, err
 	}
