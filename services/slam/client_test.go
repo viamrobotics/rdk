@@ -2,6 +2,7 @@
 package slam_test
 
 import (
+	"bytes"
 	"context"
 	"image"
 	"math"
@@ -28,12 +29,13 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-var (
-	nameSucc = "viam"
-	nameFail = "maiv"
+const (
+	nameSucc               = "viam"
+	nameFail               = "maiv"
+	chunkSizeInternalState = 2
 )
 
-func TestClientWorkingService(t *testing.T) {
+func TestWorkingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -74,6 +76,20 @@ func TestClientWorkingService(t *testing.T) {
 		return internalStateSucc, nil
 	}
 
+	workingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		reader := bytes.NewReader(internalStateSucc)
+		f := func() ([]byte, error) {
+			clientBuffer := make([]byte, chunkSizeInternalState)
+			n, err := reader.Read(clientBuffer)
+			if err != nil {
+				return nil, err
+			}
+
+			return clientBuffer[:n], err
+		}
+		return f, nil
+	}
+
 	workingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameSucc): workingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -102,7 +118,6 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
-
 		// test get map
 		extra = map[string]interface{}{"foo": "GetMap"}
 		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
@@ -130,6 +145,15 @@ func TestClientWorkingService(t *testing.T) {
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
+
+		// test get internal state stream
+		internalStateCallback, err := workingSLAMClient.GetInternalStateStream(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, internalStateCallback, test.ShouldNotBeNil)
+
+		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -159,6 +183,14 @@ func TestClientWorkingService(t *testing.T) {
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
+
+		// test get internal state stream
+		internalStateCallback, err := workingDialedClient.GetInternalStateStream(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, internalStateCallback, test.ShouldNotBeNil)
+		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
 
 		// test do command
 		workingSLAMService.DoCommandFunc = generic.EchoFunc
@@ -198,11 +230,19 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
+		// test get internal state stream
+		internalStateCallback, err := workingDialedClient.GetInternalStateStream(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, internalStateCallback, test.ShouldNotBeNil)
+		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
-func TestClientFailingService(t *testing.T) {
+func TestFailingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -234,6 +274,13 @@ func TestClientFailingService(t *testing.T) {
 
 	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
 		return nil, errors.New("failure to get internal state")
+	}
+
+	failingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		f := func() ([]byte, error) {
+			return nil, errors.New(" failure during callback")
+		}
+		return f, errors.New("failure during get internal state stream")
 	}
 
 	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService})
@@ -275,6 +322,29 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
 		test.That(t, internalState, test.ShouldBeNil)
 
+		// test get internal state stream
+		internalStateCallback, err := failingSLAMClient.GetInternalStateStream(context.Background(), nameFail)
+		test.That(t, err, test.ShouldBeNil)
+		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get internal state stream")
+		test.That(t, fullBytes, test.ShouldBeNil)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
+func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+		if err != nil {
+			return nil, err
+		}
+
+		fullBytes = append(fullBytes, chunk...)
+		if len(chunk) < chunkSizeInternalState {
+			return fullBytes, nil
+		}
+	}
 }
