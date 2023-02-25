@@ -4,14 +4,14 @@ package imuwit
 /*
 Sensor Manufacturer:  		Wit-motion
 Supported Sensor Models: 	HWT901B, BWT901, BWT61CL
-Supported OS: Linux Debian GNU/Linux 11 (bullseye)
+Supported OS: Linux
 Tested Sensor Models and User Manuals:
 
 	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view
 	BWT901:	https://drive.google.com/file/d/18bScCGO5vVZYcEeNKjXNtjnT8OVlrHGI/view
 	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view
 
-This driver will connect to all the sensors using a usb connection given as a serial path
+This driver will connect to the sensor using a usb connection given as a serial path
 using a default baud rate of 115200. We allow baud rate values of: 9600, 115200
 The default baud rate can be used to connect to all models. Only the HWT901B's baud rate is changeable.
 We ask the user to refer to the datasheet if any baud rate changes are required for their application.
@@ -47,12 +47,12 @@ import (
 
 var model = resource.NewDefaultModel("imu-wit")
 
-var baudRateList = [...]int{115200, 9600, 0}
+var baudRateList = [...]uint{115200, 9600, 0}
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
 	Port     string `json:"serial_path"`
-	BaudRate int    `json:"serial_baud_rate,omitempty"`
+	BaudRate uint   `json:"serial_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -201,7 +201,7 @@ func NewWit(
 	}
 
 	if conf.BaudRate > 0 {
-		options.BaudRate = uint(conf.BaudRate)
+		options.BaudRate = conf.BaudRate
 	} else {
 		logger.Warnf(
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
