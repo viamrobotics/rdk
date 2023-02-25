@@ -211,8 +211,6 @@ func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
 
 // ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	return g.model
 }
 
