@@ -306,7 +306,7 @@ func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]inte
 }
 
 func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return nil, movementsensor.ErrMethodUnimplementedOrientation
+	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 func (mpu *mpu6050) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {

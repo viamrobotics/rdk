@@ -16,7 +16,7 @@ import (
 )
 
 // errUnsupportedFileType is returned if we try to build a model from an inproper extension.
-const errUnsupportedFileType = "only files with .json and .urdf file extensions are supported"
+var errUnsupportedFileType = errors.New("only files with .json and .urdf file extensions are supported")
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
 type ModelFramer interface {
@@ -160,7 +160,7 @@ func (m *SimpleModel) DoF() []Limit {
 	}
 	m.lock.RUnlock()
 
-	limits := make([]Limit, 0, len(m.OrdTransforms)-1)
+	limits := make([]Limit, 0, len(m.OrdTransforms))
 	for _, transform := range m.OrdTransforms {
 		if len(transform.DoF()) > 0 {
 			limits = append(limits, transform.DoF()...)
@@ -291,7 +291,7 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 	case strings.HasSuffix(modelPath, ".json"):
 		model, err = ParseModelJSONFile(modelPath, name)
 	default:
-		return model, errors.New(errUnsupportedFileType)
+		return model, errUnsupportedFileType
 	}
 	return model, err
 }

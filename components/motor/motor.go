@@ -154,15 +154,7 @@ func DependencyTypeError(name string, actual interface{}) error {
 
 // FromRobot is a helper for getting the named motor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Motor, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Motor)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Motor](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.

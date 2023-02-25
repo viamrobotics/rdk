@@ -395,7 +395,6 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		defer utils.UncheckedErrorFunc(func() error { return os.Remove(addr) })
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
 		if err := svc.modServer.Serve(lis); err != nil {

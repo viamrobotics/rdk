@@ -18,7 +18,6 @@ const emit = defineEmits<Emits>();
 
 interface Props {
   isActive: boolean,
-  tempDisable: boolean,
 }
 
 const props = defineProps<Props>();
@@ -48,10 +47,6 @@ const normalizeKey = (key: string): Keys | null => {
 };
 
 const emitKeyDown = (key: Keys) => {
-  if (props.tempDisable) {
-    return;
-  }
-
   pressedKeys[key] = true;
 
   emit('keydown', key);
@@ -63,10 +58,6 @@ const emitKeyUp = (key: Keys) => {
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (props.tempDisable) {
-    return;
-  }
-
   event.preventDefault();
   event.stopPropagation();
 
@@ -80,10 +71,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const handleKeyUp = (event: KeyboardEvent) => {
-  if (props.tempDisable) {
-    return;
-  }
-
   event.preventDefault();
   event.stopPropagation();
 
@@ -134,7 +121,7 @@ onUnmounted(() => {
       :value="props.isActive ? 'on' : 'off'"
       @input="toggleKeyboard($event.detail.value)"
     />
-    <div class="flex gap-2">
+    <div class="flex gap-2 justify-center">
       <div
         v-for="(lineKeys, index) in keysLayout"
         :key="index"

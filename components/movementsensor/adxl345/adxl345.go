@@ -276,7 +276,7 @@ func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]in
 }
 
 func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return nil, movementsensor.ErrMethodUnimplementedOrientation
+	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 func (adxl *adxl345) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
