@@ -155,8 +155,7 @@ type limitSwitchGantry struct {
 	limitHitMu      sync.Mutex
 	limitsPolled    bool
 
-	instanceMu sync.Mutex
-	logger     golog.Logger
+	logger golog.Logger
 	generic.Unimplemented
 }
 
@@ -199,10 +198,11 @@ func (g *limitSwitchGantry) limitHitChecker() {
 	g.limitHitMu.Lock()
 	// check if the state is false
 	if !g.limitsPolled {
+		g.limitHitMu.Unlock()
 		return
 	}
 	// we know we are monitoring the limit switches in this gantry,
-	// return if the limitHits are already being checked
+	// so we return if they are already being checked
 	g.limitsPolled = true
 	g.limitHitMu.Unlock()
 
@@ -219,10 +219,8 @@ func (g *limitSwitchGantry) limitHitChecker() {
 				g.limitHitMu.Lock()
 				g.limitsPolled = false
 				g.limitHitMu.Unlock()
-				errs := multierr.Combine(errs, err)
 				// motor operation manager cancels running
-				err = g.oAx.motor.Stop(g.ctx, nil)
-				errs = multierr.Combine(errs, err)
+				errs = multierr.Combine(err, g.oAx.motor.Stop(g.ctx, nil))
 				if errs != nil {
 					g.logger.Error(errs)
 					return
@@ -234,7 +232,8 @@ func (g *limitSwitchGantry) limitHitChecker() {
 
 func (g *limitSwitchGantry) limitHit(ctx context.Context, offset int) (bool, error) {
 	if offset < 0 || offset > 1 {
-		return true, errBadNumLimitSwitches(g.oAx.name, offset)
+		return true, fmt.Errorf("index out of range for gantry %s limit swith pins %d",
+			g.oAx.name, offset)
 	}
 	pin, err := g.oAx.board.GPIOPinByName(g.limitSwitchPins[offset])
 	if err != nil {
@@ -245,6 +244,8 @@ func (g *limitSwitchGantry) limitHit(ctx context.Context, offset int) (bool, err
 	return high == g.limitHigh, err
 }
 
+// helper function to return the motor rotary positoon associated with
+// each limit of the oneAxis gantry
 func (g *limitSwitchGantry) testLimit(ctx context.Context, limInt int) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
 		return g.oAx.motor.Stop(ctx, nil)
@@ -274,7 +275,7 @@ func (g *limitSwitchGantry) testLimit(ctx context.Context, limInt int) (float64,
 			break
 		}
 
-		elapsed := start.Sub(start)
+		elapsed := time.Now().Sub(start)
 		if elapsed > (time.Second * 15) {
 			return 0, errors.New("gantry timed out testing limit")
 		}
@@ -302,8 +303,8 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 		if g.oAx.lengthMm == 0.0 || g.oAx.mmPerRevolution == 0.0 {
 			return errDimensionsNotFound(g.oAx.name, g.oAx.lengthMm, g.oAx.mmPerRevolution)
 		}
-		revPerLength := g.oAx.lengthMm / g.oAx.mmPerRevolution
-		positionB = positionA + revPerLength
+		totalRevolutions := g.oAx.lengthMm / g.oAx.mmPerRevolution
+		positionB = positionA + totalRevolutions
 	case 2:
 		positionB, err = g.testLimit(ctx, 1)
 		if err != nil {
@@ -335,8 +336,6 @@ func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins
 }
 
 func (g *limitSwitchGantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.Position(ctx, extra)
 }
 
@@ -346,42 +345,29 @@ func (g *limitSwitchGantry) MoveToPosition(
 	worldstate *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.MoveToPosition(ctx, positionsMm, worldstate, extra)
 }
 
 func (g *limitSwitchGantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.Lengths(ctx, extra)
 }
 
 func (g *limitSwitchGantry) Stop(ctx context.Context, extra map[string]interface{}) error {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.Stop(ctx, extra)
 }
 
 func (g *limitSwitchGantry) ModelFrame() referenceframe.Model {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.ModelFrame()
 }
 
 func (g *limitSwitchGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.CurrentInputs(ctx)
 }
 
 func (g *limitSwitchGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	g.instanceMu.Lock()
-	defer g.instanceMu.Unlock()
 	return g.oAx.GoToInputs(ctx, goal)
 }
 
 func (g *limitSwitchGantry) IsMoving(ctx context.Context) (bool, error) {
-	defer g.instanceMu.Unlock()
 	return g.oAx.IsMoving(ctx)
 }
