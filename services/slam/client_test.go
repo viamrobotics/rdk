@@ -4,6 +4,7 @@ package slam_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"math"
 	"net"
@@ -39,10 +40,10 @@ func TestWorkingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-
+	fmt.Println("yo1")
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-
+	fmt.Println("yo2")
 	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
 	pcSucc := &vision.Object{}
@@ -52,6 +53,7 @@ func TestWorkingClient(t *testing.T) {
 	imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	internalStateSucc := []byte{0, 1, 2, 3, 4}
 
+	fmt.Println("yo3")
 	workingSLAMService := &inject.SLAMService{}
 
 	var extraOptions map[string]interface{}
@@ -78,9 +80,12 @@ func TestWorkingClient(t *testing.T) {
 
 	workingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(internalStateSucc)
+		fmt.Println("yo inject")
 		f := func() ([]byte, error) {
 			clientBuffer := make([]byte, chunkSizeInternalState)
+			fmt.Println("yo read")
 			n, err := reader.Read(clientBuffer)
+			fmt.Println("yo num bytes", n)
 			if err != nil {
 				return nil, err
 			}
@@ -118,6 +123,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+		fmt.Println("yo5")
 		// test get map
 		extra = map[string]interface{}{"foo": "GetMap"}
 		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
@@ -140,17 +146,19 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, im, test.ShouldNotBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
-
+		fmt.Println("yo6")
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
-
+		fmt.Println("yo7")
 		// test get internal state stream
 		internalStateCallback, err := workingSLAMClient.GetInternalStateStream(context.Background(), nameSucc)
+		fmt.Println("yo1")
 		test.That(t, err, test.ShouldBeNil)
+		fmt.Println("yo2")
 		test.That(t, internalStateCallback, test.ShouldNotBeNil)
-
+		fmt.Println("yo3")
 		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
@@ -338,12 +346,15 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
 		chunk, err := f()
+		fmt.Println("yo chunk", chunk)
 		if err != nil {
 			return nil, err
 		}
 
 		fullBytes = append(fullBytes, chunk...)
+		fmt.Println("yo full bytes", fullBytes)
 		if len(chunk) < chunkSizeInternalState {
+			fmt.Println("yo full full bytes", fullBytes)
 			return fullBytes, nil
 		}
 	}
