@@ -1782,6 +1782,10 @@ func TestResourceCreationPanic(t *testing.T) {
 			},
 		})
 
+		registry.RegisterResourceSubtype(subtype, registry.ResourceSubtype{
+			Reconfigurable: WrapWithReconfigurable,
+		})
+
 		svc1 := config.Service{
 			Name:      "",
 			Model:     resource.DefaultServiceModel,
