@@ -40,6 +40,7 @@ func init() {
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
 	Sync(ctx context.Context, extra map[string]interface{}) error
+	resource.Generic
 }
 
 var (
@@ -82,6 +83,14 @@ func (svc *reconfigurableDataManager) Sync(ctx context.Context, extra map[string
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Sync(ctx, extra)
+}
+
+func (svc *reconfigurableDataManager) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableDataManager) Close(ctx context.Context) error {

@@ -167,7 +167,7 @@ func (m *Module) Start(ctx context.Context) error {
 		defer utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
-			m.logger.Fatalf("failed to serve: %v", err)
+			m.logger.Errorf("failed to serve: %v", err)
 		}
 	})
 	return nil

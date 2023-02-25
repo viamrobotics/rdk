@@ -24,7 +24,10 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-var holdTime = 250000000 // 250ms in nanoseconds
+var (
+	holdTime                = 250000000 // 250ms in nanoseconds
+	servoDefaultMaxRotation = 180
+)
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -54,18 +57,30 @@ func init() {
 				if attr.Max > 0 {
 					theServo.max = uint32(attr.Max)
 				}
+				theServo.maxRotation = uint32(attr.MaxRotation)
+				if theServo.maxRotation == 0 {
+					theServo.maxRotation = uint32(servoDefaultMaxRotation)
+				}
+				if theServo.maxRotation < theServo.min {
+					return nil, errors.New("maxRotation is less than minimum")
+				}
+				if theServo.maxRotation < theServo.max {
+					return nil, errors.New("maxRotation is less than maximum")
+				}
 
 				theServo.pinname = attr.Pin
 
 				if attr.StartPos == nil {
 					setPos := C.gpioServo(theServo.pin, C.uint(1500)) // a 1500ms pulsewidth positions the servo at 90 degrees
-					if setPos != 0 {
-						return nil, errors.Errorf("gpioServo failed with %d", setPos)
+					errorCode := int(setPos)
+					if errorCode != 0 {
+						return nil, picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				} else {
-					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos))))
-					if setPos != 0 {
-						return nil, errors.Errorf("gpioServo failed with %d", setPos)
+					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos), int(theServo.maxRotation))))
+					errorCode := int(setPos)
+					if errorCode != 0 {
+						return nil, picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				}
 				if attr.HoldPos == nil || *attr.HoldPos {
@@ -87,13 +102,14 @@ var _ = servo.LocalServo(&piPigpioServo{})
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
 	generic.Unimplemented
-	pin        C.uint
-	pinname    string
-	res        C.int
-	min, max   uint32
-	opMgr      operation.SingleOperationManager
-	pulseWidth int // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
-	holdPos    bool
+	pin         C.uint
+	pinname     string
+	res         C.int
+	min, max    uint32
+	opMgr       operation.SingleOperationManager
+	pulseWidth  int // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
+	holdPos     bool
+	maxRotation uint32
 }
 
 // Move moves the servo to the given angle (0-180 degrees)
@@ -108,8 +124,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint32, extra map[string
 	if s.max > 0 && angle > s.max {
 		angle = s.max
 	}
-
-	pulseWidth := angleToPulseWidth(int(angle))
+	pulseWidth := angleToPulseWidth(int(angle), int(s.maxRotation))
 	res := C.gpioServo(s.pin, C.uint(pulseWidth))
 
 	s.pulseWidth = pulseWidth
@@ -157,20 +172,20 @@ func (s *piPigpioServo) Position(ctx context.Context, extra map[string]interface
 	if err != nil {
 		return 0, err
 	}
-	return uint32(pulseWidthToAngle(int(s.res))), nil
+	return uint32(pulseWidthToAngle(int(s.res), int(s.maxRotation))), nil
 }
 
 // angleToPulseWidth changes the input angle in degrees
 // into the corresponding pulsewidth value in microsecond
-func angleToPulseWidth(angle int) int {
-	pulseWidth := 500 + (2000 * angle / 180)
+func angleToPulseWidth(angle, maxRotation int) int {
+	pulseWidth := 500 + (2000 * angle / maxRotation)
 	return pulseWidth
 }
 
 // pulseWidthToAngle changes the pulsewidth value in microsecond
 // to the corresponding angle in degrees
-func pulseWidthToAngle(pulseWidth int) int {
-	angle := 180 * (pulseWidth + 1 - 500) / 2000
+func pulseWidthToAngle(pulseWidth, maxRotation int) int {
+	angle := maxRotation * (pulseWidth + 1 - 500) / 2000
 	return angle
 }
 
@@ -179,8 +194,9 @@ func (s *piPigpioServo) Stop(ctx context.Context, extra map[string]interface{}) 
 	_, done := s.opMgr.New(ctx)
 	defer done()
 	getPos := C.gpioServo(s.pin, C.uint(0))
-	if int(getPos) != int(0) {
-		return errors.Errorf("gpioServo failed with %d", getPos)
+	errorCode := int(getPos)
+	if errorCode != 0 {
+		return picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 	}
 	return nil
 }

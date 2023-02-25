@@ -31,6 +31,7 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -39,10 +40,10 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
-	slamConfig "go.viam.com/rdk/services/slam/internal/config"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/utils"
 )
 
@@ -287,6 +288,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 
 // builtIn is the structure of the slam service.
 type builtIn struct {
+	generic.Unimplemented
 	cameraName      string
 	slamLib         slam.LibraryMetadata
 	slamMode        slam.Mode
@@ -590,6 +592,24 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) ([]by
 
 	internalState := resp.GetInternalState()
 	return internalState, err
+}
+
+// GetPointCloudMapStream creates a request, calls the slam algorithms GetPointCloudMapStream endpoint and returns a callback
+// function which will return the next chunk of the current pointcloud map.
+func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMapStream")
+	defer span.End()
+
+	return nil, errors.New("unimplemented stub")
+}
+
+// GetInternalStateStream creates a request, calls the slam algorithms GetInternalStateStream endpoint and returns a callback
+// function which will return the next chunk of the current internal state of the slam algo.
+func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
+	defer span.End()
+
+	return nil, errors.New("unimplemented stub")
 }
 
 // NewBuiltIn returns a new slam service for the given robot.

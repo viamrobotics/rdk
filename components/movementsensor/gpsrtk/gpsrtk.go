@@ -586,7 +586,7 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 	lastError := g.err.Get()
 	if lastError != nil {
 		defer g.mu.Unlock()
-		return &geo.Point{}, 0, lastError
+		return geo.NewPoint(0, 0), 0, lastError
 	}
 	g.mu.Unlock()
 

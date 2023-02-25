@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -71,16 +72,33 @@ func TestExtraOptions(t *testing.T) {
 	test.That(t, actualSvc1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
 
+func TestDoCommand(t *testing.T) {
+	svc := &mock{name: testSvcName1}
+
+	resp, err := svc.DoCommand(context.Background(), generic.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, generic.TestCommand)
+	test.That(t, svc.cmd, test.ShouldResemble, generic.TestCommand)
+}
+
 type mock struct {
 	datamanager.Service
 	name        string
 	reconfCount int
 	extra       map[string]interface{}
+	cmd         map[string]interface{}
 }
 
 func (m *mock) Sync(_ context.Context, extra map[string]interface{}) error {
 	m.extra = extra
 	return nil
+}
+
+func (m *mock) DoCommand(_ context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	m.cmd = cmd
+	return cmd, nil
 }
 
 func (m *mock) Close(_ context.Context) error {
