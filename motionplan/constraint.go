@@ -126,6 +126,10 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score, ""
 }
 
+// newSelfCollisionConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
+// into collision with themselves outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging
 func newSelfCollisionConstraint(
 	frame referenceframe.Frame,
 	observationInput map[string][]referenceframe.Input,
@@ -135,6 +139,10 @@ func newSelfCollisionConstraint(
 	return newCollisionConstraint(frame, nil, observationInput, collisionSpecifications, reportDistances)
 }
 
+// newObstacleConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
+// into collision with worldState geometries outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging
 func newObstacleConstraint(frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
 	worldState *referenceframe.WorldState,
@@ -152,6 +160,10 @@ func newObstacleConstraint(frame referenceframe.Frame,
 	return newCollisionConstraint(frame, worldState.Obstacles[0].Geometries(), observationInput, collisionSpecifications, reportDistances)
 }
 
+// newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting 
+// the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging
 func newCollisionConstraint(
 	frame referenceframe.Frame,
 	obstacles map[string]spatial.Geometry,

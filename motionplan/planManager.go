@@ -18,6 +18,9 @@ import (
 const (
 	defaultOptimalityMultiple = 2.0
 	defaultFallbackTimeout    = 1.5
+
+	// set this to true to get collision penetration depth, which is useful for debugging
+	getCollisionDepth = false
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -360,15 +363,12 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	opt.extra = planningOpts
 
-	// set this to true to get collision penetration depth - not yet fully supported, but could be used by cbirrt
-	getColDepth := false
-
 	// add collision constraints
-	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, seedMap, nil, getColDepth)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, seedMap, nil, getCollisionDepth)
 	if err != nil {
 		return nil, err
 	}
-	obstacleConstraint, err := newObstacleConstraint(pm.frame, pm.fs, worldState, seedMap, nil, getColDepth)
+	obstacleConstraint, err := newObstacleConstraint(pm.frame, pm.fs, worldState, seedMap, nil, getCollisionDepth)
 	if err != nil {
 		return nil, err
 	}
