@@ -4,6 +4,7 @@ package oneaxis
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -116,9 +117,9 @@ func (g *oneAxis) createModel(axis r3.Vector) error {
 func (g *oneAxis) linearToRotational(positions float64) float64 {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	theRange := g.positionLimits[1] - g.positionLimits[0]
+	// it is assumed that the first limit switch is hit samllest to biggest
 	x := positions / g.lengthMm
-	x = g.positionLimits[0] + (x * theRange)
+	x = g.positionLimits[0] + (x * g.gantryRange)
 	return x
 }
 
@@ -140,7 +141,8 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 
 	g.positionLimits = []float64{positionA, positionB}
 
-	if g.gantryRange = positionB - positionA; g.gantryRange == 0 {
+	// ensure we never create a gantry with a zero range
+	if g.gantryRange = math.Abs(positionB - positionA); g.gantryRange == 0 {
 		return errZeroLengthGantry
 	}
 
@@ -156,15 +158,14 @@ func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([
 		return []float64{}, err
 	}
 
-	// never divide by zero since we cannot create a gantry with a zero range
+	// this will never divide by zero since we cannot
+	// create a gantry with a zero range
 	x := g.lengthMm * ((pos - g.positionLimits[0]) / g.gantryRange)
 	return []float64{x}, nil
 }
 
 // Lengths returns the physical lengths of an axis of a Gantry.
 func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	return []float64{g.lengthMm}, nil
 }
 
@@ -177,7 +178,8 @@ func (g *oneAxis) MoveToPosition(
 ) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", len(positions))
 	}
@@ -199,7 +201,6 @@ func (g *oneAxis) MoveToPosition(
 func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-	g.opMgr.CancelRunning(ctx)
 	return g.motor.Stop(ctx, extra)
 }
 
