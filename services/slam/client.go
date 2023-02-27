@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -155,23 +156,7 @@ func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func(
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMapStream")
 	defer span.End()
 
-	req := &pb.GetPointCloudMapStreamRequest{Name: name}
-
-	resp, err := c.client.GetPointCloudMapStream(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	f := func() ([]byte, error) {
-		chunk, err := resp.Recv()
-		if err != nil {
-			return nil, err
-		}
-
-		return chunk.GetPointCloudPcdChunk(), err
-	}
-
-	return f, nil
+	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, c.client)
 }
 
 // GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback

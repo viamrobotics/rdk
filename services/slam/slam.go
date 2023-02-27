@@ -5,9 +5,11 @@ package slam
 import (
 	"context"
 	"image"
+	"io"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/slam/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -173,4 +175,27 @@ func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfi
 	}
 
 	return &reconfigurableSlam{name: name, actual: svc}, nil
+}
+
+// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
+func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+		if errors.Is(err, io.EOF) {
+			return fullBytes, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		fullBytes = append(fullBytes, chunk...)
+	}
+}
+
+func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	callback, err := slamSvc.GetPointCloudMapStream(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return HelperConcatenateChunksToFull(callback)
 }

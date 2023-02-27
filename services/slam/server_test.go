@@ -43,8 +43,8 @@ type StreamServerMock struct {
 	rawBytes []byte
 }
 
-func makeStreamServerMock(numBytes int) *StreamServerMock {
-	return &StreamServerMock{rawBytes: make([]byte, numBytes)}
+func makeStreamServerMock() *StreamServerMock {
+	return &StreamServerMock{}
 }
 
 // Concatenate received messages into single slice.
@@ -153,10 +153,22 @@ func TestWorkingServer(t *testing.T) {
 		}
 
 		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
-		mockServer := makeStreamServerMock(len(pcd))
+		mockServer := makeStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcd) // truncate
+		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcd)
+
+		pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+		test.That(t, err, test.ShouldBeNil)
+		pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(mockServer.rawBytes))
+		test.That(t, err, test.ShouldBeNil)
+
+		pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+			dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
+			test.That(t, dOutput, test.ShouldResemble, d)
+			test.That(t, ok, test.ShouldBeTrue)
+			return true
+		})
 	})
 
 	t.Run("working get internal state functions", func(t *testing.T) {
@@ -208,12 +220,12 @@ func TestWorkingServer(t *testing.T) {
 
 		// Get pointcloud map stream
 		reqGetPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
-		mockServer1 := makeStreamServerMock(0)
+		mockServer1 := makeStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer1)
 		test.That(t, err, test.ShouldBeNil)
 
 		reqGetPointCloudMapStream = &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName2}
-		mockServer2 := makeStreamServerMock(0)
+		mockServer2 := makeStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer2)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -269,7 +281,7 @@ func TestFailingServer(t *testing.T) {
 			Name: testSlamServiceName,
 		}
 
-		mockServer := makeStreamServerMock(0)
+		mockServer := makeStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get pointcloud map")
 
@@ -281,7 +293,7 @@ func TestFailingServer(t *testing.T) {
 			return f, nil
 		}
 
-		mockServer = makeStreamServerMock(0)
+		mockServer = makeStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
 	})
@@ -321,7 +333,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
 		// Get pointcloud map stream
-		mockServer := makeStreamServerMock(0)
+		mockServer := makeStreamServerMock()
 		getPointCloudMapStreamReq := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 		err = slamServer.GetPointCloudMapStream(getPointCloudMapStreamReq, mockServer)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
@@ -343,7 +355,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
 
 		// Get pointcloud map stream
-		mockStreamServer := makeStreamServerMock(0)
+		mockStreamServer := makeStreamServerMock()
 		reqGetPointCloudMapStreamRequest := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStreamRequest, mockStreamServer)
 		test.That(t, resp, test.ShouldBeNil)

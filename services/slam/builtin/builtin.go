@@ -40,6 +40,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -600,25 +601,7 @@ func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string)
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMapStream")
 	defer span.End()
 
-	req := &pb.GetPointCloudMapStreamRequest{Name: name}
-
-	resp, err := slamSvc.clientAlgo.GetPointCloudMapStream(ctx, req)
-	// If there is an issue with the SLAM algo but a gRPC server is present, the stream client returned will not
-	// fail until data is requested
-	if err != nil {
-		return nil, errors.Wrap(err, "getting the GetPointCloudMapStream client from SLAM failed")
-	}
-
-	f := func() ([]byte, error) {
-		chunk, err := resp.Recv()
-		if err != nil {
-			return nil, errors.Wrap(err, "receiving data from GetPointCloudMapStream failed")
-		}
-
-		return chunk.GetPointCloudPcdChunk(), nil
-	}
-
-	return f, nil
+	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, slamSvc.clientAlgo)
 }
 
 // GetInternalStateStream creates a request, calls the slam algorithms GetInternalStateStream endpoint and returns a callback

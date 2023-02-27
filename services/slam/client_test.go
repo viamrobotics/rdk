@@ -152,12 +152,25 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 		// test get point cloud map stream
-		f, err := workingSLAMClient.GetPointCloudMapStream(context.Background(), nameSucc)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f, test.ShouldNotBeNil)
-		fullBytes, err := helperConcatenateChunksToFull(f)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingSLAMClient, nameSucc)
+		// f, err := workingSLAMClient.GetPointCloudMapStream(context.Background(), nameSucc)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, f, test.ShouldNotBeNil)
+		// fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, pcd)
+
+		pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+		test.That(t, err, test.ShouldBeNil)
+		pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(fullBytes))
+		test.That(t, err, test.ShouldBeNil)
+
+		pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+			dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
+			test.That(t, dOutput, test.ShouldResemble, d)
+			test.That(t, ok, test.ShouldBeTrue)
+			return true
+		})
 
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
@@ -189,10 +202,11 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f, test.ShouldNotBeNil)
-		fullBytes, err := helperConcatenateChunksToFull(f)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
+		// f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, f, test.ShouldNotBeNil)
+		// fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, pcd)
 
@@ -235,10 +249,11 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f, test.ShouldNotBeNil)
-		fullBytes, err := helperConcatenateChunksToFull(f)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
+		// f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, f, test.ShouldNotBeNil)
+		// fullBytes, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, pcd)
 
@@ -330,7 +345,7 @@ func TestFailingClient(t *testing.T) {
 
 		// test get pointcloud map stream
 		f, err := failingSLAMClient.GetPointCloudMapStream(context.Background(), nameFail)
-		fullBytes, err := helperConcatenateChunksToFull(f)
+		fullBytes, err := slam.HelperConcatenateChunksToFull(f)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map stream")
 		test.That(t, fullBytes, test.ShouldBeNil)
 
@@ -341,19 +356,4 @@ func TestFailingClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
-func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
-	var fullBytes []byte
-	for {
-		chunk, err := f()
-		if errors.Is(err, io.EOF) {
-			return fullBytes, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		fullBytes = append(fullBytes, chunk...)
-	}
 }
