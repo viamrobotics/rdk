@@ -4,10 +4,13 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"image"
+	"io"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/slam/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -80,6 +83,24 @@ type Service interface {
 	GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	resource.Generic
+}
+
+// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
+func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+		fmt.Println("yo chunk", chunk)
+		if errors.Is(err, io.EOF) {
+			fmt.Println("yo full bytes", fullBytes)
+			return fullBytes, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		fullBytes = append(fullBytes, chunk...)
+	}
 }
 
 type reconfigurableSlam struct {
