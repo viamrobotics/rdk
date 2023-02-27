@@ -44,9 +44,9 @@ type InternalStateStreamServerMock struct {
 	rawBytes []byte
 }
 
-func makePointCloudStreamServerMock() *PointCloudStreamServerMock {
-	return &PointCloudStreamServerMock{}
-}
+// func makePointCloudStreamServerMock() *PointCloudStreamServerMock {
+// 	return &PointCloudStreamServerMock{}
+// }
 
 // Concatenate received messages into single slice.
 func (m *PointCloudStreamServerMock) Send(chunk *pb.GetPointCloudMapStreamResponse) error {
@@ -64,7 +64,7 @@ func (m *InternalStateStreamServerMock) Send(chunk *pb.GetInternalStateStreamRes
 	return nil
 }
 
-func TestServer(t *testing.T) {
+func TestWorkingServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
 	resourceMap := map[resource.Name]interface{}{
 		slam.Named(testSlamServiceName): injectSvc,
@@ -247,7 +247,6 @@ func TestServer(t *testing.T) {
 
 		err = slamServer.GetInternalStateStream(req, mockServer)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
-
 	})
 
 	resourceMap = map[resource.Name]interface{}{

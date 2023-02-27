@@ -84,7 +84,7 @@ type Service interface {
 	resource.Generic
 }
 
-// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
+// Helper function to grab all chunks from a streamed grpc endpoint.
 func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
@@ -100,6 +100,7 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	}
 }
 
+// GetInternalStateFull makes a GetInternalStateStream call on a given slam service and returns the combined serialized state.
 func GetInternalStateFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
 	callback, err := slamSvc.GetInternalStateStream(ctx, name)
 	if err != nil {
