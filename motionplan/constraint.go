@@ -126,76 +126,24 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score, ""
 }
 
-// NewCollisionConstraint is a helper function for creating a collision Constraint that takes a frame and geometries
-// representing obstacles and interaction spaces and will construct a collision avoidance constraint from them.
-func NewCollisionConstraint(
+// newSelfCollisionConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
+// into collision with themselves outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func newSelfCollisionConstraint(
 	frame referenceframe.Frame,
-	goodInput []referenceframe.Input,
-	obstacles map[string]spatial.Geometry,
+	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
-) Constraint {
-	zeroVols, err := frame.Geometries(goodInput)
-	if err != nil && len(zeroVols.Geometries()) == 0 {
-		return nil // no geometries defined for frame
-	}
-	internalEntities, err := NewObjectCollisionEntities(zeroVols.Geometries())
-	if err != nil {
-		return nil
-	}
-	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
-	if err != nil {
-		return nil
-	}
-	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities}, true)
-	if err != nil {
-		return nil
-	}
-	for _, specification := range collisionSpecifications {
-		if err := zeroCG.AddCollisionSpecificationToGraphs(specification); err != nil {
-			return nil
-		}
-	}
-
-	constraint := func(cInput *ConstraintInput) (bool, float64) {
-		internal, err := cInput.Frame.Geometries(cInput.StartInput)
-		if err != nil && internal == nil {
-			return false, 0
-		}
-		internalEntities, err := NewObjectCollisionEntities(internal.Geometries())
-		if err != nil {
-			return false, 0
-		}
-
-		cg, err := NewCollisionSystemFromReference(
-			internalEntities,
-			[]CollisionEntities{obstacleEntities},
-			zeroCG,
-			reportDistances,
-		)
-		if err != nil {
-			return false, 0
-		}
-
-		collisions := cg.Collisions()
-		if len(collisions) > 0 {
-			return false, 0
-		}
-		if !reportDistances {
-			return true, 0
-		}
-		sum := 0.
-		for _, collision := range collisions {
-			sum += collision.penetrationDepth
-		}
-		return true, sum
-	}
-	return constraint
+) (Constraint, error) {
+	return newCollisionConstraint(frame, nil, observationInput, collisionSpecifications, reportDistances)
 }
 
-// NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a set of initial states.
-func NewCollisionConstraintFromWorldState(
-	frame referenceframe.Frame,
+// newObstacleConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
+// into collision with worldState geometries outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func newObstacleConstraint(frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
 	worldState *referenceframe.WorldState,
 	observationInput map[string][]referenceframe.Input,
@@ -208,9 +156,24 @@ func NewCollisionConstraintFromWorldState(
 	if err != nil {
 		return nil, err
 	}
+	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
+	return newCollisionConstraint(frame, worldState.Obstacles[0].Geometries(), observationInput, collisionSpecifications, reportDistances)
+}
 
+// newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting
+// the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func newCollisionConstraint(
+	frame referenceframe.Frame,
+	obstacles map[string]spatial.Geometry,
+	observationInput map[string][]referenceframe.Input,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+) (Constraint, error) {
 	// extract inputs corresponding to the frame
 	var goodInputs []referenceframe.Input
+	var err error
 	switch f := frame.(type) {
 	case *solverFrame:
 		goodInputs, err = f.mapToSlice(observationInput)
@@ -221,13 +184,47 @@ func NewCollisionConstraintFromWorldState(
 		return nil, err
 	}
 
-	return NewCollisionConstraint(
-		frame,
-		goodInputs,
-		worldState.Obstacles[0].Geometries(),
-		collisionSpecifications,
-		reportDistances,
-	), nil
+	// create robot collision entities
+	zeroVols, err := frame.Geometries(goodInputs)
+	if err != nil && len(zeroVols.Geometries()) == 0 {
+		return nil, err // no geometries defined for frame
+	}
+
+	// create the reference collisionGraph
+	zeroCG, err := newCollisionGraph(zeroVols.Geometries(), obstacles, nil, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, specification := range collisionSpecifications {
+		zeroCG.addCollisionSpecification(specification)
+	}
+
+	// create constraint from reference collision graph
+	constraint := func(cInput *ConstraintInput) (bool, float64) {
+		internal, err := cInput.Frame.Geometries(cInput.StartInput)
+		if err != nil && internal == nil {
+			return false, 0
+		}
+
+		cg, err := newCollisionGraph(internal.Geometries(), obstacles, zeroCG, reportDistances)
+		if err != nil {
+			return false, 0
+		}
+
+		collisions := cg.collisions()
+		if len(collisions) > 0 {
+			return false, 0
+		}
+		if !reportDistances {
+			return true, 0
+		}
+		sum := 0.
+		for _, collision := range collisions {
+			sum += collision.penetrationDepth
+		}
+		return true, sum
+	}
+	return constraint, nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the

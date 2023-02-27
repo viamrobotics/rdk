@@ -1,15 +1,32 @@
 // Package imuwit implements wit imus.
-// Tested on the HWT901B and BWT901CL models. Other WT901-based models may work too.
 package imuwit
+
+/*
+Sensor Manufacturer:  		Wit-motion
+Supported Sensor Models: 	HWT901B, BWT901, BWT61CL
+Supported OS: Linux
+Tested Sensor Models and User Manuals:
+
+	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view
+	BWT901:	https://drive.google.com/file/d/18bScCGO5vVZYcEeNKjXNtjnT8OVlrHGI/view
+	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view
+
+This driver will connect to the sensor using a usb connection given as a serial path
+using a default baud rate of 115200. We allow baud rate values of: 9600, 115200
+The default baud rate can be used to connect to all models. Only the HWT901B's baud rate is changeable.
+We ask the user to refer to the datasheet if any baud rate changes are required for their application.
+
+Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
+in that case as well. As of Feb 2023, Wit-motion has 48 gyro/inclinometer/imu models with varied levels of
+driver commonality.
+*/
 
 import (
 	"bufio"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -30,24 +47,23 @@ import (
 
 var model = resource.NewDefaultModel("imu-wit")
 
-var baudRateList = [...]int{115200, 9600}
+var baudRateList = [...]uint{115200, 9600, 0}
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
 	Port     string `json:"serial_path"`
-	BaudRate int    `json:"serial_baud_rate,omitempty"`
+	BaudRate uint   `json:"serial_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
-	isValid := false
-
 	// Validating serial path
 	if cfg.Port == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	// Validating baud rate
+	isValid := false
 	for _, val := range baudRateList {
 		if val == cfg.BaudRate {
 			isValid = true
@@ -177,66 +193,80 @@ func NewWit(
 	}
 
 	options := slib.OpenOptions{
-		BaudRate:        9600,
+		PortName:        conf.Port,
+		BaudRate:        115200,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
 
-	options.PortName = conf.Port
 	if conf.BaudRate > 0 {
-		options.BaudRate = uint(conf.BaudRate)
+		options.BaudRate = conf.BaudRate
+	} else {
+		logger.Warnf(
+			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
+		)
 	}
 
-	var i wit
-	i.logger = logger
+	i := wit{logger: logger}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
-	port, err := slib.Open(options)
+	var err error
+	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
 	}
-	i.port = port
 
-	portReader := bufio.NewReader(port)
+	portReader := bufio.NewReader(i.port)
+	i.startUpdateLoop(ctx, portReader, logger)
 
-	ctx, i.cancelFunc = context.WithCancel(context.Background())
-	i.activeBackgroundWorkers.Add(1)
+	return &i, nil
+}
+
+func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+	ctx, imu.cancelFunc = context.WithCancel(ctx)
+	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(port.Close)
-		defer i.activeBackgroundWorkers.Done()
+		defer utils.UncheckedErrorFunc(func() error {
+			if imu.port != nil {
+				if err := imu.port.Close(); err != nil {
+					imu.port = nil
+					return err
+				}
+				imu.port = nil
+			}
+			return nil
+		})
+		defer imu.activeBackgroundWorkers.Done()
 
 		for {
 			if ctx.Err() != nil {
 				return
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 
 			line, err := portReader.ReadString('U')
 
-			// Randomly sample logging until we have better log level control
-			//nolint:gosec
-			if rand.Intn(100) < 3 {
-				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
-			}
-
 			func() {
-				i.mu.Lock()
-				defer i.mu.Unlock()
+				imu.mu.Lock()
+				defer imu.mu.Unlock()
 
-				if err != nil {
-					i.err.Set(err)
+				switch {
+				case err != nil:
+					imu.err.Set(err)
 					logger.Error(err)
-				} else {
-					if len(line) != 11 {
-						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
-						i.numBadReadings++
-						return
-					}
-					i.err.Set(i.parseWIT(line))
+				case len(line) != 11:
+					imu.numBadReadings++
+					return
+				default:
+					imu.err.Set(imu.parseWIT(line))
 				}
 			}()
 		}
 	})
-	return &i, nil
 }
 
 func scale(a, b byte, r float64) float64 {
@@ -303,14 +333,6 @@ func (imu *wit) Close() error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
-
-	if imu.port != nil {
-		if err := imu.port.Close(); err != nil {
-			return err
-		}
-		imu.port = nil
-	}
-
 	imu.logger.Debug("Closed wit motion imu")
 	return imu.err.Get()
 }
