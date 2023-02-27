@@ -136,8 +136,8 @@ func TestWorkingServer(t *testing.T) {
 
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
+			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
-				serverBuffer := make([]byte, chunkSizeServer)
 				n, err := reader.Read(serverBuffer)
 				if err != nil {
 					return nil, err

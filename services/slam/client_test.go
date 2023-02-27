@@ -38,7 +38,7 @@ const (
 	chunkSizeClient = 100
 )
 
-func TestWorkingClient(t *testing.T) {
+func TestClientWorkingService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -81,8 +81,8 @@ func TestWorkingClient(t *testing.T) {
 
 	workingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(pcd)
+		clientBuffer := make([]byte, chunkSizeClient)
 		f := func() ([]byte, error) {
-			clientBuffer := make([]byte, chunkSizeClient)
 			n, err := reader.Read(clientBuffer)
 			if err != nil {
 				return nil, err
@@ -236,7 +236,7 @@ func TestWorkingClient(t *testing.T) {
 	})
 }
 
-func TestFailingClient(t *testing.T) {
+func TestClientFailingService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
