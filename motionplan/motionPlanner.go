@@ -205,7 +205,7 @@ func motionPlanInternal(ctx context.Context,
 		}
 		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
 		if err != nil {
-			return nil, fmt.Errorf("PlanSingleWaypoint %d %w", i, err)
+			return nil, fmt.Errorf("PlanSingleWaypoint iter %d err %w", i, err)
 		}
 		for j, resultSlice := range resultSlices {
 			stepMap := sf.sliceToMap(resultSlice)

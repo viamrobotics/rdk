@@ -52,11 +52,11 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mapToSlice %w", err)
 	}
 	seedPos, err := pm.frame.Transform(seed)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("transform first %w", err)
 	}
 
 	var cancel func()
@@ -150,7 +150,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		if len(goals) > 1 {
 			err = fmt.Errorf("failed to plan path for valid goal: %w", err)
 		}
-		return nil, err
+		return nil, fmt.Errorf("planAtomicWaypoints %w", err)
 	}
 	return resultSlices, nil
 }
@@ -181,7 +181,7 @@ func (pm *planManager) planAtomicWaypoints(
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("planSingleAtomicWaypoint %w", err)
 		}
 		seed = newseed
 		resultPromises = append(resultPromises, future)
@@ -193,7 +193,7 @@ func (pm *planManager) planAtomicWaypoints(
 	for _, future := range resultPromises {
 		steps, err := future.result(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("resultPromises %w", err)
 		}
 		resultSlices = append(resultSlices, steps...)
 	}
@@ -233,7 +233,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 				return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
 			case planReturn := <-solutionChan:
 				if planReturn.planerr != nil {
-					return nil, nil, planReturn.planerr
+					return nil, nil, fmt.Errorf("planerr %w", planReturn.planerr)
 				}
 				steps := planReturn.toInputs()
 				return steps[len(steps)-1], &resultPromise{steps: steps}, nil
@@ -246,7 +246,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		defer cancel()
 		steps, err := pathPlanner.plan(plannerctx, goal, seed)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("plan %w", err)
 		}
 		// Update seed for the next waypoint to be the final configuration of this waypoint
 		seed = steps[len(steps)-1]
