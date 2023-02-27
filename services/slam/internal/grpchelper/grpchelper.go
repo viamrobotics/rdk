@@ -7,7 +7,8 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 )
 
-// GetPointCloudMapStreamCallback helps a client request the point cloud stream from a SLAM server.
+// GetPointCloudMapStreamCallback helps a client request the point cloud stream from a SLAM server,
+// returning a callback function for accessing the stream data.
 func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetPointCloudMapStreamRequest{Name: name}
 

@@ -152,7 +152,10 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 		// test get point cloud map stream
-		testGetPointCloudMapFull(t, workingSLAMClient, pcd)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingSLAMClient, nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes, test.ShouldResemble, pcd)
+		testComparePointCloudsFromPCDs(t, fullBytes, pcd)
 
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
@@ -184,7 +187,10 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		testGetPointCloudMapFull(t, workingDialedClient, pcd)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes, test.ShouldResemble, pcd)
+		testComparePointCloudsFromPCDs(t, fullBytes, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -225,7 +231,10 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		testGetPointCloudMapFull(t, workingDialedClient, pcd)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytes, test.ShouldResemble, pcd)
+		testComparePointCloudsFromPCDs(t, fullBytes, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -353,23 +362,17 @@ func TestClientFailingService(t *testing.T) {
 	})
 }
 
-// Helper function for checking GetPointCloudMapFull along with associated pcd validity checks.
-func testGetPointCloudMapFull(t *testing.T, svc slam.Service, pcd []byte) {
-	t.Helper()
-
-	fullBytes, err := slam.GetPointCloudMapFull(context.Background(), svc, nameSucc)
+// Helper function for checking GetPointCloudMapFull response along with associated pcd validity checks.
+func testComparePointCloudsFromPCDs(t *testing.T, pcdInput, pcdOutput []byte) {
+	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcdInput))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fullBytes, test.ShouldResemble, pcd)
-
-	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-	test.That(t, err, test.ShouldBeNil)
-	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(fullBytes))
+	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(pcdOutput))
 	test.That(t, err, test.ShouldBeNil)
 
 	pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 		dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
-		test.That(t, dOutput, test.ShouldResemble, d)
 		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, dOutput, test.ShouldResemble, d)
 		return true
 	})
 }

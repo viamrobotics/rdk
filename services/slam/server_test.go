@@ -157,18 +157,7 @@ func TestWorkingServer(t *testing.T) {
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcd)
-
-		pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-		test.That(t, err, test.ShouldBeNil)
-		pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(mockServer.rawBytes))
-		test.That(t, err, test.ShouldBeNil)
-
-		pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
-			test.That(t, dOutput, test.ShouldResemble, d)
-			test.That(t, ok, test.ShouldBeTrue)
-			return true
-		})
+		testComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcd)
 	})
 
 	t.Run("working get internal state functions", func(t *testing.T) {
