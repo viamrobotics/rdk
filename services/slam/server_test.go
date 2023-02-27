@@ -2,9 +2,11 @@
 package slam_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"image"
+	"io"
 	"math"
 	"testing"
 
@@ -13,6 +15,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
@@ -30,6 +33,36 @@ const (
 	testSlamServiceName  = "slam1"
 	testSlamServiceName2 = "slam2"
 )
+
+// Create mock server that satisfies the pb.SLAMService_GetPointCloudMapStreamServer contract.
+type PointCloudStreamServerMock struct {
+	grpc.ServerStream
+	rawBytes []byte
+}
+type InternalStateStreamServerMock struct {
+	grpc.ServerStream
+	rawBytes []byte
+}
+
+func makePointCloudStreamServerMock() *PointCloudStreamServerMock {
+	return &PointCloudStreamServerMock{}
+}
+
+// Concatenate received messages into single slice.
+func (m *PointCloudStreamServerMock) Send(chunk *pb.GetPointCloudMapStreamResponse) error {
+	m.rawBytes = append(m.rawBytes, chunk.PointCloudPcdChunk...)
+	return nil
+}
+
+func makeInternalStateStreamServerMock() *InternalStateStreamServerMock {
+	return &InternalStateStreamServerMock{}
+}
+
+// Concatenate received messages into single slice.
+func (m *InternalStateStreamServerMock) Send(chunk *pb.GetInternalStateStreamResponse) error {
+	m.rawBytes = append(m.rawBytes, chunk.InternalStateChunk...)
+	return nil
+}
 
 func TestServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
@@ -121,6 +154,32 @@ func TestServer(t *testing.T) {
 		test.That(t, respInternalState.GetInternalState(), test.ShouldResemble, internalStateSucc)
 	})
 
+	t.Run("working get internal state stream functions", func(t *testing.T) {
+		internalStateSucc := []byte{0, 1, 2, 3, 4}
+		chunkSizeInternalState := 2
+		injectSvc.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+			reader := bytes.NewReader(internalStateSucc)
+			f := func() ([]byte, error) {
+				serverBuffer := make([]byte, chunkSizeInternalState)
+				n, err := reader.Read(serverBuffer)
+				if err != nil {
+					return nil, err
+				}
+
+				return serverBuffer[:n], err
+			}
+			return f, nil
+		}
+
+		req := &pb.GetInternalStateStreamRequest{
+			Name: testSlamServiceName,
+		}
+		mockServer := makeInternalStateStreamServerMock()
+		err := slamServer.GetInternalStateStream(req, mockServer)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mockServer.rawBytes, test.ShouldResemble, internalStateSucc)
+	})
+
 	t.Run("failing get position function", func(t *testing.T) {
 		injectSvc.PositionFunc = func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 			return nil, errors.New("failure to get position")
@@ -162,6 +221,35 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
+	t.Run("failing get internal state stream function", func(t *testing.T) {
+		// GetInternalStateStreamFunc error
+		injectSvc.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+			f := func() ([]byte, error) {
+				return []byte{}, io.EOF
+			}
+			return f, errors.New("failure to get internal state")
+		}
+
+		req := &pb.GetInternalStateStreamRequest{
+			Name: testSlamServiceName,
+		}
+		mockServer := makeInternalStateStreamServerMock()
+		err := slamServer.GetInternalStateStream(req, mockServer)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
+
+		// Callback failure
+		injectSvc.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+			f := func() ([]byte, error) {
+				return []byte{}, errors.New("callback error")
+			}
+			return f, nil
+		}
+
+		err = slamServer.GetInternalStateStream(req, mockServer)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
+
+	})
+
 	resourceMap = map[resource.Name]interface{}{
 		slam.Named(testSlamServiceName): "not a frame system",
 	}
@@ -184,6 +272,11 @@ func TestServer(t *testing.T) {
 		getInternalStateReq := &pb.GetInternalStateRequest{Name: testSlamServiceName}
 		getInternalStateResp, err := slamServer.GetInternalState(context.Background(), getInternalStateReq)
 		test.That(t, getInternalStateResp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
+
+		getInternalStateStreamReq := &pb.GetInternalStateStreamRequest{Name: testSlamServiceName}
+		mockServer := makeInternalStateStreamServerMock()
+		err = slamServer.GetInternalStateStream(getInternalStateStreamReq, mockServer)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 	})
 
