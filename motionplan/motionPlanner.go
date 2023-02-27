@@ -3,7 +3,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"sort"
 	"time"
@@ -138,7 +137,7 @@ func motionPlanInternal(ctx context.Context,
 	}
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
-		return nil, fmt.Errorf("TracebackFrame %w", err)
+		return nil, err
 	}
 
 	opts := make([]map[string]interface{}, 0, len(goals))
@@ -168,24 +167,24 @@ func motionPlanInternal(ctx context.Context,
 		// Create a frame to solve for, and an IK solver with that frame.
 		sf, err := newSolverFrame(fs, solveFrameList, goal.Parent(), seedMap)
 		if err != nil {
-			return nil, fmt.Errorf("newSolverFrame %w", err)
+			return nil, err
 		}
 		if len(sf.DoF()) == 0 {
 			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 		}
 		seed, err := sf.mapToSlice(seedMap)
 		if err != nil {
-			return nil, fmt.Errorf("mapToSlice %w", err)
+			return nil, err
 		}
 		startPose, err := sf.Transform(seed)
 		if err != nil {
-			return nil, fmt.Errorf("Transform %w", err)
+			return nil, err
 		}
 		wsPb := &commonpb.WorldState{}
 		if worldState != nil {
 			wsPb, err = frame.WorldStateToProtobuf(worldState)
 			if err != nil {
-				return nil, fmt.Errorf("WorldStateToProtobuf %w", err)
+				return nil, err
 			}
 		}
 
@@ -201,11 +200,11 @@ func motionPlanInternal(ctx context.Context,
 
 		sfPlanner, err := newPlanManager(sf, fs, logger, i)
 		if err != nil {
-			return nil, fmt.Errorf("newPlanManager %w", err)
+			return nil, err
 		}
 		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
 		if err != nil {
-			return nil, fmt.Errorf("PlanSingleWaypoint iter %d err %w", i, err)
+			return nil, err
 		}
 		for j, resultSlice := range resultSlices {
 			stepMap := sf.sliceToMap(resultSlice)
