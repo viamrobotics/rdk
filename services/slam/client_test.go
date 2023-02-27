@@ -152,25 +152,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 		// test get point cloud map stream
-		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingSLAMClient, nameSucc)
-		// f, err := workingSLAMClient.GetPointCloudMapStream(context.Background(), nameSucc)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, f, test.ShouldNotBeNil)
-		// fullBytes, err := helperConcatenateChunksToFull(f)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes, test.ShouldResemble, pcd)
-
-		pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-		test.That(t, err, test.ShouldBeNil)
-		pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(fullBytes))
-		test.That(t, err, test.ShouldBeNil)
-
-		pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
-			test.That(t, dOutput, test.ShouldResemble, d)
-			test.That(t, ok, test.ShouldBeTrue)
-			return true
-		})
+		helperGetPointCloudMapFull(t, workingSLAMClient, pcd)
 
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
@@ -202,13 +184,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
-		// f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, f, test.ShouldNotBeNil)
-		// fullBytes, err := helperConcatenateChunksToFull(f)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes, test.ShouldResemble, pcd)
+		helperGetPointCloudMapFull(t, workingDialedClient, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -249,15 +225,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
-		// f, err := workingDialedClient.GetPointCloudMapStream(context.Background(), nameSucc)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, f, test.ShouldNotBeNil)
-		// fullBytes, err := helperConcatenateChunksToFull(f)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes, test.ShouldResemble, pcd)
-
-		// Add check of if it converts to pointcloud
+		helperGetPointCloudMapFull(t, workingDialedClient, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -300,7 +268,7 @@ func TestFailingClient(t *testing.T) {
 
 	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
-			return nil, errors.New(" failure during callback")
+			return nil, errors.New("failure during callback")
 		}
 		return f, errors.New("failure during get pointcloud map stream")
 	}
@@ -324,6 +292,13 @@ func TestFailingClient(t *testing.T) {
 
 		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
 
+		// context cancel
+		ctx := context.Background()
+		cancelCtx, cancelFunc := context.WithCancel(ctx)
+		cancelFunc()
+		_, err = failingSLAMClient.GetPointCloudMapStream(cancelCtx, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
+
 		// test get position
 		p, err := failingSLAMClient.Position(context.Background(), nameFail, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
@@ -344,8 +319,7 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
 		// test get pointcloud map stream
-		f, err := failingSLAMClient.GetPointCloudMapStream(context.Background(), nameFail)
-		fullBytes, err := slam.HelperConcatenateChunksToFull(f)
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map stream")
 		test.That(t, fullBytes, test.ShouldBeNil)
 
@@ -355,5 +329,46 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, internalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		f := func() ([]byte, error) {
+			return nil, errors.New("failure during callback")
+		}
+		return f, nil
+	}
+
+	t.Run("client test using bad SLAM client connection callbacks", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
+
+		// test get pointcloud map stream
+		fullBytes, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
+		test.That(t, fullBytes, test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+}
+
+func helperGetPointCloudMapFull(t *testing.T, svc slam.Service, pcd []byte) {
+	t.Helper()
+
+	fullBytes, err := slam.GetPointCloudMapFull(context.Background(), svc, nameSucc)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fullBytes, test.ShouldResemble, pcd)
+
+	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+	test.That(t, err, test.ShouldBeNil)
+	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(fullBytes))
+	test.That(t, err, test.ShouldBeNil)
+
+	pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
+		test.That(t, dOutput, test.ShouldResemble, d)
+		test.That(t, ok, test.ShouldBeTrue)
+		return true
 	})
 }
