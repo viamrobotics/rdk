@@ -60,6 +60,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	// set timeout for entire planning process if specified
 	if timeout, ok := motionConfig["timeout"].(float64); ok {
+		fmt.Println("timeout", timeout)
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
 	}
 	if cancel != nil {
@@ -170,7 +171,7 @@ func (pm *planManager) planAtomicWaypoints(
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("1 %w", ctx.Err())
 		default:
 		}
 
@@ -219,7 +220,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		for {
 			select {
 			case <-ctx.Done():
-				return nil, nil, ctx.Err()
+				return nil, nil, fmt.Errorf("2 %w", ctx.Err())
 			default:
 			}
 
@@ -301,6 +302,7 @@ func (pm *planManager) planParallelRRTMotion(
 	for {
 		select {
 		case <-ctx.Done():
+			// Error will be caught by monitoring loop
 			return
 		default:
 		}
