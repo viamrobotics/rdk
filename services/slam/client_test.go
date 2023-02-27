@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"io"
 	"math"
 	"net"
 	"testing"
@@ -157,7 +156,7 @@ func TestWorkingClient(t *testing.T) {
 		fmt.Println("yo2")
 		test.That(t, internalStateCallback, test.ShouldNotBeNil)
 		fmt.Println("yo3")
-		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		fullBytes, err := slam.HelperConcatenateChunksToFull(internalStateCallback)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
 
@@ -331,28 +330,10 @@ func TestFailingClient(t *testing.T) {
 		// test get internal state stream
 		internalStateCallback, err := failingSLAMClient.GetInternalStateStream(context.Background(), nameFail)
 		test.That(t, err, test.ShouldBeNil)
-		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		fullBytes, err := slam.HelperConcatenateChunksToFull(internalStateCallback)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get internal state stream")
 		test.That(t, fullBytes, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
-func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
-	var fullBytes []byte
-	for {
-		chunk, err := f()
-		fmt.Println("yo chunk", chunk)
-		if errors.Is(err, io.EOF) {
-			fmt.Println("yo full bytes", fullBytes)
-			return fullBytes, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		fullBytes = append(fullBytes, chunk...)
-	}
 }
