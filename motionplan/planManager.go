@@ -63,7 +63,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	// set timeout for entire planning process if specified
 	if timeout, ok := motionConfig["timeout"].(float64); ok {
-		fmt.Println("timeout", timeout)
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
 	}
 	if cancel != nil {

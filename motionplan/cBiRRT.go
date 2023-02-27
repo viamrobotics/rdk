@@ -5,6 +5,7 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
