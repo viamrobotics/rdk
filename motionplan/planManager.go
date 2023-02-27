@@ -73,7 +73,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	if pm.frame.worldRooted {
 		tf, err := pm.frame.fss.Transform(seedMap, referenceframe.NewPoseInFrame(pm.frame.goalFrame.Name(), goalPos), referenceframe.World)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("transform %w", err)
 		}
 		goalPos = tf.(*referenceframe.PoseInFrame).Pose()
 	}
@@ -96,7 +96,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			goals = append(goals, to)
 			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, motionConfig)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("setup lin %w", err)
 			}
 			opts = append(opts, opt)
 
@@ -107,7 +107,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	goals = append(goals, goalPos)
 	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, motionConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("setup %w", err)
 	}
 	opts = append(opts, opt)
 
@@ -131,7 +131,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			opt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("constructor %w", err)
 		}
 		planners = append(planners, pathPlanner)
 	}
@@ -141,7 +141,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		// Viability check; ensure that the waypoint is not impossible to reach
 		_, err = pm.getSolutions(ctx, goalPos, seed)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("solutions %w", err)
 		}
 	}
 
