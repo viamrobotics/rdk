@@ -24,7 +24,7 @@ import (
 
 const (
 	fiftyMillis = 0.0008
-	syncTime    = time.Millisecond * 150
+	syncTime    = time.Millisecond * 250
 )
 
 var (

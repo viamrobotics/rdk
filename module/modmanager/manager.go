@@ -241,7 +241,7 @@ func (m *module) dial() error {
 }
 
 func (m *module) checkReady(ctx context.Context, parentAddr string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*10)
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*30)
 	defer cancelFunc()
 
 	for {
@@ -261,7 +261,9 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 func (m *module) startProcess(ctx context.Context, parentAddr string, logger golog.Logger) error {
 	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
-
+	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
+		return err
+	}
 	pcfg := pexec.ProcessConfig{
 		ID:   m.name,
 		Name: m.exe,
@@ -275,7 +277,7 @@ func (m *module) startProcess(ctx context.Context, parentAddr string, logger gol
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*10)
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	for {
 		select {

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -34,6 +35,10 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    Subtype,
+		MethodName: readings.String(),
+	}, newSensorCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "Sensor".
@@ -72,15 +77,7 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Sensor)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Sensor](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.

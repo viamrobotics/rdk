@@ -14,8 +14,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -51,7 +51,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy)
-	actualType, _ := utils.CheckLazyMIMEType(mimeType)
+	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: mimeType,
@@ -59,11 +59,14 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if actualType != resp.MimeType {
-		c.logger.Debugw("got different MIME type than what was asked for", "sent", mimeType, "received", resp.MimeType)
+
+	if resp.MimeType != expectedType {
+		c.logger.Debugw("got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
 	} else {
 		resp.MimeType = mimeType
 	}
+
+	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
 	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType)
 	if err != nil {
 		return nil, nil, err
@@ -192,7 +195,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
 func (c *client) Close(ctx context.Context) error {

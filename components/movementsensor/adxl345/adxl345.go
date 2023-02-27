@@ -1,7 +1,19 @@
 // Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer attached
-// to the I2C bus of the robot (the chip supports communicating over SPI as well, but this package
-// does not support that interface). The manual for this chip is available at:
+// to an I2C bus on the robot (the chip supports communicating over SPI as well, but this package
+// does not support that interface). The datasheet for this chip is available at:
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
+//
+// We support reading the accelerometer data off of the chip. We do not yet support using the
+// digital interrupt pins to notify on events (freefall, collision, etc.).
+//
+// Because we only support I2C interaction, the CS pin must be wired to hot (which tells the chip
+// which communication interface to use). The chip has two possible I2C addresses, which can be
+// selected by wiring the SDO pin to either hot or ground:
+//   - if SDO is wired to ground, it uses the default I2C address of 0x53
+//   - if SDO is wired to hot, it uses the alternate I2C address of 0x1D
+//
+// If you use the alternate address, your config file for this component must set its
+// "use_alternate_i2c_address" boolean to true.
 package adxl345
 
 import (
@@ -31,7 +43,7 @@ var modelName = resource.NewDefaultModel("accel-adxl345")
 type AttrConfig struct {
 	BoardName              string `json:"board"`
 	I2cBus                 string `json:"i2c_bus"`
-	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address"`
+	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
@@ -76,7 +88,7 @@ type adxl345 struct {
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
 	linearAcceleration r3.Vector
-	lastError          error
+	err                movementsensor.LastError
 
 	// Used to shut down the background goroutine which polls the sensor.
 	cancelContext           context.Context
@@ -161,7 +173,7 @@ func NewAdxl345(
 				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
 				if err != nil {
 					sensor.mu.Lock()
-					sensor.lastError = err
+					sensor.err.Set(err)
 					sensor.mu.Unlock()
 					continue
 				}
@@ -254,8 +266,7 @@ func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interf
 func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-	lastError := adxl.lastError
-	adxl.lastError = nil
+	lastError := adxl.err.Get()
 
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -265,7 +276,7 @@ func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]in
 }
 
 func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return nil, movementsensor.ErrMethodUnimplementedOrientation
+	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 func (adxl *adxl345) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
@@ -283,11 +294,7 @@ func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{})
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-
-	// We're going to return the most recent error, if any, and then clear it.
-	lastError := adxl.lastError
-	adxl.lastError = nil
-	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, lastError
+	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, adxl.err.Get()
 }
 
 func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {

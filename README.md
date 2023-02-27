@@ -72,7 +72,6 @@ The API is defined with Protocol Buffers/gRPC which can be found at https://gith
 > its behavior.  Try to make sure your explanation can be understood
 > without external resources. Instead of giving a URL to a mailing list
 > archive, summarize the relevant points of the discussion.
-* Each commit has a linting pre-commit hook run if `make setup` was used. It can be skipped with `git commit --no-verify`.
 
 
 ### Frontend

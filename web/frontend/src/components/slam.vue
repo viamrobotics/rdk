@@ -6,7 +6,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import PCD from './pcd.vue';
+import PCD from './pcd/pcd-view.vue';
 
 interface Props {
   name: string

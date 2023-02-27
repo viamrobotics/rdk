@@ -155,15 +155,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {
-	res, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, err
-	}
-	part, ok := res.(Arm)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(res)
-	}
-	return part, nil
+	return robot.ResourceFromRobot[Arm](r, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
@@ -402,7 +394,7 @@ func Plan(
 	// PlanRobotMotion needs a frame system which contains the frame being solved for
 	if fs.Frame(armName) == nil {
 		if worldState != nil {
-			if len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0 || len(worldState.Transforms) != 0 {
+			if len(worldState.Obstacles) != 0 || len(worldState.Transforms) != 0 {
 				return nil, errors.New("arm must be in frame system to use worldstate")
 			}
 		}

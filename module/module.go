@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -30,6 +31,19 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/subtype"
 )
+
+// CheckSocketAddressLength returns an error if the socket path is too long for the OS.
+func CheckSocketAddressLength(addr string) error {
+	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
+	maxSocketAddressLength := 103
+	if runtime.GOOS == "linux" {
+		maxSocketAddressLength = 107
+	}
+	if len(addr) > maxSocketAddressLength {
+		return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", maxSocketAddressLength, addr)
+	}
+	return nil
+}
 
 // HandlerMap is the format for api->model pairs that the module will service.
 // Ex: mymap["rdk:component:motor"] = ["acme:marine:thruster", "acme:marine:outboard"].
@@ -167,7 +181,7 @@ func (m *Module) Start(ctx context.Context) error {
 		defer utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
-			m.logger.Fatalf("failed to serve: %v", err)
+			m.logger.Errorf("failed to serve: %v", err)
 		}
 	})
 	return nil
@@ -195,6 +209,12 @@ func (m *Module) Close(ctx context.Context) {
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (interface{}, error) {
 	if err := m.connectParent(ctx); err != nil {
+		return nil, err
+	}
+
+	// Refresh parent to ensure it has the most up-to-date resources before calling
+	// ResourceByName.
+	if err := m.parent.Refresh(ctx); err != nil {
 		return nil, err
 	}
 	return m.parent.ResourceByName(name)

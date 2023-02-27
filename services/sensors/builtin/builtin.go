@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -34,6 +35,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 }
 
 type builtIn struct {
+	generic.Unimplemented
 	mu      sync.RWMutex
 	sensors map[resource.Name]sensor.Sensor
 	logger  golog.Logger

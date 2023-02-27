@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
@@ -61,6 +62,8 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
+
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string            `json:"name"`
@@ -92,6 +95,7 @@ type Config struct {
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
+	generic.Unimplemented
 	r                           robot.Robot
 	cfg                         *config.Config
 	logger                      golog.Logger
@@ -404,7 +408,12 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	svc.captureDir = svcConfig.CaptureDir
+	if cfg.LimitConfigurableDirectories && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
+		return errCaptureDirectoryConfigurationDisabled
+	}
+	if svcConfig.CaptureDir != "" {
+		svc.captureDir = svcConfig.CaptureDir
+	}
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {

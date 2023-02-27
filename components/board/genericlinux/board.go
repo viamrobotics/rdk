@@ -56,13 +56,6 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
 
-			if !usePeriphGpio {
-				// We currently have two implementations of GPIO pins on these boards: one using
-				// libraries from periph.io and one using an ioctl approach. If we're using the
-				// latter, we need to initialize it here.
-				gpioInitialize(gpioMappings)
-			}
-
 			var spis map[string]*spiBus
 			if len(conf.SPIs) != 0 {
 				spis = make(map[string]*spiBus, len(conf.SPIs))
@@ -70,6 +63,19 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 					spis[spiConf.Name] = &spiBus{bus: spiConf.BusSelect}
 				}
 			}
+
+			var i2cs map[string]board.I2C
+			if len(conf.I2Cs) != 0 {
+				i2cs = make(map[string]board.I2C, len(conf.I2Cs))
+				for _, i2cConf := range conf.I2Cs {
+					bus, err := newI2cBus(i2cConf.Bus)
+					if err != nil {
+						return nil, errors.Errorf("Malformed I2C bus number: %s", i2cConf.Bus)
+					}
+					i2cs[i2cConf.Name] = bus
+				}
+			}
+
 			var analogs map[string]board.AnalogReader
 			if len(conf.Analogs) != 0 {
 				analogs = make(map[string]board.AnalogReader, len(conf.Analogs))
@@ -90,16 +96,24 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 			}
 
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			return &sysfsBoard{
+			b := sysfsBoard{
 				gpioMappings:  gpioMappings,
 				spis:          spis,
 				analogs:       analogs,
 				pwms:          map[string]pwmSetting{},
+				i2cs:          i2cs,
 				usePeriphGpio: usePeriphGpio,
 				logger:        logger,
 				cancelCtx:     cancelCtx,
 				cancelFunc:    cancelFunc,
-			}, nil
+			}
+			if !usePeriphGpio {
+				// We currently have two implementations of GPIO pins on these boards: one using
+				// libraries from periph.io and one using an ioctl approach. If we're using the
+				// latter, we need to initialize it here.
+				b.gpios = gpioInitialize(gpioMappings) // Defined in gpio.go
+			}
+			return &b, nil
 		}})
 	config.RegisterComponentAttributeMapConverter(
 		board.Subtype,
@@ -141,13 +155,16 @@ func init() {
 
 type sysfsBoard struct {
 	generic.Unimplemented
-	mu            sync.RWMutex
-	gpioMappings  map[int]GPIOBoardMapping
-	spis          map[string]*spiBus
-	analogs       map[string]board.AnalogReader
-	pwms          map[string]pwmSetting
+	mu           sync.RWMutex
+	gpioMappings map[int]GPIOBoardMapping
+	spis         map[string]*spiBus
+	analogs      map[string]board.AnalogReader
+	pwms         map[string]pwmSetting
+	i2cs         map[string]board.I2C
+	logger       golog.Logger
+
 	usePeriphGpio bool
-	logger        golog.Logger
+	gpios         map[string]*gpioPin // Only used for non-periph.io pins
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -161,10 +178,7 @@ type pwmSetting struct {
 
 func (b *sysfsBoard) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.spis[name]
-	if !ok {
-		return nil, false
-	}
-	return s, true
+	return s, ok
 }
 
 type spiBus struct {
@@ -211,8 +225,8 @@ func (sh *spiHandle) Close() error {
 }
 
 func (b *sysfsBoard) I2CByName(name string) (board.I2C, bool) {
-	b.logger.Warn("I2C is not currently supported on sysfs boards.")
-	return nil, false
+	i, ok := b.i2cs[name]
+	return i, ok
 }
 
 func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
@@ -237,7 +251,14 @@ func (b *sysfsBoard) SPINames() []string {
 }
 
 func (b *sysfsBoard) I2CNames() []string {
-	return nil
+	if len(b.i2cs) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(b.i2cs))
+	for k := range b.i2cs {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (b *sysfsBoard) AnalogReaderNames() []string {
@@ -298,7 +319,12 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if b.usePeriphGpio {
 		return b.periphGPIOPinByName(pinName)
 	}
-	return gpioGetPin(pinName) // implemented in gpio.go
+	// Otherwise, the pins are stored in b.gpios.
+	pin, ok := b.gpios[pinName]
+	if !ok {
+		return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
+	}
+	return pin, nil
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
@@ -453,9 +479,20 @@ func (b *sysfsBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
-func (b *sysfsBoard) Close() {
+func (b *sysfsBoard) Close() error {
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()
 	b.activeBackgroundWorkers.Wait()
+
+	// For non-Periph boards, shut down all our open pins so we don't leak file descriptors
+	if b.usePeriphGpio {
+		return nil
+	}
+
+	var err error
+	for _, pin := range b.gpios {
+		err = multierr.Combine(err, pin.Close())
+	}
+	return err
 }

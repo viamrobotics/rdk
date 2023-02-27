@@ -11,6 +11,8 @@ import (
 	pb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+
+	rprotoutils "go.viam.com/rdk/protoutils"
 )
 
 // client implements NavigationServiceClient.
@@ -148,4 +150,8 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 		return err
 	}
 	return nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

@@ -40,7 +40,10 @@
         {
             "name": "mock7",
             "type": "arm",
-            "model": "fake"
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            }
         }
     ]
 }

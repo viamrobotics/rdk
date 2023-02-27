@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
@@ -157,12 +156,12 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			return uploadDataCaptureFile(ctx, s.client, f, s.partID)
+			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
+			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+			return err
 		},
-		s.logger,
 	)
 	if uploadErr != nil {
-		s.logger.Error(uploadErr)
 		err := f.Close()
 		if err != nil {
 			s.logger.Errorw("error closing file", "error", err)
@@ -183,12 +182,12 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			return uploadArbitraryFile(ctx, s.client, f, s.partID)
+			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
+			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			return err
 		},
-		s.logger,
 	)
 	if uploadErr != nil {
-		s.logger.Error(uploadErr)
 		err := f.Close()
 		if err != nil {
 			s.logger.Errorw("error closing file", "error", err)
@@ -219,9 +218,9 @@ func (s *syncer) unmarkInProgress(path string) {
 	delete(s.inProgress, path)
 }
 
-// exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
+// exponentialRetry calls fn and retries with exponentially increasing waits from initialWait to a
 // maximum of maxRetryInterval.
-func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) error {
+func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error) error {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	var err error
 	if err = fn(cancelCtx); err == nil {
@@ -238,9 +237,6 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 	ticker := time.NewTicker(nextWait)
 	for {
 		if err := cancelCtx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				log.Errorw("context closed unexpectedly", "error", err)
-			}
 			return err
 		}
 		select {
@@ -252,7 +248,6 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		case <-ticker.C:
 			if err := fn(cancelCtx); err != nil {
 				// If error, retry with a new nextWait.
-				log.Errorw("error while uploading file", "error", err)
 				ticker.Stop()
 				nextWait = getNextWait(nextWait)
 				ticker = time.NewTicker(nextWait)
