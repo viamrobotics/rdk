@@ -4,7 +4,6 @@ package slam
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"io"
 	"sync"
@@ -90,9 +89,7 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
 		chunk, err := f()
-		fmt.Println("yo chunk", chunk)
 		if errors.Is(err, io.EOF) {
-			fmt.Println("yo full bytes", fullBytes)
 			return fullBytes, nil
 		}
 		if err != nil {

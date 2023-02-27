@@ -4,7 +4,6 @@ package slam_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"math"
 	"net"
@@ -77,12 +76,9 @@ func TestWorkingClient(t *testing.T) {
 
 	workingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(internalStateSucc)
-		fmt.Println("yo inject")
 		f := func() ([]byte, error) {
 			clientBuffer := make([]byte, chunkSizeInternalState)
-			fmt.Println("yo read")
 			n, err := reader.Read(clientBuffer)
-			fmt.Println("yo num bytes", n)
 			if err != nil {
 				return nil, err
 			}
