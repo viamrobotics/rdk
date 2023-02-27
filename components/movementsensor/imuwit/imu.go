@@ -254,13 +254,14 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				imu.mu.Lock()
 				defer imu.mu.Unlock()
 
-				if err != nil {
+				switch {
+				case err != nil:
 					imu.err.Set(err)
 					logger.Error(err)
-				} else if len(line) != 11 {
+				case len(line) != 11:
 					imu.numBadReadings++
 					return
-				} else {
+				default:
 					imu.err.Set(imu.parseWIT(line))
 				}
 			}()
