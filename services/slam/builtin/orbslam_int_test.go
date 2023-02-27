@@ -120,9 +120,7 @@ func testOrbslamInternalState(t *testing.T, svc slam.Service, dataDir string) {
 	// internalState, err := svc.GetInternalState(context.Background(), "test")
 	// test.That(t, err, test.ShouldBeNil)
 
-	internalStateCallback, err := svc.GetInternalStateStream(context.Background(), "test")
-	test.That(t, err, test.ShouldBeNil)
-	internalStateStream, err := slam.HelperConcatenateChunksToFull(internalStateCallback)
+	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	// test.That(t, len(internalState), test.ShouldEqual, len(internalStateStream))
 	fmt.Println("size of internal state: ", len(internalStateStream))

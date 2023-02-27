@@ -150,13 +150,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
 		// test get internal state stream
-		internalStateCallback, err := workingSLAMClient.GetInternalStateStream(context.Background(), nameSucc)
-		fmt.Println("yo1")
-		test.That(t, err, test.ShouldBeNil)
-		fmt.Println("yo2")
-		test.That(t, internalStateCallback, test.ShouldNotBeNil)
-		fmt.Println("yo3")
-		fullBytes, err := slam.HelperConcatenateChunksToFull(internalStateCallback)
+		fullBytes, err := slam.GetInternalStateFull(context.Background(), workingSLAMClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
 
@@ -190,10 +184,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
 		// test get internal state stream
-		internalStateCallback, err := workingDialedClient.GetInternalStateStream(context.Background(), nameSucc)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, internalStateCallback, test.ShouldNotBeNil)
-		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		fullBytes, err := slam.GetInternalStateFull(context.Background(), workingDialedClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
 
@@ -236,10 +227,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
 		// test get internal state stream
-		internalStateCallback, err := workingDialedClient.GetInternalStateStream(context.Background(), nameSucc)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, internalStateCallback, test.ShouldNotBeNil)
-		fullBytes, err := helperConcatenateChunksToFull(internalStateCallback)
+		fullBytes, err := slam.GetInternalStateFull(context.Background(), workingDialedClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
 
@@ -328,9 +316,7 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, internalState, test.ShouldBeNil)
 
 		// test get internal state stream
-		internalStateCallback, err := failingSLAMClient.GetInternalStateStream(context.Background(), nameFail)
-		test.That(t, err, test.ShouldBeNil)
-		fullBytes, err := slam.HelperConcatenateChunksToFull(internalStateCallback)
+		fullBytes, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get internal state stream")
 		test.That(t, fullBytes, test.ShouldBeNil)
 
