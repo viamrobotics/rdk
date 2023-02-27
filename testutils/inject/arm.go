@@ -94,7 +94,7 @@ func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[st
 	return a.DoFunc(ctx, cmd)
 }
 
-// ModelFrame calls the injected DoCommand or the real version.
+// ModelFrame calls the injected ModelFrame or the real version.
 func (a *Arm) ModelFrame() referenceframe.Model {
 	if a.ModelFrameFunc == nil {
 		return a.LocalArm.ModelFrame()
