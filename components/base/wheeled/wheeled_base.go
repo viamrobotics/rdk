@@ -168,9 +168,12 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		if err != nil {
 			errCounter++
 			if errCounter > 100 {
+				base.logger.Errorf("imu sensor unreachable, had %d error counts when trying to read yaw angle", errCounter)
 				break
 			}
 			return err
+		} else {
+			errCounter = 0
 		}
 
 		errAngle := targetYaw - currYaw
