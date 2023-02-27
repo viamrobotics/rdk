@@ -2,7 +2,6 @@ package builtin_test
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -67,7 +66,7 @@ func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir strin
 	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(internalState), test.ShouldEqual, len(internalStateStream))
-	fmt.Println("size of internal state: ", len(internalStateStream))
+
 	// Save the data from the call to GetInternalStateStream for use in next test.
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDir, "map", "map_data_"+timeStamp.UTC().Format(slamTimeFormat)+".pbstream")
