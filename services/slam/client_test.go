@@ -152,7 +152,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 		// test get point cloud map stream
-		helperGetPointCloudMapFull(t, workingSLAMClient, pcd)
+		testGetPointCloudMapFull(t, workingSLAMClient, pcd)
 
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
@@ -184,7 +184,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		helperGetPointCloudMapFull(t, workingDialedClient, pcd)
+		testGetPointCloudMapFull(t, workingDialedClient, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -225,7 +225,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get point cloud map stream
-		helperGetPointCloudMapFull(t, workingDialedClient, pcd)
+		testGetPointCloudMapFull(t, workingDialedClient, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -353,7 +353,8 @@ func TestFailingClient(t *testing.T) {
 	})
 }
 
-func helperGetPointCloudMapFull(t *testing.T, svc slam.Service, pcd []byte) {
+// Helper function for checking GetPointCloudMapFull along with associated pcd validity checks.
+func testGetPointCloudMapFull(t *testing.T, svc slam.Service, pcd []byte) {
 	t.Helper()
 
 	fullBytes, err := slam.GetPointCloudMapFull(context.Background(), svc, nameSucc)

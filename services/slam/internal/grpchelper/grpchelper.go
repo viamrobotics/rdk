@@ -7,8 +7,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 )
 
-// HelperGetInternalStateCallback helps a client request the internal state stream from a SLAM server.
-
+// GetPointCloudMapStreamCallback helps a client request the point cloud stream from a SLAM server.
 func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetPointCloudMapStreamRequest{Name: name}
 

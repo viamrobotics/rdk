@@ -177,8 +177,8 @@ func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfi
 	return &reconfigurableSlam{name: name, actual: svc}, nil
 }
 
-// Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
-func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+// Aggregates data from given callback function into byte slice.
+func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
 		chunk, err := f()
@@ -192,10 +192,12 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	}
 }
 
+// GetPointCloudMapFull aggregates the streaming responses from GetPointCloudMapStream into a full point
+// cloud.
 func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
 	callback, err := slamSvc.GetPointCloudMapStream(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	return HelperConcatenateChunksToFull(callback)
+	return helperConcatenateChunksToFull(callback)
 }

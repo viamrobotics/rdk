@@ -1,6 +1,7 @@
 package builtin_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
@@ -69,12 +71,14 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 }
 
 // Checks the orbslam map and confirms there are more than zero map points.
-func testOrbslamMap(t *testing.T, svc slam.Service) {
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
+func testOrbslamMap(t *testing.T, svc slam.Service, name string) {
+	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, name)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	test.That(t, pcd, test.ShouldNotBeNil)
+
+	pointcloud, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
 	t.Logf("Pointcloud points: %v", pointcloud.Size())
-	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThan, 0)
+	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
 // Checks the orbslam position within a defined tolerance
@@ -203,7 +207,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping")
-	testOrbslamMap(t, svc)
+	testOrbslamMap(t, svc, name)
 
 	// Close out slam service
 	err = utils.TryClose(context.Background(), svc)
@@ -299,7 +303,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping")
-	testOrbslamMap(t, svc)
+	testOrbslamMap(t, svc, name)
 
 	if !orbslam_hangs {
 		// Wait for the final map to be saved
@@ -405,7 +409,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating")
-	testOrbslamMap(t, svc)
+	testOrbslamMap(t, svc, name)
 
 	// Close out slam service
 	err = utils.TryClose(context.Background(), svc)
