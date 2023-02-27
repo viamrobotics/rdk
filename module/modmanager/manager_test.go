@@ -2,6 +2,7 @@ package modmanager
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -45,7 +46,10 @@ func TestModManagerFunctions(t *testing.T) {
 		return logger
 	}
 
-	parentAddr := t.TempDir()
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
 	myRobot.ModuleAddressFunc = func() (string, error) {
@@ -72,8 +76,8 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	registry.DeregisterComponent(generic.Subtype, myCounterModel)
 
