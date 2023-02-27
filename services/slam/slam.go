@@ -86,7 +86,7 @@ type Service interface {
 }
 
 // Might be replaced by a non-test helper once GetPointCloudMapFull and GetInternalStateFull are created.
-func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
 		chunk, err := f()
@@ -101,6 +101,14 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 
 		fullBytes = append(fullBytes, chunk...)
 	}
+}
+
+func GetInternalStateFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	callback, err := slamSvc.GetInternalStateStream(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return helperConcatenateChunksToFull(callback)
 }
 
 type reconfigurableSlam struct {
