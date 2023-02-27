@@ -18,6 +18,7 @@ package adxl345
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -41,9 +42,11 @@ var modelName = resource.NewDefaultModel("accel-adxl345")
 
 // AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
 type AttrConfig struct {
-	BoardName              string `json:"board"`
-	I2cBus                 string `json:"i2c_bus"`
-	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address,omitempty"`
+	BoardName              string   `json:"board"`
+	I2cBus                 string   `json:"i2c_bus"`
+	UseAlternateI2CAddress bool     `json:"use_alternate_i2c_address,omitempty"`
+	EchoInterrupt          string   `json:"echo_interrupt_pin",omitempty`
+	Interrupts             []string `json:"interrupts,omitempty`
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
@@ -81,9 +84,13 @@ func init() {
 }
 
 type adxl345 struct {
-	bus        board.I2C
-	i2cAddress byte
-	logger     golog.Logger
+	bus             board.I2C
+	i2cAddress      byte
+	logger          golog.Logger
+	echoInterrupt   board.DigitalInterrupt
+	interrupts      []string
+	ticksChan       chan board.Tick
+	interruptsFound []string
 
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
@@ -121,6 +128,10 @@ func NewAdxl345(
 	if !ok {
 		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", cfg.I2cBus)
 	}
+	i, ok := b.DigitalInterruptByName(cfg.EchoInterrupt)
+	if !ok {
+		return nil, errors.Errorf("adxl345: cannot grab digital interrupt %q", cfg.EchoInterrupt)
+	}
 
 	var address byte
 	if cfg.UseAlternateI2CAddress {
@@ -130,14 +141,17 @@ func NewAdxl345(
 	}
 
 	cancelContext, cancelFunc := context.WithCancel(ctx)
-
+	interrupts := cfg.Interrupts
 	sensor := &adxl345{
 		bus:           bus,
 		i2cAddress:    address,
+		echoInterrupt: i,
+		interrupts:    interrupts,
 		logger:        logger,
 		cancelContext: cancelContext,
 		cancelFunc:    cancelFunc,
 	}
+	sensor.ticksChan = make(chan board.Tick)
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
 	// back the device ID (0xE5).
@@ -189,8 +203,39 @@ func NewAdxl345(
 			}
 		}
 	})
+	sensor.readInterrupts(sensor.cancelContext, sensor.interrupts)
+	sensor.startInterruptPolling()
+	sensor.enableInterrupts(ctx)
+	sensor.setTapRelatedRegisters(ctx, map[byte]byte{})
 
 	return sensor, nil
+}
+
+func (adxl *adxl345) startInterruptPolling() {
+	utils.PanicCapturingGo(func() {
+		fmt.Println("starting interrupt polling")
+		adxl.echoInterrupt.AddCallback(adxl.ticksChan)
+		defer adxl.echoInterrupt.RemoveCallback(adxl.ticksChan)
+
+		for {
+			select {
+			case <-adxl.cancelContext.Done():
+				return
+			case tick := <-adxl.ticksChan:
+				fmt.Println("Got a signal")
+				fmt.Println(tick)
+				if tick.High {
+					fmt.Println("signal is high")
+					interruptsFound := adxl.readInterrupts(adxl.cancelContext, adxl.interrupts)
+					fmt.Println(interruptsFound)
+					adxl.mu.Lock()
+					adxl.interruptsFound = interruptsFound
+					adxl.mu.Unlock()
+				}
+			}
+		}
+
+	})
 }
 
 func (adxl *adxl345) readByte(ctx context.Context, register byte) (byte, error) {
@@ -230,6 +275,47 @@ func (adxl *adxl345) writeByte(ctx context.Context, register, value byte) error 
 	}()
 
 	return handle.WriteByteData(ctx, register, value)
+}
+
+func getByteFromInterrupts(ctx context.Context, interrupts []string) byte {
+	var register byte = 0
+	for _, interrupt := range interrupts {
+		register += interruptBitMap[interrupt]
+	}
+	return register
+}
+
+func (adxl *adxl345) enableInterrupts(ctx context.Context) error {
+	register := getByteFromInterrupts(ctx, adxl.interrupts)
+	return adxl.writeByte(ctx, INT_ENABLE, register)
+}
+
+func (adxl *adxl345) setTapRelatedRegisters(ctx context.Context, tapRelatedRegisters map[byte]byte) {
+	for key := range defaultTapRelatedRegisterValues {
+		val, ok := tapRelatedRegisters[key]
+		if ok {
+			adxl.writeByte(ctx, key, val)
+		} else {
+			adxl.writeByte(ctx, key, defaultTapRelatedRegisterValues[key])
+		}
+	}
+}
+
+func (adxl *adxl345) readInterrupts(ctx context.Context, interrupts []string) []string {
+	interruptsFound := []string{}
+	interuptEnabledRegister := getByteFromInterrupts(ctx, interrupts)
+	intSourceRegister, err := adxl.readByte(ctx, INT_SOURCE)
+
+	if err != nil {
+		adxl.logger.Error(err)
+	}
+
+	for _, interrupt := range interruptTypes {
+		if intSourceRegister&interruptBitMap[interrupt]&interuptEnabledRegister != 0 {
+			interruptsFound = append(interruptsFound, interrupt)
+		}
+	}
+	return interruptsFound
 }
 
 // Given a value, scales it so that the range of values read in becomes the range of +/- maxValue.
@@ -294,6 +380,8 @@ func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{})
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
+	interruptsFound := adxl.readInterrupts(adxl.cancelContext, adxl.interrupts)
+	fmt.Println(interruptsFound)
 	return map[string]interface{}{"linear_acceleration": adxl.linearAcceleration}, adxl.err.Get()
 }
 
