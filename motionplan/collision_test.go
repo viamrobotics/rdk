@@ -68,12 +68,38 @@ func TestCheckCollisions(t *testing.T) {
 		{"obstacleCube000", "robotCube000", 2},
 	}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
+}
 
-	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
+func TestArmHomeSelfCollisions(t *testing.T) {
+	// case 1: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := m.Geometries(make([]frame.Input, len(m.DoF())))
+	test.That(t, gf, test.ShouldNotBeNil)
+	robotEntities, err := NewObjectCollisionEntities(gf.Geometries())
+	test.That(t, err, test.ShouldBeNil)
+	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{}, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 4)
+
+	// case 2: zero position of xArm7 arm - should have number of collisions = to number of geometries - 1
+	// no external geometries considered, self collision only
+	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	gf, _ = m.Geometries(make([]frame.Input, len(m.DoF())))
+	test.That(t, gf, test.ShouldNotBeNil)
+	robotEntities, err = NewObjectCollisionEntities(gf.Geometries())
+	test.That(t, err, test.ShouldBeNil)
+	cs, err = NewCollisionSystem(robotEntities, []CollisionEntities{}, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(cs.Collisions()), test.ShouldEqual, 5)
+
+	// case 3: zero position of ur5e arm - should have number of collisions = to number of geometries - 1
+	// no external geometries considered, self collision only
+	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	gf, _ = m.Geometries(make([]frame.Input, len(m.DoF())))
 	test.That(t, gf, test.ShouldNotBeNil)
 	robotEntities, err = NewObjectCollisionEntities(gf.Geometries())
 	test.That(t, err, test.ShouldBeNil)
@@ -86,7 +112,7 @@ func TestUniqueCollisions(t *testing.T) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// zero position of xarm6 arm
+	// zero position of xarm6
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
@@ -120,18 +146,4 @@ func TestUniqueCollisions(t *testing.T) {
 	err = cs.AddCollisionSpecificationToGraphs(&expectedCollisions[1])
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions[:1]), test.ShouldBeTrue)
-}
-
-func TestXArm7(t *testing.T) {
-	// zero position of xArm7 arm - should have number of collisions = to number of geometries - 1
-	// no external geometries considered, self collision only
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	gf, _ := m.Geometries(make([]frame.Input, len(m.DoF())))
-	test.That(t, gf, test.ShouldNotBeNil)
-	robotEntities, err := NewObjectCollisionEntities(gf.Geometries())
-	test.That(t, err, test.ShouldBeNil)
-	cs, err := NewCollisionSystem(robotEntities, []CollisionEntities{}, true)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cs.Collisions()), test.ShouldEqual, 5)
 }
