@@ -4,7 +4,6 @@ package oneaxis
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -23,6 +22,7 @@ import (
 )
 
 type oneAxis struct {
+	ctx context.Context
 	generic.Unimplemented
 	name string
 
@@ -74,6 +74,7 @@ func newOneAxis(
 	}
 
 	oAx := &oneAxis{
+		ctx:             ctx,
 		name:            cfg.Name,
 		motor:           _motor,
 		logger:          logger,
@@ -114,39 +115,10 @@ func (g *oneAxis) createModel(axis r3.Vector) error {
 	return errs
 }
 
-func (g *oneAxis) linearToRotational(positions float64) float64 {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	// it is assumed that the first limit switch is hit samllest to biggest
-	x := positions / g.lengthMm
-	x = g.positionLimits[0] + (x * g.gantryRange)
+func linearToRotational(position, positionA, lengthMm, gantryRange float64) float64 {
+	x := position / lengthMm
+	x = positionA + (x * gantryRange)
 	return x
-}
-
-func (g *oneAxis) homeEncoder(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	ctx, done := g.opMgr.New(ctx)
-	defer done()
-	// should be non-zero from creator function
-	revPerLength := g.lengthMm / g.mmPerRevolution
-
-	positionA, err := g.motor.Position(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	positionB := positionA + revPerLength
-
-	g.positionLimits = []float64{positionA, positionB}
-
-	// ensure we never create a gantry with a zero range
-	if g.gantryRange = math.Abs(positionB - positionA); g.gantryRange == 0 {
-		return errZeroLengthGantry
-	}
-
-	return nil
 }
 
 // Position returns the position in millimeters.
@@ -188,7 +160,7 @@ func (g *oneAxis) MoveToPosition(
 		return fmt.Errorf("oneAxis gantry position out of range, got %.02f max is %.02f", positions[0], g.lengthMm)
 	}
 
-	x := g.linearToRotational(positions[0])
+	x := linearToRotational(0, positions[0], g.lengthMm, g.gantryRange)
 
 	err := g.motor.GoTo(ctx, g.rpm, x, extra)
 	if err != nil {
@@ -199,8 +171,7 @@ func (g *oneAxis) MoveToPosition(
 
 // Stop stops the motor of the gantry.
 func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
-	ctx, done := g.opMgr.New(ctx)
-	defer done()
+	g.opMgr.CancelRunning(ctx)
 	return g.motor.Stop(ctx, extra)
 }
 

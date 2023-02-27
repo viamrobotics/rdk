@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -65,9 +65,9 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 		return nil, errors.New("gantry with encoders have to assign boards or controllers to motors")
 	}
 
-	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {
+	if cfg.Board == "" && len(cfg.LimitSwitchPins) > 0 {
 		return nil, errors.New("gantries with limit_pins require a board to sense limit hits")
-	} else {
+	} else if cfg.Board != "" {
 		deps = append(deps, cfg.Board)
 	}
 
@@ -127,29 +127,60 @@ func setUpGantry(
 	switch len(conf.LimitSwitchPins) {
 	case 0:
 		// homes the motor and finds limits using the motor's position reporting
-		if err = oAx.homeEncoder(ctx); err != nil {
+		if err = homeEncoder(ctx, oAx); err != nil {
 			return nil, err
 		}
 		return oAx, nil
 	default:
 		// sets up a gantry that requires polling of external sensors, in this case limit switches
 		// to find position limits and gantry range
-		lAx, err := newLimitSwitchGantry(ctx, cfg, logger, oAx)
+
+		ls := &limitPins{
+			limitSwitchPins: conf.LimitSwitchPins,
+			limitHigh:       *conf.LimitPinEnabled,
+			logger:          logger,
+			limitsPolled:    false,
+		}
+
+		oAx, err := attachLimitSwitchesToGantry(ls, oAx)
 		if err != nil {
 			return nil, err
 		}
 
-		if err = lAx.homeWithLimSwitch(ctx, conf.LimitSwitchPins); err != nil {
+		if err = homeWithLimSwitch(ctx, ls, oAx); err != nil {
 			return nil, err
 		}
-		return lAx, nil
+		return oAx, nil
 	}
 }
 
-type limitSwitchGantry struct {
-	ctx context.Context
-	oAx *oneAxis
+func homeEncoder(ctx context.Context, oAx *oneAxis) error {
+	oAx.mu.Lock()
+	defer oAx.mu.Unlock()
 
+	ctx, done := oAx.opMgr.New(ctx)
+	defer done()
+	// should be non-zero from creator function
+	revPerLength := oAx.lengthMm / oAx.mmPerRevolution
+
+	positionA, err := oAx.motor.Position(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	positionB := positionA + revPerLength
+
+	oAx.positionLimits = []float64{positionA, positionB}
+
+	// ensure we never create a gantry with a zero range
+	if oAx.gantryRange = math.Abs(positionB - positionA); oAx.gantryRange == 0 {
+		return errZeroLengthGantry
+	}
+
+	return nil
+}
+
+type limitPins struct {
 	limitSwitchPins []string
 	limitHigh       bool
 	limitHitMu      sync.Mutex
@@ -160,69 +191,53 @@ type limitSwitchGantry struct {
 }
 
 // newOneAxis creates a new one axis gantry.
-func newLimitSwitchGantry(
-	ctx context.Context,
-	cfg config.Component,
-	logger golog.Logger,
-	oneAxis *oneAxis,
-) (*limitSwitchGantry, error) {
-	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+func attachLimitSwitchesToGantry(
+	ls *limitPins,
+	oAx *oneAxis,
+) (*oneAxis, error) {
+	if len(ls.limitSwitchPins) > 2 {
+		return nil, errBadNumLimitSwitches(oAx.name, len(ls.limitSwitchPins))
 	}
 
-	if len(conf.LimitSwitchPins) > 2 {
-		return nil, errBadNumLimitSwitches(cfg.Name, len(conf.LimitSwitchPins))
+	if len(ls.limitSwitchPins) == 1 && (oAx.mmPerRevolution == 0 || oAx.lengthMm == 0) {
+		return nil, errDimensionsNotFound(oAx.name, oAx.mmPerRevolution, oAx.mmPerRevolution)
 	}
 
-	g := &limitSwitchGantry{
-		ctx:             ctx,
-		limitSwitchPins: conf.LimitSwitchPins,
-		limitHigh:       *conf.LimitPinEnabled,
-		oAx:             oneAxis,
-		logger:          logger,
-		limitsPolled:    false,
-	}
+	ls.limitHitChecker(oAx)
 
-	if len(g.limitSwitchPins) == 1 && (g.oAx.mmPerRevolution == 0 || g.oAx.lengthMm == 0) {
-		return nil, errDimensionsNotFound(g.oAx.name, g.oAx.mmPerRevolution, g.oAx.mmPerRevolution)
-	}
-
-	g.limitHitChecker()
-
-	return g, nil
+	return oAx, nil
 }
 
-func (g *limitSwitchGantry) limitHitChecker() {
+func (ls *limitPins) limitHitChecker(oAx *oneAxis) {
 	// lock the mutex associated with this monitoring function
-	g.limitHitMu.Lock()
+	ls.limitHitMu.Lock()
 	// check if the state is false
-	if !g.limitsPolled {
-		g.limitHitMu.Unlock()
+	if !ls.limitsPolled {
+		ls.limitHitMu.Unlock()
 		return
 	}
 	// we know we are monitoring the limit switches in this gantry,
 	// so we return if they are already being checked
-	g.limitsPolled = true
-	g.limitHitMu.Unlock()
+	ls.limitsPolled = true
+	ls.limitHitMu.Unlock()
 
 	var errs error
 	for {
 		select {
-		case <-g.ctx.Done():
+		case <-oAx.ctx.Done():
 			return
 		default:
 		}
-		for idx := range g.limitSwitchPins {
-			hit, err := g.limitHit(g.ctx, idx)
+		for idx := range ls.limitSwitchPins {
+			hit, err := ls.limitHit(oAx.ctx, idx, oAx)
 			if hit || err != nil {
-				g.limitHitMu.Lock()
-				g.limitsPolled = false
-				g.limitHitMu.Unlock()
+				ls.limitHitMu.Lock()
+				ls.limitsPolled = false
+				ls.limitHitMu.Unlock()
 				// motor operation manager cancels running
-				errs = multierr.Combine(err, g.oAx.motor.Stop(g.ctx, nil))
+				errs = multierr.Combine(err, oAx.motor.Stop(oAx.ctx, nil))
 				if errs != nil {
-					g.logger.Error(errs)
+					ls.logger.Error(errs)
 					return
 				}
 			}
@@ -230,25 +245,25 @@ func (g *limitSwitchGantry) limitHitChecker() {
 	}
 }
 
-func (g *limitSwitchGantry) limitHit(ctx context.Context, offset int) (bool, error) {
+func (ls *limitPins) limitHit(ctx context.Context, offset int, oAx *oneAxis) (bool, error) {
 	if offset < 0 || offset > 1 {
 		return true, fmt.Errorf("index out of range for gantry %s limit swith pins %d",
-			g.oAx.name, offset)
+			oAx.name, offset)
 	}
-	pin, err := g.oAx.board.GPIOPinByName(g.limitSwitchPins[offset])
+	pin, err := oAx.board.GPIOPinByName(ls.limitSwitchPins[offset])
 	if err != nil {
 		return false, err
 	}
 	high, err := pin.Get(ctx, nil)
 
-	return high == g.limitHigh, err
+	return high == ls.limitHigh, err
 }
 
 // helper function to return the motor rotary positoon associated with
-// each limit of the oneAxis gantry
-func (g *limitSwitchGantry) testLimit(ctx context.Context, limInt int) (float64, error) {
+// each limit of the oneAxis gantry.
+func (ls *limitPins) testLimit(ctx context.Context, limInt int, oAx *oneAxis) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
-		return g.oAx.motor.Stop(ctx, nil)
+		return oAx.motor.Stop(ctx, nil)
 	})
 
 	d := -1.0 // go backwards to hit first limit switch pin
@@ -256,26 +271,26 @@ func (g *limitSwitchGantry) testLimit(ctx context.Context, limInt int) (float64,
 		d *= -1 // go forwards to hit second limit switch pin
 	}
 
-	err := g.oAx.motor.GoFor(ctx, d*g.oAx.rpm, 0, nil)
+	err := oAx.motor.GoFor(ctx, d*oAx.rpm, 0, nil)
 	if err != nil {
 		return 0, err
 	}
 
 	start := time.Now()
 	for {
-		hit, err := g.limitHit(ctx, limInt)
+		hit, err := ls.limitHit(ctx, limInt, oAx)
 		if err != nil {
 			return 0, err
 		}
 		if hit {
-			err = g.oAx.motor.Stop(ctx, nil)
+			err = oAx.motor.Stop(ctx, nil)
 			if err != nil {
 				return 0, err
 			}
 			break
 		}
 
-		elapsed := time.Now().Sub(start)
+		elapsed := time.Since(start)
 		if elapsed > (time.Second * 15) {
 			return 0, errors.New("gantry timed out testing limit")
 		}
@@ -285,89 +300,52 @@ func (g *limitSwitchGantry) testLimit(ctx context.Context, limInt int) (float64,
 		}
 	}
 
-	return g.oAx.motor.Position(ctx, nil)
+	return oAx.motor.Position(ctx, nil)
 }
 
-func (g *limitSwitchGantry) homeWithLimSwitch(ctx context.Context, limSwitchPins []string) error {
-	ctx, done := g.oAx.opMgr.New(ctx)
+func homeWithLimSwitch(ctx context.Context, ls *limitPins, oAx *oneAxis) error {
+	ctx, done := oAx.opMgr.New(ctx)
 	defer done()
-	positionA, err := g.testLimit(ctx, 0)
+	positionA, err := ls.testLimit(ctx, 0, oAx)
 	if err != nil {
 		return err
 	}
 
-	np := len(limSwitchPins)
+	np := len(ls.limitSwitchPins)
 	var positionB float64
 	switch np {
 	case 1:
-		if g.oAx.lengthMm == 0.0 || g.oAx.mmPerRevolution == 0.0 {
-			return errDimensionsNotFound(g.oAx.name, g.oAx.lengthMm, g.oAx.mmPerRevolution)
+		if oAx.lengthMm == 0.0 || oAx.mmPerRevolution == 0.0 {
+			return errDimensionsNotFound(oAx.name, oAx.lengthMm, oAx.mmPerRevolution)
 		}
-		totalRevolutions := g.oAx.lengthMm / g.oAx.mmPerRevolution
+		totalRevolutions := oAx.lengthMm / oAx.mmPerRevolution
 		positionB = positionA + totalRevolutions
 	case 2:
-		positionB, err = g.testLimit(ctx, 1)
+		positionB, err = ls.testLimit(ctx, 1, oAx)
 		if err != nil {
 			return err
 		}
 	default:
-		return errBadNumLimitSwitches(g.oAx.name, np)
+		return errBadNumLimitSwitches(oAx.name, np)
 	}
 
-	g.oAx.logger.Debugf("finished homing gantry with positionA: %0.2f positionB: %0.2f", positionA, positionB)
+	oAx.logger.Debugf("finished homing gantry with positionA: %0.2f positionB: %0.2f", positionA, positionB)
 
-	g.oAx.positionLimits = []float64{positionA, positionB}
+	oAx.positionLimits = []float64{positionA, positionB}
 
-	if g.oAx.gantryRange = positionB - positionA; g.oAx.gantryRange == 0 {
+	if oAx.gantryRange = positionB - positionA; oAx.gantryRange == 0 {
 		return errZeroLengthGantry
 	}
 
 	// Go backwards so limit stops are not hit.
 	target := 0.9
-	if len(limSwitchPins) == 1 {
+	if len(ls.limitSwitchPins) == 1 {
 		target = 0.1 // We're near the start, not the end when homing a gantry with a single limit pin
 	}
-	x := g.oAx.linearToRotational(target*(g.oAx.gantryRange) + positionA)
-	err = g.oAx.motor.GoTo(ctx, g.oAx.rpm, x, nil)
+	x := linearToRotational(target*(oAx.gantryRange)+positionA, positionA, oAx.lengthMm, oAx.gantryRange)
+	err = oAx.motor.GoTo(ctx, oAx.rpm, x, nil)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func (g *limitSwitchGantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	return g.oAx.Position(ctx, extra)
-}
-
-func (g *limitSwitchGantry) MoveToPosition(
-	ctx context.Context,
-	positionsMm []float64,
-	worldstate *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
-	return g.oAx.MoveToPosition(ctx, positionsMm, worldstate, extra)
-}
-
-func (g *limitSwitchGantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	return g.oAx.Lengths(ctx, extra)
-}
-
-func (g *limitSwitchGantry) Stop(ctx context.Context, extra map[string]interface{}) error {
-	return g.oAx.Stop(ctx, extra)
-}
-
-func (g *limitSwitchGantry) ModelFrame() referenceframe.Model {
-	return g.oAx.ModelFrame()
-}
-
-func (g *limitSwitchGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return g.oAx.CurrentInputs(ctx)
-}
-
-func (g *limitSwitchGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.oAx.GoToInputs(ctx, goal)
-}
-
-func (g *limitSwitchGantry) IsMoving(ctx context.Context) (bool, error) {
-	return g.oAx.IsMoving(ctx)
 }
