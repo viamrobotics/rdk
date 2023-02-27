@@ -27,7 +27,7 @@ jobs:
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@ml/github-build-static 
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@ml/main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 

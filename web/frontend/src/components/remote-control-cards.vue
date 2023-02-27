@@ -599,7 +599,7 @@ const nonEmpty = (object: object) => {
 };
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: (reason?: unknown) => void) => {
-  console.debug('connecting. michael branch');
+  console.debug('connecting');
   document.querySelector('#connecting')!.classList.remove('hidden');
 
   try {
