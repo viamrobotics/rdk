@@ -318,4 +318,37 @@ func TestFailingClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+
+	failingSLAMService2 := failingSLAMService
+	failingSLAMService2.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		f := func() ([]byte, error) {
+			return nil, errors.New("failure during callback")
+		}
+		return f, nil
+	}
+
+	failingServer2, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	failingSvc2, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService2})
+	test.That(t, err, test.ShouldBeNil)
+
+	resourceSubtype.RegisterRPCService(context.Background(), failingServer2, failingSvc2)
+
+	go failingServer2.Serve(listener)
+	defer failingServer2.Stop()
+
+	t.Run("client test with failed callback function", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
+
+		// test get internal state stream
+		fullBytes, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
+		test.That(t, fullBytes, test.ShouldBeNil)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 }
