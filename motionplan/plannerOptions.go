@@ -38,11 +38,12 @@ const (
 	defaultSmoothIter = 20
 
 	// names of constraints.
-	defaultLinearConstraintName       = "defaultLinearConstraint"
-	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
-	defaultOrientationConstraintName  = "defaultOrientationConstraint"
-	defaultCollisionConstraintName    = "defaultCollisionConstraint"
-	defaultJointConstraint            = "defaultJointSwingConstraint"
+	defaultLinearConstraintName        = "defaultLinearConstraint"
+	defaultPseudolinearConstraintName  = "defaultPseudolinearConstraint"
+	defaultOrientationConstraintName   = "defaultOrientationConstraint"
+	defaultObstacleConstraintName      = "defaultObstacleConstraint"
+	defaultSelfCollisionConstraintName = "defaultSelfCollisionConstraint"
+	defaultJointConstraint             = "defaultJointSwingConstraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10

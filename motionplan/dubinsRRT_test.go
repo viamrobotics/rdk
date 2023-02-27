@@ -21,6 +21,11 @@ func TestDubinsRRT(t *testing.T) {
 	model, err := frame.NewMobile2DFrame("name", limits, robotGeometry)
 	test.That(t, err, test.ShouldEqual, nil)
 
+	// add it to a frame system
+	fs := frame.NewEmptySimpleFrameSystem("test")
+	err = fs.AddFrame(model, fs.Frame(frame.World))
+	test.That(t, err, test.ShouldEqual, nil)
+
 	// setup planner
 	d := Dubins{Radius: 0.6, PointSeparation: 0.1}
 	dubins, err := NewDubinsRRTMotionPlanner(model, 1, logger, d)
@@ -29,15 +34,13 @@ func TestDubinsRRT(t *testing.T) {
 	start := []float64{0, 0, 0}
 	goal := []float64{10, 0, 0}
 
-	testDubin := func(obstacleGeometries map[string]spatial.Geometry) bool {
+	testDubin := func(worldState *frame.WorldState) bool {
 		opt := newBasicPlannerOptions()
-		opt.AddConstraint("collision", NewCollisionConstraint(
-			dubins.Frame(),
-			frame.FloatsToInputs(start[0:2]),
-			obstacleGeometries,
-			nil,
-			true,
-		))
+		collisionConstraint, err := newObstacleConstraint(dubins.Frame(), fs, worldState, frame.StartPositions(fs), nil, true)
+		if err != nil {
+			return false
+		}
+		opt.AddConstraint("collision", collisionConstraint)
 		o := d.AllPaths(start, goal, false)
 		return dubins.checkPath(
 			&basicNode{q: frame.FloatsToInputs(start)},
@@ -49,7 +52,7 @@ func TestDubinsRRT(t *testing.T) {
 	}
 
 	// case with no obstacles
-	test.That(t, testDubin(map[string]spatial.Geometry{}), test.ShouldBeTrue)
+	test.That(t, testDubin(&frame.WorldState{}), test.ShouldBeTrue)
 
 	// case with obstacles
 	obstacleGeometries := map[string]spatial.Geometry{}
@@ -59,5 +62,6 @@ func TestDubinsRRT(t *testing.T) {
 		"")
 	test.That(t, err, test.ShouldEqual, nil)
 	obstacleGeometries["1"] = box
-	test.That(t, testDubin(obstacleGeometries), test.ShouldBeFalse)
+	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacleGeometries)}}
+	test.That(t, testDubin(worldState), test.ShouldBeFalse)
 }
