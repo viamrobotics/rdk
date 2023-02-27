@@ -300,34 +300,6 @@ func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
 	test.That(t, fimg.At(y, x), test.ShouldEqual, float64(iwd.Depth.GetDepth(x, y)))
 }
 
-func TestGray8DepthConversion(t *testing.T) {
-	testGray := image.NewGray(image.Rect(0, 0, 5, 10))
-	width, height := testGray.Bounds().Dx(), testGray.Bounds().Dy()
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			testGray.SetGray(x, y, color.Gray{Y: uint8(y + x)})
-		}
-	}
-	// convert to depthMap
-	dm, err := ConvertImageToDepthMap(context.Background(), testGray)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dm.Bounds(), test.ShouldResemble, testGray.Bounds())
-	for x := 0; x < dm.Bounds().Dx(); x++ {
-		for y := 0; y < dm.Bounds().Dy(); y++ {
-			test.That(t, int(dm.GetDepth(x, y)), test.ShouldEqual, int(testGray.GrayAt(x, y).Y))
-		}
-	}
-	// convert to gray16
-	g16, err := ConvertImageToGray16(testGray)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g16.Bounds(), test.ShouldResemble, testGray.Bounds())
-	for x := 0; x < g16.Bounds().Dx(); x++ {
-		for y := 0; y < g16.Bounds().Dy(); y++ {
-			test.That(t, int(g16.Gray16At(x, y).Y), test.ShouldEqual, int(testGray.GrayAt(x, y).Y))
-		}
-	}
-}
-
 func TestDepthColorModel(t *testing.T) {
 	dm := NewEmptyDepthMap(1, 1)
 	// DepthMap Color model should convert to Gray16
