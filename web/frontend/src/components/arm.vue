@@ -1,7 +1,6 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
-import { ArmClient, Client, commonApi } from '@viamrobotics/sdk';
+import { ArmClient, Client, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
@@ -53,7 +52,6 @@ const toggle = $ref<Record<string, ArmStatus>>({});
 const armClient = new ArmClient(props.client, props.name, { requestLogger: rcLogConditionally });
 
 const stop = async () => {
-   stopped = true;
   try {
     await armClient.stop();
   } catch (error) {
@@ -64,14 +62,14 @@ const stop = async () => {
 const armModifyAllDoEndPosition = async () => {
   const newPieces = toggle[props.name]!.pos_pieces;
 
-   const newPose =  {
-      x: 0,
-      y: 0,
-      z: 0,
-      ox: 0,
-      oy: 0,
-      oz: 0,
-      theta: 0
+  const newPose = {
+    x: 0,
+    y: 0,
+    z: 0,
+    ox: 0,
+    oy: 0,
+    oz: 0,
+    theta: 0,
   };
 
   for (const newPiece of newPieces) {
@@ -80,7 +78,7 @@ const armModifyAllDoEndPosition = async () => {
     newPose[setter] = newPiece.endPositionValue;
   }
   try {
-    await armClient.MoveToPosition(newPose);
+    await armClient.moveToPosition(newPose);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -100,8 +98,8 @@ const armModifyAllDoJoint = async () => {
     newList[newPieces[i]!.joint] = newPieces[i]!.jointValue;
   }
 
-   try {
-    await armClient.MoveToJointPositions(newList);
+  try {
+    await armClient.moveToJointPositions(newList);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -113,17 +111,17 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
   const arm = props.rawStatus!;
   const old = arm.end_position;
 
-   const newPose = {
-      x: 0,
-      y: 0,
-      z: 0,
-      ox: 0,
-      oy: 0,
-      oz: 0,
-      theta: 0
+  const newPose = {
+    x: 0,
+    y: 0,
+    z: 0,
+    ox: 0,
+    oy: 0,
+    oz: 0,
+    theta: 0,
   };
 
-   for (const fieldSetter of fieldSetters) {
+  for (const fieldSetter of fieldSetters) {
     const [endPositionField] = fieldSetter;
     const endPositionValue = old[endPositionField] || 0;
     const setter = `set${fieldSetter[1]}` as SetterKeys;
@@ -131,12 +129,11 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
   }
 
   const getter = `get${getterSetter}` as GetterKeys;
-  const setter = `set${getterSetter}` as SetterKeys; 
-  newPose[setter] = (newPose[getter] + adjustedAmount);  
-
+  const setter = `set${getterSetter}` as SetterKeys;
+  newPose[setter] = (newPose[getter] + adjustedAmount);
 
   try {
-     await armClient.MoveToPosition(newPose);
+    await armClient.moveToPosition(newPose);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -144,12 +141,11 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
 
 const armJointInc = async (field: number, amount: number) => {
   const arm = props.rawStatus!;
-  const newPositionDegs = await armClient.GetJointPositions();
   const newList = arm.joint_positions.values;
   newList[field] += amount;
 
   try {
-    await armClient.MoveToJointPositions(newList);
+    await armClient.moveToJointPositions(newList);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -157,16 +153,14 @@ const armJointInc = async (field: number, amount: number) => {
 
 const armHome = async () => {
   const arm = props.rawStatus!;
-  const newPositionDegs = await armClient.GetJointPositions();
   const newList = arm.joint_positions.values;
 
   for (let i = 0; i < newList.length; i += 1) {
     newList[i] = 0;
   }
-    newPositionDegs.setValuesList(newList);
 
- try {
-    await armClient.MoveToJointPositions(newPositionDegs);
+  try {
+    await armClient.moveToJointPositions(newList);
   } catch (error) {
     displayError(error as ServiceError);
   }
