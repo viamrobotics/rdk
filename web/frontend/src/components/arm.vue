@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ArmClient, Client, armApi, commonApi } from '@viamrobotics/sdk';
+import { ArmClient, Client, commonApi } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
@@ -33,17 +33,17 @@ interface Props {
   client: Client
 }
 
-type GetterKeys = 'getX' | 'getY' | 'getZ' | 'getOX' | 'getOY' | 'getOZ' | 'getTheta'
-type SetterKeys = 'setX' | 'setY' | 'setZ' | 'setOX' | 'setOY' | 'setOZ' | 'setTheta'
+type GetterKeys = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
+type SetterKeys = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
 
 const fieldSetters = [
-  ['x', 'X'],
-  ['y', 'Y'],
-  ['z', 'Z'],
-  ['theta', 'Theta'],
-  ['o_x', 'OX'],
-  ['o_y', 'OY'],
-  ['o_z', 'OZ'],
+  ['x', 'x'],
+  ['y', 'y'],
+  ['z', 'z'],
+  ['theta', 'theta'],
+  ['o_x', 'ox'],
+  ['o_y', 'oy'],
+  ['o_z', 'oz'],
 ] as const;
 
 const props = defineProps<Props>();
@@ -62,18 +62,25 @@ const stop = async () => {
 };
 
 const armModifyAllDoEndPosition = async () => {
-  const newPose = new commonApi.Pose();
   const newPieces = toggle[props.name]!.pos_pieces;
+
+   const newPose =  {
+      x: 0,
+      y: 0,
+      z: 0,
+      ox: 0,
+      oy: 0,
+      oz: 0,
+      theta: 0
+  };
 
   for (const newPiece of newPieces) {
     const [, getterSetter] = newPiece.endPosition;
     const setter = `set${getterSetter}` as SetterKeys;
-    newPose[setter](newPiece.endPositionValue);
+    newPose[setter] = newPiece.endPositionValue;
   }
   try {
-    const req = await armClient.MoveToPositionRequest();
-    request.setName(props.name);
-    request.setTo(newPose);
+    await armClient.MoveToPosition(newPose);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -86,7 +93,6 @@ const armModifyAllCancel = () => {
 
 const armModifyAllDoJoint = async () => {
   const arm = props.rawStatus!;
-  const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
   const newPieces = toggle[props.name]!.joint_pieces;
 
@@ -94,12 +100,8 @@ const armModifyAllDoJoint = async () => {
     newList[newPieces[i]!.joint] = newPieces[i]!.jointValue;
   }
 
-  newPositionDegs.setValuesList(newList);
-
    try {
-    const req = await armClient.MoveToJointPositionRequest();
-    request.setName(props.name);
-    request.setTo(newList);
+    await armClient.MoveToJointPositions(newList);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -110,22 +112,31 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
   const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
   const arm = props.rawStatus!;
   const old = arm.end_position;
-  const newPose = new commonApi.Pose();
 
-  for (const fieldSetter of fieldSetters) {
+   const newPose = {
+      x: 0,
+      y: 0,
+      z: 0,
+      ox: 0,
+      oy: 0,
+      oz: 0,
+      theta: 0
+  };
+
+   for (const fieldSetter of fieldSetters) {
     const [endPositionField] = fieldSetter;
     const endPositionValue = old[endPositionField] || 0;
     const setter = `set${fieldSetter[1]}` as SetterKeys;
-    newPose[setter](endPositionValue);
+    newPose[setter] = endPositionValue;
   }
 
   const getter = `get${getterSetter}` as GetterKeys;
-  const setter = `set${getterSetter}` as SetterKeys;
-  newPose[setter](newPose[getter]() + adjustedAmount);
+  const setter = `set${getterSetter}` as SetterKeys; 
+  newPose[setter] = (newPose[getter] + adjustedAmount);  
+
+
   try {
-    const req = await armClient.MoveToPositionRequest();
-    request.setName(props.name);
-    request.setTo(newPose);
+     await armClient.MoveToPosition(newPose);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -133,15 +144,12 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
 
 const armJointInc = async (field: number, amount: number) => {
   const arm = props.rawStatus!;
-  const newPositionDegs = new armApi.JointPositions();
+  const newPositionDegs = await armClient.GetJointPositions();
   const newList = arm.joint_positions.values;
   newList[field] += amount;
-  newPositionDegs.setValuesList(newList);
 
   try {
-    const req = await armClient.MoveToJointPositionsRequest();
-    request.setName(props.name);
-    request.setTo(newP);
+    await armClient.MoveToJointPositions(newList);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -149,19 +157,16 @@ const armJointInc = async (field: number, amount: number) => {
 
 const armHome = async () => {
   const arm = props.rawStatus!;
-  const newPositionDegs = new armApi.JointPositions();
+  const newPositionDegs = await armClient.GetJointPositions();
   const newList = arm.joint_positions.values;
 
   for (let i = 0; i < newList.length; i += 1) {
     newList[i] = 0;
   }
-
-  newPositionDegs.setValuesList(newList);
+    newPositionDegs.setValuesList(newList);
 
  try {
-    const req = await armClient.MoveToJointPositionsRequest();
-    request.setName(props.name);
-    request.setTo(newPositionDegs);
+    await armClient.MoveToJointPositions(newPositionDegs);
   } catch (error) {
     displayError(error as ServiceError);
   }
