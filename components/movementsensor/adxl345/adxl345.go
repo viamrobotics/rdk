@@ -49,16 +49,16 @@ type AttrConfig struct {
 	TapX                   bool     `json:"tap_x,omitempty"`
 	TapY                   bool     `json:"tap_y,omitempty"`
 	TapZ                   bool     `json:"tap_z,omitempty"`
-	Thresh_Tap             byte     `json:"thresh_tap,omitempty"`
+	ThreshTap              byte     `json:"thresh_tap,omitempty"`
 	Dur                    byte     `json:"dur,omitempty"`
 	Latent                 byte     `json:"latent,omitempty"`
 	Window                 byte     `json:"window,omitempty"`
-	Thresh_FF              byte     `json:"thresh_ff,omitempty"`
-	Time_FF                byte     `json:"time_ff,omitempty"`
-	Thresh_Act             byte     `json:"Thresh_Act,omitempty"`
-	Thresh_Inact           byte     `json:"Thresh_Inact,omitempty"`
-	Time_Inact             byte     `json:"Time_Inact,omitempty"`
-	Act_Inact_Ctl          byte     `json:"Act_Inact_Ctl,omitempty"`
+	ThreshFF               byte     `json:"thresh_ff,omitempty"`
+	TimeFF                 byte     `json:"time_ff,omitempty"`
+	ThreshAct              byte     `json:"Thresh_Act,omitempty"`
+	ThreshInact            byte     `json:"Thresh_Inact,omitempty"`
+	TimeInact              byte     `json:"Time_Inact,omitempty"`
+	ActInactCtl            byte     `json:"Act_Inact_Ctl,omitempty"`
 	ActX                   bool     `json:"act_x,omitempty"`
 	ActY                   bool     `json:"act_y,omitempty"`
 	ActZ                   bool     `json:"act_z,omitempty"`
@@ -112,16 +112,16 @@ type adxl345 struct {
 	tapX              bool
 	tapY              bool
 	tapZ              bool
-	thresh_tap        byte
+	threshTap         byte
 	dur               byte
 	latent            byte
 	window            byte
-	thresh_ff         byte
-	time_ff           byte
-	thresh_act        byte
-	thresh_inact      byte
-	time_inact        byte
-	act_inact_ctl     byte
+	threshFf          byte
+	timeFf            byte
+	threshAct         byte
+	threshInact       byte
+	timeInact         byte
+	actInactCtl       byte
 	actX              bool
 	actY              bool
 	actZ              bool
@@ -190,16 +190,16 @@ func NewAdxl345(
 		tapX:              cfg.TapX,
 		tapY:              cfg.TapY,
 		tapZ:              cfg.TapZ,
-		thresh_tap:        cfg.Thresh_Tap,
+		threshTap:         cfg.ThreshTap,
 		dur:               cfg.Dur,
 		latent:            cfg.Latent,
 		window:            cfg.Window,
-		thresh_ff:         cfg.Thresh_FF,
-		time_ff:           cfg.Time_FF,
-		thresh_act:        cfg.Thresh_Act,
-		thresh_inact:      cfg.Thresh_Inact,
-		time_inact:        cfg.Time_Inact,
-		act_inact_ctl:     cfg.Act_Inact_Ctl,
+		threshFf:          cfg.ThreshFF,
+		timeFf:            cfg.TimeFF,
+		threshAct:         cfg.ThreshAct,
+		threshInact:       cfg.ThreshInact,
+		timeInact:         cfg.TimeInact,
+		actInactCtl:       cfg.ActInactCtl,
 		actX:              cfg.ActX,
 		actY:              cfg.ActY,
 		actZ:              cfg.ActZ,
@@ -259,10 +259,16 @@ func NewAdxl345(
 			}
 		}
 	})
-	sensor.readInterrupts(sensor.cancelContext)
-	sensor.setRelevantRegisters(ctx)
-	sensor.enableInterrupts(ctx)
 	sensor.startInterruptPolling()
+	sensor.readInterrupts(sensor.cancelContext)
+	err = sensor.setRelevantRegisters(ctx)
+	if err != nil {
+		return nil, errors.New("Unable to set relevant registers on accelerometer")
+	}
+	err = sensor.enableInterrupts(ctx)
+	if err != nil {
+		return nil, errors.New("Unable to set interrupts on accelerometer")
+	}
 	return sensor, nil
 }
 
@@ -283,7 +289,6 @@ func (adxl *adxl345) startInterruptPolling() {
 				}
 			}
 		}
-
 	})
 }
 
@@ -326,8 +331,8 @@ func (adxl *adxl345) writeByte(ctx context.Context, register, value byte) error 
 	return handle.WriteByteData(ctx, register, value)
 }
 
-func getByteFromInterrupts(ctx context.Context, interrupts []string) byte {
-	var register byte = 0
+func getByteFromInterrupts(interrupts []string) byte {
+	var register byte
 	for _, interrupt := range interrupts {
 		register += interruptBitPosition[interrupt]
 	}
@@ -335,36 +340,44 @@ func getByteFromInterrupts(ctx context.Context, interrupts []string) byte {
 }
 
 func (adxl *adxl345) enableInterrupts(ctx context.Context) error {
-	register := getByteFromInterrupts(ctx, adxl.interruptsEnabled)
-	return adxl.writeByte(ctx, INT_ENABLE, register)
+	register := getByteFromInterrupts(adxl.interruptsEnabled)
+	return adxl.writeByte(ctx, IntEnable, register)
 }
 
-func (adxl *adxl345) setRelevantRegisters(ctx context.Context) {
+func (adxl *adxl345) setRelevantRegisters(ctx context.Context) error {
 	if len(adxl.interruptsEnabled) == 0 {
-		return
+		return nil
 	}
 	relevantRegisters := adxl.getRelevantRegisterValues()
 	for key := range defaultRegisterValues {
 		val, ok := relevantRegisters[key]
 		if ok {
-			adxl.writeByte(ctx, key, val)
+			err := adxl.writeByte(ctx, key, val)
+			if err != nil {
+				return errors.Errorf("Unable to write byte at register %x", key)
+			}
 		} else {
-			adxl.writeByte(ctx, key, defaultRegisterValues[key])
+			err := adxl.writeByte(ctx, key, defaultRegisterValues[key])
+			if err != nil {
+				return errors.Errorf("Unable to write byte at register %x", key)
+			}
 		}
 	}
+	return nil
 }
-func (adxl *adxl345) getAxes(x bool, y bool, z bool) byte {
-	var tap_axes byte = 0
+
+func (adxl *adxl345) getAxes(x, y, z bool) byte {
+	var tapAxes byte
 	if x {
-		tap_axes += X
+		tapAxes += xBit
 	}
 	if y {
-		tap_axes += Y
+		tapAxes += yBit
 	}
 	if z {
-		tap_axes += Z
+		tapAxes += zBit
 	}
-	return tap_axes
+	return tapAxes
 }
 
 func (adxl *adxl345) getRelevantRegisterValues() map[byte]byte {
@@ -372,10 +385,10 @@ func (adxl *adxl345) getRelevantRegisterValues() map[byte]byte {
 
 	tapAxesSpecified := adxl.tapX || adxl.tapY || adxl.tapZ
 	if tapAxesSpecified {
-		relevantRegisterValues[TAP_AXES] = adxl.getAxes(adxl.tapX, adxl.tapY, adxl.tapZ)
+		relevantRegisterValues[TapAxes] = adxl.getAxes(adxl.tapX, adxl.tapY, adxl.tapZ)
 	}
 
-	var actInactAxes byte = 0
+	var actInactAxes byte
 	activityAxesSpecified := adxl.actX || adxl.actY || adxl.actZ
 	if activityAxesSpecified {
 		actInactAxes = adxl.getAxes(adxl.actX, adxl.actY, adxl.actZ)
@@ -385,46 +398,45 @@ func (adxl *adxl345) getRelevantRegisterValues() map[byte]byte {
 		actInactAxes += (adxl.getAxes(adxl.inactX, adxl.inactY, adxl.inactZ) << 4)
 	}
 	if activityAxesSpecified || inactivityAxesSpecified {
-		relevantRegisterValues[ACT_INACT_CTL] = actInactAxes
+		relevantRegisterValues[ActInactCtl] = actInactAxes
 	}
 
-	if adxl.thresh_tap != 0 {
-		relevantRegisterValues[THRESH_TAP] = adxl.thresh_tap
+	if adxl.threshTap != 0 {
+		relevantRegisterValues[ThreshTap] = adxl.threshTap
 	}
 	if adxl.dur != 0 {
-		relevantRegisterValues[DUR] = adxl.dur
+		relevantRegisterValues[Dur] = adxl.dur
 	}
 	if adxl.latent != 0 {
-		relevantRegisterValues[LATENT] = adxl.latent
+		relevantRegisterValues[Latent] = adxl.latent
 	}
 	if adxl.window != 0 {
-		relevantRegisterValues[WINDOW] = adxl.window
+		relevantRegisterValues[Window] = adxl.window
 	}
-	if adxl.thresh_ff != 0 {
-		relevantRegisterValues[THRESH_FF] = adxl.thresh_ff
+	if adxl.threshFf != 0 {
+		relevantRegisterValues[ThreshFf] = adxl.threshFf
 	}
-	if adxl.time_ff != 0 {
-		relevantRegisterValues[TIME_FF] = adxl.time_ff
+	if adxl.timeFf != 0 {
+		relevantRegisterValues[TimeFf] = adxl.timeFf
 	}
-	if adxl.thresh_act != 0 {
-		relevantRegisterValues[THRESH_ACT] = adxl.thresh_act
+	if adxl.threshAct != 0 {
+		relevantRegisterValues[ThreshAct] = adxl.threshAct
 	}
-	if adxl.thresh_inact != 0 {
-		relevantRegisterValues[THRESH_INACT] = adxl.thresh_inact
+	if adxl.threshInact != 0 {
+		relevantRegisterValues[ThreshInact] = adxl.threshInact
 	}
-	if adxl.time_inact != 0 {
-		relevantRegisterValues[TIME_INACT] = adxl.time_inact
+	if adxl.timeInact != 0 {
+		relevantRegisterValues[TimeInact] = adxl.timeInact
 	}
-	if adxl.act_inact_ctl != 0 {
-		relevantRegisterValues[ACT_INACT_CTL] = adxl.time_ff
+	if adxl.actInactCtl != 0 {
+		relevantRegisterValues[ActInactCtl] = adxl.timeFf
 	}
 	return relevantRegisterValues
 }
 
 func (adxl *adxl345) readInterrupts(ctx context.Context) {
-	interuptEnabledRegister := getByteFromInterrupts(ctx, adxl.interruptsEnabled)
-	intSourceRegister, err := adxl.readByte(ctx, INT_SOURCE)
-
+	interuptEnabledRegister := getByteFromInterrupts(adxl.interruptsEnabled)
+	intSourceRegister, err := adxl.readByte(ctx, IntSource)
 	if err != nil {
 		adxl.logger.Error(err)
 	}
@@ -510,14 +522,14 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 
 	readings := make(map[string]interface{})
 	readings["linear_acceleration"] = adxl.linearAcceleration
-	readings["data_ready"] = contains(adxl.interruptsFound, DATA_READY)
-	readings["single_tap"] = contains(adxl.interruptsFound, SINGLE_TAP)
-	readings["double_tap"] = contains(adxl.interruptsFound, DOUBLE_TAP)
+	readings["data_ready"] = contains(adxl.interruptsFound, DataReady)
+	readings["single_tap"] = contains(adxl.interruptsFound, SingleTap)
+	readings["double_tap"] = contains(adxl.interruptsFound, DoubleTap)
 	readings["activity"] = contains(adxl.interruptsFound, Activity)
 	readings["inactivity"] = contains(adxl.interruptsFound, Inactivity)
-	readings["freefall"] = contains(adxl.interruptsFound, FREE_FALL)
-	readings["watermark"] = contains(adxl.interruptsFound, WATERMARK)
-	readings["overrun"] = contains(adxl.interruptsFound, OVERRUN)
+	readings["freefall"] = contains(adxl.interruptsFound, Freefall)
+	readings["watermark"] = contains(adxl.interruptsFound, Watermark)
+	readings["overrun"] = contains(adxl.interruptsFound, Overrun)
 
 	adxl.interruptsFound = []string{}
 
