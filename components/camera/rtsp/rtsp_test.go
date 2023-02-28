@@ -49,8 +49,8 @@ func TestRTSPCamera(t *testing.T) {
 	rtspConf := &Attrs{Address: outputURL}
 	var rtspCam camera.Camera
 	var err error
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
+	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer timeoutCancel()
 	// Just keep trying until you connect, but fail after 5 tries
 	tries := 1
 	for {
