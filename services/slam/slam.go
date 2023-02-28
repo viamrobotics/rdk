@@ -100,6 +100,15 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	}
 }
 
+// GetPointCloudMapFull concatenates the streaming responses from GetPointCloudMapStream into a full point cloud.
+func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	callback, err := slamSvc.GetPointCloudMapStream(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return helperConcatenateChunksToFull(callback)
+}
+
 // GetInternalStateFull makes a GetInternalStateStream call on a given slam service and returns the combined serialized state.
 func GetInternalStateFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
 	callback, err := slamSvc.GetInternalStateStream(ctx, name)
