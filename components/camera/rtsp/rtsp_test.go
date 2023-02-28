@@ -57,7 +57,7 @@ func TestRTSPCamera(t *testing.T) {
 		for err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "400")) {
 			rtspCam, err = NewRTSPCamera(context.Background(), rtspConf, logger)
 		}
-		if err != nil && (strings.Contains(err.Error(), "timed out")) { // server is messed up, build it again
+		if err != nil && (strings.Contains(err.Error(), "timeout")) { // server is messed up, build it again
 			cancel()
 			serverClose()
 			continue
