@@ -406,7 +406,6 @@ func TestFailingServer(t *testing.T) {
 		mockInternalStateServer := makeInternalStateStreamServerMock()
 		err = slamServer.GetInternalStateStream(getInternalStateStreamReq, mockInternalStateServer)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
-
 	})
 
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
