@@ -504,7 +504,7 @@ func CreateWheeledBase(
 		base.right = append(base.right, m)
 	}
 
-	for _, msName := range cfg.MovementSensor {
+	for _, msName := range attr.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
