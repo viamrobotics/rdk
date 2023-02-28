@@ -5,6 +5,7 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -182,7 +183,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		select {
 		case <-ctx.Done():
 			mp.logger.Debugf("CBiRRT timed out after %d iterations", i)
-			rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		default:
 		}
