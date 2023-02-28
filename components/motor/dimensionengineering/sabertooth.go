@@ -411,10 +411,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return nil
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
-		return m.Stop(ctx, extra)
-	}
-	return nil
+	m.opMgr.NewTimedWaitOp(ctx, waitDur)
+	return m.Stop(ctx, extra)
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),

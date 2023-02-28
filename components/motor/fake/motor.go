@@ -267,16 +267,16 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return nil
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
-		err = m.Stop(ctx, nil)
-		if err != nil {
-			return err
-		}
-
-		if m.Encoder != nil {
-			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(m.TicksPerRotation)))
-		}
+	m.opMgr.NewTimedWaitOp(ctx, waitDur)
+	err = m.Stop(ctx, nil)
+	if err != nil {
+		return err
 	}
+
+	if m.Encoder != nil {
+		return m.Encoder.SetPosition(ctx, int64(finalPos*float64(m.TicksPerRotation)))
+	}
+
 	return nil
 }
 
@@ -307,12 +307,13 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return nil
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
-		err = m.Stop(ctx, nil)
-		if err != nil {
-			return err
-		}
+	m.opMgr.NewTimedWaitOp(ctx, waitDur)
+	err = m.Stop(ctx, nil)
+	if err != nil {
+		return err
+	}
 
+	if m.Encoder != nil {
 		return m.Encoder.SetPosition(ctx, int64(pos*float64(m.TicksPerRotation)))
 	}
 

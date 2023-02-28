@@ -272,10 +272,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return nil
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
-		return m.Stop(ctx, extra)
-	}
-	return nil
+	m.opMgr.NewTimedWaitOp(ctx, waitDur)
+	return m.Stop(ctx, extra)
 }
 
 // IsPowered returns if the motor is currently on or off.
