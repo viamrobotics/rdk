@@ -286,7 +286,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		if lazy.decodeErr != nil {
 			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", lazy.decodeErr)
 		}
-		return EncodeImage(ctx, lazy.decodedImage, mimeType)
+		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
 	}
 
 	var buf bytes.Buffer
