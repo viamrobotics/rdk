@@ -319,7 +319,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 			Right:                []string{"fr-m", "br-m"},
 		},
 	}
-	deps, err := cfg.Validate("path")
+	deps, err := compCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
