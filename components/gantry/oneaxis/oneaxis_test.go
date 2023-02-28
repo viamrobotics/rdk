@@ -215,7 +215,7 @@ func TestNewGantryTypes(t *testing.T) {
 func TestHome(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	fakeOneAx := &oneAxis{
+	fake1ax := &oneAxis{
 		name:            testGName,
 		motor:           createfakemotor(),
 		board:           createfakeboard(),
@@ -225,32 +225,32 @@ func TestHome(t *testing.T) {
 		mmPerRevolution: 1,
 	}
 
-	fakePins := &limitPins{
+	fakepins := &limitPins{
 		limitHigh:       true,
 		limitSwitchPins: []string{"1", "2"},
 	}
 
-	err := homeEncoder(ctx, fakeOneAx)
+	err := homeEncoder(ctx, fake1ax)
 	test.That(t, err, test.ShouldBeNil)
-	lastPos := count + int(fakeOneAx.lengthMm)/int(fakeOneAx.mmPerRevolution) + 1
-	test.That(t, fakeOneAx.positionLimits, test.ShouldResemble, []float64{float64(count) + 1, float64(lastPos)})
+	lastPos := count + int(fake1ax.lengthMm)/int(fake1ax.mmPerRevolution) + 1
+	test.That(t, fake1ax.positionLimits, test.ShouldResemble, []float64{float64(count) + 1, float64(lastPos)})
 
-	fakePins.limitSwitchPins = []string{"1"}
-	err = homeWithLimSwitch(ctx, fakePins, fakeOneAx)
+	fakepins.limitSwitchPins = []string{"1"}
+	err = homeWithLimSwitch(ctx, fakepins, fake1ax)
 	test.That(t, err, test.ShouldBeNil)
-	lastPos = count + int(fakeOneAx.lengthMm) + 1
-	test.That(t, fakeOneAx.positionLimits, test.ShouldResemble, []float64{float64(count + 1), float64(lastPos)})
+	lastPos = count + int(fake1ax.lengthMm) + 1
+	test.That(t, fake1ax.positionLimits, test.ShouldResemble, []float64{float64(count + 1), float64(lastPos)})
 
-	fakeOneAx.lengthMm = 0
-	err = homeWithLimSwitch(ctx, fakePins, fakeOneAx)
+	fake1ax.lengthMm = 0
+	err = homeWithLimSwitch(ctx, fakepins, fake1ax)
 	test.That(t, err, test.ShouldResemble, errDimensionsNotFound(testGName,
-		fakeOneAx.lengthMm,
-		fakeOneAx.mmPerRevolution))
+		fake1ax.lengthMm,
+		fake1ax.mmPerRevolution))
 
 	goForErr := errors.New("GoFor failed")
 	posErr := errors.New("Position failed")
-	fakeOneAx.lengthMm = 100
-	fakeOneAx.motor = &inject.Motor{
+	fake1ax.lengthMm = 100
+	fake1ax.motor = &inject.Motor{
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: false,
@@ -260,11 +260,12 @@ func TestHome(t *testing.T) {
 		StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) { return 1.0, posErr },
 	}
-	err = homeWithLimSwitch(ctx, fakePins, fakeOneAx)
+	err = homeWithLimSwitch(ctx, fakepins, fake1ax)
 	test.That(t, err, test.ShouldBeError, goForErr)
 
-	err = homeEncoder(ctx, fakeOneAx)
+	err = homeEncoder(ctx, fake1ax)
 	test.That(t, err, test.ShouldBeError, posErr)
+
 }
 
 func TestTestLimit(t *testing.T) {
@@ -275,16 +276,16 @@ func TestTestLimit(t *testing.T) {
 		rpm:   float64(300),
 	}
 
-	fakePins := &limitPins{
+	fakepins := &limitPins{
 		limitSwitchPins: []string{"1", "2"},
 		limitHigh:       true,
 	}
 
-	pos, err := fakePins.testLimit(ctx, 0, fake1ax)
+	pos, err := fakepins.testLimit(ctx, 0, fake1ax)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, count+1) // we called inject motors move position once
 
-	pos, err = fakePins.testLimit(ctx, 1, fake1ax)
+	pos, err = fakepins.testLimit(ctx, 1, fake1ax)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, count+1) // same as l295
 }
@@ -295,12 +296,12 @@ func TestLimitHit(t *testing.T) {
 		board: createfakeboard(),
 	}
 
-	fakePins := &limitPins{
+	fakepins := &limitPins{
 		limitSwitchPins: []string{"1", "2", "3"},
 		limitHigh:       true,
 	}
 
-	hit, err := fakePins.limitHit(ctx, 0, fake1ax)
+	hit, err := fakepins.limitHit(ctx, 0, fake1ax)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, hit, test.ShouldEqual, true)
 }
