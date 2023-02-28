@@ -12,9 +12,11 @@ import (
 	"go.viam.com/test"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/components/camera"
 )
 
-func startFFMPEG(outputURL string, streamStarted chan struct{}) context.CancelFunc {
+func startFFMPEG(outputURL string) context.CancelFunc {
 	// run the test avi in a loop through ffmpeg and hand it to the server
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	viamutils.PanicCapturingGo(func() {
@@ -23,7 +25,6 @@ func startFFMPEG(outputURL string, streamStarted chan struct{}) context.CancelFu
 		ffmpegStream = ffmpegStream.Output(outputURL, ffmpeg.KwArgs{"vcodec": "mjpeg", "huffman": "0", "f": "rtsp", "rtsp_transport": "tcp"})
 		ffmpegStream.Context = cancelCtx
 		cmd := ffmpegStream.OverWriteOutput().Compile()
-		close(streamStarted)
 		if err := cmd.Run(); err != nil {
 			return
 		}
@@ -31,29 +32,41 @@ func startFFMPEG(outputURL string, streamStarted chan struct{}) context.CancelFu
 	return cancel
 }
 
+func startRTSPServer(t *testing.T) func() {
+	t.Helper()
+	configLoc := []string{artifact.MustPath("components/camera/rtsp/rtsp-simple-server.yml")}
+	s, ok := server.New(configLoc)
+	test.That(t, ok, test.ShouldBeTrue)
+	return s.Close
+}
+
 func TestRTSPCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	host := "127.0.0.1"
 	port := "32512"
-	// set up the rtsp simple server running on rtsp://localhost:port/mystream
 	outputURL := fmt.Sprintf("rtsp://%s:%s/mystream", host, port)
-	configLoc := []string{artifact.MustPath("components/camera/rtsp/rtsp-simple-server.yml")}
-	s, ok := server.New(configLoc)
-	test.That(t, ok, test.ShouldBeTrue)
-	defer s.Close()
-	// set up the video to stream from the server
-	streamStarted := make(chan struct{})
-	cancel := startFFMPEG(outputURL, streamStarted)
-	defer cancel()
-	// create the rtsp camera model
 	rtspConf := &Attrs{Address: outputURL}
-	<-streamStarted
-	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
-	// keep trying until RTSP camera is running
-	for err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "400")) {
+	var rtspCam camera.Camera
+	var err error
+	// Just keep trying until you connect
+	for {
+		serverClose := startRTSPServer(t)
+		cancel := startFFMPEG(outputURL)
 		rtspCam, err = NewRTSPCamera(context.Background(), rtspConf, logger)
+		// keep trying until the FFmpeg stream is running
+		for err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "400")) {
+			rtspCam, err = NewRTSPCamera(context.Background(), rtspConf, logger)
+		}
+		if err != nil && (strings.Contains(err.Error(), "timed out")) { // server is messed up, build it again
+			cancel()
+			serverClose()
+			continue
+		}
+		defer cancel()
+		defer serverClose()
+		test.That(t, err, test.ShouldBeNil)
+		break
 	}
-	test.That(t, err, test.ShouldBeNil)
 	stream, err := rtspCam.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = stream.Next(context.Background()) // first Next to trigger the gotFirstFrame bool and chan

@@ -143,6 +143,7 @@ func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 
 // reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
 func (rc *rtspCamera) reconnectClient() (err error) {
+	timeout := 10 * time.Second
 	if rc == nil {
 		return errors.New("rtspCamera is nil")
 	}
@@ -163,16 +164,36 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 			}
 		}
 	}()
-	err = rc.client.Start(rc.u.Scheme, rc.u.Host)
+	// send Start to server URL and timeout if you can't
+	doneStart := make(chan struct{})
+	go func() {
+		err = rc.client.Start(rc.u.Scheme, rc.u.Host)
+		close(doneStart)
+	}()
+	select {
+	case <-doneStart:
+		// Start returned before timeout
+	case <-time.After(timeout):
+		return errors.New("rtsp client Start request timed out")
+	}
 	if err != nil {
 		return err
 	}
+	// send Describe to server URL and timeout if you can't
 	mjpegFormat, mjpegDecoder := mjpegDecoding()
-
 	var tracks media.Medias
 	var baseURL *url.URL
-	timer := time.NewTimer(time.Duration(10 * time.Second))
-	tracks, baseURL, _, err = rc.client.Describe(rc.u)
+	doneDescribe := make(chan struct{})
+	go func() {
+		tracks, baseURL, _, err = rc.client.Describe(rc.u)
+		close(doneDescribe)
+	}()
+	select {
+	case <-doneDescribe:
+		// Describe returned before timeout
+	case <-time.After(timeout):
+		return errors.New("rtsp client Describe request timed out")
+	}
 	if err != nil {
 		return err
 	}
@@ -180,7 +201,18 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	if track == nil {
 		return errors.New("MJPEG track not found")
 	}
-	_, err = rc.client.Setup(track, baseURL, 0, 0)
+	// send Setup to server URL and timeout if you can't
+	doneSetup := make(chan struct{})
+	go func() {
+		_, err = rc.client.Setup(track, baseURL, 0, 0)
+		close(doneSetup)
+	}()
+	select {
+	case <-doneSetup:
+		// Setup returned before timeout
+	case <-time.After(timeout):
+		return errors.New("rtsp client Setup request timed out")
+	}
 	if err != nil {
 		return err
 	}
