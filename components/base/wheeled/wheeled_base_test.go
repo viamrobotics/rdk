@@ -9,9 +9,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
@@ -31,11 +34,16 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := &Config{
-		WidthMM:              100,
-		WheelCircumferenceMM: 1000,
-		Left:                 []string{"fl-m", "bl-m"},
-		Right:                []string{"fr-m", "br-m"},
+	cfg := config.Component{
+		Name:  "test",
+		Type:  base.Subtype.ResourceSubtype,
+		Model: resource.Model{Name: "wheeled_base"},
+		ConvertedAttributes: &AttrConfig{
+			WidthMM:              100,
+			WheelCircumferenceMM: 1000,
+			Left:                 []string{"fl-m", "bl-m"},
+			Right:                []string{"fr-m", "br-m"},
+		},
 	}
 	deps, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
@@ -54,19 +62,19 @@ func TestWheelBaseMath(t *testing.T) {
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
-		rpm, rotations := base.straightDistanceToMotorInfo(1000, 1000)
+		rpm, rotations := base.straightDistanceToMotorInputs(1000, 1000)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInfo(-1000, 1000)
+		rpm, rotations = base.straightDistanceToMotorInputs(-1000, 1000)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInfo(1000, -1000)
+		rpm, rotations = base.straightDistanceToMotorInputs(1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
+		rpm, rotations = base.straightDistanceToMotorInputs(-1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
 	})
@@ -285,12 +293,12 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// empty config
-	cfg := &Config{}
+	cfg := &AttrConfig{}
 	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// invalid config
-	cfg = &Config{
+	cfg = &AttrConfig{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -300,17 +308,22 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// valid config
-	cfg = &Config{
-		WidthMM:              100,
-		WheelCircumferenceMM: 1000,
-		Left:                 []string{"fl-m", "bl-m"},
-		Right:                []string{"fr-m", "br-m"},
+	compCfg := config.Component{
+		Name:  "test",
+		Type:  base.Subtype.ResourceSubtype,
+		Model: resource.Model{Name: "wheeled_base"},
+		ConvertedAttributes: &AttrConfig{
+			WidthMM:              100,
+			WheelCircumferenceMM: 1000,
+			Left:                 []string{"fl-m", "bl-m"},
+			Right:                []string{"fr-m", "br-m"},
+		},
 	}
-	deps, err := cfg.Validate("path")
+	deps, err := compCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, logger)
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, compCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -320,7 +333,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	cfg := &Config{}
+	cfg := &AttrConfig{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")
