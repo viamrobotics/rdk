@@ -50,7 +50,7 @@ const viewCamera = async (isOn: boolean) => {
       throw new Error('expected event stream to exist');
     }
     // Ignore event if received for the wrong stream, in the case of multiple cameras
-    if(eventStream.id !== props.cameraName){
+    if (eventStream.id !== props.cameraName) {
       return;
     }
     videoEl.srcObject = eventStream;
