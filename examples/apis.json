@@ -11,14 +11,14 @@
         "gantry": "Lengths",
         "gripper": "IsMoving",
         "input_controller": "Controls",
-        "movement_sensor": "Properties",
+        "movement_sensor": "LinearAcceleration",
         "pose_tracker": "Poses",
         "motion": "GetPose",
         "vision": "DetectorNames"
     },
     "args": {
         "base": "context.Background()",
-        "board": "",
+        "board": "\"16\"",
         "camera": "context.Background()",
         "motor": "context.Background()",
         "sensor": "context.Background(), map[string]interface{}{}",

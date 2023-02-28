@@ -9,6 +9,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+
+	rprotoutils "go.viam.com/rdk/protoutils"
 )
 
 // client implements ShellServiceClient.
@@ -111,4 +113,8 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 	})
 
 	return input, output, nil
+}
+
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

@@ -143,7 +143,7 @@ func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string
 	return pInFrame, nil
 }
 
-// GetInternalState returns the internal state of a slam algo. Currently the internal state of cartogropher.
+// GetInternalState returns the internal state of a slam algo. Currently the internal state of cartographer.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, slamSvc.dataCount)))
 	slamSvc.logger.Debug("Reading " + path)
@@ -152,6 +152,18 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 		return nil, err
 	}
 	return data, nil
+}
+
+// GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
+// map.
+func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	return nil, errors.New("unimplemented stub")
+}
+
+// GetInternalStateStream returns a callback function which will return the next chunk of the current internal
+// state of the slam algo.
+func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	return nil, errors.New("unimplemented stub")
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting
