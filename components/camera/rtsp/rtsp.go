@@ -13,6 +13,7 @@ import (
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/base"
 	"github.com/aler9/gortsplib/v2/pkg/liberrors"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -168,7 +169,10 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	}
 	mjpegFormat, mjpegDecoder := mjpegDecoding()
 
-	tracks, baseURL, _, err := rc.client.Describe(rc.u)
+	var tracks media.Medias
+	var baseURL *url.URL
+	timer := time.NewTimer(time.Duration(10 * time.Second))
+	tracks, baseURL, _, err = rc.client.Describe(rc.u)
 	if err != nil {
 		return err
 	}

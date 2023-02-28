@@ -2,6 +2,7 @@ package rtsp
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -32,12 +33,15 @@ func startFFMPEG(outputURL string, streamStarted chan struct{}) context.CancelFu
 
 func TestRTSPCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	// set up the rtsp simple server running on rtsp://localhost:8598/mystream
-	outputURL := "rtsp://127.0.0.1:8598/mystream"
+	host := "127.0.0.1"
+	port := "32512"
+	// set up the rtsp simple server running on rtsp://localhost:port/mystream
+	outputURL := fmt.Sprintf("rtsp://%s:%s/mystream", host, port)
 	configLoc := []string{artifact.MustPath("components/camera/rtsp/rtsp-simple-server.yml")}
 	s, ok := server.New(configLoc)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer s.Close()
+	// set up the video to stream from the server
 	streamStarted := make(chan struct{})
 	cancel := startFFMPEG(outputURL, streamStarted)
 	defer cancel()
@@ -45,7 +49,7 @@ func TestRTSPCamera(t *testing.T) {
 	rtspConf := &Attrs{Address: outputURL}
 	<-streamStarted
 	rtspCam, err := NewRTSPCamera(context.Background(), rtspConf, logger)
-	// keep trying until RTSP server is running
+	// keep trying until RTSP camera is running
 	for err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "400")) {
 		rtspCam, err = NewRTSPCamera(context.Background(), rtspConf, logger)
 	}
