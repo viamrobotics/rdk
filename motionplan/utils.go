@@ -1,6 +1,7 @@
 package motionplan
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -113,4 +114,31 @@ func stepsToNodes(steps [][]referenceframe.Input) []node {
 		nodes = append(nodes, &basicNode{step})
 	}
 	return nodes
+}
+
+type resultPromise struct {
+	steps  [][]referenceframe.Input
+	future chan *rrtPlanReturn
+}
+
+func (r *resultPromise) result(ctx context.Context) ([][]referenceframe.Input, error) {
+	if r.steps != nil && len(r.steps) > 0 {
+		return r.steps, nil
+	}
+	// wait for a context cancel or a valid channel result
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		select {
+		case planReturn := <-r.future:
+			if planReturn.err() != nil {
+				return nil, planReturn.err()
+			}
+			return planReturn.toInputs(), nil
+		default:
+		}
+	}
 }
