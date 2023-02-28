@@ -1,6 +1,7 @@
 package builtin_test
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
@@ -27,9 +29,11 @@ const (
 
 // Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
+	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	test.That(t, pcd, test.ShouldNotBeNil)
+
+	pointcloud, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
 	t.Logf("Pointcloud points: %v", pointcloud.Size())
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }

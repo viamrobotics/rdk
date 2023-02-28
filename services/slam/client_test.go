@@ -7,12 +7,14 @@ import (
 	"image"
 	"math"
 	"net"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -33,9 +35,10 @@ const (
 	nameSucc               = "viam"
 	nameFail               = "maiv"
 	chunkSizeInternalState = 2
+	chunkSizePointCloud    = 100
 )
 
-func TestWorkingClient(t *testing.T) {
+func TestClientWorkingService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -45,6 +48,10 @@ func TestWorkingClient(t *testing.T) {
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
 	pcSucc := &vision.Object{}
 	pcSucc.PointCloud = pointcloud.New()
+	pcdPath := artifact.MustPath("slam/mock_lidar/0.pcd")
+	pcd, err := os.ReadFile(pcdPath)
+	test.That(t, err, test.ShouldBeNil)
+
 	err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 	imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -70,14 +77,27 @@ func TestWorkingClient(t *testing.T) {
 		return mimeType, imSucc, nil, nil
 	}
 
+	workingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		reader := bytes.NewReader(pcd)
+		clientBuffer := make([]byte, chunkSizePointCloud)
+		f := func() ([]byte, error) {
+			n, err := reader.Read(clientBuffer)
+			if err != nil {
+				return nil, err
+			}
+			return clientBuffer[:n], err
+		}
+		return f, nil
+	}
+
 	workingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
 		return internalStateSucc, nil
 	}
 
 	workingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(internalStateSucc)
+		clientBuffer := make([]byte, chunkSizeInternalState)
 		f := func() ([]byte, error) {
-			clientBuffer := make([]byte, chunkSizeInternalState)
 			n, err := reader.Read(clientBuffer)
 			if err != nil {
 				return nil, err
@@ -140,15 +160,21 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
+		// test get point cloud map stream
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingSLAMClient, nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
+		testComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
 		// test get internal state stream
-		fullBytes, err := slam.GetInternalStateFull(context.Background(), workingSLAMClient, nameSucc)
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingSLAMClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
+		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -174,15 +200,21 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get point cloud map stream
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
+		testComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
 		// test get internal state stream
-		fullBytes, err := slam.GetInternalStateFull(context.Background(), workingDialedClient, nameSucc)
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingDialedClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
+		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
 		// test do command
 		workingSLAMService.DoCommandFunc = generic.EchoFunc
@@ -217,15 +249,21 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, pc, test.ShouldNotBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get point cloud map stream
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
+		testComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, internalState, test.ShouldResemble, internalStateSucc)
 
 		// test get internal state stream
-		fullBytes, err := slam.GetInternalStateFull(context.Background(), workingDialedClient, nameSucc)
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingDialedClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fullBytes, test.ShouldResemble, internalStateSucc)
+		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -261,6 +299,13 @@ func TestFailingClient(t *testing.T) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
 	}
 
+	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		f := func() ([]byte, error) {
+			return nil, errors.New("failure during callback")
+		}
+		return f, errors.New("failure during get pointcloud map stream")
+	}
+
 	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
 		return nil, errors.New("failure to get internal state")
 	}
@@ -287,6 +332,13 @@ func TestFailingClient(t *testing.T) {
 
 		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
 
+		// context cancel
+		ctx := context.Background()
+		cancelCtx, cancelFunc := context.WithCancel(ctx)
+		cancelFunc()
+		_, err = failingSLAMClient.GetPointCloudMapStream(cancelCtx, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
+
 		// test get position
 		p, err := failingSLAMClient.Position(context.Background(), nameFail, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
@@ -306,18 +358,30 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
 
+		// test get pointcloud map stream
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map stream")
+		test.That(t, fullBytesPCD, test.ShouldBeNil)
+
 		// test get internal state
 		internalState, err := failingSLAMClient.GetInternalState(context.Background(), nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
 		test.That(t, internalState, test.ShouldBeNil)
 
 		// test get internal state stream
-		fullBytes, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient, nameFail)
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get internal state stream")
-		test.That(t, fullBytes, test.ShouldBeNil)
+		test.That(t, fullBytesInternalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+
+	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+		f := func() ([]byte, error) {
+			return nil, errors.New("failure during callback")
+		}
+		return f, nil
+	}
 
 	failingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
@@ -332,11 +396,31 @@ func TestFailingClient(t *testing.T) {
 
 		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
 
-		// test get internal state stream
-		fullBytes, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient, nameFail)
+		// test get pointcloud map stream
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
-		test.That(t, fullBytes, test.ShouldBeNil)
+		test.That(t, fullBytesPCD, test.ShouldBeNil)
+
+		// test get internal state stream
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
+		test.That(t, fullBytesInternalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+}
+
+// Helper function for checking GetPointCloudMapFull response along with associated pcd validity checks.
+func testComparePointCloudsFromPCDs(t *testing.T, pcdInput, pcdOutput []byte) {
+	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcdInput))
+	test.That(t, err, test.ShouldBeNil)
+	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(pcdOutput))
+	test.That(t, err, test.ShouldBeNil)
+
+	pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, dOutput, test.ShouldResemble, d)
+		return true
 	})
 }
