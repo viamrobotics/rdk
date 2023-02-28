@@ -355,13 +355,13 @@ func (adxl *adxl345) setRelevantRegisters(ctx context.Context) {
 }
 func (adxl *adxl345) getAxes(x bool, y bool, z bool) byte {
 	var tap_axes byte = 0
-	if x == true {
+	if x {
 		tap_axes += X
 	}
-	if y == true {
+	if y {
 		tap_axes += Y
 	}
-	if z == true {
+	if z {
 		tap_axes += Z
 	}
 	return tap_axes
@@ -370,17 +370,17 @@ func (adxl *adxl345) getAxes(x bool, y bool, z bool) byte {
 func (adxl *adxl345) getRelevantRegisterValues() map[byte]byte {
 	relevantRegisterValues := map[byte]byte{}
 
-	tapAxesSpecified := adxl.tapX == true || adxl.tapY == true || adxl.tapZ == true
+	tapAxesSpecified := adxl.tapX || adxl.tapY || adxl.tapZ
 	if tapAxesSpecified {
 		relevantRegisterValues[TAP_AXES] = adxl.getAxes(adxl.tapX, adxl.tapY, adxl.tapZ)
 	}
 
 	var actInactAxes byte = 0
-	activityAxesSpecified := adxl.actX == true || adxl.actY == true || adxl.actZ == true
+	activityAxesSpecified := adxl.actX || adxl.actY || adxl.actZ
 	if activityAxesSpecified {
 		actInactAxes = adxl.getAxes(adxl.actX, adxl.actY, adxl.actZ)
 	}
-	inactivityAxesSpecified := adxl.inactX == true || adxl.inactY == true || adxl.inactZ == true
+	inactivityAxesSpecified := adxl.inactX || adxl.inactY || adxl.inactZ
 	if inactivityAxesSpecified {
 		actInactAxes += (adxl.getAxes(adxl.inactX, adxl.inactY, adxl.inactZ) << 4)
 	}
