@@ -70,7 +70,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createWheeledBase(ctx, deps, cfg, logger)
+			return CreateWheeledBase(ctx, deps, cfg, logger)
 		},
 	}
 
@@ -97,7 +97,6 @@ type wheeledBase struct {
 
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
-	ctx    context.Context
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
@@ -333,8 +332,8 @@ func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
-// createWheeledBase returns a new wheeled base defined by the given config.
-func createWheeledBase(
+// CreateWheeledBase returns a new wheeled base defined by the given config.
+func CreateWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
 	cfg config.Component,
@@ -346,7 +345,6 @@ func createWheeledBase(
 	}
 
 	base := &wheeledBase{
-		ctx:                  ctx,
 		widthMm:              attr.WidthMM,
 		wheelCircumferenceMm: attr.WheelCircumferenceMM,
 		spinSlipFactor:       attr.SpinSlipFactor,
