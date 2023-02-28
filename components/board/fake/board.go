@@ -372,6 +372,10 @@ type GPIOPin struct {
 // Set sets the pin to either low or high.
 func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.high = high
+	if !high {
+		gp.pwm = 0
+		gp.pwmFreq = 0
+	}
 	return nil
 }
 
