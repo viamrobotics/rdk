@@ -100,7 +100,7 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	case modelPath != "":
 		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return empty one with 0 dof and 0 spatial transformation
+		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
 		model = referenceframe.NewSimpleModel(cfg.Name)
 	}
 	if err != nil {
