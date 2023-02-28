@@ -531,7 +531,7 @@ func TestXArm6Locations(t *testing.T) {
 	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("location check1", func(t *testing.T) {
+	t.Run("home location check", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
 			0.000000000000000000000000,
@@ -560,13 +560,14 @@ func TestXArm6Locations(t *testing.T) {
 		}
 
 		in := make([]referenceframe.Input, 6)
-		geoms, _ := notReal.ModelFrame().Geometries(in)
+		geoms, err := notReal.ModelFrame().Geometries(in)
+		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b, outMap := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, outMap, test.ShouldBeEmpty)
 	})
-	t.Run("location check2", func(t *testing.T) {
+	t.Run("location check1", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
 			0.000000000000000000000000,
@@ -595,13 +596,14 @@ func TestXArm6Locations(t *testing.T) {
 		}
 
 		in := []referenceframe.Input{{Value: 0}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}}
-		geoms, _ := notReal.ModelFrame().Geometries(in)
+		geoms, err := notReal.ModelFrame().Geometries(in)
+		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b, outMap := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, outMap, test.ShouldBeEmpty)
 	})
-	t.Run("location check3", func(t *testing.T) {
+	t.Run("location check2", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
 			0.000000000000000000000000,
@@ -630,7 +632,8 @@ func TestXArm6Locations(t *testing.T) {
 		}
 
 		in := []referenceframe.Input{{Value: 0}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}}
-		geoms, _ := notReal.ModelFrame().Geometries(in)
+		geoms, err := notReal.ModelFrame().Geometries(in)
+		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b, outMap := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
@@ -651,7 +654,7 @@ func TestUR5ELocations(t *testing.T) {
 	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("location check1", func(t *testing.T) {
+	t.Run("home location check", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:wrist_1_link"] = r3.Vector{
 			-817.200000000000045474735089,
@@ -685,14 +688,15 @@ func TestUR5ELocations(t *testing.T) {
 		}
 
 		in := make([]referenceframe.Input, 6)
-		geoms, _ := notReal.ModelFrame().Geometries(in)
+		geoms, err := notReal.ModelFrame().Geometries(in)
+		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b, outMap := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	//nolint:dupl
-	t.Run("location check2", func(t *testing.T) {
+	t.Run("location check1", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:wrist_2_link"] = r3.Vector{
 			-821.990564374563746241619810,
@@ -726,14 +730,15 @@ func TestUR5ELocations(t *testing.T) {
 		}
 
 		in := []referenceframe.Input{{Value: 0}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}}
-		geoms, _ := notReal.ModelFrame().Geometries(in)
+		geoms, err := notReal.ModelFrame().Geometries(in)
+		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b, outMap := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	//nolint:dupl
-	t.Run("location check3", func(t *testing.T) {
+	t.Run("location check2", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:wrist_1_link"] = r3.Vector{
 			-777.768417430459294337197207,
@@ -767,7 +772,8 @@ func TestUR5ELocations(t *testing.T) {
 		}
 
 		in := []referenceframe.Input{{Value: 0}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}}
-		geoms, _ := notReal.ModelFrame().Geometries(in)
+		geoms, err := notReal.ModelFrame().Geometries(in)
+		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b, outMap := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
