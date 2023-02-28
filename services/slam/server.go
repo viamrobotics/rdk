@@ -202,6 +202,8 @@ func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStre
 	if err != nil {
 		return err
 	}
+
+	// Channel buffer can be used here to optimize for latency
 	for {
 		rawChunk, err := f()
 
