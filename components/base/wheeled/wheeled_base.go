@@ -116,11 +116,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	if base.orientationSensor != nil {
 		base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
 		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
-	} else {
-		base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
-		return base.spin(ctx, angleDeg, degsPerSec)
 	}
-
+	base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
+	return base.spin(ctx, angleDeg, degsPerSec)
 }
 
 func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64) error {
@@ -137,7 +135,6 @@ func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64)
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
-
 }
 
 func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
@@ -150,14 +147,13 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 	errCounter := 0
 	targetYaw := addAnglesInDomain(angleDeg, currYaw)
-	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) //~rename
+	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) // ~rename
 
 	if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
 		return err
 	}
 
 	for {
-
 		select {
 		case <-ctx.Done():
 			return nil
@@ -176,9 +172,8 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 				break
 			}
 			return err
-		} else {
-			errCounter = 0
 		}
+		errCounter = 0
 
 		errAngle := targetYaw - currYaw
 
@@ -191,7 +186,6 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 			}
 			break
 		}
-
 	}
 	return nil
 }
@@ -207,7 +201,7 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 
 // TODO: RSDK-1698, considers dealing with imus that
 // return values between -180 to 180 and 0-360 (probably components using our sensor filters).
-// current tests only consider -179 to 179 domain logic
+// current tests only consider -179 to 179 domain logic.
 func addAnglesInDomain(target, current float64) float64 {
 	angle := target + current
 	// reduce the angle
