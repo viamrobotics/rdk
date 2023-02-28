@@ -65,7 +65,7 @@ func TestRTSPCamera(t *testing.T) {
 			cancel()
 			serverClose()
 			if tries >= 5 {
-				t.Error("RTSP server failed to build 5 times in a row")
+				t.Errorf("RTSP server failed to build 5 times in a row: %v", err)
 			}
 			tries++
 			continue
