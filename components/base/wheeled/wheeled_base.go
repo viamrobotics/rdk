@@ -360,6 +360,10 @@ func CreateWheeledBase(
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
 		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			base.logger.Debugf("motor %s can report its position for base", name)
+		}
 		base.left = append(base.left, m)
 	}
 
@@ -367,6 +371,10 @@ func CreateWheeledBase(
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
+		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			base.logger.Debugf("motor %s can report its position for base", name)
 		}
 		base.right = append(base.right, m)
 	}
