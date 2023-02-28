@@ -35,6 +35,7 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
+	MovementSensor       []string `json:"movement_sensor"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -64,6 +65,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 
 	deps = append(deps, config.Left...)
 	deps = append(deps, config.Right...)
+	deps = append(deps, config.MovementSensor...)
 
 	return deps, nil
 }
@@ -466,6 +468,17 @@ func CreateWheeledBase(
 		base.right = append(base.right, m)
 	}
 
+	for _, msName := range cfg.MovementSensor {
+		ms, err := movementsensor.FromDependencies(deps, msName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
+		}
+		base.movementSensors = append(base.movementSensors, ms)
+		props, err := ms.Properties(ctx, nil)
+		if props.OrientationSupported && err == nil {
+			base.orientationSensor = ms
+		}
+	}
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)
 
