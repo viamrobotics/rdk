@@ -107,7 +107,18 @@ func TestMotorABPWM(t *testing.T) {
 
 		test.That(t, m.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 
+		errChan := make(chan error)
+		go func() {
+			goForErr := m.GoFor(ctx, -50, 100, nil)
+			errChan <- goForErr
+		}()
+		time.Sleep(20 * time.Millisecond)
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
+		receivedErr := <-errChan
+		test.That(t, receivedErr, test.ShouldBeNil)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 	})
 
 	t.Run("motor (A/B/PWM) Power testing", func(t *testing.T) {
@@ -185,7 +196,17 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
 		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
+		errChan := make(chan error)
+		go func() {
+			goForErr := m.GoFor(ctx, 50, 100, nil)
+			errChan <- goForErr
+		}()
+		time.Sleep(20 * time.Millisecond)
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
+		receivedErr := <-errChan
+		test.That(t, receivedErr, test.ShouldBeNil)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 	})
 
 	t.Run("motor (DIR/PWM) Power testing", func(t *testing.T) {
@@ -239,6 +260,7 @@ func TestMotorAB(t *testing.T) {
 	})
 
 	t.Run("motor (A/B) Off testing", func(t *testing.T) {
+		test.That(t, m.SetPower(ctx, .5, nil), test.ShouldBeNil)
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
 		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
 		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
