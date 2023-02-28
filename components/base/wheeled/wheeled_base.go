@@ -35,32 +35,32 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.WidthMM == 0 {
+	if cfg.WidthMM == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "width_mm")
 	}
 
-	if config.WheelCircumferenceMM == 0 {
+	if cfg.WheelCircumferenceMM == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
 	}
 
-	if len(config.Left) == 0 {
+	if len(cfg.Left) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "left")
 	}
-	if len(config.Right) == 0 {
+	if len(cfg.Right) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "right")
 	}
 
-	if len(config.Left) != len(config.Right) {
+	if len(cfg.Left) != len(cfg.Right) {
 		return nil, utils.NewConfigValidationError(path,
 			fmt.Errorf("left and right need to have the same number of motors, not %d vs %d",
-				len(config.Left), len(config.Right)))
+				len(cfg.Left), len(cfg.Right)))
 	}
 
-	deps = append(deps, config.Left...)
-	deps = append(deps, config.Right...)
+	deps = append(deps, cfg.Left...)
+	deps = append(deps, cfg.Right...)
 
 	return deps, nil
 }
@@ -70,7 +70,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, cfg, logger)
+			return createWheeledBase(ctx, deps, cfg, logger)
 		},
 	}
 
@@ -97,6 +97,7 @@ type wheeledBase struct {
 
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
+	ctx    context.Context
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
@@ -332,8 +333,8 @@ func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
-// CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(
+// createWheeledBase returns a new wheeled base defined by the given config.
+func createWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
 	cfg config.Component,
@@ -345,6 +346,7 @@ func CreateWheeledBase(
 	}
 
 	base := &wheeledBase{
+		ctx:                  ctx,
 		widthMm:              attr.WidthMM,
 		wheelCircumferenceMm: attr.WheelCircumferenceMM,
 		spinSlipFactor:       attr.SpinSlipFactor,
