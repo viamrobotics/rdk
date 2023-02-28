@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -38,31 +39,31 @@ const (
 )
 
 // Create mock server that satisfies the pb.SLAMService_GetPointCloudMapStreamServer contract.
-type PointCloudStreamServerMock struct {
+type pointCloudStreamServerMock struct {
 	grpc.ServerStream
 	rawBytes []byte
 }
-type InternalStateStreamServerMock struct {
+type internalStateStreamServerMock struct {
 	grpc.ServerStream
 	rawBytes []byte
 }
 
-func makePointCloudStreamServerMock() *PointCloudStreamServerMock {
-	return &PointCloudStreamServerMock{}
+func makePointCloudStreamServerMock() *pointCloudStreamServerMock {
+	return &pointCloudStreamServerMock{}
 }
 
 // Concatenate received messages into single slice.
-func (m *PointCloudStreamServerMock) Send(chunk *pb.GetPointCloudMapStreamResponse) error {
+func (m *pointCloudStreamServerMock) Send(chunk *pb.GetPointCloudMapStreamResponse) error {
 	m.rawBytes = append(m.rawBytes, chunk.PointCloudPcdChunk...)
 	return nil
 }
 
-func makeInternalStateStreamServerMock() *InternalStateStreamServerMock {
-	return &InternalStateStreamServerMock{}
+func makeInternalStateStreamServerMock() *internalStateStreamServerMock {
+	return &internalStateStreamServerMock{}
 }
 
 // Concatenate received messages into single slice.
-func (m *InternalStateStreamServerMock) Send(chunk *pb.GetInternalStateStreamResponse) error {
+func (m *internalStateStreamServerMock) Send(chunk *pb.GetInternalStateStreamResponse) error {
 	m.rawBytes = append(m.rawBytes, chunk.InternalStateChunk...)
 	return nil
 }
@@ -75,6 +76,9 @@ func TestWorkingServer(t *testing.T) {
 	injectSubtypeSvc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	slamServer := slam.NewServer(injectSubtypeSvc)
+	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
+	pcd, err := os.ReadFile(cloudPath)
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("working get position functions", func(t *testing.T) {
 		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
@@ -144,10 +148,6 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("working get pointcloud map stream function", func(t *testing.T) {
-		cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
-		pcd, err := os.ReadFile(cloudPath)
-		test.That(t, err, test.ShouldBeNil)
-
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			serverBuffer := make([]byte, chunkSizeServer)
@@ -157,9 +157,6 @@ func TestWorkingServer(t *testing.T) {
 					return nil, err
 				}
 
-				if _, err = reader.Seek(0, io.SeekCurrent); err != nil {
-					return nil, err
-				}
 				return serverBuffer[:n], err
 			}
 
@@ -171,7 +168,7 @@ func TestWorkingServer(t *testing.T) {
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcd)
-		testComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcd)
+		testhelper.TestComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcd)
 	})
 
 	t.Run("working get internal state functions", func(t *testing.T) {
@@ -230,13 +227,20 @@ func TestWorkingServer(t *testing.T) {
 		}
 
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+			reader := bytes.NewReader(pcd)
+			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
-				return []byte{}, io.EOF
+				n, err := reader.Read(serverBuffer)
+				if err != nil {
+					return nil, err
+				}
+
+				return serverBuffer[:n], err
 			}
 			return f, nil
 		}
 
-		// Get position
+		// Get position test to test unary endpoint
 		reqPos := &pb.GetPositionRequest{Name: testSlamServiceName}
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
@@ -247,16 +251,20 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, referenceframe.ProtobufToPoseInFrame(respPos.Pose).Parent(), test.ShouldEqual, pSucc.Parent())
 
-		// Get pointcloud map stream
+		// Get pointcloud map stream test to test streaming endpoint
 		reqGetPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 		mockServer1 := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer1)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mockServer1.rawBytes, test.ShouldResemble, pcd)
+		testhelper.TestComparePointCloudsFromPCDs(t, mockServer1.rawBytes, pcd)
 
 		reqGetPointCloudMapStream = &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName2}
 		mockServer2 := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer2)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mockServer2.rawBytes, test.ShouldResemble, pcd)
+		testhelper.TestComparePointCloudsFromPCDs(t, mockServer2.rawBytes, pcd)
 	})
 }
 
@@ -306,9 +314,7 @@ func TestFailingServer(t *testing.T) {
 			return f, errors.New("failure to get pointcloud map")
 		}
 
-		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{
-			Name: testSlamServiceName,
-		}
+		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 
 		mockServer := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
@@ -332,9 +338,7 @@ func TestFailingServer(t *testing.T) {
 			return nil, errors.New("failure to get internal state")
 		}
 
-		req := &pb.GetInternalStateRequest{
-			Name: testSlamServiceName,
-		}
+		req := &pb.GetInternalStateRequest{Name: testSlamServiceName}
 		resp, err := slamServer.GetInternalState(context.Background(), req)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
 		test.That(t, resp, test.ShouldBeNil)
@@ -349,9 +353,7 @@ func TestFailingServer(t *testing.T) {
 			return f, errors.New("failure to get internal state")
 		}
 
-		req := &pb.GetInternalStateStreamRequest{
-			Name: testSlamServiceName,
-		}
+		req := &pb.GetInternalStateStreamRequest{Name: testSlamServiceName}
 		mockServer := makeInternalStateStreamServerMock()
 		err := slamServer.GetInternalStateStream(req, mockServer)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
@@ -411,13 +413,13 @@ func TestFailingServer(t *testing.T) {
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
 	slamServer = slam.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
-		// Get position
+		// test unary endpoint Get position
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
 		resp, err := slamServer.GetPosition(context.Background(), reqGetPositionRequest)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
 
-		// Get pointcloud map stream
+		// test streaming endpoint Get pointcloud map stream
 		mockStreamServer := makePointCloudStreamServerMock()
 		reqGetPointCloudMapStreamRequest := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStreamRequest, mockStreamServer)

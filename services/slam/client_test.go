@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -164,7 +165,7 @@ func TestClientWorkingService(t *testing.T) {
 		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingSLAMClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
-		testComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
 		// test get internal state
 		internalState, err := workingSLAMClient.GetInternalState(context.Background(), nameSucc)
@@ -204,7 +205,7 @@ func TestClientWorkingService(t *testing.T) {
 		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
-		testComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -253,7 +254,7 @@ func TestClientWorkingService(t *testing.T) {
 		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient, nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
-		testComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
 		// test get internal state
 		internalState, err := workingDialedClient.GetInternalState(context.Background(), nameSucc)
@@ -300,10 +301,7 @@ func TestFailingClient(t *testing.T) {
 	}
 
 	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
-		f := func() ([]byte, error) {
-			return nil, errors.New("failure during callback")
-		}
-		return f, errors.New("failure during get pointcloud map stream")
+		return nil, errors.New("failure during get pointcloud map stream")
 	}
 
 	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) ([]byte, error) {
@@ -311,10 +309,7 @@ func TestFailingClient(t *testing.T) {
 	}
 
 	failingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
-		f := func() ([]byte, error) {
-			return nil, errors.New(" failure during callback")
-		}
-		return f, errors.New("failure during get internal state stream")
+		return nil, errors.New("failure during get internal state stream")
 	}
 
 	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService})
@@ -332,11 +327,13 @@ func TestFailingClient(t *testing.T) {
 
 		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
 
-		// context cancel
+		// testing context cancel for streaming apis
 		ctx := context.Background()
 		cancelCtx, cancelFunc := context.WithCancel(ctx)
 		cancelFunc()
 		_, err = failingSLAMClient.GetPointCloudMapStream(cancelCtx, nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
+		_, err = failingSLAMClient.GetInternalStateStream(cancelCtx, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
 
 		// test get position
@@ -390,7 +387,7 @@ func TestFailingClient(t *testing.T) {
 		return f, nil
 	}
 
-	t.Run("client test with failed callback function", func(t *testing.T) {
+	t.Run("client test with failed streaming callback function", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -407,20 +404,5 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, fullBytesInternalState, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
-}
-
-// Helper function for checking GetPointCloudMapFull response along with associated pcd validity checks.
-func testComparePointCloudsFromPCDs(t *testing.T, pcdInput, pcdOutput []byte) {
-	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcdInput))
-	test.That(t, err, test.ShouldBeNil)
-	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(pcdOutput))
-	test.That(t, err, test.ShouldBeNil)
-
-	pcInput.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		dOutput, ok := pcOutput.At(p.X, p.Y, p.Z)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, dOutput, test.ShouldResemble, d)
-		return true
 	})
 }

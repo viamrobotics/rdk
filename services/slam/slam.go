@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -102,6 +103,8 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 
 // GetPointCloudMapFull concatenates the streaming responses from GetPointCloudMapStream into a full point cloud.
 func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::GetPointCloudMapFull")
+	defer span.End()
 	callback, err := slamSvc.GetPointCloudMapStream(ctx, name)
 	if err != nil {
 		return nil, err
@@ -109,8 +112,11 @@ func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]
 	return helperConcatenateChunksToFull(callback)
 }
 
-// GetInternalStateFull makes a GetInternalStateStream call on a given slam service and returns the combined serialized state.
+// GetInternalStateFull concatenates the streaming responses from GetInternalStateStream into
+// the internal serialized state of the slam algorithm.
 func GetInternalStateFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::GetInternalStateFull")
+	defer span.End()
 	callback, err := slamSvc.GetInternalStateStream(ctx, name)
 	if err != nil {
 		return nil, err

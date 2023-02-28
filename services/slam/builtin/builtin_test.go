@@ -1062,9 +1062,6 @@ func TestEndpointFailures(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting the internal state from the SLAM client")
 	test.That(t, internalState, test.ShouldBeNil)
 
-	// fullBytes, err := slam.GetPointCloudMapFull(context.Background(), svc, "hi")
-	// test.That(t, err.Error(), test.ShouldContainSubstring, "Unimplemented desc")
-	// test.That(t, fullBytes, test.ShouldBeNil)
 	callbackPointCloud, err := svc.GetPointCloudMapStream(context.Background(), "hi")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, callbackPointCloud, test.ShouldNotBeNil)
