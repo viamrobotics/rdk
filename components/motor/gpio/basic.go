@@ -3,6 +3,7 @@ package gpio
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -93,6 +94,7 @@ var _ = motor.LocalMotor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
+	mu                       sync.Mutex
 	Board                    board.Board
 	A, B, Direction, PWM, En board.GPIOPin
 	EnablePinLow             board.GPIOPin
@@ -125,6 +127,7 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 }
 
 // setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
+// Anything calling setPWM MUST lock the motor's mutex prior.
 func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
@@ -150,6 +153,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		if m.PWM != nil {
 			errs = multierr.Combine(errs, m.PWM.Set(ctx, false, extra))
 		}
+		m.on = false
 		return errs
 	}
 
@@ -194,10 +198,11 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
-
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx, extra)
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if m.Direction != nil {
 		x := !math.Signbit(powerPct)
@@ -255,9 +260,11 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	m.mu.Lock()
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
+	m.mu.Unlock()
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -280,18 +287,23 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 
 // IsPowered returns if the motor is currently on or off.
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.on, m.powerPct, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
-	m.on = false
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.setPWM(ctx, 0, extra)
 }
 
 // IsMoving returns if the motor is currently on or off.
 func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.on, nil
 }
 
