@@ -99,6 +99,7 @@ type wheeledBase struct {
 	logger golog.Logger
 }
 
+// Spin commands a base to turn about its center at a angular speed and for a specific angle
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
@@ -119,6 +120,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
+// MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
@@ -134,11 +136,12 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	}
 
 	// Straight math
-	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
+	rpm, rotations := base.straightDistanceToMotorInputs(distanceMm, mmPerSec)
 
 	return base.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
+// runsAll the base motors in parallel with the required speeds and rotations
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -195,6 +198,7 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 	return leftMotor, rightMotor
 }
 
+// SetVelocity commands the base to move at the input linear and angular velocities
 func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
@@ -206,6 +210,7 @@ func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vec
 	return base.runAll(ctx, l, 0, r, 0)
 }
 
+// SetPower commands the base motors to run at powers correspoinding to input linear and angular powers
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
@@ -244,7 +249,7 @@ func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float6
 	return rpm, revolutions
 }
 
-// return rpms left, right.
+// calcualtes wheel rpms from overall base linear and angular movement velocity inputs.
 func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, float64) {
 	// Base calculations
 	v := mmPerSec
@@ -262,7 +267,9 @@ func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, fl
 	return rpmL, rpmR
 }
 
-func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec float64) (float64, float64) {
+// calculates the motor revolutions and speeds that correspond to the reuired distance and linear speeds
+func (base *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
+	// takes in base speed and distance to caluclate motor rpm and total rotations
 	rotations := float64(distanceMm) / float64(base.wheelCircumferenceMm)
 
 	rotationsPerSec := mmPerSec / float64(base.wheelCircumferenceMm)
@@ -271,6 +278,8 @@ func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec fl
 	return rpm, rotations
 }
 
+// WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on
+// TODO: Audit in  RSDK-1880
 func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
@@ -303,6 +312,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	}
 }
 
+// Stop commands the base to stop moving
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
 	for _, m := range base.allMotors {
@@ -324,10 +334,12 @@ func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Close is called from the client to close the instance of the base
 func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx, nil)
 }
 
+// Width returns the width of the base as configured by the user
 func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }

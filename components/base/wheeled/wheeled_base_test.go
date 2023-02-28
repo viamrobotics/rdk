@@ -62,19 +62,19 @@ func TestWheelBaseMath(t *testing.T) {
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
-		rpm, rotations := base.straightDistanceToMotorInfo(1000, 1000)
+		rpm, rotations := base.straightDistanceToMotorInputs(1000, 1000)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInfo(-1000, 1000)
+		rpm, rotations = base.straightDistanceToMotorInputs(-1000, 1000)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInfo(1000, -1000)
+		rpm, rotations = base.straightDistanceToMotorInputs(1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
+		rpm, rotations = base.straightDistanceToMotorInputs(-1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
 	})
