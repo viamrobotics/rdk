@@ -85,7 +85,7 @@ type Service interface {
 	resource.Generic
 }
 
-// Helper function to grab all chunks from a streamed grpc endpoint.
+// Helper function that concatenates the chunks from a streamed grpc endpoint.
 func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
