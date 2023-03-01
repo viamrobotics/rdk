@@ -39,6 +39,7 @@ type Arguments struct {
 	WebRTC                       bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs   bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv                 bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
+	OutputTelemetry              bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 }
 
 type robotServer struct {
@@ -110,7 +111,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	}
 	cancel()
 
-	if argsParsed.Debug {
+	if argsParsed.OutputTelemetry {
 		exporter := perf.NewDevelopmentExporter()
 		if err := exporter.Start(); err != nil {
 			return err
