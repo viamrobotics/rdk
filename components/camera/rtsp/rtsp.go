@@ -167,7 +167,6 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 		return err
 	}
 	mjpegFormat, mjpegDecoder := mjpegDecoding()
-
 	tracks, baseURL, _, err := rc.client.Describe(rc.u)
 	if err != nil {
 		return err
