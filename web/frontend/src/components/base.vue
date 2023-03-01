@@ -218,7 +218,8 @@ const handleTabSelect = (controlMode: Tabs) => {
 };
 
 const handleVisibilityChange = () => {
-  if (document.visibilityState === 'hidden') {
+  // only issue the stop if there are keys pressed as to not interfere with commands issued by scripts/commands
+  if (document.visibilityState === 'hidden' && pressed.size > 0) {
     pressed.clear();
     stop();
   }
