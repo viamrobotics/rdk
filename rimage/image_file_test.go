@@ -71,6 +71,12 @@ func TestEncodeImage(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
 	})
+	t.Run("jpeg from png", func(t *testing.T) {
+		lazyImg := NewLazyEncodedImage(buf.Bytes(), utils.MimeTypePNG)
+		encoded, err := EncodeImage(context.Background(), lazyImg, utils.MimeTypeJPEG)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, encoded, test.ShouldResemble, bufJPEG.Bytes())
+	})
 }
 
 func TestRawRGBAEncodingDecoding(t *testing.T) {
