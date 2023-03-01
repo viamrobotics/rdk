@@ -5,9 +5,12 @@ package slam
 import (
 	"context"
 	"image"
+	"io"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -80,6 +83,45 @@ type Service interface {
 	GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	resource.Generic
+}
+
+// Helper function that concatenates the chunks from a streamed grpc endpoint.
+func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+		if errors.Is(err, io.EOF) {
+			return fullBytes, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		fullBytes = append(fullBytes, chunk...)
+	}
+}
+
+// GetPointCloudMapFull concatenates the streaming responses from GetPointCloudMapStream into a full point cloud.
+func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::GetPointCloudMapFull")
+	defer span.End()
+	callback, err := slamSvc.GetPointCloudMapStream(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return helperConcatenateChunksToFull(callback)
+}
+
+// GetInternalStateFull concatenates the streaming responses from GetInternalStateStream into
+// the internal serialized state of the slam algorithm.
+func GetInternalStateFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::GetInternalStateFull")
+	defer span.End()
+	callback, err := slamSvc.GetInternalStateStream(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return helperConcatenateChunksToFull(callback)
 }
 
 type reconfigurableSlam struct {
