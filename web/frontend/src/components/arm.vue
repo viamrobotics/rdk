@@ -74,8 +74,8 @@ const armModifyAllDoEndPosition = async () => {
 
   for (const newPiece of newPieces) {
     const [, getterSetter] = newPiece.endPosition;
-    const setter = `set${getterSetter}` as SetterKeys;
-    newPose[setter] = newPiece.endPositionValue;
+    const field = getterSetter!.toLowerCase() as SetterKeys;
+    newPose[field] = newPiece.endPositionValue;
   }
   try {
     await armClient.moveToPosition(newPose);
@@ -124,13 +124,12 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
   for (const fieldSetter of fieldSetters) {
     const [endPositionField] = fieldSetter;
     const endPositionValue = old[endPositionField] || 0;
-    const setter = `set${fieldSetter[1]}` as SetterKeys;
-    newPose[setter] = endPositionValue;
+    const field : SetterKeys = fieldSetter[1]!.toLowerCase() as SetterKeys;
+    newPose[field] = endPositionValue;
   }
 
-  const getter = `get${getterSetter}` as GetterKeys;
-  const setter = `set${getterSetter}` as SetterKeys;
-  newPose[setter] = (newPose[getter] + adjustedAmount);
+  const field : SetterKeys = getterSetter.toLowerCase() as SetterKeys;
+  newPose[field] += adjustedAmount;
 
   try {
     await armClient.moveToPosition(newPose);
