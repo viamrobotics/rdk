@@ -125,6 +125,27 @@ type Arm struct {
 	model      referenceframe.Model
 }
 
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
+	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		// know one of newCfg's attributes must be empty in order to pass Validate().
+		switch newCfg.ModelFilePath {
+		case "":
+			//nolint:errcheck
+			a.model, _ = modelFromName(newCfg.ArmModel, a.Name)
+			a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+		default:
+			// ok to not check for error because we did so in Validate().
+			//nolint:errcheck
+			a.model, _ = referenceframe.ModelFromPath(newCfg.ModelFilePath, a.Name)
+			a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+		}
+		return config.None
+	}
+	return config.Reconfigure
+}
+
 // ModelFrame returns the dynamic frame of the model.
 func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
