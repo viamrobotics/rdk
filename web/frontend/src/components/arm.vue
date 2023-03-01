@@ -32,10 +32,9 @@ interface Props {
   client: Client
 }
 
-type GetterKeys = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
-type SetterKeys = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
+type Field = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
 
-const fieldSetters = [
+const fieldMap = [
   ['x', 'x'],
   ['y', 'y'],
   ['z', 'z'],
@@ -73,8 +72,8 @@ const armModifyAllDoEndPosition = async () => {
   };
 
   for (const newPiece of newPieces) {
-    const [, getterSetter] = newPiece.endPosition;
-    const field = getterSetter!.toLowerCase() as SetterKeys;
+    const [, poseField] = newPiece.endPosition;
+    const field = poseField!.toLowerCase() as Field;
     newPose[field] = newPiece.endPositionValue;
   }
   try {
@@ -106,8 +105,8 @@ const armModifyAllDoJoint = async () => {
   delete toggle[props.name];
 };
 
-const armEndPositionInc = async (getterSetter: string, amount: number) => {
-  const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
+const armEndPositionInc = async (updateField: string, amount: number) => {
+  const adjustedAmount = updateField[0] === 'o' || updateField[0] === 'O' ? amount / 100 : amount;
   const arm = props.rawStatus!;
   const old = arm.end_position;
 
@@ -121,14 +120,13 @@ const armEndPositionInc = async (getterSetter: string, amount: number) => {
     theta: 0,
   };
 
-  for (const fieldSetter of fieldSetters) {
-    const [endPositionField] = fieldSetter;
+  for (const [endPositionField, poseField] of fieldMap) {
     const endPositionValue = old[endPositionField] || 0;
-    const field : SetterKeys = fieldSetter[1]!.toLowerCase() as SetterKeys;
+    const field : Field = poseField.toLowerCase() as Field;
     newPose[field] = endPositionValue;
   }
 
-  const field : SetterKeys = getterSetter.toLowerCase() as SetterKeys;
+  const field : Field = updateField.toLowerCase() as Field;
   newPose[field] += adjustedAmount;
 
   try {
