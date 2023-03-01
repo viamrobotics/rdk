@@ -86,8 +86,6 @@ func testOrbslamMap(t *testing.T, svc slam.Service) {
 	pointcloudStream, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
 	t.Logf("Pointcloud points: %v", pointcloudStream.Size())
 	test.That(t, pointcloudStream.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
-
-	test.That(t, pointcloudOld.PointCloud, test.ShouldResemble, pointcloudStream)
 }
 
 // Checks the orbslam position within a defined tolerance

@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"image"
-	"io"
 	"math"
 	"os"
 	"testing"
@@ -167,7 +166,10 @@ func TestWorkingServer(t *testing.T) {
 		mockServer := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqPointCloudMapStream, mockServer)
 		test.That(t, err, test.ShouldBeNil)
+
+		// comparing raw bytes to ensure order is correct
 		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcd)
 	})
 
@@ -256,14 +258,20 @@ func TestWorkingServer(t *testing.T) {
 		mockServer1 := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer1)
 		test.That(t, err, test.ShouldBeNil)
+
+		// comparing raw bytes to ensure order is correct
 		test.That(t, mockServer1.rawBytes, test.ShouldResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, mockServer1.rawBytes, pcd)
 
 		reqGetPointCloudMapStream = &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName2}
 		mockServer2 := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer2)
 		test.That(t, err, test.ShouldBeNil)
+
+		// comparing raw bytes to ensure order is correct
 		test.That(t, mockServer2.rawBytes, test.ShouldResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, mockServer2.rawBytes, pcd)
 	})
 }
@@ -308,10 +316,7 @@ func TestFailingServer(t *testing.T) {
 	t.Run("failing get pointcloud map stream function", func(t *testing.T) {
 		// GetPointCloudMapStreamFunc failure
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
-			f := func() ([]byte, error) {
-				return []byte{}, io.EOF
-			}
-			return f, errors.New("failure to get pointcloud map")
+			return nil, errors.New("failure to get pointcloud map")
 		}
 
 		reqPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
@@ -347,10 +352,7 @@ func TestFailingServer(t *testing.T) {
 	t.Run("failing get internal state stream function", func(t *testing.T) {
 		// GetInternalStateStreamFunc error
 		injectSvc.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
-			f := func() ([]byte, error) {
-				return []byte{}, io.EOF
-			}
-			return f, errors.New("failure to get internal state")
+			return nil, errors.New("failure to get internal state")
 		}
 
 		req := &pb.GetInternalStateStreamRequest{Name: testSlamServiceName}
