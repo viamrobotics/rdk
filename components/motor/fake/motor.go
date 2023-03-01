@@ -140,9 +140,6 @@ type Motor struct {
 
 // Position returns motor position in rotations.
 func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if m.Encoder == nil {
 		return 0, errors.New("encoder is not defined")
 	}
@@ -168,11 +165,12 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 
 // SetPower sets the given power percentage.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	m.Logger.Debugf("Motor SetPower %f", powerPct)
+	m.opMgr.CancelRunning(ctx)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.opMgr.CancelRunning(ctx)
-	m.Logger.Debugf("Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
 	if m.Encoder != nil {
@@ -247,6 +245,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return motor.NewZeroRPMError()
 	}
 
+	m.opMgr.CancelRunning(ctx)
+
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
 
 	var finalPos float64
@@ -267,13 +267,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return nil
 	}
 
-	m.opMgr.NewTimedWaitOp(ctx, waitDur)
+	ranToCompletion := m.opMgr.NewTimedWaitOp(ctx, waitDur)
 	err = m.Stop(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	if m.Encoder != nil {
+	if m.Encoder != nil && ranToCompletion {
 		return m.Encoder.SetPosition(ctx, int64(finalPos*float64(m.TicksPerRotation)))
 	}
 
@@ -285,6 +285,8 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
 	}
+
+	m.opMgr.CancelRunning(ctx)
 
 	curPos, err := m.Position(ctx, nil)
 	if err != nil {
@@ -307,13 +309,13 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return nil
 	}
 
-	m.opMgr.NewTimedWaitOp(ctx, waitDur)
+	ranToCompletion := m.opMgr.NewTimedWaitOp(ctx, waitDur)
 	err = m.Stop(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	if m.Encoder != nil {
+	if m.Encoder != nil && ranToCompletion {
 		return m.Encoder.SetPosition(ctx, int64(pos*float64(m.TicksPerRotation)))
 	}
 
@@ -345,11 +347,14 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.opMgr.CancelRunning(ctx)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	m.Logger.Debug("Motor Stopped")
+	
 	m.setPowerPct(0.0)
+	m.Logger.Debug("Motor Stopped")
+
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(ctx, 0.0)
 		if err != nil {
