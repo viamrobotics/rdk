@@ -263,6 +263,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
+
+	m.opMgr.CancelRunning(ctx)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
