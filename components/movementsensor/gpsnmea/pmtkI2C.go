@@ -184,6 +184,9 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	if g.data.location == nil {
+		return geo.NewPoint(0, 0), 0, errNilLocation
+	}
 	return g.data.location, g.data.alt, g.err.Get()
 }
 

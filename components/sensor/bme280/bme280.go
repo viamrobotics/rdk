@@ -246,7 +246,7 @@ func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		"dew_point_celsius":      dewPt,
 		"temperature_fahrenheit": temp*1.8 + 32,
 		"dew_point_fahrenheit":   dewPt*1.8 + 32,
-		"humidity_pct_rh":        humid,
+		"relative_humidity_pct":  humid,
 		"pressure_mpa":           pressure,
 	}, handle.Close()
 }
