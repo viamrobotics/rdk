@@ -85,24 +85,9 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	var (
-		model referenceframe.Model
-		err   error
-	)
-
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
 	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-	switch {
-	case armModel != "" && modelPath != "":
-		err = errAttrCfgPopulation
-	case armModel != "":
-		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-	case modelPath != "":
-		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
-	default:
-		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(cfg.Name)
-	}
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+	model, err := buildModel(armModel, modelPath, cfg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +98,27 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		model:  model,
 		logger: logger,
 	}, nil
+}
+
+func buildModel(armModel, modelPath, name string) (referenceframe.Model, error) {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+
+	switch {
+	case armModel != "" && modelPath != "":
+		err = errAttrCfgPopulation
+	case armModel != "":
+		model, err = modelFromName(armModel, name)
+	case modelPath != "":
+		model, err = referenceframe.ModelFromPath(modelPath, name)
+	default:
+		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
+		model = referenceframe.NewSimpleModel(name)
+	}
+
+	return model, err
 }
 
 // Arm is a fake arm that can simply read and set properties.
@@ -128,22 +134,17 @@ type Arm struct {
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
 // See config.UpdateActionType for more information.
 func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
+	var err error
 	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
-		// know one of newCfg's attributes must be empty in order to pass Validate().
-		switch newCfg.ModelFilePath {
-		case "":
-			//nolint:errcheck
-			a.model, _ = modelFromName(newCfg.ArmModel, a.Name)
-			a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
-		default:
-			// ok to not check for error because we did so in Validate().
-			//nolint:errcheck
-			a.model, _ = referenceframe.ModelFromPath(newCfg.ModelFilePath, a.Name)
-			a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+		armModel := newCfg.ArmModel
+		modelPath := newCfg.ModelFilePath
+		a.model, err = buildModel(armModel, modelPath, a.Name)
+		if err != nil {
+			a.logger.Debug("could not build model: " + err.Error())
 		}
-		return config.None
+		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
 	}
-	return config.Reconfigure
+	return config.None
 }
 
 // ModelFrame returns the dynamic frame of the model.
