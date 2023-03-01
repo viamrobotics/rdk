@@ -9,7 +9,6 @@ import (
 	"image/jpeg"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/protoutils"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -152,13 +152,19 @@ func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, err
 // GetPointCloudMapStream creates a request, calls the slam service GetPointCloudMapStream and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
 func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMapStream")
+	defer span.End()
+
+	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, c.client)
 }
 
 // GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
 func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalStateStream")
+	defer span.End()
+
+	return grpchelper.GetInternalStateStreamCallback(ctx, name, c.client)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
