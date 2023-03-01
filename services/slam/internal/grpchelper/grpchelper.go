@@ -13,9 +13,10 @@ import (
 func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetPointCloudMapStreamRequest{Name: name}
 
+	// If the target gRPC server returns an error status, this call doesn't return an error.
+	// Instead, the error status will be returned to the first call to resp.Recv().
+	// This call only returns an error if the connection to the target gRPC server can't be established, is canceled, etc.
 	resp, err := slamClient.GetPointCloudMapStream(ctx, req)
-	// If there is an issue with the SLAM algo but a gRPC server is present, the stream client returned will not
-	// fail until data is requested
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting the pointcloud map from the SLAM client")
 	}
@@ -37,6 +38,9 @@ func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient
 func GetInternalStateStreamCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetInternalStateStreamRequest{Name: name}
 
+	// If the target gRPC server returns an error status, this call doesn't return an error.
+	// Instead, the error status will be returned to the first call to resp.Recv().
+	// This call only returns an error if the connection to the target gRPC server can't be established, is canceled, etc.
 	resp, err := slamClient.GetInternalStateStream(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")

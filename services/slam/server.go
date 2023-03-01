@@ -165,7 +165,7 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 		return errors.Wrap(err, "getting callback function from GetPointCloudMapStream encountered an issue")
 	}
 
-	// Channel buffer can be used here to optimize for latency
+	// In the future, channel buffer could be used here to optimize for latency
 	for {
 		rawChunk, err := f()
 
@@ -203,7 +203,7 @@ func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStre
 		return err
 	}
 
-	// Channel buffer can be used here to optimize for latency
+	// In the future, channel buffer could be used here to optimize for latency
 	for {
 		rawChunk, err := f()
 
