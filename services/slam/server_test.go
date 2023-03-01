@@ -240,7 +240,7 @@ func TestWorkingServer(t *testing.T) {
 			return f, nil
 		}
 
-		// Get position test to test unary endpoint
+		// test unary endpoint using GetPosition
 		reqPos := &pb.GetPositionRequest{Name: testSlamServiceName}
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
@@ -251,7 +251,7 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, referenceframe.ProtobufToPoseInFrame(respPos.Pose).Parent(), test.ShouldEqual, pSucc.Parent())
 
-		// Get pointcloud map stream test to test streaming endpoint
+		// test streaming endpoint using GetPointCloudMapStream
 		reqGetPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 		mockServer1 := makePointCloudStreamServerMock()
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStream, mockServer1)
@@ -413,13 +413,13 @@ func TestFailingServer(t *testing.T) {
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
 	slamServer = slam.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
-		// test unary endpoint Get position
+		// test unary endpoint using GetPosition
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
 		resp, err := slamServer.GetPosition(context.Background(), reqGetPositionRequest)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
 
-		// test streaming endpoint Get pointcloud map stream
+		// test streaming endpoint using GetPointCloudMapStream
 		mockStreamServer := makePointCloudStreamServerMock()
 		reqGetPointCloudMapStreamRequest := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
 		err = slamServer.GetPointCloudMapStream(reqGetPointCloudMapStreamRequest, mockStreamServer)
