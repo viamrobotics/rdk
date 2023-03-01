@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10' 
-      - run: python ./etc/code-samples-action.py"
+      - run: python ./etc/code-samples-action.py
 
       - name: Add Coverage PR Comment
         uses: marocchino/sticky-pull-request-comment@v2
