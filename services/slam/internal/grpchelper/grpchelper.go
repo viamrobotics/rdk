@@ -17,13 +17,13 @@ func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient
 	// If there is an issue with the SLAM algo but a gRPC server is present, the stream client returned will not
 	// fail until data is requested
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error getting the pointcloud map from the SLAM client")
 	}
 
 	f := func() ([]byte, error) {
 		chunk, err := resp.Recv()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error receiving pointcloud chunk")
 		}
 
 		return chunk.GetPointCloudPcdChunk(), err
@@ -45,7 +45,7 @@ func GetInternalStateStreamCallback(ctx context.Context, name string, slamClient
 	f := func() ([]byte, error) {
 		chunk, err := resp.Recv()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error receiving internal state chunk")
 		}
 
 		return chunk.GetInternalStateChunk(), nil
