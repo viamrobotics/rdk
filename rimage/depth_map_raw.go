@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/binary"
+	"image"
 	"io"
 	"os"
 	"path/filepath"
@@ -204,7 +205,7 @@ func setRawDepthMapValues(f *bufio.Reader, dm *DepthMap) (*DepthMap, error) {
 }
 
 // WriteRawDepthMapToFile writes the raw depth map to the given file.
-func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
+func WriteRawDepthMapToFile(dm image.Image, fn string) (err error) {
 	//nolint:gosec
 	f, err := os.Create(fn)
 	if err != nil {
@@ -246,28 +247,37 @@ func WriteRawDepthMapToFile(dm *DepthMap, fn string) (err error) {
 	return f.Sync()
 }
 
-// WriteRawDepthMapTo writes this depth map to the given writer.
-func WriteRawDepthMapTo(dm *DepthMap, out io.Writer) (int64, error) {
+// WriteRawDepthMapTo writes depth map or gray16 image to the given writer.
+func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	buf := make([]byte, 8)
 	var totalN int64
+	width := img.Bounds().Dx()
+	height := img.Bounds().Dy()
 
-	binary.LittleEndian.PutUint64(buf, uint64(dm.width))
+	binary.LittleEndian.PutUint64(buf, uint64(width))
 	n, err := out.Write(buf)
 	totalN += int64(n)
 	if err != nil {
 		return totalN, err
 	}
 
-	binary.LittleEndian.PutUint64(buf, uint64(dm.height))
+	binary.LittleEndian.PutUint64(buf, uint64(height))
 	n, err = out.Write(buf)
 	totalN += int64(n)
 	if err != nil {
 		return totalN, err
 	}
 
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			binary.LittleEndian.PutUint64(buf, uint64(dm.GetDepth(x, y)))
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			switch dm := img.(type) {
+			case *DepthMap:
+				binary.LittleEndian.PutUint64(buf, uint64(dm.GetDepth(x, y)))
+			case *image.Gray16:
+				binary.LittleEndian.PutUint64(buf, uint64(dm.Gray16At(x, y).Y))
+			default:
+				return totalN, errors.Errorf("cannot convert image type %T to a raw depth format", dm)
+			}
 			n, err = out.Write(buf)
 			totalN += int64(n)
 			if err != nil {

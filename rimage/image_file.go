@@ -295,7 +295,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	case ut.MimeTypeRawDepth:
 		buf.Write(DepthMapMagicNumber)
 		// WriteRawDepthMapTo encodes the height and width
-		if _, err := WriteRawDepthMapTo(img.(*DepthMap), &buf); err != nil {
+		if _, err := WriteRawDepthMapTo(img, &buf); err != nil {
 			return nil, err
 		}
 	case ut.MimeTypeRawRGBA:
