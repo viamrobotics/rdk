@@ -50,7 +50,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
-	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeEmpty)
+	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
