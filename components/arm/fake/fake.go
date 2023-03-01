@@ -140,7 +140,7 @@ func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
 		modelPath := newCfg.ModelFilePath
 		a.model, err = buildModel(armModel, modelPath, a.Name)
 		if err != nil {
-			a.logger.Debug("could not build model: " + err.Error())
+			a.logger.Errorln("could not build model:", err.Error())
 		}
 		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
 	}
