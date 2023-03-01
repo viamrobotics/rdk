@@ -80,19 +80,19 @@ func TestForwardKinematics(t *testing.T) {
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	expect = spatial.NewPose(
-		r3.Vector{X: 146.37, Y: -146.37, Z: 111.99},
+		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
 		&spatial.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: -1},
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
 	// Test out of bounds. Note that ComputePosition will return nil on OOB.
-	newPos = []float64{-45, 0, 0, 0, 0, 9999}
+	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, pos, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Test out of bounds. Note that ComputeOOBPosition will NOT return nil on OOB.
-	newPos = []float64{-45, 0, 0, 0, 0, 9999}
+	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputeOOBPosition(m, &pb.JointPositions{Values: newPos})
 	expect = spatial.NewPose(
 		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
