@@ -73,13 +73,21 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 
 // Checks the orbslam map and confirms there are more than zero map points.
 func testOrbslamMap(t *testing.T, svc slam.Service) {
+	actualMIME, _, pointcloudOld, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	t.Logf("Pointcloud points: %v", pointcloudOld.Size())
+	test.That(t, pointcloudOld.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+
 	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
 
-	pointcloud, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-	t.Logf("Pointcloud points: %v", pointcloud.Size())
-	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+	pointcloudStream, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+	t.Logf("Pointcloud points: %v", pointcloudStream.Size())
+	test.That(t, pointcloudStream.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+
+	test.That(t, pointcloudOld.PointCloud, test.ShouldResemble, pointcloudStream)
 }
 
 // Checks the orbslam position within a defined tolerance
