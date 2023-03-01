@@ -403,6 +403,60 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	return nil, errors.Errorf("can't recreate resource %+v", req.Config)
 }
 
+// Validator is a resource configuration object that implements Validate.
+type Validator interface {
+	// Validate ensures that the object is valid and returns any implicit dependencies.
+	Validate(path string) ([]string, error)
+}
+
+// Validate receives the validation request for a resource from the parent.
+func (m *Module) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.ValidateResponse, error) {
+	c, err := config.ComponentConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to run Validate on configuration object for component.
+	cType := resource.NewSubtype(c.Namespace, "component", c.Type)
+	conv := config.FindMapConverter(cType, c.Model)
+	if conv != nil {
+		converted, err := conv(c.Attributes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error converting attributes for component")
+		}
+		validator, ok := converted.(Validator)
+		if ok {
+			implicitDeps, err := validator.Validate(c.Name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error validating component")
+			}
+			return &pb.ValidateResponse{Dependencies: implicitDeps}, nil
+		}
+	}
+
+	// Try to run Validate on configuration object for service.
+	sType := resource.NewSubtype(c.Namespace, "service", c.Type)
+	conv = config.FindServiceMapConverter(sType, c.Model)
+	if conv != nil {
+		converted, err := conv(c.Attributes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error converting attributes for service")
+		}
+		validator, ok := converted.(Validator)
+		if ok {
+			implicitDeps, err := validator.Validate(c.Name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error validating service")
+			}
+			return &pb.ValidateResponse{Dependencies: implicitDeps}, nil
+		}
+	}
+
+	// Resource configuration object does not implement Validate, but return an
+	// empty response and no error to maintain backward compatibility.
+	return &pb.ValidateResponse{}, nil
+}
+
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(

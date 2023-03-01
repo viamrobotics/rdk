@@ -195,6 +195,29 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	return err
 }
 
+// Validate determines whether the given config is valid and returns its implicit
+// dependencies.
+func (mgr *Manager) Validate(ctx context.Context, cfg config.Component) ([]string, error) {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	module, ok := mgr.getModule(cfg)
+	if !ok {
+		return nil,
+			errors.Errorf("no module registered to serve resource api %s and model %s",
+				cfg.ResourceName().Subtype, cfg.Model)
+	}
+
+	cfgProto, err := config.ComponentConfigToProto(&cfg)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := module.client.Validate(ctx, &pb.ValidateRequest{Config: cfgProto})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Dependencies, nil
+}
+
 func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 	for _, module := range mgr.modules {
 		var api resource.RPCSubtype
