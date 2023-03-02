@@ -82,9 +82,19 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	var goals []spatialmath.Pose
 	var opts []*plannerOptions
+	
+	subWaypoints := false
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
+		subWaypoints = true
+	}
+	
+	if len(constraintSpec.GetLinearConstraint()) > 0 {
+		subWaypoints = true
+	}
+	
+	if subWaypoints {
 		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
@@ -394,6 +404,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	cons *pb.Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
+	
+	planAlg := ""
+	
 	// Start with normal options
 	opt := newBasicPlannerOptions()
 
@@ -413,7 +426,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 	
-	opt.addPbTopoConstraints(from, to, cons)
+	hasTopoConstraint := opt.addPbTopoConstraints(from, to, cons)
+	if hasTopoConstraint {
+		planAlg = "cbirrt"
+	}
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
@@ -435,7 +451,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	var planAlg string
 	alg, ok := planningOpts["planning_alg"]
 	if ok {
 		planAlg, ok = alg.(string)

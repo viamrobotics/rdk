@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
-	motionpb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
@@ -25,10 +24,6 @@ import (
 
 // errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
 var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
-
-var defaultArmPlannerOptions = &motionpb.Constraints{
-	LinearConstraint: []*motionpb.LinearConstraint{{}},
-}
 
 // ModelName is the string used to refer to the fake arm model.
 var ModelName = resource.NewDefaultModel("fake")
@@ -155,7 +150,7 @@ func (a *Arm) MoveToPosition(
 	if err != nil {
 		return err
 	}
-	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), defaultArmPlannerOptions, nil)
+	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), nil, nil)
 	if err != nil {
 		return err
 	}

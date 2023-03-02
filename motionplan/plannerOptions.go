@@ -165,14 +165,18 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 }
 
 // addPbConstraints will add all constraints from the protobuf constraint specification. This will deal with only the topological
-// constraints, 
-func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *pb.Constraints) {
+// constraints. It will return a bool indicating whether there are any to add.
+func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *pb.Constraints) bool {
+	topoConstraints := false
 	for _, linearConstraint := range constraints.GetLinearConstraint() {
+		topoConstraints = true
 		p.addPbLinearConstraints(from, to, linearConstraint)
 	}
 	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
+		topoConstraints = true
 		p.addPbOrientationConstraints(from, to, orientationConstraint)
 	}
+	return topoConstraints
 }
 
 func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbConstraint *pb.LinearConstraint) {
@@ -190,7 +194,8 @@ func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbCon
 	p.AddConstraint(defaultLinearConstraintName, constraint)
 	
 	//TODO(pl): check whether 
-	p.pathDist = CombineMetrics(p.pathDist, pathDist)
+	//~ p.pathDist = CombineMetrics(p.pathDist, pathDist)
+	p.pathDist = pathDist
 }
 
 func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, pbConstraint *pb.OrientationConstraint) {
