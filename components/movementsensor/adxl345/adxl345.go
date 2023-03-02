@@ -49,14 +49,14 @@ type AttrConfig struct {
 }
 
 type InterruptPinAttrConfig struct {
-	EchoInterrupt       string               `json:"echo_interrupt_pin"`
-	SingleTap           bool                 `json:"single_tap,omitempty"`
-	FreeFall            bool                 `json:"free_fall,omitempty"`
-	SingleTapAttrConfig *SingleTapAttrConfig `json:"single_tap_attributes,omitempty"`
-	FreeFallAttrConfig  *FreeFallAttrConfig  `json:"free_fall_attributes,omitempty"`
+	EchoInterrupt      string              `json:"echo_interrupt_pin"`
+	SingleTap          bool                `json:"single_tap,omitempty"`
+	FreeFall           bool                `json:"free_fall,omitempty"`
+	TapAttrConfig      *TapAttrConfig      `json:"single_tap_attributes,omitempty"`
+	FreeFallAttrConfig *FreeFallAttrConfig `json:"free_fall_attributes,omitempty"`
 }
 
-type SingleTapAttrConfig struct {
+type TapAttrConfig struct {
 	ExcludeTapX bool `json:"tap_x,omitempty"`
 	ExcludeTapY bool `json:"tap_y,omitempty"`
 	ExcludeTapZ bool `json:"tap_z,omitempty"`
@@ -76,7 +76,7 @@ func (cfg *InterruptPinAttrConfig) Validate(path string) ([]string, error) {
 	}
 
 	if cfg.SingleTap {
-		if cfg.SingleTapAttrConfig == nil {
+		if cfg.TapAttrConfig == nil {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "single_tap_attributes")
 		}
 	}
@@ -324,7 +324,7 @@ func getInterruptConfigurations(int1 InterruptPinAttrConfig, int2 InterruptPinAt
 
 // This returns a map from register addresses to data which should be written to that register to configure the interrupt pin
 func getSingleTapRegisterValuesFromInterruptPin(interruptPin InterruptPinAttrConfig, registerValues map[byte]byte) map[byte]byte {
-	singleTapConfigs := interruptPin.SingleTapAttrConfig
+	singleTapConfigs := interruptPin.TapAttrConfig
 	if singleTapConfigs == nil {
 		return registerValues
 	}
