@@ -557,8 +557,19 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 
 // Test the functionalities involved with converting a pcd into a basic octree.
 func TestReadBasicOctreeFromPCD(t *testing.T) {
-	artifactPath := "pointcloud/test_short.pcd"
+	t.Run("reading from binary PCD to octree", func(t *testing.T) {
+		binaryArtifactPath := "slam/example_cartographer_outputs/viam-office-02-22-1/pointcloud/pointcloud_15.pcd"
+		testPCDToBasicOctree(t, binaryArtifactPath)
+	})
 
+	t.Run("reading from ascii PCD to octree", func(t *testing.T) {
+		asciiArtifactPath := "slam/mock_lidar/0.pcd"
+		testPCDToBasicOctree(t, asciiArtifactPath)
+	})
+}
+
+// Helper function for testing basic octree creation from a given artifact.
+func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 	basicPC, err := makeFullPointCloudFromArtifact(t, artifactPath, BasicType)
 	test.That(t, err, test.ShouldBeNil)
 	basic, ok := basicPC.(*basicPointCloud)
@@ -579,6 +590,5 @@ func TestReadBasicOctreeFromPCD(t *testing.T) {
 		test.That(t, d, test.ShouldResemble, dOct)
 		return true
 	})
-
 	validateBasicOctree(t, basicOct, basicOct.center, basicOct.sideLength)
 }
