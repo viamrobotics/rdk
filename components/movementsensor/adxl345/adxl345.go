@@ -192,17 +192,13 @@ func NewAdxl345(
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
 	}
-	print("1")
 	if cfg.InterruptPin1.EchoInterrupt != "" {
-		print("2")
 		i1, ok := b.DigitalInterruptByName(cfg.InterruptPin1.EchoInterrupt)
 		if !ok {
 			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.InterruptPin1.EchoInterrupt)
 		}
-		print("3")
 		sensor.echoInterrupt1 = i1
 	}
-	print("4")
 	if cfg.InterruptPin2.EchoInterrupt != "" {
 		i2, ok := b.DigitalInterruptByName(cfg.InterruptPin2.EchoInterrupt)
 		if !ok {
@@ -210,7 +206,6 @@ func NewAdxl345(
 		}
 		sensor.echoInterrupt1 = i2
 	}
-	print("5")
 	sensor.ticksChan = make(chan board.Tick)
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -225,14 +220,12 @@ func NewAdxl345(
 			address, deviceID)
 	}
 
-	print("6")
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
 	if err = sensor.writeByte(ctx, 0x2D, 0x08); err != nil {
 		return nil, errors.Wrap(err, "unable to put ADXL345 into measurement mode")
 	}
 
-	print("7")
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
 	sensor.activeBackgroundWorkers.Add(1)
