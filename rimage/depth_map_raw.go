@@ -19,7 +19,7 @@ import (
 const MagicNumIntVersionX = 6363110499870197078
 
 // MagicNumIntViamType is the magic number (as an int) for the custom Viam depth type.
-// magic number for ViamCustomType is int64([]byte("DEPTHMAP")).
+// magic number for ViamCustomType is uint64([]byte("DEPTHMAP")), Little Endian
 const MagicNumIntViamType = 5782988369567958340
 
 func _readNext(r io.Reader) (int64, error) {
@@ -62,15 +62,16 @@ func ReadDepthMap(r io.Reader) (*DepthMap, error) {
 	}
 	switch firstBytes {
 	case MagicNumIntVersionX: // magic number for VERSIONX
-		return readDepthMapVersionX(r.(*bufio.Reader))
+		return readDepthMapVersionX(r)
 	case MagicNumIntViamType: // magic number for ViamCustomType is int64([]byte("DEPTHMAP"))
-		return readDepthMapViam(r.(*bufio.Reader))
+		return readDepthMapViam(r)
 	default:
-		return readDepthMapRaw(r.(*bufio.Reader), firstBytes)
+		return readDepthMapRaw(r, firstBytes)
 	}
 }
 
-func readDepthMapRaw(f *bufio.Reader, firstBytes int64) (*DepthMap, error) {
+func readDepthMapRaw(ff io.Reader, firstBytes int64) (*DepthMap, error) {
+	f := bufio.NewReader(ff)
 	dm := DepthMap{}
 
 	dm.width = int(firstBytes)
@@ -84,26 +85,34 @@ func readDepthMapRaw(f *bufio.Reader, firstBytes int64) (*DepthMap, error) {
 	return setRawDepthMapValues(f, &dm)
 }
 
-func readDepthMapViam(f *bufio.Reader) (*DepthMap, error) {
-	dm := DepthMap{}
+func readDepthMapViam(ff io.Reader) (*DepthMap, error) {
+	f := bufio.NewReader(ff)
+	dm := &DepthMap{}
 
 	rawWidth, err := _readNext(f)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not read vnd.vima.dep width")
 	}
 	dm.width = int(rawWidth)
 	rawHeight, err := _readNext(f)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not read vnd.vima.dep height")
 	}
 	dm.height = int(rawHeight)
-
-	return setRawDepthMapValues(f, &dm)
+	// dump the rest of the bytes in a depth slice
+	datSlice := make([]Depth, dm.height*dm.width)
+	err = binary.Read(f, binary.LittleEndian, &datSlice)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read vnd.vima.dep data slice")
+	}
+	dm.data = datSlice
+	return dm, nil
 }
 
-func readDepthMapVersionX(r *bufio.Reader) (*DepthMap, error) {
+func readDepthMapVersionX(rr io.Reader) (*DepthMap, error) {
 	dm := DepthMap{}
 
+	r := bufio.NewReader(rr)
 	// get past garbade
 	_, err := r.ReadString('\n')
 	if err != nil {
@@ -227,15 +236,15 @@ func WriteRawDepthMapToFile(dm image.Image, fn string) (err error) {
 	}
 
 	if strings.HasSuffix(fn, ".vnd.viam.dep") {
-		_, err := out.Write(DepthMapMagicNumber)
+		_, err = WriteViamDepthMapTo(dm, out)
 		if err != nil {
 			return err
 		}
-	}
-
-	_, err = WriteRawDepthMapTo(dm, out)
-	if err != nil {
-		return err
+	} else {
+		_, err = WriteRawDepthMapTo(dm, out)
+		if err != nil {
+			return err
+		}
 	}
 
 	if gout != nil {
@@ -247,7 +256,7 @@ func WriteRawDepthMapToFile(dm image.Image, fn string) (err error) {
 	return f.Sync()
 }
 
-// WriteRawDepthMapTo writes depth map or gray16 image to the given writer.
+// WriteRawDepthMapTo writes this depth map to the given writer.
 func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	buf := make([]byte, 8)
 	var totalN int64
@@ -286,5 +295,59 @@ func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 		}
 	}
 
+	return totalN, nil
+}
+
+// WriteViamDepthMapTo writes depth map or gray16 image to the given writer.
+// Does not write the ViamMagic
+func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
+	buf := make([]byte, 8)
+	var totalN int64
+	width := img.Bounds().Dx()
+	height := img.Bounds().Dy()
+
+	binary.LittleEndian.PutUint64(buf, uint64(MagicNumIntViamType))
+	n, err := out.Write(buf)
+	totalN += int64(n)
+	if err != nil {
+		return totalN, err
+	}
+	binary.LittleEndian.PutUint64(buf, uint64(width))
+	n, err = out.Write(buf)
+	totalN += int64(n)
+	if err != nil {
+		return totalN, err
+	}
+
+	binary.LittleEndian.PutUint64(buf, uint64(height))
+	n, err = out.Write(buf)
+	totalN += int64(n)
+	if err != nil {
+		return totalN, err
+	}
+	switch dm := img.(type) {
+	case *DepthMap:
+		err = binary.Write(out, binary.LittleEndian, dm.data) // uint16 data
+		if err != nil {
+			return totalN, err
+		}
+		totalN += int64(len(dm.data) * 2)
+	case *image.Gray16:
+		grayBuf := make([]byte, 2)
+		for y := 0; y < height; y++ {
+			for x := 0; x < width; x++ {
+				i := dm.PixOffset(x, y)
+				z := uint16(dm.Pix[i+0])<<8 | uint16(dm.Pix[i+1])
+				binary.LittleEndian.PutUint16(grayBuf, z)
+				n, err = out.Write(grayBuf)
+				totalN += int64(n)
+				if err != nil {
+					return totalN, err
+				}
+			}
+		}
+	default:
+		return totalN, errors.Errorf("cannot convert image type %T to a raw depth format", dm)
+	}
 	return totalN, nil
 }
