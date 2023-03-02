@@ -590,5 +590,6 @@ func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 		test.That(t, d, test.ShouldResemble, dOct)
 		return true
 	})
+
 	validateBasicOctree(t, basicOct, basicOct.center, basicOct.sideLength)
 }
