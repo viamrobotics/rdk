@@ -3,7 +3,7 @@ package mythingamabob
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/edaniels/golog"
 
@@ -27,7 +27,7 @@ type ThingamabobConfig struct {
 
 func (cfg *ThingamabobConfig) Validate(path string) ([]string, error) {
 	if cfg.Gizmo == "" {
-		return nil, errors.New("expected 'gizmo' attribute for thingamabob")
+		return nil, fmt.Errorf(`expected "gizmo" attribute for thingamabob %q`, path)
 	}
 
 	return []string{cfg.Gizmo}, nil
@@ -69,9 +69,5 @@ func NewMyThingamabob(
 	conf config.Component,
 	logger golog.Logger,
 ) (thingamabobapi.Thingamabob, error) {
-	cfg, ok := conf.ConvertedAttributes.(*ThingamabobConfig)
-	if !ok {
-		return nil, errors.New("unrecognized attributes for thingamabob")
-	}
-	return &myActualThingamabob{gizmo: cfg.Gizmo}, nil
+	return &myActualThingamabob{gizmo: conf.Attributes.String("gizmo")}, nil
 }

@@ -125,6 +125,11 @@ func TestModManagerFunctions(t *testing.T) {
 	ok = mgr.IsModularResource(resource.NameFromSubtype(generic.Subtype, "missing"))
 	test.That(t, ok, test.ShouldBeFalse)
 
+	t.Log("test Validate")
+	deps, err := mgr.Validate(ctx, cfgCounter1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+
 	t.Log("test ReconfigureResource")
 	// Reconfigure should replace the proxied object, resetting the counter
 	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 73})

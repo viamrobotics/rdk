@@ -897,6 +897,33 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	// Before reconfiguring, go through resources in newConfig, call Validate on all
+	// modularized resources, and store those resources' implicit dependencies.
+	for i, c := range newConfig.Components {
+		if r.modules.Provides(c) {
+			implicitDeps, err := r.modules.Validate(ctx, c)
+			if err != nil {
+				r.logger.Errorw("Modular config validation error found in component: "+c.Name, "error", err)
+				continue
+			}
+
+			// Modify component to add its implicit dependencies.
+			newConfig.Components[i].ImplicitDependsOn = implicitDeps
+		}
+	}
+	for i, s := range newConfig.Services {
+		if r.modules.Provides(config.ServiceConfigToShared(s)) {
+			implicitDeps, err := r.modules.Validate(ctx, config.ServiceConfigToShared(s))
+			if err != nil {
+				r.logger.Errorw("Modular config validation error found in service: "+s.Name, "error", err)
+				continue
+			}
+
+			// Modify service to add its implicit dependencies.
+			newConfig.Services[i].ImplicitDependsOn = implicitDeps
+		}
+	}
+
 	var allErrs error
 
 	newConfig = r.updateDefaultServiceNames(newConfig)
