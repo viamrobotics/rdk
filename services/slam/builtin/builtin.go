@@ -40,6 +40,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -600,7 +601,7 @@ func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string)
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMapStream")
 	defer span.End()
 
-	return nil, errors.New("unimplemented stub")
+	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, slamSvc.clientAlgo)
 }
 
 // GetInternalStateStream creates a request, calls the slam algorithms GetInternalStateStream endpoint and returns a callback
@@ -609,7 +610,7 @@ func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string)
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
 	defer span.End()
 
-	return nil, errors.New("unimplemented stub")
+	return grpchelper.GetInternalStateStreamCallback(ctx, name, slamSvc.clientAlgo)
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
