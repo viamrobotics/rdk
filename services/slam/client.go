@@ -67,7 +67,7 @@ func (c *client) Position(ctx context.Context, name string, extra map[string]int
 	return referenceframe.ProtobufToPoseInFrame(p), nil
 }
 
-// GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference.
+// GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
 func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
 	return nil, "", errors.New("unimplemented stub")
 }

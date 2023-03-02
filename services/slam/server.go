@@ -66,7 +66,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	}, nil
 }
 
-// GetPositionNew returns a Pose and a component reference of the robot's current location according to SLAM.
+// GetPositionNew returns a Pose and a component reference string of the robot's current location according to SLAM.
 func (server *subtypeServer) GetPositionNew(ctx context.Context, req *pb.GetPositionNewRequest) (
 	*pb.GetPositionNewResponse, error,
 ) {
