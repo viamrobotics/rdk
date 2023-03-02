@@ -85,9 +85,7 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
-	model, err := buildModel(armModel, modelPath, cfg.Name)
+	model, err := buildModel(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -100,22 +98,24 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	}, nil
 }
 
-func buildModel(armModel, modelPath, name string) (referenceframe.Model, error) {
+func buildModel(cfg config.Component) (referenceframe.Model, error) {
 	var (
 		model referenceframe.Model
 		err   error
 	)
+	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
 
 	switch {
 	case armModel != "" && modelPath != "":
 		err = errAttrCfgPopulation
 	case armModel != "":
-		model, err = modelFromName(armModel, name)
+		model, err = modelFromName(armModel, cfg.Name)
 	case modelPath != "":
-		model, err = referenceframe.ModelFromPath(modelPath, name)
+		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
 	default:
 		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(name)
+		model = referenceframe.NewSimpleModel(cfg.Name)
 	}
 
 	return model, err
@@ -135,10 +135,8 @@ type Arm struct {
 // See config.UpdateActionType for more information.
 func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
 	var err error
-	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
-		armModel := newCfg.ArmModel
-		modelPath := newCfg.ModelFilePath
-		a.model, err = buildModel(armModel, modelPath, a.Name)
+	if _, ok := c.ConvertedAttributes.(*AttrConfig); ok {
+		a.model, err = buildModel(*c)
 		if err != nil {
 			a.logger.Errorln("could not build model:", err.Error())
 		}
