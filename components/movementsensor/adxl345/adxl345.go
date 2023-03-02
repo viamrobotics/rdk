@@ -74,29 +74,24 @@ type FreeFallAttrConfig struct {
 }
 
 // Validate ensures interrupt configs are valid, and then returns the list of things we depend on.
-func (cfg *InterruptPinAttrConfig) Validate(path string) ([]string, error) {
+func (cfg *InterruptPinAttrConfig) Validate(path string) error {
 	if cfg.EchoInterrupt == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "echo_interrupt_pin")
+		return utils.NewConfigValidationFieldRequiredError(path, "echo_interrupt_pin")
 	}
-
-	if cfg.SingleTap {
-		if cfg.TapAttrConfig == nil {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "single_tap_attributes")
-		}
-	}
-	if cfg.FreeFall {
-		if cfg.FreeFallAttrConfig == nil {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "free_fall_attributes")
-		}
-	}
-	var deps []string
-	deps = append(deps, cfg.EchoInterrupt)
-	return deps, nil
+	return nil
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	err := cfg.InterruptPin1.Validate(path)
+	if err != nil {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "interruptPin1")
+	}
+	err = cfg.InterruptPin1.Validate(path)
+	if err {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "interruptPin1")
+	}
 	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
