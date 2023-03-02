@@ -378,45 +378,6 @@ func (manager *resourceManager) completeConfig(
 ) {
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
-
-	// Before sorting resources, call Validate on all modularized resources and store
-	// those resources' implicit dependencies.
-	for _, r := range manager.resources.Names() {
-		iface, ok := manager.resources.Node(r)
-		if !ok || iface == nil {
-			continue
-		}
-		wrap, ok := iface.(*resourcePlaceholder)
-		if !ok {
-			continue
-		}
-
-		if c, ok := wrap.config.(config.Component); ok && robot.modules.Provides(c) {
-			implicitDeps, err := robot.modules.Validate(ctx, c)
-			if err != nil {
-				wrap.err = errors.Wrap(err, "Modular config validation error found in component: "+c.Name)
-				continue
-			}
-
-			// Remove resource and re-add it with implicit dependencies.
-			manager.resources.Remove(r)
-			c.ImplicitDependsOn = implicitDeps
-			manager.resources.AddNode(r, c)
-		} else if s, ok := wrap.config.(config.Service); ok &&
-			robot.modules.Provides(config.ServiceConfigToShared(s)) {
-			implicitDeps, err := robot.modules.Validate(ctx, config.ServiceConfigToShared(s))
-			if err != nil {
-				wrap.err = errors.Wrap(err, "Modular config validation error found in service: "+s.Name)
-				continue
-			}
-
-			// Remove resource and re-add it with implicit dependencies.
-			manager.resources.Remove(r)
-			s.ImplicitDependsOn = implicitDeps
-			manager.resources.AddNode(r, s)
-		}
-	}
-
 	rS := manager.resources.ReverseTopologicalSort()
 
 	for _, r := range rS {
