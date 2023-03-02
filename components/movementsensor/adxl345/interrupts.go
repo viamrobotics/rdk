@@ -2,69 +2,52 @@ package adxl345
 
 // addresses relevant to interrupts.
 const (
-	IntEnable   byte = 0x2E
-	IntMap      byte = 0x2F
-	IntSource   byte = 0x30
-	TapAxes     byte = 0x2A
-	ThreshTap   byte = 0x1D
-	Dur         byte = 0x21
-	Latent      byte = 0x22
-	Window      byte = 0x23
-	ThreshFf    byte = 0x28
-	TimeFf      byte = 0x29
-	ThreshAct   byte = 0x24
-	ThreshInact byte = 0x25
-	TimeInact   byte = 0x26
-	ActInactCtl byte = 0x27
+	DurAddr       byte = 0x21 // contains an unsigned time value representing the maximum time that an event must be above the THRESH_TAP threshold to qualify as a tap event [625 µs/LSB]
+	IntEnableAddr byte = 0x2E // contains info on which interrupts have been enabled
+	IntMapAddr    byte = 0x2F // contains info on which interrupt pin to send each interrupt
+	IntSourceAddr byte = 0x30 // contains info on which interrupt has gone off since the last time this address has been read from
+	LatentAddr    byte = 0x22 // contains an unsigned time value representing the wait time from the detection of a tap event to the start of the time window [1.25 ms/LSB]
+	TapAxesAddr   byte = 0x2A // contains info on which axes have been turned on for taps (X, Y, Z are bits 2, 1, 0 respectivel)
+	ThreshTapAddr byte = 0x1D // contains an unsigned threshold value for tap interrupts [62.5 mg/LSB ]
+	WindowAddr    byte = 0x23 // contains an unsigned time value representing the amount of time after the expiration of the latency time (determined by the latent register) during which a second valid tap can begin [ 1.25 ms/LSB]
+	ThreshFfAddr  byte = 0x28
+	TimeFfAddr    byte = 0x29
 )
 
 // types of interrupts.
 const (
-	DataReady  string = "DATA_READY"
-	SingleTap  string = "SINGLE_TAP"
-	DoubleTap  string = "DOUBLE_TAP"
-	Activity   string = "Activity"
-	Inactivity string = "Inactivity"
-	Freefall   string = "FREE_FALL"
-	Watermark  string = "WATERMARK"
-	Overrun    string = "OVERRUN"
+	SingleTap string = "SINGLE_TAP"
+	FreeFall  string = "FREE_FALL"
 )
 
 var interruptBitPosition = map[string]byte{
-	DataReady:  1 << 7,
-	SingleTap:  1 << 6,
-	DoubleTap:  1 << 5,
-	Activity:   1 << 4,
-	Inactivity: 1 << 3,
-	Freefall:   1 << 2,
-	Watermark:  1 << 1,
-	Overrun:    1 << 0,
+	SingleTap: 1 << 6,
+	FreeFall:  1 << 2,
 }
 
 /*
 From the data sheet:
 
 In general, a good starting point is to set the Dur register to a value greater
-than 0x10 (10 ms), the Latent register to a value greater than0x10 (20 ms), the
-Window register to a value greater than 0x40(80 ms), and the ThreshTap register
+than 0x10 (10 ms), the Latent register to a value greater than 0x10 (20 ms), the
+Window register to a value greater than 0x40 (80 ms), and the ThreshTap register
 to a value greater than 0x30 (3 g).
 */
 var defaultRegisterValues = map[byte]byte{
+	// Interrupt Enabled
+	IntEnableAddr: 0x00,
+	IntMapAddr:    0x00,
+
 	// Single Tap & Double Tap
+	TapAxesAddr:   0x07,
+	ThreshTapAddr: 0x30,
+	DurAddr:       0x10,
+	LatentAddr:    0x10,
+	WindowAddr:    0x40,
 
-	ThreshTap: 0x30,
-	Dur:       0x10,
-	Latent:    0x10,
-	Window:    0x40,
 	// Free Fall
-
-	TimeFf: 0x20, // 0x14 - 0x46 are recommended
-	// Activity
-	ThreshAct:   0x80,
-	ThreshInact: 0x8,
-	// Inactivity
-	TimeInact:   0x10,
-	ActInactCtl: 0x77, // enables x, y, z for activity and inactivity
+	TimeFfAddr:   0x20, // 0x14 - 0x46 are recommended
+	ThreshFfAddr: 0x07, // 0x05 - 0x09 are recp,,emded
 }
 
 const (
@@ -72,3 +55,17 @@ const (
 	yBit      = 1 << 1
 	zBit      = 1 << 2
 )
+
+func getAxes(excludeX, excludeY, excludeZ bool) byte {
+	var tapAxes byte
+	if !excludeX {
+		tapAxes += xBit
+	}
+	if !excludeY {
+		tapAxes += yBit
+	}
+	if !excludeZ {
+		tapAxes += zBit
+	}
+	return tapAxes
+}
