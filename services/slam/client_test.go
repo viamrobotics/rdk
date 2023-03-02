@@ -45,8 +45,7 @@ func TestClientWorkingService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-	poseSucc := spatial.NewPose(r3.Vector{X: 1.0, Y: 2.0, Z: 3.0}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-	// test.That(t, poseSucc.Point().X, test.ShouldEqual, 1.0)
+	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	frameSucc := "frame"
 	pSucc := referenceframe.NewPoseInFrame(frameSucc, poseSucc)
 	pcSucc := &vision.Object{}

@@ -116,7 +116,7 @@ func TestWorkingServer(t *testing.T) {
 		respPos, err := slamServer.GetPositionNew(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
-		test.That(t, respPos.ComponentReference, test.ShouldResemble, frameSucc)
+		test.That(t, respPos.ComponentReference, test.ShouldEqual, frameSucc)
 	})
 
 	t.Run("working get map function", func(t *testing.T) {
@@ -280,13 +280,13 @@ func TestWorkingServer(t *testing.T) {
 		respPosNew, err := slamServer.GetPositionNew(context.Background(), reqPosNew)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPosNew.Pose)), test.ShouldBeTrue)
-		test.That(t, respPosNew.ComponentReference, test.ShouldResemble, frameSucc)
+		test.That(t, respPosNew.ComponentReference, test.ShouldEqual, frameSucc)
 
 		reqPosNew = &pb.GetPositionNewRequest{Name: testSlamServiceName2}
 		respPosNew, err = slamServer.GetPositionNew(context.Background(), reqPosNew)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPosNew.Pose)), test.ShouldBeTrue)
-		test.That(t, respPosNew.ComponentReference, test.ShouldResemble, frameSucc)
+		test.That(t, respPosNew.ComponentReference, test.ShouldEqual, frameSucc)
 
 		// test streaming endpoint using GetPointCloudMapStream
 		reqGetPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
