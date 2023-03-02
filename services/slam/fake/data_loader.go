@@ -180,7 +180,6 @@ func fakeGetPosition(datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string
 	}
 
 	position, err := positionNewFromJSON(data)
-
 	if err != nil {
 		return nil, "", err
 	}
