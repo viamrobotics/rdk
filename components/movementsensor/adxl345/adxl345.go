@@ -262,6 +262,7 @@ func NewAdxl345(
 	sensor.readInterrupts(sensor.cancelContext)
 	err = sensor.configureInterruptRegisters(ctx)
 	if err != nil {
+		sensor.cancelFunc()
 		return nil, err
 	}
 	if sensor.echoInterrupt1 != nil {
