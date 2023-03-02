@@ -374,6 +374,9 @@ func TestViamDepthMap(t *testing.T) {
 func TestDepthMapEncoding(t *testing.T) {
 	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/fakeDM.vnd.viam.dep"))
 	test.That(t, err, test.ShouldBeNil)
+
+	// Test values at points of DepthMap
+	// This example DepthMap (fakeDM) was made such that Depth(x,y) = x*y
 	test.That(t, m.Width(), test.ShouldEqual, 20)
 	test.That(t, m.Height(), test.ShouldEqual, 10)
 	testPt1 := m.GetDepth(13, 3)
