@@ -138,7 +138,7 @@ func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
 	if _, ok := c.ConvertedAttributes.(*AttrConfig); ok {
 		a.model, err = buildModel(*c)
 		if err != nil {
-			a.logger.Errorln("could not build model:", err.Error())
+			a.logger.Fatalln("could not build model:", err.Error())
 		}
 		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
 	}
