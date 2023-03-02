@@ -4,6 +4,7 @@ package slam_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"math"
 	"net"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
@@ -45,7 +45,8 @@ func TestClientWorkingService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+	poseSucc := spatial.NewPose(r3.Vector{X: 1.0, Y: 2.0, Z: 3.0}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+	// test.That(t, poseSucc.Point().X, test.ShouldEqual, 1.0)
 	frameSucc := "frame"
 	pSucc := referenceframe.NewPoseInFrame(frameSucc, poseSucc)
 	pcSucc := &vision.Object{}
@@ -146,7 +147,7 @@ func TestClientWorkingService(t *testing.T) {
 		// test get getPosition
 		pose, frame, err := workingSLAMClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pose, test.ShouldEqual, poseSucc)
+		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, frame, test.ShouldEqual, frameSucc)
 
 		// test get map
@@ -209,7 +210,7 @@ func TestClientWorkingService(t *testing.T) {
 		// test get getPosition
 		pose, frame, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pose, test.ShouldEqual, poseSucc)
+		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, frame, test.ShouldEqual, frameSucc)
 
 		// test get map
@@ -267,7 +268,7 @@ func TestClientWorkingService(t *testing.T) {
 		// test get getPosition
 		pose, frame, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pose, test.ShouldEqual, poseSucc)
+		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, frame, test.ShouldEqual, frameSucc)
 
 		// test get map
@@ -382,7 +383,7 @@ func TestFailingClient(t *testing.T) {
 		pose, frame, err := failingSLAMClient.GetPosition(context.Background(), nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, pose, test.ShouldBeNil)
-		test.That(t, frame, test.ShouldBeNil)
+		test.That(t, frame, test.ShouldBeEmpty)
 
 		// test get map
 		mimeType, im, pc, err := failingSLAMClient.GetMap(

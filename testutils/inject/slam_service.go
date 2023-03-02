@@ -33,7 +33,7 @@ func (slamSvc *SLAMService) Position(ctx context.Context, name string, extra map
 
 // GetPosition calls the injected GetPositionFunc or the real version.
 func (slamSvc *SLAMService) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
-	if slamSvc.PositionFunc == nil {
+	if slamSvc.GetPositionFunc == nil {
 		return slamSvc.Service.GetPosition(ctx, name)
 	}
 	return slamSvc.GetPositionFunc(ctx, name)
