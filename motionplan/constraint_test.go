@@ -20,7 +20,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -43,7 +43,7 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs(make([]float64, 6)))
 	test.That(t, err, test.ShouldBeNil)
 }
 

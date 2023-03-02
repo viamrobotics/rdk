@@ -1,6 +1,7 @@
 package builtin_test
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
@@ -27,11 +29,19 @@ const (
 
 // Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
+	actualMIME, _, pointcloudOld, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
-	t.Logf("Pointcloud points: %v", pointcloud.Size())
-	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+	t.Logf("Pointcloud points: %v", pointcloudOld.Size())
+	test.That(t, pointcloudOld.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+
+	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pcd, test.ShouldNotBeNil)
+
+	pointcloudStream, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+	t.Logf("Pointcloud points: %v", pointcloudStream.Size())
+	test.That(t, pointcloudStream.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
 // Checks the cartographer position within a defined tolerance.
@@ -63,10 +73,14 @@ func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir strin
 	internalState, err := svc.GetInternalState(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Save the data from the call to GetInternalState for use in next test.
+	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(internalState), test.ShouldEqual, len(internalStateStream))
+
+	// Save the data from the call to GetInternalStateStream for use in next test.
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDir, "map", "map_data_"+timeStamp.UTC().Format(slamTimeFormat)+".pbstream")
-	err = os.WriteFile(filename, internalState, 0644)
+	err = os.WriteFile(filename, internalStateStream, 0644)
 	test.That(t, err, test.ShouldBeNil)
 }
 

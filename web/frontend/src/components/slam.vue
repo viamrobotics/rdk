@@ -7,6 +7,7 @@ import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
+import Slam2dRender from './slam-2d-render.vue';
 
 interface Props {
   name: string
@@ -16,18 +17,21 @@ interface Props {
 
 const props = defineProps<Props>();
 
-let showImage = $ref(false);
-let showPCD = $ref(false);
-const selectedImageValue = $ref('manual');
-const selectedPCDValue = $ref('manual');
-let imageMap = $ref('');
+const selected2dValue = $ref('manual');
+const selected3dValue = $ref('manual');
+let pointCloudUpdateCount = $ref(0);
 let pointcloud = $ref<Uint8Array | undefined>();
+let pose = $ref<commonApi.Pose | undefined>();
+let show2d = $ref(false);
+let show3d = $ref(false);
 
-let slamImageIntervalId = -1;
-let slamPCDIntervalId = -1;
+const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
-const viewSLAMPCDMap = (name: string) => {
-  nextTick(() => {
+let slam2dIntervalId = -1;
+let slam3dIntervalId = -1;
+
+const fetchSLAMMap = (name: string) => {
+  return nextTick(() => {
     const req = new slamApi.GetMapRequest();
     req.setName(name);
     req.setMimeType('pointcloud/pcd');
@@ -37,82 +41,100 @@ const viewSLAMPCDMap = (name: string) => {
       if (error) {
         return displayError(error);
       }
-      const pcObject = response!.getPointCloud()!;
-      pointcloud = pcObject.getPointCloud_asU8();
+
+      /*
+       * TODO: This is a hack workaround the fac that at time of writing response!.getPointCloud()!.getPointCloud_asU8()
+       * appears to return the binary data of the entire response, not response.pointcloud.pointcloud.
+       * Tracked in ticket: https://viam.atlassian.net/browse/RSDK-2108
+       */
+
+      const base64DecodedPointCloudString = atob(response!.toObject().pointCloud!.pointCloud! as string);
+      pointcloud = Uint8Array.from(base64DecodedPointCloudString, (char: string): number => char.codePointAt(0)!);
+      // END NOTE
+      pointCloudUpdateCount += 1;
     });
   });
 };
 
-const viewSLAMImageMap = (name: string) => {
-  const req = new slamApi.GetMapRequest();
-  req.setName(name);
-  req.setMimeType('image/jpeg');
-  req.setIncludeRobotMarker(true);
-
-  rcLogConditionally(req);
-  props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      return displayError(error);
-    }
-    const blob = new Blob([response!.getImage_asU8()], { type: 'image/jpeg' });
-    imageMap = URL.createObjectURL(blob);
+const fetchSLAMPose = (name: string) => {
+  return nextTick(() => {
+    const req = new slamApi.GetPositionRequest();
+    req.setName(name);
+    props.client.slamService.getPosition(req, new grpc.Metadata(), (error, res): void => {
+      if (error) {
+        displayError(error);
+        return;
+      }
+      pose = res!.getPose()!.getPose()!;
+    });
   });
 };
 
-const updateSLAMImageRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
-  window.clearInterval(slamImageIntervalId);
+const refresh2d = async (name: string) => {
+  const mapPromise = fetchSLAMMap(name);
+  const posePromise = fetchSLAMPose(name);
+  await mapPromise;
+  await posePromise;
+};
+
+// eslint-disable-next-line require-await
+const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+  window.clearInterval(slam2dIntervalId);
 
   if (time === 'manual') {
-    viewSLAMImageMap(name);
+    refresh2d(name);
+
   } else if (time === 'off') {
     // do nothing
   } else {
-    viewSLAMImageMap(name);
-    slamImageIntervalId = window.setInterval(() => {
-      viewSLAMImageMap(name);
+
+    refresh2d(name);
+    slam2dIntervalId = window.setInterval(() => {
+      refresh2d(name);
     }, Number.parseFloat(time) * 1000);
   }
 };
 
-const updateSLAMPCDRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
-  clearInterval(slamPCDIntervalId);
+const updateSLAM3dRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
+  clearInterval(slam3dIntervalId);
 
   if (time === 'manual') {
-    viewSLAMPCDMap(name);
+    fetchSLAMMap(name);
   } else if (time === 'off') {
     // do nothing
   } else {
-    viewSLAMPCDMap(name);
-    slamPCDIntervalId = window.setInterval(() => {
-      viewSLAMPCDMap(name);
+    fetchSLAMMap(name);
+    slam3dIntervalId = window.setInterval(() => {
+      fetchSLAMMap(name);
     }, Number.parseFloat(time) * 1000);
   }
 };
 
-const toggleImageExpand = () => {
-  showImage = !showImage;
-  updateSLAMImageRefreshFrequency(props.name, showImage ? selectedImageValue : 'off');
+const toggle2dExpand = () => {
+  show2d = !show2d;
+  updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
 };
 
-const togglePCDExpand = () => {
-  showPCD = !showPCD;
-  updateSLAMPCDRefreshFrequency(props.name, showPCD ? selectedPCDValue : 'off');
+const toggle3dExpand = () => {
+  show3d = !show3d;
+  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
 };
 
-const selectSLAMImageRefreshFrequency = () => {
-  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
+const selectSLAM2dRefreshFrequency = () => {
+  updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
 const selectSLAMPCDRefreshFrequency = () => {
-  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
 };
 
-const refreshImageMap = () => {
-  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
+// eslint-disable-next-line require-await
+const refresh2dMap = async () => {
+  updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
-const refreshPCDMap = () => {
-  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+const refresh3dMap = () => {
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
 };
 
 </script>
@@ -132,15 +154,15 @@ const refreshPCDMap = () => {
           <div class="flex items-center gap-2">
             <v-switch
               id="showImage"
-              :value="showImage ? 'on' : 'off'"
-              @input="toggleImageExpand()"
+              :value="show2d ? 'on' : 'off'"
+              @input="toggle2dExpand()"
             />
-            <span class="pr-2">View SLAM Map (JPEG)</span>
+            <span class="pr-2">View SLAM Map (2D)</span>
           </div>
           <div class="float-right pb-4">
             <div class="flex">
               <div
-                v-if="showImage"
+                v-if="show2d"
                 class="w-64"
               >
                 <p class="font-label mb-1 text-gray-800">
@@ -148,13 +170,13 @@ const refreshPCDMap = () => {
                 </p>
                 <div class="relative">
                   <select
-                    v-model="selectedImageValue"
+                    v-model="selected2dValue"
                     class="
                       m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
                     "
                     aria-label="Default select example"
-                    @change="selectSLAMImageRefreshFrequency()"
+                    @change="selectSLAM2dRefreshFrequency()"
                   >
                     <option value="manual">
                       Manual Refresh
@@ -167,6 +189,9 @@ const refreshPCDMap = () => {
                     </option>
                     <option value="5">
                       Every 5 seconds
+                    </option>
+                    <option value="1">
+                      Every second
                     </option>
                   </select>
                   <div
@@ -187,33 +212,36 @@ const refreshPCDMap = () => {
               </div>
               <div class="px-2 pt-7">
                 <v-button
-                  v-if="showImage"
+                  v-if="show2d"
                   icon="refresh"
                   label="Refresh"
-                  @click="refreshImageMap()"
+                  @click="refresh2dMap()"
                 />
               </div>
             </div>
           </div>
-          <img
-            v-if="showImage"
-            :src="imageMap"
-            width="500"
-            height="500"
-          >
+          <Slam2dRender
+            v-if="loaded2d && show2d"
+            :point-cloud-update-count="pointCloudUpdateCount"
+            :pointcloud="pointcloud"
+            :pose="pose"
+            :name="name"
+            :resources="resources"
+            :client="client"
+          />
         </div>
         <div class="pt-4">
           <div class="flex items-center gap-2">
             <v-switch
-              :value="showPCD ? 'on' : 'off'"
-              @input="togglePCDExpand()"
+              :value="show3d ? 'on' : 'off'"
+              @input="toggle3dExpand()"
             />
-            <span class="pr-2">View SLAM Map (PCD)</span>
+            <span class="pr-2">View SLAM Map (3D))</span>
           </div>
           <div class="float-right pb-4">
             <div class="flex">
               <div
-                v-if="showPCD"
+                v-if="show3d"
                 class="w-64"
               >
                 <p class="font-label mb-1 text-gray-800">
@@ -221,7 +249,7 @@ const refreshPCDMap = () => {
                 </p>
                 <div class="relative">
                   <select
-                    v-model="selectedPCDValue"
+                    v-model="selected3dValue"
                     class="
                       m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
@@ -241,6 +269,9 @@ const refreshPCDMap = () => {
                     <option value="5">
                       Every 5 seconds
                     </option>
+                    <option value="1">
+                      Every second
+                    </option>
                   </select>
                   <div
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
@@ -260,16 +291,16 @@ const refreshPCDMap = () => {
               </div>
               <div class="px-2 pt-7">
                 <v-button
-                  v-if="showPCD"
+                  v-if="show3d"
                   icon="refresh"
                   label="Refresh"
-                  @click="refreshPCDMap"
+                  @click="refresh3dMap()"
                 />
               </div>
             </div>
           </div>
           <PCD
-            v-if="showPCD"
+            v-if="show3d"
             :resources="resources"
             :pointcloud="pointcloud"
             :client="client"
