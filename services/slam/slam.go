@@ -72,7 +72,7 @@ var (
 // Service describes the functions that are available to the service.
 type Service interface {
 	Position(context.Context, string, map[string]interface{}) (*referenceframe.PoseInFrame, error)
-	GetPosition(context.Context, string, map[string]interface{}) (spatialmath.Pose, string, error)
+	GetPosition(context.Context, string) (spatialmath.Pose, string, error)
 	GetMap(
 		context.Context,
 		string,
@@ -149,11 +149,10 @@ func (svc *reconfigurableSlam) Position(
 func (svc *reconfigurableSlam) GetPosition(
 	ctx context.Context,
 	val string,
-	extra map[string]interface{},
 ) (spatialmath.Pose, string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetPosition(ctx, val, extra)
+	return svc.actual.GetPosition(ctx, val)
 }
 
 func (svc *reconfigurableSlam) GetMap(ctx context.Context,

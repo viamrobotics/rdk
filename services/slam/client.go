@@ -68,7 +68,7 @@ func (c *client) Position(ctx context.Context, name string, extra map[string]int
 }
 
 // GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference.
-func (c *client) GetPosition(ctx context.Context, name string, extra map[string]interface{}) (spatialmath.Pose, string, error) {
+func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
 	return nil, "", errors.New("unimplemented stub")
 }
 
