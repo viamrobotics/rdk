@@ -70,7 +70,7 @@ func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string
 }
 
 // GetPosition returns a Pose and a component reference of the robot's current location according to SLAM.
-func (slamSvc *SLAM) GetPosition(ctx context.Context, name string, extra map[string]interface{}) (spatialmath.Pose, string, error) {
+func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
 	return nil, "", errors.New("unimplemented stub")
 }
 

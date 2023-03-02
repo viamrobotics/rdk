@@ -477,7 +477,7 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[str
 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a Pose and a component reference.
-func (slamSvc *builtIn) GetPosition(ctx context.Context, name string, extra map[string]interface{}) (spatialmath.Pose, string, error) {
+func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
