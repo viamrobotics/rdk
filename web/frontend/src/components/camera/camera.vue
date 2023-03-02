@@ -57,10 +57,6 @@ const viewCamera = async (isOn: boolean) => {
   });
 
   if (props.refreshRate === 'Live') {
-    // if (cameraStreamStates.get(`${props.parentName}-${props.cameraName}`)?.live) {
-    //   return;
-    // }
-
     cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
       on: isOn,
       live: true,
