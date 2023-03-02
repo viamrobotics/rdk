@@ -193,6 +193,7 @@ func readDepthMapVersionX(rr io.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
+// setRawDepthMapValues read out values 8 bytes at a time, converting the 8 bytes into a 2 byte depth value.
 func setRawDepthMapValues(f *bufio.Reader, dm *DepthMap) (*DepthMap, error) {
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
 		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
@@ -257,6 +258,7 @@ func WriteRawDepthMapToFile(dm image.Image, fn string) (err error) {
 }
 
 // WriteRawDepthMapTo writes this depth map to the given writer.
+// the raw depth map type writes 8 bytes of width, 8 bytes of height, and 8 bytes per pixel.
 func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	buf := make([]byte, 8)
 	var totalN int64
@@ -299,6 +301,7 @@ func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 }
 
 // WriteViamDepthMapTo writes depth map or gray16 image to the given writer as vnd.viam.dep bytes.
+// the Viam custom depth type writes 8 bytes of "magic number", 8 bytes of width, 8 bytes of height, and 2 bytes per pixel.
 func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	if lazy, ok := img.(*LazyEncodedImage); ok {
 		lazy.decode()
