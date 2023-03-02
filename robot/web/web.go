@@ -360,6 +360,9 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			// agree on using the same drive.
 			addr = addr[2:]
 		}
+		if err := module.CheckSocketAddressLength(addr); err != nil {
+			return err
+		}
 		svc.modAddr = addr
 		lis, err = net.Listen("unix", addr)
 		if err != nil {

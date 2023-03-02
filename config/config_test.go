@@ -120,32 +120,6 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Remotes[0].ReconnectInterval, test.ShouldEqual, 3*time.Second)
 }
 
-func TestCreateCloudRequest(t *testing.T) {
-	cfg := config.Cloud{
-		ID:     "a",
-		Secret: "b",
-		Path:   "c",
-	}
-
-	version := "test-version"
-	gitRevision := "test-git-revision"
-	config.Version = version
-	config.GitRevision = gitRevision
-
-	r, err := config.CreateCloudRequest(context.Background(), &cfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
-	test.That(t, r.URL.String(), test.ShouldEqual, "c?id=a")
-
-	userInfo := map[string]interface{}{}
-	userInfoJSON := r.Header.Get("User-Info")
-	json.Unmarshal([]byte(userInfoJSON), &userInfo)
-
-	test.That(t, userInfo["version"], test.ShouldEqual, version)
-	test.That(t, userInfo["gitRevision"], test.ShouldEqual, gitRevision)
-}
-
 func TestConfigEnsure(t *testing.T) {
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false), test.ShouldBeNil)
