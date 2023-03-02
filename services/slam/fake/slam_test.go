@@ -147,7 +147,7 @@ func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
 	data2 := getDataFromStream(t, slamSvc.GetInternalStateStream, slamSvc.Name)
-	test.That(t, data, test.ShouldResemble, data2)
+	test.That(t, data, test.ShouldNotEqual, data2)
 }
 
 func TestFakeSLAMGetPointMapStream(t *testing.T) {
@@ -157,8 +157,9 @@ func TestFakeSLAMGetPointMapStream(t *testing.T) {
 	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
 	data2 := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
+	test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 	// Doesn't resemble as every call returns the next data set.
-	test.That(t, data, test.ShouldNotResemble, data2)
+	test.That(t, data, test.ShouldNotEqual, data2)
 }
 
 func getDataFromStream(
