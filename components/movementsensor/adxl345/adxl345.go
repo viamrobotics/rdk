@@ -75,7 +75,7 @@ type FreeFallAttrConfig struct {
 
 // Validate ensures interrupt configs are valid, and then returns the list of things we depend on.
 func (cfg *InterruptPinAttrConfig) Validate(path string) error {
-	if cfg.EchoInterrupt == "" {
+	if cfg == nil {
 		return utils.NewConfigValidationFieldRequiredError(path, "echo_interrupt_pin")
 	}
 	return nil
@@ -89,7 +89,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "interruptPin1")
 	}
 	err = cfg.InterruptPin1.Validate(path)
-	if err {
+	if err != nil {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "interruptPin1")
 	}
 	if cfg.BoardName == "" {
