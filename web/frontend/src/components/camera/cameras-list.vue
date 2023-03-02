@@ -25,7 +25,7 @@ const setupCamera = (cameraName: string) => {
 
   for (const camera of props.resources) {
     if (!refreshFrequency[camera.name]) {
-      refreshFrequency[camera.name] = 'Every Second';
+      refreshFrequency[camera.name] = 'Live';
     }
   }
 };

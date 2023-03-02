@@ -25,8 +25,8 @@ import (
 
 var modelname = resource.NewDefaultModel("wheeled")
 
-// Config is how you configure a wheeled base.
-type Config struct {
+// AttrConfig is how you configure a wheeled base.
+type AttrConfig struct {
 	WidthMM              int      `json:"width_mm"`
 	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
@@ -35,32 +35,32 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.WidthMM == 0 {
+	if cfg.WidthMM == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "width_mm")
 	}
 
-	if config.WheelCircumferenceMM == 0 {
+	if cfg.WheelCircumferenceMM == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
 	}
 
-	if len(config.Left) == 0 {
+	if len(cfg.Left) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "left")
 	}
-	if len(config.Right) == 0 {
+	if len(cfg.Right) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "right")
 	}
 
-	if len(config.Left) != len(config.Right) {
+	if len(cfg.Left) != len(cfg.Right) {
 		return nil, utils.NewConfigValidationError(path,
 			fmt.Errorf("left and right need to have the same number of motors, not %d vs %d",
-				len(config.Left), len(config.Right)))
+				len(cfg.Left), len(cfg.Right)))
 	}
 
-	deps = append(deps, config.Left...)
-	deps = append(deps, config.Right...)
+	deps = append(deps, cfg.Left...)
+	deps = append(deps, cfg.Right...)
 
 	return deps, nil
 }
@@ -68,9 +68,9 @@ func (config *Config) Validate(path string) ([]string, error) {
 func init() {
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
+			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, config.ConvertedAttributes.(*Config), logger)
+			return CreateWheeledBase(ctx, deps, cfg, logger)
 		},
 	}
 
@@ -79,10 +79,10 @@ func init() {
 		base.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{})
+		&AttrConfig{})
 }
 
 type wheeledBase struct {
@@ -95,12 +95,15 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr operation.SingleOperationManager
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
 }
 
+// Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
+	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
@@ -117,9 +120,11 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
+// MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
+	base.logger.Debugf("received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
@@ -131,11 +136,12 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	}
 
 	// Straight math
-	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
+	rpm, rotations := base.straightDistanceToMotorInputs(distanceMm, mmPerSec)
 
 	return base.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
+// runsAll the base motors in parallel with the required speeds and rotations.
 func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -192,14 +198,25 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 	return leftMotor, rightMotor
 }
 
+// SetVelocity commands the base to move at the input linear and angular velocities.
 func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
+
+	base.logger.Debugf(
+		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f (mmPerSec), angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
+
 	l, r := base.velocityMath(linear.Y, angular.Z)
 	return base.runAll(ctx, l, 0, r, 0)
 }
 
+// SetPower commands the base motors to run at powers correspoinding to input linear and angular powers.
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
+
+	base.logger.Debugf(
+		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f, angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	lPower, rPower := base.differentialDrive(linear.Y, angular.Z)
 
@@ -232,7 +249,7 @@ func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float6
 	return rpm, revolutions
 }
 
-// return rpms left, right.
+// calcualtes wheel rpms from overall base linear and angular movement velocity inputs.
 func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, float64) {
 	// Base calculations
 	v := mmPerSec
@@ -250,7 +267,9 @@ func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, fl
 	return rpmL, rpmR
 }
 
-func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec float64) (float64, float64) {
+// calculates the motor revolutions and speeds that correspond to the reuired distance and linear speeds.
+func (base *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
+	// takes in base speed and distance to calculate motor rpm and total rotations
 	rotations := float64(distanceMm) / float64(base.wheelCircumferenceMm)
 
 	rotationsPerSec := mmPerSec / float64(base.wheelCircumferenceMm)
@@ -259,6 +278,8 @@ func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec fl
 	return rpm, rotations
 }
 
+// WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on
+// TODO: Audit in  RSDK-1880.
 func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
@@ -291,6 +312,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	}
 }
 
+// Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
 	for _, m := range base.allMotors {
@@ -312,10 +334,12 @@ func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Close is called from the client to close the instance of the base.
 func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx, nil)
 }
 
+// Width returns the width of the base as configured by the user.
 func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
@@ -324,31 +348,45 @@ func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 func CreateWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config *Config,
+	cfg config.Component,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+	}
+
 	base := &wheeledBase{
-		widthMm:              config.WidthMM,
-		wheelCircumferenceMm: config.WheelCircumferenceMM,
-		spinSlipFactor:       config.SpinSlipFactor,
+		widthMm:              attr.WidthMM,
+		wheelCircumferenceMm: attr.WheelCircumferenceMM,
+		spinSlipFactor:       attr.SpinSlipFactor,
+		logger:               logger,
 	}
 
 	if base.spinSlipFactor == 0 {
 		base.spinSlipFactor = 1
 	}
 
-	for _, name := range config.Left {
+	for _, name := range attr.Left {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
 		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			base.logger.Debugf("motor %s can report its position for base", name)
+		}
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range config.Right {
+	for _, name := range attr.Right {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
+		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			base.logger.Debugf("motor %s can report its position for base", name)
 		}
 		base.right = append(base.right, m)
 	}

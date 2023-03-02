@@ -77,15 +77,15 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		capturer       Capturer
+		captureFunc    CaptureFunc
 		params         CollectorParams
 		wait           time.Duration
 		expectReadings int
 		expFiles       int
 	}{
 		{
-			name:     "Ticker based struct writer.",
-			capturer: dummyStructCapturer,
+			name:        "Ticker based struct writer.",
+			captureFunc: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      tickerInterval,
@@ -99,8 +99,8 @@ func TestSuccessfulWrite(t *testing.T) {
 			expFiles:       1,
 		},
 		{
-			name:     "Sleep based struct writer.",
-			capturer: dummyStructCapturer,
+			name:        "Sleep based struct writer.",
+			captureFunc: dummyStructCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      sleepInterval,
@@ -114,8 +114,8 @@ func TestSuccessfulWrite(t *testing.T) {
 			expFiles:       1,
 		},
 		{
-			name:     "Ticker based binary writer.",
-			capturer: dummyBinaryCapturer,
+			name:        "Ticker based binary writer.",
+			captureFunc: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      tickerInterval,
@@ -129,8 +129,8 @@ func TestSuccessfulWrite(t *testing.T) {
 			expFiles:       2,
 		},
 		{
-			name:     "Sleep based binary writer.",
-			capturer: dummyBinaryCapturer,
+			name:        "Sleep based binary writer.",
+			captureFunc: dummyBinaryCapturer,
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      sleepInterval,
@@ -153,7 +153,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			test.That(t, target, test.ShouldNotBeNil)
 
 			tc.params.Target = target
-			c, err := NewCollector(tc.capturer, tc.params)
+			c, err := NewCollector(tc.captureFunc, tc.params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
 
@@ -212,16 +212,19 @@ func TestClose(t *testing.T) {
 func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
-	md := v1.DataCaptureMetadata{}
-	target := datacapture.NewBuffer(tmpDir, &md)
+	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
+	captured := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		select {
+		case <-ctx.Done():
+		case captured <- struct{}{}:
+		}
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
-	sleepCaptureCutoff = time.Millisecond * 10
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 5,
+		Interval:      time.Millisecond * 1,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
 		QueueSize:     queueSize,
@@ -230,12 +233,9 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	}
 	c, _ := NewCollector(errorCapturer, params)
 	c.Collect()
-	time.Sleep(25 * time.Millisecond)
+	<-captured
 	c.Close()
-
-	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
-	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
-	time.Sleep(10 * time.Millisecond)
+	close(captured)
 
 	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)

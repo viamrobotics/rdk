@@ -20,7 +20,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -43,7 +43,7 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.plan(context.Background(), pos, frame.FloatsToInputs(make([]float64, 6)))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -178,7 +178,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, failName, test.ShouldEqual, "whiteboard")
 }
 
-func TestCollisionConstraint(t *testing.T) {
+func TestCollisionConstraints(t *testing.T) {
 	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
@@ -187,8 +187,8 @@ func TestCollisionConstraint(t *testing.T) {
 	}{
 		{zeroPos, true, ""},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
-		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, "collision"},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, "collision"},
+		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, defaultObstacleConstraintName},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, defaultSelfCollisionConstraintName},
 	}
 
 	// define external obstacles
@@ -197,12 +197,21 @@ func TestCollisionConstraint(t *testing.T) {
 	obstacles := make(map[string]spatial.Geometry)
 	obstacles["obstacle1"] = bc.Transform(spatial.NewZeroPose())
 	obstacles["obstacle2"] = bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacles)}}
 
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	fs := frame.NewEmptySimpleFrameSystem("test")
+	err = fs.AddFrame(model, fs.Frame(frame.World))
+	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, nil, false))
+	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, true)
+	test.That(t, err, test.ShouldBeNil)
+	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
+	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, true)
+	test.That(t, err, test.ShouldBeNil)
+	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
@@ -216,21 +225,28 @@ func TestCollisionConstraint(t *testing.T) {
 
 var bt bool
 
-func BenchmarkCollisionConstraint(b *testing.B) {
+func BenchmarkCollisionConstraints(b *testing.B) {
 	// define external obstacles
-	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
 	obstacles := make(map[string]spatial.Geometry)
 	obstacles["obstacle1"] = bc.Transform(spatial.NewZeroPose())
 	obstacles["obstacle2"] = bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacles)}}
 
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(b, err, test.ShouldBeNil)
+	fs := frame.NewEmptySimpleFrameSystem("test")
+	err = fs.AddFrame(model, fs.Frame(frame.World))
+	test.That(b, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, nil, false))
-
+	selfCollisionConstraint, err := newSelfCollisionConstraint(model, frame.StartPositions(fs), nil, false)
+	test.That(b, err, test.ShouldBeNil)
+	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
+	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, false)
+	test.That(b, err, test.ShouldBeNil)
+	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
 	var n int

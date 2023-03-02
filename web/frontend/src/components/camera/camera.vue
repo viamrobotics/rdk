@@ -23,7 +23,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const videoEl = $ref<HTMLVideoElement>();
+let videoStream = $ref<MediaStream>();
 const imgEl = $ref<HTMLImageElement>();
 
 let cameraOn = $ref(false);
@@ -49,14 +49,14 @@ const viewCamera = async (isOn: boolean) => {
     if (!eventStream) {
       throw new Error('expected event stream to exist');
     }
-    videoEl.srcObject = eventStream;
+    // Ignore event if received for the wrong stream, in the case of multiple cameras
+    if (eventStream.id !== props.cameraName) {
+      return;
+    }
+    videoStream = eventStream;
   });
 
   if (props.refreshRate === 'Live') {
-    if (cameraStreamStates.get(`${props.parentName}-${props.cameraName}`)?.live) {
-      return;
-    }
-
     cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
       on: isOn,
       live: true,
@@ -189,7 +189,7 @@ watch(() => props.triggerRefresh, () => {
 
     <video
       v-show="props.refreshRate === 'Live'"
-      ref="videoEl"
+      :srcObject.prop="videoStream"
       muted
       autoplay
       controls="false"
