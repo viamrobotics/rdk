@@ -91,19 +91,19 @@ func readDepthMapViam(ff io.Reader) (*DepthMap, error) {
 
 	rawWidth, err := _readNext(f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read vnd.vima.dep width")
+		return nil, errors.Wrapf(err, "could not read vnd.viam.dep width")
 	}
 	dm.width = int(rawWidth)
 	rawHeight, err := _readNext(f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read vnd.vima.dep height")
+		return nil, errors.Wrapf(err, "could not read vnd.viam.dep height")
 	}
 	dm.height = int(rawHeight)
 	// dump the rest of the bytes in a depth slice
 	datSlice := make([]Depth, dm.height*dm.width)
 	err = binary.Read(f, binary.LittleEndian, &datSlice)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read vnd.vima.dep data slice")
+		return nil, errors.Wrapf(err, "could not read vnd.viam.dep data slice")
 	}
 	dm.data = datSlice
 	return dm, nil
@@ -303,7 +303,7 @@ func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	if lazy, ok := img.(*LazyEncodedImage); ok {
 		lazy.decode()
 		if lazy.decodeErr != nil {
-			return 0, errors.Errorf("could not decode LazyEncodedImage: %v", lazy.decodeErr)
+			return 0, errors.Errorf("could not decode LazyEncodedImage to a depth image: %v", lazy.decodeErr)
 		}
 		img = lazy.decodedImage
 	}
@@ -353,7 +353,7 @@ func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 			}
 		}
 	default:
-		return totalN, errors.Errorf("cannot convert image type %T to a raw depth format", dm)
+		return totalN, errors.Errorf("cannot convert image type %T to image/vnd.viam.dep depth format", dm)
 	}
 	return totalN, nil
 }
