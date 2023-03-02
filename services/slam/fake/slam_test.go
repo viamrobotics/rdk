@@ -295,7 +295,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 	test.That(t, getInternalStateResultsFirst, test.ShouldResemble, getInternalStateResultsLast)
 
 	// Confirm that the first half of the
-	// results does NOT equal the last half in reverse.
+	// results do NOT equal the last half in reverse.
 	// This proves that each call to GetPointCloudMapStream
 	// advances the test data (both for GetPointCloudMapStream & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
