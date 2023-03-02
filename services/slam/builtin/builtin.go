@@ -501,8 +501,7 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 		valKMag, ok4 := q["kmag"].(float64)
 
 		if !ok1 || !ok2 || !ok3 || !ok4 {
-			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
-			return pose, componentReference, nil
+			return nil, "", errors.Errorf("error getting SLAM position: quaternion given, but invalid format detected, %v", q)
 		}
 		actualPose := spatialmath.NewPose(pose.Point(),
 			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
