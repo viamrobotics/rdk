@@ -59,9 +59,9 @@ type InterruptPinAttrConfig struct {
 
 // TapAttrConfig is a description of the configs for tap registers.
 type TapAttrConfig struct {
-	ExcludeTapX bool `json:"tap_x,omitempty"`
-	ExcludeTapY bool `json:"tap_y,omitempty"`
-	ExcludeTapZ bool `json:"tap_z,omitempty"`
+	ExcludeTapX bool `json:"exclude_tap_x,omitempty"`
+	ExcludeTapY bool `json:"exclude_tap_y,omitempty"`
+	ExcludeTapZ bool `json:"exclude_tap_z,omitempty"`
 	ThreshTap   byte `json:"thresh_tap,omitempty"`
 	Dur         byte `json:"dur,omitempty"`
 }
