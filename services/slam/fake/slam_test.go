@@ -287,8 +287,8 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 
 	// Confirm that the first half of the
 	// results equal the last.
-	// This proves that each call to GetMap
-	// advances the test data (both for GetMap & other endpoints)
+	// This proves that each call to GetPointCloudMapStream
+	// advances the test data (both for GetPointCloudMapStream & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
 	test.That(t, positionResultsFirst, test.ShouldResemble, positionResultsLast)
 	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
@@ -296,8 +296,8 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 
 	// Confirm that the first half of the
 	// results does NOT equal the last half in reverse.
-	// This proves that each call to GetMap
-	// advances the test data (both for GetMap & other endpoints)
+	// This proves that each call to GetPointCloudMapStream
+	// advances the test data (both for GetPointCloudMapStream & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
 	test.That(t, positionResultsFirst, test.ShouldNotResemble, reverse(positionResultsLast))
 	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
