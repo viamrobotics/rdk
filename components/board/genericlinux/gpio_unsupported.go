@@ -5,7 +5,9 @@ package genericlinux
 import (
 	"context"
 	"math"
+	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 )
 
@@ -43,7 +45,9 @@ func (p *gpioPin) Close() error {
 	return errors.New("GPIO pins using ioctl are not supported on non-Linux boards")
 }
 
-func gpioInitialize(gpioMappings map[int]GPIOBoardMapping) map[string]*gpioPin {
+func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
+    waitGroup *sync.WaitGroup, logger golog.Logger,
+) map[string]*gpioPin {
 	// Don't even log anything here: if someone is running in a non-Linux environment, things
 	// should work fine as long as they don't try using these pins, and the log would be an
 	// unnecessary warning.
