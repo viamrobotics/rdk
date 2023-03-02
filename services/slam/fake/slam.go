@@ -6,7 +6,6 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -82,13 +81,14 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 // GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
 // map.
 func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	slamSvc.incrementDataCount()
+	return fakeGetPointCloudMapStream(datasetDirectory, slamSvc)
 }
 
 // GetInternalStateStream returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
 func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	return fakeGetInternalStateStream(datasetDirectory, slamSvc)
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting

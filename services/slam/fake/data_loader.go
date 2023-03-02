@@ -113,6 +113,42 @@ func fakeGetInternalState(datasetDir string, slamSvc *SLAM) ([]byte, error) {
 	return data, nil
 }
 
+func fakeGetPointCloudMapStream(datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+	slamSvc.logger.Debug("Reading " + path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	f := func() ([]byte, error) {
+		chunk := make([]byte, 64*1024)
+		bytesRead, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+		}
+		return chunk[:bytesRead], err
+	}
+	return f, nil
+}
+
+func fakeGetInternalStateStream(datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
+	slamSvc.logger.Debug("Reading " + path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	f := func() ([]byte, error) {
+		chunk := make([]byte, 64*1024)
+		bytesRead, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+		}
+		return chunk[:bytesRead], err
+	}
+	return f, nil
+}
+
 func fakePosition(datasetDir string, slamSvc *SLAM, name string) (*referenceframe.PoseInFrame, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)

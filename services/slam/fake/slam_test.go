@@ -1,16 +1,21 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 func TestFakeSLAMPosition(t *testing.T) {
@@ -49,6 +54,12 @@ func TestFakeSLAMStateful(t *testing.T) {
 		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypePCD, slamSvc, extra)
+	})
+
+	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
+		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		extra := map[string]interface{}{}
+		verifyGetPointCloudMapStreamStateful(t, rdkutils.MimeTypePCD, slamSvc, extra)
 	})
 }
 
@@ -102,6 +113,40 @@ func TestFakeSLAMGetMap(t *testing.T) {
 		test.That(t, vObj, test.ShouldBeNil)
 		test.That(t, im, test.ShouldBeNil)
 	})
+}
+
+func TestFakeSLAMGetInternalStateStream(t *testing.T) {
+	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+
+	data := getDataFromStream(t, slamSvc.GetInternalStateStream, slamSvc.Name)
+	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
+
+	data2 := getDataFromStream(t, slamSvc.GetInternalStateStream, slamSvc.Name)
+	test.That(t, data, test.ShouldResemble, data2)
+}
+
+func TestFakeSLAMGetPointMapStream(t *testing.T) {
+	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+
+	data := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
+	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
+
+	data2 := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
+	// Doesn't reseble as every call return the next data set.
+	test.That(t, data, test.ShouldNotResemble, data2)
+}
+
+func getDataFromStream(
+	t *testing.T,
+	sFunc func(ctx context.Context, name string) (func() ([]byte, error), error),
+	name string,
+) []byte {
+	f, err := sFunc(context.Background(), name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f, test.ShouldNotBeNil)
+	data, err := helperConcatenateChunksToFull(f)
+	test.That(t, err, test.ShouldBeNil)
+	return data
 }
 
 func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra map[string]interface{}) {
@@ -169,4 +214,79 @@ func reverse[T any](slice []T) []T {
 		slice[i], slice[opp] = slice[opp], slice[i]
 	}
 	return slice
+}
+
+func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra map[string]interface{}) {
+	testDataCount := maxDataCount
+	getMapPcdResults := []float64{}
+	getPositionResults := []spatialmath.Pose{}
+	getInternalStateResults := []int{}
+
+	// Call GetPointCloudMapStream twice for every testData artifact
+	for i := 0; i < testDataCount*2; i++ {
+		pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, extra)
+		test.That(t, err, test.ShouldBeNil)
+		getPositionResults = append(getPositionResults, pInFrame.Pose())
+
+		data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
+		test.That(t, err, test.ShouldBeNil)
+		getInternalStateResults = append(getInternalStateResults, len(data))
+
+		f, err := slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f, test.ShouldNotBeNil)
+		pcd, err := helperConcatenateChunksToFull(f)
+		test.That(t, err, test.ShouldBeNil)
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+		test.That(t, err, test.ShouldBeNil)
+		vObj, err := vision.NewObject(pc)
+		test.That(t, err, test.ShouldBeNil)
+
+		getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
+	getPositionResultsLast := getPositionResults[:len(getPositionResults)/2]
+
+	getInternalStateResultsFirst := getInternalStateResults[len(getInternalStateResults)/2:]
+	getInternalStateResultsLast := getInternalStateResults[:len(getInternalStateResults)/2]
+
+	// Confirm that the first half of the
+	// results equal the last.
+	// This proves that each call to GetMap
+	// advances the test data (both for GetMap & other endpoints)
+	// over a dataset of size maxDataCount that loops around.
+	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
+	test.That(t, getInternalStateResultsFirst, test.ShouldResemble, getInternalStateResultsLast)
+
+	// Confirm that the first half of the
+	// results does NOT equal the last half in reverse.
+	// This proves that each call to GetMap
+	// advances the test data (both for GetMap & other endpoints)
+	// over a dataset of size maxDataCount that loops around.
+	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
+	test.That(t, getInternalStateResultsFirst, test.ShouldNotResemble, reverse(getInternalStateResultsLast))
+
+	supportedMimeTypes := []string{rdkutils.MimeTypePCD, rdkutils.MimeTypeJPEG}
+	test.That(t, supportedMimeTypes, test.ShouldContain, mimeType)
+	getMapResultsFirst := getMapPcdResults[len(getMapPcdResults)/2:]
+	getMapResultsLast := getMapPcdResults[:len(getMapPcdResults)/2]
+	test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
+	test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
+}
+
+func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+		if errors.Is(err, io.EOF) {
+			return fullBytes, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		fullBytes = append(fullBytes, chunk...)
+	}
 }
