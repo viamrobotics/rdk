@@ -301,6 +301,13 @@ func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 // WriteViamDepthMapTo writes depth map or gray16 image to the given writer.
 // Does not write the ViamMagic.
 func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
+	if lazy, ok := img.(*LazyEncodedImage); ok {
+		lazy.decode()
+		if lazy.decodeErr != nil {
+			return 0, errors.Errorf("could not decode LazyEncodedImage: %v", lazy.decodeErr)
+		}
+		img = lazy.decodedImage
+	}
 	buf := make([]byte, 8)
 	var totalN int64
 	width := img.Bounds().Dx()
