@@ -35,7 +35,7 @@ type View = 'Stacked' | 'Grid'
 const baseClient = new BaseClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const root = $ref<HTMLElement>();
 
-const refreshFrequency = $ref('Every Second');
+const refreshFrequency = $ref('Live');
 const triggerRefresh = $ref(false);
 
 const openCameras = $ref<Record<string, boolean | undefined>>({});
