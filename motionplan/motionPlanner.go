@@ -138,7 +138,6 @@ func motionPlanInternal(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	motionConfig map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	
 	if goal == nil {
 		return nil, errors.New("no destination passed to Motion")
 	}
@@ -202,13 +201,9 @@ func motionPlanInternal(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	for j, resultSlice := range resultSlices {
+	for _, resultSlice := range resultSlices {
 		stepMap := sf.sliceToMap(resultSlice)
 		steps = append(steps, stepMap)
-		if j == len(resultSlices)-1 {
-			// update seed map
-			seedMap = stepMap
-		}
 	}
 
 	logger.Debugf("final plan steps: %v", steps)

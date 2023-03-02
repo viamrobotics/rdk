@@ -176,7 +176,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
-	
+
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
 		rrt.solutionChan <- &rrtPlanReturn{planerr: err}

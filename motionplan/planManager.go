@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -82,18 +82,18 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	var goals []spatialmath.Pose
 	var opts []*plannerOptions
-	
+
 	subWaypoints := false
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
 		subWaypoints = true
 	}
-	
+
 	if len(constraintSpec.GetLinearConstraint()) > 0 {
 		subWaypoints = true
 	}
-	
+
 	if subWaypoints {
 		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
@@ -404,14 +404,13 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	cons *pb.Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
-	
 	planAlg := ""
-	
+
 	// Start with normal options
 	opt := newBasicPlannerOptions()
 
 	opt.extra = planningOpts
-	
+
 	err := opt.createCollisionConstraints(
 		pm.frame,
 		pm.fs,
@@ -421,11 +420,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		defaultGetCollisionDepth,
 		pm.logger,
 	)
-	
 	if err != nil {
 		return nil, err
 	}
-	
+
 	hasTopoConstraint := opt.addPbTopoConstraints(from, to, cons)
 	if hasTopoConstraint {
 		planAlg = "cbirrt"
@@ -555,4 +553,3 @@ func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
 	}
 	return optCopy
 }
-

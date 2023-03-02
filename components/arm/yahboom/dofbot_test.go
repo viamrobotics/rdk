@@ -39,6 +39,7 @@ func TestDofBotIK(t *testing.T) {
 		goal,
 		model,
 		model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}),
+		nil,
 		map[string]interface{}{"motion_profile": "position_only"},
 	)
 	test.That(t, err, test.ShouldBeNil)

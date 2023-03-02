@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
-	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"

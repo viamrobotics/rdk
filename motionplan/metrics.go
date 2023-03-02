@@ -40,7 +40,7 @@ func CombineMetrics(metrics ...Metric) Metric {
 	return cm.combinedDist
 }
 
-// orientDist returns the arclength between two orientations in degrees
+// orientDist returns the arclength between two orientations in degrees.
 func orientDist(o1, o2 spatial.Orientation) float64 {
 	return utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta)
 }

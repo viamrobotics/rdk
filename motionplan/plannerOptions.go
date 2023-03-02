@@ -5,12 +5,12 @@ import (
 	"math"
 	"runtime"
 
+	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
+	"gonum.org/v1/gonum/floats"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	
-	"gonum.org/v1/gonum/floats"
-	"github.com/edaniels/golog"
 )
 
 // default values for planning options.
@@ -192,9 +192,9 @@ func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbCon
 	}
 	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
 	p.AddConstraint(defaultLinearConstraintName, constraint)
-	
-	//TODO(pl): check whether 
-	//~ p.pathDist = CombineMetrics(p.pathDist, pathDist)
+
+	// TODO(pl): check whether
+	// ~ p.pathDist = CombineMetrics(p.pathDist, pathDist)
 	p.pathDist = pathDist
 }
 
@@ -209,23 +209,21 @@ func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, 
 }
 
 func (p *plannerOptions) createCollisionConstraints(
-		frame referenceframe.Frame,
-		fs referenceframe.FrameSystem,
-		worldState *referenceframe.WorldState,
-		seedMap map[string][]referenceframe.Input,
-		pbConstraint []*pb.CollisionSpecification,
-		reportDistances bool,
-		logger golog.Logger,
-	) error {
-	
-	
+	frame referenceframe.Frame,
+	fs referenceframe.FrameSystem,
+	worldState *referenceframe.WorldState,
+	seedMap map[string][]referenceframe.Input,
+	pbConstraint []*pb.CollisionSpecification,
+	reportDistances bool,
+	logger golog.Logger,
+) error {
 	allowedCollisions := []*Collision{}
-	
+
 	// List of geometries which may be specified for collision ignoring
 	validGeoms := map[string]bool{}
-	
+
 	addGeomNames := func(geomsInFrame *referenceframe.GeometriesInFrame) error {
-		for geomName, _ := range geomsInFrame.Geometries() {
+		for geomName := range geomsInFrame.Geometries() {
 			if _, ok := validGeoms[geomName]; ok {
 				return fmt.Errorf("geometry %s is specified by name more than once", geomName)
 			}
@@ -233,7 +231,7 @@ func (p *plannerOptions) createCollisionConstraints(
 		}
 		return nil
 	}
-	
+
 	// Get names of world state obstacles
 	if worldState != nil {
 		for _, geomsInFrame := range worldState.Obstacles {
@@ -243,7 +241,7 @@ func (p *plannerOptions) createCollisionConstraints(
 			}
 		}
 	}
-	
+
 	// TODO(pl): non-moving frame system geometries are not currently supported for collision avoidance ( RSDK-2129 ) but are included here
 	// in anticipation of support and to prevent spurious errors.
 	allFsGeoms, err := referenceframe.FrameSystemGeometries(fs, seedMap, logger)
@@ -256,33 +254,33 @@ func (p *plannerOptions) createCollisionConstraints(
 			return err
 		}
 	}
-	
+
 	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all
 	// sub-pieces, e.g. myUR5arm:upper_arm_link, myUR5arm:base_link, etc. Individual sub-pieces may also be so addressed.
 	allowNameToSubGeoms := func(cName string) ([]string, error) {
 		if validGeoms[cName] {
 			return []string{cName}, nil
 		}
-		
+
 		// Check if an entire component is specified
 		if geomsInFrame, ok := allFsGeoms[cName]; ok {
 			subNames := []string{}
-			for subGeomName, _ := range geomsInFrame.Geometries() {
+			for subGeomName := range geomsInFrame.Geometries() {
 				subNames = append(subNames, subGeomName)
 			}
 			return subNames, nil
 		}
-		availNames := make([]string, 0, len(validGeoms) + len(allFsGeoms))
-		for name, _ := range validGeoms {
+		availNames := make([]string, 0, len(validGeoms)+len(allFsGeoms))
+		for name := range validGeoms {
 			availNames = append(availNames, name)
 		}
-		for name, _ := range allFsGeoms {
+		for name := range allFsGeoms {
 			availNames = append(availNames, name)
 		}
-		
-		return nil, fmt.Errorf("geometry specification allow name %s does not match any known geometries. Available: %v", cName, availNames) 
+
+		return nil, fmt.Errorf("geometry specification allow name %s does not match any known geometries. Available: %v", cName, availNames)
 	}
-	
+
 	// Actually create the collision pairings
 	for _, collisionSpec := range pbConstraint {
 		for _, allowPair := range collisionSpec.GetAllows() {
@@ -303,7 +301,7 @@ func (p *plannerOptions) createCollisionConstraints(
 			}
 		}
 	}
-	
+
 	// add collision constraints
 	selfCollisionConstraint, err := newSelfCollisionConstraint(frame, seedMap, allowedCollisions, reportDistances)
 	if err != nil {
@@ -315,6 +313,6 @@ func (p *plannerOptions) createCollisionConstraints(
 	}
 	p.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 	p.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
-	
+
 	return nil
 }

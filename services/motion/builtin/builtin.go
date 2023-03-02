@@ -96,6 +96,7 @@ func (ms *builtIn) Move(
 		fsInputs,
 		frameSys,
 		worldState,
+		constraints,
 		extra,
 	)
 	if err != nil {
