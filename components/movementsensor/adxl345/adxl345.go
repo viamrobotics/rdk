@@ -48,6 +48,7 @@ type AttrConfig struct {
 	InterruptPin2          InterruptPinAttrConfig `json:"interrupt_pin2,omitempty"`
 }
 
+// InterruptPinAttrConfig describes the interrupts associated with a given pin.
 type InterruptPinAttrConfig struct {
 	EchoInterrupt      string              `json:"echo_interrupt_pin"`
 	SingleTap          bool                `json:"single_tap,omitempty"`
@@ -56,6 +57,7 @@ type InterruptPinAttrConfig struct {
 	FreeFallAttrConfig *FreeFallAttrConfig `json:"free_fall_attributes,omitempty"`
 }
 
+// TapAttrConfig is a description of the configs for tap registers.
 type TapAttrConfig struct {
 	ExcludeTapX bool `json:"tap_x,omitempty"`
 	ExcludeTapY bool `json:"tap_y,omitempty"`
@@ -64,12 +66,14 @@ type TapAttrConfig struct {
 	Dur         byte `json:"dur,omitempty"`
 }
 
+// FreeFallAttrConfig is a description of the configs for free fall registers.
 type FreeFallAttrConfig struct {
 	EchoInterrupt string `json:"echo_interrupt_pin"`
 	ThreshFF      byte   `json:"thresh_ff,omitempty"`
 	TimeFF        byte   `json:"time_ff,omitempty"`
 }
 
+// Validate ensures interrupt configs are valid, and then returns the list of things we depend on.
 func (cfg *InterruptPinAttrConfig) Validate(path string) ([]string, error) {
 	if cfg.EchoInterrupt == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "echo_interrupt_pin")
@@ -88,7 +92,6 @@ func (cfg *InterruptPinAttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	deps = append(deps, cfg.EchoInterrupt)
 	return deps, nil
-
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
@@ -296,7 +299,7 @@ func (adxl *adxl345) startInterruptPolling(interrupt board.DigitalInterrupt) {
 	})
 }
 
-func getInterruptConfigurations(int1 InterruptPinAttrConfig, int2 InterruptPinAttrConfig) map[byte]byte {
+func getInterruptConfigurations(int1, int2 InterruptPinAttrConfig) map[byte]byte {
 	var intEnabled byte
 	var intMap byte
 
@@ -316,7 +319,7 @@ func getInterruptConfigurations(int1 InterruptPinAttrConfig, int2 InterruptPinAt
 	return map[byte]byte{IntEnableAddr: intEnabled, IntMapAddr: intMap}
 }
 
-// This returns a map from register addresses to data which should be written to that register to configure the interrupt pin
+// This returns a map from register addresses to data which should be written to that register to configure the interrupt pin.
 func getSingleTapRegisterValuesFromInterruptPin(interruptPin InterruptPinAttrConfig, registerValues map[byte]byte) map[byte]byte {
 	singleTapConfigs := interruptPin.TapAttrConfig
 	if singleTapConfigs == nil {
@@ -336,7 +339,7 @@ func getSingleTapRegisterValuesFromInterruptPin(interruptPin InterruptPinAttrCon
 	return registerValues
 }
 
-// This returns a map from register addresses to data which should be written to that register to configure the interrupt pin
+// This returns a map from register addresses to data which should be written to that register to configure the interrupt pin.
 func getFreeFallRegisterValuesFromInterruptPin(interruptPin InterruptPinAttrConfig, registerValues map[byte]byte) map[byte]byte {
 	freeFallConfigs := interruptPin.FreeFallAttrConfig
 	if freeFallConfigs == nil {
@@ -351,7 +354,7 @@ func getFreeFallRegisterValuesFromInterruptPin(interruptPin InterruptPinAttrConf
 	return registerValues
 }
 
-func getAllRegisterValues(int1 InterruptPinAttrConfig, int2 InterruptPinAttrConfig) map[byte]byte {
+func getAllRegisterValues(int1, int2 InterruptPinAttrConfig) map[byte]byte {
 	interruptRegisterValues := map[byte]byte{}
 
 	if int1.SingleTap || int1.FreeFall {
@@ -432,7 +435,7 @@ func (adxl *adxl345) readInterrupts(ctx context.Context) {
 		if intSourceRegister&value&adxl.interruptsEnabled != 0 {
 			_, ok := adxl.interruptsFound[key]
 			if ok {
-				adxl.interruptsFound[key] += 1
+				adxl.interruptsFound[key]++
 			} else {
 				adxl.interruptsFound[key] = 1
 			}
@@ -497,15 +500,6 @@ func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{})
 
 func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
-}
-
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
