@@ -1,7 +1,6 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
-import { Client, armApi, commonApi } from '@viamrobotics/sdk';
+import { ArmClient, Client, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
@@ -33,46 +32,55 @@ interface Props {
   client: Client
 }
 
-type GetterKeys = 'getX' | 'getY' | 'getZ' | 'getOX' | 'getOY' | 'getOZ' | 'getTheta'
-type SetterKeys = 'setX' | 'setY' | 'setZ' | 'setOX' | 'setOY' | 'setOZ' | 'setTheta'
+type Field = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
 
-const fieldSetters = [
-  ['x', 'X'],
-  ['y', 'Y'],
-  ['z', 'Z'],
-  ['theta', 'Theta'],
-  ['o_x', 'OX'],
-  ['o_y', 'OY'],
-  ['o_z', 'OZ'],
+const fieldMap = [
+  ['x', 'x'],
+  ['y', 'y'],
+  ['z', 'z'],
+  ['theta', 'theta'],
+  ['o_x', 'ox'],
+  ['o_y', 'oy'],
+  ['o_z', 'oz'],
 ] as const;
 
 const props = defineProps<Props>();
 
 const toggle = $ref<Record<string, ArmStatus>>({});
 
-const stop = () => {
-  const request = new armApi.StopRequest();
-  request.setName(props.name);
-  rcLogConditionally(request);
-  props.client.armService.stop(request, new grpc.Metadata(), displayError);
+const armClient = new ArmClient(props.client, props.name, { requestLogger: rcLogConditionally });
+
+const stop = async () => {
+  try {
+    await armClient.stop();
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const armModifyAllDoEndPosition = () => {
-  const newPose = new commonApi.Pose();
+const armModifyAllDoEndPosition = async () => {
   const newPieces = toggle[props.name]!.pos_pieces;
 
+  const newPose = {
+    x: 0,
+    y: 0,
+    z: 0,
+    ox: 0,
+    oy: 0,
+    oz: 0,
+    theta: 0,
+  };
+
   for (const newPiece of newPieces) {
-    const [, getterSetter] = newPiece.endPosition;
-    const setter = `set${getterSetter}` as SetterKeys;
-    newPose[setter](newPiece.endPositionValue);
+    const [, poseField] = newPiece.endPosition;
+    const field = poseField!.toLowerCase() as Field;
+    newPose[field] = newPiece.endPositionValue;
   }
-
-  const req = new armApi.MoveToPositionRequest();
-  req.setName(props.name);
-  req.setTo(newPose);
-  rcLogConditionally(req);
-  props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
-
+  try {
+    await armClient.moveToPosition(newPose);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
   delete toggle[props.name];
 };
 
@@ -80,9 +88,8 @@ const armModifyAllCancel = () => {
   delete toggle[props.name];
 };
 
-const armModifyAllDoJoint = () => {
+const armModifyAllDoJoint = async () => {
   const arm = props.rawStatus!;
-  const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
   const newPieces = toggle[props.name]!.joint_pieces;
 
@@ -90,69 +97,70 @@ const armModifyAllDoJoint = () => {
     newList[newPieces[i]!.joint] = newPieces[i]!.jointValue;
   }
 
-  newPositionDegs.setValuesList(newList);
-
-  const req = new armApi.MoveToJointPositionsRequest();
-  req.setName(props.name);
-  req.setPositions(newPositionDegs);
-  rcLogConditionally(req);
-  props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
+  try {
+    await armClient.moveToJointPositions(newList);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
   delete toggle[props.name];
 };
 
-const armEndPositionInc = (getterSetter: string, amount: number) => {
-  const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
+const armEndPositionInc = async (updateField: string, amount: number) => {
+  const adjustedAmount = updateField[0] === 'o' || updateField[0] === 'O' ? amount / 100 : amount;
   const arm = props.rawStatus!;
   const old = arm.end_position;
-  const newPose = new commonApi.Pose();
 
-  for (const fieldSetter of fieldSetters) {
-    const [endPositionField] = fieldSetter;
+  const newPose = {
+    x: 0,
+    y: 0,
+    z: 0,
+    ox: 0,
+    oy: 0,
+    oz: 0,
+    theta: 0,
+  };
+
+  for (const [endPositionField, poseField] of fieldMap) {
     const endPositionValue = old[endPositionField] || 0;
-    const setter = `set${fieldSetter[1]}` as SetterKeys;
-    newPose[setter](endPositionValue);
+    const field : Field = poseField.toLowerCase() as Field;
+    newPose[field] = endPositionValue;
   }
 
-  const getter = `get${getterSetter}` as GetterKeys;
-  const setter = `set${getterSetter}` as SetterKeys;
-  newPose[setter](newPose[getter]() + adjustedAmount);
-  const req = new armApi.MoveToPositionRequest();
-  req.setName(props.name);
-  req.setTo(newPose);
-  rcLogConditionally(req);
-  props.client.armService.moveToPosition(req, new grpc.Metadata(), displayError);
+  const field : Field = updateField.toLowerCase() as Field;
+  newPose[field] += adjustedAmount;
+
+  try {
+    await armClient.moveToPosition(newPose);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const armJointInc = (field: number, amount: number) => {
+const armJointInc = async (field: number, amount: number) => {
   const arm = props.rawStatus!;
-  const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
   newList[field] += amount;
-  newPositionDegs.setValuesList(newList);
 
-  const req = new armApi.MoveToJointPositionsRequest();
-  req.setName(props.name);
-  req.setPositions(newPositionDegs);
-  rcLogConditionally(req);
-  props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
+  try {
+    await armClient.moveToJointPositions(newList);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
-const armHome = () => {
+const armHome = async () => {
   const arm = props.rawStatus!;
-  const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
 
   for (let i = 0; i < newList.length; i += 1) {
     newList[i] = 0;
   }
 
-  newPositionDegs.setValuesList(newList);
-
-  const req = new armApi.MoveToJointPositionsRequest();
-  req.setName(props.name);
-  req.setPositions(newPositionDegs);
-  rcLogConditionally(req);
-  props.client.armService.moveToJointPositions(req, new grpc.Metadata(), displayError);
+  try {
+    await armClient.moveToJointPositions(newList);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 const armModifyAll = () => {

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"image/jpeg"
+	"io"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -149,7 +150,38 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStreamRequest,
 	stream pb.SLAMService_GetPointCloudMapStreamServer,
 ) error {
-	return errors.New("unimplemented stub")
+	ctx := context.Background()
+
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMapStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetPointCloudMapStream(ctx, req.Name)
+	if err != nil {
+		return errors.Wrap(err, "getting callback function from GetPointCloudMapStream encountered an issue")
+	}
+
+	// In the future, channel buffer could be used here to optimize for latency
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
+		}
+
+		chunk := &pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
 }
 
 // GetInternalStateStream returns the internal state of the slam service's slam algo in a stream of
@@ -157,7 +189,37 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest,
 	stream pb.SLAMService_GetInternalStateStreamServer,
 ) error {
-	return errors.New("unimplemented stub")
+	ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalStateStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetInternalStateStream(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+
+	// In the future, channel buffer could be used here to optimize for latency
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
+		}
+
+		chunk := &pb.GetInternalStateStreamResponse{InternalStateChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
 }
 
 // DoCommand receives arbitrary commands.

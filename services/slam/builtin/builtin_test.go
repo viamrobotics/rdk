@@ -1062,6 +1062,20 @@ func TestEndpointFailures(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting the internal state from the SLAM client")
 	test.That(t, internalState, test.ShouldBeNil)
 
+	callbackPointCloud, err := svc.GetPointCloudMapStream(context.Background(), "hi")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, callbackPointCloud, test.ShouldNotBeNil)
+	chunkPCD, err := callbackPointCloud()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error receiving pointcloud chunk")
+	test.That(t, chunkPCD, test.ShouldBeNil)
+
+	callbackInternalState, err := svc.GetInternalStateStream(context.Background(), "hi")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, callbackInternalState, test.ShouldNotBeNil)
+	chunkInternalState, err := callbackInternalState()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error receiving internal state chunk")
+	test.That(t, chunkInternalState, test.ShouldBeNil)
+
 	grpcServer.Stop()
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
