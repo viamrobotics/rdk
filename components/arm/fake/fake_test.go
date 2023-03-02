@@ -13,7 +13,7 @@ import (
 )
 
 func TestUpdateAction(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := golog.NewLogger("test")
 
 	cfg := config.Component{
 		Name: "testArm",
@@ -36,6 +36,13 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
+	shouldErr := config.Component{
+		Name: "testArm",
+		ConvertedAttributes: &AttrConfig{
+			ArmModel: "DNE",
+		},
+	}
+
 	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -55,6 +62,9 @@ func TestUpdateAction(t *testing.T) {
 	// scenario where we do not reconfigure again
 	test.That(t, fakeArm.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
 
+	// scenario where we error out
+	test.That(t, fakeArm.UpdateAction(&shouldErr), test.ShouldBeError)
+
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(fakeArm, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
@@ -68,4 +78,9 @@ func TestUpdateAction(t *testing.T) {
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
+
+	// scenario where we error out
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldErr), test.ShouldBeError)
 }

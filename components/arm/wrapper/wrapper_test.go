@@ -38,6 +38,13 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
+	shouldErr := config.Component{
+		Name: "testArm",
+		ConvertedAttributes: &AttrConfig{
+			ModelFilePath: "DNE",
+		},
+	}
+
 	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -58,6 +65,9 @@ func TestUpdateAction(t *testing.T) {
 	// scenario where we reconfigure
 	test.That(t, wrapperArm.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.None)
 
+	// scenario where we error out
+	test.That(t, wrapperArm.UpdateAction(&shouldErr), test.ShouldBeError)
+
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(wrapperArm, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
@@ -71,4 +81,9 @@ func TestUpdateAction(t *testing.T) {
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.None)
+
+	// scenario where we error out
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldErr), test.ShouldBeError)
 }
