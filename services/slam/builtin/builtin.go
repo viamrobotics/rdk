@@ -481,7 +481,35 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
-	return nil, "", errors.New("unimplemented stub")
+	req := &pb.GetPositionNewRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetPositionNew(ctx, req)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "error getting SLAM position")
+	}
+	pose := spatialmath.NewPoseFromProtobuf(resp.GetPose())
+	componentReference := resp.GetComponentReference()
+	returnedExt := resp.Extra.AsMap()
+
+	// check if extra contains a quaternion. If it does, return the pose with the actual orientation
+	if val, ok := returnedExt["quat"]; ok {
+		q := val.(map[string]interface{})
+
+		valReal, ok1 := q["real"].(float64)
+		valIMag, ok2 := q["imag"].(float64)
+		valJMag, ok3 := q["jmag"].(float64)
+		valKMag, ok4 := q["kmag"].(float64)
+
+		if !ok1 || !ok2 || !ok3 || !ok4 {
+			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
+			return pose, componentReference, nil
+		}
+		actualPose := spatialmath.NewPose(pose.Point(),
+			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
+		return actualPose, componentReference, nil
+	}
+
+	return pose, componentReference, nil
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked

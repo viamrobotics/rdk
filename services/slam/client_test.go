@@ -45,8 +45,9 @@ func TestClientWorkingService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-	pSucc := referenceframe.NewPoseInFrame("frame", pose)
+	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+	frameSucc := "frame"
+	pSucc := referenceframe.NewPoseInFrame(frameSucc, poseSucc)
 	pcSucc := &vision.Object{}
 	pcSucc.PointCloud = pointcloud.New()
 	pcdPath := artifact.MustPath("slam/mock_lidar/0.pcd")
@@ -66,6 +67,10 @@ func TestClientWorkingService(t *testing.T) {
 	) (*referenceframe.PoseInFrame, error) {
 		extraOptions = extra
 		return pSucc, nil
+	}
+
+	workingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (spatial.Pose, string, error) {
+		return poseSucc, frameSucc, nil
 	}
 
 	workingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
@@ -138,6 +143,12 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get getPosition
+		pose, frame, err := workingSLAMClient.GetPosition(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose, test.ShouldEqual, poseSucc)
+		test.That(t, frame, test.ShouldEqual, frameSucc)
+
 		// test get map
 		extra = map[string]interface{}{"foo": "GetMap"}
 		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
@@ -195,6 +206,12 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, pInFrame.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get getPosition
+		pose, frame, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose, test.ShouldEqual, poseSucc)
+		test.That(t, frame, test.ShouldEqual, frameSucc)
+
 		// test get map
 		extra = map[string]interface{}{"foo": "GetMap"}
 		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
@@ -247,6 +264,12 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, p.Parent(), test.ShouldEqual, pSucc.Parent())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test get getPosition
+		pose, frame, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose, test.ShouldEqual, poseSucc)
+		test.That(t, frame, test.ShouldEqual, frameSucc)
+
 		// test get map
 		extra = map[string]interface{}{"foo": "GetMap"}
 		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
@@ -287,8 +310,9 @@ func TestFailingClient(t *testing.T) {
 	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-	pFail := referenceframe.NewPoseInFrame("frame", pose)
+	poseFail := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+	frameFail := "frame"
+	pFail := referenceframe.NewPoseInFrame(frameFail, poseFail)
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()
 	err = pcFail.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
@@ -301,6 +325,10 @@ func TestFailingClient(t *testing.T) {
 		ctx context.Context, name string, extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error) {
 		return pFail, errors.New("failure to get position")
+	}
+
+	failingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (spatial.Pose, string, error) {
+		return poseFail, frameFail, errors.New("failure to get position")
 	}
 
 	failingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
@@ -349,6 +377,12 @@ func TestFailingClient(t *testing.T) {
 		p, err := failingSLAMClient.Position(context.Background(), nameFail, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, p, test.ShouldBeNil)
+
+		// test get getPosition
+		pose, frame, err := failingSLAMClient.GetPosition(context.Background(), nameFail)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
+		test.That(t, pose, test.ShouldBeNil)
+		test.That(t, frame, test.ShouldBeNil)
 
 		// test get map
 		mimeType, im, pc, err := failingSLAMClient.GetMap(
