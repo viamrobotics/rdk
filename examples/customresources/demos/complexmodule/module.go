@@ -12,10 +12,12 @@ import (
 
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/examples/customresources/apis/thingamabobapi"
 	"go.viam.com/rdk/examples/customresources/models/mybase"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mynavigation"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
+	"go.viam.com/rdk/examples/customresources/models/mythingamabob"
 
 	"go.viam.com/utils"
 )
@@ -33,6 +35,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	// Models and APIs add helpers to the registry during their init().
 	// They can then be added to the module here.
 	myMod.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model)
+	myMod.AddModelFromRegistry(ctx, thingamabobapi.Subtype, mythingamabob.Model)
 	myMod.AddModelFromRegistry(ctx, summationapi.Subtype, mysum.Model)
 	myMod.AddModelFromRegistry(ctx, base.Subtype, mybase.Model)
 	myMod.AddModelFromRegistry(ctx, navigation.Subtype, mynavigation.Model)
