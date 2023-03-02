@@ -66,6 +66,13 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	}, nil
 }
 
+// GetPositionNew returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (server *subtypeServer) GetPositionNew(ctx context.Context, req *pb.GetPositionNewRequest) (
+	*pb.GetPositionNewResponse, error,
+) {
+	return nil, errors.New("unimplemented stub")
+}
+
 // GetMap returns a mimeType and a map that is either a image byte slice or PointCloudObject defined in
 // common.proto. It takes in the name of the slam service, mime type, and optional parameter including
 // camera position and whether the resulting image should include the current robot position.

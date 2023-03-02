@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -71,6 +72,7 @@ var (
 // Service describes the functions that are available to the service.
 type Service interface {
 	Position(context.Context, string, map[string]interface{}) (*referenceframe.PoseInFrame, error)
+	GetPosition(context.Context, string) (spatialmath.Pose, string, error)
 	GetMap(
 		context.Context,
 		string,
@@ -142,6 +144,15 @@ func (svc *reconfigurableSlam) Position(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Position(ctx, val, extra)
+}
+
+func (svc *reconfigurableSlam) GetPosition(
+	ctx context.Context,
+	val string,
+) (spatialmath.Pose, string, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetPosition(ctx, val)
 }
 
 func (svc *reconfigurableSlam) GetMap(ctx context.Context,

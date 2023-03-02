@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/vision"
 )
 
@@ -66,6 +67,11 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 // Position returns a PoseInFrame of the robot's current location according to SLAM.
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	return fakePosition(datasetDirectory, slamSvc, name)
+}
+
+// GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+	return nil, "", errors.New("unimplemented stub")
 }
 
 // GetInternalState returns the internal state of a slam algo. Currently the internal state of cartographer.
