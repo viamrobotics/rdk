@@ -53,7 +53,7 @@ type InterruptPinAttrConfig struct {
 	EchoInterrupt      string              `json:"echo_interrupt_pin"`
 	SingleTap          bool                `json:"single_tap,omitempty"`
 	FreeFall           bool                `json:"free_fall,omitempty"`
-	TapAttrConfig      *TapAttrConfig      `json:"single_tap_attributes,omitempty"`
+	TapAttrConfig      *TapAttrConfig      `json:"tap_attributes,omitempty"`
 	FreeFallAttrConfig *FreeFallAttrConfig `json:"free_fall_attributes,omitempty"`
 }
 
