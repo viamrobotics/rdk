@@ -39,6 +39,31 @@ func TestFakeSLAMPosition(t *testing.T) {
 	test.That(t, pInFrame2, test.ShouldResemble, pInFrame2)
 }
 
+func TestFakeSLAMGetPosition(t *testing.T) {
+	expectedComponentReference := ""
+	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+
+	p, componentReference, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
+
+	// test.ShouldBeBetween is used here as tiny differences were observed
+	// in floating point values between M1 mac & arm64 linux which
+	// were causing tests to pass on M1 mac but fail on ci.
+
+	test.That(t, p.Point().X, test.ShouldBeBetween, -0.005666600784453, -0.005666600784454)
+	test.That(t, p.Point().Y, test.ShouldBeBetween, -6.933830e-10, -6.933831e-10)
+	test.That(t, p.Point().Z, test.ShouldBeBetween, -0.01303046, -0.01303047)
+
+	expectedOri := &spatialmath.Quaternion{Real: 0.9999999087728241, Imag: 0, Jmag: 0.0005374749356603168, Kmag: 0}
+	test.That(t, p.Orientation(), test.ShouldResemble, expectedOri)
+
+	p2, componentReference, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
+	test.That(t, p, test.ShouldResemble, p2)
+}
+
 func TestFakeSLAMGetInternalState(t *testing.T) {
 	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 	data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
@@ -219,6 +244,7 @@ func reverse[T any](slice []T) []T {
 func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra map[string]interface{}) {
 	testDataCount := maxDataCount
 	getMapPcdResults := []float64{}
+	positionResults := []spatialmath.Pose{}
 	getPositionResults := []spatialmath.Pose{}
 	getInternalStateResults := []int{}
 
@@ -226,7 +252,11 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 	for i := 0; i < testDataCount*2; i++ {
 		pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, extra)
 		test.That(t, err, test.ShouldBeNil)
-		getPositionResults = append(getPositionResults, pInFrame.Pose())
+		positionResults = append(positionResults, pInFrame.Pose())
+
+		p, _, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
+		test.That(t, err, test.ShouldBeNil)
+		getPositionResults = append(getPositionResults, p)
 
 		data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 		test.That(t, err, test.ShouldBeNil)
@@ -249,6 +279,9 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
 	getPositionResultsLast := getPositionResults[:len(getPositionResults)/2]
 
+	positionResultsFirst := positionResults[len(positionResults)/2:]
+	positionResultsLast := positionResults[:len(positionResults)/2]
+
 	getInternalStateResultsFirst := getInternalStateResults[len(getInternalStateResults)/2:]
 	getInternalStateResultsLast := getInternalStateResults[:len(getInternalStateResults)/2]
 
@@ -257,6 +290,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 	// This proves that each call to GetMap
 	// advances the test data (both for GetMap & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
+	test.That(t, positionResultsFirst, test.ShouldResemble, positionResultsLast)
 	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
 	test.That(t, getInternalStateResultsFirst, test.ShouldResemble, getInternalStateResultsLast)
 
@@ -265,6 +299,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, mimeType string, slamSvc
 	// This proves that each call to GetMap
 	// advances the test data (both for GetMap & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
+	test.That(t, positionResultsFirst, test.ShouldNotResemble, reverse(positionResultsLast))
 	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
 	test.That(t, getInternalStateResultsFirst, test.ShouldNotResemble, reverse(getInternalStateResultsLast))
 

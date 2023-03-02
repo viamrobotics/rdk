@@ -46,11 +46,11 @@ type position struct {
 	Extra extra       `json:"extra"`
 }
 
-// type positionNew struct {
-// 	Pose               pose   `json:"pose"`
-// 	ComponentReference string `json:"component_reference"`
-// 	Extra              extra  `json:"extra"`
-// }
+type positionNew struct {
+	Pose               pose   `json:"pose"`
+	ComponentReference string `json:"component_reference"`
+	Extra              extra  `json:"extra"`
+}
 
 const (
 	internalStateTemplate = "%s/internal_state/internal_state_%d.pbstream"
@@ -58,7 +58,7 @@ const (
 	pcdTemplate           = "%s/pointcloud/pointcloud_%d.pcd"
 	jpegTemplate          = "%s/image_map/image_map_%d.jpeg"
 	positionTemplate      = "%s/position/position_%d.json"
-	// positionNewTemplate   = "%s/position_new/position_%d.json".
+	positionNewTemplate   = "%s/position_new/position_%d.json"
 )
 
 func fakeGetMap(datasetDir string, slamSvc *SLAM, mimeType string) (string, image.Image, *vision.Object, error) {
@@ -171,8 +171,39 @@ func fakePosition(datasetDir string, slamSvc *SLAM, name string) (*referencefram
 	return pInFrame, nil
 }
 
+func fakeGetPosition(datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionNewTemplate, datasetDir, slamSvc.getCount())))
+	slamSvc.logger.Debug("Reading " + path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	position, err := positionNewFromJSON(data)
+
+	if err != nil {
+		return nil, "", err
+	}
+	p := r3.Vector{X: position.Pose.X, Y: position.Pose.Y, Z: position.Pose.Z}
+
+	quat := position.Extra.Quat
+	orientation := &spatialmath.Quaternion{Real: quat.Real, Imag: quat.Imag, Jmag: quat.Jmag, Kmag: quat.Kmag}
+	pose := spatialmath.NewPose(p, orientation)
+
+	return pose, position.ComponentReference, nil
+}
+
 func positionFromJSON(data []byte) (position, error) {
 	position := position{}
+
+	if err := json.Unmarshal(data, &position); err != nil {
+		return position, err
+	}
+	return position, nil
+}
+
+func positionNewFromJSON(data []byte) (positionNew, error) {
+	position := positionNew{}
 
 	if err := json.Unmarshal(data, &position); err != nil {
 		return position, err
