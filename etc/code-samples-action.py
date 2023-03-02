@@ -11,3 +11,4 @@ f.write("|-|-|\n")
 for k, v in functions.items():
     f.write(f"|{k}|{v}|\n")
 f.close()
+
