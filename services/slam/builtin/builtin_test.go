@@ -881,16 +881,10 @@ func TestCartographerDataProcess(t *testing.T) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{goodCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		cancelFunc()
@@ -908,16 +902,10 @@ func TestCartographerDataProcess(t *testing.T) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{badCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		allObs := obs.All()
@@ -973,17 +961,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}
 
 		cams := []camera.Camera{goodCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		cancelFunc()
@@ -998,16 +980,10 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			return nil, errors.New("bad_camera")
 		}
 		cams := []camera.Camera{badCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		obsAll := obs.All()
