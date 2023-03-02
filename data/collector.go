@@ -24,18 +24,8 @@ import (
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
 
-// Capturer provides a function for capturing a single protobuf reading from the underlying component.
-type Capturer interface {
-	Capture(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
-}
-
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
 type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
-
-// Capture allows any CaptureFunc to conform to the Capturer interface.
-func (cf CaptureFunc) Capture(ctx context.Context, params map[string]*anypb.Any) (interface{}, error) {
-	return cf(ctx, params)
-}
 
 // Collector collects data to some target.
 type Collector interface {
@@ -52,7 +42,7 @@ type collector struct {
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
-	capturer          Capturer
+	captureFunc       CaptureFunc
 	closed            bool
 
 	target *datacapture.Buffer
@@ -69,7 +59,10 @@ func (c *collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to sync capture queue", "error", err)
+		c.logger.Errorw("failed to flush capture queue", "error", err)
+	}
+	if err := c.logger.Sync(); err != nil {
+		c.logger.Errorw("failed to sync logger", "error", err)
 	}
 	c.closed = true
 }
@@ -169,7 +162,7 @@ func (c *collector) tickerBasedCapture() {
 
 func (c *collector) getAndPushNextReading() {
 	timeRequested := timestamppb.New(time.Now().UTC())
-	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
+	reading, err := c.captureFunc(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(time.Now().UTC())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -223,7 +216,7 @@ func (c *collector) getAndPushNextReading() {
 
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
-func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) {
+func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, error) {
 	if err := params.Validate(); err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
@@ -238,7 +231,7 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
 		cancel:            cancelFunc,
-		capturer:          capturer,
+		captureFunc:       captureFunc,
 		target:            params.Target,
 	}, nil
 }
