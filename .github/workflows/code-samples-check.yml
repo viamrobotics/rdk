@@ -26,4 +26,4 @@ jobs:
           header: Code-Samples Warning
           number: ${{ env.PR_NUMBER }}
           recreate: true
-          path: code-coverage-results.md
+          path: code-samples-warning.md
