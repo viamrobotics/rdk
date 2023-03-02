@@ -298,8 +298,7 @@ func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	return totalN, nil
 }
 
-// WriteViamDepthMapTo writes depth map or gray16 image to the given writer.
-// Does not write the ViamMagic.
+// WriteViamDepthMapTo writes depth map or gray16 image to the given writer as vnd.viam.dep bytes.
 func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	if lazy, ok := img.(*LazyEncodedImage); ok {
 		lazy.decode()
