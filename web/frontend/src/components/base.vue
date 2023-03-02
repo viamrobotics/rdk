@@ -53,7 +53,7 @@ const increment = $ref(1000);
 const speed = $ref(300);
 // deg/s
 const spinSpeed = $ref(90);
-const angle = $ref(0);
+const angle = $ref(180);
 const power = $ref(50);
 
 const pressed = new Set<Keys>();
