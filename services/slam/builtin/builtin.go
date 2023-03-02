@@ -507,7 +507,6 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
 		return actualPose, componentReference, nil
 	}
-
 	return nil, "", errors.Errorf("error getting SLAM position: quaternion not given, %v", returnedExt)
 }
 
