@@ -121,7 +121,12 @@ func FindFirstName(r robot.Robot) string {
 
 // FirstFromRobot returns the first vision service on this robot.
 func FirstFromRobot(r robot.Robot) (Service, error) {
-	return FirstFromLocalRobot(r)
+	vis, err := FirstFromLocalRobot(r)
+	if err != nil {
+		name := FindFirstName(r)
+		return FromRobot(r, name)
+	}
+	return vis, err
 }
 
 // FirstFromLocalRobot returns the first vision service on this main robot.
