@@ -335,8 +335,8 @@ func TestDepthColorModel(t *testing.T) {
 
 func TestViamDepthMap(t *testing.T) {
 	// create various types of depth representations
-	width := 3
-	height := 5
+	width := 10
+	height := 20
 	dm := NewEmptyDepthMap(width, height)
 	g16 := image.NewGray16(image.Rect(0, 0, width, height))
 	g8 := image.NewGray(image.Rect(0, 0, width, height))
@@ -372,11 +372,14 @@ func TestViamDepthMap(t *testing.T) {
 }
 
 func TestDepthMapEncoding(t *testing.T) {
-	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/fakeDM.vnd.viam.dep"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// Test values at points of DepthMap
-	// This example DepthMap (fakeDM) was made such that Depth(x,y) = x*y
+	width := 20
+	height := 10
+	m := NewEmptyDepthMap(width, height)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			m.Set(x, y, Depth(x*y))
+		}
+	}
 	test.That(t, m.Width(), test.ShouldEqual, 20)
 	test.That(t, m.Height(), test.ShouldEqual, 10)
 	testPt1 := m.GetDepth(13, 3)
@@ -386,7 +389,7 @@ func TestDepthMapEncoding(t *testing.T) {
 
 	// Save DepthMap BYTES to a file
 	buf := bytes.Buffer{}
-	err = m.WriteToBuf(&buf)
+	err := m.WriteToBuf(&buf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, buf.Bytes(), test.ShouldNotBeNil)
 	outDir := testutils.TempDirT(t, "", "rimage")
