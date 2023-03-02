@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultNeedsRestartCheckInterval = time.Second * 1
+	defaultNeedsRestartCheckInterval = time.Second * 5
 	minNeedsRestartCheckInterval     = time.Second * 1
 )
 
