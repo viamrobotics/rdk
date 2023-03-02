@@ -1029,14 +1029,13 @@ func TestEndpointFailures(t *testing.T) {
 
 	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:" + strconv.Itoa(port),
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:" + strconv.Itoa(port),
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service
@@ -1116,7 +1115,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern="},
 			{"-delete_processed_data=true"},
 			{"-use_live_data=true"},
 			{"-port=localhost:" + strconv.Itoa(port)},
@@ -1159,7 +1157,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern="},
 			{"-delete_processed_data=false"},
 			{"-use_live_data=false"},
 			{"-port=localhost:" + strconv.Itoa(port)},
@@ -1187,14 +1184,13 @@ func TestSLAMProcessFail(t *testing.T) {
 
 	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:" + strconv.Itoa(port),
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:" + strconv.Itoa(port),
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service
@@ -1238,14 +1234,13 @@ func TestGRPCConnection(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:-1",
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:-1",
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service

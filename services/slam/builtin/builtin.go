@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -144,41 +143,6 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.L
 		}
 	}
 
-	// Confirms that input file pattern abides by the format n1:n2:n3 where n1, n2 and n3 are all positive integers and n1 <= n2
-	// and n3 must be non-zero
-	if svcConfig.InputFilePattern != "" {
-		pattern := `(\d+):(\d+):(\d+)`
-		re := regexp.MustCompile(pattern)
-		res := re.MatchString(svcConfig.InputFilePattern)
-		if !res {
-			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
-		}
-
-		re = regexp.MustCompile(`(\d+)`)
-		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
-		startFileIndex, err := strconv.Atoi(res2[0])
-		if err != nil {
-			return "", err
-		}
-		endFileIndex, err := strconv.Atoi(res2[1])
-		if err != nil {
-			return "", err
-		}
-
-		interval, err := strconv.Atoi(res2[2])
-		if err != nil {
-			return "", err
-		}
-
-		if interval == 0 {
-			return "", errors.New("the file input pattern's interval must be greater than zero")
-		}
-
-		if startFileIndex > endFileIndex {
-			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
-		}
-	}
-
 	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
 		return "", errors.Errorf("cannot specify data_rate_msec less than %v", minDataRateMs)
 	}
@@ -261,7 +225,6 @@ type AttrConfig struct {
 	UseLiveData         *bool             `json:"use_live_data"`
 	DataRateMs          int               `json:"data_rate_msec"`
 	MapRateSec          *int              `json:"map_rate_sec"`
-	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
 	Dev                 bool              `json:"dev"`
@@ -299,7 +262,6 @@ type builtIn struct {
 
 	configParams        map[string]string
 	dataDirectory       string
-	inputFilePattern    string
 	deleteProcessedData bool
 	useLiveData         bool
 
@@ -690,7 +652,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
 		useLiveData:           useLiveData,
-		inputFilePattern:      svcConfig.InputFilePattern,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
 		dataRateMs:            dataRate,
@@ -844,7 +805,6 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
 	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
-	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-delete_processed_data="+strconv.FormatBool(slamSvc.deleteProcessedData))
 	args = append(args, "-use_live_data="+strconv.FormatBool(slamSvc.useLiveData))
 	args = append(args, "-port="+slamSvc.port)
