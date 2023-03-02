@@ -137,6 +137,7 @@ func TestPlanningWithGripper(t *testing.T) {
 		fs,
 		nil,
 		nil,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
@@ -340,6 +341,7 @@ func TestArmOOBSolve(t *testing.T) {
 		fs,
 		nil,
 		nil,
+		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
@@ -367,6 +369,7 @@ func TestArmObstacleSolve(t *testing.T) {
 		positions,
 		fs,
 		worldState,
+		nil,
 		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -397,6 +400,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 		fs,
 		nil,
 		nil,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), frame.World)
@@ -416,6 +420,7 @@ func TestMultiArmSolve(t *testing.T) {
 		fs.Frame("xArmVgripper"),
 		positions,
 		fs,
+		nil,
 		nil,
 		map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0},
 	)
@@ -456,6 +461,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
 		nil,
 		nil,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(position[len(position)-1])
@@ -483,7 +489,7 @@ func TestMovementWithGripper(t *testing.T) {
 	motionConfig["motion_profile"] = LinearMotionProfile
 	sfPlanner, err := newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, nil, motionConfig)
+	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, nil, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -496,7 +502,7 @@ func TestMovementWithGripper(t *testing.T) {
 	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -509,13 +515,13 @@ func TestMovementWithGripper(t *testing.T) {
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, motionConfig)
+	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// remove linear constraint and try again
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -528,7 +534,7 @@ func TestMovementWithGripper(t *testing.T) {
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, motionConfig)
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 }

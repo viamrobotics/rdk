@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/test"
 
+	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
@@ -45,6 +46,7 @@ func (m *mock) Move(
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
@@ -92,7 +94,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &referenceframe.WorldState{}, map[string]interface{}{})
+	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &referenceframe.WorldState{}, nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, false)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)

@@ -1,10 +1,16 @@
 package motionplan
 
 import (
+	"fmt"
 	"math"
 	"runtime"
 
+	pb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
+	
 	"gonum.org/v1/gonum/floats"
+	"github.com/edaniels/golog"
 )
 
 // default values for planning options.
@@ -12,8 +18,9 @@ const (
 	// max linear deviation from straight-line between start and goal, in mm.
 	defaultLinearDeviation = 0.1
 
-	// allowable deviation from slerp between start/goal orientations, unit is the norm of the R3AA between start and goal.
-	defaultOrientationDeviation = 0.05
+	// allowable deviation from slerp between start/goal orientations, unit is the number of degrees of rotation away from the most direct
+	// arc from start orientation to goal orientation.
+	defaultOrientationDeviation = 2.0
 
 	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
 	// between the start and goal.
@@ -155,4 +162,154 @@ func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
+}
+
+// addPbConstraints will add all constraints from the protobuf constraint specification. This will deal with only the topological
+// constraints, 
+func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *pb.Constraints) {
+	for _, linearConstraint := range constraints.GetLinearConstraint() {
+		p.addPbLinearConstraints(from, to, linearConstraint)
+	}
+	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
+		p.addPbOrientationConstraints(from, to, orientationConstraint)
+	}
+}
+
+func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbConstraint *pb.LinearConstraint) {
+	// Linear constraints
+	linTol := pbConstraint.GetLineToleranceMm()
+	if linTol == 0 {
+		// Default
+		linTol = defaultLinearDeviation
+	}
+	orientTol := pbConstraint.GetOrientationToleranceDegs()
+	if orientTol == 0 {
+		orientTol = defaultOrientationDeviation
+	}
+	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
+	p.AddConstraint(defaultLinearConstraintName, constraint)
+	
+	//TODO(pl): check whether 
+	p.pathDist = CombineMetrics(p.pathDist, pathDist)
+}
+
+func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, pbConstraint *pb.OrientationConstraint) {
+	orientTol := pbConstraint.GetOrientationToleranceDegs()
+	if orientTol == 0 {
+		orientTol = defaultOrientationDeviation
+	}
+	constraint, pathDist := NewSlerpOrientationConstraint(from, to, float64(orientTol))
+	p.AddConstraint(defaultLinearConstraintName, constraint)
+	p.pathDist = CombineMetrics(p.pathDist, pathDist)
+}
+
+func (p *plannerOptions) createCollisionConstraints(
+		frame referenceframe.Frame,
+		fs referenceframe.FrameSystem,
+		worldState *referenceframe.WorldState,
+		seedMap map[string][]referenceframe.Input,
+		pbConstraint []*pb.CollisionSpecification,
+		reportDistances bool,
+		logger golog.Logger,
+	) error {
+	
+	
+	allowedCollisions := []*Collision{}
+	
+	// List of geometries which may be specified for collision ignoring
+	validGeoms := map[string]bool{}
+	
+	addGeomNames := func(geomsInFrame *referenceframe.GeometriesInFrame) error {
+		for geomName, _ := range geomsInFrame.Geometries() {
+			if _, ok := validGeoms[geomName]; ok {
+				return fmt.Errorf("geometry %s is specified by name more than once", geomName)
+			}
+			validGeoms[geomName] = true
+		}
+		return nil
+	}
+	
+	// Get names of world state obstacles
+	if worldState != nil {
+		for _, geomsInFrame := range worldState.Obstacles {
+			err := addGeomNames(geomsInFrame)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	
+	// TODO(pl): non-moving frame system geometries are not currently supported for collision avoidance ( RSDK-2129 ) but are included here
+	// in anticipation of support and to prevent spurious errors.
+	allFsGeoms, err := referenceframe.FrameSystemGeometries(fs, seedMap, logger)
+	if err != nil {
+		return err
+	}
+	for _, geomsInFrame := range allFsGeoms {
+		err = addGeomNames(geomsInFrame)
+		if err != nil {
+			return err
+		}
+	}
+	
+	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all
+	// sub-pieces, e.g. myUR5arm:upper_arm_link, myUR5arm:base_link, etc. Individual sub-pieces may also be so addressed.
+	allowNameToSubGeoms := func(cName string) ([]string, error) {
+		if validGeoms[cName] {
+			return []string{cName}, nil
+		}
+		
+		// Check if an entire component is specified
+		if geomsInFrame, ok := allFsGeoms[cName]; ok {
+			subNames := []string{}
+			for subGeomName, _ := range geomsInFrame.Geometries() {
+				subNames = append(subNames, subGeomName)
+			}
+			return subNames, nil
+		}
+		availNames := make([]string, 0, len(validGeoms) + len(allFsGeoms))
+		for name, _ := range validGeoms {
+			availNames = append(availNames, name)
+		}
+		for name, _ := range allFsGeoms {
+			availNames = append(availNames, name)
+		}
+		
+		return nil, fmt.Errorf("geometry specification allow name %s does not match any known geometries. Available: %v", cName, availNames) 
+	}
+	
+	// Actually create the collision pairings
+	for _, collisionSpec := range pbConstraint {
+		for _, allowPair := range collisionSpec.GetAllows() {
+			allow1 := allowPair.GetFrame1()
+			allow2 := allowPair.GetFrame2()
+			allowNames1, err := allowNameToSubGeoms(allow1)
+			if err != nil {
+				return err
+			}
+			allowNames2, err := allowNameToSubGeoms(allow2)
+			if err != nil {
+				return err
+			}
+			for _, allowName1 := range allowNames1 {
+				for _, allowName2 := range allowNames2 {
+					allowedCollisions = append(allowedCollisions, &Collision{name1: allowName1, name2: allowName2})
+				}
+			}
+		}
+	}
+	
+	// add collision constraints
+	selfCollisionConstraint, err := newSelfCollisionConstraint(frame, seedMap, allowedCollisions, reportDistances)
+	if err != nil {
+		return err
+	}
+	obstacleConstraint, err := newObstacleConstraint(frame, fs, worldState, seedMap, allowedCollisions, reportDistances)
+	if err != nil {
+		return err
+	}
+	p.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
+	p.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
+	
+	return nil
 }

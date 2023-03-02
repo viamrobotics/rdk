@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
+	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -51,6 +52,7 @@ func (ms *builtIn) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")

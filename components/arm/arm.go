@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -66,8 +67,8 @@ const (
 // and there are joints which are out of bounds.
 const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
 
-var defaultArmPlannerOptions = map[string]interface{}{
-	"motion_profile": motionplan.LinearMotionProfile,
+var defaultArmPlannerOptions = &motionpb.Constraints{
+	LinearConstraint: []*motionpb.LinearConstraint{{}},
 }
 
 // Subtype is a constant that identifies the component resource subtype.
@@ -403,9 +404,9 @@ func Plan(
 		if err != nil {
 			return nil, err
 		}
-		return motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions)
+		return motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions, nil)
 	}
-	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
+	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions, nil)
 	if err != nil {
 		return nil, err
 	}

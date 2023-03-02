@@ -4,6 +4,7 @@ import (
 	"math"
 
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // Metric defines a distance function to be minimized by gradient descent algorithms.
@@ -39,9 +40,9 @@ func CombineMetrics(metrics ...Metric) Metric {
 	return cm.combinedDist
 }
 
-// orientDist returns the arclength between two orientations.
+// orientDist returns the arclength between two orientations in degrees
 func orientDist(o1, o2 spatial.Orientation) float64 {
-	return math.Sqrt(spatial.QuatToR3AA(spatial.OrientationBetween(o1, o2).Quaternion()).Norm2())
+	return utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta)
 }
 
 // orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
