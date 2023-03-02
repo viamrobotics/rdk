@@ -31,7 +31,6 @@ import (
 
 func TestOpID(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-
 	cfgFilename, port, err := makeConfig()
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
