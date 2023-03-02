@@ -20,6 +20,8 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+const chunkSizeBytes = 64 * 1024
+
 type pose struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -120,8 +122,8 @@ func fakeGetPointCloudMapStream(datasetDir string, slamSvc *SLAM) (func() ([]byt
 	if err != nil {
 		return nil, err
 	}
+	chunk := make([]byte, chunkSizeBytes)
 	f := func() ([]byte, error) {
-		chunk := make([]byte, 64*1024)
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
@@ -138,8 +140,8 @@ func fakeGetInternalStateStream(datasetDir string, slamSvc *SLAM) (func() ([]byt
 	if err != nil {
 		return nil, err
 	}
+	chunk := make([]byte, chunkSizeBytes)
 	f := func() ([]byte, error) {
-		chunk := make([]byte, 64*1024)
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)

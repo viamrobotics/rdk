@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"go.opencensus.io/trace"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -65,22 +66,30 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 
 // Position returns a PoseInFrame of the robot's current location according to SLAM.
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::Position")
+	defer span.End()
 	return fakePosition(datasetDirectory, slamSvc, name)
 }
 
 // GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
 func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPosition")
+	defer span.End()
 	return fakeGetPosition(datasetDirectory, slamSvc)
 }
 
 // GetInternalState returns the internal state of a slam algo. Currently the internal state of cartographer.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
+	defer span.End()
 	return fakeGetInternalState(datasetDirectory, slamSvc)
 }
 
 // GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
 // map.
 func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMapStream")
+	defer span.End()
 	slamSvc.incrementDataCount()
 	return fakeGetPointCloudMapStream(datasetDirectory, slamSvc)
 }
@@ -88,6 +97,8 @@ func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (f
 // GetInternalStateStream returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
 func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalStateStream")
+	defer span.End()
 	return fakeGetInternalStateStream(datasetDirectory, slamSvc)
 }
 
