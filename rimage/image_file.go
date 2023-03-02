@@ -86,8 +86,7 @@ func init() {
 	// image.Decode as long as we have the appropriate header
 	image.RegisterFormat("vnd.viam.dep", string(DepthMapMagicNumber),
 		func(r io.Reader) (image.Image, error) {
-			f := r.(*bufio.Reader)
-			dm, err := ReadDepthMap(f)
+			dm, err := ReadDepthMap(r)
 			if err != nil {
 				return nil, err
 			}

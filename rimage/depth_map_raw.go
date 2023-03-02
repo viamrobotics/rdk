@@ -19,7 +19,7 @@ import (
 const MagicNumIntVersionX = 6363110499870197078
 
 // MagicNumIntViamType is the magic number (as an int) for the custom Viam depth type.
-// magic number for ViamCustomType is uint64([]byte("DEPTHMAP")), Little Endian
+// magic number for ViamCustomType is uint64([]byte("DEPTHMAP")), Little Endian.
 const MagicNumIntViamType = 5782988369567958340
 
 func _readNext(r io.Reader) (int64, error) {
@@ -299,7 +299,7 @@ func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 }
 
 // WriteViamDepthMapTo writes depth map or gray16 image to the given writer.
-// Does not write the ViamMagic
+// Does not write the ViamMagic.
 func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	buf := make([]byte, 8)
 	var totalN int64
