@@ -508,7 +508,7 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 		return actualPose, componentReference, nil
 	}
 
-	return pose, componentReference, nil
+	return nil, "", errors.Errorf("error getting SLAM position: quaternion not given, %v", returnedExt)
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
