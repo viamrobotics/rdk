@@ -157,7 +157,7 @@ func TestFakeSLAMGetPointMapStream(t *testing.T) {
 	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
 	data2 := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
-	// Doesn't reseble as every call return the next data set.
+	// Doesn't resemble as every call returns the next data set.
 	test.That(t, data, test.ShouldNotResemble, data2)
 }
 
