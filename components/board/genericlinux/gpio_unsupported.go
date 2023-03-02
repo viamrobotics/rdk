@@ -5,7 +5,9 @@ package genericlinux
 import (
 	"context"
 	"math"
+	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 )
 
