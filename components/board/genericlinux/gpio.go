@@ -234,3 +234,23 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 	}
 	return pins
 }
+
+type digitalInterrupt struct {
+    interrupt board.DigitalInterrupt
+	line      *gpio.LineWithEvent
+    cancelCtx context.Context
+}
+
+func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup) {
+	activeBackgroundWorkers.Add(1)
+    utils.ManagedGo(func() {
+		for {
+			select {
+			case <- di.cancelCtx.Done():
+				return
+			case event := <- di.line.Events():
+				di.interrupt.Tick(di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano()))
+			}
+		}
+    }, activeBackgroundWorkers.Done)
+}

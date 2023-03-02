@@ -76,6 +76,11 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				}
 			}
 
+			interrupts := make(map[string]board.DigitalInterrupt, len(conf.DigitalInterrupts))
+			for _, intConf := range conf.DigitalInterrupts {
+				interrupts[] = board.CreateDigitalInterrupt(intConf)
+			}
+
 			var analogs map[string]board.AnalogReader
 			if len(conf.Analogs) != 0 {
 				analogs = make(map[string]board.AnalogReader, len(conf.Analogs))
@@ -102,6 +107,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				analogs:       analogs,
 				pwms:          map[string]pwmSetting{},
 				i2cs:          i2cs,
+				interrupts:    interrupts,
 				usePeriphGpio: usePeriphGpio,
 				logger:        logger,
 				cancelCtx:     cancelCtx,
@@ -162,6 +168,7 @@ type sysfsBoard struct {
 	analogs      map[string]board.AnalogReader
 	pwms         map[string]pwmSetting
 	i2cs         map[string]board.I2C
+	interrupts   map[string]board.DigitalInterrupt
 	logger       golog.Logger
 
 	usePeriphGpio bool
