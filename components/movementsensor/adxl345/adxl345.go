@@ -18,6 +18,7 @@ package adxl345
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -123,6 +124,11 @@ func init() {
 		&AttrConfig{})
 }
 
+type interruptInfo struct {
+	count    int
+	lastSeen time.Time
+}
+
 type adxl345 struct {
 	bus                      board.I2C
 	i2cAddress               byte
@@ -132,7 +138,7 @@ type adxl345 struct {
 	interruptsEnabled        byte
 	interruptsMap            byte
 	ticksChan                chan board.Tick
-	interruptsFound          map[string]int
+	interruptsFound          map[string]interruptInfo
 	configuredRegisterValues map[byte]byte
 
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
@@ -256,7 +262,7 @@ func NewAdxl345(
 			}
 		}
 	})
-	sensor.interruptsFound = make(map[string]int)
+	sensor.interruptsFound = make(map[string]interruptInfo)
 	sensor.readInterrupts(sensor.cancelContext)
 	err = sensor.configureInterruptRegisters(ctx)
 	if err != nil {
@@ -430,9 +436,11 @@ func (adxl *adxl345) readInterrupts(ctx context.Context) {
 		if intSourceRegister&value&adxl.interruptsEnabled != 0 {
 			_, ok := adxl.interruptsFound[key]
 			if ok {
-				adxl.interruptsFound[key]++
+				interrupt := adxl.interruptsFound[key]
+				interrupt.count++
+				interrupt.lastSeen = time.Now()
 			} else {
-				adxl.interruptsFound[key] = 1
+				adxl.interruptsFound[key] = interruptInfo{1, time.Now()}
 			}
 		}
 	}
@@ -503,8 +511,8 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 
 	readings := make(map[string]interface{})
 	readings["linear_acceleration"] = adxl.linearAcceleration
-	readings["single_tap"] = adxl.interruptsFound[SingleTap]
-	readings["freefall"] = adxl.interruptsFound[FreeFall]
+	readings["single_tap"] = fmt.Sprintf("count: %v, last_seen: %v", adxl.interruptsFound[SingleTap].count, adxl.interruptsFound[SingleTap].lastSeen)
+	readings["freefall"] = fmt.Sprintf("count: %v, last_seen: %v", adxl.interruptsFound[FreeFall].count, adxl.interruptsFound[FreeFall].lastSeen)
 
 	return readings, adxl.err.Get()
 }
