@@ -129,7 +129,7 @@ func TestFatalUpdate(t *testing.T) {
 	}
 }
 
-func TestRecofigFatalUpdate(t *testing.T) {
+func TestReconfigFatalUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	cfg := config.Component{
