@@ -77,8 +77,17 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 			}
 
 			interrupts := make(map[string]board.DigitalInterrupt, len(conf.DigitalInterrupts))
-			for _, intConf := range conf.DigitalInterrupts {
-				interrupts[] = board.CreateDigitalInterrupt(intConf)
+			if usePeriphGpio {
+				if len(conf.DigitalInterrupts) != 0 {
+					return nil, errors.New(
+						"Digital interrupts on Periph GPIO pins are not yet supported")
+				}
+			} else {
+				for _, intConf := range conf.DigitalInterrupts {
+					interrupt := board.CreateDigitalInterrupt(intConf)
+					interrupts[intConf.Name] = interrupt
+					// TODO: open up a LineWithEvents and connect it to the interrupt
+				}
 			}
 
 			var analogs map[string]board.AnalogReader
@@ -243,8 +252,11 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	b.logger.Warn("Digital interrupts are not currently supported on sysfs boards.")
-	return nil, false
+	interrupt, ok := b.interrupts[name]
+	if !ok {
+		return nil, false
+	}
+	return interrupt, true
 }
 
 func (b *sysfsBoard) SPINames() []string {
