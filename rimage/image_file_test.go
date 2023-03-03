@@ -86,11 +86,21 @@ func TestRawRGBAEncodingDecoding(t *testing.T) {
 	encodedImgBytes, err := EncodeImage(context.Background(), img, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
 	reader := bytes.NewReader(encodedImgBytes)
+
 	conf, header, err := image.DecodeConfig(reader)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, header, test.ShouldEqual, "vnd.viam.rgba")
 	test.That(t, conf.Width, test.ShouldEqual, img.Bounds().Dx())
 	test.That(t, conf.Height, test.ShouldEqual, img.Bounds().Dy())
+
+	// decode with image package
+	reader = bytes.NewReader(encodedImgBytes)
+	imgDecoded, header, err := image.Decode(reader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, header, test.ShouldEqual, "vnd.viam.rgba")
+	test.That(t, imgDecoded.Bounds(), test.ShouldResemble, img.Bounds())
+	test.That(t, imgDecoded.At(3, 6), test.ShouldResemble, img.At(3, 6))
+	test.That(t, imgDecoded.At(1, 3), test.ShouldResemble, img.At(1, 3))
 
 	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
@@ -113,12 +123,24 @@ func TestRawDepthEncodingDecoding(t *testing.T) {
 	encodedImgBytes, err := EncodeImage(context.Background(), img, utils.MimeTypeRawDepth)
 	test.That(t, err, test.ShouldBeNil)
 	reader := bytes.NewReader(encodedImgBytes)
+
+	// decode Header
 	conf, header, err := image.DecodeConfig(reader)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, header, test.ShouldEqual, "vnd.viam.dep")
 	test.That(t, conf.Width, test.ShouldEqual, img.Bounds().Dx())
 	test.That(t, conf.Height, test.ShouldEqual, img.Bounds().Dy())
 
+	// decode with image package
+	reader = bytes.NewReader(encodedImgBytes)
+	imgDecoded, header, err := image.Decode(reader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, header, test.ShouldEqual, "vnd.viam.dep")
+	test.That(t, imgDecoded.Bounds(), test.ShouldResemble, img.Bounds())
+	test.That(t, imgDecoded.At(2, 3), test.ShouldResemble, img.At(2, 3))
+	test.That(t, imgDecoded.At(1, 0), test.ShouldResemble, img.At(1, 0))
+
+	// decode with rimage package
 	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawDepth)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, decodedImg.Bounds(), test.ShouldResemble, img.Bounds())
