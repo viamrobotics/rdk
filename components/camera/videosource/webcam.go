@@ -174,6 +174,7 @@ func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediad
 					frame.FormatMJPEG,
 					frame.FormatNV12,
 					frame.FormatNV21,
+					frame.FormatZ16,
 				}
 			} else {
 				constraint.FrameFormat = prop.FrameFormatExact(attrs.Format)

@@ -1193,6 +1193,8 @@ github.com/pion/udp v0.1.1/go.mod h1:6AFo+CMdKQm7UiA0eUPA8/eVCTx8jBIITLZHc9DWX5M
 github.com/pion/udp v0.1.4 h1:OowsTmu1Od3sD6i3fQUJxJn2fEvJO6L1TidgadtbTI8=
 github.com/pion/udp v0.1.4/go.mod h1:G8LDo56HsFwC24LIcnT4YIDU5qcB6NepqqjP0keL2us=
 github.com/pion/webrtc/v3 v3.1.50/go.mod h1:y9n09weIXB+sjb9mi0GBBewNxo4TKUQm5qdtT5v3/X4=
+github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d h1:ls+7AYarUlUSetfnN/DKVNcK6W8mQWc6VblmOm4XwX0=
+github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d/go.mod h1:DO7ixpslN6XfbWzeNH9vkS5CF2FQUX81B85rYe9zDxU=
 github.com/pion/webrtc/v3 v3.1.54 h1:3WFw+b01cQGEIOgBirvaKCIFibO//TMC6L9BQCtoQuw=
 github.com/pion/webrtc/v3 v3.1.54/go.mod h1:M1gU5mnvvo4e1nnLvF23esYz0nZAFOtbU/wq44MSfbc=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 h1:KoWmjvw+nsYOo29YJK9vDA65RGE3NrOnUtO7a+RF9HU=
