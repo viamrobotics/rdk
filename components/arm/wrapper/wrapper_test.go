@@ -66,7 +66,7 @@ func TestUpdateAction(t *testing.T) {
 	test.That(t, wrapperArm.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.None)
 
 	// scenario where we error out
-	test.That(t, wrapperArm.UpdateAction(&shouldErr), test.ShouldBeError)
+	test.That(t, func() { wrapperArm.UpdateAction(&shouldErr) }, test.ShouldPanic)
 
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(wrapperArm, resource.Name{})
@@ -85,5 +85,5 @@ func TestUpdateAction(t *testing.T) {
 	// scenario where we error out
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldErr), test.ShouldBeError)
+	test.That(t, func() { obj.UpdateAction(&shouldErr) }, test.ShouldPanic)
 }
