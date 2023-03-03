@@ -213,7 +213,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, fmt.Errorf("bus voltage register overflow")
 	}
 
-	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 10
+	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4
 
 	current, err := handle.ReadBlockData(ctx, currentRegister, 2)
 	if err != nil {
