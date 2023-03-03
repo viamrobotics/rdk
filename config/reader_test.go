@@ -27,6 +27,7 @@ func TestStoreToCache(t *testing.T) {
 		LocalFQDN:        "localFqdn",
 		TLSCertificate:   "cert",
 		TLSPrivateKey:    "key",
+		AppAddress:       "https://app.viam.dev:443",
 	}
 	cfg.Cloud = cloud
 
@@ -35,7 +36,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
-	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, true, logger)
+	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
@@ -44,7 +45,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, true, logger)
+	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
 
@@ -53,7 +54,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, true, logger)
+	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }

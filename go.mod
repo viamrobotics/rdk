@@ -64,6 +64,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.4.0
 	github.com/pion/rtp v1.7.13
+	github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d
 	github.com/pion/webrtc/v3 v3.1.54
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/rhysd/actionlint v1.6.22-0.20221022051330-a6edfdd585fc
