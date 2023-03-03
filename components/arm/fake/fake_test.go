@@ -13,7 +13,8 @@ import (
 )
 
 func TestUpdateAction(t *testing.T) {
-	logger := golog.NewLogger("test")
+	// logger := golog.NewLogger("test")
+	logger := golog.NewTestLogger(t)
 
 	cfg := config.Component{
 		Name: "testArm",
@@ -63,7 +64,7 @@ func TestUpdateAction(t *testing.T) {
 	test.That(t, fakeArm.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
 
 	// scenario where we error out
-	test.That(t, fakeArm.UpdateAction(&shouldErr), test.ShouldBeError)
+	test.That(t, func() { fakeArm.UpdateAction(&shouldErr) }, test.ShouldPanic)
 
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(fakeArm, resource.Name{})
@@ -82,5 +83,5 @@ func TestUpdateAction(t *testing.T) {
 	// scenario where we error out
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldErr), test.ShouldBeError)
+	test.That(t, func() { obj.UpdateAction(&shouldErr) }, test.ShouldPanic)
 }
