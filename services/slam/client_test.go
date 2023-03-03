@@ -311,7 +311,6 @@ func TestFailingClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	poseFail := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-	componentRefFail := "cam"
 	pFail := referenceframe.NewPoseInFrame("frame", poseFail)
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()
@@ -328,7 +327,7 @@ func TestFailingClient(t *testing.T) {
 	}
 
 	failingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (spatial.Pose, string, error) {
-		return poseFail, componentRefFail, errors.New("failure to get position")
+		return nil, "", errors.New("failure to get position")
 	}
 
 	failingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
