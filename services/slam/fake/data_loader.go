@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -63,7 +64,7 @@ const (
 	positionNewTemplate   = "%s/position_new/position_%d.json"
 )
 
-func fakeGetMap(datasetDir string, slamSvc *SLAM, mimeType string) (string, image.Image, *vision.Object, error) {
+func fakeGetMap(_ context.Context, datasetDir string, slamSvc *SLAM, mimeType string) (string, image.Image, *vision.Object, error) {
 	var err error
 	var img image.Image
 	var vObj *vision.Object
@@ -105,7 +106,7 @@ func fakeGetMap(datasetDir string, slamSvc *SLAM, mimeType string) (string, imag
 	return mimeType, img, vObj, nil
 }
 
-func fakeGetInternalState(datasetDir string, slamSvc *SLAM) ([]byte, error) {
+func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) ([]byte, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)
@@ -115,7 +116,7 @@ func fakeGetInternalState(datasetDir string, slamSvc *SLAM) ([]byte, error) {
 	return data, nil
 }
 
-func fakeGetPointCloudMapStream(datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+func fakeGetPointCloudMapStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
@@ -134,7 +135,7 @@ func fakeGetPointCloudMapStream(datasetDir string, slamSvc *SLAM) (func() ([]byt
 	return f, nil
 }
 
-func fakeGetInternalStateStream(datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+func fakeGetInternalStateStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
@@ -153,7 +154,7 @@ func fakeGetInternalStateStream(datasetDir string, slamSvc *SLAM) (func() ([]byt
 	return f, nil
 }
 
-func fakePosition(datasetDir string, slamSvc *SLAM, name string) (*referenceframe.PoseInFrame, error) {
+func fakePosition(_ context.Context, datasetDir string, slamSvc *SLAM, name string) (*referenceframe.PoseInFrame, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)
@@ -175,7 +176,7 @@ func fakePosition(datasetDir string, slamSvc *SLAM, name string) (*referencefram
 	return pInFrame, nil
 }
 
-func fakeGetPosition(datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
+func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionNewTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)

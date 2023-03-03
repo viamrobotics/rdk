@@ -141,7 +141,8 @@ func TestFakeSLAMGetMap(t *testing.T) {
 }
 
 func TestFakeSLAMGetInternalStateStream(t *testing.T) {
-	t.Run("Returns a callback function which, returns the current fake internal state in chunks", func(t *testing.T) {
+	testName := "Returns a callback function which, returns the current fake internal state in chunks"
+	t.Run(testName, func(t *testing.T) {
 		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.getCount())))
@@ -160,7 +161,8 @@ func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 }
 
 func TestFakeSLAMGetPointMapStream(t *testing.T) {
-	t.Run("Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset", func(t *testing.T) {
+	testName := "Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset"
+	t.Run(testName, func(t *testing.T) {
 		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
 
 		data := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
