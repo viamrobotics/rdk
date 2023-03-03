@@ -132,3 +132,5 @@ Support is not well tested yet.
 Copyright 2021-2022 Viam Inc.
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
+
+
