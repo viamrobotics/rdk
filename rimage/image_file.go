@@ -86,8 +86,7 @@ func init() {
 	// image.Decode as long as we have the appropriate header
 	image.RegisterFormat("vnd.viam.dep", string(DepthMapMagicNumber),
 		func(r io.Reader) (image.Image, error) {
-			f := r.(*bufio.Reader)
-			dm, err := ReadDepthMap(f)
+			dm, err := ReadDepthMap(r)
 			if err != nil {
 				return nil, err
 			}
@@ -293,9 +292,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	bounds := img.Bounds()
 	switch actualOutMIME {
 	case ut.MimeTypeRawDepth:
-		buf.Write(DepthMapMagicNumber)
-		// WriteRawDepthMapTo encodes the height and width
-		if _, err := WriteRawDepthMapTo(img.(*DepthMap), &buf); err != nil {
+		if _, err := WriteViamDepthMapTo(img, &buf); err != nil {
 			return nil, err
 		}
 	case ut.MimeTypeRawRGBA:
