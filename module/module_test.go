@@ -208,12 +208,12 @@ func TestModuleFunctions(t *testing.T) {
 	})
 
 	t.Run("Validate", func(t *testing.T) {
-		resp, err := m.Validate(ctx, &pb.ValidateRequest{Config: thingamabobConf})
+		resp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: thingamabobConf})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Dependencies, test.ShouldNotBeNil)
 		test.That(t, resp.Dependencies[0], test.ShouldResemble, "gizmo1")
 
-		_, err = m.Validate(ctx, &pb.ValidateRequest{Config: badThingamabobConf})
+		_, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: badThingamabobConf})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldResemble,
 			`error validating component: expected "gizmo" attribute for thingamabob "thingamabob2"`)

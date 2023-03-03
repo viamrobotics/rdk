@@ -195,9 +195,9 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	return err
 }
 
-// Validate determines whether the given config is valid and returns its implicit
+// ValidateConfig determines whether the given config is valid and returns its implicit
 // dependencies.
-func (mgr *Manager) Validate(ctx context.Context, cfg config.Component) ([]string, error) {
+func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([]string, error) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
 	module, ok := mgr.getModule(cfg)
@@ -211,7 +211,7 @@ func (mgr *Manager) Validate(ctx context.Context, cfg config.Component) ([]strin
 	if err != nil {
 		return nil, err
 	}
-	resp, err := module.client.Validate(ctx, &pb.ValidateRequest{Config: cfgProto})
+	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: cfgProto})
 	if err != nil {
 		return nil, err
 	}
