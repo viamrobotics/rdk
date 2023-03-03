@@ -248,6 +248,7 @@ func validateMetadata(t *testing.T, bOct *BasicOctree) {
 	test.That(t, bOct.meta.MaxZ, test.ShouldEqual, metadata.MaxZ)
 	test.That(t, bOct.meta.MinZ, test.ShouldEqual, metadata.MinZ)
 
+	// tolerance value to handle uncertainties in float point calculations
 	tolerance := 0.0001
 	test.That(t, bOct.meta.TotalX(), test.ShouldBeBetween, metadata.TotalX()-tolerance, metadata.TotalX()+tolerance)
 	test.That(t, bOct.meta.TotalY(), test.ShouldBeBetween, metadata.TotalY()-tolerance, metadata.TotalY()+tolerance)

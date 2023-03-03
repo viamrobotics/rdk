@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 )
 
@@ -48,6 +49,7 @@ func makeFullPointCloudFromArtifact(t *testing.T, artifactPath string, pcType PC
 
 	path := filepath.Clean(artifact.MustPath(artifactPath))
 	pcdFile, err := os.Open(path)
+	defer utils.UncheckedErrorFunc(pcdFile.Close)
 	if err != nil {
 		return nil, err
 	}
