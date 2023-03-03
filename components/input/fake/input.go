@@ -124,13 +124,10 @@ func (c *InputController) Controls(ctx context.Context, extra map[string]interfa
 }
 
 func (c *InputController) eventVal() float64 {
-	var evValue float64
 	if c.eventValue != nil {
-		evValue = *c.eventValue
-	} else {
-		evValue = rand.Float64()
+		return *c.eventValue
 	}
-	return evValue
+	return rand.Float64()
 }
 
 // Events returns the a specified or random input.Event (the current state) for AbsoluteX.
