@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -44,7 +45,9 @@ func checkPoints(t *testing.T, basicOct *BasicOctree, pointsAndData []PointAndDa
 // Helper function that makes and returns a PointCloud of a given type from an artifact path.
 func makeFullPointCloudFromArtifact(t *testing.T, artifactPath string, pcType PCType) (PointCloud, error) {
 	t.Helper()
-	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
+
+	path := filepath.Clean(artifact.MustPath(artifactPath))
+	pcdFile, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +561,7 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 // Test the functionalities involved with converting a pcd into a basic octree.
 func TestReadBasicOctreeFromPCD(t *testing.T) {
 	t.Run("reading from binary PCD to octree", func(t *testing.T) {
-		binaryArtifactPath := "slam/example_cartographer_outputs/viam-office-02-22-1/pointcloud/pointcloud_15.pcd"
+		binaryArtifactPath := "slam/rplidar_data/rplidar_data_0.pcd"
 		testPCDToBasicOctree(t, binaryArtifactPath)
 	})
 

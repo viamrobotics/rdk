@@ -248,10 +248,10 @@ func validateMetadata(t *testing.T, bOct *BasicOctree) {
 	test.That(t, bOct.meta.MaxZ, test.ShouldEqual, metadata.MaxZ)
 	test.That(t, bOct.meta.MinZ, test.ShouldEqual, metadata.MinZ)
 
-	tol := 0.0001
-	test.That(t, bOct.meta.TotalX(), test.ShouldBeBetween, metadata.TotalX()-tol, metadata.TotalX()+tol)
-	test.That(t, bOct.meta.TotalY(), test.ShouldBeBetween, metadata.TotalY()-tol, metadata.TotalY()+tol)
-	test.That(t, bOct.meta.TotalZ(), test.ShouldBeBetween, metadata.TotalZ()-tol, metadata.TotalZ()+tol)
+	tolerance := 0.0001
+	test.That(t, bOct.meta.TotalX(), test.ShouldBeBetween, metadata.TotalX()-tolerance, metadata.TotalX()+tolerance)
+	test.That(t, bOct.meta.TotalY(), test.ShouldBeBetween, metadata.TotalY()-tolerance, metadata.TotalY()+tolerance)
+	test.That(t, bOct.meta.TotalZ(), test.ShouldBeBetween, metadata.TotalZ()-tolerance, metadata.TotalZ()+tolerance)
 }
 
 // Helper function to create lopsided octree for testing of recursion depth limit.
