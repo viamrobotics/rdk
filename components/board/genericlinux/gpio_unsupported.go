@@ -46,7 +46,7 @@ func (p *gpioPin) Close() error {
 }
 
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
-    waitGroup *sync.WaitGroup, logger golog.Logger,
+	waitGroup *sync.WaitGroup, logger golog.Logger,
 ) map[string]*gpioPin {
 	// Don't even log anything here: if someone is running in a non-Linux environment, things
 	// should work fine as long as they don't try using these pins, and the log would be an
