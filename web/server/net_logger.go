@@ -2,11 +2,8 @@
 package server
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -64,16 +61,9 @@ func newNetLogger(config *config.Cloud, loggerWithoutNet golog.Logger, logLevel 
 		return nil, err
 	}
 
-	var logWriter remoteLogWriter
-	if config.AppAddress == "" {
-		logWriter = &remoteLogWriterHTTP{
-			cfg: config,
-		}
-	} else {
-		logWriter = &remoteLogWriterGRPC{
-			loggerWithoutNet: loggerWithoutNet,
-			cfg:              config,
-		}
+	logWriter := &remoteLogWriterGRPC{
+		loggerWithoutNet: loggerWithoutNet,
+		cfg:              config,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -305,71 +295,6 @@ func addCloudLogger(logger golog.Logger, logLevel zap.AtomicLevel, cfg *config.C
 type remoteLogWriter interface {
 	write(logs []*apppb.LogEntry) error
 	close()
-}
-
-type remoteLogWriterHTTP struct {
-	cfg    *config.Cloud
-	client http.Client
-}
-
-func (w *remoteLogWriterHTTP) write(logs []*apppb.LogEntry) error {
-	for _, log := range logs {
-		err := w.writeToServer(log)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (w *remoteLogWriterHTTP) writeToServer(log *apppb.LogEntry) error {
-	level, err := zapcore.ParseLevel(log.Level)
-	if err != nil {
-		return errors.Wrap(err, "error creating log request")
-	}
-
-	e := zapcore.Entry{
-		Level:      level,
-		LoggerName: log.LoggerName,
-		Message:    log.Message,
-		Stack:      log.Stack,
-		Time:       log.Time.AsTime(),
-	}
-
-	x := map[string]interface{}{
-		"id":     w.cfg.ID,
-		"host":   log.Host,
-		"log":    e,
-		"fields": log.Fields,
-	}
-
-	js, err := json.Marshal(x)
-	if err != nil {
-		return err
-	}
-
-	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
-	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, w.cfg.LogPath, bytes.NewReader(js))
-	if err != nil {
-		return errors.Wrap(err, "error creating log request")
-	}
-	r.Header.Set("Secret", w.cfg.Secret)
-
-	resp, err := w.client.Do(r)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		utils.UncheckedError(resp.Body.Close())
-	}()
-	return nil
-}
-
-func (w *remoteLogWriterHTTP) close() {
-	w.client.CloseIdleConnections()
 }
 
 type remoteLogWriterGRPC struct {
