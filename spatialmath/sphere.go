@@ -52,6 +52,13 @@ func (s *sphere) Label() string {
 	return ""
 }
 
+// SetLabel sets the label of this sphere.
+func (s *sphere) SetLabel(label string) {
+	if s != nil {
+		s.label = label
+	}
+}
+
 // Pose returns the pose of the sphere.
 func (s *sphere) Pose() Pose {
 	return s.pose

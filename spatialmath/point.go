@@ -42,6 +42,13 @@ func (pt *point) Label() string {
 	return ""
 }
 
+// SetLabel sets the label of this point.
+func (pt *point) SetLabel(label string) {
+	if pt != nil {
+		pt.label = label
+	}
+}
+
 // Pose returns the pose of the point.
 func (pt *point) Pose() Pose {
 	return NewPoseFromPoint(pt.position)

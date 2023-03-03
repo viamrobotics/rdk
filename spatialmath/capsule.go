@@ -93,6 +93,13 @@ func (c *capsule) Label() string {
 	return ""
 }
 
+// SetLabel sets the label of this capsule.
+func (c *capsule) SetLabel(label string) {
+	if c != nil {
+		c.label = label
+	}
+}
+
 // Pose returns the pose of the capsule.
 func (c *capsule) Pose() Pose {
 	return c.pose
