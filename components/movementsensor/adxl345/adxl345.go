@@ -18,7 +18,6 @@ package adxl345
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -127,6 +126,11 @@ func init() {
 type interruptInfo struct {
 	count    int
 	lastSeen time.Time
+}
+
+func (i *interruptInfo) incrementCount() {
+	i.count++
+	i.lastSeen = time.Now()
 }
 
 type adxl345 struct {
@@ -427,6 +431,8 @@ func (adxl *adxl345) configureInterruptRegisters(ctx context.Context) error {
 }
 
 func (adxl *adxl345) readInterrupts(ctx context.Context) {
+	adxl.mu.Lock()
+	defer adxl.mu.Unlock()
 	intSourceRegister, err := adxl.readByte(ctx, IntSourceAddr)
 	if err != nil {
 		adxl.logger.Error(err)
@@ -437,8 +443,7 @@ func (adxl *adxl345) readInterrupts(ctx context.Context) {
 			_, ok := adxl.interruptsFound[key]
 			if ok {
 				interrupt := adxl.interruptsFound[key]
-				interrupt.count++
-				interrupt.lastSeen = time.Now()
+				interrupt.incrementCount()
 			} else {
 				adxl.interruptsFound[key] = interruptInfo{1, time.Now()}
 			}
@@ -511,8 +516,10 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 
 	readings := make(map[string]interface{})
 	readings["linear_acceleration"] = adxl.linearAcceleration
-	readings["single_tap"] = fmt.Sprintf("count: %v, last_seen: %v", adxl.interruptsFound[SingleTap].count, adxl.interruptsFound[SingleTap].lastSeen)
-	readings["freefall"] = fmt.Sprintf("count: %v, last_seen: %v", adxl.interruptsFound[FreeFall].count, adxl.interruptsFound[FreeFall].lastSeen)
+	readings["single_tap_count"] = adxl.interruptsFound[SingleTap].count
+	readings["single_tap_last_seen"] = adxl.interruptsFound[SingleTap].lastSeen
+	readings["freefall_count"] = adxl.interruptsFound[FreeFall].count
+	readings["freefall_last_seen"] = adxl.interruptsFound[FreeFall].lastSeen
 
 	return readings, adxl.err.Get()
 }
