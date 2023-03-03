@@ -1,9 +1,8 @@
 package referenceframe
 
 import (
-	"strconv"
+	"fmt"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -72,15 +71,14 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*WorldState, error) {
 	transformGeometriesToWorldFrame := func(gfs []*GeometriesInFrame) (*GeometriesInFrame, error) {
 		allGeometries := make(map[string]spatial.Geometry)
-		for name1, gf := range gfs {
+		for _, gf := range gfs {
 			tf, err := fs.Transform(inputs, gf, World)
 			if err != nil {
 				return nil, err
 			}
-			for name2, g := range tf.(*GeometriesInFrame).Geometries() {
-				geomName := strconv.Itoa(name1) + "_" + name2
+			for geomName, g := range tf.(*GeometriesInFrame).Geometries() {
 				if _, present := allGeometries[geomName]; present {
-					return nil, errors.New("multiple geometries with the same name")
+					return nil, fmt.Errorf("multiple geometries with the same name: %s", geomName)
 				}
 				allGeometries[geomName] = g
 			}

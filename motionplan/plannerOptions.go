@@ -193,9 +193,7 @@ func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbCon
 	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
 	p.AddConstraint(defaultLinearConstraintName, constraint)
 
-	// TODO(pl): check whether
-	// ~ p.pathDist = CombineMetrics(p.pathDist, pathDist)
-	p.pathDist = pathDist
+	p.pathDist = CombineMetrics(p.pathDist, pathDist)
 }
 
 func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, pbConstraint *pb.OrientationConstraint) {
@@ -270,6 +268,8 @@ func (p *plannerOptions) createCollisionConstraints(
 			}
 			return subNames, nil
 		}
+
+		// generate the list of available names to return in error message
 		availNames := make([]string, 0, len(validGeoms)+len(allFsGeoms))
 		for name := range validGeoms {
 			availNames = append(availNames, name)

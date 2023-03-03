@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -468,6 +469,57 @@ func TestSolverFrameGeometries(t *testing.T) {
 	test.That(t, gf, test.ShouldNotBeNil)
 	gripperCenter := gf.Geometries()["xArmVgripper"].Pose().Point()
 	test.That(t, spatialmath.R3VectorAlmostEqual(gripperCenter, r3.Vector{300, 300, 0}, 1e-2), test.ShouldBeTrue)
+}
+
+func TestArmConstraintSpecificationSolve(t *testing.T) {
+	fs := makeTestFS(t)
+	positions := frame.StartPositions(fs)
+	worldState := &frame.WorldState{}
+	constraints := &motionpb.Constraints{}
+
+	checkReachable := func() error {
+		goal1 := spatialmath.NewPose(r3.Vector{X: 500, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
+		_, err := PlanMotion(
+			context.Background(),
+			logger.Sugar(),
+			frame.NewPoseInFrame("gantryY", goal1),
+			fs.Frame("xArmVgripper"),
+			positions,
+			fs,
+			worldState,
+			constraints,
+			nil,
+		)
+		return err
+	}
+
+	// Verify that the goal position is reachable with no obstacles
+	err := checkReachable()
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add an obstacle
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{0, 8000, 8000}, "")
+	test.That(t, err, test.ShouldBeNil)
+	worldState = &frame.WorldState{
+		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame("gantryY", map[string]spatialmath.Geometry{"theWall": box})},
+	}
+
+	// No longer reachable with The Wall in the way
+	err = checkReachable()
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Reachable again if xarm6 and gripper ignore collisions with The Wall
+	constraints = &motionpb.Constraints{
+		CollisionSpecification: []*motionpb.CollisionSpecification{
+			{
+				Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
+					{Frame1: "xArm6", Frame2: "theWall"}, {Frame1: "xArmVgripper", Frame2: "theWall"},
+				},
+			},
+		},
+	}
+	err = checkReachable()
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestMovementWithGripper(t *testing.T) {
