@@ -398,7 +398,6 @@ require (
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20220706161116-678bad134442 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
-	periph.io/x/devices/v3 v3.7.0 // indirect
 )
 
 require (
