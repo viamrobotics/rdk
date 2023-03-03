@@ -16,7 +16,6 @@ import (
 )
 
 func TestUpdateAction(t *testing.T) {
-	// logger := golog.NewLogger("test")
 	logger := golog.NewTestLogger(t)
 
 	cfg := config.Component{
