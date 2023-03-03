@@ -85,6 +85,12 @@ func TestRawRGBAEncodingDecoding(t *testing.T) {
 
 	encodedImgBytes, err := EncodeImage(context.Background(), img, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
+	reader := bytes.NewReader(encodedImgBytes)
+	conf, header, err := image.DecodeConfig(reader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, header, test.ShouldEqual, "vnd.viam.rgba")
+	test.That(t, conf.Width, test.ShouldEqual, img.Bounds().Dx())
+	test.That(t, conf.Height, test.ShouldEqual, img.Bounds().Dy())
 
 	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
@@ -95,4 +101,29 @@ func TestRawRGBAEncodingDecoding(t *testing.T) {
 	test.That(t, imgG, test.ShouldResemble, decodedImgG)
 	test.That(t, imgB, test.ShouldResemble, decodedImgB)
 	test.That(t, imgA, test.ShouldResemble, decodedImgA)
+}
+
+func TestRawDepthEncodingDecoding(t *testing.T) {
+	img := NewEmptyDepthMap(4, 8)
+	for x := 0; x < 4; x++ {
+		for y := 0; y < 8; y++ {
+			img.Set(x, y, Depth(x*y))
+		}
+	}
+	encodedImgBytes, err := EncodeImage(context.Background(), img, utils.MimeTypeRawDepth)
+	test.That(t, err, test.ShouldBeNil)
+	reader := bytes.NewReader(encodedImgBytes)
+	conf, header, err := image.DecodeConfig(reader)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, header, test.ShouldEqual, "vnd.viam.dep")
+	test.That(t, conf.Width, test.ShouldEqual, img.Bounds().Dx())
+	test.That(t, conf.Height, test.ShouldEqual, img.Bounds().Dy())
+
+	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawDepth)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, decodedImg.Bounds(), test.ShouldResemble, img.Bounds())
+	decodedDm, ok := decodedImg.(*DepthMap)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, decodedDm.GetDepth(2, 3), test.ShouldEqual, img.GetDepth(2, 3))
+	test.That(t, decodedDm.GetDepth(1, 0), test.ShouldEqual, img.GetDepth(1, 0))
 }
