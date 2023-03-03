@@ -194,6 +194,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	var pm PowerMonitor
 
+	// get shunt voltage - currently we are not returning - is it useful?
 	shunt, err := handle.ReadBlockData(ctx, shuntVoltageRegister, 2)
 	if err != nil {
 		return nil, err
