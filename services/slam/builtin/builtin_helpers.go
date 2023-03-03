@@ -1,4 +1,4 @@
-// Package helpers implements helper functions to be used within the builtin slam service
+// implements helper functions to be used within the builtin slam service
 package builtin
 
 import (
