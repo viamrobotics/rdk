@@ -936,6 +936,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		if err != nil {
 			return nil, err
 		}
+
 		filename := filenames[0]
 		//nolint:gosec
 		f, err := os.Create(filename)
