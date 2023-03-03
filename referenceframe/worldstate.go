@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"fmt"
+	"strconv"
 
 	commonpb "go.viam.com/api/common/v1"
 
@@ -71,12 +72,13 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*WorldState, error) {
 	transformGeometriesToWorldFrame := func(gfs []*GeometriesInFrame) (*GeometriesInFrame, error) {
 		allGeometries := make(map[string]spatial.Geometry)
-		for _, gf := range gfs {
+		for name1, gf := range gfs {
 			tf, err := fs.Transform(inputs, gf, World)
 			if err != nil {
 				return nil, err
 			}
-			for geomName, g := range tf.(*GeometriesInFrame).Geometries() {
+			for name2, g := range tf.(*GeometriesInFrame).Geometries() {
+				geomName := strconv.Itoa(name1) + "_" + name2
 				if _, present := allGeometries[geomName]; present {
 					return nil, fmt.Errorf("multiple geometries with the same name: %s", geomName)
 				}
