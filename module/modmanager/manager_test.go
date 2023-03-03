@@ -125,8 +125,8 @@ func TestModManagerFunctions(t *testing.T) {
 	ok = mgr.IsModularResource(resource.NameFromSubtype(generic.Subtype, "missing"))
 	test.That(t, ok, test.ShouldBeFalse)
 
-	t.Log("test Validate")
-	deps, err := mgr.Validate(ctx, cfgCounter1)
+	t.Log("test ValidateConfig")
+	deps, err := mgr.ValidateConfig(ctx, cfgCounter1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 

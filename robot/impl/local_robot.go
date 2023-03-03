@@ -901,7 +901,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// modularized resources, and store those resources' implicit dependencies.
 	for i, c := range newConfig.Components {
 		if r.modules.Provides(c) {
-			implicitDeps, err := r.modules.Validate(ctx, c)
+			implicitDeps, err := r.modules.ValidateConfig(ctx, c)
 			if err != nil {
 				r.logger.Errorw("Modular config validation error found in component: "+c.Name, "error", err)
 				continue
@@ -913,7 +913,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 	for i, s := range newConfig.Services {
 		if r.modules.Provides(config.ServiceConfigToShared(s)) {
-			implicitDeps, err := r.modules.Validate(ctx, config.ServiceConfigToShared(s))
+			implicitDeps, err := r.modules.ValidateConfig(ctx, config.ServiceConfigToShared(s))
 			if err != nil {
 				r.logger.Errorw("Modular config validation error found in service: "+s.Name, "error", err)
 				continue

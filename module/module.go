@@ -409,8 +409,9 @@ type Validator interface {
 	Validate(path string) ([]string, error)
 }
 
-// Validate receives the validation request for a resource from the parent.
-func (m *Module) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.ValidateResponse, error) {
+// ValidateConfig receives the validation request for a resource from the parent.
+func (m *Module) ValidateConfig(ctx context.Context,
+	req *pb.ValidateConfigRequest) (*pb.ValidateConfigResponse, error) {
 	c, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err
@@ -430,7 +431,7 @@ func (m *Module) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.Val
 			if err != nil {
 				return nil, errors.Wrapf(err, "error validating component")
 			}
-			return &pb.ValidateResponse{Dependencies: implicitDeps}, nil
+			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
 		}
 	}
 
@@ -448,13 +449,13 @@ func (m *Module) Validate(ctx context.Context, req *pb.ValidateRequest) (*pb.Val
 			if err != nil {
 				return nil, errors.Wrapf(err, "error validating service")
 			}
-			return &pb.ValidateResponse{Dependencies: implicitDeps}, nil
+			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
 		}
 	}
 
 	// Resource configuration object does not implement Validate, but return an
 	// empty response and no error to maintain backward compatibility.
-	return &pb.ValidateResponse{}, nil
+	return &pb.ValidateConfigResponse{}, nil
 }
 
 // RemoveResource receives the request for resource removal.
