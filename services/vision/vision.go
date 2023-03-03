@@ -134,8 +134,7 @@ func FirstFromRobot(r robot.Robot) (Service, error) {
 func FirstFromLocalRobot(r robot.Robot) (Service, error) {
 	for _, n := range r.ResourceNames() {
 		if n.Subtype == Subtype && !n.ContainsRemoteNames() {
-			service, err := r.ResourceByName(n)
-			return service.(Service), err
+			return FromRobot(r, n.ShortName())
 		}
 	}
 	return nil, errors.New("could not find service")
