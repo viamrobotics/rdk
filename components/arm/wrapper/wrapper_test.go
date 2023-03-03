@@ -1,6 +1,7 @@
 package wrapper
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"testing"
@@ -118,8 +119,12 @@ func TestFatalUpdate(t *testing.T) {
 	err = cmd.Run()
 	expectedErrorString := "exit status 1"
 
-	// Cast the error as *exec.ExitError and compare the result
-	if e, ok := err.(*exec.ExitError); ok {
+	var isFatal *exec.ExitError
+	if errors.As(err, &isFatal) {
+		// Cast the error as *exec.ExitError and compare the result
+		//nolint:errorlint
+		e, ok := err.(*exec.ExitError)
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, e.Error(), test.ShouldEqual, expectedErrorString)
 	}
 }
@@ -168,13 +173,17 @@ func TestRecofigFatalUpdate(t *testing.T) {
 		return
 	}
 	// Run the test in a subprocess
-	cmd := exec.Command(os.Args[0], "-test.run=TestFatal")
+	cmd := exec.Command(os.Args[0], "-test.run=TestRecofigFatalUpdate")
 	cmd.Env = append(os.Environ(), "FLAG=1")
 	err = cmd.Run()
 	expectedErrorString := "exit status 1"
 
-	// Cast the error as *exec.ExitError and compare the result
-	if e, ok := err.(*exec.ExitError); ok {
+	var isFatal *exec.ExitError
+	if errors.As(err, &isFatal) {
+		// Cast the error as *exec.ExitError and compare the result
+		//nolint:errorlint
+		e, ok := err.(*exec.ExitError)
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, e.Error(), test.ShouldEqual, expectedErrorString)
 	}
 }
