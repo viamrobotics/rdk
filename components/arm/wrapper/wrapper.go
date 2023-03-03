@@ -98,7 +98,7 @@ func (wrapper *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
 		if newCfg.ModelFilePath != "" {
 			wrapper.model, err = referenceframe.ModelFromPath(newCfg.ModelFilePath, "")
 			if err != nil {
-				wrapper.logger.Fatalf("invalid model file path:", err.Error())
+				wrapper.logger.Panic("invalid model file path:", err.Error())
 			}
 		}
 		return config.None
