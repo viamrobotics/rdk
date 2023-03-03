@@ -384,7 +384,7 @@ onUnmounted(() => {
               <v-slider
                 :min="0"
                 :max="360"
-                :step="90"
+                :step="15"
                 suffix="°"
                 label="Angle"
                 :value="angle"
