@@ -127,6 +127,7 @@ func fakeGetPointCloudMapStream(datasetDir string, slamSvc *SLAM) (func() ([]byt
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
+			return nil, err
 		}
 		return chunk[:bytesRead], err
 	}
@@ -145,6 +146,7 @@ func fakeGetInternalStateStream(datasetDir string, slamSvc *SLAM) (func() ([]byt
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
+			return nil, err
 		}
 		return chunk[:bytesRead], err
 	}
