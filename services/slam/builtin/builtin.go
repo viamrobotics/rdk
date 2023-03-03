@@ -491,7 +491,12 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	componentReference := resp.GetComponentReference()
 	returnedExt := resp.Extra.AsMap()
 
-	// check if extra contains a quaternion. If it does, return the pose with the actual orientation
+	return CheckQuaternionFromClientAlgo(pose, componentReference, returnedExt)
+}
+
+// CheckQuaternionFromClientAlgo checks to see if the internal SLAM algorithm sent a quaternion. If it did, return the updated pose
+func CheckQuaternionFromClientAlgo(pose spatialmath.Pose, componentReference string, returnedExt map[string]interface{}) (spatialmath.Pose, string, error) {
+	// check if extra contains a quaternion. If no quaternion is found, throw an error
 	if val, ok := returnedExt["quat"]; ok {
 		q := val.(map[string]interface{})
 
