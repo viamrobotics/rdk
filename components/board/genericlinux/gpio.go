@@ -219,6 +219,7 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
+// TODO: make sure this matches the other signature
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
 	waitGroup *sync.WaitGroup, logger golog.Logger,
 ) map[string]*gpioPin {
@@ -239,6 +240,28 @@ type digitalInterrupt struct {
     interrupt board.DigitalInterrupt
 	line      *gpio.LineWithEvent
     cancelCtx context.Context
+}
+
+func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig, gpioMappings map[int]GPIOBoardMapping) (*digitalInterrupt, error) {
+	mapping, ok := gpioMappings[config.Pin]
+	if !ok {
+		return nil, errors.Errorf("Unknown interrupt pin %s", config.Pin)
+	}
+
+	chip, err := gpio.OpenChip(mapping.GPIOChipDev)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(chip.Close)
+
+	line, err = chip.OpenLineWithEvents(mapping.GPIO, lineFlag, eventFlag, "viam-interrupt")
+
+	result := digitalInterrupt{interrupt: board.CreateDigitalInterrupt(config),
+	                           line: line,
+							   cancelCtx: ctx,
+						       }
+	result.StartMonitor()
+	return result, nil
 }
 
 func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup) {
