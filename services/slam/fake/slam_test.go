@@ -271,6 +271,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 	positionResults := []spatialmath.Pose{}
 	getPositionResults := []spatialmath.Pose{}
 	getInternalStateResults := []int{}
+	getInternalStateStreamResults := []int{}
 
 	// Call GetPointCloudMapStream twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
@@ -286,7 +287,14 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 		test.That(t, err, test.ShouldBeNil)
 		getInternalStateResults = append(getInternalStateResults, len(data))
 
-		f, err := slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
+		f, err := slamSvc.GetInternalStateStream(context.Background(), slamSvc.Name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f, test.ShouldNotBeNil)
+		internalState, err := helperConcatenateChunksToFull(f)
+		test.That(t, err, test.ShouldBeNil)
+		getInternalStateStreamResults = append(getInternalStateStreamResults, len(internalState))
+
+		f, err = slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		pcd, err := helperConcatenateChunksToFull(f)
@@ -307,6 +315,9 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 	getInternalStateResultsFirst := getInternalStateResults[len(getInternalStateResults)/2:]
 	getInternalStateResultsLast := getInternalStateResults[:len(getInternalStateResults)/2]
 
+	getInternalStateStreamResultsFirst := getInternalStateStreamResults[len(getInternalStateStreamResults)/2:]
+	getInternalStateStreamResultsLast := getInternalStateStreamResults[:len(getInternalStateStreamResults)/2]
+
 	// Confirm that the first half of the
 	// results equal the last.
 	// This proves that each call to GetPointCloudMapStream
@@ -315,6 +326,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 	test.That(t, positionResultsFirst, test.ShouldResemble, positionResultsLast)
 	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
 	test.That(t, getInternalStateResultsFirst, test.ShouldResemble, getInternalStateResultsLast)
+	test.That(t, getInternalStateStreamResultsFirst, test.ShouldResemble, getInternalStateStreamResultsLast)
 
 	// Confirm that the first half of the
 	// results do NOT equal the last half in reverse.
@@ -324,6 +336,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 	test.That(t, positionResultsFirst, test.ShouldNotResemble, reverse(positionResultsLast))
 	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
 	test.That(t, getInternalStateResultsFirst, test.ShouldNotResemble, reverse(getInternalStateResultsLast))
+	test.That(t, getInternalStateStreamResultsFirst, test.ShouldNotResemble, reverse(getInternalStateStreamResultsLast))
 
 	getMapResultsFirst := getPointCloudMapResults[len(getPointCloudMapResults)/2:]
 	getMapResultsLast := getPointCloudMapResults[:len(getPointCloudMapResults)/2]
