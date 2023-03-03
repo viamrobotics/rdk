@@ -4,12 +4,12 @@
 package ina219
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -102,7 +102,7 @@ func newSensor(
 	addr := attr.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
-		logger.Warn("using i2c address : " + string(defaultI2Caddr))
+		logger.Warnf("using i2c address : %d", defaultI2Caddr)
 	}
 
 	s := &ina219{
@@ -131,13 +131,14 @@ type ina219 struct {
 	name       string
 	currentLSB int64
 	powerLSB   int64
+	cal        int64
 }
 
 type PowerMonitor struct {
 	Shunt   int64
-	Voltage int64
-	Current int64
-	Power   int64
+	Voltage float64
+	Current float64
+	Power   float64
 }
 
 func (d *ina219) calibrate(ctx context.Context) error {
@@ -157,13 +158,9 @@ func (d *ina219) calibrate(ctx context.Context) error {
 	if cal >= (1 << 16) {
 		return fmt.Errorf("ina219 calibrate: calibration register value invalid %d", cal)
 	}
-	handle, err := d.bus.OpenHandle(d.addr)
-	if err != nil {
-		d.logger.Errorf("can't open ina219 i2c %s", err)
-		return err
-	}
-	err = handle.WriteByteData(ctx, calibrationRegister, byte(cal))
-	return multierr.Append(err, handle.Close())
+	d.cal = cal
+
+	return nil
 }
 
 // Readings returns a list containing three items (voltage, current, and power).
@@ -174,43 +171,65 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
+	// calibrate sets the scaling factor of the current and power registers for the maximum resolution
+	buf := new(bytes.Buffer)
+	err = binary.Write(buf, binary.BigEndian, uint16(d.cal))
+	if err != nil {
+		return nil, err
+	}
+	err = handle.WriteBlockData(ctx, calibrationRegister, buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	buf = new(bytes.Buffer)
+	err = binary.Write(buf, binary.BigEndian, uint16(0x1FFF))
+	if err != nil {
+		return nil, err
+	}
+	err = handle.WriteBlockData(ctx, configRegister, buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
 	var pm PowerMonitor
 
-	shunt, err := handle.ReadByteData(ctx, shuntVoltageRegister)
-
+	shunt, err := handle.ReadBlockData(ctx, shuntVoltageRegister, 2)
 	if err != nil {
 		return nil, err
 	}
+
 	// Least significant bit is 10µV.
-	pm.Shunt = int64(shunt) * 10 * 1000
+	pm.Shunt = int64(binary.BigEndian.Uint16(shunt)) * 10 * 1000
 
-	bus, err := handle.ReadByteData(ctx, busVoltageRegister)
+	bus, err := handle.ReadBlockData(ctx, busVoltageRegister, 2)
 	if err != nil {
 		return nil, err
 	}
+
 	// Check if bit zero is set, if set the ADC has overflowed.
-	if binary.BigEndian.Uint16([]byte{0, bus})&1 > 0 {
+	if binary.BigEndian.Uint16(bus)&1 > 0 {
 		return nil, fmt.Errorf("bus voltage register overflow")
 	}
 
-	// Least significant bit is 4mV.
-	pm.Voltage = int64(binary.BigEndian.Uint16([]byte{0, bus})>>3) * 4 * 1000
+	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 10
 
-	current, err := handle.ReadByteData(ctx, currentRegister)
+	current, err := handle.ReadBlockData(ctx, currentRegister, 2)
 	if err != nil {
 		return nil, err
 	}
-	pm.Current = int64(current) * d.currentLSB
 
-	power, err := handle.ReadByteData(ctx, powerRegister)
+	pm.Current = float64(int64(binary.BigEndian.Uint16(current))*d.currentLSB) / 1000000
+
+	power, err := handle.ReadBlockData(ctx, powerRegister, 2)
 	if err != nil {
 		return nil, err
 	}
-	pm.Power = int64(power) * d.powerLSB
+	pm.Power = float64(int64(binary.BigEndian.Uint16(power))*d.powerLSB) / 1000000
 
 	return map[string]interface{}{
-		"voltage":    pm.Voltage,
-		"current_mA": pm.Current,
-		"power_mW":   pm.Power,
-	}, nil
+		"voltage_mv": pm.Voltage,
+		"current_ma": pm.Current,
+		"power_mw":   pm.Power,
+	}, handle.Close()
 }
