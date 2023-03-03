@@ -1,6 +1,6 @@
 // Package ina219 implements an ina219 current/power monitor sensor
 // datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
-// example repo: https://github.com/esphome/esphome/tree/dev/esphome/components/sht3xd
+// example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
 package ina219
 
 import (
