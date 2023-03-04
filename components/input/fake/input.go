@@ -10,19 +10,27 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/utils"
 )
 
 var modelName = resource.NewDefaultModel("fake")
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewInputController})
+	registry.RegisterComponent(
+		input.Subtype,
+		modelName,
+		registry.Component{
+			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, _ golog.Logger) (interface{}, error) {
+				return NewInputController(ctx, config)
+			},
+		},
+	)
 
 	config.RegisterComponentAttributeMapConverter(
 		input.Subtype,
@@ -63,18 +71,12 @@ type callback struct {
 }
 
 // NewInputController returns a fake input.Controller.
-func NewInputController(
-	ctx context.Context,
-	_ registry.Dependencies,
-	config config.Component,
-	logger golog.Logger,
-) (interface{}, error) {
+func NewInputController(ctx context.Context, config config.Component) (input.Controller, error) {
 	cfg := config.ConvertedAttributes.(*Config)
 
 	closeCtx, cancelFunc := context.WithCancel(ctx)
 
 	c := &InputController{
-		logger:     logger,
 		closeCtx:   closeCtx,
 		cancelFunc: cancelFunc,
 		controls:   cfg.controls,
@@ -83,7 +85,8 @@ func NewInputController(
 	}
 
 	if cfg.CallbackDelaySec != 0 {
-		delay := time.Second * time.Duration(cfg.CallbackDelaySec)
+		// convert to milliseconds to avoid any issues with float to int conversions
+		delay := time.Duration(cfg.CallbackDelaySec*1000) * time.Millisecond
 		c.callbackDelay = &delay
 	}
 
@@ -98,8 +101,7 @@ func NewInputController(
 
 // An InputController fakes an input.Controller.
 type InputController struct {
-	logger golog.Logger
-	mu     sync.Mutex
+	mu sync.Mutex
 
 	closeCtx                context.Context
 	cancelFunc              func()
@@ -127,6 +129,7 @@ func (c *InputController) eventVal() float64 {
 	if c.eventValue != nil {
 		return *c.eventValue
 	}
+	//nolint:gosec
 	return rand.Float64()
 }
 
@@ -164,7 +167,8 @@ func (c *InputController) startCallbackLoop() {
 		if c.callbackDelay != nil {
 			callbackDelay = *c.callbackDelay
 		} else {
-			callbackDelay = time.Duration(rand.Float64()+1) * time.Second
+			//nolint:gosec
+			callbackDelay = 1*time.Second + time.Duration(rand.Float64()*1000)*time.Millisecond
 		}
 		if !utils.SelectContextOrWait(c.closeCtx, callbackDelay) {
 			return
@@ -174,6 +178,7 @@ func (c *InputController) startCallbackLoop() {
 		case <-c.closeCtx.Done():
 			return
 		default:
+			c.mu.Lock()
 			evValue = c.eventVal()
 			for _, callback := range c.callbacks {
 				for _, t := range callback.triggers {
@@ -181,6 +186,7 @@ func (c *InputController) startCallbackLoop() {
 					callback.ctrlFunc(c.closeCtx, event)
 				}
 			}
+			c.mu.Unlock()
 		}
 	}
 }
