@@ -4,7 +4,6 @@
 package ina219
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -24,10 +23,12 @@ import (
 var modelname = resource.NewDefaultModel("ina219")
 
 const (
+	milliAmp             = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
+	milliOhm             = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
 	defaultI2Caddr       = 0x40
-	senseResistor        = 100 * 1000 * 1000 * 1  // .1 ohm = 100 * milliOhm * microOhm * nanoOhm
-	maxCurrent           = 3200 * 1000 * 1000 * 1 // 32 amp = 3200 * milliAmpere * microAmpere * nanoAmpere
-	calibratescale       = ((int64(1000*1000*1000*1) * int64(1000*1000*1000*1)) / 100000) << 12
+	senseResistor        = 100 * milliOhm  // .1 ohm = 100 * milliOhm * microOhm * nanoOhm
+	maxCurrent           = 3200 * milliAmp // 3.2 amp = 3200 * milliAmpere * microAmpere * nanoAmpere
+	calibratescale       = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12
 	configRegister       = 0x00
 	shuntVoltageRegister = 0x01
 	busVoltageRegister   = 0x02
@@ -102,15 +103,13 @@ func newSensor(
 	addr := attr.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
-		logger.Warnf("using i2c address : %d", defaultI2Caddr)
+		logger.Infof("using i2c address : %d", defaultI2Caddr)
 	}
 
 	s := &ina219{
-		name:    name,
-		logger:  logger,
-		bus:     i2cbus,
-		busName: attr.I2CBus,
-		addr:    byte(addr),
+		logger: logger,
+		bus:    i2cbus,
+		addr:   byte(addr),
 	}
 
 	err = s.calibrate(ctx)
@@ -126,12 +125,10 @@ type ina219 struct {
 	generic.Unimplemented
 	logger     golog.Logger
 	bus        board.I2C
-	busName    string
 	addr       byte
-	name       string
 	currentLSB int64
 	powerLSB   int64
-	cal        int64
+	cal        uint16
 }
 
 type PowerMonitor struct {
@@ -154,11 +151,11 @@ func (d *ina219) calibrate(ctx context.Context) error {
 	// Calibration Register = 0.04096 / (current LSB * Shunt Resistance)
 	// Where lsb is in Amps and resistance is in ohms.
 	// Calibration register is 16 bits.
-	cal := calibratescale / (int64(d.currentLSB) * int64(senseResistor))
+	cal := calibratescale / (d.currentLSB * int64(senseResistor))
 	if cal >= (1 << 16) {
 		return fmt.Errorf("ina219 calibrate: calibration register value invalid %d", cal)
 	}
-	d.cal = cal
+	d.cal = uint16(cal)
 
 	return nil
 }
@@ -167,27 +164,23 @@ func (d *ina219) calibrate(ctx context.Context) error {
 func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
-		d.logger.Errorf("can't open ina219 i2c %s", err)
+		d.logger.Errorf("can't open ina219 i2c: %s", err)
+		return nil, err
+	}
+	defer handle.Close()
+
+	// use the calibration result to set the scaling factor
+	// of the current and power registers for the maximum resolution
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, d.cal)
+	err = handle.WriteBlockData(ctx, calibrationRegister, buf)
+	if err != nil {
 		return nil, err
 	}
 
-	// calibrate sets the scaling factor of the current and power registers for the maximum resolution
-	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, uint16(d.cal))
-	if err != nil {
-		return nil, err
-	}
-	err = handle.WriteBlockData(ctx, calibrationRegister, buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	buf = new(bytes.Buffer)
-	err = binary.Write(buf, binary.BigEndian, uint16(0x1FFF))
-	if err != nil {
-		return nil, err
-	}
-	err = handle.WriteBlockData(ctx, configRegister, buf.Bytes())
+	buf = make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(0x1FFF))
+	err = handle.WriteBlockData(ctx, configRegister, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +203,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	// Check if bit zero is set, if set the ADC has overflowed.
 	if binary.BigEndian.Uint16(bus)&1 > 0 {
-		return nil, fmt.Errorf("bus voltage register overflow")
+		return nil, fmt.Errorf("ina219 bus voltage register overflow")
 	}
 
 	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4
