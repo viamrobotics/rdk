@@ -111,7 +111,8 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				// We currently have two implementations of GPIO pins on these boards: one using
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
-				b.gpios = gpioInitialize(gpioMappings) // Defined in gpio.go
+				b.gpios = gpioInitialize( // Defined in gpio.go
+					b.cancelCtx, gpioMappings, &b.activeBackgroundWorkers, b.logger)
 			}
 			return &b, nil
 		}})
@@ -345,6 +346,9 @@ func (gp periphGpioPin) Set(ctx context.Context, high bool, extra map[string]int
 	return gp.set(high)
 }
 
+// This function is separate from Set(), above, because this one does not remove the pin from the
+// board's pwms map. When simulating PWM in software, we use this function to turn the pin on and
+// off while continuing to treat it as a PWM pin.
 func (gp periphGpioPin) set(high bool) error {
 	l := gpio.Low
 	if high {

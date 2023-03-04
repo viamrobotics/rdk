@@ -505,7 +505,8 @@ func crc32Hash() hash.Hash32 {
 }
 
 func hashName(f config.PackageConfig) string {
-	return fmt.Sprintf("%s-%s", f.Package, f.Version)
+	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), f.Version)
 }
 
 // safeJoin performs a filepath.Join of 'parent' and 'subdir' but returns an error

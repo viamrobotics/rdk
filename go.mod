@@ -64,6 +64,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.4.0
 	github.com/pion/rtp v1.7.13
+	github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d
 	github.com/pion/webrtc/v3 v3.1.54
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/rhysd/actionlint v1.6.22-0.20221022051330-a6edfdd585fc
@@ -81,8 +82,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.82
-	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
+	go.viam.com/api v0.1.84
 	go.viam.com/slam v0.1.22
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.1.14-0.20230224022045-57d3cc9cc38f

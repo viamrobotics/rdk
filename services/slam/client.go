@@ -18,6 +18,8 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/slam/internal/grpchelper"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -63,6 +65,11 @@ func (c *client) Position(ctx context.Context, name string, extra map[string]int
 	}
 	p := resp.GetPose()
 	return referenceframe.ProtobufToPoseInFrame(p), nil
+}
+
+// GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
+func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+	return nil, "", errors.New("unimplemented stub")
 }
 
 // GetMap creates a request, calls the slam service GetMap, and parses the response into the desired mimeType and map data.
@@ -152,13 +159,19 @@ func (c *client) GetInternalState(ctx context.Context, name string) ([]byte, err
 // GetPointCloudMapStream creates a request, calls the slam service GetPointCloudMapStream and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
 func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMapStream")
+	defer span.End()
+
+	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, c.client)
 }
 
 // GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
 func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalStateStream")
+	defer span.End()
+
+	return grpchelper.GetInternalStateStreamCallback(ctx, name, c.client)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

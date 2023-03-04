@@ -21,29 +21,15 @@ func TestNewNetLogger(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	level := zap.NewAtomicLevelAt(zap.InfoLevel)
 
-	t.Run("with AppConfig should use GRPC", func(t *testing.T) {
-		nl, err := newNetLogger(&config.Cloud{
-			AppAddress: "http://localhost:8080",
-			ID:         "abc-123",
-		}, logger, level)
-		test.That(t, err, test.ShouldBeNil)
+	nl, err := newNetLogger(&config.Cloud{
+		AppAddress: "http://localhost:8080",
+		ID:         "abc-123",
+	}, logger, level)
+	test.That(t, err, test.ShouldBeNil)
 
-		_, ok := nl.remoteWriter.(*remoteLogWriterGRPC)
-		test.That(t, ok, test.ShouldBeTrue)
-		nl.cancel()
-	})
-
-	t.Run("with AppConfig should use HTTP", func(t *testing.T) {
-		nl, err := newNetLogger(&config.Cloud{
-			LogPath: "http://localhost:8080/logs",
-			ID:      "abc-123",
-		}, logger, level)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, ok := nl.remoteWriter.(*remoteLogWriterHTTP)
-		test.That(t, ok, test.ShouldBeTrue)
-		nl.cancel()
-	})
+	_, ok := nl.remoteWriter.(*remoteLogWriterGRPC)
+	test.That(t, ok, test.ShouldBeTrue)
+	nl.cancel()
 }
 
 func TestNewNetBatchWrites(t *testing.T) {

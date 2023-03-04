@@ -1,0 +1,43 @@
+name: Code Samples Pull Request Update
+
+on:
+  pull_request_target:
+    branches: ["main"]
+    types: [opened]
+    paths:
+      - "components/base/base.go"
+      - "components/board/board.go"
+      - "components/camera/camera.go"
+      - "components/motor/motor.go"
+      - "components/sensor/sensor.go"
+      - "components/servo/servo.go"
+      - "components/arm/arm.go"
+      - "components/audioinput/audio_input.go"
+      - "components/gantry/gantry.go"
+      - "components/gripper/gripper.go"
+      - "components/input/input.go"
+      - "components/movementsensor/movementsensor.go"
+      - "components/posetracker/pose_tracker.go"
+      - "services/motion/motion.go"
+      - "services/vision/vision.go"
+      
+jobs:
+  comment:
+    name: "Post Comment on PR"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get code
+        uses: actions/checkout@v3
+      - name: Write Function
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - run: python ./etc/code-samples-action.py
+
+      - name: Add code samples PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: Code-Samples Warning
+          number: ${{ env.PR_NUMBER }}
+          recreate: true
+          path: code-samples-warning.md
