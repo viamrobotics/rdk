@@ -117,9 +117,14 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				// We currently have two implementations of GPIO pins on these boards: one using
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
-				b.gpios, b.interrupts = gpioInitialize( // Defined in gpio.go
+				gpios, interrupts, err := gpioInitialize( // Defined in gpio.go
 					b.cancelCtx, gpioMappings, conf.DigitalInterrupts, &b.activeBackgroundWorkers,
 					b.logger)
+				if err != nil {
+					return nil, err
+				}
+				b.gpios = gpios
+				b.interrupts = interrupts
 			}
 			return &b, nil
 		}})
@@ -169,11 +174,12 @@ type sysfsBoard struct {
 	analogs      map[string]board.AnalogReader
 	pwms         map[string]pwmSetting
 	i2cs         map[string]board.I2C
-	interrupts   map[string]board.DigitalInterrupt
 	logger       golog.Logger
 
 	usePeriphGpio bool
-	gpios         map[string]*gpioPin // Only used for non-periph.io pins
+	// These next two are only used for non-periph.io pins
+	gpios         map[string]*gpioPin
+	interrupts   map[string]*digitalInterrupt
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -248,7 +254,7 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 	if !ok {
 		return nil, false
 	}
-	return interrupt, true
+	return interrupt.interrupt, true
 }
 
 func (b *sysfsBoard) SPINames() []string {
@@ -508,6 +514,9 @@ func (b *sysfsBoard) Close() error {
 	var err error
 	for _, pin := range b.gpios {
 		err = multierr.Combine(err, pin.Close())
+	}
+	for _, interrupt := range b.interrupts {
+		interrupt.Close()
 	}
 	return err
 }
