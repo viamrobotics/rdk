@@ -499,21 +499,25 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 	return names
 }
 
+// AnalogReaderByName returns an analog reader by name.
 func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := pi.analogs[name]
 	return a, ok
 }
 
+// SPIByName returns an SPI bus by name.
 func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
 	s, ok := pi.spis[name]
 	return s, ok
 }
 
+// I2CByName returns an I2C by name.
 func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
 	s, ok := pi.i2cs[name]
 	return s, ok
 }
 
+// DigitalInterruptByName returns a digital interrupt by name.
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
@@ -596,6 +600,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	return err
 }
 
+// Status returns the current status of the board.
 func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi, extra)
 }
