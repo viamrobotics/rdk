@@ -491,6 +491,9 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 }
 
 // DigitalInterruptNames returns the name of all known digital interrupts.
+// NOTE: During board setup, if a digital interrupt has not been created
+// for a pin, then this function will attempt to create one with the pin
+// number as the name.
 func (pi *piPigpio) DigitalInterruptNames() []string {
 	names := []string{}
 	for k := range pi.interrupts {
