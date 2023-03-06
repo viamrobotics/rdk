@@ -551,7 +551,7 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 		if err != nil {
 			return nil, err
 		}
-		in = bufio.NewReader(bytes.NewReader(buf))
+		in.Reset(bufio.NewReader(bytes.NewReader(buf)))
 
 		meta, err := getPCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), header)
 		if err != nil {
