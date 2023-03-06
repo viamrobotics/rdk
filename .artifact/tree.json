@@ -51340,6 +51340,12 @@
       "hash": "044fb62892d992182a126b76834797cc",
       "size": 3100
     },
+    "rplidar_data": {
+      "rplidar_data_0.pcd": {
+        "hash": "0c80a5371a725a96f1a9fae3a8a21f22",
+        "size": 9820
+      }
+    },
     "trajectory_builder.lua": {
       "hash": "31903d99adbba89edaa7d0d71a3b4ac6",
       "size": 930
