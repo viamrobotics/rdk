@@ -279,10 +279,15 @@ type RemoteAuth struct {
 	SignalingCreds         *rpc.Credentials `json:""`
 }
 
+var remoteNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
 // Validate ensures all parts of the config are valid.
 func (config *Remote) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if !remoteNameRegEx.MatchString(config.Name) {
+		return utils.NewConfigValidationError(path, errors.Errorf("Remote name %q must only contain letters, numbers, dashes, and underscores", config.Name))
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")

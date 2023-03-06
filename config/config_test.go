@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -520,6 +521,37 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	}
 
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+}
+
+func TestRemoteValidate(t *testing.T) {
+	t.Run("remote invalid name", func(t *testing.T) {
+		lc := &referenceframe.LinkConfig{
+			Parent: "parent",
+		}
+		validRemote := config.Remote{
+			Name:    "foo-_remote",
+			Address: "address",
+			Frame:   lc,
+		}
+
+		err := validRemote.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		validRemote.Name = "f00-rem0te"
+		err = validRemote.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		validRemote.Name = "foo.remote"
+		err = validRemote.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		validRemote.Name = "foo-remote!"
+		err = validRemote.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		validRemote.Name = "foo remote"
+		err = validRemote.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+	})
 }
 
 func TestCopyOnlyPublicFields(t *testing.T) {
