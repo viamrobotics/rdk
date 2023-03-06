@@ -199,7 +199,6 @@ func TestEnconder(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
-
 	})
 }
 
