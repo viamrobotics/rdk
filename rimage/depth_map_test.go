@@ -333,6 +333,44 @@ func TestDepthColorModel(t *testing.T) {
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
 }
 
+func TestViamDepthMap(t *testing.T) {
+	// create various types of depth representations
+	width := 10
+	height := 20
+	dm := NewEmptyDepthMap(width, height)
+	g16 := image.NewGray16(image.Rect(0, 0, width, height))
+	g8 := image.NewGray(image.Rect(0, 0, width, height))
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			dm.Set(x, y, Depth(x*y))
+			g16.SetGray16(x, y, color.Gray16{uint16(x * y)})
+			g8.SetGray(x, y, color.Gray{uint8(x * y)})
+		}
+	}
+	// write dm to a viam type buffer
+	buf := &bytes.Buffer{}
+	byt, err := WriteViamDepthMapTo(dm, buf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, byt, test.ShouldEqual, (3*8 + 2*width*height)) // 3 bytes for header, 2 bytes per pixel
+	// write gray16 to a viam type buffer
+	buf16 := &bytes.Buffer{}
+	byt16, err := WriteViamDepthMapTo(g16, buf16)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, byt16, test.ShouldEqual, (3*8 + 2*width*height)) // 3 bytes for header, 2 bytes per pixel
+	// gray should fail
+	buf8 := &bytes.Buffer{}
+	_, err = WriteViamDepthMapTo(g8, buf8)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot convert image type")
+	// read from a viam type buffers and compare to original
+	dm2, err := ReadDepthMap(buf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dm2, test.ShouldResemble, dm)
+	dm3, err := ReadDepthMap(buf16)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dm3, test.ShouldResemble, dm)
+}
+
 func TestDepthMapEncoding(t *testing.T) {
 	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/fakeDM.vnd.viam.dep"))
 	test.That(t, err, test.ShouldBeNil)

@@ -4,7 +4,6 @@ package ffmpeg
 import (
 	"context"
 	"image"
-	"image/jpeg"
 	"io"
 	"os/exec"
 	"sync"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -145,7 +145,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 			if cancelableCtx.Err() != nil {
 				return
 			}
-			img, err := jpeg.Decode(in)
+			img, err := rimage.DecodeJPEG(in)
 			if err != nil {
 				continue
 			}
