@@ -157,7 +157,9 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		s.cancelCtx,
 		func(ctx context.Context) error {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
-			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+			if err != nil {
+				s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+			}
 			return err
 		},
 	)
@@ -271,7 +273,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
