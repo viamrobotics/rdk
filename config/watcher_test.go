@@ -5,21 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -184,83 +183,61 @@ func TestNewWatcherFile(t *testing.T) {
 func TestNewWatcherCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	listener := testutils.ReserveRandomListener(t)
-	httpServer := &http.Server{
-		ReadTimeout:    10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-
 	certsToReturn := config.Cloud{
 		TLSCertificate: "hello",
 		TLSPrivateKey:  "world",
 	}
 
-	cloudID := primitive.NewObjectID().Hex()
+	deviceID := primitive.NewObjectID().Hex()
 
-	var confToReturn config.Config
-	var confErr bool
-	var confMu sync.Mutex
-	var certsOnce bool
-	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseForm(); err != nil {
-			panic(err)
-		}
-		if len(r.Form["id"]) == 0 || r.Form["id"][0] != cloudID {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("bad id"))
-			return
-		}
-		if r.Header.Get("secret") != "my_secret" {
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte("bad secret"))
-			return
-		}
-
-		if len(r.Form["cert"]) != 0 && !certsOnce {
-			certsOnce = true
-			md, err := json.Marshal(&certsToReturn)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(fmt.Sprintf("error marshaling certs: %s", err)))
-				return
-			}
-			w.Write(md)
-			return
-		}
-
-		confMu.Lock()
-		if confErr {
-			confMu.Unlock()
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		confErr = true
-
-		md, err := json.Marshal(&confToReturn)
-		confMu.Unlock()
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("error marshaling conf: %s", err)))
-			return
-		}
-		w.Write(md)
-	})
-	serveDone := make(chan struct{})
-	go func() {
-		defer close(serveDone)
-		httpServer.Serve(listener)
+	fakeServer, err := testutils.NewFakeCloudServer(context.Background(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, fakeServer.Shutdown(), test.ShouldBeNil)
 	}()
 
-	cloudConf := &config.Cloud{
-		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
-		ID:              cloudID,
-		Secret:          "my_secret",
-		FQDN:            "woo",
-		LocalFQDN:       "yee",
-		RefreshInterval: time.Second,
+	storeConfigInServer := func(cfg config.Config) {
+		cloudConfProto, err := config.CloudConfigToProto(cfg.Cloud)
+		test.That(t, err, test.ShouldBeNil)
+
+		componentConfProto, err := config.ComponentConfigToProto(&cfg.Components[0])
+		test.That(t, err, test.ShouldBeNil)
+
+		proccessConfProto, err := config.ProcessConfigToProto(&cfg.Processes[0])
+		test.That(t, err, test.ShouldBeNil)
+
+		networkConfProto, err := config.NetworkConfigToProto(&cfg.Network)
+		test.That(t, err, test.ShouldBeNil)
+
+		protoConfig := &pb.RobotConfig{
+			Cloud:      cloudConfProto,
+			Components: []*pb.ComponentConfig{componentConfProto},
+			Processes:  []*pb.ProcessConfig{proccessConfProto},
+			Network:    networkConfProto,
+		}
+
+		fakeServer.Clear()
+		fakeServer.StoreDeviceConfig(deviceID, protoConfig, &pb.CertificateResponse{
+			TlsCertificate: certsToReturn.TLSCertificate,
+			TlsPrivateKey:  certsToReturn.TLSPrivateKey,
+		})
 	}
+
+	var confToReturn config.Config
+	newCloudConf := func() *config.Cloud {
+		return &config.Cloud{
+			AppAddress:      fmt.Sprintf("http://%s", fakeServer.Addr().String()),
+			ID:              deviceID,
+			Secret:          testutils.FakeCredentialPayLoad,
+			FQDN:            "woo",
+			LocalFQDN:       "yee",
+			RefreshInterval: time.Second,
+			LocationSecrets: []config.LocationSecret{{ID: "1", Secret: "secret"}},
+		}
+	}
+
 	confToReturn = config.Config{
-		Cloud: cloudConf,
+		Cloud: newCloudConf(),
 		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
@@ -287,18 +264,20 @@ func TestNewWatcherCloud(t *testing.T) {
 		}},
 	}
 
+	storeConfigInServer(confToReturn)
+
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
 	confToExpect := confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
-
-	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: cloudConf}, logger)
-	test.That(t, err, test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	confToReturn = config.Config{
-		Cloud: cloudConf,
+		Cloud: newCloudConf(),
 		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
@@ -324,17 +303,20 @@ func TestNewWatcherCloud(t *testing.T) {
 			},
 		}},
 	}
-	confMu.Lock()
-	confErr = false
+
+	// update the config with the newer config
+	storeConfigInServer(confToReturn)
 
 	confToExpect = confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
-	confMu.Unlock()
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
+	// fake server will start returning 5xx on requests.
+	// no new configs should be emitted to channel until the fake server starts returning again
+	fakeServer.FailOnConfigAndCerts(true)
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 	select {
@@ -342,9 +324,13 @@ func TestNewWatcherCloud(t *testing.T) {
 		test.That(t, c, test.ShouldBeNil)
 	case <-timer.C:
 	}
+	fakeServer.FailOnConfigAndCerts(false)
+
+	newConf = <-watcher.Config()
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	confToReturn = config.Config{
-		Cloud: cloudConf,
+		Cloud: newCloudConf(),
 		Components: []config.Component{
 			{
 				Namespace: resource.ResourceNamespaceRDK,
@@ -370,18 +356,15 @@ func TestNewWatcherCloud(t *testing.T) {
 			},
 		}},
 	}
-	confMu.Lock()
-	confErr = false
+
+	storeConfigInServer(confToReturn)
 
 	confToExpect = confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
-	confMu.Unlock()
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
-	test.That(t, httpServer.Shutdown(context.Background()), test.ShouldBeNil)
-	<-serveDone
 }
