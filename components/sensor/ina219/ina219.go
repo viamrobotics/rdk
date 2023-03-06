@@ -1,6 +1,7 @@
-// Package ina219 implements an ina219 current/power monitor sensor
-// datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
-// example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
+// Package ina219 implements an ina219 voltage/current/power monitor sensor -
+// typically used for battery state monitoring.
+// Datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
+// Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
 package ina219
 
 import (
@@ -206,24 +207,24 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, fmt.Errorf("ina219 bus voltage register overflow")
 	}
 
-	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4
+	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
 
 	current, err := handle.ReadBlockData(ctx, currentRegister, 2)
 	if err != nil {
 		return nil, err
 	}
 
-	pm.Current = float64(int64(binary.BigEndian.Uint16(current))*d.currentLSB) / 1000000
+	pm.Current = float64(int64(binary.BigEndian.Uint16(current))*d.currentLSB) / 1000000000
 
 	power, err := handle.ReadBlockData(ctx, powerRegister, 2)
 	if err != nil {
 		return nil, err
 	}
-	pm.Power = float64(int64(binary.BigEndian.Uint16(power))*d.powerLSB) / 1000000
+	pm.Power = float64(int64(binary.BigEndian.Uint16(power))*d.powerLSB) / 1000000000
 
 	return map[string]interface{}{
-		"voltage_mv": pm.Voltage,
-		"current_ma": pm.Current,
-		"power_mw":   pm.Power,
+		"voltage":      pm.Voltage,
+		"current_amps": pm.Current,
+		"power_watts":  pm.Power,
 	}, handle.Close()
 }
