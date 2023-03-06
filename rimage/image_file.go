@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/lmittmann/ppm"
-	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	"github.com/pkg/errors"
+	libjpeg "github.com/viam-labs/go-libjpeg/jpeg"
 	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -35,6 +35,8 @@ var RGBABitmapMagicNumber = []byte("RGBA")
 // DepthMapMagicNumber represents the magic number for our custom header
 // for raw DEPTH data.
 var DepthMapMagicNumber = []byte("DEPTHMAP")
+
+var jpegEncoderOptions = &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
@@ -254,9 +256,9 @@ func EncodeJPEG(w io.Writer, src image.Image) error {
 	case *Image:
 		imgRGBA := image.NewRGBA(src.Bounds())
 		ConvertToRGBA(imgRGBA, v)
-		return libjpeg.Encode(w, imgRGBA, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
+		return libjpeg.Encode(w, imgRGBA, jpegEncoderOptions)
 	default:
-		return libjpeg.Encode(w, src, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
+		return libjpeg.Encode(w, src, jpegEncoderOptions)
 	}
 }
 

@@ -30,7 +30,13 @@ let cameraOn = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let camerasOn = $ref(0);
 
-const manageStreamStates = () => {
+const manageStreamStates = (cameraIsOn: boolean) => {
+  cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
+    on: cameraIsOn,
+    live: true,
+    name: props.cameraName,
+  });
+
   let counter = 0;
   for (const value of cameraStreamStates.values()) {
     if (value.name === props.cameraName && value.on) {
@@ -57,13 +63,7 @@ const viewCamera = async (isOn: boolean) => {
   });
 
   if (props.refreshRate === 'Live') {
-    cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
-      on: isOn,
-      live: true,
-      name: props.cameraName,
-    });
-
-    manageStreamStates();
+    manageStreamStates(isOn);
 
     if (camerasOn === 1) {
       try {
@@ -157,7 +157,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   cameraOn = false;
-
+  manageStreamStates(false);
   clearFrameInterval();
 });
 
