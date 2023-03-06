@@ -65,15 +65,17 @@ const viewCamera = async (isOn: boolean) => {
 
     manageStreamStates();
 
-    // Add the stream if 1 or more camera are present
-    // The stream can exist on base, camera, or both.
+    /*
+     * Add the stream if 1 or more camera are present
+     * The stream can exist on base, camera, or both.
+     */
     if (camerasOn > 1) {
       try {
         await streams.add(props.cameraName);
       } catch (error) {
-        const serviceError = error as ServiceError
+        const serviceError = error as ServiceError;
         // Ignore the error if stream was added on one card already.
-        if(serviceError.message !== 'stream already active') {
+        if (serviceError.message !== 'stream already active') {
           displayError(serviceError);
         }
         displayError(error as ServiceError);
