@@ -76,20 +76,6 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				}
 			}
 
-			interrupts := make(map[string]board.DigitalInterrupt, len(conf.DigitalInterrupts))
-			if usePeriphGpio {
-				if len(conf.DigitalInterrupts) != 0 {
-					return nil, errors.New(
-						"Digital interrupts on Periph GPIO pins are not yet supported")
-				}
-			} else {
-				for _, intConf := range conf.DigitalInterrupts {
-					interrupt := board.CreateDigitalInterrupt(intConf)
-					interrupts[intConf.Name] = interrupt
-					// TODO: open up a LineWithEvents and connect it to the interrupt
-				}
-			}
-
 			var analogs map[string]board.AnalogReader
 			if len(conf.Analogs) != 0 {
 				analogs = make(map[string]board.AnalogReader, len(conf.Analogs))
@@ -116,18 +102,24 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				analogs:       analogs,
 				pwms:          map[string]pwmSetting{},
 				i2cs:          i2cs,
-				interrupts:    interrupts,
 				usePeriphGpio: usePeriphGpio,
 				logger:        logger,
 				cancelCtx:     cancelCtx,
 				cancelFunc:    cancelFunc,
 			}
-			if !usePeriphGpio {
+
+			if usePeriphGpio {
+				if len(conf.DigitalInterrupts) != 0 {
+					return nil, errors.New(
+						"Digital interrupts on Periph GPIO pins are not yet supported")
+				}
+			} else {
 				// We currently have two implementations of GPIO pins on these boards: one using
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
-				b.gpios = gpioInitialize( // Defined in gpio.go
-					b.cancelCtx, gpioMappings, &b.activeBackgroundWorkers, b.logger)
+				b.gpios, b.interrupts = gpioInitialize( // Defined in gpio.go
+					b.cancelCtx, gpioMappings, conf.DigitalInterrupts, &b.activeBackgroundWorkers,
+					b.logger)
 			}
 			return &b, nil
 		}})

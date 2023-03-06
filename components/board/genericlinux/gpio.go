@@ -220,11 +220,28 @@ func (pin *gpioPin) Close() error {
 }
 
 // TODO: make sure this matches the other signature
-func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
+func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping, interruptConfigs []board.DigitalInterruptConfig,
 	waitGroup *sync.WaitGroup, logger golog.Logger,
-) map[string]*gpioPin {
+) map[string]*gpioPin, map[string]*digitalInterrupt, error {
+	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
+	for pin, config := range interruptConfigs {
+		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings)
+		if err != nil {
+			// Close all pins we've started
+			for _, runningInterrupt := range interrupts {
+				runningInterrupt.Close()
+			}
+			return nil, nil, err
+		}
+		interrupts[pin] = interrupt
+	}
+
 	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
+		if _, ok := interruptConfigs[pin]; ok {
+			logger.Debugf("Skipping initialization of GPIO pin %s because it's configured as an interrupt", pin)
+			continue
+		}
 		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
@@ -233,13 +250,14 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			logger:     logger,
 		}
 	}
-	return pins
+	return pins, interrupts, nil
 }
 
 type digitalInterrupt struct {
-    interrupt board.DigitalInterrupt
-	line      *gpio.LineWithEvent
-    cancelCtx context.Context
+    interrupt  board.DigitalInterrupt
+	line       *gpio.LineWithEvent
+    cancelCtx  context.Context
+	cancelFunc func()
 }
 
 func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig, gpioMappings map[int]GPIOBoardMapping) (*digitalInterrupt, error) {
@@ -255,10 +273,16 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 	defer utils.UncheckedErrorFunc(chip.Close)
 
 	line, err = chip.OpenLineWithEvents(mapping.GPIO, lineFlag, eventFlag, "viam-interrupt")
+	if err != nil {
+		return nil, err
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	result := digitalInterrupt{interrupt: board.CreateDigitalInterrupt(config),
 	                           line: line,
-							   cancelCtx: ctx,
+							   cancelCtx: cancelCtx,
+							   cancelFunc: cancelFunc,
 						       }
 	result.StartMonitor()
 	return result, nil
@@ -276,4 +300,13 @@ func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup
 			}
 		}
     }, activeBackgroundWorkers.Done)
+}
+
+func (di *digitalInterrupt) Close() {
+	// We shut down the background goroutine that monitors this interrupt, but don't need to wait
+	// for it to finish shutting down because it doesn't use anything in the line itself (just a
+	// channel of events that the line generates). It will shut down sometime soon, and if that's
+	// after the line is closed, that's fine.
+	di.cancelFunc()
+	di.line.Close()
 }
