@@ -1,9 +1,6 @@
 package wrapper
 
 import (
-	"errors"
-	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -17,7 +14,7 @@ import (
 )
 
 func TestUpdateAction(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger, logs := golog.NewObservedTestLogger(t)
 
 	cfg := config.Component{
 		Name: "testArm",
@@ -41,6 +38,13 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
+	shouldLogErr := config.Component{
+		Name: "testArm",
+		ConvertedAttributes: &AttrConfig{
+			ModelFilePath: "DNE",
+		},
+	}
+
 	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -61,6 +65,10 @@ func TestUpdateAction(t *testing.T) {
 	// scenario where we reconfigure
 	test.That(t, wrapperArm.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.None)
 
+	// scenario where we err
+	test.That(t, wrapperArm.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
+	test.That(t, len(logs.All()), test.ShouldEqual, 1)
+
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(wrapperArm, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
@@ -74,116 +82,10 @@ func TestUpdateAction(t *testing.T) {
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.None)
-}
 
-func TestFatalUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	cfg := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ModelFilePath: "../universalrobots/ur5e.json",
-			ArmName:       "does not exist0",
-		},
-	}
-
-	shouldErr := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ModelFilePath: "DNE",
-		},
-	}
-
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	model, err := referenceframe.ModelFromPath(attrs.ModelFilePath, cfg.Name)
-	test.That(t, err, test.ShouldBeNil)
-
-	wrapperArm := &Arm{
-		Name:   cfg.Name,
-		model:  model,
-		actual: &inject.Arm{},
-		logger: logger,
-		robot:  &inject.Robot{},
-	}
-
-	// Run the crashing code when FLAG is set
-	if os.Getenv("FLAG") == "1" {
-		wrapperArm.UpdateAction(&shouldErr)
-		return
-	}
-	// Run the test in a subprocess
-	cmd := exec.Command(os.Args[0], "-test.run=TestFatal")
-	cmd.Env = append(os.Environ(), "FLAG=1")
-	err = cmd.Run()
-	expectedErrorString := "exit status 1"
-
-	var isFatal *exec.ExitError
-	if errors.As(err, &isFatal) {
-		// Cast the error as *exec.ExitError and compare the result
-		//nolint:errorlint
-		e, ok := err.(*exec.ExitError)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, e.Error(), test.ShouldEqual, expectedErrorString)
-	}
-}
-
-func TestReconfigFatalUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	cfg := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ModelFilePath: "../universalrobots/ur5e.json",
-			ArmName:       "does not exist0",
-		},
-	}
-
-	shouldErr := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ModelFilePath: "DNE",
-		},
-	}
-
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	model, err := referenceframe.ModelFromPath(attrs.ModelFilePath, cfg.Name)
-	test.That(t, err, test.ShouldBeNil)
-
-	wrapperArm := &Arm{
-		Name:   cfg.Name,
-		model:  model,
-		actual: &inject.Arm{},
-		logger: logger,
-		robot:  &inject.Robot{},
-	}
-
-	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
-	reconfArm, err := arm.WrapWithReconfigurable(wrapperArm, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Run the crashing code when FLAG is set
-	if os.Getenv("FLAG") == "1" {
-		obj, canUpdate := reconfArm.(config.ComponentUpdate)
-		test.That(t, canUpdate, test.ShouldBeTrue)
-		obj.UpdateAction(&shouldErr)
-		return
-	}
-	// Run the test in a subprocess
-	cmd := exec.Command(os.Args[0], "-test.run=TestRecofigFatalUpdate")
-	cmd.Env = append(os.Environ(), "FLAG=1")
-	err = cmd.Run()
-	expectedErrorString := "exit status 1"
-
-	var isFatal *exec.ExitError
-	if errors.As(err, &isFatal) {
-		// Cast the error as *exec.ExitError and compare the result
-		//nolint:errorlint
-		e, ok := err.(*exec.ExitError)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, e.Error(), test.ShouldEqual, expectedErrorString)
-	}
+	// scenario where we err
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
+	test.That(t, len(logs.All()), test.ShouldEqual, 2)
 }

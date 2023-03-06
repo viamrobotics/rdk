@@ -1,9 +1,6 @@
 package fake
 
 import (
-	"errors"
-	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -16,7 +13,7 @@ import (
 )
 
 func TestUpdateAction(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger, logs := golog.NewObservedTestLogger(t)
 
 	cfg := config.Component{
 		Name: "testArm",
@@ -39,6 +36,20 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
+	shouldLogErr := config.Component{
+		Name: "testArm",
+		ConvertedAttributes: &AttrConfig{
+			ArmModel: "DNE",
+		},
+	}
+
+	shouldLogErrAgain := config.Component{
+		Name: "testArm",
+		ConvertedAttributes: &AttrConfig{
+			ModelFilePath: "DNE",
+		},
+	}
+
 	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -58,6 +69,14 @@ func TestUpdateAction(t *testing.T) {
 	// scenario where we do not reconfigure again
 	test.That(t, fakeArm.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
 
+	// scenario where we log error only
+	test.That(t, fakeArm.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
+	test.That(t, len(logs.All()), test.ShouldEqual, 1)
+
+	// scenario where we log error only
+	test.That(t, fakeArm.UpdateAction(&shouldLogErrAgain), test.ShouldEqual, config.None)
+	test.That(t, len(logs.All()), test.ShouldEqual, 2)
+
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(fakeArm, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
@@ -71,112 +90,16 @@ func TestUpdateAction(t *testing.T) {
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
-}
 
-func TestFatalUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	// scenario where we err
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
+	test.That(t, len(logs.All()), test.ShouldEqual, 3)
 
-	cfg := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ArmModel: "ur5e",
-		},
-	}
-
-	shouldErr := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ArmModel: "DNE",
-		},
-	}
-
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	model, err := modelFromName(attrs.ArmModel, cfg.Name)
-	test.That(t, err, test.ShouldBeNil)
-
-	fakeArm := &Arm{
-		Name:   cfg.Name,
-		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
-		model:  model,
-		logger: logger,
-	}
-
-	// Run the crashing code when FLAG is set
-	if os.Getenv("FLAG") == "1" {
-		fakeArm.UpdateAction(&shouldErr)
-		return
-	}
-	// Run the test in a subprocess
-	cmd := exec.Command(os.Args[0], "-test.run=TestFatal")
-	cmd.Env = append(os.Environ(), "FLAG=1")
-	err = cmd.Run()
-	expectedErrorString := "exit status 1"
-
-	var isFatal *exec.ExitError
-	if errors.As(err, &isFatal) {
-		// Cast the error as *exec.ExitError and compare the result
-		//nolint:errorlint
-		e, ok := err.(*exec.ExitError)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, e.Error(), test.ShouldEqual, expectedErrorString)
-	}
-}
-
-func TestReconfigFatalUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	cfg := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ArmModel: "ur5e",
-		},
-	}
-
-	shouldErr := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ArmModel: "DNE",
-		},
-	}
-
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	model, err := modelFromName(attrs.ArmModel, cfg.Name)
-	test.That(t, err, test.ShouldBeNil)
-
-	fakeArm := &Arm{
-		Name:   cfg.Name,
-		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
-		model:  model,
-		logger: logger,
-	}
-
-	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
-	reconfArm, err := arm.WrapWithReconfigurable(fakeArm, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Run the crashing code when FLAG is set
-	if os.Getenv("FLAG") == "1" {
-		obj, canUpdate := reconfArm.(config.ComponentUpdate)
-		test.That(t, canUpdate, test.ShouldBeTrue)
-		obj.UpdateAction(&shouldErr)
-		return
-	}
-	// Run the test in a subprocess
-	cmd := exec.Command(os.Args[0], "-test.run=TestRecofigFatalUpdate")
-	cmd.Env = append(os.Environ(), "FLAG=1")
-	err = cmd.Run()
-	expectedErrorString := "exit status 1"
-
-	var isFatal *exec.ExitError
-	if errors.As(err, &isFatal) {
-		// Cast the error as *exec.ExitError and compare the result
-		//nolint:errorlint
-		e, ok := err.(*exec.ExitError)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, e.Error(), test.ShouldEqual, expectedErrorString)
-	}
+	// scenario where we err again
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldLogErrAgain), test.ShouldEqual, config.None)
+	test.That(t, len(logs.All()), test.ShouldEqual, 4)
 }

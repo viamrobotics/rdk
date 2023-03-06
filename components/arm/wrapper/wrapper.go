@@ -91,14 +91,14 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
 // See config.UpdateActionType for more information.
 func (wrapper *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
-	var err error
 	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
 		// there is case where ok == true but newCfg.ModelFilePath == ""
 		// because newCfg.ArmName is required as well.
 		if newCfg.ModelFilePath != "" {
-			wrapper.model, err = referenceframe.ModelFromPath(newCfg.ModelFilePath, "")
-			if err != nil {
-				wrapper.logger.Fatalln("invalid model file path:", err.Error())
+			if model, err := referenceframe.ModelFromPath(newCfg.ModelFilePath, ""); err != nil {
+				wrapper.logger.Debugf("invalid model file path:", err.Error())
+			} else {
+				wrapper.model = model
 			}
 		}
 		return config.None
