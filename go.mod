@@ -66,7 +66,7 @@ require (
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.54
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
-	github.com/rhysd/actionlint v1.6.22-0.20221022051330-a6edfdd585fc
+	github.com/rhysd/actionlint v1.6.23
 	github.com/rs/cors v1.8.3
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
@@ -83,7 +83,7 @@ require (
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.84
-	go.viam.com/slam v0.1.22
+	go.viam.com/slam v0.1.25
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.1.14-0.20230224022045-57d3cc9cc38f
 	goji.io v2.0.2+incompatible
@@ -274,9 +274,9 @@ require (
 	github.com/maratori/testpackage v1.1.0 // indirect
 	github.com/matoous/godox v0.0.0-20210227103229-6504466cf951 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.2.4 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
@@ -324,7 +324,7 @@ require (
 	github.com/quasilyte/gogrep v0.0.0-20220828223005-86e4605de09f // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95 // indirect
 	github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/rocketlaunchr/dataframe-go v0.0.0-20201007021539-67b046771f0b // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
