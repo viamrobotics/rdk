@@ -440,7 +440,17 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
-	return nil, "", errors.New("unimplemented stub")
+	req := &pb.GetPositionNewRequest{Name: name}
+
+	resp, err := slamSvc.clientAlgo.GetPositionNew(ctx, req)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "error getting SLAM position")
+	}
+	pose := spatialmath.NewPoseFromProtobuf(resp.GetPose())
+	componentReference := resp.GetComponentReference()
+	returnedExt := resp.Extra.AsMap()
+
+	return checkQuaternionFromClientAlgo(pose, componentReference, returnedExt)
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
