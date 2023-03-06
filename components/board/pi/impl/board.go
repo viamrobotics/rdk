@@ -54,22 +54,24 @@ func init() {
 // accessed via pigpio.
 type piPigpio struct {
 	generic.Unimplemented
-	mu            sync.Mutex
-	cfg           *genericlinux.Config
-	duty          int // added for mutex
-	gpioConfigSet map[int]bool
-	analogs       map[string]board.AnalogReader
-	i2cs          map[string]board.I2C
-	spis          map[string]board.SPI
-	interrupts    map[string]board.DigitalInterrupt
-	interruptsHW  map[uint]board.DigitalInterrupt
-	logger        golog.Logger
-	isClosed      bool
+	mu              sync.Mutex
+	interruptCtx    context.Context
+	interruptCancel context.CancelFunc
+	cfg             *genericlinux.Config
+	duty            int // added for mutex
+	gpioConfigSet   map[int]bool
+	analogs         map[string]board.AnalogReader
+	i2cs            map[string]board.I2C
+	spis            map[string]board.SPI
+	interrupts      map[string]board.DigitalInterrupt
+	interruptsHW    map[uint]board.DigitalInterrupt
+	logger          golog.Logger
+	isClosed        bool
 }
 
 var (
 	pigpioInitialized bool
-	instanceMu        sync.Mutex
+	instanceMu        sync.RWMutex
 	instances         = map[*piPigpio]struct{}{}
 )
 
@@ -84,7 +86,14 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	}
 
 	// setup
-	piInstance := &piPigpio{cfg: cfg, logger: logger, isClosed: false}
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	piInstance := &piPigpio{
+		cfg:             cfg,
+		logger:          logger,
+		isClosed:        false,
+		interruptCtx:    cancelCtx,
+		interruptCancel: cancelFunc,
+	}
 
 	instanceMu.Lock()
 	logger.Info("initializing pigpio C library")
@@ -531,6 +540,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.mu.Unlock()
+	pi.interruptCancel()
 	instanceMu.Lock()
 	if len(instances) == 1 {
 		terminate = true
@@ -587,8 +597,8 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 
 	tick := (uint64(tickRollevers) * uint64(math.MaxUint32)) + uint64(rawTick)
 
-	instanceMu.Lock()
-	defer instanceMu.Unlock()
+	instanceMu.RLock()
+	defer instanceMu.RUnlock()
 	for instance := range instances {
 		i := instance.interruptsHW[uint(gpio)]
 		if i == nil {
@@ -601,7 +611,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(context.TODO(), high, tick*1000)
+		err := i.Tick(instance.interruptCtx, high, tick*1000)
 		if err != nil {
 			instance.logger.Error(err)
 		}

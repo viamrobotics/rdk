@@ -21,7 +21,10 @@
         {
             "model": "fake",
             "name": "pieceArm",
-            "type": "arm"
+            "type": "arm",
+            "attributes": {
+                "model-path": "../../components/arm/fake/fake_model.json"
+            }
         }
     ]
 }

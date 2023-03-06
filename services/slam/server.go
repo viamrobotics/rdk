@@ -6,12 +6,15 @@ import (
 	"bytes"
 	"context"
 	"image/jpeg"
+	"io"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -61,6 +64,13 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	return &pb.GetPositionResponse{
 		Pose: referenceframe.PoseInFrameToProtobuf(p),
 	}, nil
+}
+
+// GetPositionNew returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (server *subtypeServer) GetPositionNew(ctx context.Context, req *pb.GetPositionNewRequest) (
+	*pb.GetPositionNewResponse, error,
+) {
+	return nil, errors.New("unimplemented stub")
 }
 
 // GetMap returns a mimeType and a map that is either a image byte slice or PointCloudObject defined in
@@ -140,4 +150,95 @@ func (server *subtypeServer) GetInternalState(ctx context.Context, req *pb.GetIn
 	return &pb.GetInternalStateResponse{
 		InternalState: internalState,
 	}, nil
+}
+
+// GetPointCloudMapStream returns the slam service's slam algo's current map state in PCD format as
+// a stream of byte chunks.
+func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStreamRequest,
+	stream pb.SLAMService_GetPointCloudMapStreamServer,
+) error {
+	ctx := context.Background()
+
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMapStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetPointCloudMapStream(ctx, req.Name)
+	if err != nil {
+		return errors.Wrap(err, "getting callback function from GetPointCloudMapStream encountered an issue")
+	}
+
+	// In the future, channel buffer could be used here to optimize for latency
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
+		}
+
+		chunk := &pb.GetPointCloudMapStreamResponse{PointCloudPcdChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
+}
+
+// GetInternalStateStream returns the internal state of the slam service's slam algo in a stream of
+// byte chunks.
+func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStreamRequest,
+	stream pb.SLAMService_GetInternalStateStreamServer,
+) error {
+	ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalStateStream")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetInternalStateStream(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+
+	// In the future, channel buffer could be used here to optimize for latency
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
+		}
+
+		chunk := &pb.GetInternalStateStreamResponse{InternalStateChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
+}
+
+// DoCommand receives arbitrary commands.
+func (server *subtypeServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::DoCommand")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, svc, req)
 }

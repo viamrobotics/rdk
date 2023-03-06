@@ -48,7 +48,7 @@ func TestCloud(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
 		defer utils.UncheckedErrorFunc(pm.Close)
 
-		input := []config.PackageConfig{{Name: "some-name", Package: "test-model", Version: "v1"}}
+		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1"}}
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed loading package url")
@@ -62,8 +62,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(pm.Close)
 
 		input := []config.PackageConfig{
-			{Name: "some-name", Package: "test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "test-model", Version: "v2"},
+			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -79,14 +79,14 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(pm.Close)
 
 		input := []config.PackageConfig{
-			{Name: "some-name", Package: "test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "test-model", Version: "v2"},
+			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
 		}
 		fakeServer.StorePackage(input[1]) // only store second
 
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failed loading package url for test-model:v1")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed loading package url for org1/test-model:v1")
 
 		// validate dir should be empty
 		validatePackageDir(t, packageDir, []config.PackageConfig{input[1]})
@@ -97,8 +97,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(pm.Close)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "test-model", Version: "v2"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -128,8 +128,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(pm.Close)
 
 		input := []config.PackageConfig{
-			{Name: "some-name", Package: "test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "test-model", Version: "v2"},
+			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -159,7 +159,7 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(pm.Close)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -187,7 +187,7 @@ func TestCloud(t *testing.T) {
 		fakeServer.SetInvalidChecksum(true)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -205,7 +205,7 @@ func TestCloud(t *testing.T) {
 		fakeServer.SetInvalidHTTPRes(true)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -223,7 +223,7 @@ func TestCloud(t *testing.T) {
 		fakeServer.SetInvalidTar(true)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -316,7 +316,7 @@ func TestPackageRefs(t *testing.T) {
 	packageDir, pm := newPackageManager(t, client, fakeServer, logger)
 	defer utils.UncheckedErrorFunc(pm.Close)
 
-	input := []config.PackageConfig{{Name: "some-name", Package: "test-model", Version: "v1"}}
+	input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1"}}
 	fakeServer.StorePackage(input...)
 
 	err = pm.Sync(ctx, input)

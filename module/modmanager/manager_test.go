@@ -2,6 +2,8 @@ package modmanager
 
 import (
 	"context"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -22,6 +24,13 @@ func TestModManagerFunctions(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	modExe := utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh")
 
+	// Precompile module to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = utils.ResolveFile("examples/customresources/demos/simplemodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
 	rNameCounter1 := resource.NameFromSubtype(generic.Subtype, "counter1")
 	cfgCounter1 := config.Component{
@@ -29,7 +38,7 @@ func TestModManagerFunctions(t *testing.T) {
 		API:   generic.Subtype,
 		Model: myCounterModel,
 	}
-	_, err := cfgCounter1.Validate("test")
+	_, err = cfgCounter1.Validate("test")
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot := &inject.Robot{}
@@ -37,7 +46,10 @@ func TestModManagerFunctions(t *testing.T) {
 		return logger
 	}
 
-	parentAddr := t.TempDir()
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
 	myRobot.ModuleAddressFunc = func() (string, error) {
@@ -64,8 +76,8 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	registry.DeregisterComponent(generic.Subtype, myCounterModel)
 

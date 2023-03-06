@@ -37,7 +37,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
-	slamConfig "go.viam.com/rdk/services/slam/internal/config"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -102,12 +101,13 @@ func closeOutSLAMService(t *testing.T, name string) {
 	deleteFakeSLAMLibraries()
 }
 
-func setupTestGRPCServer(port string) *grpc.Server {
-	listener2, _ := net.Listen("tcp", port)
-	gServer2 := grpc.NewServer()
-	go gServer2.Serve(listener2)
+func setupTestGRPCServer(tb testing.TB) (*grpc.Server, int) {
+	listener, err := net.Listen("tcp", ":0")
+	test.That(tb, err, test.ShouldBeNil)
+	grpcServer := grpc.NewServer()
+	go grpcServer.Serve(listener)
 
-	return gServer2
+	return grpcServer, listener.Addr().(*net.TCPAddr).Port
 }
 
 func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
@@ -549,17 +549,20 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {
+		grpcServer, port := setupTestGRPCServer(t)
+		test.That(t, err, test.ShouldBeNil)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_false,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
+
+		test.That(t, err, test.ShouldBeNil)
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -611,63 +614,6 @@ func TestGeneralNew(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
-func TestArgumentInputs(t *testing.T) {
-
-	logger := golog.NewTestLogger(t)
-
-	t.Run("Testing delete_data_process evaluation", func(t *testing.T) {
-		// No delete_processed_data
-		deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, nil, false)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, nil, true)
-		test.That(t, deleteProcessedData, test.ShouldBeTrue)
-
-		// False delete_processed_data
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_false, false)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_false, true)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		// True delete_processed_data
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_true, false)
-		test.That(t, deleteProcessedData, test.ShouldBeFalse)
-
-		deleteProcessedData = slamConfig.DetermineDeleteProcessedData(logger, &_true, true)
-		test.That(t, deleteProcessedData, test.ShouldBeTrue)
-	})
-
-	t.Run("Testing use_live_data evaluation", func(t *testing.T) {
-		// No use_live_data
-		useLiveData, err := slamConfig.DetermineUseLiveData(logger, nil, []string{})
-		test.That(t, err, test.ShouldBeError, slamConfig.SLAMConfigError("use_live_data is a required input parameter"))
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, nil, []string{"camera"})
-		test.That(t, err, test.ShouldBeError, slamConfig.SLAMConfigError("use_live_data is a required input parameter"))
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		// False use_live_data
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_false, []string{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_false, []string{"camera"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		// True use_live_data
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_true, []string{})
-		test.That(t, err, test.ShouldBeError, slamConfig.SLAMConfigError("sensors field cannot be empty when use_live_data is set to true"))
-		test.That(t, useLiveData, test.ShouldBeFalse)
-
-		useLiveData, err = slamConfig.DetermineUseLiveData(logger, &_true, []string{"camera"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, useLiveData, test.ShouldBeTrue)
-	})
-}
-
 func TestCartographerNew(t *testing.T) {
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
@@ -675,18 +621,18 @@ func TestCartographerNew(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	t.Run("New cartographer service with good lidar in slam mode 2d", func(t *testing.T) {
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -700,13 +646,12 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
+		_, err = createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: error getting data in desired mode: %v", attrCfg.Sensors[0]))
 	})
@@ -717,13 +662,12 @@ func TestCartographerNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
+		_, err = createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: camera not lidar"))
@@ -738,18 +682,18 @@ func TestORBSLAMNew(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_color_camera", "good_depth_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -763,30 +707,29 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
+		_, err = createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(attrCfg.Sensors)).Error())
 	})
 
 	t.Run("New orbslamv3 service that errors due to missing distortion_parameters not being provided in config", func(t *testing.T) {
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"missing_distortion_parameters_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		expectedError := errors.New("configuring camera error: error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported").Error()
 		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
@@ -796,18 +739,18 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service that errors due to not being able to get camera properties", func(t *testing.T) {
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"missing_camera_properties"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		expectedError := errors.New("configuring camera error: error getting camera properties for slam service: somehow couldn't get properties").Error()
 		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
@@ -822,30 +765,29 @@ func TestORBSLAMNew(t *testing.T) {
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
+		_, err = createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -910,19 +852,18 @@ func TestCartographerDataProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
-
+	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
 		Sensors:       []string{"good_lidar"},
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
 		DataRateMs:    validDataRateMS,
-		Port:          "localhost:4445",
+		Port:          "localhost:" + strconv.Itoa(port),
 		UseLiveData:   &_true,
 	}
 
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
-	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -940,16 +881,10 @@ func TestCartographerDataProcess(t *testing.T) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{goodCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		cancelFunc()
@@ -967,16 +902,10 @@ func TestCartographerDataProcess(t *testing.T) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{badCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		allObs := obs.All()
@@ -996,18 +925,18 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
 		Sensors:       []string{"good_color_camera"},
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
 		DataRateMs:    validDataRateMS,
-		Port:          "localhost:4445",
+		Port:          "localhost:" + strconv.Itoa(port),
 		UseLiveData:   &_true,
 	}
 
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
-	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1032,17 +961,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}
 
 		cams := []camera.Camera{goodCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		cancelFunc()
@@ -1057,16 +980,10 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			return nil, errors.New("bad_camera")
 		}
 		cams := []camera.Camera{badCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		obsAll := obs.All()
@@ -1086,20 +1003,19 @@ func TestEndpointFailures(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:4445",
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:" + strconv.Itoa(port),
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
-	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1121,6 +1037,20 @@ func TestEndpointFailures(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting the internal state from the SLAM client")
 	test.That(t, internalState, test.ShouldBeNil)
 
+	callbackPointCloud, err := svc.GetPointCloudMapStream(context.Background(), "hi")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, callbackPointCloud, test.ShouldNotBeNil)
+	chunkPCD, err := callbackPointCloud()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error receiving pointcloud chunk")
+	test.That(t, chunkPCD, test.ShouldBeNil)
+
+	callbackInternalState, err := svc.GetInternalStateStream(context.Background(), "hi")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, callbackInternalState, test.ShouldNotBeNil)
+	chunkInternalState, err := callbackInternalState()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error receiving internal state chunk")
+	test.That(t, chunkInternalState, test.ShouldBeNil)
+
 	grpcServer.Stop()
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
@@ -1137,16 +1067,16 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	t.Run("Test online SLAM process with default parameters", func(t *testing.T) {
 
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d", "test_param": "viam"},
 			DataDirectory: name,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
 
 		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1161,10 +1091,9 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern="},
 			{"-delete_processed_data=true"},
 			{"-use_live_data=true"},
-			{"-port=localhost:4445"},
+			{"-port=localhost:" + strconv.Itoa(port)},
 			{"--aix-auto-update"},
 		}
 
@@ -1180,16 +1109,16 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	t.Run("Test offline SLAM process with default parameters", func(t *testing.T) {
 
+		grpcServer, port := setupTestGRPCServer(t)
 		attrCfg := &builtin.AttrConfig{
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
 			DataDirectory: name,
-			Port:          "localhost:4445",
+			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_false,
 		}
 
 		// Create slam service
-		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1204,10 +1133,9 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern="},
 			{"-delete_processed_data=false"},
 			{"-use_live_data=false"},
-			{"-port=localhost:4445"},
+			{"-port=localhost:" + strconv.Itoa(port)},
 			{"--aix-auto-update"},
 		}
 
@@ -1230,20 +1158,19 @@ func TestSLAMProcessFail(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:4445",
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:" + strconv.Itoa(port),
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
-	grpcServer := setupTestGRPCServer(attrCfg.Port)
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1283,14 +1210,13 @@ func TestGRPCConnection(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:-1",
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:-1",
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service

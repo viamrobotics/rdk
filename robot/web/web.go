@@ -360,6 +360,9 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			// agree on using the same drive.
 			addr = addr[2:]
 		}
+		if err := module.CheckSocketAddressLength(addr); err != nil {
+			return err
+		}
 		svc.modAddr = addr
 		lis, err = net.Listen("unix", addr)
 		if err != nil {
@@ -395,7 +398,6 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		defer utils.UncheckedErrorFunc(func() error { return os.Remove(addr) })
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
 		if err := svc.modServer.Serve(lis); err != nil {

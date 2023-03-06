@@ -14,6 +14,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -67,6 +68,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 }
 
 type builtIn struct {
+	generic.Unimplemented
 	r      robot.Robot
 	modReg modelMap
 	logger golog.Logger
@@ -133,21 +135,22 @@ func (vs *builtIn) DetectionsFromCamera(
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera")
 	defer span.End()
+
 	cam, err := camera.FromRobot(vs.r, cameraName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
 	d, err := vs.modReg.modelLookup(detectorName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find detector named %s", detectorName)
 	}
 	detector, err := d.toDetector()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "%s is not a detector", detectorName)
 	}
 	img, release, err := camera.ReadImage(ctx, cam)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
 
@@ -162,11 +165,11 @@ func (vs *builtIn) Detections(ctx context.Context, img image.Image, detectorName
 
 	d, err := vs.modReg.modelLookup(detectorName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find detector named %s", detectorName)
 	}
 	detector, err := d.toDetector()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "%s is not a detector", detectorName)
 	}
 
 	return detector(ctx, img)
@@ -210,24 +213,24 @@ func (vs *builtIn) ClassificationsFromCamera(ctx context.Context, cameraName,
 	defer span.End()
 	cam, err := camera.FromRobot(vs.r, cameraName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
 	c, err := vs.modReg.modelLookup(classifierName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find classifier named %s", classifierName)
 	}
 	classifier, err := c.toClassifier()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "%s is not a classifier", classifierName)
 	}
 	img, release, err := camera.ReadImage(ctx, cam)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
 	fullClassifications, err := classifier(ctx, img)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get classifications from image")
 	}
 	return fullClassifications.TopN(n)
 }
@@ -241,15 +244,15 @@ func (vs *builtIn) Classifications(ctx context.Context, img image.Image,
 
 	c, err := vs.modReg.modelLookup(classifierName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find classifier named %s", classifierName)
 	}
 	classifier, err := c.toClassifier()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "%s is not a classifier", classifierName)
 	}
 	fullClassifications, err := classifier(ctx, img)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get classifications from image")
 	}
 	return fullClassifications.TopN(n)
 }

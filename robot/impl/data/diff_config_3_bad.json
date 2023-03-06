@@ -5,8 +5,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "fail_new": true,
-                "one": 2
+                "arm-model": ""
             }
         },
         {

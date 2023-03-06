@@ -91,7 +91,7 @@ func NewGeometryConfig(gc Geometry) (*GeometryConfig, error) {
 	}
 	offset := gc.Pose()
 	o := offset.Orientation()
-	config.TranslationOffset = Compose(NewPoseFromOrientation(OrientationInverse(o)), offset).Point()
+	config.TranslationOffset = offset.Point()
 	orientationConfig, err := NewOrientationConfig(o)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	if err != nil {
 		return nil, err
 	}
-	offset := Compose(NewPoseFromOrientation(orientation), NewPoseFromPoint(config.TranslationOffset))
+	offset := NewPose(config.TranslationOffset, orientation)
 
 	// build GeometryCreator depending on specified type
 	switch config.Type {

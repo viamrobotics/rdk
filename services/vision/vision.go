@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/vision/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -75,6 +76,7 @@ type Service interface {
 	AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
 	RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
+	resource.Generic
 }
 
 var (
@@ -106,15 +108,7 @@ func Named(name string) resource.Name {
 
 // FromRobot is a helper for getting the named vision service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	resource, err := r.ResourceByName(Named(name))
-	if err != nil {
-		return nil, utils.NewResourceNotFoundError(Named(name))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
 // FindFirstName returns name of first vision service found.
@@ -125,10 +119,25 @@ func FindFirstName(r robot.Robot) string {
 	return ""
 }
 
-// FirstFromRobot returns the first vision service in this robot.
+// FirstFromRobot returns the first vision service on this robot.
 func FirstFromRobot(r robot.Robot) (Service, error) {
-	name := FindFirstName(r)
-	return FromRobot(r, name)
+	vis, err := FirstFromLocalRobot(r)
+	if err != nil {
+		name := FindFirstName(r)
+		return FromRobot(r, name)
+	}
+	return vis, err
+}
+
+// FirstFromLocalRobot returns the first vision service on this main robot.
+// This will specifically ignore remote resources.
+func FirstFromLocalRobot(r robot.Robot) (Service, error) {
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == Subtype && !n.ContainsRemoteNames() {
+			return FromRobot(r, n.ShortName())
+		}
+	}
+	return nil, errors.New("could not find service")
 }
 
 // VisModelType defines what vision models are known by the vision service.
@@ -266,6 +275,14 @@ func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, extra)
+}
+
+func (svc *reconfigurableVision) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.DoCommand(ctx, cmd)
 }
 
 func (svc *reconfigurableVision) Close(ctx context.Context) error {

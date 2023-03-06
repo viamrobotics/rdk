@@ -1,0 +1,28 @@
+name: NPM Publish
+
+on:
+  workflow_call:
+    secrets:
+        NPM_TOKEN:
+          required: true
+  workflow_dispatch:
+
+jobs:
+  publish:
+    if: github.repository_owner == 'viamrobotics'
+    runs-on: [self-hosted, x64]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}
+          package: ./web/frontend/package.json
+          access: public

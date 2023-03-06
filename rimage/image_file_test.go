@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"image"
-	"image/jpeg"
 	"image/png"
 	"os"
 	"testing"
 
+	libjpeg "github.com/viam-labs/go-libjpeg/jpeg"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -57,7 +57,7 @@ func TestEncodeImage(t *testing.T) {
 	test.That(t, png.Encode(&buf, img), test.ShouldBeNil)
 
 	var bufJPEG bytes.Buffer
-	test.That(t, jpeg.Encode(&bufJPEG, img, nil), test.ShouldBeNil)
+	test.That(t, libjpeg.Encode(&bufJPEG, img, jpegEncoderOptions), test.ShouldBeNil)
 
 	t.Run("lazy", func(t *testing.T) {
 		// fast
@@ -70,6 +70,12 @@ func TestEncodeImage(t *testing.T) {
 		encoded, err = EncodeImage(context.Background(), lazyImg, utils.WithLazyMIMEType("hehe"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
+	})
+	t.Run("jpeg from png", func(t *testing.T) {
+		lazyImg := NewLazyEncodedImage(buf.Bytes(), utils.MimeTypePNG)
+		encoded, err := EncodeImage(context.Background(), lazyImg, utils.MimeTypeJPEG)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, encoded, test.ShouldResemble, bufJPEG.Bytes())
 	})
 }
 
