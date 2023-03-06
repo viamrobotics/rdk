@@ -65,10 +65,17 @@ const viewCamera = async (isOn: boolean) => {
 
     manageStreamStates();
 
-    if (camerasOn === 1) {
+    // Add the stream if 1 or more camera are present
+    // The stream can exist on base, camera, or both.
+    if (camerasOn > 1) {
       try {
         await streams.add(props.cameraName);
       } catch (error) {
+        const service_error = error as ServiceError
+        // Ignore the error if stream was added on one card already.
+        if(service_error.message != 'stream already active') {
+          displayError(service_error);
+        }
         displayError(error as ServiceError);
       }
     } else if (camerasOn === 0) {
@@ -157,7 +164,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   cameraOn = false;
-
   clearFrameInterval();
 });
 
