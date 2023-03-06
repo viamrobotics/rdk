@@ -134,13 +134,15 @@ type Arm struct {
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
 // See config.UpdateActionType for more information.
 func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
-	var err error
 	if _, ok := c.ConvertedAttributes.(*AttrConfig); ok {
-		a.model, err = buildModel(*c)
-		if err != nil {
-			a.logger.Fatalln("could not build model:", err.Error())
+		if model, err := buildModel(*c); err != nil {
+			a.logger.Debugf(
+				`%v - we continue using current model: %v`,
+				err.Error(), a.model.Name())
+		} else {
+			a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+			a.model = model
 		}
-		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
 	}
 	return config.None
 }
