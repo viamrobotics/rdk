@@ -551,12 +551,12 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 		if err != nil {
 			return nil, err
 		}
-		in.Reset(bufio.NewReader(bytes.NewReader(buf)))
 
 		meta, err := getPCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), header)
 		if err != nil {
 			return nil, err
 		}
+		in.Reset(bufio.NewReader(bytes.NewReader(buf)))
 
 		pc, err = NewBasicOctree(getCenterFromPcMetaData(meta), getMaxSideLengthFromPcMetaData(meta))
 		if err != nil {
