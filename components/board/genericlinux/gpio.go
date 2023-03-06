@@ -7,11 +7,14 @@ package genericlinux
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
+	"github.com/pkg/errors"
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/utils"
 )
 
@@ -220,12 +223,12 @@ func (pin *gpioPin) Close() error {
 }
 
 // TODO: make sure this matches the other signature
-func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping, interruptConfigs []board.DigitalInterruptConfig,
-	waitGroup *sync.WaitGroup, logger golog.Logger,
-) map[string]*gpioPin, map[string]*digitalInterrupt, error {
+func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
+	interruptConfigs []board.DigitalInterruptConfig, waitGroup *sync.WaitGroup, logger golog.Logger,
+) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
 	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
-	for pin, config := range interruptConfigs {
-		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings)
+	for _, config := range interruptConfigs {
+		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings, waitGroup)
 		if err != nil {
 			// Close all pins we've started
 			for _, runningInterrupt := range interrupts {
@@ -233,12 +236,12 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			}
 			return nil, nil, err
 		}
-		interrupts[pin] = interrupt
+		interrupts[config.Pin] = interrupt
 	}
 
 	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
-		if _, ok := interruptConfigs[pin]; ok {
+		if _, ok := interrupts[fmt.Sprintf("%d", pin)]; ok {
 			logger.Debugf("Skipping initialization of GPIO pin %s because it's configured as an interrupt", pin)
 			continue
 		}
@@ -260,8 +263,12 @@ type digitalInterrupt struct {
 	cancelFunc func()
 }
 
-func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig, gpioMappings map[int]GPIOBoardMapping) (*digitalInterrupt, error) {
-	mapping, ok := gpioMappings[config.Pin]
+func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig, gpioMappings map[int]GPIOBoardMapping, activeBackgroundWorkers *sync.WaitGroup) (*digitalInterrupt, error) {
+	pinInt, err := strconv.Atoi(config.Pin)
+	if err != nil {
+		return nil, errors.Errorf("pin names must be numerical")
+	}
+	mapping, ok := gpioMappings[pinInt]
 	if !ok {
 		return nil, errors.Errorf("Unknown interrupt pin %s", config.Pin)
 	}
@@ -272,20 +279,25 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
-	line, err = chip.OpenLineWithEvents(mapping.GPIO, lineFlag, eventFlag, "viam-interrupt")
+	// TODO: do we need to configure the line to be open-drain or open-source?
+	line, err := chip.OpenLineWithEvents(uint32(mapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt")
+	if err != nil {
+		return nil, err
+	}
+
+	interrupt, err := board.CreateDigitalInterrupt(config)
 	if err != nil {
 		return nil, err
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-
-	result := digitalInterrupt{interrupt: board.CreateDigitalInterrupt(config),
+	result := digitalInterrupt{interrupt: interrupt,
 	                           line: line,
 							   cancelCtx: cancelCtx,
 							   cancelFunc: cancelFunc,
 						       }
-	result.StartMonitor()
-	return result, nil
+	result.StartMonitor(activeBackgroundWorkers)
+	return &result, nil
 }
 
 func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup) {
