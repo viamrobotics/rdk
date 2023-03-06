@@ -30,7 +30,13 @@ let cameraOn = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let camerasOn = $ref(0);
 
-const manageStreamStates = () => {
+const manageStreamStates = (cameraIsOn: boolean) => {
+  cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
+      on: cameraIsOn,
+      live: true,
+      name: props.cameraName,
+    });
+
   let counter = 0;
   for (const value of cameraStreamStates.values()) {
     if (value.name === props.cameraName && value.on) {
@@ -57,27 +63,12 @@ const viewCamera = async (isOn: boolean) => {
   });
 
   if (props.refreshRate === 'Live') {
-    cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
-      on: isOn,
-      live: true,
-      name: props.cameraName,
-    });
+    manageStreamStates(isOn);
 
-    manageStreamStates();
-
-    /*
-     * Add the stream if 1 or more camera are present
-     * The stream can exist on base, camera, or both.
-     */
-    if (camerasOn > 1) {
+    if (camerasOn === 1) {
       try {
         await streams.add(props.cameraName);
       } catch (error) {
-        const serviceError = error as ServiceError;
-        // Ignore the error if stream was added on one card already.
-        if (serviceError.message !== 'stream already active') {
-          displayError(serviceError);
-        }
         displayError(error as ServiceError);
       }
     } else if (camerasOn === 0) {
@@ -166,6 +157,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   cameraOn = false;
+  manageStreamStates(false);
   clearFrameInterval();
 });
 
