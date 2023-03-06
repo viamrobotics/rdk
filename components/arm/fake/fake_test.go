@@ -50,6 +50,17 @@ func TestUpdateAction(t *testing.T) {
 		},
 	}
 
+	type foo struct {
+		daboDee string
+	}
+
+	shouldRebuild := config.Component{
+		Name: "testArm",
+		ConvertedAttributes: &foo{
+			daboDee: "string",
+		},
+	}
+
 	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -77,6 +88,9 @@ func TestUpdateAction(t *testing.T) {
 	test.That(t, fakeArm.UpdateAction(&shouldLogErrAgain), test.ShouldEqual, config.None)
 	test.That(t, len(logs.All()), test.ShouldEqual, 2)
 
+	// scenario where we rebuild
+	test.That(t, fakeArm.UpdateAction(&shouldRebuild), test.ShouldEqual, config.Rebuild)
+
 	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
 	reconfArm, err := arm.WrapWithReconfigurable(fakeArm, resource.Name{})
 	test.That(t, err, test.ShouldBeNil)
@@ -91,15 +105,20 @@ func TestUpdateAction(t *testing.T) {
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
 
-	// scenario where we err
+	// scenario where we log error
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
 	test.That(t, len(logs.All()), test.ShouldEqual, 3)
 
-	// scenario where we err again
+	// scenario where we log error again
 	obj, canUpdate = reconfArm.(config.ComponentUpdate)
 	test.That(t, canUpdate, test.ShouldBeTrue)
 	test.That(t, obj.UpdateAction(&shouldLogErrAgain), test.ShouldEqual, config.None)
 	test.That(t, len(logs.All()), test.ShouldEqual, 4)
+
+	// scenario where we rebuild
+	obj, canUpdate = reconfArm.(config.ComponentUpdate)
+	test.That(t, canUpdate, test.ShouldBeTrue)
+	test.That(t, obj.UpdateAction(&shouldRebuild), test.ShouldEqual, config.Rebuild)
 }
