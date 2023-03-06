@@ -52,8 +52,7 @@ var (
 )
 
 const (
-	defaultDataRateMsec           = 200
-	minDataRateMsec               = 200
+	defaultDataRateMsec         = 200
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
 	parsePortMaxTimeoutSec      = 60
