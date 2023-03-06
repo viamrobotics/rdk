@@ -72,7 +72,7 @@ require (
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
-	github.com/viam-labs/go-libjpeg v0.3.0
+	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.31.1
