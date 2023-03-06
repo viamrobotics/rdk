@@ -71,10 +71,10 @@ const viewCamera = async (isOn: boolean) => {
       try {
         await streams.add(props.cameraName);
       } catch (error) {
-        const service_error = error as ServiceError
+        const serviceError = error as ServiceError
         // Ignore the error if stream was added on one card already.
-        if(service_error.message != 'stream already active') {
-          displayError(service_error);
+        if(serviceError.message !== 'stream already active') {
+          displayError(serviceError);
         }
         displayError(error as ServiceError);
       }
