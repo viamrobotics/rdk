@@ -94,22 +94,23 @@ var _ = motor.LocalMotor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
-	mu                       sync.Mutex
+	mu     sync.Mutex
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
+	// config
 	Board                    board.Board
 	A, B, Direction, PWM, En board.GPIOPin
 	EnablePinLow             board.GPIOPin
 	EnablePinHigh            board.GPIOPin
-	on                       bool
 	pwmFreq                  uint
 	minPowerPct              float64
 	maxPowerPct              float64
-	powerPct                 float64
 	maxRPM                   float64
 	dirFlip                  bool
 	motorName                string
-
-	opMgr  operation.SingleOperationManager
-	logger golog.Logger
+	// state
+	on       bool
+	powerPct float64
 
 	generic.Unimplemented
 }
@@ -135,6 +136,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 
 	if math.Abs(powerPct) <= 0.001 {
 		m.powerPct = 0.0
+		m.on = false
 		if m.EnablePinLow != nil {
 			errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
 		}
@@ -153,7 +155,6 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		if m.PWM != nil {
 			errs = multierr.Combine(errs, m.PWM.Set(ctx, false, extra))
 		}
-		m.on = false
 		return errs
 	}
 
@@ -260,11 +261,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	m.mu.Lock()
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
-	m.mu.Unlock()
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
