@@ -134,16 +134,20 @@ type Arm struct {
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
 // See config.UpdateActionType for more information.
 func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
-	if _, ok := c.ConvertedAttributes.(*AttrConfig); ok {
-		if model, err := buildModel(*c); err != nil {
-			a.logger.Debugf(
-				`%v - we continue using current model: %v`,
-				err.Error(), a.model.Name())
-		} else {
-			a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
-			a.model = model
-		}
+	if _, ok := c.ConvertedAttributes.(*AttrConfig); !ok {
+		return config.Rebuild
 	}
+
+	if model, err := buildModel(*c); err != nil {
+		// unlikely to hit debug as we check for errors in Validate()
+		a.logger.Debugw(
+			"cannot build new model - continue using current model",
+			"current model", a.model.Name(), "error", err.Error())
+	} else {
+		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+		a.model = model
+	}
+
 	return config.None
 }
 
