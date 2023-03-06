@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -144,41 +143,6 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.L
 		}
 	}
 
-	// Confirms that input file pattern abides by the format n1:n2:n3 where n1, n2 and n3 are all positive integers and n1 <= n2
-	// and n3 must be non-zero
-	if svcConfig.InputFilePattern != "" {
-		pattern := `(\d+):(\d+):(\d+)`
-		re := regexp.MustCompile(pattern)
-		res := re.MatchString(svcConfig.InputFilePattern)
-		if !res {
-			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
-		}
-
-		re = regexp.MustCompile(`(\d+)`)
-		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
-		startFileIndex, err := strconv.Atoi(res2[0])
-		if err != nil {
-			return "", err
-		}
-		endFileIndex, err := strconv.Atoi(res2[1])
-		if err != nil {
-			return "", err
-		}
-
-		interval, err := strconv.Atoi(res2[2])
-		if err != nil {
-			return "", err
-		}
-
-		if interval == 0 {
-			return "", errors.New("the file input pattern's interval must be greater than zero")
-		}
-
-		if startFileIndex > endFileIndex {
-			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
-		}
-	}
-
 	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
 		return "", errors.Errorf("cannot specify data_rate_msec less than %v", minDataRateMs)
 	}
@@ -195,7 +159,6 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.L
 func runtimeServiceValidation(
 	ctx context.Context,
 	cams []camera.Camera,
-	camStreams []gostream.VideoStream,
 	slamSvc *builtIn,
 ) error {
 	if !slamSvc.useLiveData {
@@ -214,7 +177,7 @@ func runtimeServiceValidation(
 		switch slamSvc.slamLib.AlgoType {
 		case slam.Sparse:
 			var currPaths []string
-			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams, camStreams)
+			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams)
 			paths = append(paths, currPaths...)
 		case slam.Dense:
 			var path string
@@ -261,7 +224,6 @@ type AttrConfig struct {
 	UseLiveData         *bool             `json:"use_live_data"`
 	DataRateMs          int               `json:"data_rate_msec"`
 	MapRateSec          *int              `json:"map_rate_sec"`
-	InputFilePattern    string            `json:"input_file_pattern"`
 	Port                string            `json:"port"`
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
 	Dev                 bool              `json:"dev"`
@@ -299,7 +261,6 @@ type builtIn struct {
 
 	configParams        map[string]string
 	dataDirectory       string
-	inputFilePattern    string
 	deleteProcessedData bool
 	useLiveData         bool
 
@@ -308,8 +269,6 @@ type builtIn struct {
 	mapRateSec int
 
 	dev bool
-
-	camStreams []gostream.VideoStream
 
 	cancelFunc              func()
 	logger                  golog.Logger
@@ -674,11 +633,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	}
 	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, useLiveData)
 
-	camStreams := make([]gostream.VideoStream, 0, len(cams))
-	for _, cam := range cams {
-		camStreams = append(camStreams, gostream.NewEmbeddedVideoStream(cam))
-	}
-
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -690,12 +644,10 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
 		useLiveData:           useLiveData,
-		inputFilePattern:      svcConfig.InputFilePattern,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
 		dataRateMs:            dataRate,
 		mapRateSec:            mapRate,
-		camStreams:            camStreams,
 		cancelFunc:            cancelFunc,
 		logger:                logger,
 		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
@@ -711,11 +663,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		}
 	}()
 
-	if err := runtimeServiceValidation(cancelCtx, cams, camStreams, slamSvc); err != nil {
+	if err := runtimeServiceValidation(cancelCtx, cams, slamSvc); err != nil {
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
+	slamSvc.StartDataProcess(cancelCtx, cams, nil)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
@@ -752,15 +704,6 @@ func (slamSvc *builtIn) Close() error {
 		return errors.Wrap(err, "error occurred during closeout of process")
 	}
 	slamSvc.activeBackgroundWorkers.Wait()
-	for idx, stream := range slamSvc.camStreams {
-		i := idx
-		s := stream
-		defer func() {
-			if err := s.Close(context.Background()); err != nil {
-				slamSvc.logger.Errorw("error closing cam", "number", i, "error", err)
-			}
-		}()
-	}
 	return nil
 }
 
@@ -769,7 +712,6 @@ func (slamSvc *builtIn) Close() error {
 func (slamSvc *builtIn) StartDataProcess(
 	cancelCtx context.Context,
 	cams []camera.Camera,
-	camStreams []gostream.VideoStream,
 	c chan int,
 ) {
 	if !slamSvc.useLiveData {
@@ -820,7 +762,7 @@ func (slamSvc *builtIn) StartDataProcess(
 							c <- 1
 						}
 					case slam.Sparse:
-						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
+						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams); err != nil {
 							slamSvc.logger.Warn(err)
 						}
 						if c != nil {
@@ -844,7 +786,6 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
 	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
-	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-delete_processed_data="+strconv.FormatBool(slamSvc.deleteProcessedData))
 	args = append(args, "-use_live_data="+strconv.FormatBool(slamSvc.useLiveData))
 	args = append(args, "-port="+slamSvc.port)
@@ -970,15 +911,14 @@ func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]b
 func (slamSvc *builtIn) getAndSaveDataSparse(
 	ctx context.Context,
 	cams []camera.Camera,
-	camStreams []gostream.VideoStream,
 ) ([]string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::getAndSaveDataSparse")
 	defer span.End()
 
 	switch slamSvc.slamMode {
 	case slam.Mono:
-		if len(camStreams) != 1 {
-			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
+		if len(cams) != 1 {
+			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(cams))
 		}
 
 		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
@@ -996,6 +936,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		if err != nil {
 			return nil, err
 		}
+
 		filename := filenames[0]
 		//nolint:gosec
 		f, err := os.Create(filename)
