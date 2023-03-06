@@ -36,6 +36,8 @@ var RGBABitmapMagicNumber = []byte("RGBA")
 // for raw DEPTH data.
 var DepthMapMagicNumber = []byte("DEPTHMAP")
 
+var jpegEncoderOptions = &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}
+
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
 const RawRGBAHeaderLength = 12
@@ -254,9 +256,9 @@ func EncodeJPEG(w io.Writer, src image.Image) error {
 	case *Image:
 		imgRGBA := image.NewRGBA(src.Bounds())
 		ConvertToRGBA(imgRGBA, v)
-		return libjpeg.Encode(w, imgRGBA, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
+		return libjpeg.Encode(w, imgRGBA, jpegEncoderOptions)
 	default:
-		return libjpeg.Encode(w, src, &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast})
+		return libjpeg.Encode(w, src, jpegEncoderOptions)
 	}
 }
 
