@@ -44,7 +44,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	slamConfig "go.viam.com/slam/config"
-	"go.viam.com/utils"
 )
 
 var (
@@ -53,8 +52,7 @@ var (
 )
 
 const (
-	defaultDataRateMs           = 200
-	minDataRateMs               = 200
+	defaultDataRateMsec         = 200
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
 	parsePortMaxTimeoutSec      = 60
@@ -86,7 +84,7 @@ func init() {
 		})
 		cType := slam.Subtype
 		config.RegisterServiceAttributeMapConverter(cType, sModel, func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
+			var conf slamConfig.AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 			if err != nil {
 				return nil, err
@@ -95,7 +93,7 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		}, &AttrConfig{})
+		}, &slamConfig.AttrConfig{})
 	}
 }
 
@@ -103,7 +101,7 @@ func init() {
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 // Returns the slam mode.
-func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
+func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
 	slamLib, ok := slam.SLAMLibraries[model]
 	if !ok {
 		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
@@ -142,15 +140,6 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.L
 			}
 		}
 	}
-
-	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
-		return "", errors.Errorf("cannot specify data_rate_msec less than %v", minDataRateMs)
-	}
-
-	if svcConfig.MapRateSec != nil && *svcConfig.MapRateSec < 0 {
-		return "", errors.New("cannot specify map_rate_sec less than zero")
-	}
-
 	return slamMode, nil
 }
 
@@ -216,39 +205,6 @@ func runtimeServiceValidation(
 	return nil
 }
 
-// AttrConfig describes how to configure the service.
-type AttrConfig struct {
-	Sensors             []string          `json:"sensors"`
-	ConfigParams        map[string]string `json:"config_params"`
-	DataDirectory       string            `json:"data_dir"`
-	UseLiveData         *bool             `json:"use_live_data"`
-	DataRateMs          int               `json:"data_rate_msec"`
-	MapRateSec          *int              `json:"map_rate_sec"`
-	Port                string            `json:"port"`
-	DeleteProcessedData *bool             `json:"delete_processed_data"`
-	Dev                 bool              `json:"dev"`
-}
-
-// Validate creates the list of implicit dependencies.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
-
-	if config.ConfigParams["mode"] == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "config_params[mode]")
-	}
-
-	if config.DataDirectory == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "data_dir")
-	}
-
-	if config.UseLiveData == nil {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "use_live_data")
-	}
-
-	deps := config.Sensors
-
-	return deps, nil
-}
-
 // builtIn is the structure of the slam service.
 type builtIn struct {
 	generic.Unimplemented
@@ -283,7 +239,7 @@ type builtIn struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
+func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, deps registry.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
@@ -596,7 +552,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
-	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
+	svcConfig, ok := config.ConvertedAttributes.(*slamConfig.AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
@@ -611,38 +567,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
-	var port string
-	if svcConfig.Port == "" {
-		port = localhost0
-	} else {
-		port = svcConfig.Port
-	}
-
-	var dataRate int
-	if svcConfig.DataRateMs == 0 {
-		dataRate = defaultDataRateMs
-		logger.Debugf("no data_rate_msec given, setting to default value of %d", defaultDataRateMs)
-	} else {
-		dataRate = svcConfig.DataRateMs
-	}
-
-	var mapRate int
-	if svcConfig.MapRateSec == nil {
-		logger.Debugf("no map_rate_secs given, setting to default value of %d", defaultMapRateSec)
-		mapRate = defaultMapRateSec
-	} else if *svcConfig.MapRateSec == 0 {
-		logger.Info("setting slam system to localization mode")
-		mapRate = 0
-	} else {
-		mapRate = *svcConfig.MapRateSec
-	}
-
-	useLiveData, err := slamConfig.DetermineUseLiveData(logger, svcConfig.UseLiveData, svcConfig.Sensors)
-	if err != nil {
-		return nil, err
-	}
-	deleteProcessedData := slamConfig.DetermineDeleteProcessedData(logger, svcConfig.DeleteProcessedData, useLiveData)
-
+    svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -653,11 +578,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
-		useLiveData:           useLiveData,
-		deleteProcessedData:   deleteProcessedData,
-		port:                  port,
-		dataRateMs:            dataRate,
-		mapRateSec:            mapRate,
+		useLiveData:           *svcConfig.UseLiveData,
+		deleteProcessedData:   *svcConfig.DeleteProcessedData,
+		port:                  svcConfig.Port,
+		dataRateMs:            svcConfig.DataRateMsec,
+		mapRateSec:            *svcConfig.MapRateSec,
 		cancelFunc:            cancelFunc,
 		logger:                logger,
 		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
