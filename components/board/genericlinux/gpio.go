@@ -14,8 +14,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/components/board"
 )
 
 type gpioPin struct {
@@ -59,7 +60,8 @@ func (pin *gpioPin) openGpioFd() error {
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
-func (pin *gpioPin) Set(ctx context.Context, isHigh bool, extra map[string]interface{}) (err error) {
+func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
+	extra map[string]interface{}) (err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -85,7 +87,9 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
-func (pin *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (result bool, err error) {
+func (pin *gpioPin) Get(
+	ctx context.Context, extra map[string]interface{},
+) (result bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -222,7 +226,7 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
-// TODO: make sure this matches the other signature
+// TODO: make sure this matches the other signature.
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
 	interruptConfigs []board.DigitalInterruptConfig, waitGroup *sync.WaitGroup, logger golog.Logger,
 ) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
@@ -242,7 +246,9 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 	pins := make(map[string]*gpioPin)
 	for pin, mapping := range gpioMappings {
 		if _, ok := interrupts[fmt.Sprintf("%d", pin)]; ok {
-			logger.Debugf("Skipping initialization of GPIO pin %s because it's configured as an interrupt", pin)
+			logger.Debugf(
+				"Skipping initialization of GPIO pin %s because it's configured as an interrupt",
+				pin)
 			continue
 		}
 		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
@@ -257,16 +263,18 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 }
 
 type digitalInterrupt struct {
-    interrupt  board.DigitalInterrupt
+	interrupt  board.DigitalInterrupt
 	line       *gpio.LineWithEvent
-    cancelCtx  context.Context
+	cancelCtx  context.Context
 	cancelFunc func()
 }
 
-func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig, gpioMappings map[int]GPIOBoardMapping, activeBackgroundWorkers *sync.WaitGroup) (*digitalInterrupt, error) {
+func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig,
+	gpioMappings map[int]GPIOBoardMapping, activeBackgroundWorkers *sync.WaitGroup,
+) (*digitalInterrupt, error) {
 	pinInt, err := strconv.Atoi(config.Pin)
 	if err != nil {
-		return nil, errors.Errorf("pin names must be numerical")
+		return nil, errors.Errorf("pin names must be numerical, not '%s'", config.Pin)
 	}
 	mapping, ok := gpioMappings[pinInt]
 	if !ok {
@@ -280,7 +288,8 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 	defer utils.UncheckedErrorFunc(chip.Close)
 
 	// TODO: do we need to configure the line to be open-drain or open-source?
-	line, err := chip.OpenLineWithEvents(uint32(mapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt")
+	line, err := chip.OpenLineWithEvents(
+		uint32(mapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt")
 	if err != nil {
 		return nil, err
 	}
@@ -291,27 +300,28 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	result := digitalInterrupt{interrupt: interrupt,
-	                           line: line,
-							   cancelCtx: cancelCtx,
-							   cancelFunc: cancelFunc,
-						       }
+	result := digitalInterrupt{
+		interrupt:  interrupt,
+		line:       line,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+	}
 	result.StartMonitor(activeBackgroundWorkers)
 	return &result, nil
 }
 
 func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup) {
 	activeBackgroundWorkers.Add(1)
-    utils.ManagedGo(func() {
+	utils.ManagedGo(func() {
 		for {
 			select {
-			case <- di.cancelCtx.Done():
+			case <-di.cancelCtx.Done():
 				return
-			case event := <- di.line.Events():
+			case event := <-di.line.Events():
 				di.interrupt.Tick(di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano()))
 			}
 		}
-    }, activeBackgroundWorkers.Done)
+	}, activeBackgroundWorkers.Done)
 }
 
 func (di *digitalInterrupt) Close() {

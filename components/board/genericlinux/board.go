@@ -178,8 +178,8 @@ type sysfsBoard struct {
 
 	usePeriphGpio bool
 	// These next two are only used for non-periph.io pins
-	gpios         map[string]*gpioPin
-	interrupts   map[string]*digitalInterrupt
+	gpios      map[string]*gpioPin
+	interrupts map[string]*digitalInterrupt
 
 	cancelCtx               context.Context
 	cancelFunc              func()
