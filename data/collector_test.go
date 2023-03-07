@@ -203,33 +203,42 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target := datacapture.NewBuffer(tmpDir, &md)
-	sleepCaptureCutoff = time.Millisecond * 10
+	buf := datacapture.NewBuffer(tmpDir, &md)
+	wrote := make(chan struct{})
+	target := &signalingBuffer{
+		bw:    buf,
+		wrote: wrote,
+	}
+	mockClock := clock.NewMock()
+	interval := time.Millisecond * 5
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 5,
+		Interval:      interval,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
 		Logger:        l,
+		Clock:         mockClock,
 	}
 	c, _ := NewCollector(structCapturer, params)
+
+	// Start collecting, and validate it is writing.
 	c.Collect()
-	time.Sleep(time.Millisecond * 25)
+	mockClock.Add(interval)
+	<-wrote
 
-	// Close and measure fileSize.
+	// Close and validate no additional writes occur even after an additional interval.
 	c.Close()
-	files := getAllFiles(target.Directory)
-	test.That(t, len(files), test.ShouldEqual, 1)
-	fileSize1 := files[0].Size()
-
-	// Assert capture is no longer being called/file is no longer being written to.
-	time.Sleep(time.Millisecond * 25)
-	filesAfterWait := getAllFiles(target.Directory)
-	test.That(t, len(filesAfterWait), test.ShouldEqual, 1)
-	test.That(t, filesAfterWait[0].Size(), test.ShouldEqual, fileSize1)
+	mockClock.Add(interval)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+	case <-wrote:
+		t.Fatalf("unexpected write after close")
+	}
 }
 
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
@@ -277,7 +286,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
