@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -19,6 +20,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
+
+const chunkSizeBytes = 64 * 1024
 
 type pose struct {
 	X float64 `json:"x"`
@@ -46,11 +49,11 @@ type position struct {
 	Extra extra       `json:"extra"`
 }
 
-// type positionNew struct {
-// 	Pose               pose   `json:"pose"`
-// 	ComponentReference string `json:"component_reference"`
-// 	Extra              extra  `json:"extra"`
-// }
+type positionNew struct {
+	Pose               pose   `json:"pose"`
+	ComponentReference string `json:"component_reference"`
+	Extra              extra  `json:"extra"`
+}
 
 const (
 	internalStateTemplate = "%s/internal_state/internal_state_%d.pbstream"
@@ -58,10 +61,10 @@ const (
 	pcdTemplate           = "%s/pointcloud/pointcloud_%d.pcd"
 	jpegTemplate          = "%s/image_map/image_map_%d.jpeg"
 	positionTemplate      = "%s/position/position_%d.json"
-	// positionNewTemplate   = "%s/position_new/position_%d.json".
+	positionNewTemplate   = "%s/position_new/position_%d.json"
 )
 
-func fakeGetMap(datasetDir string, slamSvc *SLAM, mimeType string) (string, image.Image, *vision.Object, error) {
+func fakeGetMap(_ context.Context, datasetDir string, slamSvc *SLAM, mimeType string) (string, image.Image, *vision.Object, error) {
 	var err error
 	var img image.Image
 	var vObj *vision.Object
@@ -103,7 +106,7 @@ func fakeGetMap(datasetDir string, slamSvc *SLAM, mimeType string) (string, imag
 	return mimeType, img, vObj, nil
 }
 
-func fakeGetInternalState(datasetDir string, slamSvc *SLAM) ([]byte, error) {
+func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) ([]byte, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)
@@ -113,7 +116,45 @@ func fakeGetInternalState(datasetDir string, slamSvc *SLAM) ([]byte, error) {
 	return data, nil
 }
 
-func fakePosition(datasetDir string, slamSvc *SLAM, name string) (*referenceframe.PoseInFrame, error) {
+func fakeGetPointCloudMapStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+	slamSvc.logger.Debug("Reading " + path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	chunk := make([]byte, chunkSizeBytes)
+	f := func() ([]byte, error) {
+		bytesRead, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+			return nil, err
+		}
+		return chunk[:bytesRead], err
+	}
+	return f, nil
+}
+
+func fakeGetInternalStateStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
+	slamSvc.logger.Debug("Reading " + path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	chunk := make([]byte, chunkSizeBytes)
+	f := func() ([]byte, error) {
+		bytesRead, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+			return nil, err
+		}
+		return chunk[:bytesRead], err
+	}
+	return f, nil
+}
+
+func fakePosition(_ context.Context, datasetDir string, slamSvc *SLAM, name string) (*referenceframe.PoseInFrame, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)
@@ -135,8 +176,38 @@ func fakePosition(datasetDir string, slamSvc *SLAM, name string) (*referencefram
 	return pInFrame, nil
 }
 
+func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionNewTemplate, datasetDir, slamSvc.getCount())))
+	slamSvc.logger.Debug("Reading " + path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	position, err := positionNewFromJSON(data)
+	if err != nil {
+		return nil, "", err
+	}
+	p := r3.Vector{X: position.Pose.X, Y: position.Pose.Y, Z: position.Pose.Z}
+
+	quat := position.Extra.Quat
+	orientation := &spatialmath.Quaternion{Real: quat.Real, Imag: quat.Imag, Jmag: quat.Jmag, Kmag: quat.Kmag}
+	pose := spatialmath.NewPose(p, orientation)
+
+	return pose, position.ComponentReference, nil
+}
+
 func positionFromJSON(data []byte) (position, error) {
 	position := position{}
+
+	if err := json.Unmarshal(data, &position); err != nil {
+		return position, err
+	}
+	return position, nil
+}
+
+func positionNewFromJSON(data []byte) (positionNew, error) {
+	position := positionNew{}
 
 	if err := json.Unmarshal(data, &position); err != nil {
 		return position, err
