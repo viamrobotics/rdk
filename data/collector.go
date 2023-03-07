@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -34,6 +35,7 @@ type Collector interface {
 }
 
 type collector struct {
+	clock             clock.Clock
 	queue             chan *v1.SensorData
 	interval          time.Duration
 	params            map[string]*anypb.Any
@@ -44,8 +46,7 @@ type collector struct {
 	cancel            context.CancelFunc
 	captureFunc       CaptureFunc
 	closed            bool
-
-	target *datacapture.Buffer
+	target            datacapture.BufferedWriter
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -82,7 +83,7 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Directory), "error", err)
+			c.logger.Errorw(fmt.Sprintf("failed to write to collector"), "error", err)
 		}
 	})
 }
@@ -100,11 +101,10 @@ func (c *collector) capture() {
 }
 
 func (c *collector) sleepBasedCapture() {
-	next := time.Now().Add(c.interval)
+	next := c.clock.Now().Add(c.interval)
 	captureWorkers := sync.WaitGroup{}
 
 	for {
-		time.Sleep(time.Until(next))
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				c.logger.Errorw("unexpected error in collector context", "error", err)
@@ -113,6 +113,8 @@ func (c *collector) sleepBasedCapture() {
 			close(c.queue)
 			return
 		}
+
+		c.clock.Sleep(c.clock.Until(next))
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -131,7 +133,7 @@ func (c *collector) sleepBasedCapture() {
 }
 
 func (c *collector) tickerBasedCapture() {
-	ticker := time.NewTicker(c.interval)
+	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
 
@@ -161,9 +163,9 @@ func (c *collector) tickerBasedCapture() {
 }
 
 func (c *collector) getAndPushNextReading() {
-	timeRequested := timestamppb.New(time.Now().UTC())
+	timeRequested := timestamppb.New(c.clock.Now().UTC())
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
-	timeReceived := timestamppb.New(time.Now().UTC())
+	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			c.logger.Debugw("error while capturing data", "error", err)
@@ -208,9 +210,7 @@ func (c *collector) getAndPushNextReading() {
 	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-		return
 	case c.queue <- &msg:
-		return
 	}
 }
 
@@ -222,6 +222,9 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	if params.Clock == nil {
+		params.Clock = clock.New()
+	}
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),
 		interval:          params.Interval,
@@ -233,6 +236,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		cancel:            cancelFunc,
 		captureFunc:       captureFunc,
 		target:            params.Target,
+		clock:             params.Clock,
 	}, nil
 }
 
