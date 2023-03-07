@@ -236,7 +236,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 		if err != nil {
 			// Close all pins we've started
 			for _, runningInterrupt := range interrupts {
-				runningInterrupt.Close()
+				err = multierr.Combine(err, runningInterrupt.Close())
 			}
 			return nil, nil, err
 		}
@@ -318,17 +318,19 @@ func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup
 			case <-di.cancelCtx.Done():
 				return
 			case event := <-di.line.Events():
-				di.interrupt.Tick(di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano()))
+				utils.UncheckedError(
+					di.interrupt.Tick(di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano()))
+				)
 			}
 		}
 	}, activeBackgroundWorkers.Done)
 }
 
-func (di *digitalInterrupt) Close() {
+func (di *digitalInterrupt) Close() error {
 	// We shut down the background goroutine that monitors this interrupt, but don't need to wait
 	// for it to finish shutting down because it doesn't use anything in the line itself (just a
 	// channel of events that the line generates). It will shut down sometime soon, and if that's
 	// after the line is closed, that's fine.
 	di.cancelFunc()
-	di.line.Close()
+	return di.line.Close()
 }
