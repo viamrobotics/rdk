@@ -949,7 +949,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		filename := filenames[0]
-        return []string{filename}, dataprocess.WriteBytesToFile(image,filename)
+		return []string{filename}, dataprocess.WriteBytesToFile(image, filename)
 	case slam.Rgbd:
 		if len(cams) != 2 {
 			return nil, errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(cams))
@@ -974,7 +974,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, err
 		}
 		for i, filename := range filenames {
-            err = dataprocess.WriteBytesToFile(images[i], filename);
+			err = dataprocess.WriteBytesToFile(images[i], filename)
 			if err != nil {
 				return filenames, err
 			}
@@ -1056,7 +1056,7 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 		return "", err
 	}
 	filename := filenames[0]
-    return filename, dataprocess.WritePCDToFile(ctx, pointcloud, filename)
+	return filename, dataprocess.WritePCDToFile(ctx, pointcloud, filename)
 }
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
