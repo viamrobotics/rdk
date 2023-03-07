@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -392,7 +393,19 @@ func TestOOBArm(t *testing.T) {
 		},
 	}
 
-	notReal, err := fake.NewArm(cfg, logger)
+	injectedRobot := setupInjectRobot()
+	injectedRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.LinkInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+
+	injectedRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+
+	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectedArm := &inject.Arm{
@@ -466,7 +479,7 @@ func TestOOBArm(t *testing.T) {
 	})
 
 	t.Run("MoveToPosition works when IB", func(t *testing.T) {
-		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
+		pose = spatialmath.NewPoseFromPoint(r3.Vector{-800, -232.9, 62.8})
 		err := injectedArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -528,7 +541,10 @@ func TestXArm6Locations(t *testing.T) {
 			ArmModel: "xArm6",
 		},
 	}
-	notReal, err := fake.NewArm(cfg, logger)
+
+	injectedRobot := setupInjectRobot()
+
+	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
@@ -648,7 +664,10 @@ func TestUR5ELocations(t *testing.T) {
 			ArmModel: "ur5e",
 		},
 	}
-	notReal, err := fake.NewArm(cfg, logger)
+
+	injectedRobot := setupInjectRobot()
+
+	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
