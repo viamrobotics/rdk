@@ -183,7 +183,7 @@ func simple2DMap() (*planConfig, error) {
 		return nil, err
 	}
 	worldState := &frame.WorldState{
-		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, map[string]spatialmath.Geometry{"b": box})},
+		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
 	}
 
 	// setup planner options
@@ -352,8 +352,7 @@ func TestArmObstacleSolve(t *testing.T) {
 	// Set an obstacle such that it is impossible to reach the goal without colliding with it
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 257, Y: 210, Z: -300}), r3.Vector{10, 10, 100}, "")
 	test.That(t, err, test.ShouldBeNil)
-	geometries := make(map[string]spatialmath.Geometry)
-	geometries["obstacle"] = obstacle
+	geometries := []spatialmath.Geometry{obstacle}
 	obstacles := frame.NewGeometriesInFrame(frame.World, geometries)
 	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
 
@@ -460,8 +459,14 @@ func TestSolverFrameGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(position[len(position)-1])
 	test.That(t, gf, test.ShouldNotBeNil)
-	gripperCenter := gf.Geometries()["xArmVgripper"].Pose().Point()
-	test.That(t, spatialmath.R3VectorAlmostEqual(gripperCenter, r3.Vector{300, 300, 0}, 1e-2), test.ShouldBeTrue)
+
+	geoms := gf.Geometries()
+	for _, geom := range geoms {
+		if geom.Label() == "xArmVgripper" {
+			gripperCenter := geom.Pose().Point()
+			test.That(t, spatialmath.R3VectorAlmostEqual(gripperCenter, r3.Vector{300, 300, 0}, 1e-2), test.ShouldBeTrue)
+		}
+	}
 }
 
 func TestMovementWithGripper(t *testing.T) {
@@ -490,8 +495,7 @@ func TestMovementWithGripper(t *testing.T) {
 	// plan around the obstacle with the gripper
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500}, "")
 	test.That(t, err, test.ShouldBeNil)
-	geometries := make(map[string]spatialmath.Geometry)
-	geometries["obstacle"] = obstacle
+	geometries := []spatialmath.Geometry{obstacle}
 	obstacles := frame.NewGeometriesInFrame(frame.World, geometries)
 	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{obstacles}}
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)

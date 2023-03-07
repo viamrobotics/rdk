@@ -85,24 +85,7 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	var (
-		model referenceframe.Model
-		err   error
-	)
-
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
-	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-	switch {
-	case armModel != "" && modelPath != "":
-		err = errAttrCfgPopulation
-	case armModel != "":
-		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-	case modelPath != "":
-		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
-	default:
-		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(cfg.Name)
-	}
+	model, err := buildModel(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +98,29 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	}, nil
 }
 
+func buildModel(cfg config.Component) (referenceframe.Model, error) {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+
+	switch {
+	case armModel != "" && modelPath != "":
+		err = errAttrCfgPopulation
+	case armModel != "":
+		model, err = modelFromName(armModel, cfg.Name)
+	case modelPath != "":
+		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
+	default:
+		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
+		model = referenceframe.NewSimpleModel(cfg.Name)
+	}
+
+	return model, err
+}
+
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
 	generic.Echo
@@ -123,6 +129,26 @@ type Arm struct {
 	CloseCount int
 	logger     golog.Logger
 	model      referenceframe.Model
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
+	if _, ok := c.ConvertedAttributes.(*AttrConfig); !ok {
+		return config.Rebuild
+	}
+
+	if model, err := buildModel(*c); err != nil {
+		// unlikely to hit debug as we check for errors in Validate()
+		a.logger.Debugw(
+			"cannot build new model - continue using current model",
+			"current model", a.model.Name(), "error", err.Error())
+	} else {
+		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+		a.model = model
+	}
+
+	return config.None
 }
 
 // ModelFrame returns the dynamic frame of the model.

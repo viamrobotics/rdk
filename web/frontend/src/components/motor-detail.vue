@@ -101,7 +101,7 @@ const motorRun = () => {
 
 const motorStop = async () => {
   try {
-    await motorClient.motorStop();
+    await motorClient.stop();
   } catch (error) {
     displayError(error as ServiceError);
   }
