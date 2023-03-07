@@ -1,9 +1,9 @@
 package data
 
 import (
-	"github.com/benbjohnson/clock"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
