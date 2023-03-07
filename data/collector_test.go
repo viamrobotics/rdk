@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/benbjohnson/clock"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
@@ -33,10 +36,10 @@ func (r *structReading) toProto() *structpb.Struct {
 }
 
 var (
-	dummyStructCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return dummyStructReading, nil
 	})
-	dummyBinaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	binaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return dummyBytesReading, nil
 	})
 	dummyStructReading      = structReading{}
@@ -65,81 +68,52 @@ func TestNewCollector(t *testing.T) {
 	test.That(t, err2, test.ShouldBeNil)
 }
 
-// Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
-// is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
+// Test that the Collector correctly writes the SensorData on an interval.
 func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
-	// Set sleepIntervalCutoff high, because tests using the prod cutoff (2ms) have enough variation in timing
-	// to make them flaky.
-	sleepCaptureCutoff = time.Millisecond * 100
-	tickerInterval := time.Millisecond * 101
-	sleepInterval := time.Millisecond * 99
+	tickerInterval := sleepCaptureCutoff + 1
+	sleepInterval := sleepCaptureCutoff - 1
+
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
 
 	tests := []struct {
 		name           string
 		captureFunc    CaptureFunc
-		params         CollectorParams
-		wait           time.Duration
+		interval       time.Duration
 		expectReadings int
 		expFiles       int
 	}{
 		{
-			name:        "Ticker based struct writer.",
-			captureFunc: dummyStructCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      tickerInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
+			name:           "Ticker based struct writer.",
+			captureFunc:    structCapturer,
+			interval:       tickerInterval,
 			expectReadings: 2,
 			expFiles:       1,
 		},
 		{
-			name:        "Sleep based struct writer.",
-			captureFunc: dummyStructCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      sleepInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
+			name:           "Sleep based struct writer.",
+			captureFunc:    structCapturer,
+			interval:       sleepInterval,
 			expectReadings: 2,
 			expFiles:       1,
 		},
 		{
-			name:        "Ticker based binary writer.",
-			captureFunc: dummyBinaryCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      tickerInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
+			name:           "Ticker based binary writer.",
+			captureFunc:    binaryCapturer,
+			interval:       tickerInterval,
 			expectReadings: 2,
 			expFiles:       2,
 		},
 		{
-			name:        "Sleep based binary writer.",
-			captureFunc: dummyBinaryCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      sleepInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
+			name:           "Sleep based binary writer.",
+			captureFunc:    binaryCapturer,
+			interval:       sleepInterval,
 			expectReadings: 2,
 			expFiles:       2,
 		},
@@ -149,17 +123,56 @@ func TestSuccessfulWrite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
-			target := datacapture.NewBuffer(tmpDir, &md)
-			test.That(t, target, test.ShouldNotBeNil)
+			tgt := datacapture.NewBuffer(tmpDir, &md)
+			test.That(t, tgt, test.ShouldNotBeNil)
+			wrote := make(chan struct{})
+			target := &signalingBuffer{
+				bw:    tgt,
+				wrote: wrote,
+			}
 
-			tc.params.Target = target
-			c, err := NewCollector(tc.captureFunc, tc.params)
+			mockClock := clock.NewMock()
+			params.Interval = tc.interval
+			params.Target = target
+			params.Clock = mockClock
+			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
+			// TODO: figure out how to avoid this. Don't want to do below until .Collect goroutine has kicked off.
+			// Can make Collect just not kick off a goroutine, and make it's caller do that? Maybe the better pattern
+			time.Sleep(time.Millisecond * 10)
+			for i := 0; i < tc.expectReadings; i++ {
+				mockClock.Add(params.Interval)
+				<-wrote
+			}
+			close(wrote)
 
-			// Verify that the data it wrote matches what we expect.
-			time.Sleep(tc.wait)
+			// If it's a sleep based collector, we need to move the clock forward one more time after calling Close.
+			// Otherwise, it will stay asleep indefinitely and Close will block forever.
+			// This loop guarantees that the clock is moved forward at least once after Close is called. After Close
+			// returns and the closed channel is closed, this loop will terminate.
+			closed := make(chan struct{})
+			sleepCollector := tc.interval < sleepCaptureCutoff
+			wg := sync.WaitGroup{}
+			if sleepCollector {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for i := 0; i < 100; i++ {
+						select {
+						case <-closed:
+							return
+						default:
+							time.Sleep(time.Millisecond * 10)
+							mockClock.Add(tc.interval)
+						}
+					}
+				}()
+			}
 			c.Close()
+			close(closed)
+			wg.Wait()
+
 			var actReadings []*v1.SensorData
 			files := getAllFiles(tmpDir)
 			for _, file := range files {
@@ -191,7 +204,7 @@ func TestClose(t *testing.T) {
 		BufferSize:    bufferSize,
 		Logger:        l,
 	}
-	c, _ := NewCollector(dummyStructCapturer, params)
+	c, _ := NewCollector(structCapturer, params)
 	c.Collect()
 	time.Sleep(time.Millisecond * 25)
 
@@ -253,7 +266,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -267,4 +280,19 @@ func getAllFiles(dir string) []os.FileInfo {
 		return nil
 	})
 	return files
+}
+
+type signalingBuffer struct {
+	bw    datacapture.BufferedWriter
+	wrote chan struct{}
+}
+
+func (b *signalingBuffer) Write(data *v1.SensorData) error {
+	ret := b.bw.Write(data)
+	b.wrote <- struct{}{}
+	return ret
+}
+
+func (b *signalingBuffer) Flush() error {
+	return b.bw.Flush()
 }

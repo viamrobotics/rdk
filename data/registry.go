@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/benbjohnson/clock"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -20,10 +21,11 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        *datacapture.Buffer
+	Target        datacapture.BufferedWriter
 	QueueSize     int
 	BufferSize    int
 	Logger        golog.Logger
+	Clock         clock.Clock
 }
 
 // Validate validates that p contains all required parameters.
