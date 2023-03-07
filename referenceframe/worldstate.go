@@ -15,7 +15,7 @@ type WorldState struct {
 	Transforms []*LinkInFrame
 }
 
-const defaultWorldStateGeomPrefix = "worldStateUnnamedGeometry_"
+const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
 func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
@@ -86,7 +86,7 @@ func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*
 			for _, g := range tf.(*GeometriesInFrame).Geometries() {
 				geomName := g.Label()
 				if geomName == "" {
-					geomName = defaultWorldStateGeomPrefix + strconv.Itoa(unnamedCount)
+					geomName = unnamedWorldStateGeometryPrefix + strconv.Itoa(unnamedCount)
 					g.SetLabel(geomName)
 					unnamedCount++
 				}
