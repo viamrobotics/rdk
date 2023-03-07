@@ -65,7 +65,7 @@ type Config struct {
 	PackagePath string `json:"-"`
 }
 
-// validNameRegex is the pattern that matches to a valid name.
+// ValidNameRegex is the pattern that matches to a valid name.
 // The name must begin with a letter i.e. [a-zA-Z],
 // and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
 var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
@@ -290,7 +290,8 @@ func (config *Remote) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if !ValidNameRegex.MatchString(config.Name) {
-		return utils.NewConfigValidationError(path, errors.Errorf("Remote name %q must only contain letters, numbers, dashes, and underscores", config.Name))
+		return utils.NewConfigValidationError(path,
+			errors.Errorf("Remote name %q must only contain letters, numbers, dashes, and underscores", config.Name))
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
