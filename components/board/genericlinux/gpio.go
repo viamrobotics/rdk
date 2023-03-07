@@ -307,11 +307,11 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 	}
-	result.StartMonitor(activeBackgroundWorkers)
+	result.startMonitor(activeBackgroundWorkers)
 	return &result, nil
 }
 
-func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup) {
+func (di *digitalInterrupt) startMonitor(activeBackgroundWorkers *sync.WaitGroup) {
 	activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
