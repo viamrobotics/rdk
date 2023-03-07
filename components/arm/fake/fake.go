@@ -152,7 +152,7 @@ func (a *Arm) MoveToPosition(
 	}
 
 	constraintMap := make(map[string]interface{})
-	constraintMap["motion_profile"] = "linear"
+	constraintMap["motion_profile"] = motionplan.LinearMotionProfile
 
 	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), constraintMap)
 	if err != nil {
