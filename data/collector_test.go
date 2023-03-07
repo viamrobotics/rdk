@@ -138,8 +138,11 @@ func TestSuccessfulWrite(t *testing.T) {
 			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
-			// TODO: figure out how to avoid this. Don't want to do below until .Collect goroutine has kicked off.
-			// Can make Collect just not kick off a goroutine, and make it's caller do that? Maybe the better pattern
+			// TODO: We don't want to start adding time until the underlying capture for loop has been entered (== when the
+			// initial sleep time/ticker start are calculated). I think sleeping for 10ms does not have the potential to
+			// cause flakiness to nearly the same degree because we don't kick off a goroutine, but technically it could
+			// still take >10ms to run the ~10 lines of sequential code between these points (the goroutine being
+			// kicked off, and those time values being calculated). But could this _really_ happen?
 			time.Sleep(time.Millisecond * 10)
 			for i := 0; i < tc.expectReadings; i++ {
 				mockClock.Add(params.Interval)
