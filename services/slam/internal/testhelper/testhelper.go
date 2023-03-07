@@ -8,7 +8,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
@@ -21,7 +20,7 @@ import (
 // slam processes in the slam service. These functions are not exported to the user. This resolves
 // a circular import caused by the inject package.
 type Service interface {
-	StartDataProcess(cancelCtx context.Context, cam []camera.Camera, camStreams []gostream.VideoStream, c chan int)
+	StartDataProcess(cancelCtx context.Context, cam []camera.Camera, c chan int)
 	StartSLAMProcess(ctx context.Context) error
 	StopSLAMProcess() error
 	Close() error

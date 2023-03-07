@@ -881,16 +881,10 @@ func TestCartographerDataProcess(t *testing.T) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{goodCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		cancelFunc()
@@ -908,16 +902,10 @@ func TestCartographerDataProcess(t *testing.T) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{badCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		allObs := obs.All()
@@ -973,17 +961,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}
 
 		cams := []camera.Camera{goodCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		cancelFunc()
@@ -998,16 +980,10 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			return nil, errors.New("bad_camera")
 		}
 		cams := []camera.Camera{badCam}
-		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
-		defer func() {
-			for _, stream := range camStreams {
-				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-			}
-		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		c := make(chan int, 100)
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+		slamSvc.StartDataProcess(cancelCtx, cams, c)
 
 		<-c
 		obsAll := obs.All()
@@ -1029,14 +1005,13 @@ func TestEndpointFailures(t *testing.T) {
 
 	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:" + strconv.Itoa(port),
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:" + strconv.Itoa(port),
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service
@@ -1046,6 +1021,11 @@ func TestEndpointFailures(t *testing.T) {
 
 	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
 	test.That(t, p, test.ShouldBeNil)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
+
+	pNew, frame, err := svc.GetPosition(context.Background(), "hi")
+	test.That(t, pNew, test.ShouldBeNil)
+	test.That(t, frame, test.ShouldBeEmpty)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
 	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3},
@@ -1116,7 +1096,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern="},
 			{"-delete_processed_data=true"},
 			{"-use_live_data=true"},
 			{"-port=localhost:" + strconv.Itoa(port)},
@@ -1159,7 +1138,6 @@ func TestSLAMProcessSuccess(t *testing.T) {
 			{"-data_rate_ms=200"},
 			{"-map_rate_sec=60"},
 			{"-data_dir=" + name},
-			{"-input_file_pattern="},
 			{"-delete_processed_data=false"},
 			{"-use_live_data=false"},
 			{"-port=localhost:" + strconv.Itoa(port)},
@@ -1187,14 +1165,13 @@ func TestSLAMProcessFail(t *testing.T) {
 
 	grpcServer, port := setupTestGRPCServer(t)
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:" + strconv.Itoa(port),
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:" + strconv.Itoa(port),
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service
@@ -1238,14 +1215,13 @@ func TestGRPCConnection(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	attrCfg := &builtin.AttrConfig{
-		Sensors:          []string{"good_color_camera"},
-		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory:    name,
-		MapRateSec:       &validMapRate,
-		DataRateMs:       validDataRateMS,
-		InputFilePattern: "10:200:1",
-		Port:             "localhost:-1",
-		UseLiveData:      &_true,
+		Sensors:       []string{"good_color_camera"},
+		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
+		DataDirectory: name,
+		MapRateSec:    &validMapRate,
+		DataRateMs:    validDataRateMS,
+		Port:          "localhost:-1",
+		UseLiveData:   &_true,
 	}
 
 	// Create slam service

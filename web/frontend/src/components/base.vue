@@ -53,7 +53,7 @@ const increment = $ref(1000);
 const speed = $ref(300);
 // deg/s
 const spinSpeed = $ref(90);
-const angle = $ref(0);
+const angle = $ref(180);
 const power = $ref(50);
 
 const pressed = new Set<Keys>();
@@ -122,11 +122,8 @@ const digestInput = async () => {
     }
   }
 
-  const linear = new commonApi.Vector3();
-  const angular = new commonApi.Vector3();
-  linear.setY(linearValue);
-  angular.setZ(angularValue);
-
+  const linear = { x: 0, y: linearValue, z: 0 };
+  const angular = { x: 0, y: 0, z: angularValue };
   try {
     await baseClient.setPower(linear, angular);
   } catch (error) {
@@ -161,9 +158,8 @@ const handleBaseStraight = async (event: {
   movementType: MovementTypes
 }) => {
   if (event.movementType === 'Continuous') {
-    const linear = new commonApi.Vector3();
-    const angular = new commonApi.Vector3();
-    linear.setY(event.speed * event.direction);
+    const linear = { x: 0, y: event.speed * event.direction, z: 0 };
+    const angular = { x: 0, y: 0, z: 0 };
 
     try {
       await baseClient.setVelocity(linear, angular);
@@ -384,7 +380,7 @@ onUnmounted(() => {
               <v-slider
                 :min="0"
                 :max="360"
-                :step="90"
+                :step="15"
                 suffix="°"
                 label="Angle"
                 :value="angle"
