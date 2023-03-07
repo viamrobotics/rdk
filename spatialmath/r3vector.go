@@ -12,6 +12,8 @@ func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
 }
 
 // AxisConfig represents the configuration format representing an axis.
+//
+//nolint:musttag
 type AxisConfig r3.Vector
 
 // NewAxisConfig constructs a config from an R4AA.
