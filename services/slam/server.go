@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -70,7 +71,23 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 func (server *subtypeServer) GetPositionNew(ctx context.Context, req *pb.GetPositionNewRequest) (
 	*pb.GetPositionNewResponse, error,
 ) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	p, componentReference, err := svc.GetPosition(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetPositionNewResponse{
+		Pose:               spatialmath.PoseToProtobuf(p),
+		ComponentReference: componentReference,
+	}, nil
 }
 
 // GetMap returns a mimeType and a map that is either a image byte slice or PointCloudObject defined in
