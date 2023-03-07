@@ -16,12 +16,13 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+    slamConfig "go.viam.com/slam/config"
 )
+
 
 const (
 	cartoSleepMs = 100
@@ -102,7 +103,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	deleteProcessedData := false
 	useLiveData := true
 
-	attrCfg := &builtin.AttrConfig{
+	attrCfg := &slamConfig.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode":  reflect.ValueOf(mode).String(),
@@ -181,7 +182,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	useLiveData = false
 	mapRate = 1
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -250,7 +251,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = true
 	useLiveData = true
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -324,7 +325,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	mapRate = 1
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),

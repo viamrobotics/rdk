@@ -48,15 +48,21 @@ func TestCheckCollisions(t *testing.T) {
 	//      - no collision between two obstacle geometries or robot geometries
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
-	robot := make(map[string]spatial.Geometry)
-	robot["robotCube000"] = bc1.Transform(spatial.NewZeroPose())
-	robot["robotCube333"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
-	robot["robotCube999"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{9, 9, 9}))
+	robot := []spatial.Geometry{}
+	robot = append(robot, bc1.Transform(spatial.NewZeroPose()))
+	robot[0].SetLabel("robotCube000")
+	robot = append(robot, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3})))
+	robot[1].SetLabel("robotCube333")
+	robot = append(robot, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{9, 9, 9})))
+	robot[2].SetLabel("robotCube999")
 
-	obstacles := make(map[string]spatial.Geometry)
-	obstacles["obstacleCube000"] = bc1.Transform(spatial.NewZeroPose())
-	obstacles["obstacleCube444"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{4, 4, 4}))
-	obstacles["obstacleCube666"] = bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{6, 6, 6}))
+	obstacles := []spatial.Geometry{}
+	obstacles = append(obstacles, bc1.Transform(spatial.NewZeroPose()))
+	obstacles[0].SetLabel("obstacleCube000")
+	obstacles = append(obstacles, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{4, 4, 4})))
+	obstacles[1].SetLabel("obstacleCube444")
+	obstacles = append(obstacles, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{6, 6, 6})))
+	obstacles[2].SetLabel("obstacleCube666")
 	cg, err := newCollisionGraph(robot, obstacles, nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{

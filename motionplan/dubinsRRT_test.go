@@ -55,13 +55,12 @@ func TestDubinsRRT(t *testing.T) {
 	test.That(t, testDubin(&frame.WorldState{}), test.ShouldBeTrue)
 
 	// case with obstacles
-	obstacleGeometries := map[string]spatial.Geometry{}
 	box, err := spatial.NewBox(spatial.NewPoseFromPoint(
 		r3.Vector{X: 5, Y: 0, Z: 0}), // Center of box
 		r3.Vector{X: 1, Y: 20, Z: 1}, // Dimensions of box
 		"")
 	test.That(t, err, test.ShouldEqual, nil)
-	obstacleGeometries["1"] = box
+	obstacleGeometries := []spatial.Geometry{box}
 	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacleGeometries)}}
 	test.That(t, testDubin(worldState), test.ShouldBeFalse)
 }
