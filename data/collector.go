@@ -116,7 +116,6 @@ func (c *collector) sleepBasedCapture() {
 			close(c.queue)
 			return
 		}
-
 		c.clock.Sleep(c.clock.Until(next))
 
 		select {
@@ -225,8 +224,11 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	var c clock.Clock
 	if params.Clock == nil {
-		params.Clock = clock.New()
+		c = clock.New()
+	} else {
+		c = params.Clock
 	}
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),
@@ -239,7 +241,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		cancel:            cancelFunc,
 		captureFunc:       captureFunc,
 		target:            params.Target,
-		clock:             params.Clock,
+		clock:             c,
 	}, nil
 }
 
