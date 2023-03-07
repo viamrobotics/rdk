@@ -113,7 +113,7 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, model string, logger golog.L
 			model, svcConfig.ConfigParams["mode"])
 	}
 
-    slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
+	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
 
 	if slamMode == slam.Rgbd || slamMode == slam.Mono {
 		var directoryNames []string
