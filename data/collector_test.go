@@ -10,17 +10,15 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-
 	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 type structReading struct {
@@ -121,6 +119,8 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+			defer cancel()
 			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
 			tgt := datacapture.NewBuffer(tmpDir, &md)
@@ -138,15 +138,22 @@ func TestSuccessfulWrite(t *testing.T) {
 			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
-			// TODO: We don't want to start adding time until the underlying capture for loop has been entered (== when the
-			// initial sleep time/ticker start are calculated). I think sleeping for 10ms does not have the potential to
-			// cause flakiness to nearly the same degree because we don't kick off a goroutine, but technically it could
-			// still take >10ms to run the ~10 lines of sequential code between these points (the goroutine being
-			// kicked off, and those time values being calculated). But could this _really_ happen?
+			// We need to avoid adding time until after the initial sleep time/ticker start are calculated,
+			// which occurs about a dozen lines into the c.Collect() calls underlying capture goroutine.
+			// If we add time before that point, data will never be captured, because time will never be greater than
+			// the initially calculated time.
+			// Sleeping for 10ms is a hacky way to ensure that we don't encounter this situation. It's not ideal, but
+			// it should be much, much less likely to be flaky than the previous approach, since it's guaranteed
+			// that the goroutine has started before we sleep: the risk of ~10 sequential lines taking long to run
+			// is <<< the risk of a goroutine not being scheduled during that time.
 			time.Sleep(time.Millisecond * 10)
 			for i := 0; i < tc.expectReadings; i++ {
 				mockClock.Add(params.Interval)
-				<-wrote
+				select {
+				case <-ctx.Done():
+					t.Fatalf("timed out waiting for data to be written")
+				case <-wrote:
+				}
 			}
 			close(wrote)
 
