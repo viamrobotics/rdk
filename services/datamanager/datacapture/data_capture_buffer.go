@@ -9,6 +9,7 @@ import (
 // MaxFileSize is the maximum size in bytes of a data capture file.
 var MaxFileSize = int64(64 * 1024)
 
+// BufferedWriter is a buffered, persistent queue of SensorData.
 type BufferedWriter interface {
 	Write(item *v1.SensorData) error
 	Flush() error
