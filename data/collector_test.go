@@ -226,6 +226,7 @@ func TestClose(t *testing.T) {
 
 	// Start collecting, and validate it is writing.
 	c.Collect()
+	time.Sleep(time.Millisecond * 10)
 	mockClock.Add(interval)
 	<-wrote
 
