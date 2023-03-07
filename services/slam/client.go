@@ -9,7 +9,6 @@ import (
 	"image/jpeg"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/protoutils"
@@ -69,7 +68,22 @@ func (c *client) Position(ctx context.Context, name string, extra map[string]int
 
 // GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
 func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
-	return nil, "", errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
+	defer span.End()
+
+	req := &pb.GetPositionNewRequest{
+		Name: name,
+	}
+
+	resp, err := c.client.GetPositionNew(ctx, req)
+	if err != nil {
+		return nil, "", err
+	}
+
+	p := resp.GetPose()
+	componentReference := resp.GetComponentReference()
+
+	return spatialmath.NewPoseFromProtobuf(p), componentReference, nil
 }
 
 // GetMap creates a request, calls the slam service GetMap, and parses the response into the desired mimeType and map data.
