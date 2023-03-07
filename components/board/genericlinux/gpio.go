@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -61,7 +62,8 @@ func (pin *gpioPin) openGpioFd() error {
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
-	extra map[string]interface{}) (err error) {
+	extra map[string]interface{},
+) (err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -318,9 +320,8 @@ func (di *digitalInterrupt) StartMonitor(activeBackgroundWorkers *sync.WaitGroup
 			case <-di.cancelCtx.Done():
 				return
 			case event := <-di.line.Events():
-				utils.UncheckedError(
-					di.interrupt.Tick(di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano()))
-				)
+				utils.UncheckedError(di.interrupt.Tick(
+					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
 	}, activeBackgroundWorkers.Done)
