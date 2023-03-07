@@ -202,6 +202,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx, extra)
 	}
+	// Stop locks/unlocks the mutex as well so in the case that the power ~= 0
+	// we want to simply rely on the mutex use in Stop
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
