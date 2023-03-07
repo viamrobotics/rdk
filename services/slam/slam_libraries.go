@@ -7,8 +7,8 @@ package slam
 type (
 	// Library type used for slam.
 	Library uint8
-	// Mode holds the modes a slam model can use.
-	Mode string
+	// SubAlgo holds the modes a slam model can use.
+	SubAlgo string
 )
 
 const (
@@ -16,14 +16,14 @@ const (
 	Dense = Library(iota)
 	// Sparse is a Library type.
 	Sparse
-	// Mono is a mode a slam model can use.
-	Mono = Mode("mono")
-	// Rgbd is a mode a slam model can use.
-	Rgbd = Mode("rgbd")
-	// Dim2d is a mode a slam model can use.
-	Dim2d = Mode("2d")
-	// Dim3d is a mode a slam model can use.
-	Dim3d = Mode("3d")
+	// Mono is a subAlgo a slam model can use.
+	Mono = SubAlgo("mono")
+	// Rgbd is a subAlgo a slam model can use.
+	Rgbd = SubAlgo("rgbd")
+	// Dim2d is a subAlgo a slam model can use.
+	Dim2d = SubAlgo("2d")
+	// Dim3d is a subAlgo  model can use.
+	Dim3d = SubAlgo("3d")
 )
 
 // SLAMLibraries contains a map of available slam libraries.
@@ -36,14 +36,14 @@ var SLAMLibraries = map[string]LibraryMetadata{
 var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
 	AlgoType:       Dense,
-	SlamMode:       map[string]Mode{"2d": Dim2d},
+	SubAlgo:        map[string]SubAlgo{"2d": Dim2d},
 	BinaryLocation: "carto_grpc_server",
 }
 
 var orbslamv3Metadata = LibraryMetadata{
 	AlgoName:       "orbslamv3",
 	AlgoType:       Sparse,
-	SlamMode:       map[string]Mode{"mono": Mono, "rgbd": Rgbd},
+	SubAlgo:        map[string]SubAlgo{"mono": Mono, "rgbd": Rgbd},
 	BinaryLocation: "orb_grpc_server",
 }
 
@@ -52,6 +52,6 @@ var orbslamv3Metadata = LibraryMetadata{
 type LibraryMetadata struct {
 	AlgoName       string
 	AlgoType       Library
-	SlamMode       map[string]Mode
+	SubAlgo        map[string]SubAlgo
 	BinaryLocation string
 }

@@ -75,7 +75,7 @@ func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir strin
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
+func integrationtestHelperCartographer(t *testing.T, mode slam.SubAlgo) {
 	_, err := exec.LookPath("carto_grpc_server")
 	if err != nil {
 		t.Log("Skipping test because carto_grpc_server binary was not found")
