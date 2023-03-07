@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"sync"
 	"testing"
@@ -44,17 +45,15 @@ func TestServer(t *testing.T) {
 	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	var imgBufJpeg bytes.Buffer
-
-	test.That(t, rimage.EncodeJPEG(&imgBufJpeg, img), test.ShouldBeNil)
+	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
 
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
-	imgJpeg, err := rimage.DecodeJPEG(bytes.NewReader(imgBufJpeg.Bytes()))
-
+	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
 
 	var projA transform.Projector
