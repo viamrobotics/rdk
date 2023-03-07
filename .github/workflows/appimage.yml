@@ -53,13 +53,19 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
+    - name: Build Web Artifacts (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
+      run: |
+        echo "running 'make build-web'"
+        make build-web
+
     - name: Build and Package (PR)
-      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
       run: |
         make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage
 
     - name: Upload Files (PR)
-      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
@@ -68,6 +74,12 @@ jobs:
         glob: '*'
         parent: false
         gzip: false
+
+    - name: Build Web Artifacts (Latest)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      run: |
+        echo "running 'make build-web'"
+        make build-web
 
     - name: Build and Package (Latest)
       id: build_test_app
