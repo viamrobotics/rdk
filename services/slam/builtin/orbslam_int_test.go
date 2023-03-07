@@ -17,12 +17,12 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+    slamConfig "go.viam.com/slam/config"
 )
 
 const (
@@ -170,7 +170,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData := false
 	useLiveData := true
 
-	attrCfg := &builtin.AttrConfig{
+	attrCfg := &slamConfig.AttrConfig{
 		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -276,7 +276,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = false
 	useLiveData = false
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -369,7 +369,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = true
 	useLiveData = true
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),

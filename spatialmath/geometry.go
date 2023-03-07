@@ -20,8 +20,9 @@ type Geometry interface {
 	// For certain entity pairs (box-box) this may be a conservative estimate of separation distance rather than exact.
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
-	Label() string  // Label is the name of the geometry
-	String() string // String is a string representation of the geometry data structure
+	SetLabel(string) // SetLabel sets the name of the geometry
+	Label() string   // Label is the name of the geometry
+	String() string  // String is a string representation of the geometry data structure
 	ToPoints(float64) []r3.Vector
 	json.Marshaler
 }

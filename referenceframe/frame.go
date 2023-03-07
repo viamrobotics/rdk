@@ -180,10 +180,13 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	if len(input) != 0 {
 		return nil, NewIncorrectInputLengthError(len(input), 0)
 	}
-	m := make(map[string]spatial.Geometry)
+	newGeom := sf.geometry.Transform(sf.transform)
+	if newGeom.Label() == "" {
+		newGeom.SetLabel(sf.name)
+	}
+
 	// Create the new geometry at a pose of `transform` from the frame
-	m[sf.Name()] = sf.geometry.Transform(sf.transform)
-	return NewGeometriesInFrame(sf.name, m), nil
+	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
 // noGeometryFrame is a frame wrapper which will always return nil for its geometry. Use this to remove the geometries from any frame.
@@ -267,9 +270,11 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if len(input) != 0 {
 		return nil, NewIncorrectInputLengthError(len(input), 0)
 	}
-	m := make(map[string]spatial.Geometry)
-	m[sf.Name()] = sf.geometry.Transform(spatial.NewZeroPose())
-	return NewGeometriesInFrame(sf.name, m), nil
+	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
+	if newGeom.Label() == "" {
+		newGeom.SetLabel(sf.name)
+	}
+	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
@@ -360,9 +365,7 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
 		return nil, err
 	}
-	m := make(map[string]spatial.Geometry)
-	m[pf.Name()] = pf.geometry.Transform(pose)
-	return NewGeometriesInFrame(pf.name, m), err
+	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), err
 }
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
@@ -518,9 +521,7 @@ func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
 		return nil, err
 	}
-	m := make(map[string]spatial.Geometry)
-	m[mf.Name()] = mf.geometry.Transform(pose)
-	return NewGeometriesInFrame(mf.name, m), err
+	return NewGeometriesInFrame(mf.name, []spatial.Geometry{mf.geometry.Transform(pose)}), err
 }
 
 func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
