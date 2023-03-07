@@ -49,7 +49,7 @@ func createVocabularyFile(name string) error {
 // Releases an image or image pair to be served by the mock camera(s). If a pair of images is
 // released, it is released under a mutex, so that the images will be consumed in the same call
 // to getSimultaneousColorAndDepth().
-func releaseImages(t *testing.T, mode slam.Mode) {
+func releaseImages(t *testing.T, mode slam.SubAlgo) {
 	switch mode {
 	case slam.Mono:
 		orbslamIntWebcamReleaseImageChan <- 1
@@ -131,7 +131,7 @@ func testOrbslamInternalState(t *testing.T, svc slam.Service, dataDir string) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
+func integrationTestHelperOrbslam(t *testing.T, mode slam.SubAlgo) {
 	_, err := exec.LookPath("orb_grpc_server")
 	if err != nil {
 		t.Skip("Skipping test because orb_grpc_server binary was not found")

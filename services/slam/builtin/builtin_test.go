@@ -61,8 +61,8 @@ var (
 	_false                                             = false
 )
 
-func getNumOrbslamImages(mode slam.Mode) int {
-	switch mode {
+func getNumOrbslamImages(subAlgo slam.SubAlgo) int {
+	switch subAlgo {
 	case slam.Mono:
 		return 15
 	case slam.Rgbd:
@@ -77,7 +77,7 @@ func createFakeSLAMLibraries() {
 		slam.SLAMLibraries["fake_"+s.AlgoName] = slam.LibraryMetadata{
 			AlgoName:       "fake_" + s.AlgoName,
 			AlgoType:       s.AlgoType,
-			SlamMode:       s.SlamMode,
+			SubAlgo:        s.SubAlgo,
 			BinaryLocation: "true",
 		}
 	}
@@ -572,7 +572,7 @@ func TestGeneralNew(t *testing.T) {
 		slam.SLAMLibraries["test"] = slam.LibraryMetadata{
 			AlgoName:       "test",
 			AlgoType:       99,
-			SlamMode:       slam.SLAMLibraries["cartographer"].SlamMode,
+			SubAlgo:        slam.SLAMLibraries["cartographer"].SubAlgo,
 			BinaryLocation: "",
 		}
 
@@ -1162,7 +1162,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		slam.SLAMLibraries["fake_orbslamv3"] = slam.LibraryMetadata{
 			AlgoName:       "fake_" + slam.SLAMLibraries["orbslamv3"].AlgoName,
 			AlgoType:       slam.SLAMLibraries["orbslamv3"].AlgoType,
-			SlamMode:       slam.SLAMLibraries["orbslamv3"].SlamMode,
+			SubAlgo:        slam.SLAMLibraries["orbslamv3"].SubAlgo,
 			BinaryLocation: "fail",
 		}
 
@@ -1208,10 +1208,10 @@ func resetFolder(path string) error {
 	return err
 }
 
-func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int, deleteProcessedData, useLiveData bool) int {
+func checkDeleteProcessedData(t *testing.T, subAlgo slam.SubAlgo, dir string, prev int, deleteProcessedData, useLiveData bool) int {
 	var numFiles int
 
-	switch mode {
+	switch subAlgo {
 	case slam.Mono:
 		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
 		test.That(t, err, test.ShouldBeNil)

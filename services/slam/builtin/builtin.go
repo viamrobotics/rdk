@@ -107,7 +107,7 @@ func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, log
 		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
 	}
 
-	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+	subAlgo, ok := slamLib.SubAlgo[svcConfig.ConfigParams["mode"]]
 	if !ok {
 		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
 			model, svcConfig.ConfigParams["mode"])
@@ -115,11 +115,11 @@ func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, log
 
 	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
 
-	if slamMode == slam.Rgbd || slamMode == slam.Mono {
+	if subAlgo == slam.Rgbd || subAlgo == slam.Mono {
 		var directoryNames []string
-		if slamMode == slam.Rgbd {
+		if subAlgo == slam.Rgbd {
 			directoryNames = []string{"rgb", "depth"}
-		} else if slamMode == slam.Mono {
+		} else if subAlgo == slam.Mono {
 			directoryNames = []string{"rgb"}
 		}
 		for _, directoryName := range directoryNames {
@@ -132,7 +132,7 @@ func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, log
 			}
 		}
 	}
-	return slamMode, nil
+	return subAlgo, nil
 }
 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
@@ -202,7 +202,7 @@ type builtIn struct {
 	generic.Unimplemented
 	primarySensorName string
 	slamLib           slam.LibraryMetadata
-	slamMode          slam.Mode
+	subAlgo           slam.SubAlgo
 	slamProcess       pexec.ProcessManager
 	clientAlgo        pb.SLAMServiceClient
 	clientAlgoClose   func() error
@@ -531,7 +531,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
+	subAlgo, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
@@ -547,7 +547,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	slamSvc := &builtIn{
 		primarySensorName:     primarySensorName,
 		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
-		slamMode:              slamMode,
+		subAlgo:               subAlgo,
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
@@ -823,7 +823,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::getAndSaveDataSparse")
 	defer span.End()
 
-	switch slamSvc.slamMode {
+	switch slamSvc.subAlgo {
 	case slam.Mono:
 		if len(cams) != 1 {
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(cams))
@@ -840,7 +840,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, ".png", slamSvc.slamMode)
+		filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, ".png", slamSvc.subAlgo)
 		if err != nil {
 			return nil, err
 		}
@@ -866,7 +866,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, err
 		}
 
-		filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, ".png", slamSvc.slamMode)
+		filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, ".png", slamSvc.subAlgo)
 		if err != nil {
 			return nil, err
 		}
@@ -877,9 +877,9 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 		return filenames, nil
 	case slam.Dim2d, slam.Dim3d:
-		return nil, errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
+		return nil, errors.Errorf("bad subAlgo %v specified for this algorithm", slamSvc.subAlgo)
 	default:
-		return nil, errors.Errorf("invalid slamMode %v specified", slamSvc.slamMode)
+		return nil, errors.Errorf("invalid subAlgo %v specified", slamSvc.subAlgo)
 	}
 }
 
@@ -941,13 +941,13 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 	}
 
 	var fileType string
-	switch slamSvc.slamMode {
+	switch slamSvc.subAlgo {
 	case slam.Dim2d, slam.Dim3d:
 		fileType = ".pcd"
 	case slam.Rgbd, slam.Mono:
-		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
+		return "", errors.Errorf("bad subAlgo %v specified for this algorithm", slamSvc.subAlgo)
 	}
-	filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, fileType, slamSvc.slamMode)
+	filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, fileType, slamSvc.subAlgo)
 	if err != nil {
 		return "", err
 	}
@@ -957,10 +957,10 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
-func createTimestampFilenames(dataDirectory, primarySensorName, fileType string, slamMode slam.slamMode) ([]string, error) {
+func createTimestampFilenames(dataDirectory, primarySensorName, fileType string, subAlgo slam.SubAlgo) ([]string, error) {
 	timeStamp := time.Now()
 	dataDirectory = filepath.Join(dataDirectory, "data")
-	switch slamMode {
+	switch subAlgo {
 	case slam.Rgbd:
 		colorFilename := dataprocess.CreateTimestampFilename(filepath.Join(dataDirectory, "rgb"), primarySensorName, fileType, timeStamp)
 		depthFilename := dataprocess.CreateTimestampFilename(filepath.Join(dataDirectory, "depth"), primarySensorName, fileType, timeStamp)
@@ -972,6 +972,6 @@ func createTimestampFilenames(dataDirectory, primarySensorName, fileType string,
 		filename := dataprocess.CreateTimestampFilename(dataDirectory, primarySensorName, fileType, timeStamp)
 		return []string{filename}, nil
 	default:
-		return nil, errors.Errorf("Invalid slam mode: %v", slamMode)
+		return nil, errors.Errorf("Invalid slam mode: %v", subAlgo)
 	}
 }
