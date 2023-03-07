@@ -523,6 +523,29 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
+func TestValidNameRegex(t *testing.T) {
+	// validNameRegex is the pattern that matches to a valid name.
+	// The name must begin with a letter i.e. [a-zA-Z],
+	// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
+	name := "justLetters"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "numbersAndLetters1"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "letters-and-dashes"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "letters_and_underscores"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+
+	name = "1number"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "a!"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "s p a c e s"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "period."
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+}
+
 func TestRemoteValidate(t *testing.T) {
 	t.Run("remote invalid name", func(t *testing.T) {
 		lc := &referenceframe.LinkConfig{
@@ -536,18 +559,7 @@ func TestRemoteValidate(t *testing.T) {
 
 		err := validRemote.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
-		validRemote.Name = "f00-rem0te"
-		err = validRemote.Validate("path")
-		test.That(t, err, test.ShouldBeNil)
 		validRemote.Name = "foo.remote"
-		err = validRemote.Validate("path")
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
-		validRemote.Name = "foo-remote!"
-		err = validRemote.Validate("path")
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
-		validRemote.Name = "foo remote"
 		err = validRemote.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
