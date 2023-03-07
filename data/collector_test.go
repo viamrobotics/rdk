@@ -13,12 +13,13 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 type structReading struct {
@@ -276,7 +277,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-// nolint
+//nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
