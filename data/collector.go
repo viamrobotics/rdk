@@ -69,14 +69,16 @@ func (c *collector) Close() {
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
-// c.target.
+// c.target. It blocks until the underlying capture goroutine starts.
 func (c *collector) Collect() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
+	started := make(chan struct{})
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
+		close(started)
 		c.capture()
 	})
 	c.backgroundWorkers.Add(1)
@@ -86,6 +88,7 @@ func (c *collector) Collect() {
 			c.logger.Errorw(fmt.Sprintf("failed to write to collector"), "error", err)
 		}
 	})
+	<-started
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
