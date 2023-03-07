@@ -6,14 +6,16 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/vision"
 )
 
 // SLAMService represents a fake instance of a slam service.
 type SLAMService struct {
 	slam.Service
-	PositionFunc func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error)
-	GetMapFunc   func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
+	PositionFunc    func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error)
+	GetPositionFunc func(ctx context.Context, name string) (spatialmath.Pose, string, error)
+	GetMapFunc      func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool, extra map[string]interface{}) (string, image.Image, *vision.Object, error)
 	GetInternalStateFunc       func(ctx context.Context, name string) ([]byte, error)
 	GetPointCloudMapStreamFunc func(ctx context.Context, name string) (func() ([]byte, error), error)
@@ -27,6 +29,14 @@ func (slamSvc *SLAMService) Position(ctx context.Context, name string, extra map
 		return slamSvc.Service.Position(ctx, name, extra)
 	}
 	return slamSvc.PositionFunc(ctx, name, extra)
+}
+
+// GetPosition calls the injected GetPositionFunc or the real version.
+func (slamSvc *SLAMService) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+	if slamSvc.GetPositionFunc == nil {
+		return slamSvc.Service.GetPosition(ctx, name)
+	}
+	return slamSvc.GetPositionFunc(ctx, name)
 }
 
 // GetMap calls the injected GetMapFunc or the real version.

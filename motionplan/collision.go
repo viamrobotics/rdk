@@ -1,11 +1,15 @@
 package motionplan
 
 import (
+	"fmt"
 	"math"
+	"strconv"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+const unnamedCollisionGeometryPrefix = "unnamedCollisionGeometry_"
 
 // Collision is a pair of strings corresponding to names of Geometry objects in collision, and a penetrationDepth describing the Euclidean
 // distance a Geometry would have to be moved to resolve the Collision.
@@ -106,12 +110,21 @@ type collisionGraph struct {
 // newCollisionGraph instantiates a collisionGraph object and checks for collisions between the x and y sets of geometries
 // collisions that are reported in the reference CollisionSystem argument will be ignored and not stored as edges in the graph.
 // if the set y is nil, the graph will be instantiated with y = x.
-func newCollisionGraph(x, y map[string]spatial.Geometry, reference *collisionGraph, reportDistances bool) (cg *collisionGraph, err error) {
+func newCollisionGraph(x, y []spatial.Geometry, reference *collisionGraph, reportDistances bool) (cg *collisionGraph, err error) {
 	if y == nil {
 		y = x
 	}
+	xMap, err := createUniqueCollisionMap(x)
+	if err != nil {
+		return nil, err
+	}
+	yMap, err := createUniqueCollisionMap(y)
+	if err != nil {
+		return nil, err
+	}
+
 	cg = &collisionGraph{
-		geometryGraph:   newGeometryGraph(x, y),
+		geometryGraph:   newGeometryGraph(xMap, yMap),
 		reportDistances: reportDistances,
 	}
 
@@ -180,4 +193,22 @@ func (cg *collisionGraph) collisions() []Collision {
 // ignoreCollision finds the specified collision and marks it as something never to check for or report.
 func (cg *collisionGraph) addCollisionSpecification(specification *Collision) {
 	cg.setDistance(specification.name1, specification.name2, math.NaN())
+}
+
+func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geometry, error) {
+	unnamedCnt := 0
+	geomMap := map[string]spatial.Geometry{}
+
+	for _, geom := range geoms {
+		label := geom.Label()
+		if label == "" {
+			label = unnamedCollisionGeometryPrefix + strconv.Itoa(unnamedCnt)
+			unnamedCnt++
+		}
+		if _, present := geomMap[label]; present {
+			return nil, fmt.Errorf("cannot detect collisions when there are multiple geometries with the same name: %s", label)
+		}
+		geomMap[label] = geom
+	}
+	return geomMap, nil
 }

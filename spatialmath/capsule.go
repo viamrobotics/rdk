@@ -87,10 +87,12 @@ func (c *capsule) String() string {
 
 // Label returns the label of this capsule.
 func (c *capsule) Label() string {
-	if c != nil {
-		return c.label
-	}
-	return ""
+	return c.label
+}
+
+// SetLabel sets the label of this capsule.
+func (c *capsule) SetLabel(label string) {
+	c.label = label
 }
 
 // Pose returns the pose of the capsule.

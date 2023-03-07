@@ -563,9 +563,8 @@ func TestXArm6Locations(t *testing.T) {
 		geoms, err := notReal.ModelFrame().Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
-		b, outMap := locationCheckTestHelper(geomMap, checkMap)
+		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
-		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	t.Run("location check1", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
@@ -599,9 +598,8 @@ func TestXArm6Locations(t *testing.T) {
 		geoms, err := notReal.ModelFrame().Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
-		b, outMap := locationCheckTestHelper(geomMap, checkMap)
+		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
-		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	t.Run("location check2", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
@@ -635,9 +633,8 @@ func TestXArm6Locations(t *testing.T) {
 		geoms, err := notReal.ModelFrame().Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
-		b, outMap := locationCheckTestHelper(geomMap, checkMap)
+		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
-		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 }
 
@@ -691,9 +688,8 @@ func TestUR5ELocations(t *testing.T) {
 		geoms, err := notReal.ModelFrame().Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
-		b, outMap := locationCheckTestHelper(geomMap, checkMap)
+		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
-		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	//nolint:dupl
 	t.Run("location check1", func(t *testing.T) {
@@ -733,9 +729,8 @@ func TestUR5ELocations(t *testing.T) {
 		geoms, err := notReal.ModelFrame().Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
-		b, outMap := locationCheckTestHelper(geomMap, checkMap)
+		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
-		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	//nolint:dupl
 	t.Run("location check2", func(t *testing.T) {
@@ -775,21 +770,18 @@ func TestUR5ELocations(t *testing.T) {
 		geoms, err := notReal.ModelFrame().Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
-		b, outMap := locationCheckTestHelper(geomMap, checkMap)
+		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
-		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 }
 
-//nolint:lll
-func locationCheckTestHelper(geomMap map[string]spatialmath.Geometry, checkMap map[string]r3.Vector) (bool, map[string]spatialmath.Geometry) {
-	for s, g := range geomMap {
-		vecCheck := checkMap[s]
+func locationCheckTestHelper(geomList []spatialmath.Geometry, checkMap map[string]r3.Vector) bool {
+	for _, g := range geomList {
+		vecCheck := checkMap[g.Label()]
 		vecActual := g.Pose().Point()
 		if !spatialmath.R3VectorAlmostEqual(vecCheck, vecActual, 1e-2) {
-			return false, geomMap
+			return false
 		}
-		delete(geomMap, s)
 	}
-	return true, geomMap
+	return true
 }
