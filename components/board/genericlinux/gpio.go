@@ -228,7 +228,6 @@ func (pin *gpioPin) Close() error {
 	return err
 }
 
-// TODO: make sure this matches the other signature.
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
 	interruptConfigs []board.DigitalInterruptConfig, waitGroup *sync.WaitGroup, logger golog.Logger,
 ) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
