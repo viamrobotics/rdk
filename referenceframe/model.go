@@ -118,7 +118,7 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 		return nil, err
 	}
 	var errAll error
-	geometryMap := make(map[string]spatialmath.Geometry)
+	geometries := make([]spatialmath.Geometry, 0, len(frames))
 	for _, frame := range frames {
 		geometriesInFrame, err := frame.Geometries([]Input{})
 		if geometriesInFrame == nil {
@@ -126,11 +126,13 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		for geomName, geom := range geometriesInFrame.Geometries() {
-			geometryMap[m.name+":"+geomName] = geom.Transform(frame.transform)
+		for _, geom := range geometriesInFrame.Geometries() {
+			placedGeom := geom.Transform(frame.transform)
+			placedGeom.SetLabel(m.name + ":" + geom.Label())
+			geometries = append(geometries, placedGeom)
 		}
 	}
-	return NewGeometriesInFrame(m.name, geometryMap), errAll
+	return NewGeometriesInFrame(m.name, geometries), errAll
 }
 
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so

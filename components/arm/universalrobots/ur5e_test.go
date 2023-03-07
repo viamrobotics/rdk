@@ -124,10 +124,9 @@ func TestKin1(t *testing.T) {
 }
 
 func TestUseURHostedKinematics(t *testing.T) {
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "")
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")
 	test.That(t, err, test.ShouldBeNil)
-	obstacles := make(map[string]spatialmath.Geometry)
-	obstacles["sphere"] = sphere
+	obstacles := []spatialmath.Geometry{sphere}
 	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles)}
 
 	// test that under normal circumstances we can use worldstate and our own kinematics
