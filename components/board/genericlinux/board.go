@@ -516,7 +516,7 @@ func (b *sysfsBoard) Close() error {
 		err = multierr.Combine(err, pin.Close())
 	}
 	for _, interrupt := range b.interrupts {
-		interrupt.Close()
+		err = multierr.Combine(err, interrupt.Close())
 	}
 	return err
 }
