@@ -657,7 +657,7 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 		if err != nil {
 			return err
 		}
-		matches, err := fs.Glob(embedFS,"*.js")
+		matches, err := fs.Glob(embedFS, "*.js")
 		if err != nil {
 			return err
 		}
