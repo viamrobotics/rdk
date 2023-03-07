@@ -130,11 +130,11 @@ type plannerOptions struct {
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
-	DistanceFunc Constraint
+	DistanceFunc Constraint `json:"-"`
 
-	PlannerConstructor plannerConstructor
+	PlannerConstructor plannerConstructor `json:"-"`
 
-	Fallback *plannerOptions
+	Fallback *plannerOptions `json:"-"`
 }
 
 // SetMetric sets the distance metric for the solver.

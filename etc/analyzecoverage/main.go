@@ -432,6 +432,8 @@ func (f *FuncExtent) coverage(profile *cover.Profile) (num, den int64) {
 }
 
 // Pkg describes a single package, compatible with the JSON output from 'go list'; see 'go help list'.
+//
+//nolint:musttag // Not tagged to maintain default json parsing.
 type Pkg struct {
 	ImportPath string
 	Dir        string

@@ -27,7 +27,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-//nolint:unused
 func makeFakeRobot(t *testing.T) robot.Robot {
 	t.Helper()
 	logger := golog.NewTestLogger(t)

@@ -51,6 +51,8 @@ type Vector3 struct {
 }
 
 // L515Message reflects the JSON data format for rosbag Intel Realsense data.
+//
+//nolint:musttag // Not tagged to maintain default json parsing.
 type L515Message struct {
 	Meta      TimeStamp
 	ColorData ByteMultiArray

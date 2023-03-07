@@ -201,7 +201,7 @@ func (v1 *Voxel) CanMerge(v2 *Voxel, angleTh, cosTh float64) bool {
 func (v1 *Voxel) ComputeCenter() {
 	center := r3.Vector{}
 	for _, pt := range v1.Positions() {
-		center.Add(pt)
+		center = center.Add(pt)
 	}
 	center = center.Mul(1. / float64(len(v1.Points)))
 	v1.Center.X = center.X

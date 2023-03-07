@@ -256,6 +256,9 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 		} else if err == nil {
 			return resp, nil
 		}
+		if err = res.Body.Close(); err != nil {
+			return nil, err
+		}
 
 		waitInterval = time.Duration(code.Interval * int(time.Second))
 	}
@@ -354,6 +357,10 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 		return nil, err
 	} else if resp == nil {
 		return nil, errors.New("expecting new token")
+	}
+
+	if err = res.Body.Close(); err != nil {
+		return nil, err
 	}
 
 	return buildToken(resp, token.TokenURL, token.ClientID)
