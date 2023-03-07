@@ -89,17 +89,12 @@ func (b *box) MarshalJSON() ([]byte, error) {
 
 // SetLabel sets the label of this box.
 func (b *box) SetLabel(label string) {
-	if b != nil {
-		b.label = label
-	}
+	b.label = label
 }
 
 // Label returns the label of this box.
 func (b *box) Label() string {
-	if b != nil {
-		return b.label
-	}
-	return ""
+	return b.label
 }
 
 // Pose returns the pose of the box.

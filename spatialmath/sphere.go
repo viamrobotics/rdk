@@ -46,10 +46,7 @@ func (s *sphere) String() string {
 
 // Label returns the label of this sphere.
 func (s *sphere) Label() string {
-	if s != nil {
-		return s.label
-	}
-	return ""
+	return s.label
 }
 
 // SetLabel sets the label of this sphere.
