@@ -209,7 +209,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
-	sfGeometries := make(map[string]spatial.Geometry)
+	sfGeometries := []spatial.Geometry{}
 	for _, fName := range sf.movingGeom {
 		f := sf.fss.Frame(fName)
 		if f == nil {
@@ -230,9 +230,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 		if err != nil {
 			return nil, err
 		}
-		for name, geometry := range tf.(*frame.GeometriesInFrame).Geometries() {
-			sfGeometries[name] = geometry
-		}
+		sfGeometries = append(sfGeometries, tf.(*frame.GeometriesInFrame).Geometries()...)
 	}
 	return frame.NewGeometriesInFrame(frame.World, sfGeometries), errAll
 }
