@@ -1056,7 +1056,7 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 		return "", err
 	}
 	filename := filenames[0]
-	return filename, dataprocess.WritePCDToFile(ctx, pointcloud, filename)
+	return filename, dataprocess.WritePCDToFile(pointcloud, filename)
 }
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
