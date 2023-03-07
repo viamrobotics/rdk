@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/lmittmann/ppm"
-	libjpeg "github.com/pixiv/go-libjpeg/jpeg"
 	"github.com/pkg/errors"
 	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
@@ -35,8 +34,6 @@ var RGBABitmapMagicNumber = []byte("RGBA")
 // DepthMapMagicNumber represents the magic number for our custom header
 // for raw DEPTH data.
 var DepthMapMagicNumber = []byte("DEPTHMAP")
-
-var jpegEncoderOptions = &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
