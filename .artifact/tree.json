@@ -3881,8 +3881,8 @@
       "size": 567
     },
     "fakeDM.vnd.viam.dep": {
-      "hash": "81d039d0786ecda6a9d8f1fb40ff9cba",
-      "size": 1624
+      "hash": "80f3125fe6b7244ea0ca8ab7a27fa866",
+      "size": 424
     },
     "go_encoded_image.png": {
       "hash": "ae17174de7ec900b670aa2230ce83db9",
@@ -51339,6 +51339,12 @@
     "pose_graph.lua": {
       "hash": "044fb62892d992182a126b76834797cc",
       "size": 3100
+    },
+    "rplidar_data": {
+      "rplidar_data_0.pcd": {
+        "hash": "0c80a5371a725a96f1a9fae3a8a21f22",
+        "size": 9820
+      }
     },
     "trajectory_builder.lua": {
       "hash": "31903d99adbba89edaa7d0d71a3b4ac6",
