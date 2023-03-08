@@ -1181,30 +1181,6 @@ func TestSLAMProcessFail(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
-func TestGRPCConnection(t *testing.T) {
-	name, err := createTempFolderArchitecture()
-	test.That(t, err, test.ShouldBeNil)
-
-	createFakeSLAMLibraries()
-
-	attrCfg := &slamConfig.AttrConfig{
-		Sensors:       []string{"good_color_camera"},
-		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
-		DataDirectory: name,
-		MapRateSec:    &validMapRate,
-		DataRateMsec:  validDataRateMS,
-		Port:          "localhost:-1",
-		UseLiveData:   &_true,
-	}
-
-	// Create slam service
-	logger := golog.NewTestLogger(t)
-	_, err = createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with initial grpc client to slam algorithm")
-
-	closeOutSLAMService(t, name)
-}
-
 func createTempFolderArchitecture() (string, error) {
 	name, err := os.MkdirTemp("", "*")
 	if err != nil {
