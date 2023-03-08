@@ -228,12 +228,18 @@ func TestClose(t *testing.T) {
 	c.Collect()
 	time.Sleep(time.Millisecond * 10)
 	mockClock.Add(interval)
-	<-wrote
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		t.Fatalf("timed out waiting for data to be written")
+	case <-wrote:
+	}
 
 	// Close and validate no additional writes occur even after an additional interval.
 	c.Close()
 	mockClock.Add(interval)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*10)
 	defer cancel()
 	select {
 	case <-ctx.Done():
@@ -287,7 +293,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
