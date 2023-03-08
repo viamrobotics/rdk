@@ -78,8 +78,7 @@ func (c *collector) Collect() {
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
-		close(started)
-		c.capture()
+		c.capture(started)
 	})
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -95,18 +94,19 @@ func (c *collector) Collect() {
 // when the configured capture interval is below 2ms. A Ticker based approach is kept for longer capture intervals to
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
-func (c *collector) capture() {
+func (c *collector) capture(started chan struct{}) {
 	if c.interval < sleepCaptureCutoff {
-		c.sleepBasedCapture()
+		c.sleepBasedCapture(started)
 	} else {
-		c.tickerBasedCapture()
+		c.tickerBasedCapture(started)
 	}
 }
 
-func (c *collector) sleepBasedCapture() {
+func (c *collector) sleepBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
 	captureWorkers := sync.WaitGroup{}
 
+	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
@@ -116,7 +116,7 @@ func (c *collector) sleepBasedCapture() {
 			close(c.queue)
 			return
 		}
-		c.clock.Sleep(c.clock.Until(next))
+		c.clock.Sleep(c.interval)
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -134,11 +134,12 @@ func (c *collector) sleepBasedCapture() {
 	}
 }
 
-func (c *collector) tickerBasedCapture() {
+func (c *collector) tickerBasedCapture(started chan struct{}) {
 	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
 
+	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
