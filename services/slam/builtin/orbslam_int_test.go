@@ -89,7 +89,7 @@ func testOrbslamMap(t *testing.T, svc slam.Service) {
 }
 
 // Checks the orbslam position within a defined tolerance
-func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string, sensor string) {
+func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string, expectedComponentRef string) {
 	var expectedPos r3.Vector
 	expectedOri := &spatialmath.R4AA{}
 	tolerancePos := 0.5
@@ -109,7 +109,7 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 
 	position, componentRef, err := svc.GetPosition(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, componentRef, test.ShouldEqual, sensor)
+	test.That(t, componentRef, test.ShouldEqual, expectedComponentRef)
 
 	actualPos := position.Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
