@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -16,11 +17,26 @@ var (
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	emptyFileBytesSize                          = 30 // size of leading metadata message
+	// TODO: calculate this dynamically
+	emptyFileBytesSize = 30 // size of leading metadata message
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
 	captureTime := time.Millisecond * 25
+
+	// On slower machines, it's possible that capture hasn't begun after captureTime. Give up to 20x
+	// as long for this to occur.
+	getCapturedFiles := func(captureDir string) []os.FileInfo {
+		files := getAllFiles(captureDir)
+		for i := 0; i < 20; i++ {
+			if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
+				break
+			}
+			time.Sleep(captureTime)
+			files = getAllFiles(captureDir)
+		}
+		return files
+	}
 
 	tests := []struct {
 		name                          string
@@ -111,9 +127,20 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Build and start data manager.
 			dmsvc := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
+			defer func() {
+				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+			}()
 			err = dmsvc.Update(context.Background(), initConfig)
+			test.That(t, err, test.ShouldBeNil)
 			time.Sleep(captureTime)
+			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
+				initialCaptureFiles := getCapturedFiles(initCaptureDir)
+				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
+				test.That(t, initialCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+			} else {
+				initialCaptureFiles := getAllFiles(initCaptureDir)
+				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
+			}
 
 			// Set up updated robot config.
 			var updatedConfig *config.Config
@@ -134,31 +161,22 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Update to new config and let it run for a bit.
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
-			// TODO: What are we waiting for? Some data to be written
-			// This is a real black box type of test... a way to use signaling isn't immediately apparent.
+			oldCaptureDirFiles := getAllFiles(initCaptureDir)
 
 			time.Sleep(captureTime)
-
-			// Check if initial config captured (or not) as we'd expect.
-			initialCaptureFiles := getAllFiles(initCaptureDir)
-			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				// TODO: check contents
-				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
-				test.That(t, initialCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
-			} else {
-				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
-			}
-
-			// Check if updated config captured (or not) as we'd expect.
-			updatedCaptureFiles := getAllFiles(updatedCaptureDir)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				//TODO: check contents
+				updatedCaptureFiles := getCapturedFiles(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, 0)
 				test.That(t, updatedCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 			} else {
+				updatedCaptureFiles := getAllFiles(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
+				oldCaptureDirFilesAfterWait := getAllFiles(initCaptureDir)
+				test.That(t, len(oldCaptureDirFilesAfterWait), test.ShouldEqual, len(oldCaptureDirFiles))
+				for i := range oldCaptureDirFiles {
+					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
+				}
 			}
-			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
 }
