@@ -166,12 +166,12 @@ func TestSuccessfulWrite(t *testing.T) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					for i := 0; i < 100; i++ {
+					for i := 0; i < 1000; i++ {
 						select {
 						case <-closed:
 							return
 						default:
-							time.Sleep(time.Millisecond * 10)
+							time.Sleep(time.Millisecond * 1)
 							mockClock.Add(tc.interval)
 						}
 					}
@@ -289,7 +289,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
