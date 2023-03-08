@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
 	slamConfig "go.viam.com/slam/config"
+	slamTesthelper "go.viam.com/slam/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -82,7 +83,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.SubAlgo) {
 		t.Skip()
 	}
 
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	prevNumFiles := 0

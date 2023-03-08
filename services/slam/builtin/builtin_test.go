@@ -42,6 +42,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	slamConfig "go.viam.com/slam/config"
+	slamTesthelper "go.viam.com/slam/testhelper"
 )
 
 const (
@@ -516,7 +517,7 @@ func createSLAMService(
 }
 
 func TestGeneralNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -588,7 +589,7 @@ func TestGeneralNew(t *testing.T) {
 }
 
 func TestCartographerNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -649,7 +650,7 @@ func TestCartographerNew(t *testing.T) {
 }
 
 func TestORBSLAMNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -821,7 +822,7 @@ func TestORBSLAMNew(t *testing.T) {
 }
 
 func TestCartographerDataProcess(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -893,7 +894,7 @@ func TestCartographerDataProcess(t *testing.T) {
 }
 
 func TestORBSLAMDataProcess(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -971,7 +972,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 }
 
 func TestEndpointFailures(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -1036,7 +1037,7 @@ func TestEndpointFailures(t *testing.T) {
 }
 
 func TestSLAMProcessSuccess(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -1131,7 +1132,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 }
 
 func TestSLAMProcessFail(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -1179,24 +1180,6 @@ func TestSLAMProcessFail(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
-}
-
-func createTempFolderArchitecture() (string, error) {
-	name, err := os.MkdirTemp("", "*")
-	if err != nil {
-		return "nil", err
-	}
-
-	if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
-		return "", err
-	}
-	if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
-		return "", err
-	}
-	if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
-		return "", err
-	}
-	return name, nil
 }
 
 func resetFolder(path string) error {
