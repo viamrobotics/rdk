@@ -16,13 +16,12 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-    slamConfig "go.viam.com/slam/config"
 )
-
 
 const (
 	cartoSleepMs = 100
@@ -46,22 +45,44 @@ func testCartographerMap(t *testing.T, svc slam.Service) {
 }
 
 // Checks the cartographer position within a defined tolerance.
-func testCartographerPosition(t *testing.T, svc slam.Service) {
-	expectedPos := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
-	tolerancePos := 0.04
-	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
-	toleranceOri := 0.5
+func testCartographerPosition(t *testing.T, svc slam.Service, sensor string) {
+	expectedPosOld := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
+	tolerancePosOld := 0.04
+	expectedOriOld := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
+	toleranceOriOld := 0.5
 
-	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	position2, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
-	actualPos := position.Pose().Point()
+	actualPosOld := position2.Pose().Point()
+	t.Logf("Position point: (%v, %v, %v)", actualPosOld.X, actualPosOld.Y, actualPosOld.Z)
+	test.That(t, actualPosOld.X, test.ShouldBeBetween, expectedPosOld.X-tolerancePosOld, expectedPosOld.X+tolerancePosOld)
+	test.That(t, actualPosOld.Y, test.ShouldBeBetween, expectedPosOld.Y-tolerancePosOld, expectedPosOld.Y+tolerancePosOld)
+	test.That(t, actualPosOld.Z, test.ShouldBeBetween, expectedPosOld.Z-tolerancePosOld, expectedPosOld.Z+tolerancePosOld)
+
+	actualOriOld := position2.Pose().Orientation().AxisAngles()
+	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOriOld.RX, actualOriOld.RY, actualOriOld.RZ, actualOriOld.Theta)
+	test.That(t, actualOriOld.RX, test.ShouldBeBetween, expectedOriOld.RX-toleranceOriOld, expectedOriOld.RX+toleranceOriOld)
+	test.That(t, actualOriOld.RY, test.ShouldBeBetween, expectedOriOld.RY-toleranceOriOld, expectedOriOld.RY+toleranceOriOld)
+	test.That(t, actualOriOld.RZ, test.ShouldBeBetween, expectedOriOld.RZ-toleranceOriOld, expectedOriOld.RZ+toleranceOriOld)
+	test.That(t, actualOriOld.Theta, test.ShouldBeBetween, expectedOriOld.Theta-toleranceOriOld, expectedOriOld.Theta+toleranceOriOld)
+
+	expectedPos := r3.Vector{X: -0.004, Y: 0, Z: -0.004}
+	tolerancePos := 0.04
+	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 1, RZ: 0}
+	toleranceOri := 0.5
+
+	position, componentRef, err := svc.GetPosition(context.Background(), "test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, componentRef, test.ShouldEqual, sensor)
+
+	actualPos := position.Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
 	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
 	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
 	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
 
-	actualOri := position.Pose().Orientation().AxisAngles()
+	actualOri := position.Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
 	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
 	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
@@ -103,7 +124,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	deleteProcessedData := false
 	useLiveData := true
 
-	attrCfg := &slamConfig.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode":  reflect.ValueOf(mode).String(),
@@ -152,7 +173,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, attrCfg.Sensors[0])
 	testCartographerMap(t, svc)
 
 	// Close out slam service
@@ -182,7 +203,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	useLiveData = false
 	mapRate = 1
 
-	attrCfg = &slamConfig.AttrConfig{
+	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -222,7 +243,8 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	// if a sensor is added to the attribute config, the sensor should be passed into this test
+	testCartographerPosition(t, svc, "")
 	testCartographerMap(t, svc)
 
 	// Sleep to ensure cartographer saves at least one map
@@ -251,7 +273,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = true
 	useLiveData = true
 
-	attrCfg = &slamConfig.AttrConfig{
+	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -296,7 +318,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, attrCfg.Sensors[0])
 	testCartographerMap(t, svc)
 
 	// Remove maps so that testing is done on the map generated by the internal map
@@ -325,7 +347,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	mapRate = 1
 
-	attrCfg = &slamConfig.AttrConfig{
+	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -371,7 +393,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, attrCfg.Sensors[0])
 	testCartographerMap(t, svc)
 
 	// Close out slam service

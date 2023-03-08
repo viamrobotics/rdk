@@ -17,12 +17,12 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-    slamConfig "go.viam.com/slam/config"
 )
 
 const (
@@ -89,7 +89,7 @@ func testOrbslamMap(t *testing.T, svc slam.Service) {
 }
 
 // Checks the orbslam position within a defined tolerance
-func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string) {
+func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string, sensor string) {
 	var expectedPos r3.Vector
 	expectedOri := &spatialmath.R4AA{}
 	tolerancePos := 0.5
@@ -107,16 +107,33 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 		expectedOri = &spatialmath.R4AA{Theta: 0.002, RX: 0.602, RY: -0.772, RZ: -0.202}
 	}
 
-	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	positionOld, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
-	actualPos := position.Pose().Point()
+	actualPosOld := positionOld.Pose().Point()
+	t.Logf("Position point: (%v, %v, %v)", actualPosOld.X, actualPosOld.Y, actualPosOld.Z)
+	test.That(t, actualPosOld.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
+	test.That(t, actualPosOld.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
+	test.That(t, actualPosOld.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
+
+	actualOriOld := positionOld.Pose().Orientation().AxisAngles()
+	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOriOld.RX, actualOriOld.RY, actualOriOld.RZ, actualOriOld.Theta)
+	test.That(t, actualOriOld.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
+	test.That(t, actualOriOld.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
+	test.That(t, actualOriOld.RZ, test.ShouldBeBetween, expectedOri.RZ-toleranceOri, expectedOri.RZ+toleranceOri)
+	test.That(t, actualOriOld.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
+
+	position, componentRef, err := svc.GetPosition(context.Background(), "test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, componentRef, test.ShouldEqual, sensor)
+
+	actualPos := position.Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
 	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
 	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
 	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
 
-	actualOri := position.Pose().Orientation().AxisAngles()
+	actualOri := position.Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
 	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
 	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
@@ -170,7 +187,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData := false
 	useLiveData := true
 
-	attrCfg := &slamConfig.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -225,7 +242,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping")
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", sensors[0])
 	testOrbslamMap(t, svc)
 
 	// Close out slam service
@@ -276,7 +293,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = false
 	useLiveData = false
 
-	attrCfg = &slamConfig.AttrConfig{
+	attrCfg = &builtin.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -321,7 +338,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping")
+	// offline mode parses the config file to determine component reference in offline mode
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", sensors[0])
 	testOrbslamMap(t, svc)
 
 	if !orbslam_hangs {
@@ -369,7 +387,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = true
 	useLiveData = true
 
-	attrCfg = &slamConfig.AttrConfig{
+	attrCfg = &builtin.AttrConfig{
 		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -432,7 +450,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating")
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating", sensors[0])
 	testOrbslamMap(t, svc)
 
 	// Close out slam service
