@@ -245,6 +245,7 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
 
+		//nolint:bodyclose // processTokenResponse() closes it
 		res, err := a.httpClient.Do(req)
 		if err != nil {
 			return nil, err
@@ -344,6 +345,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
 
+	//nolint:bodyclose // processTokenResponse() closes it
 	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -360,7 +362,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {
-	defer utils.UncheckedError(res.Body.Close())
+	defer utils.UncheckedErrorFunc(res.Body.Close)
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
