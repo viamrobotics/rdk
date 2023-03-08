@@ -2,11 +2,13 @@ package pointcloud
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 )
 
@@ -44,7 +46,10 @@ func checkPoints(t *testing.T, basicOct *BasicOctree, pointsAndData []PointAndDa
 // Helper function that makes and returns a PointCloud of a given type from an artifact path.
 func makeFullPointCloudFromArtifact(t *testing.T, artifactPath string, pcType PCType) (PointCloud, error) {
 	t.Helper()
-	pcdFile, err := os.Open(artifact.MustPath(artifactPath))
+
+	path := filepath.Clean(artifact.MustPath(artifactPath))
+	pcdFile, err := os.Open(path)
+	defer utils.UncheckedErrorFunc(pcdFile.Close)
 	if err != nil {
 		return nil, err
 	}
@@ -557,8 +562,19 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 
 // Test the functionalities involved with converting a pcd into a basic octree.
 func TestReadBasicOctreeFromPCD(t *testing.T) {
-	artifactPath := "pointcloud/test_short.pcd"
+	t.Run("reading from binary PCD to octree", func(t *testing.T) {
+		binaryArtifactPath := "slam/rplidar_data/rplidar_data_0.pcd"
+		testPCDToBasicOctree(t, binaryArtifactPath)
+	})
 
+	t.Run("reading from ascii PCD to octree", func(t *testing.T) {
+		asciiArtifactPath := "slam/mock_lidar/0.pcd"
+		testPCDToBasicOctree(t, asciiArtifactPath)
+	})
+}
+
+// Helper function for testing basic octree creation from a given artifact.
+func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 	basicPC, err := makeFullPointCloudFromArtifact(t, artifactPath, BasicType)
 	test.That(t, err, test.ShouldBeNil)
 	basic, ok := basicPC.(*basicPointCloud)
