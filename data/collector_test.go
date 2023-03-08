@@ -317,3 +317,7 @@ func (b *signalingBuffer) Write(data *v1.SensorData) error {
 func (b *signalingBuffer) Flush() error {
 	return b.bw.Flush()
 }
+
+func (b *signalingBuffer) Path() string {
+	return b.bw.Path()
+}
