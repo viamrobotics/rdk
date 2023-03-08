@@ -211,3 +211,28 @@ func (s *subtypeServer) DoCommand(ctx context.Context,
 	}
 	return protoutils.DoFromResourceServer(ctx, b, req)
 }
+
+func (s *subtypeServer) SetPowerMode(ctx context.Context,
+	req *pb.SetPowerModeRequest,
+) (*pb.SetPowerModeResponse, error) {
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Duration == nil {
+		err = b.SetPowerMode(ctx, req.PowerMode, nil)
+	} else {
+		if err := req.Duration.CheckValid(); err != nil {
+			return nil, err
+		}
+		duration := req.Duration.AsDuration()
+		err = b.SetPowerMode(ctx, req.PowerMode, &duration)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.SetPowerModeResponse{}, nil
+}
