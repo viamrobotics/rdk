@@ -46,27 +46,6 @@ func testCartographerMap(t *testing.T, svc slam.Service) {
 
 // Checks the cartographer position within a defined tolerance.
 func testCartographerPosition(t *testing.T, svc slam.Service, sensor string) {
-	expectedPosOld := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
-	tolerancePosOld := 0.04
-	expectedOriOld := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
-	toleranceOriOld := 0.5
-
-	position2, err := svc.Position(context.Background(), "test", map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	actualPosOld := position2.Pose().Point()
-	t.Logf("Position point: (%v, %v, %v)", actualPosOld.X, actualPosOld.Y, actualPosOld.Z)
-	test.That(t, actualPosOld.X, test.ShouldBeBetween, expectedPosOld.X-tolerancePosOld, expectedPosOld.X+tolerancePosOld)
-	test.That(t, actualPosOld.Y, test.ShouldBeBetween, expectedPosOld.Y-tolerancePosOld, expectedPosOld.Y+tolerancePosOld)
-	test.That(t, actualPosOld.Z, test.ShouldBeBetween, expectedPosOld.Z-tolerancePosOld, expectedPosOld.Z+tolerancePosOld)
-
-	actualOriOld := position2.Pose().Orientation().AxisAngles()
-	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOriOld.RX, actualOriOld.RY, actualOriOld.RZ, actualOriOld.Theta)
-	test.That(t, actualOriOld.RX, test.ShouldBeBetween, expectedOriOld.RX-toleranceOriOld, expectedOriOld.RX+toleranceOriOld)
-	test.That(t, actualOriOld.RY, test.ShouldBeBetween, expectedOriOld.RY-toleranceOriOld, expectedOriOld.RY+toleranceOriOld)
-	test.That(t, actualOriOld.RZ, test.ShouldBeBetween, expectedOriOld.RZ-toleranceOriOld, expectedOriOld.RZ+toleranceOriOld)
-	test.That(t, actualOriOld.Theta, test.ShouldBeBetween, expectedOriOld.Theta-toleranceOriOld, expectedOriOld.Theta+toleranceOriOld)
-
 	expectedPos := r3.Vector{X: -0.004, Y: 0, Z: -0.004}
 	tolerancePos := 0.04
 	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 1, RZ: 0}
