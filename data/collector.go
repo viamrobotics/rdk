@@ -85,7 +85,7 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw("failed to write to collector", "error", err)
+			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Path()), "error", err)
 		}
 	})
 	<-started

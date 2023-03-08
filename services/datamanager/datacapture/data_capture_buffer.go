@@ -13,6 +13,7 @@ var MaxFileSize = int64(64 * 1024)
 type BufferedWriter interface {
 	Write(item *v1.SensorData) error
 	Flush() error
+	Path() string
 }
 
 // Buffer is a persistent queue of SensorData backed by a series of datacapture.Files.
@@ -85,4 +86,9 @@ func (b *Buffer) Flush() error {
 	}
 	b.nextFile = nil
 	return nil
+}
+
+// Path returns the path to the directory containing the backing data capture files.
+func (b *Buffer) Path() string {
+	return b.Directory
 }
