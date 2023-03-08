@@ -45,7 +45,6 @@ import (
 	"go.viam.com/rdk/vision"
 	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/slam/dataprocess"
-	"go.viam.com/utils"
 )
 
 var (
@@ -569,7 +568,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
-    svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -900,8 +899,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, err
 		}
 		for i, filename := range filenames {
-			err = dataprocess.WriteBytesToFile(images[i], filename)
-			if err != nil {
+			if err = dataprocess.WriteBytesToFile(images[i], filename); err != nil {
 				return filenames, err
 			}
 		}

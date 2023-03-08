@@ -19,10 +19,10 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
+	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-    slamConfig "go.viam.com/slam/config"
 )
 
 const (

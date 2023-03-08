@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/services/slam/builtin"
-    slamConfig "go.viam.com/slam/config"
+	slamConfig "go.viam.com/slam/config"
 )
 
 func TestConfigValidation(t *testing.T) {

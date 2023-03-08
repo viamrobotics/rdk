@@ -20,7 +20,7 @@ import (
 
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam/builtin"
-    slamConfig "go.viam.com/slam/config"
+	slamConfig "go.viam.com/slam/config"
 )
 
 const (
@@ -79,7 +79,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			"orb_n_min_th_fast": "7",
 		},
 		DataDirectory: name,
-		DataRateMsec:    dataRateMs,
+		DataRateMsec:  dataRateMs,
 		Port:          "localhost:4445",
 		UseLiveData:   &useLiveData,
 	}
@@ -94,7 +94,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			"orb_n_min_th_fast": "7",
 		},
 		DataDirectory: name,
-		DataRateMsec:    10000,
+		DataRateMsec:  10000,
 		Port:          "localhost:4445",
 		UseLiveData:   &useLiveData,
 	}
@@ -109,7 +109,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			"orb_n_min_th_fast": "7",
 		},
 		DataDirectory: name,
-		DataRateMsec:    dataRateMs,
+		DataRateMsec:  dataRateMs,
 		Port:          "localhost:4445",
 		UseLiveData:   &useLiveData,
 	}
@@ -231,7 +231,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 				"orb_n_min_th_fast": "7",
 			},
 			DataDirectory: name,
-			DataRateMsec:    dataRateMs,
+			DataRateMsec:  dataRateMs,
 			Port:          "localhost:4445",
 			UseLiveData:   &useLiveData,
 		}
@@ -251,7 +251,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 				"orb_n_min_th_fast": "7",
 			},
 			DataDirectory: name,
-			DataRateMsec:    dataRateMs,
+			DataRateMsec:  dataRateMs,
 			Port:          "localhost:4445",
 			UseLiveData:   &useLiveData,
 		}
