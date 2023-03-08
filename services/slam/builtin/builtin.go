@@ -44,6 +44,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	slamConfig "go.viam.com/slam/config"
+	"go.viam.com/slam/dataprocess"
 )
 
 var (
@@ -567,7 +568,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
-    svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -873,19 +874,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		filename := filenames[0]
-		//nolint:gosec
-		f, err := os.Create(filename)
-		if err != nil {
-			return []string{filename}, err
-		}
-		w := bufio.NewWriter(f)
-		if _, err := w.Write(image); err != nil {
-			return []string{filename}, err
-		}
-		if err := w.Flush(); err != nil {
-			return []string{filename}, err
-		}
-		return []string{filename}, f.Close()
+		return []string{filename}, dataprocess.WriteBytesToFile(image, filename)
 	case slam.Rgbd:
 		if len(cams) != 2 {
 			return nil, errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(cams))
@@ -910,19 +899,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, err
 		}
 		for i, filename := range filenames {
-			//nolint:gosec
-			f, err := os.Create(filename)
-			if err != nil {
-				return filenames, err
-			}
-			w := bufio.NewWriter(f)
-			if _, err := w.Write(images[i]); err != nil {
-				return filenames, err
-			}
-			if err := w.Flush(); err != nil {
-				return filenames, err
-			}
-			if err := f.Close(); err != nil {
+			if err = dataprocess.WriteBytesToFile(images[i], filename); err != nil {
 				return filenames, err
 			}
 		}
@@ -1003,21 +980,7 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 		return "", err
 	}
 	filename := filenames[0]
-	//nolint:gosec
-	f, err := os.Create(filename)
-	if err != nil {
-		return filename, err
-	}
-
-	w := bufio.NewWriter(f)
-
-	if err = pc.ToPCD(pointcloud, w, 1); err != nil {
-		return filename, err
-	}
-	if err = w.Flush(); err != nil {
-		return filename, err
-	}
-	return filename, f.Close()
+	return filename, dataprocess.WritePCDToFile(pointcloud, filename)
 }
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
