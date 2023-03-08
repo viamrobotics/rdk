@@ -49,7 +49,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, logger)
+	baseBase, err := createWheeledBase(context.Background(), motorDeps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -323,7 +323,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, compCfg, logger)
+	baseBase, err := createWheeledBase(ctx, motorDeps, compCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -366,28 +366,66 @@ func TestValidate(t *testing.T) {
 
 func TestAngleCalculations(t *testing.T) {
 	for _, tc := range []struct {
-		QuadrantName string
-		Added        float64
-		Current      float64
-		Expected     float64
+		Condition string
+		Added     float64
+		Current   float64
+		Target    float64
+		Overshoot float64 // Tests check against an overshoot of 10 degrees
+		Dir       int
 	}{
-		{"acute-CCW-quadrant1", 10, 10, 20},
-		{"acute-CCW-quadrant2", 10, 95, 105},
-		{"acute-CCW-quadrant3", 10, 175, -175},
-		{"acute-CCW-quadrant4", 10, 275, -75},
-		{"obtuse-CCW-quadrant2", 110, 10, 120},
-		{"obtuse-CCW-quadrant3", 110, 80, -170},
-		{"obtuse-CCW-quadrant4", 110, 170, -80},
-		{"acute-CW-quadrant4", -20, 10, -10},
-		{"acute-CW-quadrant3", -20, -80, -100},
-		{"acute-CW-quadrant2", -20, -170, 170},
-		{"ninetey-CCW-quadrant1", 10, 80, 90},
-		{"oneeighty-CCW-quadrant2", 10, 170, 179.9},
-		{"oneeighty-CW-quadrants2", -10, -170, 179.9},
+		// acute angle additions, clockwise and countercloskwise directions
+		{"acute-CCW-quadrant1-to-quadrant1", 10, 10, 20, 35, 1},
+		{"acute-CCW-quadrant2-to-quadrant2", 10, 95, 105, 120, 1},
+		{"acute-CCW-quadrant3-to-quadrant3", 10, 175, -175, -160, 1},
+		{"acute-CCW-quadrant4-to-quadrant4", 10, 275, -75, -60, 1},
+
+		{"acute-CW-quadrant4-to-quadrant4", -20, 10, -10, -25, -1},
+		{"acute-CW-quadrant3-to-quadrant3", -20, -80, -100, -115, -1},
+		{"acute-CW-quadrant3-to-quadrant2", -20, -170, 170, 155, -1},
+		{"acute-CW-quadrant1-to-quadrant1", -10, -10, -20, -35, -1},
+
+		// obtuse angle additions, clockwise and countercloskwise directions
+		{"obtuse-CCW-quadrant1-to-quadrant2", 110, 10, 120, 135, 1},
+		{"obtuse-CCW-quadrant2-to-quadrant4", 110, 170, -80, -65, 1},
+		{"obtuse-CCW-quadrant1-to-quadrant3", 110, 80, -170, -155, 1},
+
+		{"obtuse-CW-quadrant1-to-quadrant3", -110, 10, -100, -115, -1},
+		{"obtuse-CW-quadrant2-to-quadrant4", -110, 80, -30, -45, -1},
+		{"obtuse-CW-quadrant3-to-quadrant1", -110, 170, 60, 45, -1},
+
+		// quadrant boundary cases
+		{"ninetey-CCW-quadrant1", 10, 80, 90, 75, 1},
+		{"oneeighty-CCW-quadrant2", 10, 170, 179.9, -165.1, 1},
+		{"oneeighty-CW-quadrant2", -10, -170, 179.9, 164.9, -1},
 	} {
-		t.Run(tc.QuadrantName, func(t *testing.T) {
-			calculated := addAnglesInDomain(tc.Added, tc.Current)
-			test.That(t, calculated, test.ShouldAlmostEqual, tc.Expected)
+
+		t.Run(tc.Condition, func(t *testing.T) {
+
+			t.Run(tc.Condition+" calculation", func(t *testing.T) {
+				calculated := addAnglesInDomain(tc.Added, tc.Current)
+				test.That(t, calculated, test.ShouldAlmostEqual, tc.Target)
+			})
+
+			t.Run(tc.Condition+" overshot", func(t *testing.T) {
+				// overshot, the allowed angle is less than 15 degrees
+				overshot := hasSpinOvershot(tc.Current, tc.Target, addAnglesInDomain(tc.Target, -allowableAngle), float64(tc.Dir))
+				// we have overshot 10 degrees
+				test.That(t, overshot, test.ShouldBeTrue)
+			})
+			t.Run(tc.Condition+" exact", func(t *testing.T) {
+				// exact overshoot, the allowed  exactly 15 degrees
+				overshot := hasSpinOvershot(tc.Overshoot, tc.Target, addAnglesInDomain(tc.Target, 0), float64(tc.Dir))
+				// edge of overshoot at 15 degrees
+				test.That(t, overshot, test.ShouldBeTrue)
+			})
+
+			t.Run(tc.Condition+" undershot", func(t *testing.T) {
+				// undershot, the allowed angle is under 15 degrees
+				overshot := hasSpinOvershot(tc.Overshoot, tc.Target, addAnglesInDomain(tc.Target, float64(tc.Dir)*allowableAngle), float64(tc.Dir))
+				// we have not overshot 25 degrees
+				test.That(t, overshot, test.ShouldBeFalse)
+			})
 		})
+
 	}
 }
