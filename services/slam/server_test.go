@@ -102,6 +102,23 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 	})
 
+	t.Run("working get position function", func(t *testing.T) {
+		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+		componentRefSucc := "cam"
+
+		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (spatial.Pose, string, error) {
+			return poseSucc, componentRefSucc, nil
+		}
+
+		reqPos := &pb.GetPositionNewRequest{
+			Name: testSlamServiceName,
+		}
+		respPos, err := slamServer.GetPositionNew(context.Background(), reqPos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
+		test.That(t, respPos.ComponentReference, test.ShouldEqual, componentRefSucc)
+	})
+
 	t.Run("working get map function", func(t *testing.T) {
 		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
@@ -221,11 +238,16 @@ func TestWorkingServer(t *testing.T) {
 		injectSubtypeSvc, err := subtype.New(resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 		slamServer = slam.NewServer(injectSubtypeSvc)
-		pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-		pSucc := referenceframe.NewPoseInFrame("frame", pose)
+		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
+		componentRefSucc := "cam"
+		pSucc := referenceframe.NewPoseInFrame("frame", poseSucc)
 
 		injectSvc.PositionFunc = func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 			return pSucc, nil
+		}
+
+		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (spatial.Pose, string, error) {
+			return poseSucc, componentRefSucc, nil
 		}
 
 		injectSvc.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
@@ -252,6 +274,19 @@ func TestWorkingServer(t *testing.T) {
 		respPos, err = slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, referenceframe.ProtobufToPoseInFrame(respPos.Pose).Parent(), test.ShouldEqual, pSucc.Parent())
+
+		// test unary endpoint using GetPositionNew
+		reqPosNew := &pb.GetPositionNewRequest{Name: testSlamServiceName}
+		respPosNew, err := slamServer.GetPositionNew(context.Background(), reqPosNew)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPosNew.Pose)), test.ShouldBeTrue)
+		test.That(t, respPosNew.ComponentReference, test.ShouldEqual, componentRefSucc)
+
+		reqPosNew = &pb.GetPositionNewRequest{Name: testSlamServiceName2}
+		respPosNew, err = slamServer.GetPositionNew(context.Background(), reqPosNew)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPosNew.Pose)), test.ShouldBeTrue)
+		test.That(t, respPosNew.ComponentReference, test.ShouldEqual, componentRefSucc)
 
 		// test streaming endpoint using GetPointCloudMapStream
 		reqGetPointCloudMapStream := &pb.GetPointCloudMapStreamRequest{Name: testSlamServiceName}
@@ -295,6 +330,19 @@ func TestFailingServer(t *testing.T) {
 		}
 		resp, err := slamServer.GetPosition(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resp, test.ShouldBeNil)
+	})
+
+	t.Run("failing get position function", func(t *testing.T) {
+		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (spatial.Pose, string, error) {
+			return nil, "", errors.New("failure to get position")
+		}
+
+		req := &pb.GetPositionNewRequest{
+			Name: testSlamServiceName,
+		}
+		resp, err := slamServer.GetPositionNew(context.Background(), req)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
@@ -387,6 +435,12 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, getPositionResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 
+		// Get position
+		getPositionNewReq := &pb.GetPositionNewRequest{Name: testSlamServiceName}
+		getPositionNewResp, err := slamServer.GetPositionNew(context.Background(), getPositionNewReq)
+		test.That(t, getPositionNewResp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
+
 		// Get map
 		getMapReq := &pb.GetMapRequest{Name: testSlamServiceName}
 		getMapResp, err := slamServer.GetMap(context.Background(), getMapReq)
@@ -419,6 +473,12 @@ func TestFailingServer(t *testing.T) {
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
 		resp, err := slamServer.GetPosition(context.Background(), reqGetPositionRequest)
 		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
+
+		// test unary endpoint using GetPositionNew
+		reqGetPositionNewRequest := &pb.GetPositionNewRequest{Name: testSlamServiceName}
+		respPosNew, err := slamServer.GetPositionNew(context.Background(), reqGetPositionNewRequest)
+		test.That(t, respPosNew, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
 
 		// test streaming endpoint using GetPointCloudMapStream

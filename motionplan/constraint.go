@@ -166,7 +166,7 @@ func newObstacleConstraint(frame referenceframe.Frame,
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func newCollisionConstraint(
 	frame referenceframe.Frame,
-	obstacles map[string]spatial.Geometry,
+	obstacles []spatial.Geometry,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
