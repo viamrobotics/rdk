@@ -22,8 +22,6 @@ const (
 	Rgbd = SubAlgo("rgbd")
 	// Dim2d is a subAlgo a slam model can use.
 	Dim2d = SubAlgo("2d")
-	// Dim3d is a subAlgo  model can use.
-	Dim3d = SubAlgo("3d")
 )
 
 // SLAMLibraries contains a map of available slam libraries.
