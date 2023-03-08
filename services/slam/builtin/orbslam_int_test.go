@@ -107,22 +107,6 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 		expectedOri = &spatialmath.R4AA{Theta: 0.002, RX: 0.602, RY: -0.772, RZ: -0.202}
 	}
 
-	positionOld, err := svc.Position(context.Background(), "test", map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	actualPosOld := positionOld.Pose().Point()
-	t.Logf("Position point: (%v, %v, %v)", actualPosOld.X, actualPosOld.Y, actualPosOld.Z)
-	test.That(t, actualPosOld.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
-	test.That(t, actualPosOld.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
-	test.That(t, actualPosOld.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
-
-	actualOriOld := positionOld.Pose().Orientation().AxisAngles()
-	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOriOld.RX, actualOriOld.RY, actualOriOld.RZ, actualOriOld.Theta)
-	test.That(t, actualOriOld.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
-	test.That(t, actualOriOld.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
-	test.That(t, actualOriOld.RZ, test.ShouldBeBetween, expectedOri.RZ-toleranceOri, expectedOri.RZ+toleranceOri)
-	test.That(t, actualOriOld.Theta, test.ShouldBeBetween, expectedOri.Theta-toleranceOri, expectedOri.Theta+toleranceOri)
-
 	position, componentRef, err := svc.GetPosition(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, componentRef, test.ShouldEqual, sensor)
@@ -265,7 +249,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
 	// the same data as online mode. (Online mode will not read the last image (or image pair),
 	// since it always processes the second-most-recent image (or image pair), in case the
-	// most-recent image (or image pair) is currently being written.)
+	// most-recent image (or image pair) is currently being written.
 	var directories []string
 	switch mode {
 	case slam.Mono:
