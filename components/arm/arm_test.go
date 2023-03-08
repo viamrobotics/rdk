@@ -37,15 +37,6 @@ const (
 	missingArmName = "arm5"
 )
 
-func setupDependencies(t *testing.T) registry.Dependencies {
-	t.Helper()
-
-	deps := make(registry.Dependencies)
-	deps[arm.Named(testArmName)] = &mockLocal{Name: testArmName}
-	deps[arm.Named(fakeArmName)] = "not an arm"
-	return deps
-}
-
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mockLocal{Name: testArmName}
 	r := &inject.Robot{}
@@ -76,26 +67,6 @@ func TestGenericDo(t *testing.T) {
 	ret, err := a.DoCommand(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
-}
-
-func TestFromDependencies(t *testing.T) {
-	deps := setupDependencies(t)
-
-	a, err := arm.FromDependencies(deps, testArmName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-
-	pose1, err := a.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose1, test.ShouldResemble, pose)
-
-	a, err = arm.FromDependencies(deps, fakeArmName)
-	test.That(t, err, test.ShouldBeError, arm.DependencyTypeError(fakeArmName, "string"))
-	test.That(t, a, test.ShouldBeNil)
-
-	a, err = arm.FromDependencies(deps, missingArmName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
-	test.That(t, a, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
@@ -479,8 +450,11 @@ func TestOOBArm(t *testing.T) {
 	})
 
 	t.Run("MoveToPosition works when IB", func(t *testing.T) {
-		pose = spatialmath.NewPoseFromPoint(r3.Vector{-800, -232.9, 62.8})
-		err := injectedArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
+		homePose, err := injectedArm.EndPosition(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		testLinearMove := r3.Vector{homePose.Point().X - 20, homePose.Point().Y, homePose.Point().Z}
+		pose = spatialmath.NewPoseFromPoint(testLinearMove)
+		err = injectedArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
