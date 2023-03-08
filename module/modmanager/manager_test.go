@@ -242,7 +242,7 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = mgr.ValidateConfig(ctx, cfgMyBase2)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
-		`rpc error: code = Unknown desc = error validating component: expected "motorL" attribute for mybase "mybase2"`)
+		`rpc error: code = Unknown desc = error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

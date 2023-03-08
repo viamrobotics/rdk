@@ -226,7 +226,7 @@ func TestModuleFunctions(t *testing.T) {
 		_, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: badMyBaseConf})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldResemble,
-			`error validating component: expected "motorL" attribute for mybase "mybase2"`)
+			`error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 	})
 
 	err = utils.TryClose(ctx, gClient)
