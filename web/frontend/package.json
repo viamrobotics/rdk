@@ -5,11 +5,11 @@
   "type": "module",
   "files": ["dist"],
   "main": "./dist/rc.umd.js",
-  "module": "./dist/rc.es.js",
+  "module": "./dist/rc.js",
   "types": "./dist/rc.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/rc.es.js",
+      "import": "./dist/rc.js",
       "require": "./dist/rc.umd.js"
     }
   },

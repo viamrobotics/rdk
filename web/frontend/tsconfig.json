@@ -3,6 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "useDefineForClassFields": true,
+    "declaration": true,
     "strict": true,
     "jsx": "preserve",
     "importHelpers": true,
