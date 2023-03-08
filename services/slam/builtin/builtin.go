@@ -493,7 +493,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-    modelName := string(config.Model.Name)
+	modelName := string(config.Model.Name)
 	slamLib, ok := slam.SLAMLibraries[modelName]
 	if !ok {
 		return nil, errors.Errorf("%v algorithm specified not in implemented list", modelName)
