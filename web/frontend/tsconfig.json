@@ -37,7 +37,8 @@
       "DOM",
       "DOM.iterable",
       "scripthost"
-    ]
+    ],
+    "outDir": "dist"
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]

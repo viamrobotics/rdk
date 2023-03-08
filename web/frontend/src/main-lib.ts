@@ -1,4 +1,4 @@
-import './index.css?inline';
+import './index.css';
 import { createApp } from 'vue';
 import App from './app.vue';
 

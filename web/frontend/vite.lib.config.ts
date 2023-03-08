@@ -19,6 +19,7 @@ export default defineConfig({
     minify: true,
     target: 'esnext',
     lib: {
+      formats: ['es'],
       // Could also be a dictionary or array of multiple entry points
       entry: 'src/main-lib.ts',
       name: 'RC',
@@ -27,15 +28,19 @@ export default defineConfig({
     },
     rollupOptions: {
       // make sure to externalize deps that shouldn't be bundled into your library
-      external: ['three', 'vue'],
+      external: [
+        '@improbable-eng/grpc-web',
+        '@viamrobotics/sdk',
+        '@viamrobotics/rpc',
+        '@vueuse/core',
+        'google-protobuf',
+        'three',
+        'trzy',
+        'vue',
+      ],
       output: {
         inlineDynamicImports: true,
         manualChunks: undefined,
-        // Provide global variables to use in the UMD build for externalized deps
-        globals: {
-          three: 'THREE',
-          vue: 'Vue',
-        },
       },
     },
   },
