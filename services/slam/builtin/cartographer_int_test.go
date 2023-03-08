@@ -29,12 +29,6 @@ const (
 
 // Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
-	actualMIME, _, pointcloudOld, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
-	t.Logf("Pointcloud points: %v", pointcloudOld.Size())
-	test.That(t, pointcloudOld.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
-
 	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
@@ -71,12 +65,8 @@ func testCartographerPosition(t *testing.T, svc slam.Service, expectedComponentR
 
 // Checks the cartographer internal state.
 func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir string) {
-	internalState, err := svc.GetInternalState(context.Background(), "test")
-	test.That(t, err, test.ShouldBeNil)
-
 	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(internalState), test.ShouldEqual, len(internalStateStream))
 
 	// Save the data from the call to GetInternalStateStream for use in next test.
 	timeStamp := time.Now()
