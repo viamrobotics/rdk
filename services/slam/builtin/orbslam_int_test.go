@@ -226,7 +226,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", sensors[0])
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", attrCfg.Sensors[0])
 	testOrbslamMap(t, svc)
 
 	// Close out slam service
@@ -322,7 +322,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", sensors[0])
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", sensors[0]) // setting to sensors[0] because orbslam interprets the component reference in offline mode
 	testOrbslamMap(t, svc)
 
 	if !orbslam_hangs {
@@ -433,7 +433,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating", sensors[0])
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating", attrCfg.Sensors[0])
 	testOrbslamMap(t, svc)
 
 	// Close out slam service

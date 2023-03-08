@@ -222,7 +222,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc, "")
+	testCartographerPosition(t, svc, "") // leaving this empty because cartographer does not interpret the component reference in offline mode
 	testCartographerMap(t, svc)
 
 	// Sleep to ensure cartographer saves at least one map
