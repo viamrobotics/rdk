@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
-	"math"
 	"net"
 	"os"
 	"strconv"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -30,7 +28,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -38,10 +35,9 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
-	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
-    slamConfig "go.viam.com/slam/config"
+	slamConfig "go.viam.com/slam/config"
 )
 
 const (
@@ -548,7 +544,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{"gibberish"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -565,7 +561,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -599,7 +595,7 @@ func TestCartographerNew(t *testing.T) {
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
@@ -618,7 +614,7 @@ func TestCartographerNew(t *testing.T) {
 			Sensors:       []string{"bad_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -634,7 +630,7 @@ func TestCartographerNew(t *testing.T) {
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -660,7 +656,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_color_camera", "good_depth_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
@@ -679,7 +675,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -696,7 +692,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"missing_distortion_parameters_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
@@ -717,7 +713,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"missing_camera_properties"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
@@ -737,7 +733,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_depth_camera", "good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -754,7 +750,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			Port:          "localhost:" + strconv.Itoa(port),
 			UseLiveData:   &_true,
 		}
@@ -773,7 +769,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"bad_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -790,7 +786,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"bad_camera_intrinsics"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -807,7 +803,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMsec:    validDataRateMS,
+			DataRateMsec:  validDataRateMS,
 			UseLiveData:   &_true,
 		}
 
@@ -830,7 +826,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		Sensors:       []string{"good_lidar"},
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
-		DataRateMsec:    validDataRateMS,
+		DataRateMsec:  validDataRateMS,
 		Port:          "localhost:" + strconv.Itoa(port),
 		UseLiveData:   &_true,
 	}
@@ -903,7 +899,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		Sensors:       []string{"good_color_camera"},
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
-		DataRateMsec:    validDataRateMS,
+		DataRateMsec:  validDataRateMS,
 		Port:          "localhost:" + strconv.Itoa(port),
 		UseLiveData:   &_true,
 	}
@@ -982,7 +978,7 @@ func TestEndpointFailures(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory: name,
 		MapRateSec:    &validMapRate,
-		DataRateMsec:    validDataRateMS,
+		DataRateMsec:  validDataRateMS,
 		Port:          "localhost:" + strconv.Itoa(port),
 		UseLiveData:   &_true,
 	}
@@ -992,28 +988,10 @@ func TestEndpointFailures(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
-	test.That(t, p, test.ShouldBeNil)
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
-
 	pNew, frame, err := svc.GetPosition(context.Background(), "hi")
 	test.That(t, pNew, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldBeEmpty)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
-
-	pose := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3},
-		&spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-	cp := referenceframe.NewPoseInFrame("frame", pose)
-
-	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})
-	test.That(t, mimeType, test.ShouldResemble, "")
-	test.That(t, im, test.ShouldBeNil)
-	test.That(t, pc, test.ShouldBeNil)
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM map")
-
-	internalState, err := svc.GetInternalState(context.Background(), "hi")
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting the internal state from the SLAM client")
-	test.That(t, internalState, test.ShouldBeNil)
 
 	callbackPointCloud, err := svc.GetPointCloudMapStream(context.Background(), "hi")
 	test.That(t, err, test.ShouldBeNil)
@@ -1142,7 +1120,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory: name,
 		MapRateSec:    &validMapRate,
-		DataRateMsec:    validDataRateMS,
+		DataRateMsec:  validDataRateMS,
 		Port:          "localhost:" + strconv.Itoa(port),
 		UseLiveData:   &_true,
 	}
@@ -1192,7 +1170,7 @@ func TestGRPCConnection(t *testing.T) {
 		ConfigParams:  map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory: name,
 		MapRateSec:    &validMapRate,
-		DataRateMsec:    validDataRateMS,
+		DataRateMsec:  validDataRateMS,
 		Port:          "localhost:-1",
 		UseLiveData:   &_true,
 	}

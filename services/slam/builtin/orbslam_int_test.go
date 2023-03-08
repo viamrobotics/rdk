@@ -19,10 +19,10 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
+	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-    slamConfig "go.viam.com/slam/config"
 )
 
 const (
@@ -73,12 +73,6 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 
 // Checks the orbslam map and confirms there are more than zero map points.
 func testOrbslamMap(t *testing.T, svc slam.Service) {
-	actualMIME, _, pointcloudOld, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
-	t.Logf("Pointcloud points: %v", pointcloudOld.Size())
-	test.That(t, pointcloudOld.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
-
 	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
@@ -107,16 +101,16 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 		expectedOri = &spatialmath.R4AA{Theta: 0.002, RX: 0.602, RY: -0.772, RZ: -0.202}
 	}
 
-	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	position, _, err := svc.GetPosition(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
 
-	actualPos := position.Pose().Point()
+	actualPos := position.Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
 	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
 	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
 	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
 
-	actualOri := position.Pose().Orientation().AxisAngles()
+	actualOri := position.Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
 	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
 	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
