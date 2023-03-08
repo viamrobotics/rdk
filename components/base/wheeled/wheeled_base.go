@@ -153,14 +153,8 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 	errCounter := 0
 	targetYaw := addAnglesInDomain(angleDeg, currYaw)
+	overshoot, dir := findDirAndOvershoot(angleDeg, degsPerSec, targetYaw)
 
-	dir := 1.0
-	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
-		// both positive or both negative is a counterclockwise spin call, so allowable angle must be added
-		// the signs being different is a clockwise spin call, so allowable angle must be subtracted
-		dir = -1
-	}
-	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
 	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) // ~rename
 
 	base.logger.Debug("starting for loop")
@@ -240,6 +234,17 @@ func addAnglesInDomain(target, current float64) float64 {
 	return angle
 }
 
+func findDirAndOvershoot(angleDeg, degsPerSec, targetYaw float64) (float64, int) {
+	dir := 1.0
+	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
+		// both positive or both negative is a counterclockwise spin call, so allowable angle must be added
+		// the signs being different is a clockwise spin call, so allowable angle must be subtracted
+		dir = -1
+	}
+	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
+	return overshoot, int(dir)
+}
+
 // a helper function that calculates the difference between the current yaw and both
 // target yaw and overshootYaw.
 func calculateAngleDiffs(currentYaw, overshoot, targetYaw float64) (float64, float64) {
@@ -252,12 +257,15 @@ func calculateAngleDiffs(currentYaw, overshoot, targetYaw float64) (float64, flo
 
 // checks if we have overshot our target yaw while spiining by comparing the absolute value of the difference of the
 // target angle versus current yaw.
-func hasSpinOvershot(currentYaw, targetYaw, overshoot, dir float64) bool {
+func hasSpinOvershot(currentYaw, targetYaw, overshoot float64, dir int) bool {
 	diffTarget, diffOvershoot := calculateAngleDiffs(currentYaw, overshoot, targetYaw)
-	// if dir == -1 {
-	// return diffTarget >= diffOvershoot
-	// }
-	return diffTarget <= diffOvershoot
+	if math.Abs(diffTarget) > 5 {
+		return false
+	}
+	if dir == -1 {
+		return diffTarget >= diffOvershoot
+	}
+	return math.Abs(diffTarget) <= math.Abs(diffOvershoot)
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
