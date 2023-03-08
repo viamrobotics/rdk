@@ -101,7 +101,7 @@ func init() {
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 // Returns the slam mode.
-func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
+func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, logger golog.Logger) (slam.SubAlgo, error) {
 	slamLib, ok := slam.SLAMLibraries[model]
 	if !ok {
 		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
@@ -690,7 +690,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	var args []string
 
 	args = append(args, "-sensors="+slamSvc.primarySensorName)
-	args = append(args, "-config_param="+slamUtils.CreateKeyValuePairs(slamSvc.configParams))
+	args = append(args, "-config_param="+slamUtils.DictToString(slamSvc.configParams))
 	args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
 	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
