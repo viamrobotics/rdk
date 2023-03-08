@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -12,6 +13,9 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 )
@@ -183,6 +187,28 @@ func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
 
 func (c *client) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
+}
+
+func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	var dur *durationpb.Duration
+	if duration != nil {
+		dur = durationpb.New(*duration)
+	}
+	_, err := c.client.SetPowerMode(ctx, &pb.SetPowerModeRequest{Name: c.info.name, PowerMode: mode, Duration: dur})
+	if err != nil {
+		// A board asked to go into an offline power mode may
+		// not be able to reliably reply to the RPC. Bury
+		// errors that look like no reply was sent.
+		if mode == pb.PowerMode_POWER_MODE_OFFLINE_DEEP {
+			if s, ok := status.FromError(err); ok {
+				if (s.Code() == codes.DeadlineExceeded) || (s.Code() == codes.Unavailable) {
+					return nil
+				}
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
