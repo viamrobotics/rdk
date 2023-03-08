@@ -249,8 +249,8 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 		if err != nil {
 			return nil, err
 		}
+
 		resp, err := processTokenResponse(res)
-		utils.UncheckedError(res.Body.Close())
 		if err != nil && !errors.Is(err, errAuthorizationPending) {
 			return nil, err
 		} else if err == nil {
@@ -348,7 +348,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(res.Body.Close())
+
 	resp, err := processTokenResponse(res)
 	if err != nil {
 		return nil, err
@@ -360,7 +360,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {
-	defer utils.UncheckedErrorFunc(res.Body.Close)
+	defer utils.UncheckedError(res.Body.Close())
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
