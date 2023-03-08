@@ -249,7 +249,6 @@ func TestGPIOInput(t *testing.T) {
 	t.Run("initial button state", func(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
-
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := (s.dev).Events(s.ctx, map[string]interface{}{})
