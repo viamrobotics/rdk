@@ -148,7 +148,7 @@ func TestGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err := tf.Geometries(FloatsToInputs([]float64{10}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
 
 	// test erroring correctly from trying to create a geometry for a rotational frame
 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
@@ -162,7 +162,7 @@ func TestGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
 
 	// test creating a new static frame with a geometry
 	expectedBox = bc.Transform(spatial.NewZeroPose())
@@ -170,14 +170,14 @@ func TestGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
 
 	// test inheriting a geometry creator
 	sf, err = NewStaticFrameFromFrame(tf, pose)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
 }
 
 func TestSerializationStatic(t *testing.T) {

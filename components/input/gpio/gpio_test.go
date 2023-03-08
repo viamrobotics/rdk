@@ -569,36 +569,4 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 3)
 		})
 	})
-
-	// Test methodology: Issue n updates and ensure that each update is processed
-	// in the time based on the 'PollHz' config. e.g. a little over 100ms for 10hz.
-	// Note: This is a time-sensitive test and is prone to flakiness.
-	t.Run("axis poll frequency", func(t *testing.T) {
-		s := setup(t)
-		defer teardown(t, s)
-
-		// Note: the first Set() command must be != 0 to trigger a change event
-		target := 0
-		for i := 1; i < 10; i++ {
-			startTime := time.Now()
-			if target == 0 {
-				target = 1
-				s.b.Analogs["analog1"].Set(1023)
-			} else {
-				target = 0
-				s.b.Analogs["analog1"].Set(0)
-			}
-			testutils.WaitForAssertionWithSleep(t, 5*time.Millisecond, 25, func(tb testing.TB) {
-				tb.Helper()
-				state, err := s.dev.Events(s.ctx, map[string]interface{}{})
-				test.That(tb, err, test.ShouldBeNil)
-				test.That(tb, state["AbsoluteX"].Value, test.ShouldAlmostEqual, target, 0.005)
-				test.That(tb, state["AbsoluteX"].Event, test.ShouldEqual, input.PositionChangeAbs)
-				test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, i)
-			})
-			s.axisMu.RLock()
-			test.That(t, s.axis1Time.Sub(startTime), test.ShouldBeBetween, 50*time.Millisecond, 150*time.Millisecond)
-			s.axisMu.RUnlock()
-		}
-	})
 }

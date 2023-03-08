@@ -4,7 +4,6 @@ import { displayError } from '../../lib/error';
 import {
   StreamClient,
   CameraClient,
-  Camera,
   Client,
   commonApi,
   ServiceError,
@@ -84,7 +83,7 @@ const viewCamera = async (isOn: boolean) => {
 const viewFrame = async (cameraName: string) => {
   let blob;
   try {
-    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
+    blob = await new CameraClient(props.client, cameraName).renderFrame('image/jpeg');
   } catch (error) {
     displayError(error as ServiceError);
     return;
@@ -137,7 +136,7 @@ const exportScreenshot = async (cameraName: string) => {
   let blob;
   try {
     blob = await new CameraClient(props.client, cameraName).renderFrame(
-      Camera.MimeType.JPEG
+      'image/jpeg'
     );
   } catch (error) {
     displayError(error as ServiceError);

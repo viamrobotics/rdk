@@ -30,27 +30,45 @@ const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined
 let slam2dIntervalId = -1;
 let slam3dIntervalId = -1;
 
+const concatArrayU8 = (arrays: Uint8Array[]) => {
+  const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
+  const result = new Uint8Array(totalLength);
+  let length = 0;
+  for (const array of arrays) {
+    result.set(array, length);
+    length += array.length;
+  }
+  return result;
+};
+
 const fetchSLAMMap = (name: string) => {
   return nextTick(() => {
-    const req = new slamApi.GetMapRequest();
+    const req = new slamApi.GetPointCloudMapStreamRequest();
     req.setName(name);
-    req.setMimeType('pointcloud/pcd');
-
     rcLogConditionally(req);
-    props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
-      if (error) {
-        return displayError(error);
+    const chunks: Uint8Array[] = [];
+
+    const getPointCloudMapStream = props.client.slamService.getPointCloudMapStream(req);
+    getPointCloudMapStream.on('data', (res) => {
+      const chunk = res.getPointCloudPcdChunk_asU8();
+      chunks.push(chunk);
+    });
+    getPointCloudMapStream.on('status', (status) => {
+      if (status.code !== 0) {
+        const error = {
+          message: status.details,
+          code: status.code,
+          metadata: status.metadata,
+        };
+        displayError(error);
       }
-
-      /*
-       * TODO: This is a hack workaround the fac that at time of writing response!.getPointCloud()!.getPointCloud_asU8()
-       * appears to return the binary data of the entire response, not response.pointcloud.pointcloud.
-       * Tracked in ticket: https://viam.atlassian.net/browse/RSDK-2108
-       */
-
-      const base64DecodedPointCloudString = atob(response!.toObject().pointCloud!.pointCloud! as string);
-      pointcloud = Uint8Array.from(base64DecodedPointCloudString, (char: string): number => char.codePointAt(0)!);
-      // END NOTE
+    });
+    getPointCloudMapStream.on('end', (end) => {
+      if (end === undefined || end.code !== 0) {
+        // the error will be logged in the 'status' callback
+        return;
+      }
+      pointcloud = concatArrayU8(chunks);
       pointCloudUpdateCount += 1;
     });
   });
@@ -58,14 +76,14 @@ const fetchSLAMMap = (name: string) => {
 
 const fetchSLAMPose = (name: string) => {
   return nextTick(() => {
-    const req = new slamApi.GetPositionRequest();
+    const req = new slamApi.GetPositionNewRequest();
     req.setName(name);
-    props.client.slamService.getPosition(req, new grpc.Metadata(), (error, res): void => {
+    props.client.slamService.getPositionNew(req, new grpc.Metadata(), (error, res): void => {
       if (error) {
         displayError(error);
         return;
       }
-      pose = res!.getPose()!.getPose()!;
+      pose = res!.getPose()!;
     });
   });
 };

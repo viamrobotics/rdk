@@ -3,6 +3,21 @@
 // Package piimpl contains the implementation of a supported Raspberry Pi board.
 package piimpl
 
+/*
+	This driver contains various functionalities of raspberry pi board using the
+	pigpio library (https://abyz.me.uk/rpi/pigpio/pdif2.html).
+
+	NOTE: This driver only supports software PWM functionality of raspberry pi.
+		  For software PWM, we currently support the default sample rate of
+		  5 microseconds, which supports the following 18 frequencies (Hz):
+
+		  8000  4000  2000 1600 1000  800  500  400  320
+          250   200   160  100   80   50   40   20   10
+
+		  Details on this can be found here -> https://abyz.me.uk/rpi/pigpio/pdif2.html#set_PWM_frequency
+
+*/
+
 // #include <stdlib.h>
 // #include <pigpio.h>
 // #include "pi.h"
@@ -187,6 +202,7 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	return piInstance, nil
 }
 
+// GPIOPinNames returns the names of all known GPIO pins.
 func (pi *piPigpio) GPIOPinNames() []string {
 	names := make([]string, 0, len(piHWPinToBroadcom))
 	for k := range piHWPinToBroadcom {
@@ -195,6 +211,7 @@ func (pi *piPigpio) GPIOPinNames() []string {
 	return names
 }
 
+// GPIOPinByName returns a GPIOPin by name.
 func (pi *piPigpio) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
@@ -474,6 +491,9 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 }
 
 // DigitalInterruptNames returns the name of all known digital interrupts.
+// NOTE: During board setup, if a digital interrupt has not been created
+// for a pin, then this function will attempt to create one with the pin
+// number as the name.
 func (pi *piPigpio) DigitalInterruptNames() []string {
 	names := []string{}
 	for k := range pi.interrupts {
@@ -482,21 +502,25 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 	return names
 }
 
+// AnalogReaderByName returns an analog reader by name.
 func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := pi.analogs[name]
 	return a, ok
 }
 
+// SPIByName returns an SPI bus by name.
 func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
 	s, ok := pi.spis[name]
 	return s, ok
 }
 
+// I2CByName returns an I2C by name.
 func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
 	s, ok := pi.i2cs[name]
 	return s, ok
 }
 
+// DigitalInterruptByName returns a digital interrupt by name.
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
@@ -579,6 +603,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	return err
 }
 
+// Status returns the current status of the board.
 func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi, extra)
 }
