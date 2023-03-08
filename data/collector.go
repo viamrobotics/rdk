@@ -104,6 +104,7 @@ func (c *collector) capture(started chan struct{}) {
 
 func (c *collector) sleepBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
+	until := c.clock.Until(next)
 	captureWorkers := sync.WaitGroup{}
 
 	close(started)
@@ -116,7 +117,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 			close(c.queue)
 			return
 		}
-		c.clock.Sleep(c.interval)
+		c.clock.Sleep(until)
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -131,6 +132,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 			})
 		}
 		next = next.Add(c.interval)
+		until = c.clock.Until(next)
 	}
 }
 
