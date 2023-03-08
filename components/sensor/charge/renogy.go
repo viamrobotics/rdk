@@ -39,28 +39,28 @@ type AttrConfig struct {
 
 // Charge represents a charge state.
 type Charge struct {
-	SolarVolt             float32 `json:"solar_volt"`
-	SolarAmp              float32 `json:"solar_amp"`
-	SolarWatt             float32 `json:"solar_watt"`
-	LoadVolt              float32 `json:"load_volt"`
-	LoadAmp               float32 `json:"load_amp"`
-	LoadWatt              float32 `json:"load_watt"`
-	BattVolt              float32 `json:"batt_volt"`
-	BattChargePct         float32 `json:"batt_charge_pct"`
-	BattDegC              int16   `json:"batt_deg_c"`
-	ControllerDegC        int16   `json:"controller_deg_c"`
-	MaxSolarTodayWatt     float32 `json:"max_solar_today_watt"`
-	MinSolarTodayWatt     float32 `json:"min_solar_today_watt"`
-	MaxBattTodayVolt      float32 `json:"max_batt_today_volt"`
-	MinBattTodayVolt      float32 `json:"min_batt_today_volt"`
-	MaxSolarTodayAmp      float32 `json:"max_solar_today_amp"`
-	MinSolarTodayAmp      float32 `json:"min_solar_today_amp"`
-	ChargeTodayWattHrs    float32 `json:"charge_today_watt_hrs"`
-	DischargeTodayWattHrs float32 `json:"discharge_today_watt_hrs"`
-	ChargeTodayAmpHrs     float32 `json:"charge_today_amp_hrs"`
-	DischargeTodayAmpHrs  float32 `json:"discharge_today_amp_hrs"`
-	TotalBattOverCharges  float32 `json:"total_batt_over_charges"`
-	TotalBattFullCharges  float32 `json:"total_batt_full_charges"`
+	SolarVolt             float32
+	SolarAmp              float32
+	SolarWatt             float32
+	LoadVolt              float32
+	LoadAmp               float32
+	LoadWatt              float32
+	BattVolt              float32
+	BattChargePct         float32
+	BattDegC              int16
+	ControllerDegC        int16
+	MaxSolarTodayWatt     float32
+	MinSolarTodayWatt     float32
+	MaxBattTodayVolt      float32
+	MinBattTodayVolt      float32
+	MaxSolarTodayAmp      float32
+	MinSolarTodayAmp      float32
+	ChargeTodayWattHrs    float32
+	DischargeTodayWattHrs float32
+	ChargeTodayAmpHrs     float32
+	DischargeTodayAmpHrs  float32
+	TotalBattOverCharges  float32
+	TotalBattFullCharges  float32
 }
 
 func init() {

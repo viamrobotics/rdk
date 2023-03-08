@@ -308,8 +308,6 @@ func (config *Remote) Validate(path string) error {
 // cloud.
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
-//
-//nolint:musttag // Not tagged as actual json converted with cloudData below
 type Cloud struct {
 	ID                string
 	Secret            string

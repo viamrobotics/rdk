@@ -42,6 +42,7 @@ linters:
     - maintidx
     - maligned
     - makezero
+    - musttag
     - nestif
     - nlreturn
     - nosnakecase
@@ -101,10 +102,6 @@ issues:
     - path: services/slam/
       linters:
         - staticcheck
-    # musttag catches errors in go 1.19 itself and in other imported packages we don't control
-    - path: ^../|^\$GOROOT/
-      linters:
-        - musttag
   exclude-use-default: false
   max-per-linter: 0
   max-same-issues: 0
