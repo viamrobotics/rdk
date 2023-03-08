@@ -319,7 +319,7 @@ func TestMotorABNoEncoder(t *testing.T) {
 	})
 }
 
-func TestGoForInterruption(t *testing.T) {
+func TestGoForInterruptionAB(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
@@ -353,16 +353,25 @@ func TestGoForInterruption(t *testing.T) {
 	test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
 	test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
 	test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
+}
 
-	m, err = NewMotor(b, Config{
+func TestGoForInterruptionDir(t *testing.T) {
+	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
+	logger := golog.NewTestLogger(t)
+
+	mc := config.Component{
+		Name: "abc",
+	}
+
+	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
 	}, mc.Name, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, waitDur = goForMath(maxRPM, 50, 100)
-	errChan = make(chan error)
-	startTime = time.Now()
+	_, waitDur := goForMath(maxRPM, 50, 100)
+	errChan := make(chan error)
+	startTime := time.Now()
 	go func() {
 		goForErr := m.GoFor(context.Background(), 50, 100, nil)
 		errChan <- goForErr
@@ -374,7 +383,7 @@ func TestGoForInterruption(t *testing.T) {
 		test.That(tb, isOn, test.ShouldBeTrue)
 	})
 	test.That(t, m.Stop(context.Background(), nil), test.ShouldBeNil)
-	receivedErr = <-errChan
+	receivedErr := <-errChan
 	test.That(t, receivedErr, test.ShouldBeNil)
 	test.That(t, time.Since(startTime), test.ShouldBeLessThan, waitDur)
 	test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
