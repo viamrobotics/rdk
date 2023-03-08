@@ -22,10 +22,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	appAddress = "app.viam.com:443"
-)
-
 var (
 	// InitialWaitTimeMillis defines the time to wait on the first retried upload attempt.
 	InitialWaitTimeMillis = atomic.NewInt32(1000)
@@ -72,7 +68,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 			}),
 	}
 
-	conn, err := NewConnection(logger, appAddress, rpcOpts)
+	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +269,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
