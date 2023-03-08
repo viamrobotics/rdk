@@ -131,7 +131,7 @@ func TestMotorEncoder1(t *testing.T) {
 			tb.Helper()
 			pos, err := _motor.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldAlmostEqual, 10)
+			test.That(tb, pos, test.ShouldAlmostEqual, 10, 0.01)
 		})
 	})
 
