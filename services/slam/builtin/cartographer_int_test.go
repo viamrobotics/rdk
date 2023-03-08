@@ -18,10 +18,11 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
-	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+    slamConfig "go.viam.com/slam/config"
 )
+
 
 const (
 	cartoSleepMs = 100
@@ -29,6 +30,12 @@ const (
 
 // Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
+	actualMIME, _, pointcloudOld, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
+	t.Logf("Pointcloud points: %v", pointcloudOld.Size())
+	test.That(t, pointcloudOld.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+
 	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
@@ -45,16 +52,16 @@ func testCartographerPosition(t *testing.T, svc slam.Service) {
 	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
 	toleranceOri := 0.5
 
-	position, _, err := svc.GetPosition(context.Background(), "test")
+	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
-	actualPos := position.Point()
+	actualPos := position.Pose().Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
 	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
 	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
 	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
 
-	actualOri := position.Orientation().AxisAngles()
+	actualOri := position.Pose().Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
 	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
 	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
@@ -64,8 +71,12 @@ func testCartographerPosition(t *testing.T, svc slam.Service) {
 
 // Checks the cartographer internal state.
 func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir string) {
+	internalState, err := svc.GetInternalState(context.Background(), "test")
+	test.That(t, err, test.ShouldBeNil)
+
 	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(internalState), test.ShouldEqual, len(internalStateStream))
 
 	// Save the data from the call to GetInternalStateStream for use in next test.
 	timeStamp := time.Now()
