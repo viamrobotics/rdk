@@ -20,6 +20,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install and Build 🔧
+        run: |
+          npm ci --audit=false
+          npm run build-npm
+
       - name: Publish
         uses: JS-DevTools/npm-publish@v1
         with:
