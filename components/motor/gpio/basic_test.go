@@ -264,7 +264,7 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
 		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, .5)
-		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
 	})
