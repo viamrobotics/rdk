@@ -16,13 +16,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	_ "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
-	"go.viam.com/rdk/examples/customresources/apis/thingamabobapi"
+	"go.viam.com/rdk/examples/customresources/models/mybase"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
-	"go.viam.com/rdk/examples/customresources/models/mythingamabob"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -35,24 +35,33 @@ func TestModuleFunctions(t *testing.T) {
 	gizmoConf := &v1.ComponentConfig{
 		Name: "gizmo1", Api: "acme:component:gizmo", Model: "acme:demo:mygizmo",
 	}
-	thingamabobAttrs, err := protoutils.StructToStructPb(mythingamabob.ThingamabobConfig{Gizmo: "gizmo1"})
+	myBaseAttrs, err := protoutils.StructToStructPb(mybase.MyBaseConfig{
+		LeftMotor:  "motor1",
+		RightMotor: "motor2",
+	})
 	test.That(t, err, test.ShouldBeNil)
-	thingamabobConf := &v1.ComponentConfig{
-		Name:       "thingamabob1",
-		Api:        "acme:component:thingamabob",
-		Model:      "acme:demo:mythingamabob",
-		Attributes: thingamabobAttrs,
+	myBaseConf := &v1.ComponentConfig{
+		Name:       "mybase1",
+		Api:        "rdk:component:base",
+		Model:      "acme:demo:mybase",
+		Attributes: myBaseAttrs,
 	}
-	// thingamabob2 is missing required attribute "gizmo" and should cause Validation error.
-	badThingamabobConf := &v1.ComponentConfig{
-		Name:  "thingamabob2",
-		Api:   "acme:component:thingamabob",
-		Model: "acme:demo:mythingamabob",
+	// myBaseConf2 is missing required attributes "motorL" and "motorR" and should
+	// cause Validation error.
+	badMyBaseConf := &v1.ComponentConfig{
+		Name:  "mybase2",
+		Api:   "rdk:component:base",
+		Model: "acme:demo:mybase",
 	}
 
 	cfg := &config.Config{Components: []config.Component{
 		{
 			Name:  "motor1",
+			API:   resource.NewSubtype("rdk", "component", "motor"),
+			Model: resource.NewDefaultModel("fake"),
+		},
+		{
+			Name:  "motor2",
 			API:   resource.NewSubtype("rdk", "component", "motor"),
 			Model: resource.NewDefaultModel("fake"),
 		},
@@ -69,7 +78,7 @@ func TestModuleFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model), test.ShouldBeNil)
-	test.That(t, m.AddModelFromRegistry(ctx, thingamabobapi.Subtype, mythingamabob.Model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, base.Subtype, mybase.Model), test.ShouldBeNil)
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
@@ -102,8 +111,8 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, handlers[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
 		// use test.ShouldBeIn as depending on order of handler return, component handler
 		// could be either gizmo or thingamabob.
-		test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "thingamabob")
-		test.That(t, handlers[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mythingamabob")
+		test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "base")
+		test.That(t, handlers[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mybase")
 
 		// convert from proto
 		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), conn)
@@ -111,16 +120,16 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, len(hmap), test.ShouldEqual, 2)
 
 		for k, v := range hmap {
-			test.That(t, k.Subtype, test.ShouldBeIn, gizmoapi.Subtype, thingamabobapi.Subtype)
-			test.That(t, v[0], test.ShouldBeIn, mygizmo.Model, mythingamabob.Model)
+			test.That(t, k.Subtype, test.ShouldBeIn, gizmoapi.Subtype, base.Subtype)
+			test.That(t, v[0], test.ShouldBeIn, mygizmo.Model, mybase.Model)
 		}
 
 		// convert back to proto
 		handlers2 := hmap.ToProto().GetHandlers()
 		test.That(t, handlers2[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
 		test.That(t, handlers2[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-		test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "thingamabob")
-		test.That(t, handlers2[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mythingamabob")
+		test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "base")
+		test.That(t, handlers2[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mybase")
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {
@@ -208,15 +217,16 @@ func TestModuleFunctions(t *testing.T) {
 	})
 
 	t.Run("Validate", func(t *testing.T) {
-		resp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: thingamabobConf})
+		resp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: myBaseConf})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Dependencies, test.ShouldNotBeNil)
-		test.That(t, resp.Dependencies[0], test.ShouldResemble, "gizmo1")
+		test.That(t, resp.Dependencies[0], test.ShouldResemble, "motor1")
+		test.That(t, resp.Dependencies[1], test.ShouldResemble, "motor2")
 
-		_, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: badThingamabobConf})
+		_, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: badMyBaseConf})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldResemble,
-			`error validating component: expected "gizmo" attribute for thingamabob "thingamabob2"`)
+			`error validating component: expected "motorL" attribute for mybase "mybase2"`)
 	})
 
 	err = utils.TryClose(ctx, gClient)

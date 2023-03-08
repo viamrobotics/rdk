@@ -8,9 +8,6 @@ APIs represent new types of components or services, with a new interface definit
 Custom (component) api called "Gizmo" (acme:component:gizmo).
 Note that this is split into two files. The content of wrapper.go is only needed to support reconfiguration during standalone (non-modular) use.
 
-### thingamabobapi
-Custom (component) api called "Thingamabob" (acme:component:gizmo). Thingamabob is used to demonstrate custom Validation logic for modules and usage of implicit dependencies.
-
 ### summationapi
 Custom (service) api called "Summation" (acme:service:summation).
 
@@ -22,9 +19,6 @@ Models are concrete implementations of a specific type (API) of component or ser
 
 ### mygizmo
 A specific model (acme:demo:mygizmo) that implements the custom Gizmo API.
-
-### mythingamabob
-A specific model (acme:demo:mythingamabob) that implements the custom Thingamabob API. The API does nothing and is only used to demonstrate custom Validation logic.
 
 ### mysum
 A specific model (acme:demo:mysum) that implements the custom Summation API. Simply adds or subtracts numbers.
