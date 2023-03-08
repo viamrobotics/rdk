@@ -418,37 +418,24 @@ func (m *Module) ValidateConfig(ctx context.Context,
 		return nil, err
 	}
 
-	// Try to run Validate on configuration object for component.
-	cType := resource.NewSubtype(c.Namespace, "component", c.Type)
+	// Try to find map converter for a component.
+	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.Type)
 	conv := config.FindMapConverter(cType, c.Model)
-	if conv != nil {
-		converted, err := conv(c.Attributes)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for component")
-		}
-		validator, ok := converted.(Validator)
-		if ok {
-			implicitDeps, err := validator.Validate(c.Name)
-			if err != nil {
-				return nil, errors.Wrapf(err, "error validating component")
-			}
-			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
-		}
+	// If no map converter for a component exists, try to find map converter for a
+	// service.
+	if conv == nil {
+		conv = config.FindServiceMapConverter(cType, c.Model)
 	}
-
-	// Try to run Validate on configuration object for service.
-	sType := resource.NewSubtype(c.Namespace, "service", c.Type)
-	conv = config.FindServiceMapConverter(sType, c.Model)
 	if conv != nil {
 		converted, err := conv(c.Attributes)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for service")
+			return nil, errors.Wrapf(err, "error converting attributes for resource")
 		}
 		validator, ok := converted.(Validator)
 		if ok {
 			implicitDeps, err := validator.Validate(c.Name)
 			if err != nil {
-				return nil, errors.Wrapf(err, "error validating service")
+				return nil, errors.Wrapf(err, "error validating resource")
 			}
 			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
 		}
