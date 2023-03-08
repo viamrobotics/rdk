@@ -1,11 +1,12 @@
 <script setup lang="ts">
 
-import { threeInstance, resizeRendererToDisplaySize } from 'trzy';
+import { threeInstance, resizeRendererToDisplaySize, MouseRaycaster } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
+import Inspector from 'three-inspect';
 
 interface Props {
   name: string
@@ -27,23 +28,41 @@ const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer } = threeInstance();
+const { scene, renderer, canvas } = threeInstance();
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
 
-renderer.domElement.style.cssText = 'width:100%;height:100%;';
+canvas.style.cssText = 'width:100%;height:100%;';
 
 const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
 camera.userData.size = 2;
+
+scene.add(camera);
+
+const inspector = new Inspector(THREE, scene, camera, renderer)
+
+const intersectionPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(100, 100, 1, 1).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 'blue' })
+);
+intersectionPlane.name = 'Intersection Plane';
+
+const raycaster = new MouseRaycaster({ camera, canvas, objects: [intersectionPlane], recursive: false });
+
+raycaster.addEventListener('click', (event) => {
+  console.log(event);
+});
 
 const markerSize = 0.5;
 const marker = new THREE.Mesh(
   new THREE.PlaneGeometry(markerSize, markerSize).rotateX(-Math.PI / 2),
   new THREE.MeshBasicMaterial({ color: 'red' })
 );
+marker.name = 'Marker';
 
-const controls = new MapControls(camera, renderer.domElement);
+const controls = new MapControls(camera, canvas);
+controls.enableRotate = false;
 
 const disposeScene = () => {
   scene.traverse((object: THREE.Points | THREE.Material | unknown) => {
@@ -60,11 +79,25 @@ const disposeScene = () => {
 };
 
 const update = (pointcloud: Uint8Array, pose: commonApi.Pose) => {
+  controls.enabled = false;
+  console.log(1)
   const points = loader.parse(pointcloud.buffer, '');
+  points.geometry.computeBoundingSphere();
 
   const x = pose.getX!();
   const y = pose.getY!();
   marker.position.setX(x);
+
+  const { radius = 1, center } = points.geometry.boundingSphere ?? {};
+
+  controls.update()
+  camera.position.set(center!.x, 100, center!.z);
+  camera.rotation.set(Math.PI, 0, 0);
+  camera.lookAt(center!.x, 0, center!.z);
+  controls.saveState();
+
+  camera.zoom = 1 / radius;
+  // controls.maxZoom = radius;
 
   /*
    * TODO: This is set to xz b/c we are projecting on the xz plane.
@@ -77,27 +110,22 @@ const update = (pointcloud: Uint8Array, pose: commonApi.Pose) => {
   disposeScene();
   scene.add(points);
   scene.add(marker);
-};
+  scene.add(intersectionPlane);
 
-const init = (pointcloud: Uint8Array, pose: commonApi.Pose) => {
-  update(pointcloud, pose);
+  controls.enabled = true;
 };
 
 onMounted(() => {
-  container.append(renderer.domElement);
-
-  camera.position.set(0, 100, 0);
-  camera.lookAt(0, 0, 0);
+  container.append(canvas);
 
   renderer.setAnimationLoop(() => {
     resizeRendererToDisplaySize(camera, renderer);
 
     renderer.render(scene, camera);
-    controls.update();
   });
 
   if (props.pointcloud !== undefined && props.pose !== undefined) {
-    init(props.pointcloud, props.pose);
+    update(props.pointcloud, props.pose);
   }
 });
 
@@ -110,7 +138,7 @@ watch(
   [() => (props.pointCloudUpdateCount), () => (props.pose)],
   () => {
     if (props.pointcloud !== undefined && props.pose !== undefined) {
-      init(props.pointcloud, props.pose);
+      update(props.pointcloud, props.pose);
     }
   }
 );
