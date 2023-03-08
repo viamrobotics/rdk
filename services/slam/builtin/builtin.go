@@ -876,7 +876,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 		}
 		return filenames, nil
-	case slam.Dim2d, slam.Dim3d:
+	case slam.Dim2d:
 		return nil, errors.Errorf("bad subAlgo %v specified for this algorithm", slamSvc.subAlgo)
 	default:
 		return nil, errors.Errorf("invalid subAlgo %v specified", slamSvc.subAlgo)
@@ -942,7 +942,7 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 
 	var fileType string
 	switch slamSvc.subAlgo {
-	case slam.Dim2d, slam.Dim3d:
+	case slam.Dim2d:
 		fileType = ".pcd"
 	case slam.Rgbd, slam.Mono:
 		return "", errors.Errorf("bad subAlgo %v specified for this algorithm", slamSvc.subAlgo)
@@ -959,18 +959,21 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
 func createTimestampFilenames(dataDirectory, primarySensorName, fileType string, subAlgo slam.SubAlgo) ([]string, error) {
 	timeStamp := time.Now()
-	dataDirectory = filepath.Join(dataDirectory, "data")
+	dataDir := filepath.Join(dataDirectory, "data")
+	rbgDataDir := filepath.Join(dataDir, "rgb")
+	depthDataDir := filepath.Join(dataDir, "depth")
+
 	switch subAlgo {
-	case slam.Rgbd:
-		colorFilename := dataprocess.CreateTimestampFilename(filepath.Join(dataDirectory, "rgb"), primarySensorName, fileType, timeStamp)
-		depthFilename := dataprocess.CreateTimestampFilename(filepath.Join(dataDirectory, "depth"), primarySensorName, fileType, timeStamp)
-		return []string{colorFilename, depthFilename}, nil
-	case slam.Mono:
-		colorFilename := dataprocess.CreateTimestampFilename(filepath.Join(dataDirectory, "rgb"), primarySensorName, fileType, timeStamp)
-		return []string{colorFilename}, nil
-	case slam.Dim2d, slam.Dim3d:
-		filename := dataprocess.CreateTimestampFilename(dataDirectory, primarySensorName, fileType, timeStamp)
+	case slam.Dim2d:
+		filename := dataprocess.CreateTimestampFilename(dataDir, primarySensorName, fileType, timeStamp)
 		return []string{filename}, nil
+	case slam.Mono:
+		rgbFilename := dataprocess.CreateTimestampFilename(rbgDataDir, primarySensorName, fileType, timeStamp)
+		return []string{rgbFilename}, nil
+	case slam.Rgbd:
+		rgbFilename := dataprocess.CreateTimestampFilename(rbgDataDir, primarySensorName, fileType, timeStamp)
+		depthFilename := dataprocess.CreateTimestampFilename(depthDataDir, primarySensorName, fileType, timeStamp)
+		return []string{rgbFilename, depthFilename}, nil
 	default:
 		return nil, errors.Errorf("Invalid slam mode: %v", subAlgo)
 	}
