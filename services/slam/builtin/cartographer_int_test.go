@@ -74,7 +74,7 @@ func testCartographerPosition(t *testing.T, svc slam.Service, sensor string) {
 
 	position, componentRef, err := svc.GetPosition(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, componentRef, test.ShouldEqual, componentRef)
+	test.That(t, componentRef, test.ShouldEqual, sensor)
 
 	actualPos := position.Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
