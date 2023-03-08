@@ -52,17 +52,21 @@ const getValue = (controlMatch: string) => {
   return '';
 };
 
-const controls: string[][] = [];
+const controls = $computed(() => {
+  const pendingControls = [];
 
-for (const ctrl of controlOrder) {
-  const value = getValue(ctrl);
-  if (value !== '') {
-    controls.push([
-      ctrl.replace('Absolute', '').replace('Button', ''),
-      value,
-    ]);
+  for (const ctrl of controlOrder) {
+    const value = getValue(ctrl);
+    if (value !== '') {
+      pendingControls.push([
+        ctrl.replace('Absolute', '').replace('Button', ''),
+        value,
+      ]);
+    }
   }
-}
+
+  return pendingControls;
+});
 
 </script>
 
