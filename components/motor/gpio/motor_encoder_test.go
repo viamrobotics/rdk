@@ -89,28 +89,28 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
-		test.That(t, _motor.goForInternal(context.Background(), 1000, 100), test.ShouldBeNil)
+		test.That(t, _motor.goForInternal(context.Background(), 1000, 1000), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, float32(0))
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, float32(1))
-		})
 
 		errChan := make(chan error)
 		go func() {
 			ticksErr := interrupt.Ticks(context.Background(), 99, nowNanosTest())
 			errChan <- ticksErr
 		}()
-		time.Sleep(2 * time.Millisecond)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, float32(1))
+		})
 		_motor.SetPower(context.Background(), -0.25, nil)
 		receivedErr := <-errChan
 		test.That(t, receivedErr, test.ShouldBeNil)
 		pos, err := _motor.Position(context.Background(), nil)
+		// should not have reached the final position intended by the
+		// goForInternal call
+		test.That(t, pos, test.ShouldBeLessThan, 1000)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
-		test.That(t, pos, test.ShouldBeLessThan, 100)
 	})
 
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
