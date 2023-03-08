@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/services/slam/builtin"
+    slamConfig "go.viam.com/slam/config"
 )
 
 func TestConfigValidation(t *testing.T) {
@@ -47,18 +48,10 @@ func TestConfigValidation(t *testing.T) {
 		_, err = builtin.RuntimeConfigValidation(cfg, model, logger)
 		test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", model))
 	})
-
-	t.Run("SLAM config check data_rate_ms", func(t *testing.T) {
-		cfg := getValidConfig(name1)
-		model := "cartographer"
-		cfg.DataRateMs = 10
-		_, err = builtin.RuntimeConfigValidation(cfg, model, logger)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot specify data_rate_msec less than 200"))
-	})
 }
 
-func getValidConfig(dataDirectory string) *builtin.AttrConfig {
-	return &builtin.AttrConfig{
+func getValidConfig(dataDirectory string) *slamConfig.AttrConfig {
+	return &slamConfig.AttrConfig{
 		Sensors:       []string{"rplidar"},
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: dataDirectory,
