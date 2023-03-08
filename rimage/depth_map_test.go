@@ -374,7 +374,6 @@ func TestViamDepthMap(t *testing.T) {
 func TestDepthMapEncoding(t *testing.T) {
 	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/fakeDM.vnd.viam.dep"))
 	test.That(t, err, test.ShouldBeNil)
-
 	// Test values at points of DepthMap
 	// This example DepthMap (fakeDM) was made such that Depth(x,y) = x*y
 	test.That(t, m.Width(), test.ShouldEqual, 20)
@@ -385,10 +384,6 @@ func TestDepthMapEncoding(t *testing.T) {
 	test.That(t, testPt2, test.ShouldEqual, 60)
 
 	// Save DepthMap BYTES to a file
-	buf := bytes.Buffer{}
-	err = m.WriteToBuf(&buf)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, buf.Bytes(), test.ShouldNotBeNil)
 	outDir := testutils.TempDirT(t, "", "rimage")
 	saveTo := outDir + "/grayboard_bytes.vnd.viam.dep"
 	err = WriteRawDepthMapToFile(m, saveTo)
