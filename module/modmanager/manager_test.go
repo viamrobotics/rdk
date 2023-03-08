@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
-	"time"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
@@ -246,12 +246,12 @@ func TestModManagerValidation(t *testing.T) {
 		`rpc error: code = Unknown desc = error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 
 	// Test that ValidateConfig respects defaultValidateConfigTimeout by artificially
-  // lowering it to an impossibly small duration.
+	// lowering it to an impossibly small duration.
 	defaultValidateConfigTimeout = 1 * time.Nanosecond
 	_, err = mgr.ValidateConfig(ctx, cfgMyBase1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
-    "rpc error: code = DeadlineExceeded desc = context deadline exceeded")
+		"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
