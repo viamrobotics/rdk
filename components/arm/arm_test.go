@@ -452,9 +452,9 @@ func TestOOBArm(t *testing.T) {
 	t.Run("MoveToPosition works when IB", func(t *testing.T) {
 		homePose, err := injectedArm.EndPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		testLinearMove := r3.Vector{homePose.Point().X - 20, homePose.Point().Y, homePose.Point().Z}
-		pose = spatialmath.NewPoseFromPoint(testLinearMove)
-		err = injectedArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
+		testLinearMove := r3.Vector{homePose.Point().X + 20, homePose.Point().Y, homePose.Point().Z}
+		testPose := spatialmath.NewPoseFromPoint(testLinearMove)
+		err = injectedArm.MoveToPosition(context.Background(), testPose, &referenceframe.WorldState{}, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
