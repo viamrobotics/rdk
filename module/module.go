@@ -411,7 +411,8 @@ type Validator interface {
 
 // ValidateConfig receives the validation request for a resource from the parent.
 func (m *Module) ValidateConfig(ctx context.Context,
-	req *pb.ValidateConfigRequest) (*pb.ValidateConfigResponse, error) {
+	req *pb.ValidateConfigRequest,
+) (*pb.ValidateConfigResponse, error) {
 	c, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err

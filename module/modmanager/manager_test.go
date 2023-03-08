@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
@@ -126,6 +127,10 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test ValidateConfig")
+	// ValidateConfig for cfgCounter1 will not actually call any Validate functionality,
+	// as the mycounter model does not have a configuration object with Validate.
+	// Assert that ValidateConfig does not fail in this case (allows unimplemented
+	// validation).
 	deps, err := mgr.ValidateConfig(ctx, cfgCounter1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldBeNil)
@@ -159,6 +164,85 @@ func TestModManagerFunctions(t *testing.T) {
 
 	err = goutils.TryClose(ctx, counter)
 	test.That(t, err, test.ShouldBeNil)
+
+	err = mgr.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModManagerValidation(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	modExe := utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = utils.ResolveFile("examples/customresources/demos/complexmodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+	cfgMyBase1 := config.Component{
+		Name:  "mybase1",
+		API:   base.Subtype,
+		Model: myBaseModel,
+		Attributes: map[string]interface{}{
+			"motorL": "motor1",
+			"motorR": "motor2",
+		},
+	}
+	_, err = cfgMyBase1.Validate("test")
+	test.That(t, err, test.ShouldBeNil)
+	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
+	// cause module Validation error.
+	cfgMyBase2 := config.Component{
+		Name:  "mybase2",
+		API:   base.Subtype,
+		Model: myBaseModel,
+	}
+	_, err = cfgMyBase2.Validate("test")
+	test.That(t, err, test.ShouldBeNil)
+
+	myRobot := &inject.Robot{}
+	myRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+
+	myRobot.ModuleAddressFunc = func() (string, error) {
+		return parentAddr, nil
+	}
+
+	t.Log("adding complex module")
+	mgr, err := NewManager(myRobot)
+	test.That(t, err, test.ShouldBeNil)
+
+	modCfg := config.Module{
+		Name:    "complex-module",
+		ExePath: modExe,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	reg := registry.ComponentLookup(base.Subtype, myBaseModel)
+	test.That(t, reg.Constructor, test.ShouldNotBeNil)
+
+	t.Log("test ValidateConfig")
+	deps, err := mgr.ValidateConfig(ctx, cfgMyBase1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, deps, test.ShouldNotBeNil)
+	test.That(t, deps[0], test.ShouldResemble, "motor1")
+	test.That(t, deps[1], test.ShouldResemble, "motor2")
+
+	_, err = mgr.ValidateConfig(ctx, cfgMyBase2)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldResemble,
+		`rpc error: code = Unknown desc = error validating component: expected "motorL" attribute for mybase "mybase2"`)
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
