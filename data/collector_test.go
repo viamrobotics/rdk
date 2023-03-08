@@ -149,7 +149,6 @@ func TestSuccessfulWrite(t *testing.T) {
 				mockClock.Add(params.Interval)
 				select {
 				case <-ctx.Done():
-					fmt.Println(i)
 					t.Fatalf("timed out waiting for data to be written")
 				case <-wrote:
 				}
@@ -290,7 +289,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-// nolint
+//nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
