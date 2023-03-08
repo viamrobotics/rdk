@@ -408,20 +408,20 @@ func TestAngleCalculations(t *testing.T) {
 
 			t.Run(tc.Condition+" overshot", func(t *testing.T) {
 				// overshot, the allowed angle is less than 15 degrees
-				overshot := hasSpinOvershot(tc.Current, tc.Target, addAnglesInDomain(tc.Target, -allowableAngle), float64(tc.Dir))
+				overshot := hasSpinOvershot(tc.Current, tc.Target, addAnglesInDomain(tc.Target, -allowableAngle), tc.Dir)
 				// we have overshot 10 degrees
 				test.That(t, overshot, test.ShouldBeTrue)
 			})
 			t.Run(tc.Condition+" exact", func(t *testing.T) {
 				// exact overshoot, the allowed  exactly 15 degrees
-				overshot := hasSpinOvershot(tc.Overshoot, tc.Target, addAnglesInDomain(tc.Target, 0), float64(tc.Dir))
+				overshot := hasSpinOvershot(tc.Overshoot, tc.Target, addAnglesInDomain(tc.Target, 0), tc.Dir)
 				// edge of overshoot at 15 degrees
 				test.That(t, overshot, test.ShouldBeTrue)
 			})
 
 			t.Run(tc.Condition+" undershot", func(t *testing.T) {
 				// undershot, the allowed angle is under 15 degrees
-				overshot := hasSpinOvershot(tc.Overshoot, tc.Target, addAnglesInDomain(tc.Target, float64(tc.Dir)*allowableAngle), float64(tc.Dir))
+				overshot := hasSpinOvershot(tc.Overshoot, tc.Target, addAnglesInDomain(tc.Target, float64(tc.Dir)*allowableAngle), tc.Dir)
 				// we have not overshot 25 degrees
 				test.That(t, overshot, test.ShouldBeFalse)
 			})
