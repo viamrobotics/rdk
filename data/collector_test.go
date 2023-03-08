@@ -140,7 +140,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
 			// We need to avoid adding time until after the initial sleep time/ticker start are calculated,
-			// which occurs about a dozen lines into the c.Collect() calls underlying capture goroutine.
+			// which occurs about a dozen lines into the c.Collect() call's underlying capture goroutine.
 			// If we add time before that point, data will never be captured, because time will never be greater than
 			// the initially calculated time.
 			// Sleeping for 10ms is a hacky way to ensure that we don't encounter this situation. It's not ideal, but
