@@ -139,19 +139,17 @@ func TestSuccessfulWrite(t *testing.T) {
 			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
-			// We need to avoid adding time until after the initial sleep time/ticker start are calculated,
-			// which occurs about a dozen lines into the c.Collect() call's underlying capture goroutine.
+			// We need to avoid adding time until after the the underlying goroutine has started sleeping.
 			// If we add time before that point, data will never be captured, because time will never be greater than
 			// the initially calculated time.
-			// Sleeping for 10ms is a hacky way to ensure that we don't encounter this situation. It's not ideal, but
-			// it should be much, much less likely to be flaky than the previous approach, since it's guaranteed
-			// that the goroutine has started before we sleep: the risk of ~10 sequential lines taking long to run
-			// is <<< the risk of a goroutine not being scheduled during that time.
-			time.Sleep(time.Millisecond * 10)
+			// Sleeping for 1ms is a hacky way to ensure that we don't encounter this situation. It gives 1ms
+			// for those few sequential lines in collector.go to execute, so that that occurs before we add time below.
+			time.Sleep(time.Millisecond)
 			for i := 0; i < tc.expectReadings; i++ {
 				mockClock.Add(params.Interval)
 				select {
 				case <-ctx.Done():
+					fmt.Println(i)
 					t.Fatalf("timed out waiting for data to be written")
 				case <-wrote:
 				}
@@ -226,7 +224,6 @@ func TestClose(t *testing.T) {
 
 	// Start collecting, and validate it is writing.
 	c.Collect()
-	time.Sleep(time.Millisecond * 10)
 	mockClock.Add(interval)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 	defer cancel()
@@ -293,7 +290,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
