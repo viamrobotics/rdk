@@ -249,15 +249,12 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 		if err != nil {
 			return nil, err
 		}
-
-		resp, err := processTokenResposne(res)
+		resp, err := processTokenResponse(res)
+		utils.UncheckedError(res.Body.Close())
 		if err != nil && !errors.Is(err, errAuthorizationPending) {
 			return nil, err
 		} else if err == nil {
 			return resp, nil
-		}
-		if err = res.Body.Close(); err != nil {
-			return nil, err
 		}
 
 		waitInterval = time.Duration(code.Interval * int(time.Second))
@@ -351,22 +348,18 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := processTokenResposne(res)
+	defer utils.UncheckedError(res.Body.Close())
+	resp, err := processTokenResponse(res)
 	if err != nil {
 		return nil, err
 	} else if resp == nil {
 		return nil, errors.New("expecting new token")
 	}
 
-	if err = res.Body.Close(); err != nil {
-		return nil, err
-	}
-
 	return buildToken(resp, token.TokenURL, token.ClientID)
 }
 
-func processTokenResposne(res *http.Response) (*tokenResponse, error) {
+func processTokenResponse(res *http.Response) (*tokenResponse, error) {
 	defer utils.UncheckedErrorFunc(res.Body.Close)
 
 	body, err := io.ReadAll(res.Body)

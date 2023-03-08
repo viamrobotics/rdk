@@ -53,7 +53,6 @@ func TestConfigRobot(t *testing.T) {
 
 func TestConfig3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	//nolint:musttag
 	type temp struct {
 		X int
 		Y string

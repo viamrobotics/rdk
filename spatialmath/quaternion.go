@@ -274,7 +274,6 @@ func (q *Quaternion) MarshalJSON() ([]byte, error) {
 	return json.Marshal(quaternionJSONFromQuaternion(q))
 }
 
-//nolint:musttag
 type quaternionJSON struct {
 	W, X, Y, Z float64
 }
