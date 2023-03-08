@@ -134,6 +134,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Update to new config and let it run for a bit.
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
+			// TODO: What are we waiting for? Some data to be written
+			// This is a real black box type of test... a way to use signaling isn't immediately apparent.
+
 			time.Sleep(captureTime)
 
 			// Check if initial config captured (or not) as we'd expect.
