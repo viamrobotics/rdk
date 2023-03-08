@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-//nolint:unused
 func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
 	t.Helper()
 	pc1 := NewWithPrealloc(1)
