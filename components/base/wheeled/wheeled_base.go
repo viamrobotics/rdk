@@ -24,7 +24,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const yawPollTimeMs = 100
+const (
+	yawPollTimeMs  = 250
+	allowableAngle = 15
+)
 
 var modelname = resource.NewDefaultModel("wheeled")
 
@@ -75,7 +78,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, cfg, logger)
+			return createWheeledBase(ctx, deps, cfg, logger)
 		},
 	}
 
@@ -114,6 +117,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if base.orientationSensor != nil {
+		if rdkutils.Float64AlmostEqual(angleDeg, 360, 0.01) {
+			angleDeg -= 0.01
+		}
 		base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
 		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
 	}
@@ -147,15 +153,21 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 	errCounter := 0
 	targetYaw := addAnglesInDomain(angleDeg, currYaw)
+
+	dir := 1.0
+	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
+		// both positive or both negative is a counterclockwise spin call, so allowable angle must be added
+		// the signs being different is a clockwise spin call, so allowable angle must be subtracted
+		dir = -1
+	}
+	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
 	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) // ~rename
 
-	if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
-		return err
-	}
-
+	base.logger.Debug("starting for loop")
 	for {
 		select {
 		case <-ctx.Done():
+			base.logger.Debug("context cancelled")
 			return nil
 		default:
 		}
@@ -176,15 +188,20 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		errCounter = 0
 
 		errAngle := targetYaw - currYaw
+		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f", currYaw, targetYaw, overshoot)
 
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		// poll the sensor for the current error in angle
 		// also check if we've overshot our target by fifteen degrees
-		if math.Abs(errAngle) < 5 || baseOvershot(currYaw, targetYaw, 15) {
+		if math.Abs(errAngle) < 5 || hasSpinOvershot(currYaw, targetYaw, overshoot, dir) {
 			if err := base.Stop(ctx, nil); err != nil {
 				return err
 			}
+			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f", currYaw, targetYaw, overshoot)
 			break
+		}
+		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -223,8 +240,24 @@ func addAnglesInDomain(target, current float64) float64 {
 	return angle
 }
 
-func baseOvershot(currentYaw, targetYaw, allowedAngle float64) bool {
-	return math.Abs(currentYaw) > math.Abs(addAnglesInDomain(targetYaw, allowedAngle))
+// a helper function that calculates the difference between the current yaw and both
+// target yaw and overshootYaw.
+func calculateAngleDiffs(currentYaw, overshoot, targetYaw float64) (float64, float64) {
+	diffTarget := addAnglesInDomain(targetYaw, -currentYaw)
+	fmt.Println("diffTarget: ", diffTarget)
+	diffOvershoot := addAnglesInDomain(overshoot, -currentYaw)
+	fmt.Println("diffOvershoot: ", diffOvershoot)
+	return diffTarget, diffOvershoot
+}
+
+// checks if we have overshot our target yaw while spiining by comparing the absolute value of the difference of the
+// target angle versus current yaw.
+func hasSpinOvershot(currentYaw, targetYaw, overshoot, dir float64) bool {
+	diffTarget, diffOvershoot := calculateAngleDiffs(currentYaw, overshoot, targetYaw)
+	// if dir == -1 {
+	// return diffTarget >= diffOvershoot
+	// }
+	return diffTarget <= diffOvershoot
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
@@ -451,8 +484,8 @@ func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
-// CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(
+// createWheeledBase returns a new wheeled base defined by the given config.
+func createWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
 	cfg config.Component,
