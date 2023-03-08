@@ -193,8 +193,8 @@ func TestMoveSingleComponent(t *testing.T) {
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 
 		poseToGrab := spatialmath.NewPose(
-			r3.Vector{X: -20., Y: 0., Z: -800.},
-			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 1., RY: 0., RZ: 0.},
+			r3.Vector{X: -790., Y: -232., Z: 60.},
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 1., RY: 1., RZ: 0.},
 		)
 
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", poseToGrab)
