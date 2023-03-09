@@ -6,18 +6,18 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils"
 )
 
 func TestValidateConfig(t *testing.T) {
-
 	t.Run("fails with no board supplied", func(t *testing.T) {
 		cfg := AttrConfig{
 			I2cBus: "thing",
