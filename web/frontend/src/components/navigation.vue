@@ -1,6 +1,5 @@
 <script setup lang="ts">
 
-// @ts-nocheck TODO: fix typecheck errors in https://viam.atlassian.net/browse/RSDK-1897
 import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
@@ -37,7 +36,7 @@ const grpcCallback = (
   stringify = true
 ) => {
   if (error) {
-    toast.error(error);
+    toast.error(error.message);
     return;
   }
   if (stringify) {
@@ -48,8 +47,8 @@ const grpcCallback = (
       }
 
       res.value = JSON.stringify(responseMessage.toObject());
-    } catch {
-      toast.error(error);
+    } catch (_error) {
+      toast.error(`${_error}`);
     }
   }
 };
@@ -84,6 +83,7 @@ const setNavigationLocation = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const req = new (robotApi as any).ResourceRunCommandRequest();
   let gpsName = '';
+
   const [gps] = filterResources(props.resources ?? [], 'rdk', 'component', 'gps');
 
   if (gps) {
