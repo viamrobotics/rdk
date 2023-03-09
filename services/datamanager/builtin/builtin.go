@@ -280,11 +280,10 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target: datacapture.NewBuffer(filepath.Join(svc.captureDir, time.Now().Format(time.RFC3339Nano)),
-			captureMetadata),
-		QueueSize:  captureQueueSize,
-		BufferSize: captureBufferSize,
-		Logger:     svc.logger,
+		Target:        datacapture.NewBuffer(svc.captureDir, captureMetadata),
+		QueueSize:     captureQueueSize,
+		BufferSize:    captureBufferSize,
+		Logger:        svc.logger,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
