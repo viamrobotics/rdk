@@ -43,7 +43,7 @@ func NewPwmDevice(chipName string, line int) pwmDevice {
 
 func writeValue(filepath string, value int) error {
 	// The permissions on the file (the third argument) aren't important: if the file needs to be
-	// created, something has gone horribly wrong.
+	// created, something has gone horribly wrong!
 	return os.WriteFile(filepath, []byte(fmt.Sprintf("%d", value)), 0o660)
 }
 
@@ -55,6 +55,7 @@ func (pwm *pwmDevice) lineFile(filename string) string {
 	return fmt.Sprintf("%s/%s", pwm.linePath, filename)
 }
 
+// Export tells the OS that this pin is in use, and enables configuration via sysfs.
 func (pwm *pwmDevice) Export() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
@@ -69,6 +70,8 @@ func (pwm *pwmDevice) Export() error {
 	return nil
 }
 
+// Unexport tells the OS that this pin is no longer in use, and turns off any PWM signal the pin
+// was providing.
 func (pwm *pwmDevice) Unexport() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
@@ -83,6 +86,7 @@ func (pwm *pwmDevice) Unexport() error {
 	return nil
 }
 
+// Enable tells an exported pin to output the PWM signal it has been configured with.
 func (pwm *pwmDevice) Enable() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
@@ -97,6 +101,7 @@ func (pwm *pwmDevice) Enable() error {
 	return nil
 }
 
+// Disable tells an exported pin to stop outputting its PWM signal.
 func (pwm *pwmDevice) Disable() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
@@ -111,7 +116,11 @@ func (pwm *pwmDevice) Disable() error {
 	return nil
 }
 
-func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) {
+// SetPwm configures an exported pin and enables its output signal.
+// Warning: if this function returns a non-nil error, it could leave the pin in an indeterminate
+// state. Maybe it's exported, maybe not. Maybe it's enabled, maybe not. The new frequency and duty
+// cycle each might or might not be set.
+func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
 
@@ -164,7 +173,6 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) {
 }
 
 func (pwm *pwmDevice) Close() error {
-	pwm.mu.Lock()
-	defer pwm.mu.Unlock()
+	// Don't lock the mutex here: it gets locked in Unexport.
 	return pwm.Unexport()
 }
