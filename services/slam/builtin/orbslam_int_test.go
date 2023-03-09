@@ -138,7 +138,8 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		t.Skip("Skipping test because orb_grpc_server binary was not found")
 	}
 
-	name, err := slamTesthelper.CreateTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 	createVocabularyFile(name)
 	prevNumFiles := 0
@@ -188,7 +189,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Release camera image(s) for service validation
 	releaseImages(t, mode)
 	// Create slam service using a real orbslam binary
-	svc, err := createSLAMService(t, attrCfg, "orbslamv3", golog.NewTestLogger(t), true, true)
+	svc, err := createSLAMService(t, attrCfg, "orbslamv3", logger, true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)

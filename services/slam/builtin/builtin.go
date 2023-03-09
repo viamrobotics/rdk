@@ -107,7 +107,7 @@ func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, log
 		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
 	}
 
-	slamMode, ok := slamLib.Mode[svcConfig.ConfigParams["mode"]]
+	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
 	if !ok {
 		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
 			model, svcConfig.ConfigParams["mode"])
