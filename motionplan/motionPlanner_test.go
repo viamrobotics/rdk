@@ -219,7 +219,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
-	collisionConstraint, err := newSelfCollisionConstraint(xarm, frame.StartPositions(fs), nil, false)
+	collisionConstraint, err := newSelfCollisionConstraint(xarm, fs, frame.StartPositions(fs), nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
-	collisionConstraint, err := newSelfCollisionConstraint(ur5e, frame.StartPositions(fs), nil, false)
+	collisionConstraint, err := newSelfCollisionConstraint(ur5e, fs, frame.StartPositions(fs), nil, false)
 	if err != nil {
 		return nil, err
 	}
