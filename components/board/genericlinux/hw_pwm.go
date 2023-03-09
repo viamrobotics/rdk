@@ -44,10 +44,7 @@ func (pwm *pwmDevice) writeLine(filename string, value int) error {
 }
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
-func (pwm *pwmDevice) Export() error {
-	pwm.mu.Lock()
-	defer pwm.mu.Unlock()
-
+func (pwm *pwmDevice) export() error {
 	if pwm.isExported {
 		return nil // Already exported
 	}
@@ -58,12 +55,9 @@ func (pwm *pwmDevice) Export() error {
 	return nil
 }
 
-// Unexport tells the OS that this pin is no longer in use, and turns off any PWM signal the pin
-// was providing.
-func (pwm *pwmDevice) Unexport() error {
-	pwm.mu.Lock()
-	defer pwm.mu.Unlock()
-
+// Unexport tells the OS that this pin is no longer in use (so it can be reused as an input pin,
+// etc.), and turns off any PWM signal the pin was providing.
+func (pwm *pwmDevice) unexport() error {
 	if !pwm.isExported {
 		return nil // Already unexported
 	}
@@ -75,10 +69,7 @@ func (pwm *pwmDevice) Unexport() error {
 }
 
 // Enable tells an exported pin to output the PWM signal it has been configured with.
-func (pwm *pwmDevice) Enable() error {
-	pwm.mu.Lock()
-	defer pwm.mu.Unlock()
-
+func (pwm *pwmDevice) enable() error {
 	if pwm.isEnabled {
 		return nil // Already enabled
 	}
@@ -89,11 +80,9 @@ func (pwm *pwmDevice) Enable() error {
 	return nil
 }
 
-// Disable tells an exported pin to stop outputting its PWM signal.
-func (pwm *pwmDevice) Disable() error {
-	pwm.mu.Lock()
-	defer pwm.mu.Unlock()
-
+// Disable tells an exported pin to stop outputting its PWM signal, but it is still available for
+// reconfiguring and re-enabling.
+func (pwm *pwmDevice) disable() error {
 	if !pwm.isEnabled {
 		return nil // Already disabled
 	}
@@ -114,16 +103,16 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 
 	// What we really want in this function is a monad: for every interaction with sysfs, check if
 	// it returned an error, and if so return early.
-	if err := pwm.Export(); err != nil {
+	if err := pwm.export(); err != nil {
 		return err
 	}
-	if err := pwm.Disable(); err != nil {
+	if err := pwm.disable(); err != nil {
 		return err
 	}
 
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
 	// pin should be high within a period. It's not how the rest of the world defines a duty cycle,
-	// so we will refer to it as the active duration.
+	// so we will refer to it here as the active duration.
 	periodNs := 1000 * 1000 * 1000 / freqHz
 	activeDurationNs := int(periodNs * dutyCycle)
 
@@ -155,12 +144,13 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 		pwm.activeDurationNs = activeDurationNs
 	}
 
-	if err := pwm.Enable(); err != nil {
+	if err := pwm.enable(); err != nil {
 		return err
 	}
 }
 
 func (pwm *pwmDevice) Close() error {
-	// Don't lock the mutex here: it gets locked in Unexport.
-	return pwm.Unexport()
+	pwm.mu.Lock()
+	defer pwm.mu.Unlock()
+	return pwm.unexport()
 }
