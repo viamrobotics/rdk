@@ -1,5 +1,6 @@
 // Package genericlinux is for Linux boards. This particular file is for using sysfs to
-// interact with PWM devices.
+// interact with PWM devices. All of these functions are idempotent: you can double-export a pin or
+// double-close it with no problems.
 package genericlinux
 
 import (
