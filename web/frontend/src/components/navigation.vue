@@ -1,6 +1,5 @@
 <script setup lang="ts">
 
-import '@types/google.maps';
 import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
