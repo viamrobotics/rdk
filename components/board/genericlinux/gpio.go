@@ -30,6 +30,7 @@ type gpioPin struct {
 	pwmRunning      bool
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
+	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 
 	mu        sync.Mutex
 	cancelCtx context.Context
@@ -69,6 +70,11 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	if pin.hwPwm != nil {
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
+	}
 	if err := pin.openGpioFd(); err != nil {
 		return err
 	}
@@ -97,6 +103,11 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	if pin.hwPwm != nil {
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
+	}
 	if err := pin.openGpioFd(); err != nil {
 		return false, err
 	}
@@ -221,6 +232,12 @@ func (pin *gpioPin) Close() error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	if pin.hwPwm != nil {
+		// Make sure to unexport the sysfs device for hardware PWM on this pin, if it's in use.
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
+	}
 	if pin.line == nil {
 		return nil // Never opened, so no need to close
 	}
