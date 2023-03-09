@@ -16,13 +16,13 @@ const (
 	Dense = Library(iota)
 	// Sparse is a Library type.
 	Sparse
-	// Mono is a slamMode a slam model can use.
+	// Mono is a mode a slam model can use.
 	Mono = Mode("mono")
-	// Rgbd is a slamMode a slam model can use.
+	// Rgbd is a mode a slam model can use.
 	Rgbd = Mode("rgbd")
-	// Dim2d is a slamMode a slam model can use.
+	// Dim2d is a mode a slam model can use.
 	Dim2d = Mode("2d")
-	// Dim3d is a slamMode a slam model can use.
+	// Dim3d is a mode a slam model can use.
 	Dim3d = Mode("3d")
 )
 
