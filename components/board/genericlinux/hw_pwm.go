@@ -3,19 +3,9 @@
 package genericlinux
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
-	"time"
-
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	"go.viam.com/utils"
-
-	"go.viam.com/rdk/components/board"
 )
 
 type pwmDevice struct {
@@ -33,10 +23,10 @@ type pwmDevice struct {
 	isEnabled        bool
 }
 
-const pwmRootPath := "/sys/class/pwm"
-
 func NewPwmDevice(chipName string, line int) pwmDevice {
-	chipPath := fmt.Sprintf("%s/%s", pwmRootPath, chipName)
+	// Everything in /sys/class/pwm is a symlink to this other directory, which uses the chip names
+	// instead of their aliases. These true names match up with the ones in our pin definitions.
+	chipPath := fmt.Sprintf("/sys/devices/platform/%s", chipName)
 	linePath := fmt.Sprintf("%s/pwm%d", chipPath, line),
 	return pwmDevice{chipPath: chipPath, line: line, linePath: linePath}
 }
