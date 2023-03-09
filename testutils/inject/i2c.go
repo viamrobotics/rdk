@@ -20,6 +20,7 @@ func (s *I2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	return s.OpenHandleFunc(addr)
 }
 
+// I2CHandle is an injected I2CHandle.
 type I2CHandle struct {
 	board.I2CHandle
 	WriteFunc          func(context.Context, []byte) error
@@ -47,6 +48,7 @@ func (handle *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBy
 	return handle.ReadBlockDataFunc(ctx, register, numBytes)
 }
 
+// Close calls the injected CloseFunc or the real version.
 func (handle *I2CHandle) Close() error {
 	if handle.CloseFunc == nil {
 		return handle.I2CHandle.Close()
