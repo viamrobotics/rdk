@@ -39,11 +39,11 @@ const (
 
 	prodAuthDomain = "https://auth.viam.com"
 	prodAudience   = "https://app.viam.com/"
-	prodClientID   = "HysEkkRKn6cDr2W6UFI6UYJHpiVwXFCk" // cli client
+	prodClientID   = "HysEkkRKn6cDr2W6UFI6UYJHpiVwXFCk" // native client ID
 
 	stgAuthDomain = "https://auth.viam.dev"
 	stgAudience   = "https://app.viam.dev/"
-	stgClientID   = "o75PSAO21337n6SE0IV2BF9Aj9Er9NF6" // cli client
+	stgClientID   = "o75PSAO21337n6SE0IV2BF9Aj9Er9NF6" // native client ID
 
 	defaultWaitInterval = time.Second * 1
 
