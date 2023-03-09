@@ -61,9 +61,8 @@ func (c *collector) Close() {
 	if err := c.target.Flush(); err != nil {
 		c.logger.Errorw("failed to flush capture queue", "error", err)
 	}
-	if err := c.logger.Sync(); err != nil {
-		c.logger.Errorw("failed to sync logger", "error", err)
-	}
+	//nolint:errcheck
+	_ = c.logger.Sync()
 	c.closed = true
 }
 
@@ -131,6 +130,7 @@ func (c *collector) sleepBasedCapture() {
 }
 
 func (c *collector) tickerBasedCapture() {
+	c.logger.Info("logging to collector " + c.target.Directory)
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}

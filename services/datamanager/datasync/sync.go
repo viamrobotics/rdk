@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -158,7 +159,11 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		func(ctx context.Context) error {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+				if errors.Is(err, context.Canceled) {
+					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+				} else {
+					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+				}
 			}
 			return err
 		},
@@ -273,7 +278,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
