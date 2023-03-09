@@ -5,35 +5,36 @@
     },
     "components": [
         {
-          "name": "sens1",
-          "type": "movement_sensor",
-          "model": "fake",
-          "attributes": {},
-          "depends_on": [],
-          "service_config": [
-            {
-              "type": "data_manager",
-              "attributes": {
-                "capture_methods": [
-                  {
-                    "disabled": false,
-                    "method": "Position",
-                    "capture_frequency_hz": 100
-                  }
-                ]
-              }
-            }
-          ]
+            "name": "arm1",
+            "type": "arm",
+            "model": "fake",
+            "service_config": [
+                {
+                    "type": "data_manager",
+                    "attributes": {
+                        "capture_methods": [
+                            {
+                                "method": "EndPosition",
+                                "capture_frequency_hz": 100,
+                                "tags": [
+                                    "a",
+                                    "b"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
         }
-      ],
+    ],
     "services": [
         {
             "name": "data_manager1",
             "type": "data_manager",
             "model": "builtin",
             "attributes": {
-                "sync_disabled": true,
-                "sync_interval_mins": 0.1,
+                "sync_disabled": false,
+                "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture",
                 "capture_disabled": false
             }

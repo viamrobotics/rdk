@@ -369,6 +369,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// TODO: our tests should capture to a temp directory, not /tmp/capture
+
 			// Set up server.
 			tmpDir := t.TempDir()
 
