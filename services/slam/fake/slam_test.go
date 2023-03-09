@@ -153,8 +153,8 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM) {
 	getInternalStateStreamResultsFirst := getInternalStateStreamResults[len(getInternalStateStreamResults)/2:]
 	getInternalStateStreamResultsLast := getInternalStateStreamResults[:len(getInternalStateStreamResults)/2]
 
-	getMapResultsFirst := getPointCloudMapResults[len(getPointCloudMapResults)/2:]
-	getMapResultsLast := getPointCloudMapResults[:len(getPointCloudMapResults)/2]
+	getPointCloudMapResultsFirst := getPointCloudMapResults[len(getPointCloudMapResults)/2:]
+	getPointCloudMapResultsLast := getPointCloudMapResults[:len(getPointCloudMapResults)/2]
 
 	// Confirm that the first half of the
 	// results equal the last.
@@ -163,7 +163,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM) {
 	// over a dataset of size maxDataCount that loops around.
 	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
 	test.That(t, getInternalStateStreamResultsFirst, test.ShouldResemble, getInternalStateStreamResultsLast)
-	test.That(t, getMapResultsFirst, test.ShouldResemble, getMapResultsLast)
+	test.That(t, getPointCloudMapResultsFirst, test.ShouldResemble, getPointCloudMapResultsLast)
 
 	// Confirm that the first half of the
 	// results do NOT equal the last half in reverse.
@@ -172,7 +172,7 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM) {
 	// over a dataset of size maxDataCount that loops around.
 	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
 	test.That(t, getInternalStateStreamResultsFirst, test.ShouldNotResemble, reverse(getInternalStateStreamResultsLast))
-	test.That(t, getMapResultsFirst, test.ShouldNotResemble, reverse(getMapResultsLast))
+	test.That(t, getPointCloudMapResultsFirst, test.ShouldNotResemble, reverse(getPointCloudMapResultsLast))
 }
 
 func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
