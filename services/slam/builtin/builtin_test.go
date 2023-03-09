@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -62,8 +61,8 @@ var (
 	_false                                             = false
 )
 
-func getNumOrbslamImages(subAlgo slam.SubAlgo) int {
-	switch subAlgo {
+func getNumOrbslamImages(slamMode slam.Mode) int {
+	switch slamMode {
 	case slam.Mono:
 		return 15
 	case slam.Rgbd:
@@ -78,7 +77,7 @@ func createFakeSLAMLibraries() {
 		slam.SLAMLibraries["fake_"+s.AlgoName] = slam.LibraryMetadata{
 			AlgoName:       "fake_" + s.AlgoName,
 			AlgoType:       s.AlgoType,
-			SubAlgo:        s.SubAlgo,
+			Mode:           s.Mode,
 			BinaryLocation: "true",
 		}
 	}
@@ -96,7 +95,7 @@ func closeOutSLAMService(t *testing.T, name string) {
 	t.Helper()
 
 	if name != "" {
-		err := resetFolder(name)
+		err := slamTesthelper.ResetFolder(name)
 		test.That(t, err, test.ShouldBeNil)
 	}
 
@@ -573,7 +572,7 @@ func TestGeneralNew(t *testing.T) {
 		slam.SLAMLibraries["test"] = slam.LibraryMetadata{
 			AlgoName:       "test",
 			AlgoType:       99,
-			SubAlgo:        slam.SLAMLibraries["cartographer"].SubAlgo,
+			Mode:           slam.SLAMLibraries["cartographer"].Mode,
 			BinaryLocation: "",
 		}
 
@@ -1163,7 +1162,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		slam.SLAMLibraries["fake_orbslamv3"] = slam.LibraryMetadata{
 			AlgoName:       "fake_" + slam.SLAMLibraries["orbslamv3"].AlgoName,
 			AlgoType:       slam.SLAMLibraries["orbslamv3"].AlgoType,
-			SubAlgo:        slam.SLAMLibraries["orbslamv3"].SubAlgo,
+			Mode:           slam.SLAMLibraries["orbslamv3"].Mode,
 			BinaryLocation: "fail",
 		}
 
@@ -1180,65 +1179,4 @@ func TestSLAMProcessFail(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
-}
-
-func resetFolder(path string) error {
-	err := os.RemoveAll(path)
-	if err != nil {
-		return err
-	}
-	err = os.Mkdir(path, os.ModePerm)
-	return err
-}
-
-func checkDeleteProcessedData(t *testing.T, subAlgo slam.SubAlgo, dir string, prev int, deleteProcessedData, useLiveData bool) int {
-	var numFiles int
-
-	switch subAlgo {
-	case slam.Mono:
-		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-
-		numFiles = numFilesRGB
-	case slam.Rgbd:
-		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-
-		numFilesDepth, err := checkDataDirForExpectedFiles(t, dir+"/data/depth", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, numFilesRGB, test.ShouldEqual, numFilesDepth)
-		numFiles = numFilesRGB
-	case slam.Dim2d:
-		numFiles2D, err := checkDataDirForExpectedFiles(t, dir+"/data", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-		numFiles = numFiles2D
-	default:
-	}
-	return numFiles
-}
-
-// Compares the number of files found in a specified data directory with the previous number found and uses
-// the online state and delete_processed_data value to evaluate this comparison.
-func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_processed_data, useLiveData bool) (int, error) {
-
-	files, err := ioutil.ReadDir(dir)
-	test.That(t, err, test.ShouldBeNil)
-
-	if prev == 0 {
-		return len(files), nil
-	}
-	if delete_processed_data && useLiveData {
-		test.That(t, prev, test.ShouldBeLessThanOrEqualTo, dataBufferSize+1)
-	}
-	if !delete_processed_data && useLiveData {
-		test.That(t, prev, test.ShouldBeLessThan, len(files))
-	}
-	if delete_processed_data && !useLiveData {
-		return 0, errors.New("the delete_processed_data value cannot be true when running SLAM in offline mode")
-	}
-	if !delete_processed_data && !useLiveData {
-		test.That(t, prev, test.ShouldEqual, len(files))
-	}
-	return len(files), nil
 }
