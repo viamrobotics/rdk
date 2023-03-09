@@ -112,20 +112,24 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 
 	instanceMu.Lock()
 	logger.Info("initializing pigpio C library")
-	resCode = C.gpioInitialise()
-	if resCode < 0 {
-		pigpioInitialized = false
-		instanceMu.Unlock()
-		// failed to init, check for common causes
-		_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
-		if err != nil {
-			return nil, errors.New("not running on a pi")
+
+	// if pigpio is not initialized, only then we initialize it.
+	if !pigpioInitialized {
+		resCode = C.gpioInitialise()
+		if resCode < 0 {
+			instanceMu.Unlock()
+			// failed to init, check for common causes
+			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+			if err != nil {
+				return nil, errors.New("not running on a pi")
+			}
+			if os.Getuid() != 0 {
+				return nil, errors.New("not running as root, try sudo")
+			}
+			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 		}
-		if os.Getuid() != 0 {
-			return nil, errors.New("not running as root, try sudo")
-		}
-		return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 	}
+
 	pigpioInitialized = true
 
 	initGood := false
