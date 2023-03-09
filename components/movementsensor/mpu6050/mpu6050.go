@@ -340,7 +340,7 @@ func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}
 	}, nil
 }
 
-func (mpu *mpu6050) Close(ctx context.Context) {
+func (mpu *mpu6050) Close(ctx context.Context) error {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
 
@@ -352,4 +352,5 @@ func (mpu *mpu6050) Close(ctx context.Context) {
 	if err != nil {
 		mpu.logger.Error(err)
 	}
+	return err
 }
