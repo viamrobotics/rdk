@@ -276,11 +276,16 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Create a collector for this resource and method.
+	targetDir := filepath.Join(svc.captureDir, captureMetadata.GetComponentType(), captureMetadata.GetComponentName(),
+		captureMetadata.GetMethodName())
+	if err := os.MkdirAll(targetDir, 0o700); err != nil {
+		return nil, err
+	}
 	params := data.CollectorParams{
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(svc.captureDir, captureMetadata),
+		Target:        datacapture.NewBuffer(targetDir, captureMetadata),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
