@@ -65,6 +65,11 @@ type Config struct {
 	PackagePath string `json:"-"`
 }
 
+// ValidNameRegex is the pattern that matches to a valid name.
+// The name must begin with a letter i.e. [a-zA-Z],
+// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
+var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
+
 // Ensure ensures all parts of the config are valid.
 func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
@@ -283,6 +288,10 @@ type RemoteAuth struct {
 func (config *Remote) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if !ValidNameRegex.MatchString(config.Name) {
+		return utils.NewConfigValidationError(path,
+			errors.Errorf("Remote name %q must only contain letters, numbers, dashes, and underscores", config.Name))
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
@@ -764,9 +773,6 @@ type Updateable interface {
 	Update(context.Context, *Config) error
 }
 
-// Valid package name regex.
-var packageNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
-
 // Regex to match if a config is referencing a Package. Group is the package name.
 var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
 
@@ -793,7 +799,7 @@ func (p *PackageConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
-	if !packageNameRegEx.MatchString(p.Name) {
+	if !ValidNameRegex.MatchString(p.Name) {
 		return errors.Errorf("package %s name must contain only letters, numbers, underscores and hyphens", path)
 	}
 
