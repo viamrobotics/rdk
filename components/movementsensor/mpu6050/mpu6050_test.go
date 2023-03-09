@@ -66,9 +66,10 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			},
 		}
 		i2cHandle := &inject.I2CHandle{}
+		readErr := errors.New("read error")
 		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, b byte, u uint8) ([]byte, error) {
 			if b == 117 {
-				return nil, errors.New("read error")
+				return nil, readErr
 			}
 			return []byte{}, nil
 		}
@@ -86,6 +87,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, addressReadError(readErr, 0x68, i2cName, testBoardName))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 
@@ -121,6 +123,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, unexpectedDeviceError(0x69, 0x64))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 }
