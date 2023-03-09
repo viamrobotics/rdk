@@ -27,10 +27,10 @@ type gpioPin struct {
 	line       *gpio.Line
 
 	// These values are mutable. Lock the mutex when interacting with them.
-	pwmRunning      bool
+	swPwmRunning    bool
+	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
-	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 
 	mu        sync.Mutex
 	cancelCtx context.Context
@@ -70,6 +70,7 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	pin.swPwmRunning = false
 	if pin.hwPwm != nil {
 		if err := pin.hwPwm.Close(); err != nil {
 			return err
@@ -79,7 +80,6 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 		return err
 	}
 
-	pin.pwmRunning = false
 	return pin.setInternal(isHigh)
 }
 
@@ -126,17 +126,17 @@ func (pin *gpioPin) Get(
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started already.
-		pin.pwmRunning = false
+		pin.swPwmRunning = false
 		// If we used to have both parameters set but no longer do, turn off the pin!
 		return pin.setInternal(false)
 	}
-	if pin.pwmRunning {
+	if pin.swPwmRunning {
 		// We're already running a software PWM loop for this pin, so we don't need another.
 		return nil
 	}
 
 	// Otherwise, we'll actually start running.
-	pin.pwmRunning = true
+	pin.swPwmRunning = true
 	pin.waitGroup.Add(1)
 	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
 	return nil
@@ -155,7 +155,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if !pin.pwmRunning {
+		if !pin.swPwmRunning {
 			return false
 		}
 
