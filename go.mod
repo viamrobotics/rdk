@@ -12,6 +12,7 @@ require (
 	github.com/aler9/gortsplib/v2 v2.1.0
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
+	github.com/benbjohnson/clock v1.3.0
 	github.com/bep/debounce v1.2.1
 	github.com/bhaney/rtsp-simple-server v0.0.0-20221207231808-7a1402c0b840
 	github.com/bufbuild/buf v1.6.0
@@ -140,7 +141,6 @@ require (
 	github.com/asticode/go-astits v1.10.1-0.20220319093903-4abe66a9b757 // indirect
 	github.com/aws/aws-sdk-go v1.38.20 // indirect
 	github.com/bamiaux/iobit v0.0.0-20170418073505-498159a04883 // indirect
-	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.0 // indirect
 	github.com/blackjack/webcam v0.0.0-20220329180758-ba064708e165 // indirect
