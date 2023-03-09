@@ -20,6 +20,7 @@ package mpu6050
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -107,6 +108,17 @@ type mpu6050 struct {
 	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
+func addressReadError(err error, address byte, bus, board string) error {
+	msg := fmt.Sprintf("can't read from I2C address %d on bus %s of board %s",
+		address, bus, board)
+	return errors.Wrap(err, msg)
+}
+
+func unexpectedDeviceError(address, defaultAddress byte) error {
+	return errors.Errorf("unexpected non-MPU6050 device at address %d: response '%d'",
+		address, defaultAddress)
+}
+
 // NewMpu6050 constructs a new Mpu6050 object.
 func NewMpu6050(
 	ctx context.Context,
@@ -153,12 +165,10 @@ func NewMpu6050(
 	// back the device's non-alternative address (0x68)
 	defaultAddress, err := sensor.readByte(ctx, 117)
 	if err != nil {
-		return nil, errors.Errorf("can't read from I2C address %d on bus %s of board %s: '%s'",
-			address, cfg.I2cBus, cfg.BoardName, err.Error())
+		return nil, addressReadError(err, address, cfg.I2cBus, cfg.BoardName)
 	}
 	if defaultAddress != 0x68 {
-		return nil, errors.Errorf("unexpected non-MPU6050 device at address %d: response '%d'",
-			address, defaultAddress)
+		return nil, unexpectedDeviceError(address, defaultAddress)
 	}
 
 	// The chip starts out in standby mode (the Sleep bit in the power management register defaults
