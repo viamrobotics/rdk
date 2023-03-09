@@ -62,8 +62,11 @@ func (pwm *pwmDevice) Export() error {
 	if pwm.isExported {
 		return nil // Already exported
 	}
-	pwm.isEnabled = true
-	return writeValue(pwm.chipFile("export"), pwm.line)
+	if err := writeValue(pwm.chipFile("export"), pwm.line); err != nil {
+		return err
+	}
+	pwm.isExported = true
+	return nil
 }
 
 func (pwm *pwmDevice) Unexport() error {
@@ -71,10 +74,13 @@ func (pwm *pwmDevice) Unexport() error {
 	defer pwm.mu.Unlock()
 
 	if !pwm.isExported {
-		return nil // Already done
+		return nil // Already unexported
 	}
-	pwm.isEnabled = false
-	return writeValue(pwm.chipFile("unexport"), pwm.line)
+	if err := writeValue(pwm.chipFile("unexport"), pwm.line); err != nil {
+		return err
+	}
+	pwm.isExported = false
+	return nil
 }
 
 func (pwm *pwmDevice) Enable() error {
@@ -84,8 +90,11 @@ func (pwm *pwmDevice) Enable() error {
 	if pwm.isEnabled {
 		return nil // Already enabled
 	}
+	if err := writeValue(pwm.lineFile(("enable"), 1); err != nil {
+		return err
+	}
 	pwm.isEnabled = true
-	return writeValue(pwm.lineFile(("enable"), 1)
+	return nil
 }
 
 func (pwm *pwmDevice) Disable() error {
@@ -95,8 +104,11 @@ func (pwm *pwmDevice) Disable() error {
 	if !pwm.isEnabled {
 		return nil // Already disabled
 	}
+	if err := writeValue(pwm.lineFile("enable"), 0); err != nil {
+		return err
+	}
 	pwm.isEnabled = false
-	return writeValue(pwm.lineFile("enable"), 0)
+	return nil
 }
 
 func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) {
