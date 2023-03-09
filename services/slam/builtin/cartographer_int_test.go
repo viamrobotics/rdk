@@ -77,13 +77,14 @@ func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir strin
 }
 
 func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
+	logger := golog.NewTestLogger(t)
 	_, err := exec.LookPath("carto_grpc_server")
 	if err != nil {
 		t.Log("Skipping test because carto_grpc_server binary was not found")
 		t.Skip()
 	}
 
-	name, err := slamTesthelper.CreateTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	prevNumFiles := 0
@@ -110,7 +111,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	// Release point cloud for service validation
 	cartographerIntLidarReleasePointCloudChan <- 1
 	// Create slam service using a real cartographer binary
-	svc, err := createSLAMService(t, attrCfg, "cartographer", golog.NewTestLogger(t), true, true)
+	svc, err := createSLAMService(t, attrCfg, "cartographer", logger, true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud

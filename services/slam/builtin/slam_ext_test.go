@@ -15,7 +15,7 @@ import (
 func TestConfigValidation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	name1, err := slamTesthelper.CreateTempFolderArchitecture()
+	name1, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("valid config with sensor", func(t *testing.T) {
