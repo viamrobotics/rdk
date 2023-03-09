@@ -47,6 +47,14 @@ func writeValue(filepath string, value int) error {
 	return os.WriteFile(filepath, []byte(fmt.Sprintf("%d", value)), 0o660)
 }
 
+func (pwm *pwmDevice) chipFile(filename string) string {
+	return fmt.Sprintf("%s/%s", pwm.chipPath, filename)
+}
+
+func (pwm *pwmDevice) lineFile(filename string) string {
+	return fmt.Sprintf("%s/%s", pwm.linePath, filename)
+}
+
 func (pwm *pwmDevice) Export() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
@@ -55,7 +63,7 @@ func (pwm *pwmDevice) Export() error {
 		return nil // Already exported
 	}
 	pwm.isEnabled = true
-	return writeValue(fmt.Sprintf("%s/export", pwm.chipPath), pwm.line)
+	return writeValue(pwm.chipFile("export"), pwm.line)
 }
 
 func (pwm *pwmDevice) Unexport() error {
@@ -66,7 +74,7 @@ func (pwm *pwmDevice) Unexport() error {
 		return nil // Already done
 	}
 	pwm.isEnabled = false
-	return writeValue(fmt.Sprintf("%s/unexport", pwm.chipPath), pwm.line)
+	return writeValue(pwm.chipFile("unexport"), pwm.line)
 }
 
 func (pwm *pwmDevice) Enable() error {
@@ -77,7 +85,7 @@ func (pwm *pwmDevice) Enable() error {
 		return nil // Already enabled
 	}
 	pwm.isEnabled = true
-	return writeValue(fmt.Sprintf("%s/enable", pwm.linePath), 1)
+	return writeValue(pwm.lineFile(("enable"), 1)
 }
 
 func (pwm *pwmDevice) Disable() error {
@@ -88,7 +96,7 @@ func (pwm *pwmDevice) Disable() error {
 		return nil // Already disabled
 	}
 	pwm.isEnabled = false
-	return writeValue(fmt.Sprintf("%s/enable", pwm.linePath), 0)
+	return writeValue(pwm.lineFile("enable"), 0)
 }
 
 func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) {
@@ -115,26 +123,24 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) {
 	if periodNs < pwm.activeDurationNs {
 		// The new period is smaller than the old active duration. Change the active duration
 		// first. 
-		if err := writeValue(fmt.Sprintf("%s/duty_cycle", pwm.linePath),
-		                     activeDurationNs); err != nil {
+		if err := writeValue(pwm.lineFile("duty_cycle"), activeDurationNs); err != nil {
 			return err
 		}
 		pwm.activeDurationNs = activeDurationNs
 
-		if err := writeValue(fmt.Sprintf("%s/period", pwm.linePath), periodNs); err != nil {
+		if err := writeValue(pwm.lineFile("period"), periodNs); err != nil {
 			return err
 		}
 		pwm.periodNs = periodNs
 	} else {
 		// The new period is at least as large as the old active duration. It's safe to change the
 		// period first.
-		if err := writeValue(fmt.Sprintf("%s/period", pwm.linePath), periodNs); err != nil {
+		if err := writeValue(pwm.lineFile("period"), periodNs); err != nil {
 			return err
 		}
 		pwm.periodNs = periodNs
 
-		if err := writeValue(fmt.Sprintf("%s/duty_cycle", pwm.linePath),
-		                     activeDurationNs); err != nil {
+		if err := writeValue(pwm.lineFile("duty_cycle"), activeDurationNs); err != nil {
 			return err
 		}
 		pwm.activeDurationNs = activeDurationNs
