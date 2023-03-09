@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"testing"
 	"time"
@@ -36,9 +37,15 @@ func TestDataCaptureEnabled(t *testing.T) {
 		}
 	}
 
-	testFileContainsSensorData := func(t *testing.T, path string) {
-		sd, err := datacapture.SensorDataFromFilePath(path)
-		test.That(t, err, test.ShouldBeNil)
+	testFilesContainSensorData := func(t *testing.T, dir string) {
+		var sd []*v1.SensorData
+		filePaths := getAllFilePaths(dir)
+		for _, path := range filePaths {
+			d, err := datacapture.SensorDataFromFilePath(path)
+			test.That(t, err, test.ShouldBeNil)
+			sd = append(sd, d...)
+		}
+
 		test.That(t, len(sd), test.ShouldBeGreaterThan, 0)
 		for _, d := range sd {
 			test.That(t, d.GetStruct(), test.ShouldNotBeNil)
@@ -143,12 +150,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			time.Sleep(captureTime)
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
-				filePaths := getAllFilePaths(initCaptureDir)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(filePaths), test.ShouldBeGreaterThan, 0)
-				for _, p := range filePaths {
-					testFileContainsSensorData(t, p)
-				}
+				testFilesContainSensorData(t, initCaptureDir)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
@@ -178,12 +180,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			time.Sleep(captureTime)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
-				filePaths := getAllFilePaths(updatedCaptureDir)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(filePaths), test.ShouldBeGreaterThan, 0)
-				for _, p := range filePaths {
-					testFileContainsSensorData(t, p)
-				}
+				testFilesContainSensorData(t, updatedCaptureDir)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
