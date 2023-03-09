@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	yawPollTimeMs  = 250
+	yawPollTimeMs  = 50
 	allowableAngle = 15
+	errTarget      = 5
 )
 
 var modelname = resource.NewDefaultModel("wheeled")
@@ -152,8 +153,8 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	}
 
 	errCounter := 0
-	targetYaw := addAnglesInDomain(angleDeg, currYaw)
-	overshoot, dir := findDirAndOvershoot(angleDeg, degsPerSec, targetYaw)
+
+	targetYaw, overshoot, _ := findSpinParams(angleDeg, degsPerSec, currYaw)
 
 	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) // ~rename
 
@@ -182,18 +183,19 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		errCounter = 0
 
 		errAngle := targetYaw - currYaw
-		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f", currYaw, targetYaw, overshoot)
+		overshot := overshoot-currYaw > allowableAngle
 
-		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		// poll the sensor for the current error in angle
 		// also check if we've overshot our target by fifteen degrees
-		if math.Abs(errAngle) < 5 || hasSpinOvershot(currYaw, targetYaw, overshoot, dir) {
+		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot:%t", currYaw, targetYaw, overshoot, overshot)
+		if math.Abs(errAngle) < errTarget || overshot {
 			if err := base.Stop(ctx, nil); err != nil {
 				return err
 			}
-			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f", currYaw, targetYaw, overshoot)
+			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot? %t", currYaw, targetYaw, overshoot, checkovershot)
 			break
 		}
+		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
 			return err
 		}
@@ -234,38 +236,48 @@ func addAnglesInDomain(target, current float64) float64 {
 	return angle
 }
 
-func findDirAndOvershoot(angleDeg, degsPerSec, targetYaw float64) (float64, int) {
+func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, float64) {
+	targetYaw := addAnglesInDomain(angleDeg, currYaw)
 	dir := 1.0
 	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
-		// both positive or both negative is a counterclockwise spin call, so allowable angle must be added
-		// the signs being different is a clockwise spin call, so allowable angle must be subtracted
+		// both positive or both negative -> counterclockwise spin call
+		// counterclockwise spin calls add allowable angles
+		// the signs being different --> clockwise spin call
+		// cloxkwise spin calls subtract allowable angles
 		dir = -1
 	}
 	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
-	return overshoot, int(dir)
+	return targetYaw, overshoot, dir
 }
 
-// a helper function that calculates the difference between the current yaw and both
-// target yaw and overshootYaw.
-func calculateAngleDiffs(currentYaw, overshoot, targetYaw float64) (float64, float64) {
-	diffTarget := addAnglesInDomain(targetYaw, -currentYaw)
-	fmt.Println("diffTarget: ", diffTarget)
-	diffOvershoot := addAnglesInDomain(overshoot, -currentYaw)
-	fmt.Println("diffOvershoot: ", diffOvershoot)
-	return diffTarget, diffOvershoot
-}
+type quandrant string
+
+const (
+	q1 = quandrant("q1")
+	q2 = quandrant("q2")
+	q3 = quandrant("q3")
+	q4 = quandrant("q4")
+)
 
 // checks if we have overshot our target yaw while spiining by comparing the absolute value of the difference of the
 // target angle versus current yaw.
-func hasSpinOvershot(currentYaw, targetYaw, overshoot float64, dir int) bool {
-	diffTarget, diffOvershoot := calculateAngleDiffs(currentYaw, overshoot, targetYaw)
-	if math.Abs(diffTarget) > 5 {
+func hasSpinOvershot(currentYaw, targetYaw, overshoot, dir float64) bool {
+
+	switch {
+	case currentYaw > 0 && (0 <= targetYaw && targetYaw <= 180) && dir == 1:
+		return currentYaw >= overshoot
+	case currentYaw < 0 && (0 >= targetYaw && targetYaw >= -180) && dir == 1:
+		return currentYaw > overshoot
+	case currentYaw > 0 && (0 >= targetYaw && targetYaw >= -180) && dir == 1:
+		return currentYaw <= overshoot
+	case currentYaw < 0 && (-180 <= targetYaw && targetYaw <= 0) && dir == -1:
+		return currentYaw <= overshoot
+	case currentYaw > 0 && (0 <= targetYaw && targetYaw <= 180) && dir == -1:
+		return currentYaw >= overshoot
+	default:
 		return false
 	}
-	if dir == -1 {
-		return diffTarget >= diffOvershoot
-	}
-	return math.Abs(diffTarget) <= math.Abs(diffOvershoot)
+
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
