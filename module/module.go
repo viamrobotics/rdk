@@ -419,7 +419,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 	}
 
 	// Try to find map converter for a component.
-	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.Type)
+	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.API.ResourceSubtype)
 	conv := config.FindMapConverter(cType, c.Model)
 	// If no map converter for a component exists, try to find map converter for a
 	// service.
