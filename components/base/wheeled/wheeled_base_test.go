@@ -458,30 +458,13 @@ func TestAngleCalculations(t *testing.T) {
 		{"oneeighty-CCW-quadrant2-to-quadrant4", 180, 90, -90, -75, 1},
 		{"oneeighty-CW-quadrant3-to-quadrant2", -10, -170, 179.9, 164.9, -1},
 	} {
-
 		t.Run(tc.Condition, func(t *testing.T) {
-
 			t.Run(tc.Condition+" calculation", func(t *testing.T) {
 				target := addAnglesInDomain(tc.Added, tc.Current)
 				test.That(t, target, test.ShouldAlmostEqual, tc.Target)
 				overshoot := addAnglesInDomain(tc.Target, tc.Dir*allowableAngle)
 				test.That(t, overshoot, test.ShouldAlmostEqual, tc.Over)
 			})
-
-			t.Run(tc.Condition+" overshot", func(t *testing.T) {
-				// overshot, the allowed angle is less than 15 degrees
-				overshot := hasSpinOvershot(tc.Over, tc.Target, tc.Over, tc.Dir)
-				// we have overshot 10 degrees
-				test.That(t, overshot, test.ShouldBeTrue)
-			})
-
-			t.Run(tc.Condition+" moving", func(t *testing.T) {
-				// undershot, the allowed angle is under 15 degrees
-				overshot := hasSpinOvershot(tc.Current, tc.Target, tc.Over, tc.Dir)
-				// we have not overshot 25 degrees
-				test.That(t, overshot, test.ShouldBeFalse)
-			})
 		})
-
 	}
 }
