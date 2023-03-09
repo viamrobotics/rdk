@@ -15,7 +15,9 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -220,6 +222,11 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([
 	defer cancel()
 
 	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: cfgProto})
+	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
+	// receiving logic.
+	if err != nil && status.Code(err) == codes.Unimplemented {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
