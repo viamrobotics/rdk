@@ -535,7 +535,8 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
-	port, dataRateMsec, mapRateSec, useLiveData, deleteProcessedData, err := slamConfig.SetOptionalParameters(svcConfig, localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	port, dataRateMsec, mapRateSec, useLiveData, deleteProcessedData, err :=
+		slamConfig.SetOptionalParametersReplacement(svcConfig, localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
 	if err != nil {
 		return nil, err
 	}
