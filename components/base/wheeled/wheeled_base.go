@@ -192,7 +192,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 			if err := base.Stop(ctx, nil); err != nil {
 				return err
 			}
-			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot? %t", currYaw, targetYaw, overshoot, checkovershot)
+			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot? %t", currYaw, targetYaw, overshoot)
 			break
 		}
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
@@ -248,36 +248,6 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, fl
 	}
 	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
 	return targetYaw, overshoot, dir
-}
-
-type quandrant string
-
-const (
-	q1 = quandrant("q1")
-	q2 = quandrant("q2")
-	q3 = quandrant("q3")
-	q4 = quandrant("q4")
-)
-
-// checks if we have overshot our target yaw while spiining by comparing the absolute value of the difference of the
-// target angle versus current yaw.
-func hasSpinOvershot(currentYaw, targetYaw, overshoot, dir float64) bool {
-
-	switch {
-	case currentYaw > 0 && (0 <= targetYaw && targetYaw <= 180) && dir == 1:
-		return currentYaw >= overshoot
-	case currentYaw < 0 && (0 >= targetYaw && targetYaw >= -180) && dir == 1:
-		return currentYaw > overshoot
-	case currentYaw > 0 && (0 >= targetYaw && targetYaw >= -180) && dir == 1:
-		return currentYaw <= overshoot
-	case currentYaw < 0 && (-180 <= targetYaw && targetYaw <= 0) && dir == -1:
-		return currentYaw <= overshoot
-	case currentYaw > 0 && (0 <= targetYaw && targetYaw <= 180) && dir == -1:
-		return currentYaw >= overshoot
-	default:
-		return false
-	}
-
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
