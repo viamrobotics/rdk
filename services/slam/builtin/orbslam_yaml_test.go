@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam/builtin"
 	slamConfig "go.viam.com/slam/config"
+	slamTesthelper "go.viam.com/slam/testhelper"
 )
 
 const (
@@ -62,7 +63,7 @@ func findLastYAML(folderName string) (string, string, error) {
 }
 
 func TestOrbslamYAMLNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	name, err := slamTesthelper.CreateTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
