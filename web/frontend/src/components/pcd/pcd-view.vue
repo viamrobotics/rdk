@@ -1,6 +1,6 @@
 <!-- eslint-disable multiline-comment-style -->
 <script setup lang="ts">
-// @ts-nocheck TODO: fix typecheck errors in https://viam.atlassian.net/browse/RSDK-1897
+
 /**
  * @TODO: No disposing of THREE resources currently.
  * This is causing memory leaks.
@@ -326,7 +326,8 @@ const loadBoundingBox = (index: number) => {
   const segment = objects[index];
 
   if (!segment) {
-    return toast.error('Segment cannot be found.');
+    toast.error('Segment cannot be found.');
+    return;
   }
 
   const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
@@ -345,7 +346,8 @@ const loadPoint = (index: number) => {
   const segment = objects[index];
 
   if (!segment) {
-    return toast.error('Segment cannot be found.');
+    toast.error('Segment cannot be found.');
+    return;
   }
 
   const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
@@ -402,7 +404,8 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   const points = scene.getObjectByName('points') as THREE.InstancedMesh;
 
   if (intersect?.instanceId === undefined) {
-    return toast.info('No point intersected.');
+    toast.info('No point intersected.');
+    return;
   }
 
   points.getMatrixAt(intersect.instanceId, matrix);
@@ -414,7 +417,8 @@ const handleMove = () => {
   const [gripper] = filterResources(props.resources, 'rdk', 'component', 'gripper');
 
   if (gripper === undefined) {
-    return toast.error('No gripper component detected.');
+    toast.error('No gripper component detected.');
+    return;
   }
 
   /*
@@ -424,7 +428,8 @@ const handleMove = () => {
   const [motion] = filterResources(props.resources, 'rdk', 'service', 'motion');
 
   if (motion === undefined) {
-    return toast.error('No motion service detected.');
+    toast.error('No motion service detected.');
+    return;
   }
 
   const req = new motionApi.MoveRequest();

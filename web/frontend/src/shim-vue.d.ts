@@ -4,7 +4,3 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>;
   export default component;
 }
-
-declare module '*.worker?worker';
-declare module 'vue-toast-notification';
-declare module 'blockly';

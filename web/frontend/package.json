@@ -3,7 +3,9 @@
   "version": "0.2.0",
   "license": "Apache-2.0",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "module": "./dist/rc.js",
   "types": "./dist/rc.d.ts",
   "exports": {
@@ -26,28 +28,28 @@
   "devDependencies": {
     "@mdi/js": "^6.9.96",
     "@types/google-protobuf": "^3.15.6",
-    "@types/google.maps": "^3.50.4",
+    "@types/google.maps": "^3.52.2",
     "@types/three": "^0.144.0",
     "@typescript-eslint/eslint-plugin": "^5.40.1",
     "@vitejs/plugin-vue": "^3.1.2",
     "cypress": "^10.10.0",
     "eslint": "^8.26.0",
     "eslint-import-resolver-custom-alias": "^1.3.0",
-    "eslint-plugin-tailwindcss": "^3.6.2",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-tailwindcss": "^3.6.2",
     "eslint-plugin-unicorn": "^44.0.2",
     "eslint-plugin-vue": "^9.6.0",
     "jshashes": "^1.0.8",
     "postcss": "^8.4.18",
     "tailwindcss": "^3.2.1",
+    "terser": "^5.15.1",
+    "typescript": "<4.9.3",
     "vite": "^3.1.8",
     "vitest": "^0.24.3",
     "vue-toast-notification": "^3.0.4",
     "vue-tsc": "^1.0.9",
-    "vue3-popper": "^1.5.0",
-    "terser": "^5.15.1",
-    "typescript": "<4.9.3"
+    "vue3-popper": "^1.5.0"
   },
   "scripts": {
     "copy-prime-assets": "node ./scripts/copy-prime-assets.js",

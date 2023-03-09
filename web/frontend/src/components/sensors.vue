@@ -45,7 +45,8 @@ const getReadings = (inputNames: SensorName[]) => {
   rcLogConditionally(req);
   props.client.sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
     if (error) {
-      return toast.error(error.message);
+      toast.error(error.message);
+      return;
     }
 
     for (const item of response!.getReadingsList()) {
