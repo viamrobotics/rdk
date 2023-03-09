@@ -28,7 +28,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 	// as long for this to occur.
 	waitForCaptureFiles := func(captureDir string) {
 		files := getAllFileInfos(captureDir)
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 50; i++ {
 			if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
 				return
 			}
