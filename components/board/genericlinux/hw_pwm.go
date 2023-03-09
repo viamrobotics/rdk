@@ -12,7 +12,6 @@ type pwmDevice struct {
 	// These values are immutable
 	chipPath string
 	line     int
-	linePath string
 
 	mu sync.Mutex
 
@@ -27,8 +26,7 @@ func NewPwmDevice(chipName string, line int) pwmDevice {
 	// Everything in /sys/class/pwm is a symlink to this other directory, which uses the chip names
 	// instead of their aliases. These true names match up with the ones in our pin definitions.
 	chipPath := fmt.Sprintf("/sys/devices/platform/%s", chipName)
-	linePath := fmt.Sprintf("%s/pwm%d", chipPath, line),
-	return pwmDevice{chipPath: chipPath, line: line, linePath: linePath}
+	return pwmDevice{chipPath: chipPath, line: line}
 }
 
 func writeValue(filepath string, value int) error {
@@ -42,7 +40,7 @@ func (pwm *pwmDevice) writeChip(filename string, value int) error {
 }
 
 func (pwm *pwmDevice) writeLine(filename string, value int) error {
-	return writeValue(fmt.Sprintf("%s/%s", pwm.linePath, filename), value)
+	return writeValue(fmt.Sprintf("%s/pwm%d/%s", pwm.chipPath, line, filename), value)
 }
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
