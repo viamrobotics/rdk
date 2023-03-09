@@ -125,17 +125,38 @@ func (pin *gpioPin) Get(
 // in software, if we're supposed to and one isn't already running.
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
-		// We don't have both parameters set up. Stop any PWM loop we might have started already.
+		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
 		pin.swPwmRunning = false
-		// If we used to have both parameters set but no longer do, turn off the pin!
+		if pin.hwPwm != nil {
+			return pin.hwPwm.Close()
+		}
+		// If we used to have a software PWM loop, remember to turn off the pin!
 		return pin.setInternal(false)
 	}
+
+	// Otherwise, we need to output a PWM signal.
+	if pin.hwPwm != nil {
+		if pin.pwmFreq > 1 {
+			pin.swPwmRunning = false
+			pin.line.Close()
+			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
+		}
+		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
+		// frequencies this low. Stop any hardware PWM, and fall through to using a software PWM
+		// loop below.
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
+	}
+
+	// If we get here, we need a software loop to drive the PWM signal, either because this pin
+	// doesn't have hardware support or we want to drive it at such a low frequency that the
+	// hardware chip can't do it.
 	if pin.swPwmRunning {
-		// We're already running a software PWM loop for this pin, so we don't need another.
+		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
 	}
 
-	// Otherwise, we'll actually start running.
 	pin.swPwmRunning = true
 	pin.waitGroup.Add(1)
 	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
