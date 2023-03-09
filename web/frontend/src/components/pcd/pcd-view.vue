@@ -17,14 +17,12 @@ import { toast } from '../../lib/toast';
 import { Client, commonApi, motionApi } from '@viamrobotics/sdk';
 import InfoButton from '../info-button.vue';
 
-interface Props {
+const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   cameraName?: string
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const container = $ref<HTMLDivElement>();
 
