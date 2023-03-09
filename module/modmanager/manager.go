@@ -27,7 +27,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var defaultValidateConfigTimeout = 5 * time.Second
+var validateConfigTimeout = 5 * time.Second
 
 // NewManager returns a Manager.
 func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
@@ -214,12 +214,10 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([
 		return nil, err
 	}
 
-	// If no deadline is set on the context, add the default timeout.
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel func()
-		ctx, cancel = context.WithTimeout(ctx, defaultValidateConfigTimeout)
-		defer cancel()
-	}
+	// Override context with new timeout.
+	var cancel func()
+	ctx, cancel = context.WithTimeout(ctx, validateConfigTimeout)
+	defer cancel()
 
 	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: cfgProto})
 	if err != nil {
