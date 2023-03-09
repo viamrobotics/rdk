@@ -17,7 +17,6 @@ var (
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	// TODO: calculate this dynamically
 	emptyFileBytesSize = 30 // size of leading metadata message
 )
 
