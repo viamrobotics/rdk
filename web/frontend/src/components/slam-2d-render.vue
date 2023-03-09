@@ -42,6 +42,8 @@ const marker = new THREE.Mesh(
   new THREE.PlaneGeometry(markerSize, markerSize).rotateX(-Math.PI / 2),
   new THREE.MeshBasicMaterial({ color: 'red' })
 );
+// This ensures the robot marker renders on top of the pointcloud data
+marker.renderOrder = 999;
 
 const controls = new MapControls(camera, renderer.domElement);
 
@@ -63,16 +65,9 @@ const update = (pointcloud: Uint8Array, pose: commonApi.Pose) => {
   const points = loader.parse(pointcloud.buffer, '');
 
   const x = pose.getX!();
-  const y = pose.getY!();
+  const z = pose.getZ!();
   marker.position.setX(x);
-
-  /*
-   * TODO: This is set to xz b/c we are projecting on the xz plane.
-   * This is temporary & will be changed to `marker.position.setZ(z);`
-   * when the frontend is migrated to use GetPositionNew
-   * Ticket: https://viam.atlassian.net/browse/RSDK-1066
-   */
-  marker.position.setZ(y);
+  marker.position.setZ(z);
 
   disposeScene();
   scene.add(points);
