@@ -245,9 +245,9 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldResemble,
 		`rpc error: code = Unknown desc = error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 
-	// Test that ValidateConfig respects defaultValidateConfigTimeout by artificially
+	// Test that ValidateConfig respects validateConfigTimeout by artificially
 	// lowering it to an impossibly small duration.
-	defaultValidateConfigTimeout = 1 * time.Nanosecond
+	validateConfigTimeout = 1 * time.Nanosecond
 	_, err = mgr.ValidateConfig(ctx, cfgMyBase1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
