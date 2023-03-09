@@ -2,7 +2,7 @@ package builtin
 
 import (
 	"context"
-	"os"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"testing"
 	"time"
 
@@ -17,8 +17,7 @@ var (
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	// TODO: calculate this dynamically
-	emptyFileBytesSize = 30 // size of leading metadata message
+	emptyFileBytesSize                          = 100 // size of leading metadata message
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -26,16 +25,25 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 	// On slower machines, it's possible that capture hasn't begun after captureTime. Give up to 20x
 	// as long for this to occur.
-	getCapturedFiles := func(captureDir string) []os.FileInfo {
-		files := getAllFiles(captureDir)
+	waitForCaptureFiles := func(captureDir string) {
+		files := getAllFileInfos(captureDir)
 		for i := 0; i < 20; i++ {
 			if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
-				break
+				return
 			}
 			time.Sleep(captureTime)
-			files = getAllFiles(captureDir)
+			files = getAllFileInfos(captureDir)
 		}
-		return files
+	}
+
+	testFileContainsSensorData := func(t *testing.T, path string) {
+		sd, err := datacapture.SensorDataFromFilePath(path)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(sd), test.ShouldBeGreaterThan, 0)
+		for _, d := range sd {
+			test.That(t, d.GetStruct(), test.ShouldNotBeNil)
+			test.That(t, d.GetMetadata(), test.ShouldNotBeNil)
+		}
 	}
 
 	tests := []struct {
@@ -134,11 +142,15 @@ func TestDataCaptureEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			time.Sleep(captureTime)
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				initialCaptureFiles := getCapturedFiles(initCaptureDir)
-				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
-				test.That(t, initialCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+				waitForCaptureFiles(initCaptureDir)
+				filePaths := getAllFilePaths(initCaptureDir)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(filePaths), test.ShouldBeGreaterThan, 0)
+				for _, p := range filePaths {
+					testFileContainsSensorData(t, p)
+				}
 			} else {
-				initialCaptureFiles := getAllFiles(initCaptureDir)
+				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
 
@@ -161,17 +173,21 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Update to new config and let it run for a bit.
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
-			oldCaptureDirFiles := getAllFiles(initCaptureDir)
+			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
 
 			time.Sleep(captureTime)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				updatedCaptureFiles := getCapturedFiles(updatedCaptureDir)
-				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, 0)
-				test.That(t, updatedCaptureFiles[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+				waitForCaptureFiles(updatedCaptureDir)
+				filePaths := getAllFilePaths(updatedCaptureDir)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(filePaths), test.ShouldBeGreaterThan, 0)
+				for _, p := range filePaths {
+					testFileContainsSensorData(t, p)
+				}
 			} else {
-				updatedCaptureFiles := getAllFiles(updatedCaptureDir)
+				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
-				oldCaptureDirFilesAfterWait := getAllFiles(initCaptureDir)
+				oldCaptureDirFilesAfterWait := getAllFileInfos(initCaptureDir)
 				test.That(t, len(oldCaptureDirFilesAfterWait), test.ShouldEqual, len(oldCaptureDirFiles))
 				for i := range oldCaptureDirFiles {
 					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
