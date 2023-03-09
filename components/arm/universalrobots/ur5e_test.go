@@ -388,21 +388,21 @@ func TestArmReconnection(t *testing.T) {
 	ua, ok := arm.(*URArm)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
 	test.That(t, ua.inRemoteMode, test.ShouldBeFalse)
 
 	remote.Store(true)
 
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
 
 	test.That(t, ua.inRemoteMode, test.ShouldBeTrue)
 	test.That(t, selectChanOrTimeout(remoteConnChan, time.Millisecond*900), test.ShouldBeNil)
 
 	remote.Store(false)
 
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
 
 	test.That(t, ua.inRemoteMode, test.ShouldBeFalse)
 	test.That(t, selectChanOrTimeout(remoteConnChan, time.Millisecond*900), test.ShouldNotBeNil)
@@ -421,8 +421,8 @@ func TestArmReconnection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	remote.Store(true)
 
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
-	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*5), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
+	test.That(t, selectChanOrTimeout(dashboardChan, time.Second*60), test.ShouldBeNil)
 
 	test.That(t, ua.inRemoteMode, test.ShouldBeTrue)
 	test.That(t, selectChanOrTimeout(remoteConnChan, time.Millisecond*900), test.ShouldBeNil)

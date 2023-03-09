@@ -227,11 +227,8 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
       const name = resourceNameToString(nameObj);
       rawStatus[name] = statusJs as unknown as robotApi.Status;
       status[name] = fixed as unknown as robotApi.Status;
-    } catch (error) {
-      toast.error(
-        `Couldn't fix status for ${resourceNameToString(nameObj)}`,
-        error
-      );
+    } catch {
+      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
     }
   }
 };
