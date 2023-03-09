@@ -21,12 +21,6 @@ import (
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-<<<<<<< HEAD
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-=======
-	"go.viam.com/utils/protoutils"
->>>>>>> 576403ca3bfcaddcbb55844422e1ad392c11b8e2
 
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/rdk/components/camera"
