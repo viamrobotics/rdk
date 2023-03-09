@@ -77,7 +77,7 @@ func createFakeSLAMLibraries() {
 		slam.SLAMLibraries["fake_"+s.AlgoName] = slam.LibraryMetadata{
 			AlgoName:       "fake_" + s.AlgoName,
 			AlgoType:       s.AlgoType,
-			Mode:           s.Mode,
+			SlamMode:       s.Mode,
 			BinaryLocation: "true",
 		}
 	}
@@ -572,7 +572,7 @@ func TestGeneralNew(t *testing.T) {
 		slam.SLAMLibraries["test"] = slam.LibraryMetadata{
 			AlgoName:       "test",
 			AlgoType:       99,
-			Mode:           slam.SLAMLibraries["cartographer"].Mode,
+			SlamMode:       slam.SLAMLibraries["cartographer"].Mode,
 			BinaryLocation: "",
 		}
 
@@ -1162,7 +1162,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		slam.SLAMLibraries["fake_orbslamv3"] = slam.LibraryMetadata{
 			AlgoName:       "fake_" + slam.SLAMLibraries["orbslamv3"].AlgoName,
 			AlgoType:       slam.SLAMLibraries["orbslamv3"].AlgoType,
-			Mode:           slam.SLAMLibraries["orbslamv3"].Mode,
+			SlamMode:       slam.SLAMLibraries["orbslamv3"].Mode,
 			BinaryLocation: "fail",
 		}
 
