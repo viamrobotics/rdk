@@ -7,7 +7,7 @@
     "dist"
   ],
   "module": "./dist/rc.js",
-  "types": "./dist/rc.d.ts",
+  "types": "./dist/main-lib.d.ts",
   "exports": {
     ".": {
       "import": "./dist/rc.js"
