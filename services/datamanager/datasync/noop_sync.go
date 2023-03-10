@@ -2,9 +2,7 @@ package datasync
 
 type noopManager struct{}
 
-var (
-	_ Manager = (*noopManager)(nil)
-)
+var _ Manager = (*noopManager)(nil)
 
 // NewNoopManager returns a noop sync manager that does nothing.
 func NewNoopManager() Manager {
