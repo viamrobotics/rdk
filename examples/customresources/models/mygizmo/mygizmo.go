@@ -79,6 +79,10 @@ func (g *myActualGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return fmt.Sprintf("arg1=%t", arg1), nil
 }
 
+func (g *myActualGizmo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+  return cmd, nil
+}
+
 func (g *myActualGizmo)	Reconfigure(ctx context.Context, cfg config.Component, deps registry.Dependencies) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
