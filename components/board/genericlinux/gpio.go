@@ -285,20 +285,24 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 	}
 
 	pins := make(map[string]*gpioPin)
-	for pin, mapping := range gpioMappings {
-		if _, ok := interrupts[fmt.Sprintf("%d", pin)]; ok {
+	for pinNumber, mapping := range gpioMappings {
+		if _, ok := interrupts[fmt.Sprintf("%d", pinNumber)]; ok {
 			logger.Debugf(
 				"Skipping initialization of GPIO pin %s because it's configured as an interrupt",
-				pin)
+				pinNumber)
 			continue
 		}
-		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
+		pin = &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 			cancelCtx:  cancelCtx,
 			waitGroup:  waitGroup,
 			logger:     logger,
 		}
+		if mapping.HWPWMSupported {
+			pin.hwPwm = &NewPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
+		}
+		pins[fmt.Sprintf("%d", pinNumber)] = &pin
 	}
 	return pins, interrupts, nil
 }
