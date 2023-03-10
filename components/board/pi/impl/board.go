@@ -126,7 +126,7 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 			if os.Getuid() != 0 {
 				return nil, errors.New("not running as root, try sudo")
 			}
-			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
+			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
 	}
 
