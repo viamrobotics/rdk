@@ -26,6 +26,7 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -97,7 +98,7 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	internals |= C.PI_CFG_NOSIGHANDLER
 	resCode := C.gpioCfgSetInternals(internals)
 	if resCode < 0 {
-		return nil, errors.Errorf("gpioCfgSetInternals failed with code: %d", resCode)
+		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioCfgSetInternals failed with code")
 	}
 
 	// setup
@@ -124,7 +125,7 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 		if os.Getuid() != 0 {
 			return nil, errors.New("not running as root, try sudo")
 		}
-		return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
+		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioInitialise failed with code")
 	}
 	pigpioInitialized = true
 
@@ -259,7 +260,7 @@ func (pi *piPigpio) GetGPIOBcom(bcom int) (bool, error) {
 		}
 		res := C.gpioSetMode(C.uint(bcom), C.PI_INPUT)
 		if res != 0 {
-			return false, errors.Errorf("failed to set mode %d", res)
+			return false, picommon.ConvertErrorCodeToMessage(int(res), "failed to set mode")
 		}
 		pi.gpioConfigSet[bcom] = true
 	}
@@ -278,7 +279,7 @@ func (pi *piPigpio) SetGPIOBcom(bcom int, high bool) error {
 		}
 		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
 		if res != 0 {
-			return errors.Errorf("failed to set mode %d", res)
+			return picommon.ConvertErrorCodeToMessage(int(res), "failed to set mode")
 		}
 		pi.gpioConfigSet[bcom] = true
 	}
@@ -321,7 +322,7 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
 	if newRes == C.PI_BAD_USER_GPIO {
-		return errors.New("pwm set freq failed")
+		return picommon.ConvertErrorCodeToMessage(int(newRes), "pwm set freq failed")
 	}
 
 	if newRes != C.int(freqHz) {
@@ -406,7 +407,8 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	handle := C.spiOpen(nativeCS, (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus.busSelect, handle, spiFlags)
+		errMsg := fmt.Sprintf("error opening SPI Bus %s, flags were %X", s.bus.busSelect, spiFlags)
+		return nil, picommon.ConvertErrorCodeToMessage(int(handle), errMsg)
 	}
 	defer C.spiClose((C.uint)(handle))
 
