@@ -71,11 +71,14 @@ func (pwm *pwmDevice) export() error {
 	return nil
 }
 
-// Unexport tells the OS that this pin is no longer in use (so it can be reused as an input pin,
-// etc.), and turns off any PWM signal the pin was providing.
+// Unexport turns off any PWM signal the pin was providing, and tells the OS that this pin is no
+// longer in use (so it can be reused as an input pin, etc.).
 func (pwm *pwmDevice) unexport() error {
 	if !pwm.isExported {
 		return nil // Already unexported
+	}
+	if err := pwm.disable(); err != nil {
+		return err
 	}
 	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
 		return err
