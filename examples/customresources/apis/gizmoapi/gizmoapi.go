@@ -9,13 +9,13 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/utils/protoutils"
 )
 
 var Subtype = resource.NewSubtype(
@@ -44,7 +44,7 @@ func FromRobot(r robot.Robot, name string) (Gizmo, error) {
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		 // Reconfigurable, and contents of reconfwrapper.go are only needed for standalone (non-module) uses.
+		// Reconfigurable, and contents of reconfwrapper.go are only needed for standalone (non-module) uses.
 		Reconfigurable: wrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
@@ -69,7 +69,7 @@ type Gizmo interface {
 	DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error)
 	DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error)
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
-	generic.Generic
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
@@ -205,6 +205,22 @@ func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.Do
 	return &pb.DoTwoResponse{Ret1: resp}, nil
 }
 
+func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
+	g, err := s.getGizmo(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.DoCommand(ctx, req.Command.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	pbResp, err := protoutils.StructToStructPb(resp)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.DoCommandResponse{Result: pbResp}, nil
+}
+
 func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
@@ -332,5 +348,16 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
+	command, err := protoutils.StructToStructPb(cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.DoCommand(ctx, &pb.DoCommandRequest{
+		Name:    c.name,
+		Command: command,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
 }
