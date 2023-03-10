@@ -63,6 +63,14 @@ func (pin *gpioPin) openGpioFd() error {
 	return nil
 }
 
+func (pin *gpioPin) closeGpioFd() error {
+	if pin.line == nil {
+		return nil // If the pin is already closed.
+	}
+	pin.line.Close()
+	pin.line = nil
+}
+
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	extra map[string]interface{},
@@ -137,8 +145,12 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// Otherwise, we need to output a PWM signal.
 	if pin.hwPwm != nil {
 		if pin.pwmFreqHz > 1 {
+			if pin.line != nil {
+				if err := pin.closeGpioFd(); err != nil {
+					return err
+				}
+			}
 			pin.swPwmRunning = false
-			pin.line.Close()
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -263,9 +275,7 @@ func (pin *gpioPin) Close() error {
 		return nil // Never opened, so no need to close
 	}
 
-	err := pin.line.Close()
-	pin.line = nil
-	return err
+	return pin.closeGpioFd()
 }
 
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
