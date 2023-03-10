@@ -76,6 +76,8 @@ func (pwm *pwmDevice) unexport() error {
 	if !pwm.isExported {
 		return nil // Already unexported
 	}
+	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
+	// causing trouble if you start using the pin for something else.
 	if err := pwm.disable(); err != nil {
 		return err
 	}
