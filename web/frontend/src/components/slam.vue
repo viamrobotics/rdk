@@ -270,13 +270,13 @@ const refresh3dMap = () => {
           /> -->
         </div>
         <div class="pt-4">
-          <div class="flex items-center gap-2">
+          <!-- <div class="flex items-center gap-2">
             <v-switch
               :value="show3d ? 'on' : 'off'"
               @input="toggle3dExpand()"
             />
             <span class="pr-2">View SLAM Map (3D))</span>
-          </div>
+          </div> -->
           <div class="float-right pb-4">
             <div class="flex">
               <div
@@ -325,14 +325,14 @@ const refresh3dMap = () => {
                   </div>
                 </div>
               </div>
-              <div class="px-2 pt-7">
+              <!-- <div class="px-2 pt-7">
                 <v-button
                   v-if="show3d"
                   icon="refresh"
                   label="Refresh"
                   @click="refresh3dMap()"
                 />
-              </div>
+              </div> -->
             </div>
           </div>
           <PCD
