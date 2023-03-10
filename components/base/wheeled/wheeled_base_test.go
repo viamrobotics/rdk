@@ -375,16 +375,16 @@ func TestAngleCalculations(t *testing.T) {
 	}{
 		/*
 			quadrants
-			q2	 	|		q1
-					|
+			q2	 	|		q1	  <-| ccw (+ve)
+				+ve	|  +ve			|
 			________|________
 					|
-					|
-			q3		|		q4
+				-ve	|  -ve			|
+			q3		|		q4	  <-| cw (-ve)
 		*/
 
-		// // acute angle additions
-		// // eight possibilities counterclockwise
+		// acute angle additions
+		// eight possibilities counterclockwise
 		{"acute-CCW-quadrant1-to-quadrant1", 10, 10, 20, 35, 1},
 		{"acute-CCW-quadrant1-to-quadrant2", 10, 85, 95, 110, 1},
 		{"acute-CCW-quadrant2-to-quadrant2", 10, 95, 105, 120, 1},
@@ -393,7 +393,7 @@ func TestAngleCalculations(t *testing.T) {
 		{"acute-CCW-quadrant4-to-quadrant4", 10, -35, -25, -10, 1},
 		{"acute-CCW-quadrant4-to-quadrant1", 10, -15, -5, 10, 1},
 
-		// // eight possibilities clockwise
+		// eight possibilities clockwise
 		{"acute-CW-quadrant1-to-quadrant1", -20, 40, 20, 5, -1},
 		{"acute-CW-quadrant1-to-quadrant4", -20, 10, -10, -25, -1},
 		{"acute-CW-quadrant4-to-quadrant4", -20, -10, -30, -45, -1},
@@ -402,8 +402,8 @@ func TestAngleCalculations(t *testing.T) {
 		{"acute-CW-quadrant3-to-quadrant2", -20, -170, 170, 155, -1},
 		{"acute-CW-quadrant2-to-quadrant1", -20, 100, 80, 65, -1},
 
-		// // obtuse angle additions,
-		// // eight possibilities counterclockwise
+		// obtuse angle additions,
+		// eight possibilities counterclockwise
 		{"obtuse-CCW-quadrant1-to-quadrant3", 110, 80, -170, -155, 1},
 		{"obtuse-CCW-quadrant1-to-quadrant2", 110, 10, 120, 135, 1},
 		{"obtuse-CCW-quadrant2-to-quadrant3", 110, 95, -155, -140, 1},
@@ -413,7 +413,7 @@ func TestAngleCalculations(t *testing.T) {
 		{"obtuse-CCW-quadrant4-to-quadrant2", 110, -10, 100, 115, 1},
 		{"obtuse-CCW-quadrant4-to-quadrant1", 110, -80, 30, 45, 1},
 
-		// // eight possibilities clockwise
+		// eight possibilities clockwise
 		{"obtuse-CW-quadrant1-to-quadrant4", -110, 80, -30, -45, -1},
 		{"obtuse-CW-quadrant1-to-quadrant3", -110, 10, -100, -115, -1},
 		{"obtuse-CW-quadrant2-to-quadrant1", -110, 170, 60, 45, -1},
@@ -423,8 +423,8 @@ func TestAngleCalculations(t *testing.T) {
 		{"obtuse-CW-quadrant4-to-quadrant3", -110, -10, -120, -135, -1},
 		{"obtuse-CW-quadrant3-to-quadrant1", -110, -170, 80, 65, -1},
 
-		// // reflex angle additions,
-		// // eight possibilities counterclockwise
+		// reflex angle additions,
+		// eight possibilities counterclockwise
 		{"reflex-CCW-quadrant1-to-quadrant4", 200, 80, -80, -65, 1},
 		{"reflex-CCW-quadrant1-to-quadrant3", 200, 10, -150, -135, 1},
 		{"reflex-CCW-quadrant2-to-quadrant3", 200, 95, -65, -50, 1},
@@ -434,7 +434,7 @@ func TestAngleCalculations(t *testing.T) {
 		{"reflex-CCW-quadrant4-to-quadrant2", 200, -10, -170, -155, 1},
 		{"reflex-CCW-quadrant4-to-quadrant1", 200, -80, 120, 135, 1},
 
-		// // eight possibilities clockwise
+		// eight possibilities clockwise
 		{"reflex-CW-quadrant1-to-quadrant2", -200, 10, 170, 155, -1},
 		{"reflex-CW-quadrant1-to-quadrant3", -200, 80, -120, -135, -1},
 		{"reflex-CW-quadrant2-to-quadrant3", -200, 100, -100, -115, -1},
@@ -466,5 +466,54 @@ func TestAngleCalculations(t *testing.T) {
 				test.That(t, overshoot, test.ShouldAlmostEqual, tc.Over)
 			})
 		})
+		t.Run(tc.Condition+" overshoot", func(t *testing.T) {
+			start := tc.Current
+			target := tc.Target
+			dir := tc.Dir
+
+			over := tc.Over
+			test.That(t,
+				hasBaseOvershot(over, target, start, dir),
+				test.ShouldBeTrue)
+
+			notover := addAnglesInDomain(target, -1*dir*1)
+			test.That(t,
+				hasBaseOvershot(notover, target, start, dir),
+				test.ShouldBeFalse)
+		})
 	}
 }
+
+type added struct {
+	AngleType string // acute, ninety, obtuse, oneeighty, reflex twoseventy, twoseventyplus, threesixty
+	Added     float64
+	Over      float64
+}
+
+type start struct {
+	Quadrant  string // quadrant 1, quadrant2, quadrant3 quadrant4
+	Direction string
+	Value     float64
+}
+type TestCase struct {
+	Condition string
+	Start     float64
+	Target    float64
+	Over      float64
+	Direction float64
+}
+
+func TestAngleCalculations2(t *testing.T) {
+
+}
+
+var angleTypes = map[string]float64{
+	"acute":          20,
+	"ninety":         90,
+	"obtuse":         110,
+	"oneeighty":      180,
+	"reflex":         200,
+	"twoseventy":     270,
+	"twoseventyplus": 325,
+	"threesixty":     360}
+var dirs = map[string]float64{"cw": -1, "ccw": 1}
