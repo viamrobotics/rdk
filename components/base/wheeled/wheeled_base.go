@@ -147,16 +147,16 @@ func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64)
 func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
 
-	currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
+	startYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
 	if err != nil {
 		return err
 	}
-
 	errCounter := 0
 
-	targetYaw, overshoot, _ := findSpinParams(angleDeg, degsPerSec, currYaw)
+	targetYaw, overshoot, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
 
 	timer := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) // ~rename
+	defer timer.Stop()
 
 	base.logger.Debug("starting for loop")
 	for {
@@ -170,37 +170,39 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		case <-ctx.Done():
 			return nil
 		case <-timer.C:
-		}
-		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
-		if err != nil {
-			errCounter++
+			currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
+			if err != nil {
+				errCounter++
+			}
 			if errCounter > 100 {
 				base.logger.Errorf("imu sensor unreachable, had %d error counts when trying to read yaw angle", errCounter)
 				break
 			}
-			return err
-		}
-		errCounter = 0
 
-		errAngle := targetYaw - currYaw
-		overshot := overshoot-currYaw > allowableAngle
+			errCounter = 0
 
-		// poll the sensor for the current error in angle
-		// also check if we've overshot our target by fifteen degrees
-		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot:%t", currYaw, targetYaw, overshoot, overshot)
-		if math.Abs(errAngle) < errTarget || overshot {
-			if err := base.Stop(ctx, nil); err != nil {
-				return err
+			errAngle := targetYaw - currYaw
+			overshot := overshoot-currYaw > allowableAngle
+
+			hasOvershot := hasBaseOvershot(currYaw, targetYaw, startYaw, dir)
+
+			// poll the sensor for the current error in angle
+			// also check if we've overshot our target by fifteen degrees
+			base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot:%t", currYaw, targetYaw, overshoot, overshot)
+			if math.Abs(errAngle) < errTarget || overshot || hasOvershot {
+				if err := base.Stop(ctx, nil); err != nil {
+					return err
+				}
+				base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot? %t", currYaw, targetYaw, overshoot)
+				break
 			}
-			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot? %t", currYaw, targetYaw, overshoot)
-			break
 		}
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
 			return err
 		}
 	}
-	return nil
+	// return nil
 }
 
 func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
@@ -248,6 +250,35 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, fl
 	}
 	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
 	return targetYaw, overshoot, dir
+}
+
+func hasBaseOvershot(currentAngle, targetAngle, startAngle, direction float64,
+) bool {
+	// for the following cases, direction > 0 is a countercloskwise turn
+	var overshot bool
+	switch {
+	// counterclockwise cases
+	case direction == 1:
+		// edge case where we've changed sign twice, so the overshoot condition is flipped
+		if !math.Signbit(startAngle) && math.Signbit(currentAngle) != math.Signbit(targetAngle) && direction == 1 {
+			overshot = currentAngle-targetAngle < 0
+		} else {
+			overshot = currentAngle-targetAngle > 0
+		}
+
+	// clockwise cases
+	case direction == -1:
+		// edge case where we've changed sign twice, so the overshoot condition is flipped
+		if math.Signbit(startAngle) && math.Signbit(currentAngle) != math.Signbit(targetAngle) && direction == -1 {
+			overshot = currentAngle-targetAngle > 0
+		} else {
+			overshot = currentAngle-targetAngle < 0
+		}
+	default:
+		// we have not overshot
+		overshot = false
+	}
+	return overshot
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
