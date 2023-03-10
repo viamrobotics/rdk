@@ -23,25 +23,25 @@ type pwmDevice struct {
 	isEnabled        bool
 }
 
-func NewPwmDevice(chipName string, line int) pwmDevice {
+func NewPwmDevice(chipName string, line int) *pwmDevice {
 	// Everything in /sys/class/pwm is a symlink to this other directory, which uses the chip names
 	// instead of their aliases. These true names match up with the ones in our pin definitions.
 	chipPath := fmt.Sprintf("/sys/devices/platform/%s", chipName)
-	return pwmDevice{chipPath: chipPath, line: line}
+	return &pwmDevice{chipPath: chipPath, line: line}
 }
 
-func writeValue(filepath string, value int) error {
+func writeValue(filepath string, value uint64) error {
 	// The permissions on the file (the third argument) aren't important: if the file needs to be
 	// created, something has gone horribly wrong!
 	return os.WriteFile(filepath, []byte(fmt.Sprintf("%d", value)), 0o660)
 }
 
-func (pwm *pwmDevice) writeChip(filename string, value int) error {
+func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
 	return writeValue(fmt.Sprintf("%s/%s", pwm.chipPath, filename), value)
 }
 
-func (pwm *pwmDevice) writeLine(filename string, value int) error {
-	return writeValue(fmt.Sprintf("%s/pwm%d/%s", pwm.chipPath, line, filename), value)
+func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
+	return writeValue(fmt.Sprintf("%s/pwm%d/%s", pwm.chipPath, pwm.line, filename), value)
 }
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
@@ -49,7 +49,7 @@ func (pwm *pwmDevice) export() error {
 	if pwm.isExported {
 		return nil // Already exported
 	}
-	if err := pwm.writeChip("export", pwm.line); err != nil {
+	if err := pwm.writeChip("export", uint64(pwm.line)); err != nil {
 		return err
 	}
 	pwm.isExported = true
@@ -62,7 +62,7 @@ func (pwm *pwmDevice) unexport() error {
 	if !pwm.isExported {
 		return nil // Already unexported
 	}
-	if err := pwm.writeChip("unexport", pwm.line); err != nil {
+	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
 		return err
 	}
 	pwm.isExported = false
@@ -74,7 +74,7 @@ func (pwm *pwmDevice) enable() error {
 	if pwm.isEnabled {
 		return nil // Already enabled
 	}
-	if err := pwm.writeLine(("enable", 1); err != nil {
+	if err := pwm.writeLine("enable", 1); err != nil {
 		return err
 	}
 	pwm.isEnabled = true
@@ -114,8 +114,8 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
 	// pin should be high within a period. It's not how the rest of the world defines a duty cycle,
 	// so we will refer to it here as the active duration.
-	periodNs := 1000 * 1000 * 1000 / freqHz
-	activeDurationNs := int(periodNs * dutyCycle)
+	periodNs := 1000 * 1000 * 1000 / uint64(freqHz)
+	activeDurationNs := uint64(float64(periodNs) * dutyCycle)
 
 	// We are never allowed to set the active duration higher than the period. Change the order we
 	// set the values to ensure this.
@@ -145,9 +145,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 		pwm.activeDurationNs = activeDurationNs
 	}
 
-	if err := pwm.enable(); err != nil {
-		return err
-	}
+	return pwm.enable()
 }
 
 func (pwm *pwmDevice) Close() error {
