@@ -148,12 +148,10 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// Otherwise, we need to output a PWM signal.
 	if pin.hwPwm != nil {
 		if pin.pwmFreqHz > 1 {
-			if pin.line != nil {
-				if err := pin.closeGpioFd(); err != nil {
-					return err
-				}
+			if err := pin.closeGpioFd(); err != nil {
+				return err
 			}
-			pin.swPwmRunning = false
+			pin.swPwmRunning = false // Shut down any software PWM loop that might be running.
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -165,8 +163,8 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	}
 
 	// If we get here, we need a software loop to drive the PWM signal, either because this pin
-	// doesn't have hardware support or we want to drive it at such a low frequency that the
-	// hardware chip can't do it.
+	// doesn't have hardware support or because we want to drive it at such a low frequency that
+	// the hardware chip can't do it.
 	if pin.swPwmRunning {
 		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
