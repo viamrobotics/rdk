@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/viamrobotics/visualization"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -387,7 +388,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 
 	// Set a goal such that the gantry and arm must both be used to solve
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	newPos, err := PlanMotion(
+	plan, err := PlanMotion(
 		context.Background(),
 		logger.Sugar(),
 		frame.NewPoseInFrame(frame.World, goal1),
@@ -398,9 +399,10 @@ func TestArmAndGantrySolve(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), frame.World)
+	solvedPose, err := fs.Transform(plan[len(plan)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal1, 0.01), test.ShouldBeTrue)
+	visualization.VisualizePlan()
 }
 
 func TestMultiArmSolve(t *testing.T) {
