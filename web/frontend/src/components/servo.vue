@@ -5,14 +5,12 @@ import { Client, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   name: string
   status: servoApi.Status.AsObject
   rawStatus: servoApi.Status.AsObject
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const stop = () => {
   const req = new servoApi.StopRequest();

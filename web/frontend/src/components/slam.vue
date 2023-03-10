@@ -9,13 +9,11 @@ import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
 import Slam2dRender from './slam-2d-render.vue';
 
-interface Props {
+const props = defineProps<{
   name: string
   resources: commonApi.ResourceName.AsObject[]
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const selected2dValue = $ref('manual');
 const selected3dValue = $ref('manual');

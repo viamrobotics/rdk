@@ -7,7 +7,7 @@ import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 
-interface Props {
+const props = defineProps<{
   name: string
 
   /*
@@ -20,8 +20,7 @@ interface Props {
   pointcloud?: Uint8Array
   pose?: commonApi.Pose
 }
-
-const props = defineProps<Props>();
+>();
 
 const loader = new PCDLoader();
 
