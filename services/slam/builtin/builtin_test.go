@@ -61,8 +61,8 @@ var (
 	_false                                             = false
 )
 
-func getNumOrbslamImages(slamMode slam.Mode) int {
-	switch slamMode {
+func getNumOrbslamImages(mode slam.Mode) int {
+	switch mode {
 	case slam.Mono:
 		return 15
 	case slam.Rgbd:
