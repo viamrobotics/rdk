@@ -69,6 +69,7 @@ func (pin *gpioPin) closeGpioFd() error {
 	}
 	pin.line.Close()
 	pin.line = nil
+	return nil
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
