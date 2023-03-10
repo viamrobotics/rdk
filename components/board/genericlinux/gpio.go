@@ -67,7 +67,9 @@ func (pin *gpioPin) closeGpioFd() error {
 	if pin.line == nil {
 		return nil // If the pin is already closed.
 	}
-	pin.line.Close()
+	if err := pin.line.Close(); err != nil {
+		return err
+	}
 	pin.line = nil
 	return nil
 }
@@ -311,7 +313,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			logger:     logger,
 		}
 		if mapping.HWPWMSupported {
-			hwPwm, err := NewPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
+			hwPwm, err := newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
 			if err != nil {
 				return pins // TODO: replace with (nil, err) after merging other PR.
 			}

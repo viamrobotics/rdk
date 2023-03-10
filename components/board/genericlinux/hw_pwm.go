@@ -5,7 +5,6 @@ package genericlinux
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -27,11 +26,11 @@ type pwmDevice struct {
 	isEnabled        bool
 }
 
-func NewPwmDevice(chipName string, line int) (*pwmDevice, error) {
+func newPwmDevice(chipName string, line int) (*pwmDevice, error) {
 	// There should be a single directory within /sys/devices/platform/<chipName>/pwm/, whose name
 	// is mirrored in /sys/class/pwm. That's the one we want to use.
 	chipDir := fmt.Sprintf("/sys/devices/platform/%s/pwm", chipName)
-	files, err := ioutil.ReadDir(chipDir)
+	files, err := os.ReadDir(chipDir)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +47,7 @@ func NewPwmDevice(chipName string, line int) (*pwmDevice, error) {
 func writeValue(filepath string, value uint64) error {
 	// The permissions on the file (the third argument) aren't important: if the file needs to be
 	// created, something has gone horribly wrong!
-	return os.WriteFile(filepath, []byte(fmt.Sprintf("%d", value)), 0o660)
+	return os.WriteFile(filepath, []byte(fmt.Sprintf("%d", value)), 0o600)
 }
 
 func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
@@ -139,7 +138,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 	// set the values to ensure this.
 	if periodNs < pwm.activeDurationNs {
 		// The new period is smaller than the old active duration. Change the active duration
-		// first. 
+		// first.
 		if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
 			return err
 		}
