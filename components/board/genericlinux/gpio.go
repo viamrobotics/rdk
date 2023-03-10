@@ -300,7 +300,11 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			logger:     logger,
 		}
 		if mapping.HWPWMSupported {
-			pin.hwPwm = NewPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
+			hwPwm, err := NewPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
+			if err != nil {
+				return pins // TODO: replace with (nil, err) after merging other PR.
+			}
+			pin.hwPwm = hwPwm
 		}
 		pins[fmt.Sprintf("%d", pinNumber)] = pin
 	}
