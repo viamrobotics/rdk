@@ -138,56 +138,48 @@ func newSelfCollisionConstraint(
 	reportDistances bool,
 ) (Constraint, error) {
 	// extract inputs corresponding to the frame
-	var goodInputs []referenceframe.Input
+	var frameInputs []referenceframe.Input
 	var err error
 	switch f := frame.(type) {
 	case *solverFrame:
-		goodInputs, err = f.mapToSlice(observationInput)
+		frameInputs, err = f.mapToSlice(observationInput)
 	default:
-		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
+		frameInputs, err = referenceframe.GetFrameInputs(f, observationInput)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	// create robot collision entities
-	movingGeometries, err := frame.Geometries(goodInputs)
+	movingGeometries, err := frame.Geometries(frameInputs)
 	if err != nil && len(movingGeometries.Geometries()) == 0 {
 		return nil, err // no geometries defined for frame
 	}
 
-	// staticGeomtries := make([]spatial.Geometry, 0)
-	// for _, name := range fs.FrameNames() {
-	// 	input, err := referenceframe.GetFrameInputs(fs.Frame(name), observationInput)
-	// 	if err != nil {
-	// 		continue
-	// 	}
-	// 	geometries, err := fs.Frame(name).Geometries(input)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	fs.Transform(observationInput)
-	// 	for _, geometry := range geometries.Geometries() {
-	// 		if movingGeometries.GeometryByName(geometry.Label()) == nil {
-	// 			staticGeomtries = append(staticGeomtries, geometry)
-	// 		}
-	// 	}
-	// }
-
+	// find all geometries that are not moving
 	staticGeometries, err := referenceframe.FrameSystemGeometries(fs, observationInput)
 	if err != nil {
 		return nil, err
 	}
-
 	for _, geometry := range movingGeometries.Geometries() {
 		staticGeometries.RemoveGeometry(geometry.Label())
 	}
 
-	movingVsMovingConstraint, err := newCollisionConstraint(movingGeometries, nil, collisionSpecifications, reportDistances)
+	movingVsMovingConstraint, err := newCollisionConstraint(
+		movingGeometries.Geometries(),
+		nil,
+		collisionSpecifications,
+		reportDistances,
+	)
 	if err != nil {
 		return nil, err
 	}
-	movingVsStaticConstraint, err := newCollisionConstraint(movingGeometries, staticGeometries, collisionSpecifications, reportDistances)
+	movingVsStaticConstraint, err := newCollisionConstraint(
+		movingGeometries.Geometries(),
+		staticGeometries.Geometries(),
+		collisionSpecifications,
+		reportDistances,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +235,7 @@ func newObstacleConstraint(
 		return nil, err
 	}
 	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	return newCollisionConstraint(movingGeometries, worldState.Obstacles[0], collisionSpecifications, reportDistances)
+	return newCollisionConstraint(movingGeometries.Geometries(), worldState.Obstacles[0].Geometries(), collisionSpecifications, reportDistances)
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting
@@ -251,13 +243,12 @@ func newObstacleConstraint(
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func newCollisionConstraint(
-	moving, static *referenceframe.GeometriesInFrame,
+	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) (Constraint, error) {
 	// create the reference collisionGraph
-	staticGeometries := static.Geometries()
-	zeroCG, err := newCollisionGraph(moving.Geometries(), staticGeometries, nil, true)
+	zeroCG, err := newCollisionGraph(moving, static, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +263,7 @@ func newCollisionConstraint(
 			return false, 0
 		}
 
-		cg, err := newCollisionGraph(internal.Geometries(), staticGeometries, zeroCG, reportDistances)
+		cg, err := newCollisionGraph(internal.Geometries(), static, zeroCG, reportDistances)
 		if err != nil {
 			return false, 0
 		}
