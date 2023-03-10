@@ -183,9 +183,12 @@ func TestMoveSingleComponent(t *testing.T) {
 	ms = setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
+		homePose, err := ms.GetPose(context.Background(), arm.Named("pieceArm"), "", nil, nil)
+		test.That(t, err, test.ShouldBeNil)
+
 		testPose := spatialmath.NewPose(
-			r3.Vector{X: 1., Y: 2., Z: 3.},
-			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
+			r3.Vector{homePose.Pose().Point().X + 20, homePose.Pose().Point().Y, homePose.Pose().Point().Z},
+			homePose.Pose().Orientation(),
 		)
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
@@ -193,8 +196,8 @@ func TestMoveSingleComponent(t *testing.T) {
 		worldState := &referenceframe.WorldState{Transforms: transforms}
 
 		poseToGrab := spatialmath.NewPose(
-			r3.Vector{X: -790., Y: -232., Z: 60.},
-			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 1., RY: 1., RZ: 0.},
+			r3.Vector{X: 1., Y: 0., Z: 0.},
+			homePose.Pose().Orientation(),
 		)
 
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", poseToGrab)
