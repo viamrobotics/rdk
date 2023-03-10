@@ -32,9 +32,10 @@ func TestValidateConfig(t *testing.T) {
 		cfg := AttrConfig{
 			BoardName: "thing",
 		}
-		_, err := cfg.Validate("path")
+		deps, err := cfg.Validate("path")
 		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
 		test.That(t, err, test.ShouldBeError, expectedErr)
+		test.That(t, deps, test.ShouldBeEmpty)
 	})
 
 	t.Run("adds board name to dependencies on success", func(t *testing.T) {
