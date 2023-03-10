@@ -3,16 +3,19 @@ package fake
 
 import (
 	"context"
+	"image"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/vision"
 )
 
 var model = resource.NewDefaultModel("fake")
@@ -53,11 +56,35 @@ func (slamSvc *SLAM) getCount() int {
 	return slamSvc.dataCount
 }
 
+// GetMap returns either a vision.Object or image.Image based on request mimeType.
+func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
+	include bool, extra map[string]interface{},
+) (string, image.Image, *vision.Object, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetMap")
+	defer span.End()
+	slamSvc.incrementDataCount()
+	return fakeGetMap(ctx, datasetDirectory, slamSvc, mimeType)
+}
+
+// Position returns a PoseInFrame of the robot's current location according to SLAM.
+func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::Position")
+	defer span.End()
+	return fakePosition(ctx, datasetDirectory, slamSvc, name)
+}
+
 // GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
 func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPosition")
 	defer span.End()
 	return fakeGetPosition(ctx, datasetDirectory, slamSvc)
+}
+
+// GetInternalState returns the internal state of a slam algo. Currently the internal state of cartographer.
+func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
+	defer span.End()
+	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
 }
 
 // GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
