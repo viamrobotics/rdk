@@ -105,7 +105,7 @@ func (pin *gpioPin) Get(
 
 	if pin.hwPwm != nil {
 		if err := pin.hwPwm.Close(); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if err := pin.openGpioFd(); err != nil {
@@ -136,7 +136,7 @@ func (pin *gpioPin) startSoftwarePWM() error {
 
 	// Otherwise, we need to output a PWM signal.
 	if pin.hwPwm != nil {
-		if pin.pwmFreq > 1 {
+		if pin.pwmFreqHz > 1 {
 			pin.swPwmRunning = false
 			pin.line.Close()
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
@@ -292,7 +292,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 				pinNumber)
 			continue
 		}
-		pin = &gpioPin{
+		pin := &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 			cancelCtx:  cancelCtx,
@@ -300,9 +300,9 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			logger:     logger,
 		}
 		if mapping.HWPWMSupported {
-			pin.hwPwm = &NewPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
+			pin.hwPwm = NewPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
 		}
-		pins[fmt.Sprintf("%d", pinNumber)] = &pin
+		pins[fmt.Sprintf("%d", pinNumber)] = pin
 	}
 	return pins, interrupts, nil
 }
