@@ -273,10 +273,6 @@ func (pin *gpioPin) Close() error {
 			return err
 		}
 	}
-	if pin.line == nil {
-		return nil // Never opened, so no need to close
-	}
-
 	return pin.closeGpioFd()
 }
 
