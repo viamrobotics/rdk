@@ -54,7 +54,7 @@ import {
   fixServoStatus,
 } from '../lib/fixers';
 
-interface Props {
+const props = defineProps<{
   host: string;
   bakedAuth?: {
     authEntity: string;
@@ -63,9 +63,7 @@ interface Props {
   supportedAuthTypes: string[],
   webrtcEnabled: boolean,
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 const relevantSubtypesForStatus = [
   'arm',

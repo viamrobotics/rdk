@@ -1,6 +1,6 @@
 import './index.css';
 import { createApp } from 'vue';
-import RemoteControlCards from './app.vue';
+import RemoteControlCards from './components/remote-control-cards.vue';
 import type { Credentials } from '@viamrobotics/rpc';
 import type { Client } from '@viamrobotics/sdk';
 
