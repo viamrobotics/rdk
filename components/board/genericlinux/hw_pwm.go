@@ -5,8 +5,12 @@ package genericlinux
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 type pwmDevice struct {
@@ -23,11 +27,22 @@ type pwmDevice struct {
 	isEnabled        bool
 }
 
-func NewPwmDevice(chipName string, line int) *pwmDevice {
-	// Everything in /sys/class/pwm is a symlink to this other directory, which uses the chip names
-	// instead of their aliases. These true names match up with the ones in our pin definitions.
-	chipPath := fmt.Sprintf("/sys/devices/platform/%s", chipName)
-	return &pwmDevice{chipPath: chipPath, line: line}
+func NewPwmDevice(chipName string, line int) (*pwmDevice, error) {
+	// There should be a single directory within /sys/devices/platform/<chipName>/pwm/, whose name
+	// is mirrored in /sys/class/pwm. That's the one we want to use.
+	chipDir := fmt.Sprintf("/sys/devices/platform/%s/pwm", chipName)
+	files, err := ioutil.ReadDir(chipDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if strings.Contains(file.Name(), "pwmchip") && file.IsDir() {
+			chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
+			return &pwmDevice{chipPath: chipPath, line: line}, nil
+		}
+	}
+	return nil, errors.Errorf("Could not find any PWM device with name %s", chipName)
 }
 
 func writeValue(filepath string, value uint64) error {
