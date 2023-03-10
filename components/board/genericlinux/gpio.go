@@ -141,7 +141,8 @@ func (pin *gpioPin) startSoftwarePWM() error {
 		if pin.hwPwm != nil {
 			return pin.hwPwm.Close()
 		}
-		// If we used to have a software PWM loop, remember to turn off the pin!
+		// If we used to have a software PWM loop, we might have stopped the loop while the pin was
+		// on. Remember to turn it off!
 		return pin.setInternal(false)
 	}
 
