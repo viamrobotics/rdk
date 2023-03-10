@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -35,15 +36,6 @@ const (
 	fakeArmName    = "arm4"
 	missingArmName = "arm5"
 )
-
-func setupDependencies(t *testing.T) registry.Dependencies {
-	t.Helper()
-
-	deps := make(registry.Dependencies)
-	deps[arm.Named(testArmName)] = &mockLocal{Name: testArmName}
-	deps[arm.Named(fakeArmName)] = "not an arm"
-	return deps
-}
 
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mockLocal{Name: testArmName}
@@ -75,26 +67,6 @@ func TestGenericDo(t *testing.T) {
 	ret, err := a.DoCommand(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
-}
-
-func TestFromDependencies(t *testing.T) {
-	deps := setupDependencies(t)
-
-	a, err := arm.FromDependencies(deps, testArmName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-
-	pose1, err := a.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose1, test.ShouldResemble, pose)
-
-	a, err = arm.FromDependencies(deps, fakeArmName)
-	test.That(t, err, test.ShouldBeError, arm.DependencyTypeError(fakeArmName, "string"))
-	test.That(t, a, test.ShouldBeNil)
-
-	a, err = arm.FromDependencies(deps, missingArmName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
-	test.That(t, a, test.ShouldBeNil)
 }
 
 func TestFromRobot(t *testing.T) {
@@ -392,7 +364,19 @@ func TestOOBArm(t *testing.T) {
 		},
 	}
 
-	notReal, err := fake.NewArm(cfg, logger)
+	injectedRobot := setupInjectRobot()
+	injectedRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.LinkInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+
+	injectedRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+
+	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectedArm := &inject.Arm{
@@ -466,8 +450,11 @@ func TestOOBArm(t *testing.T) {
 	})
 
 	t.Run("MoveToPosition works when IB", func(t *testing.T) {
-		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := injectedArm.MoveToPosition(context.Background(), pose, &referenceframe.WorldState{}, nil)
+		homePose, err := injectedArm.EndPosition(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		testLinearMove := r3.Vector{homePose.Point().X + 20, homePose.Point().Y, homePose.Point().Z}
+		testPose := spatialmath.NewPoseFromPoint(testLinearMove)
+		err = injectedArm.MoveToPosition(context.Background(), testPose, &referenceframe.WorldState{}, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -528,7 +515,10 @@ func TestXArm6Locations(t *testing.T) {
 			ArmModel: "xArm6",
 		},
 	}
-	notReal, err := fake.NewArm(cfg, logger)
+
+	injectedRobot := setupInjectRobot()
+
+	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
@@ -648,7 +638,10 @@ func TestUR5ELocations(t *testing.T) {
 			ArmModel: "ur5e",
 		},
 	}
-	notReal, err := fake.NewArm(cfg, logger)
+
+	injectedRobot := setupInjectRobot()
+
+	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {

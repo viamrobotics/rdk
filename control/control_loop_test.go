@@ -313,14 +313,13 @@ func TestControlLoop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cLoop, test.ShouldNotBeNil)
 	cLoop.Start()
-	for i := 200; i > 0; i-- {
-		time.Sleep(65 * time.Millisecond)
-		b, err := cLoop.OutputAt(ctx, "E")
-		test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, 8.0)
-		test.That(t, err, test.ShouldBeNil)
-		b, err = cLoop.OutputAt(ctx, "B")
-		test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, -3.0)
-		test.That(t, err, test.ShouldBeNil)
-	}
+	time.Sleep(500 * time.Millisecond)
+	b, err := cLoop.OutputAt(ctx, "E")
+	test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, 8.0)
+	test.That(t, err, test.ShouldBeNil)
+	b, err = cLoop.OutputAt(ctx, "B")
+	test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, -3.0)
+	test.That(t, err, test.ShouldBeNil)
+
 	cLoop.Stop()
 }

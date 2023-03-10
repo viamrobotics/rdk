@@ -3,11 +3,9 @@
 import Popper from 'vue3-popper';
 import Icon from './icon.vue';
 
-interface Props {
+defineProps<{
   infoRows?: string[]
-}
-
-defineProps<Props>();
+}>();
 
 </script>
 

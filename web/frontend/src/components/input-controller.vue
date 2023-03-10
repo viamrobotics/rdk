@@ -3,12 +3,10 @@
 import { computed } from 'vue';
 import type { inputControllerApi } from '@viamrobotics/sdk';
 
-interface Props {
+const props = defineProps<{
   name: string
   status: inputControllerApi.Status.AsObject
-}
-
-const props = defineProps<Props>();
+}>();
 
 const controlOrder = [
   'AbsoluteX',

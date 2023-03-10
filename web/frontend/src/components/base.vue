@@ -10,12 +10,6 @@ import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
 
-interface Props {
-  name: string;
-  resources: commonApi.ResourceName.AsObject[];
-  client: Client;
-}
-
 const enum Keymap {
   LEFT = 'a',
   RIGHT = 'd',
@@ -23,7 +17,11 @@ const enum Keymap {
   BACKWARD = 's'
 }
 
-const props = defineProps<Props>();
+const props = defineProps<{
+  name: string;
+  resources: commonApi.ResourceName.AsObject[];
+  client: Client;
+}>();
 
 type Tabs = 'Keyboard' | 'Discrete'
 type MovementTypes = 'Continuous' | 'Discrete'
@@ -263,6 +261,7 @@ onUnmounted(() => {
   stop();
   window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
+
 </script>
 
 <template>
