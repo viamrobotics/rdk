@@ -56,29 +56,28 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMil
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
-	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		tlsConfig := config.NewTLSConfig(cfg).Config
-		cloudConfig := cfg.Cloud
-		rpcOpts := []rpc.DialOption{
-			rpc.WithTLSConfig(tlsConfig),
-			rpc.WithEntityCredentials(
-				cloudConfig.ID,
-				rpc.Credentials{
-					Type:    rdkutils.CredentialsTypeRobotSecret,
-					Payload: cloudConfig.Secret,
-				}),
-		}
-
-		conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
-		if err != nil {
-			return nil, err
-		}
-		client := NewClient(conn)
-		return NewManager(logger, cfg.Cloud.ID, client, conn, lastModMillis)
-	} else {
+	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
 		logger.Debug("Using no-op sync manager when Cloud config is not available")
 		return NewNoopManager(), nil
 	}
+
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	rpcOpts := []rpc.DialOption{
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cfg.Cloud.ID,
+			rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotSecret,
+				Payload: cfg.Cloud.Secret,
+			}),
+	}
+
+	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
+	if err != nil {
+		return nil, err
+	}
+	client := NewClient(conn)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, lastModMillis)
 }
 
 // NewManager returns a new syncer.
