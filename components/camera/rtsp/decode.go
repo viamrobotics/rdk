@@ -3,11 +3,12 @@ package rtsp
 import (
 	"bytes"
 	"image"
-	"image/jpeg"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rimage"
 )
 
 type decoder func(pkt *rtp.Packet) (image.Image, error)
@@ -21,7 +22,7 @@ func mjpegDecoding() (*format.MJPEG, decoder) {
 		if err != nil {
 			return nil, errors.Wrap(err, "rtp to mjpeg decoding failed")
 		}
-		return jpeg.Decode(bytes.NewReader(encoded))
+		return rimage.DecodeJPEG(bytes.NewReader(encoded))
 	}
 	return &mjpeg, mjpegDecoder
 }
