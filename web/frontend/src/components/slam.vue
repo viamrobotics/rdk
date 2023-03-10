@@ -15,6 +15,7 @@ const props = defineProps<{
   client: Client
 }>();
 
+let imageMap = $ref('');
 const selected2dValue = $ref('manual');
 const selected3dValue = $ref('manual');
 let pointCloudUpdateCount = $ref(0);
@@ -37,6 +38,21 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
     length += array.length;
   }
   return result;
+};
+
+const fetchSLAMImageMap = (name: string) => {
+  const req = new slamApi.GetMapRequest();
+  req.setName(name);
+  req.setMimeType('image/jpeg');
+  req.setIncludeRobotMarker(true);
+  rcLogConditionally(req);
+  props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      return displayError(error);
+    }
+    const blob = new Blob([response!.getImage_asU8()], { type: 'image/jpeg' });
+    imageMap = URL.createObjectURL(blob);
+  });
 };
 
 const fetchSLAMMap = (name: string) => {
@@ -87,10 +103,14 @@ const fetchSLAMPose = (name: string) => {
 };
 
 const refresh2d = async (name: string) => {
-  const mapPromise = fetchSLAMMap(name);
-  const posePromise = fetchSLAMPose(name);
-  await mapPromise;
-  await posePromise;
+
+  /*
+   * const mapPromise = fetchSLAMMap(name);
+   * const posePromise = fetchSLAMPose(name);
+   * await mapPromise;
+   * await posePromise;
+   */
+  await fetchSLAMImageMap(name);
 };
 
 // eslint-disable-next-line require-await
@@ -206,9 +226,6 @@ const refresh3dMap = () => {
                     <option value="5">
                       Every 5 seconds
                     </option>
-                    <option value="1">
-                      Every second
-                    </option>
                   </select>
                   <div
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
@@ -236,7 +253,13 @@ const refresh3dMap = () => {
               </div>
             </div>
           </div>
-          <Slam2dRender
+          <img
+            v-if="show2d"
+            :src="imageMap"
+            width="500"
+            height="500"
+          >
+          <!-- <Slam2dRender
             v-if="loaded2d && show2d"
             :point-cloud-update-count="pointCloudUpdateCount"
             :pointcloud="pointcloud"
@@ -244,7 +267,7 @@ const refresh3dMap = () => {
             :name="name"
             :resources="resources"
             :client="client"
-          />
+          /> -->
         </div>
         <div class="pt-4">
           <div class="flex items-center gap-2">
@@ -284,9 +307,6 @@ const refresh3dMap = () => {
                     </option>
                     <option value="5">
                       Every 5 seconds
-                    </option>
-                    <option value="1">
-                      Every second
                     </option>
                   </select>
                   <div
