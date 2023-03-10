@@ -56,15 +56,19 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMil
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
+	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
+		logger.Debug("Using no-op sync manager when Cloud config is not available")
+		return NewNoopManager(), nil
+	}
+
 	tlsConfig := config.NewTLSConfig(cfg).Config
-	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
 		rpc.WithTLSConfig(tlsConfig),
 		rpc.WithEntityCredentials(
-			cloudConfig.ID,
+			cfg.Cloud.ID,
 			rpc.Credentials{
 				Type:    rdkutils.CredentialsTypeRobotSecret,
-				Payload: cloudConfig.Secret,
+				Payload: cfg.Cloud.Secret,
 			}),
 	}
 
