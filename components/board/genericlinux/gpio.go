@@ -42,7 +42,7 @@ type gpioPin struct {
 // pin.line to a valid struct or returns an error.
 func (pin *gpioPin) openGpioFd() error {
 	if pin.line != nil {
-		return nil // If the pin is already opened, don't re-open it.
+		return nil // The pin is already opened, don't re-open it.
 	}
 
 	chip, err := gpio.OpenChip(pin.devicePath)
@@ -65,7 +65,7 @@ func (pin *gpioPin) openGpioFd() error {
 
 func (pin *gpioPin) closeGpioFd() error {
 	if pin.line == nil {
-		return nil // If the pin is already closed.
+		return nil // The pin is already closed.
 	}
 	if err := pin.line.Close(); err != nil {
 		return err
