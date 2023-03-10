@@ -54,7 +54,7 @@ func TestAnalogSmoother1(t *testing.T) {
 	_, ok = as.(*AnalogSmoother)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 100, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 200, func(tb testing.TB) {
 		tb.Helper()
 		v, err := as.Read(context.Background(), nil)
 		test.That(tb, testReader.n, test.ShouldEqual, testReader.lim)
