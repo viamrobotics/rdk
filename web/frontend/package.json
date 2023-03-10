@@ -55,7 +55,7 @@
     "copy-prime-assets": "node ./scripts/copy-prime-assets.js",
     "start": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js --host",
     "build": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build && npm run copy-prime-assets",
-    "build-npm": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && tsc --emitDeclarationOnly",
+    "build-npm": "node --max_old_space_size=16384 ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && vue-tsc --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,js,vue}' --fix --ignore-pattern 'gen/'",
