@@ -98,7 +98,7 @@ type KinematicBase interface {
 }
 
 type KinematicWrappable interface {
-	WrapWithKinematics(slam.Service) KinematicBase
+	WrapWithKinematics(slam.Service) (KinematicBase, error)
 }
 
 var (
