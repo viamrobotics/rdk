@@ -14,9 +14,11 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -87,6 +89,16 @@ type LocalBase interface {
 	Base
 	// Width returns the width of the base in millimeters.
 	Width(ctx context.Context) (int, error)
+}
+
+type KinematicBase interface {
+	Base
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
+}
+
+type KinematicWrappable interface {
+	WrapWithKinematics(slam.Service) KinematicBase
 }
 
 var (
