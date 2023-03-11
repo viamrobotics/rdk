@@ -100,8 +100,8 @@ type wheeledBase struct {
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
-	// TODO(rb): this should eventually move out of this struct
-	model referenceframe.Model
+	// TODO(rb): this is used for building the model and should eventually move out of this struct
+	cfg config.Component
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -410,14 +410,18 @@ func CreateWheeledBase(
 
 type kinematicWheeledBase struct {
 	*wheeledBase
-	slam slam.Service
+	slam  slam.Service
+	model referenceframe.Model
 }
 
-func (base *wheeledBase) WrapWithKinematics(slam slam.Service) base.KinematicBase {
-	return &kinematicWheeledBase{
+func (base *wheeledBase) WrapWithKinematics(slam slam.Service) (base.KinematicBase, error) {
+	var err error
+	kwb := &kinematicWheeledBase{
 		wheeledBase: base,
 		slam:        slam,
 	}
+	kwb.model, err = kwb.buildModel(base.cfg)
+	return kwb, err
 }
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
@@ -434,7 +438,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return errors.New("not implemented yet")
 }
 
-func model(cfg config.Component) (referenceframe.Model, error) {
+func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referenceframe.Model, error) {
 	// TODO(rb): examine error handling for geometries
 	geometry, err := cfg.Frame.Geometry.ParseConfig()
 	if err != nil {
