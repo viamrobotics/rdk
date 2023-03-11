@@ -24,8 +24,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
@@ -44,6 +42,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	slamConfig "go.viam.com/slam/config"
+	"go.viam.com/slam/dataprocess"
 )
 
 var (
@@ -113,15 +112,7 @@ func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, log
 			model, svcConfig.ConfigParams["mode"])
 	}
 
-	for _, directoryName := range [4]string{"", "data", "map", "config"} {
-		directoryPath := filepath.Join(svcConfig.DataDirectory, directoryName)
-		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-			logger.Warnf("%v directory does not exist", directoryPath)
-			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-				return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-			}
-		}
-	}
+	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
 
 	if slamMode == slam.Rgbd || slamMode == slam.Mono {
 		var directoryNames []string
@@ -302,29 +293,6 @@ func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, dep
 		return cameraName, cams, nil
 	}
 	return "", nil, nil
-}
-
-// setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
-func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::builtIn::setupGRPCConnection")
-	defer span.End()
-
-	// This takes about 1 second, so the timeout should be sufficient.
-	ctx, timeoutCancel := context.WithTimeout(ctx, time.Duration(dialMaxTimeoutSec)*time.Second)
-	defer timeoutCancel()
-	// The 'port' provided in the config is already expected to include "localhost:", if needed, so that it doesn't need to be
-	// added anywhere in the code. This will allow cloud-based SLAM processing to exist in the future.
-	// TODO: add credentials when running SLAM processing in the cloud.
-
-	// Increasing the gRPC max message size from the default value of 4MB to 32MB, to match the limit that is set in RDK. This is
-	// necessary for transmitting large pointclouds.
-	maxMsgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(32 * 1024 * 1024))
-	connLib, err := grpc.DialContext(ctx, port, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(), maxMsgSizeOption)
-	if err != nil {
-		logger.Errorw("error connecting to slam process", "error", err)
-		return nil, nil, err
-	}
-	return pb.NewSLAMServiceClient(connLib), connLib.Close, err
 }
 
 // Position forwards the request for positional data to the slam library's gRPC service. Once a response is received,
@@ -567,7 +535,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
-    svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	port, dataRateMsec, mapRateSec, useLiveData, deleteProcessedData, err :=
+		slamConfig.GetOptionalParameters(svcConfig, localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	if err != nil {
+		return nil, err
+	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -578,11 +550,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
-		useLiveData:           *svcConfig.UseLiveData,
-		deleteProcessedData:   *svcConfig.DeleteProcessedData,
-		port:                  svcConfig.Port,
-		dataRateMs:            svcConfig.DataRateMsec,
-		mapRateSec:            *svcConfig.MapRateSec,
+		useLiveData:           useLiveData,
+		deleteProcessedData:   deleteProcessedData,
+		port:                  port,
+		dataRateMs:            dataRateMsec,
+		mapRateSec:            mapRateSec,
 		cancelFunc:            cancelFunc,
 		logger:                logger,
 		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
@@ -608,7 +580,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "error with slam service slam process")
 	}
 
-	client, clientClose, err := setupGRPCConnection(ctx, slamSvc.port, logger)
+	client, clientClose, err := slamConfig.SetupGRPCConnection(ctx, slamSvc.port, dialMaxTimeoutSec, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error with initial grpc client to slam algorithm")
 	}
@@ -873,19 +845,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		}
 
 		filename := filenames[0]
-		//nolint:gosec
-		f, err := os.Create(filename)
-		if err != nil {
-			return []string{filename}, err
-		}
-		w := bufio.NewWriter(f)
-		if _, err := w.Write(image); err != nil {
-			return []string{filename}, err
-		}
-		if err := w.Flush(); err != nil {
-			return []string{filename}, err
-		}
-		return []string{filename}, f.Close()
+		return []string{filename}, dataprocess.WriteBytesToFile(image, filename)
 	case slam.Rgbd:
 		if len(cams) != 2 {
 			return nil, errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(cams))
@@ -910,19 +870,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, err
 		}
 		for i, filename := range filenames {
-			//nolint:gosec
-			f, err := os.Create(filename)
-			if err != nil {
-				return filenames, err
-			}
-			w := bufio.NewWriter(f)
-			if _, err := w.Write(images[i]); err != nil {
-				return filenames, err
-			}
-			if err := w.Flush(); err != nil {
-				return filenames, err
-			}
-			if err := f.Close(); err != nil {
+			if err = dataprocess.WriteBytesToFile(images[i], filename); err != nil {
 				return filenames, err
 			}
 		}
@@ -1003,21 +951,7 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 		return "", err
 	}
 	filename := filenames[0]
-	//nolint:gosec
-	f, err := os.Create(filename)
-	if err != nil {
-		return filename, err
-	}
-
-	w := bufio.NewWriter(f)
-
-	if err = pc.ToPCD(pointcloud, w, 1); err != nil {
-		return filename, err
-	}
-	if err = w.Flush(); err != nil {
-		return filename, err
-	}
-	return filename, f.Close()
+	return filename, dataprocess.WritePCDToFile(pointcloud, filename)
 }
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.

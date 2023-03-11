@@ -7,14 +7,12 @@ import {
 import { toast } from '../../lib/toast';
 import PCD from './pcd-view.vue';
 
-interface Props {
+const props = defineProps<{
   cameraName: string;
   showRefresh: boolean;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();

@@ -9,12 +9,10 @@ import { Client, inputControllerApi as InputController, type ServiceError } from
 import { toast } from '../lib/toast';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   name: string;
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 let gamepadIdx = $ref<number | null>(null);
 let gamepadConnectedPrev = $ref(false);
