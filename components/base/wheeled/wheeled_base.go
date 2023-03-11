@@ -18,8 +18,10 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/slam"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -97,6 +99,9 @@ type wheeledBase struct {
 
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
+
+	// TODO(rb): this should eventually move out of this struct
+	model referenceframe.Model
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -356,11 +361,17 @@ func CreateWheeledBase(
 		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
 	}
 
+	model, err := model(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	base := &wheeledBase{
 		widthMm:              attr.WidthMM,
 		wheelCircumferenceMm: attr.WheelCircumferenceMM,
 		spinSlipFactor:       attr.SpinSlipFactor,
 		logger:               logger,
+		model:                model,
 	}
 
 	if base.spinSlipFactor == 0 {
@@ -395,4 +406,51 @@ func CreateWheeledBase(
 	base.allMotors = append(base.allMotors, base.right...)
 
 	return base, nil
+}
+
+type kinematicWheeledBase struct {
+	*wheeledBase
+	slam slam.Service
+}
+
+func (base *wheeledBase) WrapWithKinematics(slam slam.Service) base.KinematicBase {
+	return &kinematicWheeledBase{
+		wheeledBase: base,
+		slam:        slam,
+	}
+}
+
+func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
+	return kwb.model
+}
+
+func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	// TODO(RSDK-2311): complete the implementation
+	return []referenceframe.Input{}, errors.New("not implemented yet")
+}
+
+func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	// TODO(RSDK-2311): complete the implementation
+	return errors.New("not implemented yet")
+}
+
+func model(cfg config.Component) (referenceframe.Model, error) {
+	// TODO(rb): examine error handling for geometries
+	geometry, err := cfg.Frame.Geometry.ParseConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(rb): figure out a better set of limits to impose on the base frame
+	frame2D, err := referenceframe.NewMobile2DFrame(
+		geometry.Label(),
+		[]referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}},
+		geometry,
+	)
+	if err != nil {
+		return nil, err
+	}
+	model := referenceframe.NewSimpleModel(cfg.Name)
+	model.OrdTransforms = []referenceframe.Frame{frame2D}
+	return model, nil
 }
