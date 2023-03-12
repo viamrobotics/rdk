@@ -6,11 +6,17 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+<<<<<<< HEAD
 
 /*
  * import PCD from './pcd/pcd-view.vue';
  * import Slam2dRender from './slam-2d-render.vue';
  */
+=======
+import PCD from './pcd/pcd-view.vue';
+import Slam2dRender from './slam-2d-render.vue';
+import { rejects } from 'assert';
+>>>>>>> 8da05bf5 (slam-2d-ui-only-schedule-refresh-after-completion)
 
 const props = defineProps<{
   name: string
@@ -21,7 +27,17 @@ const props = defineProps<{
 let imageMap = $ref('');
 const selected2dValue = $ref('manual');
 let show2d = $ref(false);
+<<<<<<< HEAD
 let slam2dIntervalId = -1;
+=======
+let show3d = $ref(false);
+let refresh2DCancelled  = true;
+
+const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
+
+let slam2dTimeoutId = -1;
+let slam3dIntervalId = -1;
+>>>>>>> 8da05bf5 (slam-2d-ui-only-schedule-refresh-after-completion)
 
 /*
  * const selected3dValue = $ref('manual');
@@ -33,6 +49,7 @@ let slam2dIntervalId = -1;
  * let slam3dIntervalId = -1;
  */
 
+<<<<<<< HEAD
 /*
  * const concatArrayU8 = (arrays: Uint8Array[]) => {
  *   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -120,23 +137,122 @@ const refresh2d = async (name: string) => {
    * await posePromise;
    */
   await fetchSLAMImageMap(name);
+=======
+const fetchSLAMMap = (name: string): Promise<Uint8Array | undefined> => {
+  return new Promise((resolve, reject) => {
+    // return nextTick(() => {
+    console.log('fetchSLAMMap start');
+    const req = new slamApi.GetPointCloudMapStreamRequest();
+    req.setName(name);
+    rcLogConditionally(req);
+    const chunks: Uint8Array[] = [];
+
+    const getPointCloudMapStream = props.client.slamService.getPointCloudMapStream(req);
+    getPointCloudMapStream.on('data', (res) => {
+      const chunk = res.getPointCloudPcdChunk_asU8();
+      chunks.push(chunk);
+    });
+    getPointCloudMapStream.on('status', (status) => {
+      if (status.code !== 0) {
+        const error = {
+          message: status.details,
+          code: status.code,
+          metadata: status.metadata,
+        };
+        reject(error);
+      }
+    });
+    getPointCloudMapStream.on('end', (end) => {
+      if (end === undefined || end.code !== 0) {
+        // the error will be logged in the 'status' callback
+        return;
+      }
+      console.log('fetchSLAMMap end');
+      resolve(concatArrayU8(chunks));
+      console.log('fetchSLAMMap end finished');
+    });
+    // });
+  });
+};
+
+const fetchSLAMPose = (name: string): Promise<commonApi.Pose | undefined> => {
+  return new Promise((resolve, reject): void => {
+    console.log('fetchSLAMPose start');
+    const req = new slamApi.GetPositionNewRequest();
+    req.setName(name);
+    props.client.slamService.getPositionNew(req, new grpc.Metadata(), (error, res): void => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      console.log('fetchSLAMPose end', res!.getPose()!);
+      resolve(res!.getPose()!);
+      console.log('fetchSLAMPose end finished');
+    });
+  });
+};
+
+const refresh2d = async (name: string) => {
+  console.log('refresh2d');
+  const map = await fetchSLAMMap(name);
+  const returnedPose = await fetchSLAMPose(name);
+  return Promise.all([map, returnedPose]);
+};
+
+const scheduleRefresh2d = (name: string, time: string) => {
+  console.log('scheduleRefresh2d');
+  const timeoutCallback = async () => {
+    console.log('timeout function started', slam2dTimeoutId);
+    if (refresh2DCancelled) {
+      console.warn('timeout function terminated early due to cancellation');
+      return;
+    }
+    try {
+      const results = await refresh2d(name);
+      console.log('scheduleRefresh2d results', results);
+      if (results && results.length === 2) {
+        [pointcloud, pose] = results;
+        pointCloudUpdateCount += 1;
+      }
+    } catch (error) {
+      displayError(error);
+      return;
+    }
+    console.log('timeout function completed', slam2dTimeoutId);
+    if (refresh2DCancelled) {
+      console.log('timeout function terminated early due to cancellation');
+      return;
+    }
+    scheduleRefresh2d(name, time);
+  };
+  slam2dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
+  console.log('scheduled timeout', slam2dTimeoutId);
+>>>>>>> 8da05bf5 (slam-2d-ui-only-schedule-refresh-after-completion)
 };
 
 // eslint-disable-next-line require-await
 const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
-  window.clearInterval(slam2dIntervalId);
+  console.log('clearing timeout', slam2dTimeoutId);
+  refresh2DCancelled = true;
+  window.clearTimeout(slam2dTimeoutId);
 
   if (time === 'manual') {
-    refresh2d(name);
-
+    try {
+      const results = await refresh2d(name);
+      console.log('refresh2d results:', results);
+      if (results && results.length === 2) {
+        [pointcloud, pose] = results;
+        pointCloudUpdateCount += 1;
+      }
+    } catch (error) {
+      displayError(error);
+      console.error('refresh2d error:', error);
+    }
   } else if (time === 'off') {
     // do nothing
   } else {
-
-    refresh2d(name);
-    slam2dIntervalId = window.setInterval(() => {
-      refresh2d(name);
-    }, Number.parseFloat(time) * 1000);
+    refresh2DCancelled = false;
+    scheduleRefresh2d(name, time);
   }
 };
 
