@@ -32,11 +32,9 @@ export default defineConfig({
         '@improbable-eng/grpc-web',
         '@viamrobotics/sdk',
         '@viamrobotics/rpc',
-        '@vueuse/core',
         'google-protobuf',
         'three',
         'trzy',
-        'vue',
       ],
       output: {
         inlineDynamicImports: true,

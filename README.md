@@ -14,8 +14,8 @@ Viam provides an open source robot architecture that provides robotics functiona
 
 ## Contact
 
-* Discord: https://discord.com/invite/viam
-* Support: https://support.viam.com
+* Discord: <https://discord.gg/viam>
+* Support: <https://support.viam.com>
 
 If you have a bug or an idea, please open an issue  in our [JIRA project](https://viam.atlassian.net/).
 
