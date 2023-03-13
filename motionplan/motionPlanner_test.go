@@ -482,8 +482,8 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	worldState := &frame.WorldState{}
 	constraints := &motionpb.Constraints{}
 
-	checkReachable := func() error {
-		goal1 := spatialmath.NewPose(r3.Vector{X: 500, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
+	checkReachable := func(worldState *frame.WorldState, constraints *motionpb.Constraints) error {
+		goal1 := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err := PlanMotion(
 			context.Background(),
 			logger.Sugar(),
@@ -499,18 +499,18 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	}
 
 	// Verify that the goal position is reachable with no obstacles
-	err := checkReachable()
+	err := checkReachable(worldState, constraints)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add an obstacle
-	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{0, 8000, 8000}, "")
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{0, 8000, 8000}, "theWall")
 	test.That(t, err, test.ShouldBeNil)
 	worldState = &frame.WorldState{
-		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame("gantryY", map[string]spatialmath.Geometry{"theWall": box})},
+		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame("gantryY", []spatialmath.Geometry{box})},
 	}
 
 	// No longer reachable with The Wall in the way
-	err = checkReachable()
+	err = checkReachable(worldState, constraints)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Reachable again if xarm6 and gripper ignore collisions with The Wall
@@ -523,7 +523,22 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			},
 		},
 	}
-	err = checkReachable()
+	err = checkReachable(worldState, constraints)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reachable if the specific bits of the xarm that collide are specified instead
+	constraints = &motionpb.Constraints{
+		CollisionSpecification: []*motionpb.CollisionSpecification{
+			{
+				Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
+					{Frame1: "xArmVgripper", Frame2: "theWall"},
+					{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
+					{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
+				},
+			},
+		},
+	}
+	err = checkReachable(worldState, constraints)
 	test.That(t, err, test.ShouldBeNil)
 }
 

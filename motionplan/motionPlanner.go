@@ -127,7 +127,6 @@ func PlanFrameMotion(ctx context.Context,
 
 // motionPlanInternal is the internal private function that all motion planning access calls. This will construct the plan manager for each
 // waypoint, and return at the end.
-// This has the same function signature as `PlanWaypoints` but is a private function so as to not have public functions call other.
 func motionPlanInternal(ctx context.Context,
 	logger golog.Logger,
 	goal *frame.PoseInFrame,

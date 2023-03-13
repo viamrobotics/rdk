@@ -217,11 +217,17 @@ func (p *plannerOptions) createCollisionConstraints(
 ) error {
 	allowedCollisions := []*Collision{}
 
-	// List of geometries which may be specified for collision ignoring
+	// List of all names which may be specified for collision ignoring.
 	validGeoms := map[string]bool{}
 
-	addGeomNames := func(geomsInFrame *referenceframe.GeometriesInFrame) error {
-		for geomName := range geomsInFrame.Geometries() {
+	addGeomNames := func(parentName string, geomsInFrame *referenceframe.GeometriesInFrame) error {
+		for _, geom := range geomsInFrame.Geometries() {
+			geomName := geom.Label()
+
+			// Ensure we're not double-adding components which only have one geometry, named identically to the component
+			if parentName != "" && geomName == parentName {
+				continue
+			}
 			if _, ok := validGeoms[geomName]; ok {
 				return fmt.Errorf("geometry %s is specified by name more than once", geomName)
 			}
@@ -233,7 +239,7 @@ func (p *plannerOptions) createCollisionConstraints(
 	// Get names of world state obstacles
 	if worldState != nil {
 		for _, geomsInFrame := range worldState.Obstacles {
-			err := addGeomNames(geomsInFrame)
+			err := addGeomNames("", geomsInFrame)
 			if err != nil {
 				return err
 			}
@@ -246,8 +252,9 @@ func (p *plannerOptions) createCollisionConstraints(
 	if err != nil {
 		return err
 	}
-	for _, geomsInFrame := range allFsGeoms {
-		err = addGeomNames(geomsInFrame)
+	for frameName, geomsInFrame := range allFsGeoms {
+		validGeoms[frameName] = true
+		err = addGeomNames(frameName, geomsInFrame)
 		if err != nil {
 			return err
 		}
@@ -256,25 +263,22 @@ func (p *plannerOptions) createCollisionConstraints(
 	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all
 	// sub-pieces, e.g. myUR5arm:upper_arm_link, myUR5arm:base_link, etc. Individual sub-pieces may also be so addressed.
 	allowNameToSubGeoms := func(cName string) ([]string, error) {
+		// Check if an entire component is specified
+		if geomsInFrame, ok := allFsGeoms[cName]; ok {
+			subNames := []string{}
+			for _, subGeom := range geomsInFrame.Geometries() {
+				subNames = append(subNames, subGeom.Label())
+			}
+			return subNames, nil
+		}
+		// Check if it's a single sub-component
 		if validGeoms[cName] {
 			return []string{cName}, nil
 		}
 
-		// Check if an entire component is specified
-		if geomsInFrame, ok := allFsGeoms[cName]; ok {
-			subNames := []string{}
-			for subGeomName := range geomsInFrame.Geometries() {
-				subNames = append(subNames, subGeomName)
-			}
-			return subNames, nil
-		}
-
 		// generate the list of available names to return in error message
-		availNames := make([]string, 0, len(validGeoms)+len(allFsGeoms))
+		availNames := make([]string, 0, len(validGeoms))
 		for name := range validGeoms {
-			availNames = append(availNames, name)
-		}
-		for name := range allFsGeoms {
 			availNames = append(availNames, name)
 		}
 
