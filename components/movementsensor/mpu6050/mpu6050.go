@@ -42,6 +42,12 @@ import (
 
 var model = resource.NewDefaultModel("gyro-mpu6050")
 
+const (
+	defaultAddressRegister = 117
+	expectedDefaultAddress = 0x68
+	alternateAddress       = 0x69
+)
+
 // AttrConfig is used to configure the attributes of the chip.
 type AttrConfig struct {
 	BoardName              string `json:"board"`
@@ -146,9 +152,9 @@ func NewMpu6050(
 
 	var address byte
 	if cfg.UseAlternateI2CAddress {
-		address = 0x69
+		address = alternateAddress
 	} else {
-		address = 0x68
+		address = expectedDefaultAddress
 	}
 	logger.Debugf("Using address %d for MPU6050 sensor", address)
 
@@ -163,11 +169,11 @@ func NewMpu6050(
 
 	// To check that we're able to talk to the chip, we should be able to read register 117 and get
 	// back the device's non-alternative address (0x68)
-	defaultAddress, err := sensor.readByte(ctx, 117)
+	defaultAddress, err := sensor.readByte(ctx, defaultAddressRegister)
 	if err != nil {
 		return nil, addressReadError(err, address, cfg.I2cBus, cfg.BoardName)
 	}
-	if defaultAddress != 0x68 {
+	if defaultAddress != expectedDefaultAddress {
 		return nil, unexpectedDeviceError(address, defaultAddress)
 	}
 

@@ -18,6 +18,7 @@ import (
 )
 
 func TestValidateConfig(t *testing.T) {
+	boardName := "local"
 	t.Run("fails with no board supplied", func(t *testing.T) {
 		cfg := AttrConfig{
 			I2cBus: "thing",
@@ -30,7 +31,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("fails with no I2C bus", func(t *testing.T) {
 		cfg := AttrConfig{
-			BoardName: "thing",
+			BoardName: boardName,
 		}
 		deps, err := cfg.Validate("path")
 		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
@@ -40,14 +41,14 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("adds board name to dependencies on success", func(t *testing.T) {
 		cfg := AttrConfig{
-			BoardName: "thing1",
+			BoardName: boardName,
 			I2cBus:    "thing2",
 		}
 		deps, err := cfg.Validate("path")
 
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(deps), test.ShouldEqual, 1)
-		test.That(t, deps[0], test.ShouldResemble, "thing1")
+		test.That(t, deps[0], test.ShouldResemble, boardName)
 	})
 }
 
@@ -68,8 +69,8 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		i2cHandle := &inject.I2CHandle{}
 		readErr := errors.New("read error")
-		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, b byte, u uint8) ([]byte, error) {
-			if b == 117 {
+		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+			if register == defaultAddressRegister {
 				return nil, readErr
 			}
 			return []byte{}, nil
@@ -88,7 +89,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, addressReadError(readErr, 0x68, i2cName, testBoardName))
+		test.That(t, err, test.ShouldBeError, addressReadError(readErr, expectedDefaultAddress, i2cName, testBoardName))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 
@@ -104,8 +105,8 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			},
 		}
 		i2cHandle := &inject.I2CHandle{}
-		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, b byte, u uint8) ([]byte, error) {
-			if b == 117 {
+		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+			if register == defaultAddressRegister {
 				return []byte{0x64}, nil
 			}
 			return nil, errors.New("unexpected register")
@@ -124,7 +125,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, unexpectedDeviceError(0x69, 0x64))
+		test.That(t, err, test.ShouldBeError, unexpectedDeviceError(alternateAddress, 0x64))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 }
@@ -145,13 +146,17 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 		},
 	}
 	i2cHandle := &inject.I2CHandle{}
-	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, b byte, u uint8) ([]byte, error) {
-		return []byte{0x68}, nil
+	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+		return []byte{expectedDefaultAddress}, nil
 	}
-	wasClosed := false
-	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
-		if b2 != 0 {
-			wasClosed = true
+	// the only write operations that the sensor implementation performs is
+	// the command to put it into either measurement mode or sleep mode,
+	// and measurement mode results from a write of 0, so if is closeWasCalled is toggled
+	// we know Close() was successfully called
+	closeWasCalled := false
+	i2cHandle.WriteByteDataFunc = func(ctx context.Context, register, data byte) error {
+		if data != 0 {
+			closeWasCalled = true
 		}
 		return nil
 	}
@@ -171,5 +176,5 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(context.Background(), sensor)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, wasClosed, test.ShouldBeTrue)
+	test.That(t, closeWasCalled, test.ShouldBeTrue)
 }
