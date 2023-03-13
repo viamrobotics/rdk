@@ -3,6 +3,7 @@ package wheeled
 import (
 	"context"
 	"math"
+	"strconv"
 	"testing"
 	"time"
 
@@ -364,156 +365,149 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestAngleCalculations(t *testing.T) {
-	for _, tc := range []struct {
-		Condition string
-		Added     float64
-		Current   float64
-		Target    float64
-		Over      float64 // Tests check against an overshoot of 10 degrees
-		Dir       float64
-	}{
-		/*
-			quadrants
-			q2	 	|		q1	  <-| ccw (+ve)
-				+ve	|  +ve			|
-			________|________
-					|
-				-ve	|  -ve			|
-			q3		|		q4	  <-| cw (-ve)
-		*/
-
-		// acute angle additions
-		// eight possibilities counterclockwise
-		{"acute-CCW-quadrant1-to-quadrant1", 10, 10, 20, 35, 1},
-		{"acute-CCW-quadrant1-to-quadrant2", 10, 85, 95, 110, 1},
-		{"acute-CCW-quadrant2-to-quadrant2", 10, 95, 105, 120, 1},
-		{"acute-CCW-quadrant2-to-quadrant3", 10, 175, -175, -160, 1},
-		{"acute-CCW-quadrant3-to-quadrant3", 10, -105, -95, -80, 1},
-		{"acute-CCW-quadrant4-to-quadrant4", 10, -35, -25, -10, 1},
-		{"acute-CCW-quadrant4-to-quadrant1", 10, -15, -5, 10, 1},
-
-		// eight possibilities clockwise
-		{"acute-CW-quadrant1-to-quadrant1", -20, 40, 20, 5, -1},
-		{"acute-CW-quadrant1-to-quadrant4", -20, 10, -10, -25, -1},
-		{"acute-CW-quadrant4-to-quadrant4", -20, -10, -30, -45, -1},
-		{"acute-CW-quadrant4-to-quadrant3", -20, -80, -100, -115, -1},
-		{"acute-CW-quadrant3-to-quadrant3", -20, -100, -120, -135, -1},
-		{"acute-CW-quadrant3-to-quadrant2", -20, -170, 170, 155, -1},
-		{"acute-CW-quadrant2-to-quadrant1", -20, 100, 80, 65, -1},
-
-		// obtuse angle additions,
-		// eight possibilities counterclockwise
-		{"obtuse-CCW-quadrant1-to-quadrant3", 110, 80, -170, -155, 1},
-		{"obtuse-CCW-quadrant1-to-quadrant2", 110, 10, 120, 135, 1},
-		{"obtuse-CCW-quadrant2-to-quadrant3", 110, 95, -155, -140, 1},
-		{"obtuse-CCW-quadrant2-to-quadrant4", 110, 170, -80, -65, 1},
-		{"obtuse-CCW-quadrant3-to-quadrant1", 110, -80, 30, 45, 1},
-		{"obtuse-CCW-quadrant3-to-quadrant4", 110, -170, -60, -45, 1},
-		{"obtuse-CCW-quadrant4-to-quadrant2", 110, -10, 100, 115, 1},
-		{"obtuse-CCW-quadrant4-to-quadrant1", 110, -80, 30, 45, 1},
-
-		// eight possibilities clockwise
-		{"obtuse-CW-quadrant1-to-quadrant4", -110, 80, -30, -45, -1},
-		{"obtuse-CW-quadrant1-to-quadrant3", -110, 10, -100, -115, -1},
-		{"obtuse-CW-quadrant2-to-quadrant1", -110, 170, 60, 45, -1},
-		{"obtuse-CW-quadrant2-to-quadrant4", -110, 95, -15, -30, -1},
-		{"obtuse-CW-quadrant3-to-quadrant2", -110, -150, 100, 85, -1},
-		{"obtuse-CW-quadrant4-to-quadrant2", -110, -80, 170, 155, -1},
-		{"obtuse-CW-quadrant4-to-quadrant3", -110, -10, -120, -135, -1},
-		{"obtuse-CW-quadrant3-to-quadrant1", -110, -170, 80, 65, -1},
-
-		// reflex angle additions,
-		// eight possibilities counterclockwise
-		{"reflex-CCW-quadrant1-to-quadrant4", 200, 80, -80, -65, 1},
-		{"reflex-CCW-quadrant1-to-quadrant3", 200, 10, -150, -135, 1},
-		{"reflex-CCW-quadrant2-to-quadrant3", 200, 95, -65, -50, 1},
-		{"reflex-CCW-quadrant2-to-quadrant1", 200, 170, 10, 25, 1},
-		{"reflex-CCW-quadrant3-to-quadrant2", 200, -80, 120, 135, 1},
-		{"reflex-CCW-quadrant3-to-quadrant1", 200, -170, 30, 45, 1},
-		{"reflex-CCW-quadrant4-to-quadrant2", 200, -10, -170, -155, 1},
-		{"reflex-CCW-quadrant4-to-quadrant1", 200, -80, 120, 135, 1},
-
-		// eight possibilities clockwise
-		{"reflex-CW-quadrant1-to-quadrant2", -200, 10, 170, 155, -1},
-		{"reflex-CW-quadrant1-to-quadrant3", -200, 80, -120, -135, -1},
-		{"reflex-CW-quadrant2-to-quadrant3", -200, 100, -100, -115, -1},
-		{"reflex-CW-quadrant2-to-quadrant4", -200, 170, -30, -45, -1},
-		{"reflex-CW-quadrant3-to-quadrant2", -200, -100, 60, 45, -1},
-		{"reflex-CW-quadrant3-to-quadrant4", -200, -170, -10, -25, -1},
-		{"reflex-CW-quadrant4-to-quadrant1", -200, -80, 80, 65, -1},
-		{"reflex-CW-quadrant4-to-quadrant3", -200, -10, 150, 135, -1},
-
-		// quadrant boundary cases
-		{"ninetey-CCW-quadrant1-to-quadrant2", 90, 0, 90, 105, 1},
-		{"ninetey-CCW-quadrant2-to-quadrant3", 90, 90, 179.9, -165.1, 1},
-		{"ninetey-CCW-quadrant3-to-quadrant4", 90, 180, -90, -75, 1},
-		{"ninetey-CCW-quadrant4-to-quadrant1", 90, -90, 0, 15, 1},
-		{"ninetey-CW-quadrant1-to-quadrant4", -90, 0, -90, -105, -1},
-		{"ninetey-CW-quadrant2-to-quadrant1", -90, 90, 0, -15, -1},
-		{"ninetey-CW-quadrant3-to-quadrant2", -90, 180, 90, 75, -1},
-		{"ninetey-CW-quadrant4-to-quadrant3", -90, -90, 179.9, 164.9, -1},
-		{"oneeighty-CCW-zero-to-oneeighty", 180, 0, 179.9, -165.1, 1},
-		{"oneeighty-CCW-quadrant1-to-quadrant3", 180, 10, -170, -155, 1},
-		{"oneeighty-CCW-quadrant2-to-quadrant4", 180, 90, -90, -75, 1},
-		{"oneeighty-CW-quadrant3-to-quadrant2", -10, -170, 179.9, 164.9, -1},
-	} {
-		t.Run(tc.Condition, func(t *testing.T) {
-			t.Run(tc.Condition+" calculation", func(t *testing.T) {
-				target := addAnglesInDomain(tc.Added, tc.Current)
-				test.That(t, target, test.ShouldAlmostEqual, tc.Target)
-				overshoot := addAnglesInDomain(tc.Target, tc.Dir*allowableAngle)
-				test.That(t, overshoot, test.ShouldAlmostEqual, tc.Over)
-			})
-		})
-		t.Run(tc.Condition+" overshoot", func(t *testing.T) {
-			start := tc.Current
-			target := tc.Target
-			dir := tc.Dir
-
-			over := tc.Over
-			test.That(t,
-				hasBaseOvershot(over, target, start, dir),
-				test.ShouldBeTrue)
-
-			notover := addAnglesInDomain(target, -1*dir*1)
-			test.That(t,
-				hasBaseOvershot(notover, target, start, dir),
-				test.ShouldBeFalse)
-		})
-	}
-}
-
-type added struct {
-	AngleType string // acute, ninety, obtuse, oneeighty, reflex twoseventy, twoseventyplus, threesixty
-	Added     float64
-	Over      float64
-}
-
-type start struct {
-	Quadrant  string // quadrant 1, quadrant2, quadrant3 quadrant4
-	Direction string
-	Value     float64
-}
 type TestCase struct {
-	Condition string
+	Name      string
 	Start     float64
 	Target    float64
 	Over      float64
 	Direction float64
 }
-
-func TestAngleCalculations2(t *testing.T) {
-
+type dirInfo struct {
+	Name  string
+	Value float64
+}
+type addInfo struct {
+	AngleType string
+	Value     float64
 }
 
-var angleTypes = map[string]float64{
-	"acute":          20,
-	"ninety":         90,
-	"obtuse":         110,
-	"oneeighty":      180,
-	"reflex":         200,
-	"twoseventy":     270,
-	"twoseventyplus": 325,
-	"threesixty":     360}
-var dirs = map[string]float64{"cw": -1, "ccw": 1}
+func TestAngleCalculations(t *testing.T) {
+
+	/*
+		definition of quadrants and directions
+		q2	 	|		q1	  <-| ccw (+ve)
+			+ve	|  +ve			|
+		________|________
+				|
+			-ve	|  -ve			|
+		q3		|		q4	  <-| cw (-ve)
+	*/
+
+	dirCases := []dirInfo{
+		{"ccw", 1},
+		{"cw", -1},
+	}
+
+	addCases := []addInfo{
+		{"acute", 20},
+		{"right", 90},
+		{"obtuse", 110},
+		{"straight", 180},
+		{"reflex", 200},
+		{"reflexright", 270},
+		{"reflexplus", 325},
+		{"complete", 359},
+	}
+
+	startCases := []float64{
+		5,
+		15,
+		20,
+		45,
+		70,
+		90,
+		110,
+		160,
+		175,
+		180,
+		-180,
+		-175,
+		-160,
+		-110,
+		-90,
+		-70,
+		-45,
+		-20,
+		-15,
+		-5,
+	}
+
+	for _, dirCase := range dirCases {
+		for _, addCase := range addCases {
+			for _, start := range startCases {
+				condition := makeCondition(addCase, dirCase, start)
+
+				// fmt.Println(condition.Name)
+				start := condition.Start
+				target := condition.Target
+				over := condition.Over
+				dir := condition.Direction
+				added := addCase.Value
+
+				t.Run(condition.Name+" overshot", func(t *testing.T) {
+					test.That(t,
+						// hasBaseOvershot(over, target, start, dir, addedAngle),
+						hasOverShot(over, target, added, start, dir),
+						test.ShouldBeTrue)
+				})
+
+				// subtract a few degrees from target to ensure were not overshooting
+				notovers := []float64{
+					// go back to a little before the start but not more
+					addAnglesInDomain(start, dir),
+					addAnglesInDomain(target, -5*dir),
+					addAnglesInDomain(target, -1*dir),
+				}
+				for _, notover := range notovers {
+					noStr := "[" + strconv.FormatFloat(notover, 'f', 1, 64) + "]"
+					t.Run(condition.Name+noStr+" notovershot", func(t *testing.T) {
+						test.That(t,
+							hasOverShot(notover, target, added, start, dir),
+							// hasBaseOvershot(notover, target, start, dir, addedAngle),
+							test.ShouldBeFalse)
+					})
+				}
+			}
+		}
+	}
+}
+
+func findQuadrant(value float64) string {
+
+	switch {
+	case 0 <= value && value < 90:
+		return "quadrant1"
+	case 90 <= value && value < 180.1:
+		return "quadrant2"
+	case -180.1 <= value && value < -90:
+		return "quadrant3"
+	case -90 <= value && value < 0:
+		return "quadrant4"
+	default:
+		return "undefined"
+	}
+}
+
+func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
+	target := addAnglesInDomain(startI, dirI.Value*addI.Value)
+	overshoot := addAnglesInDomain(target, dirI.Value*15.0)
+
+	angle2str := func(number float64) string {
+		return strconv.FormatFloat(number, 'f', 1, 64)
+	}
+
+	startQuadrant := findQuadrant(startI)
+	targetQuadrant := findQuadrant(target)
+	behaviour := startQuadrant + "-to-" + targetQuadrant + "-" + dirI.Name + "-" + addI.AngleType
+	start2target := "(" + angle2str(startI) + "->" + angle2str(target) + ")"
+	endedAt := "[" + angle2str(overshoot) + "]"
+	name := behaviour + start2target + endedAt
+
+	return TestCase{
+		Name:      name,
+		Start:     startI,
+		Target:    target,
+		Over:      overshoot,
+		Direction: dirI.Value,
+	}
+}
