@@ -155,7 +155,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	// we know Close() was successfully called
 	closeWasCalled := false
 	i2cHandle.WriteByteDataFunc = func(ctx context.Context, register, data byte) error {
-		if data != 0 {
+		if data == 1<<6 {
 			closeWasCalled = true
 		}
 		return nil
