@@ -319,7 +319,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			compareSensorData(t, tc.dataType, syncedData, capturedData)
 
 			// After all uploads succeed, all files should be deleted.
-			test.That(t, len(getAllFiles(tmpDir)), test.ShouldEqual, 0)
+			test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
 		})
 	}
 }

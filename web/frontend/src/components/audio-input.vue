@@ -5,12 +5,10 @@ import { StreamClient } from '@viamrobotics/sdk';
 import type { Client, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 
-interface Props {
+const props = defineProps<{
   name: string
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const audioInput = ref(false);
 

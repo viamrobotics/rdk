@@ -1,5 +1,6 @@
 node_modules
 src/gen
+dist
 
 # cypress output
 cypress/screenshots

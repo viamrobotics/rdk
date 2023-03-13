@@ -6,7 +6,7 @@ import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
 import { rcLogConditionally } from '../lib/log';
 
-interface ArmStatus {
+export interface ArmStatus {
   pos_pieces: {
     endPosition: string[]
     endPositionValue: number
@@ -18,21 +18,21 @@ interface ArmStatus {
   }[]
 }
 
-interface RawArmStatus extends ArmStatus {
+export interface RawArmStatus extends ArmStatus {
   joint_positions: {
     values: number[]
   }
   end_position: Record<string, number>
 }
 
-interface Props {
+type Field = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
+
+const props = defineProps<{
   name: string
   status?: ArmStatus,
   rawStatus?: RawArmStatus
   client: Client
-}
-
-type Field = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
+}>();
 
 const fieldMap = [
   ['x', 'x'],
@@ -43,8 +43,6 @@ const fieldMap = [
   ['o_y', 'oy'],
   ['o_z', 'oz'],
 ] as const;
-
-const props = defineProps<Props>();
 
 const toggle = $ref<Record<string, ArmStatus>>({});
 

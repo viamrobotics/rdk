@@ -60,6 +60,7 @@ func TestArmRemoteControl(t *testing.T) {
 
 	fakeController := &inject.InputController{}
 	fakeArm, _ := fakearm.NewArm(
+		&inject.Robot{},
 		config.Component{
 			Name:                arm.Subtype.String(),
 			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: string(xarm.ModelName6DOF.Name)},

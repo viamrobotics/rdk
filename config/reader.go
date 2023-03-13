@@ -187,7 +187,8 @@ func findConverter(subtype resource.Subtype, model resource.Model, attr string) 
 	return nil
 }
 
-func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
+// FindMapConverter finds the component AttributeMapConverter for the given subtype and model.
+func FindMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range componentAttributeMapConverters {
 		if r.Subtype == subtype && r.Model == model {
 			return r.Conv
@@ -196,7 +197,8 @@ func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeM
 	return nil
 }
 
-func findServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
+// FindServiceMapConverter finds the service AttributeMapConverter for the given subtype and model.
+func FindServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range serviceAttributeMapConverters {
 		if r.SvcType == svcType && r.Model == model {
 			return r.Conv
@@ -552,7 +554,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 
 	for idx, c := range cfg.Components {
 		cType := resource.NewSubtype(c.Namespace, "component", c.Type)
-		conv := findMapConverter(cType, c.Model)
+		conv := FindMapConverter(cType, c.Model)
 		// inner attributes may have their own converters
 		for k, v := range c.Attributes {
 			attrConv := findConverter(cType, c.Model, k)
@@ -579,7 +581,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	}
 
 	for idx, c := range cfg.Services {
-		conv := findServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
+		conv := FindServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
 		if conv == nil {
 			continue
 		}

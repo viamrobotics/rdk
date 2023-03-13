@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 var logger = golog.NewDebugLogger("simpleserver")
@@ -24,7 +25,14 @@ func main() {
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	arm1Name := arm.Named("arm1")
-	arm1, err := fake.NewArm(config.Component{Name: arm1Name.Name}, logger)
+	cfg := config.Component{
+		Name:  arm1Name.Name,
+		Model: resource.NewDefaultModel("ur5e"),
+		ConvertedAttributes: &fake.AttrConfig{
+			ArmModel: "ur5e",
+		},
+	}
+	arm1, err := fake.NewArm(&inject.Robot{}, cfg, logger)
 	if err != nil {
 		return err
 	}
