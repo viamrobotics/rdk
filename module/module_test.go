@@ -220,7 +220,7 @@ func TestModuleFunctions(t *testing.T) {
 		// Test generic echo
 		testCmd := map[string]interface{}{"foo": "bar"}
 		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no Gizmo with name (gizmo1)")
 		test.That(t, retCmd, test.ShouldBeNil)
 	})
 
