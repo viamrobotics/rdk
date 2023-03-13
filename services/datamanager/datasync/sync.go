@@ -160,7 +160,8 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
-					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
+					s.logger.Debugw(fmt.Sprintf("context cancelled while uploading file %s", f.GetPath()),
+						"error", err)
 				} else {
 					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
 				}
@@ -278,7 +279,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
