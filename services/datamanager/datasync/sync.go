@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -72,7 +73,11 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 			}),
 	}
 
-	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
+	appURLParsed, err := url.Parse(cfg.Cloud.AppAddress)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := NewConnection(logger, appURLParsed.Host, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
