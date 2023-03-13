@@ -32,6 +32,7 @@ type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interf
 type Collector interface {
 	Close()
 	Collect()
+	Flush()
 }
 
 type collector struct {
@@ -65,6 +66,14 @@ func (c *collector) Close() {
 	//nolint:errcheck
 	_ = c.logger.Sync()
 	c.closed = true
+}
+
+func (c *collector) Flush() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if err := c.target.Flush(); err != nil {
+		c.logger.Errorw("failed to flush capture queue", "error", err)
+	}
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to

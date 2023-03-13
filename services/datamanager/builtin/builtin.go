@@ -178,6 +178,19 @@ func (svc *builtIn) closeCollectors() {
 	wg.Wait()
 }
 
+func (svc *builtIn) flushCollectors() {
+	wg := sync.WaitGroup{}
+	for _, collector := range svc.collectors {
+		currCollector := collector
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			currCollector.Collector.Flush()
+		}()
+	}
+	wg.Wait()
+}
+
 // Parameters stored for each collector.
 type collectorAndConfig struct {
 	Collector  data.Collector
@@ -356,6 +369,7 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 		}
 	}
 
+	svc.flushCollectors()
 	svc.syncer.SyncDirectory(svc.captureDir)
 	svc.syncAdditionalSyncPaths()
 	svc.lock.Unlock()
@@ -508,6 +522,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-ticker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
+					svc.flushCollectors()
 					svc.syncer.SyncDirectory(svc.captureDir)
 					svc.syncAdditionalSyncPaths()
 				}
