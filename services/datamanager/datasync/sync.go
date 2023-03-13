@@ -190,7 +190,9 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		s.cancelCtx,
 		func(ctx context.Context) error {
 			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
-			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			if err != nil {
+				s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			}
 			return err
 		},
 	)
