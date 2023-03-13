@@ -2,16 +2,16 @@ package builtin
 
 import (
 	"context"
-	"github.com/pkg/errors"
-	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 )
 
