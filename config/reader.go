@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -188,7 +187,8 @@ func findConverter(subtype resource.Subtype, model resource.Model, attr string) 
 	return nil
 }
 
-func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
+// FindMapConverter finds the component AttributeMapConverter for the given subtype and model.
+func FindMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range componentAttributeMapConverters {
 		if r.Subtype == subtype && r.Model == model {
 			return r.Conv
@@ -197,55 +197,14 @@ func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeM
 	return nil
 }
 
-func findServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
+// FindServiceMapConverter finds the service AttributeMapConverter for the given subtype and model.
+func FindServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
 	for _, r := range serviceAttributeMapConverters {
 		if r.SvcType == svcType && r.Model == model {
 			return r.Conv
 		}
 	}
 	return nil
-}
-
-const (
-	cloudConfigSecretField           = "Secret"
-	cloudConfigUserInfoField         = "User-Info"
-	cloudConfigUserInfoHostField     = "host"
-	cloudConfigUserInfoOSField       = "os"
-	cloudConfigUserInfoLocalIPsField = "ips"
-	cloudConfigVersionField          = "version"
-	cloudConfigGitRevisionField      = "gitRevision"
-)
-
-// CreateCloudRequest makes a request to fetch the robot config
-// from a cloud endpoint.
-func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
-	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
-
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error creating request for %s", url)
-	}
-	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
-
-	agentInfo, err := getAgentInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	userInfo := map[string]interface{}{}
-	userInfo[cloudConfigUserInfoHostField] = agentInfo.Host
-	userInfo[cloudConfigUserInfoOSField] = agentInfo.Os
-	userInfo[cloudConfigUserInfoLocalIPsField] = agentInfo.Ips
-	userInfo[cloudConfigVersionField] = agentInfo.Version
-	userInfo[cloudConfigGitRevisionField] = agentInfo.GitRevision
-
-	userInfoBytes, err := json.Marshal(userInfo)
-	if err != nil {
-		return nil, err
-	}
-	r.Header.Set(cloudConfigUserInfoField, string(userInfoBytes))
-
-	return r, nil
 }
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
@@ -266,20 +225,6 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Version:     Version,
 		GitRevision: GitRevision,
 	}, nil
-}
-
-// createCloudCertificateRequest makes a request to fetch the robot's TLS
-// certificate from a cloud endpoint.
-func createCloudCertificateRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
-	url := fmt.Sprintf("%s?id=%s&cert=true", cloudCfg.Path, cloudCfg.ID)
-
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error creating request for %s", url)
-	}
-	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
-
-	return r, nil
 }
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -327,49 +272,6 @@ func clearCache(id string) {
 	utils.UncheckedErrorFunc(func() error {
 		return os.Remove(getCloudCacheFilePath(id))
 	})
-}
-
-// readCertificateDataFromCloud returns the certificate from the app. It returns it as properties of a new Cloud config.
-// The argument `cloudConfigFromDisk` represents the Cloud config from disk and only the Path parameters are used to
-// generate the url. This is different from the Cloud config returned from the HTTP or gRPC API which do not have it.
-//
-// TODO(RSDK-539): The TLS certificate data should not be part of the Cloud portion of the config.
-func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, cloudConfigFromDisk *Cloud) (*Cloud, error) {
-	certReq, err := createCloudCertificateRequest(ctx, cloudConfigFromDisk)
-	if err != nil {
-		return nil, err
-	}
-
-	var client http.Client
-	defer client.CloseIdleConnections()
-	resp, err := client.Do(certReq)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		utils.UncheckedError(resp.Body.Close())
-	}()
-
-	dec := json.NewDecoder(resp.Body)
-	var certData Cloud
-	if err := dec.Decode(&certData); err != nil {
-		return nil, errors.Wrap(err, "error decoding certificate data from cloud; try again later")
-	}
-
-	if !signalingInsecure {
-		if certData.TLSCertificate == "" {
-			return nil, errors.New("no TLS certificate yet from cloud; try again later")
-		}
-		if certData.TLSPrivateKey == "" {
-			return nil, errors.New("no TLS private key yet from cloud; try again later")
-		}
-	}
-
-	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
-	return &Cloud{
-		TLSCertificate: certData.TLSCertificate,
-		TLSPrivateKey:  certData.TLSPrivateKey,
-	}, nil
 }
 
 func readCertificateDataFromCloudGRPC(ctx context.Context,
@@ -506,16 +408,9 @@ func readFromCloud(
 		logger.Debug("reading tlsCertificate from the cloud")
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 
-		var certData *Cloud
-		if originalCfg.Cloud.AppAddress == "" {
-			certData, err = readCertificateDataFromCloud(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
-		} else {
-			certData, err = readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
-		}
-
+		certData, err := readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
 		if err != nil {
-			var urlErr *url.Error
-			if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
+			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
 			if tlsCertificate == "" || tlsPrivateKey == "" {
@@ -659,7 +554,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 
 	for idx, c := range cfg.Components {
 		cType := resource.NewSubtype(c.Namespace, "component", c.Type)
-		conv := findMapConverter(cType, c.Model)
+		conv := FindMapConverter(cType, c.Model)
 		// inner attributes may have their own converters
 		for k, v := range c.Attributes {
 			attrConv := findConverter(cType, c.Model, k)
@@ -686,7 +581,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	}
 
 	for idx, c := range cfg.Services {
-		conv := findServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
+		conv := FindServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
 		if conv == nil {
 			continue
 		}
@@ -706,19 +601,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	return cfg, nil
 }
 
-// getFromCloudOrCache returns the config from either the legacy HTTP endpoint or gRPC endpoint depending if the original config
-// has the AppAddress set. If failures during cloud lookup fallback to the local cache if the error indicates it should.
+// getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
+// local cache if the error indicates it should.
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
 	var cached bool
-	var cfg *Config
-	var errorShouldCheckCache bool
-	var err error
-	if cloudCfg.AppAddress == "" {
-		cfg, errorShouldCheckCache, err = getFromCloudHTTP(ctx, cloudCfg)
-	} else {
-		cfg, errorShouldCheckCache, err = getFromCloudGRPC(ctx, cloudCfg, logger)
-	}
-
+	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
@@ -740,53 +627,6 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 	}
 
 	return cfg, cached, nil
-}
-
-// getFromCloud actually does the fetching of the robot config and parses to an unprocessed Config struct.
-func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud) (*Config, bool, error) {
-	shouldCheckCacheOnFailure := false
-	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
-	if err != nil {
-		return nil, false, err
-	}
-
-	unprocessedConfig := &Config{
-		ConfigFilePath: "",
-	}
-
-	var client http.Client
-	defer client.CloseIdleConnections()
-	resp, err := client.Do(cloudReq)
-	// Try to load from the cache
-	if err != nil {
-		var urlErr *url.Error
-		if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
-			return nil, shouldCheckCacheOnFailure, err
-		}
-		shouldCheckCacheOnFailure = true
-		return nil, shouldCheckCacheOnFailure, err
-	}
-
-	defer func() {
-		utils.UncheckedError(resp.Body.Close())
-	}()
-
-	rd, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		if len(rd) != 0 {
-			return nil, shouldCheckCacheOnFailure, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
-		}
-		return nil, shouldCheckCacheOnFailure, errors.Errorf("unexpected status %d", resp.StatusCode)
-	}
-
-	if err := json.Unmarshal(rd, unprocessedConfig); err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "cannot parse cloud config")
-	}
-	return unprocessedConfig, shouldCheckCacheOnFailure, nil
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.

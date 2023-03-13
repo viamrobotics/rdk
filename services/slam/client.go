@@ -18,6 +18,7 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam/internal/grpchelper"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -63,6 +64,26 @@ func (c *client) Position(ctx context.Context, name string, extra map[string]int
 	}
 	p := resp.GetPose()
 	return referenceframe.ProtobufToPoseInFrame(p), nil
+}
+
+// GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
+func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
+	defer span.End()
+
+	req := &pb.GetPositionNewRequest{
+		Name: name,
+	}
+
+	resp, err := c.client.GetPositionNew(ctx, req)
+	if err != nil {
+		return nil, "", err
+	}
+
+	p := resp.GetPose()
+	componentReference := resp.GetComponentReference()
+
+	return spatialmath.NewPoseFromProtobuf(p), componentReference, nil
 }
 
 // GetMap creates a request, calls the slam service GetMap, and parses the response into the desired mimeType and map data.

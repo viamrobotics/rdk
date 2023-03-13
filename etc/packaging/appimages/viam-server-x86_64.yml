@@ -39,6 +39,7 @@ AppDir:
     - libx264-160
     - libtensorflowlite2
     - libopus0
+    - libjpeg62-turbo
   files:
     include: []
     exclude:

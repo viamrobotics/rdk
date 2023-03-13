@@ -15,6 +15,8 @@ type WorldState struct {
 	Transforms []*LinkInFrame
 }
 
+const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
+
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
 func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	convertProtoGeometries := func(allProtoGeometries []*commonpb.GeometriesInFrame) ([]*GeometriesInFrame, error) {
@@ -71,18 +73,29 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 // in the WorldState such that they are in the frame system's World reference frame.
 func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*WorldState, error) {
 	transformGeometriesToWorldFrame := func(gfs []*GeometriesInFrame) (*GeometriesInFrame, error) {
-		allGeometries := make(map[string]spatial.Geometry)
-		for name1, gf := range gfs {
+		nameCheck := make(map[string]bool)
+		allGeometries := make([]spatial.Geometry, 0, len(gfs))
+
+		unnamedCount := 1
+
+		for _, gf := range gfs {
 			tf, err := fs.Transform(inputs, gf, World)
 			if err != nil {
 				return nil, err
 			}
-			for name2, g := range tf.(*GeometriesInFrame).Geometries() {
-				geomName := strconv.Itoa(name1) + "_" + name2
-				if _, present := allGeometries[geomName]; present {
-					return nil, fmt.Errorf("multiple geometries with the same name: %s", geomName)
+			for _, g := range tf.(*GeometriesInFrame).Geometries() {
+				geomName := g.Label()
+				if geomName == "" {
+					geomName = unnamedWorldStateGeometryPrefix + strconv.Itoa(unnamedCount)
+					g.SetLabel(geomName)
+					unnamedCount++
 				}
-				allGeometries[geomName] = g
+
+				if _, present := nameCheck[geomName]; present {
+					return nil, fmt.Errorf("cannot specify multiple geometries with the same name: %s", geomName)
+				}
+				nameCheck[geomName] = true
+				allGeometries = append(allGeometries, g)
 			}
 		}
 		return NewGeometriesInFrame(World, allGeometries), nil

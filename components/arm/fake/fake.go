@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -67,8 +68,8 @@ func (config *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(config, logger)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(r, config, logger)
 		},
 	})
 
@@ -84,25 +85,8 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	var (
-		model referenceframe.Model
-		err   error
-	)
-
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
-	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-	switch {
-	case armModel != "" && modelPath != "":
-		err = errAttrCfgPopulation
-	case armModel != "":
-		model, err = modelFromName(cfg.ConvertedAttributes.(*AttrConfig).ArmModel, cfg.Name)
-	case modelPath != "":
-		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
-	default:
-		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(cfg.Name)
-	}
+func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+	model, err := buildModel(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +96,31 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
 		model:  model,
 		logger: logger,
+		robot:  r,
 	}, nil
+}
+
+func buildModel(cfg config.Component) (referenceframe.Model, error) {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+
+	switch {
+	case armModel != "" && modelPath != "":
+		err = errAttrCfgPopulation
+	case armModel != "":
+		model, err = modelFromName(armModel, cfg.Name)
+	case modelPath != "":
+		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
+	default:
+		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
+		model = referenceframe.NewSimpleModel(cfg.Name)
+	}
+
+	return model, err
 }
 
 // Arm is a fake arm that can simply read and set properties.
@@ -123,6 +131,27 @@ type Arm struct {
 	CloseCount int
 	logger     golog.Logger
 	model      referenceframe.Model
+	robot      robot.Robot
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
+	if _, ok := c.ConvertedAttributes.(*AttrConfig); !ok {
+		return config.Rebuild
+	}
+
+	if model, err := buildModel(*c); err != nil {
+		// unlikely to hit debug as we check for errors in Validate()
+		a.logger.Debugw(
+			"cannot build new model - continue using current model",
+			"current model", a.model.Name(), "error", err.Error())
+	} else {
+		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
+		a.model = model
+	}
+
+	return config.None
 }
 
 // ModelFrame returns the dynamic frame of the model.
@@ -146,15 +175,7 @@ func (a *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	joints, err := a.JointPositions(ctx, extra)
-	if err != nil {
-		return err
-	}
-	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), nil, nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions sets the joints.

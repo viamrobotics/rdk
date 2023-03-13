@@ -80,6 +80,9 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 		if err != nil {
 			return nil, err
 		}
+		if geom.Label() == "" {
+			geom.SetLabel(cfg.ID)
+		}
 	}
 	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
 }
