@@ -1,8 +1,8 @@
-// Package ina219 implements an ina219 voltage/current/power monitor sensor -
+// Package power_ina219 implements an ina219 voltage/current/power monitor sensor -
 // typically used for battery state monitoring.
 // Datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
-package ina219
+package power_ina219
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("ina219")
+var modelname = resource.NewDefaultModel("power_ina219")
 
 const (
 	milliAmp             = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
