@@ -291,7 +291,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// Create a collector for this resource and method.
 	targetDir := filepath.Join(svc.captureDir, captureMetadata.GetComponentType(), captureMetadata.GetComponentName(),
 		captureMetadata.GetMethodName())
-	if err := os.MkdirAll(targetDir, 0o700); err != nil {
+	if err := os.MkdirAll(targetDir, 0o600); err != nil {
 		return nil, err
 	}
 	params := data.CollectorParams{
