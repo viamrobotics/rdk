@@ -106,8 +106,6 @@ func TestModuleFunctions(t *testing.T) {
 
 	t.Run("HandlerMap", func(t *testing.T) {
 		// test the raw return
-		// use test.ShouldBeIn as depending on order of handler return, component handler
-		// could be either gizmo or thingamabob.
 		handlers := resp.GetHandlermap().GetHandlers()
 		test.That(t, "acme", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
 		test.That(t, "rdk", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
