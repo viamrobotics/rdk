@@ -58,20 +58,6 @@ var testComponent = Component{
 	},
 }
 
-var testFrame = referenceframe.LinkConfig{
-	Parent: "world",
-	Translation: r3.Vector{
-		X: 1,
-		Y: 2,
-		Z: 3,
-	},
-	Orientation: &spatial.OrientationConfig{
-		Type:  spatial.EulerAnglesType,
-		Value: json.RawMessage([]byte(`{"roll":0,"pitch":0,"yaw":0}`)),
-	},
-	Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
-}
-
 var testRemote = Remote{
 	Name:    "some-name",
 	Address: "localohst:8080",

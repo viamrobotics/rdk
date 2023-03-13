@@ -137,7 +137,7 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
-func getAllFiles(dir string) []os.FileInfo {
+func getAllFileInfos(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

@@ -657,9 +657,15 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 		if err != nil {
 			return err
 		}
+		matches, err := fs.Glob(embedFS, "*.js")
+		if err != nil {
+			return err
+		}
+		if len(matches) == 0 {
+			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web'.")
+		}
 		staticDir = http.FS(embedFS)
 	}
-
 	mux.Handle(pat.Get("/static/*"), gziphandler.GzipHandler(http.StripPrefix("/static", http.FileServer(staticDir))))
 	mux.Handle(pat.New("/"), app)
 
