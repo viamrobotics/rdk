@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -56,7 +57,7 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMil
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
-	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
+	if cfg.Cloud == nil || cfg.Cloud.SignalingAddress == "" {
 		logger.Debug("Using no-op sync manager when Cloud config is not available")
 		return NewNoopManager(), nil
 	}
@@ -72,7 +73,11 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 			}),
 	}
 
-	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
+	host, _, err := net.SplitHostPort(cfg.Cloud.SignalingAddress)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := NewConnection(logger, host, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +278,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
