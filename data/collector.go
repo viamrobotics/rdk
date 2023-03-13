@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -34,6 +35,7 @@ type Collector interface {
 }
 
 type collector struct {
+	clock             clock.Clock
 	queue             chan *v1.SensorData
 	interval          time.Duration
 	params            map[string]*anypb.Any
@@ -44,8 +46,7 @@ type collector struct {
 	cancel            context.CancelFunc
 	captureFunc       CaptureFunc
 	closed            bool
-
-	target *datacapture.Buffer
+	target            datacapture.BufferedWriter
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -68,43 +69,46 @@ func (c *collector) Close() {
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
-// c.target.
+// c.target. It blocks until the underlying capture goroutine starts.
 func (c *collector) Collect() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
+	started := make(chan struct{})
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
-		c.capture()
+		c.capture(started)
 	})
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Directory), "error", err)
+			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Path()), "error", err)
 		}
 	})
+	<-started
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
 // when the configured capture interval is below 2ms. A Ticker based approach is kept for longer capture intervals to
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
-func (c *collector) capture() {
+func (c *collector) capture(started chan struct{}) {
 	if c.interval < sleepCaptureCutoff {
-		c.sleepBasedCapture()
+		c.sleepBasedCapture(started)
 	} else {
-		c.tickerBasedCapture()
+		c.tickerBasedCapture(started)
 	}
 }
 
-func (c *collector) sleepBasedCapture() {
-	next := time.Now().Add(c.interval)
+func (c *collector) sleepBasedCapture(started chan struct{}) {
+	next := c.clock.Now().Add(c.interval)
+	until := c.clock.Until(next)
 	captureWorkers := sync.WaitGroup{}
 
+	close(started)
 	for {
-		time.Sleep(time.Until(next))
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				c.logger.Errorw("unexpected error in collector context", "error", err)
@@ -113,6 +117,7 @@ func (c *collector) sleepBasedCapture() {
 			close(c.queue)
 			return
 		}
+		c.clock.Sleep(until)
 
 		select {
 		case <-c.cancelCtx.Done():
@@ -127,14 +132,16 @@ func (c *collector) sleepBasedCapture() {
 			})
 		}
 		next = next.Add(c.interval)
+		until = c.clock.Until(next)
 	}
 }
 
-func (c *collector) tickerBasedCapture() {
-	ticker := time.NewTicker(c.interval)
+func (c *collector) tickerBasedCapture(started chan struct{}) {
+	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
 
+	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
@@ -161,9 +168,9 @@ func (c *collector) tickerBasedCapture() {
 }
 
 func (c *collector) getAndPushNextReading() {
-	timeRequested := timestamppb.New(time.Now().UTC())
+	timeRequested := timestamppb.New(c.clock.Now().UTC())
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
-	timeReceived := timestamppb.New(time.Now().UTC())
+	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			c.logger.Debugw("error while capturing data", "error", err)
@@ -208,9 +215,7 @@ func (c *collector) getAndPushNextReading() {
 	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-		return
 	case c.queue <- &msg:
-		return
 	}
 }
 
@@ -222,6 +227,12 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	var c clock.Clock
+	if params.Clock == nil {
+		c = clock.New()
+	} else {
+		c = params.Clock
+	}
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),
 		interval:          params.Interval,
@@ -233,6 +244,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		cancel:            cancelFunc,
 		captureFunc:       captureFunc,
 		target:            params.Target,
+		clock:             c,
 	}, nil
 }
 

@@ -6,20 +6,18 @@ import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 import { rcLogConditionally } from '../lib/log';
 
-interface SensorName {
+export interface SensorName {
   name: string
   namespace: string
   type: string
   subtype: string
 }
 
-interface Props {
+const props = defineProps<{
   name: string
   sensorNames: SensorName[]
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 interface Reading {
   _type: string
@@ -45,7 +43,8 @@ const getReadings = (inputNames: SensorName[]) => {
   rcLogConditionally(req);
   props.client.sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
     if (error) {
-      return toast.error(error.message);
+      toast.error(error.message);
+      return;
     }
 
     for (const item of response!.getReadingsList()) {

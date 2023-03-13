@@ -41,6 +41,7 @@ AppDir:
     - libtensorflowlite2
     - libpigpio1
     - libopus0
+    - libjpeg62-turbo
   files:
     include: []
     exclude:
