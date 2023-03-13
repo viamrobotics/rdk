@@ -246,7 +246,10 @@ func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logge
 		logger = logger.With("camera_label", label)
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
+	// I think that linking this context with the old one may keep the monitoring limited
+	// to when viam-server is on. Rn it is not, and potentially causing problems
+	// cancelCtx, cancel := context.WithCancel(context.Background())
+	cancelCtx, cancel := context.WithCancel(ctx)
 	return &monitoredWebcam{
 		cam:       cam,
 		label:     label,
@@ -352,6 +355,7 @@ func (c *monitoredWebcam) isCameraConnected() (bool, error) {
 	if err != nil {
 		return true, errors.Wrap(err, "cannot get properties from media source")
 	}
+	c.logger.Info(props)
 	// github.com/pion/mediadevices connects to the OS to get the props for a driver. On disconnect props will be empty.
 	// TODO(RSDK-1959): this only works for linux
 	return len(props) != 0, nil
