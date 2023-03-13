@@ -5,7 +5,7 @@ import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
-const motorPosFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const motorPosFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
 const props = defineProps<{
   name: string;
   status: motorApi.Status.AsObject;
