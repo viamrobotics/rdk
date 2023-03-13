@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/generic"
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -69,7 +70,7 @@ type Gizmo interface {
 	DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error)
 	DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error)
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
-	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	generic.Generic
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
