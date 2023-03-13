@@ -83,7 +83,7 @@ func ReadFile(f *os.File) (*File, error) {
 func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
 	fileName := filepath.Join(dir, getFileTimestampName()) + InProgressFileExt
 	//nolint:gosec
-	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o700)
+	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}
