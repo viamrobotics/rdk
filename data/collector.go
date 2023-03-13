@@ -72,7 +72,7 @@ func (c *collector) Flush() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to flush capture queue", "error", err)
+		c.logger.Errorw("failed to flush collector", "error", err)
 	}
 }
 
@@ -145,7 +145,6 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 }
 
 func (c *collector) tickerBasedCapture(started chan struct{}) {
-	c.logger.Info("logging to collector " + c.target.Path())
 	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
