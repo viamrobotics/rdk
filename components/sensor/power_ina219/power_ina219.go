@@ -223,8 +223,8 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	pm.Power = float64(int64(binary.BigEndian.Uint16(power))*d.powerLSB) / 1000000000
 
 	return map[string]interface{}{
-		"voltage":      pm.Voltage,
-		"current_amps": pm.Current,
-		"power_watts":  pm.Power,
+		"volts": pm.Voltage,
+		"amps":  pm.Current,
+		"watts": pm.Power,
 	}, handle.Close()
 }
