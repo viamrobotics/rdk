@@ -7,12 +7,10 @@ import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[];
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const resources = computed(() => props.resources);
 

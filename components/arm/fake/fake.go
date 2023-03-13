@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -67,8 +68,8 @@ func (config *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(config, logger)
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(r, config, logger)
 		},
 	})
 
@@ -84,7 +85,7 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := buildModel(cfg)
 	if err != nil {
 		return nil, err
@@ -95,6 +96,7 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
 		model:  model,
 		logger: logger,
+		robot:  r,
 	}, nil
 }
 
@@ -129,6 +131,7 @@ type Arm struct {
 	CloseCount int
 	logger     golog.Logger
 	model      referenceframe.Model
+	robot      robot.Robot
 }
 
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
@@ -172,15 +175,7 @@ func (a *Arm) MoveToPosition(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
-	joints, err := a.JointPositions(ctx, extra)
-	if err != nil {
-		return err
-	}
-	solution, err := motionplan.PlanFrameMotion(ctx, a.logger, pos, a.model, a.model.InputFromProtobuf(joints), nil)
-	if err != nil {
-		return err
-	}
-	return arm.GoToWaypoints(ctx, a, solution)
+	return arm.Move(ctx, a.robot, a, pos, worldState)
 }
 
 // MoveToJointPositions sets the joints.
