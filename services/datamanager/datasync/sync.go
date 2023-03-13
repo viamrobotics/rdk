@@ -58,6 +58,7 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMil
 func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
 	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
 		logger.Debug("Using no-op sync manager when Cloud config is not available")
+		fmt.Println("Using a no-op manager")
 		return NewNoopManager(), nil
 	}
 
@@ -72,6 +73,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 			}),
 	}
 
+	fmt.Println("Starting a new connection with ", cfg.Cloud.AppAddress)
 	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
 	if err != nil {
 		return nil, err
