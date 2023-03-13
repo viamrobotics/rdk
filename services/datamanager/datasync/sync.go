@@ -4,13 +4,13 @@ package datasync
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
@@ -278,7 +278,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
