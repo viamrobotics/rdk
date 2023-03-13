@@ -11,6 +11,14 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
+// Sign is a helper to return the sign of an Angle
+func Sign(degrees float64) float64 {
+	if math.Signbit(degrees) {
+		return -1
+	}
+	return 1
+}
+
 // DegToRad converts degrees to radians.
 func DegToRad(degrees float64) float64 {
 	return degrees * math.Pi / 180
