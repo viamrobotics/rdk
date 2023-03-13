@@ -535,7 +535,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
 
-	svcConfig.SetOptionalParameters(localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	port, dataRateMsec, mapRateSec, useLiveData, deleteProcessedData, err :=
+		slamConfig.GetOptionalParameters(svcConfig, localhost0, defaultDataRateMsec, defaultMapRateSec, logger)
+	if err != nil {
+		return nil, err
+	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -546,11 +550,11 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
 		dataDirectory:         svcConfig.DataDirectory,
-		useLiveData:           *svcConfig.UseLiveData,
-		deleteProcessedData:   *svcConfig.DeleteProcessedData,
-		port:                  svcConfig.Port,
-		dataRateMs:            svcConfig.DataRateMsec,
-		mapRateSec:            *svcConfig.MapRateSec,
+		useLiveData:           useLiveData,
+		deleteProcessedData:   deleteProcessedData,
+		port:                  port,
+		dataRateMs:            dataRateMsec,
+		mapRateSec:            mapRateSec,
 		cancelFunc:            cancelFunc,
 		logger:                logger,
 		bufferSLAMProcessLogs: bufferSLAMProcessLogs,

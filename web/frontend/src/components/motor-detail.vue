@@ -5,13 +5,11 @@ import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
-interface Props {
+const props = defineProps<{
   name: string;
   status: motorApi.Status.AsObject;
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 type MovementTypes = 'go' | 'goFor' | 'goTo';
 const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });

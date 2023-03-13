@@ -11,14 +11,17 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	_ "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/models/mybase"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
@@ -29,15 +32,36 @@ func TestModuleFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	conf := &v1.ComponentConfig{
-		Name:  "gizmo1",
-		Api:   "acme:component:gizmo",
-		Model: "acme:demo:mygizmo",
+	gizmoConf := &v1.ComponentConfig{
+		Name: "gizmo1", Api: "acme:component:gizmo", Model: "acme:demo:mygizmo",
+	}
+	myBaseAttrs, err := protoutils.StructToStructPb(mybase.MyBaseConfig{
+		LeftMotor:  "motor1",
+		RightMotor: "motor2",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	myBaseConf := &v1.ComponentConfig{
+		Name:       "mybase1",
+		Api:        "rdk:component:base",
+		Model:      "acme:demo:mybase",
+		Attributes: myBaseAttrs,
+	}
+	// myBaseConf2 is missing required attributes "motorL" and "motorR" and should
+	// cause Validation error.
+	badMyBaseConf := &v1.ComponentConfig{
+		Name:  "mybase2",
+		Api:   "rdk:component:base",
+		Model: "acme:demo:mybase",
 	}
 
 	cfg := &config.Config{Components: []config.Component{
 		{
 			Name:  "motor1",
+			API:   resource.NewSubtype("rdk", "component", "motor"),
+			Model: resource.NewDefaultModel("fake"),
+		},
+		{
+			Name:  "motor2",
 			API:   resource.NewSubtype("rdk", "component", "motor"),
 			Model: resource.NewDefaultModel("fake"),
 		},
@@ -54,6 +78,7 @@ func TestModuleFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, base.Subtype, mybase.Model), test.ShouldBeNil)
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
@@ -84,24 +109,27 @@ func TestModuleFunctions(t *testing.T) {
 		handlers := resp.GetHandlermap().GetHandlers()
 		test.That(t, handlers[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
 		test.That(t, handlers[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-		test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldEqual, "gizmo")
-		test.That(t, handlers[0].GetModels()[0], test.ShouldEqual, "acme:demo:mygizmo")
+		// use test.ShouldBeIn as depending on order of handler return, component handler
+		// could be either gizmo or thingamabob.
+		test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "base")
+		test.That(t, handlers[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mybase")
 
 		// convert from proto
 		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), conn)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(hmap), test.ShouldEqual, 1)
+		test.That(t, len(hmap), test.ShouldEqual, 2)
 
 		for k, v := range hmap {
-			test.That(t, k.Subtype, test.ShouldResemble, gizmoapi.Subtype)
-			test.That(t, v[0], test.ShouldResemble, mygizmo.Model)
+			test.That(t, k.Subtype, test.ShouldBeIn, gizmoapi.Subtype, base.Subtype)
+			test.That(t, v[0], test.ShouldBeIn, mygizmo.Model, mybase.Model)
 		}
+
 		// convert back to proto
 		handlers2 := hmap.ToProto().GetHandlers()
 		test.That(t, handlers2[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
 		test.That(t, handlers2[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-		test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldEqual, "gizmo")
-		test.That(t, handlers2[0].GetModels()[0], test.ShouldEqual, "acme:demo:mygizmo")
+		test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "base")
+		test.That(t, handlers2[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mybase")
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {
@@ -130,7 +158,7 @@ func TestModuleFunctions(t *testing.T) {
 
 	var gClient gizmoapi.Gizmo
 	t.Run("AddResource", func(t *testing.T) {
-		_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: conf})
+		_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: gizmoConf})
 		test.That(t, err, test.ShouldBeNil)
 
 		gClient = gizmoapi.NewClientFromConn(conn, "gizmo1", logger)
@@ -153,9 +181,9 @@ func TestModuleFunctions(t *testing.T) {
 	t.Run("ReconfigureResource", func(t *testing.T) {
 		attrs, err := structpb.NewStruct(config.AttributeMap{"arg1": "test"})
 		test.That(t, err, test.ShouldBeNil)
-		conf.Attributes = attrs
+		gizmoConf.Attributes = attrs
 
-		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: conf})
+		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: gizmoConf})
 		test.That(t, err, test.ShouldBeNil)
 
 		ret, err := gClient.DoOne(ctx, "test")
@@ -174,7 +202,7 @@ func TestModuleFunctions(t *testing.T) {
 	})
 
 	t.Run("RemoveResource", func(t *testing.T) {
-		_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: conf.Api + "/" + conf.Name})
+		_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: gizmoConf.Api + "/" + gizmoConf.Name})
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err := gClient.DoOne(ctx, "test")
@@ -186,6 +214,19 @@ func TestModuleFunctions(t *testing.T) {
 		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
 		test.That(t, retCmd, test.ShouldBeNil)
+	})
+
+	t.Run("Validate", func(t *testing.T) {
+		resp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: myBaseConf})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Dependencies, test.ShouldNotBeNil)
+		test.That(t, resp.Dependencies[0], test.ShouldResemble, "motor1")
+		test.That(t, resp.Dependencies[1], test.ShouldResemble, "motor2")
+
+		_, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: badMyBaseConf})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldResemble,
+			`error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 	})
 
 	err = utils.TryClose(ctx, gClient)

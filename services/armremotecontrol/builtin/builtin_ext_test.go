@@ -35,6 +35,7 @@ func TestSafetyMonitoring(t *testing.T) {
 
 	myArmName := arm.Named("warf")
 	fakeArm, err := fakearm.NewArm(
+		&inject.Robot{},
 		config.Component{
 			Name:                arm.Subtype.String(),
 			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: string(xarm.ModelName6DOF.Name)},
@@ -138,6 +139,7 @@ func TestConnectStopsArm(t *testing.T) {
 
 	myArmName := arm.Named("warf")
 	fakeArm, err := fakearm.NewArm(
+		&inject.Robot{},
 		config.Component{
 			Name:                arm.Subtype.String(),
 			ConvertedAttributes: &fakearm.AttrConfig{ArmModel: string(xarm.ModelName6DOF.Name)},
