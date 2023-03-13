@@ -1,22 +1,14 @@
 
 <script setup lang="ts">
 
-// import { nextTick } from 'vue';
+import { nextTick } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-<<<<<<< HEAD
-
-/*
- * import PCD from './pcd/pcd-view.vue';
- * import Slam2dRender from './slam-2d-render.vue';
- */
-=======
 import PCD from './pcd/pcd-view.vue';
 import Slam2dRender from './slam-2d-render.vue';
 import { rejects } from 'assert';
->>>>>>> 8da05bf5 (slam-2d-ui-only-schedule-refresh-after-completion)
 
 const props = defineProps<{
   name: string
@@ -24,12 +16,12 @@ const props = defineProps<{
   client: Client
 }>();
 
-let imageMap = $ref('');
 const selected2dValue = $ref('manual');
+const selected3dValue = $ref('manual');
+let pointCloudUpdateCount = $ref(0);
+let pointcloud = $ref<Uint8Array | undefined>();
+let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
-<<<<<<< HEAD
-let slam2dIntervalId = -1;
-=======
 let show3d = $ref(false);
 let refresh2DCancelled  = true;
 
@@ -37,107 +29,18 @@ const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined
 
 let slam2dTimeoutId = -1;
 let slam3dIntervalId = -1;
->>>>>>> 8da05bf5 (slam-2d-ui-only-schedule-refresh-after-completion)
 
-/*
- * const selected3dValue = $ref('manual');
- * let pointCloudUpdateCount = $ref(0);
- * let pointcloud = $ref<Uint8Array | undefined>();
- * let pose = $ref<commonApi.Pose | undefined>();
- * let show3d = $ref(false);
- * const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
- * let slam3dIntervalId = -1;
- */
-
-<<<<<<< HEAD
-/*
- * const concatArrayU8 = (arrays: Uint8Array[]) => {
- *   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
- *   const result = new Uint8Array(totalLength);
- *   let length = 0;
- *   for (const array of arrays) {
- *     result.set(array, length);
- *     length += array.length;
- *   }
- *   return result;
- * };
- */
-
-const fetchSLAMImageMap = (name: string) => {
-  const req = new slamApi.GetMapRequest();
-  req.setName(name);
-  req.setMimeType('image/jpeg');
-  req.setIncludeRobotMarker(true);
-  rcLogConditionally(req);
-  props.client.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      return displayError(error);
-    }
-    const blob = new Blob([response!.getImage_asU8()], { type: 'image/jpeg' });
-    imageMap = URL.createObjectURL(blob);
-  });
+const concatArrayU8 = (arrays: Uint8Array[]) => {
+  const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
+  const result = new Uint8Array(totalLength);
+  let length = 0;
+  for (const array of arrays) {
+    result.set(array, length);
+    length += array.length;
+  }
+  return result;
 };
 
-/*
- * const fetchSLAMMap = (name: string) => {
- *   return nextTick(() => {
- *     const req = new slamApi.GetPointCloudMapStreamRequest();
- *     req.setName(name);
- *     rcLogConditionally(req);
- *     const chunks: Uint8Array[] = [];
- *     const getPointCloudMapStream = props.client.slamService.getPointCloudMapStream(req);
- *     getPointCloudMapStream.on('data', (res) => {
- *       const chunk = res.getPointCloudPcdChunk_asU8();
- *       chunks.push(chunk);
- *     });
- *     getPointCloudMapStream.on('status', (status) => {
- *       if (status.code !== 0) {
- *         const error = {
- *           message: status.details,
- *           code: status.code,
- *           metadata: status.metadata,
- *         };
- *         displayError(error);
- *       }
- *     });
- *     getPointCloudMapStream.on('end', (end) => {
- *       if (end === undefined || end.code !== 0) {
- *         // the error will be logged in the 'status' callback
- *         return;
- *       }
- *       pointcloud = concatArrayU8(chunks);
- *       pointCloudUpdateCount += 1;
- *     });
- *   });
- * };
- */
-
-/*
- * const fetchSLAMPose = (name: string) => {
- *   return nextTick(() => {
- *     const req = new slamApi.GetPositionNewRequest();
- *     req.setName(name);
- *     props.client.slamService.getPositionNew(req, new grpc.Metadata(), (error, res): void => {
- *       if (error) {
- *         displayError(error);
- *         return;
- *       }
- *       pose = res!.getPose()!;
- *     });
- *   });
- * };
- */
-
-const refresh2d = async (name: string) => {
-
-  /*
-   * const mapPromise = fetchSLAMMap(name);
-   * const posePromise = fetchSLAMPose(name);
-   * await mapPromise;
-   * await posePromise;
-   */
-  await fetchSLAMImageMap(name);
-=======
 const fetchSLAMMap = (name: string): Promise<Uint8Array | undefined> => {
   return new Promise((resolve, reject) => {
     // return nextTick(() => {
@@ -227,7 +130,6 @@ const scheduleRefresh2d = (name: string, time: string) => {
   };
   slam2dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
   console.log('scheduled timeout', slam2dTimeoutId);
->>>>>>> 8da05bf5 (slam-2d-ui-only-schedule-refresh-after-completion)
 };
 
 // eslint-disable-next-line require-await
@@ -256,54 +158,47 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
   }
 };
 
-/*
- * const updateSLAM3dRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
- *   clearInterval(slam3dIntervalId);
- *   if (time === 'manual') {
- *     fetchSLAMMap(name);
- *   } else if (time === 'off') {
- *     // do nothing
- *   } else {
- *     fetchSLAMMap(name);
- *     slam3dIntervalId = window.setInterval(() => {
- *       fetchSLAMMap(name);
- *     }, Number.parseFloat(time) * 1000);
- *   }
- * };
- */
+const updateSLAM3dRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
+  clearInterval(slam3dIntervalId);
+
+  if (time === 'manual') {
+    fetchSLAMMap(name);
+  } else if (time === 'off') {
+    // do nothing
+  } else {
+    fetchSLAMMap(name);
+    slam3dIntervalId = window.setInterval(() => {
+      fetchSLAMMap(name);
+    }, Number.parseFloat(time) * 1000);
+  }
+};
 
 const toggle2dExpand = () => {
   show2d = !show2d;
   updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
 };
 
-/*
- * const toggle3dExpand = () => {
- *   show3d = !show3d;
- *   updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
- * };
- */
+const toggle3dExpand = () => {
+  show3d = !show3d;
+  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
+};
 
 const selectSLAM2dRefreshFrequency = () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
-/*
- * const selectSLAMPCDRefreshFrequency = () => {
- *   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
- * };
- */
+const selectSLAMPCDRefreshFrequency = () => {
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
+};
 
 // eslint-disable-next-line require-await
 const refresh2dMap = async () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
-/*
- * const refresh3dMap = () => {
- *   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
- * };
- */
+const refresh3dMap = () => {
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
+};
 
 </script>
 
@@ -358,6 +253,9 @@ const refresh2dMap = async () => {
                     <option value="5">
                       Every 5 seconds
                     </option>
+                    <option value="1">
+                      Every second
+                    </option>
                   </select>
                   <div
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
@@ -385,13 +283,7 @@ const refresh2dMap = async () => {
               </div>
             </div>
           </div>
-          <img
-            v-if="show2d"
-            :src="imageMap"
-            width="500"
-            height="500"
-          >
-          <!-- <Slam2dRender
+          <Slam2dRender
             v-if="loaded2d && show2d"
             :point-cloud-update-count="pointCloudUpdateCount"
             :pointcloud="pointcloud"
@@ -399,9 +291,9 @@ const refresh2dMap = async () => {
             :name="name"
             :resources="resources"
             :client="client"
-          /> -->
+          />
         </div>
-        <!-- <div class="pt-4">
+        <div class="pt-4">
           <div class="flex items-center gap-2">
             <v-switch
               :value="show3d ? 'on' : 'off'"
@@ -440,6 +332,9 @@ const refresh2dMap = async () => {
                     <option value="5">
                       Every 5 seconds
                     </option>
+                    <option value="1">
+                      Every second
+                    </option>
                   </select>
                   <div
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
@@ -473,7 +368,7 @@ const refresh2dMap = async () => {
             :pointcloud="pointcloud"
             :client="client"
           />
-        </div> -->
+        </div>
       </div>
     </div>
   </v-collapse>
