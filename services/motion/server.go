@@ -49,7 +49,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 		return nil, err
 	}
 	var slamServiceName resource.Name
-	if protoName := req.GetSlamServiceName(); protoName == nil {
+	if protoName := req.GetSlamServiceName(); protoName != nil {
 		slamServiceName = protoutils.ResourceNameFromProto(protoName)
 	} else {
 		slamServiceName = slam.Named("")
