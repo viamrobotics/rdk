@@ -105,8 +105,6 @@ type adxl345 struct {
 	bus                      board.I2C
 	i2cAddress               byte
 	logger                   golog.Logger
-	echoInterrupt1           board.DigitalInterrupt
-	echoInterrupt2           board.DigitalInterrupt
 	interruptsEnabled        byte
 	interruptsMap            byte
 	interruptsFound          map[string]int
@@ -148,12 +146,14 @@ func NewAdxl345(
 	if !ok {
 		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", cfg.I2cBus)
 	}
+
 	var address byte
 	if cfg.UseAlternateI2CAddress {
 		address = 0x1D
 	} else {
 		address = 0x53
 	}
+
 	interruptConfigurations := getInterruptConfigurations(cfg)
 	configuredRegisterValues := map[byte]byte{}
 	configuredRegisterValues = getFreeFallRegisterValues(cfg.FreeFall, configuredRegisterValues)
@@ -168,31 +168,6 @@ func NewAdxl345(
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
-	}
-
-	if (cfg.SingleTap != nil) && (cfg.SingleTap.InterruptPin != "") {
-		i1, ok := b.DigitalInterruptByName(cfg.SingleTap.InterruptPin)
-		if !ok {
-			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.SingleTap.InterruptPin)
-		}
-		sensor.echoInterrupt1 = i1
-	}
-	if cfg.FreeFall != nil {
-		if cfg.SingleTap == nil {
-			i2, ok := b.DigitalInterruptByName(cfg.FreeFall.InterruptPin)
-			if !ok {
-				return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.InterruptPin)
-			}
-			sensor.echoInterrupt2 = i2
-		} else {
-			if (cfg.FreeFall.InterruptPin != cfg.SingleTap.InterruptPin) || (cfg.FreeFall.InterruptPin != "") {
-				i2, ok := b.DigitalInterruptByName(cfg.FreeFall.InterruptPin)
-				if !ok {
-					return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.InterruptPin)
-				}
-				sensor.echoInterrupt2 = i2
-			}
-		}
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -252,17 +227,30 @@ func NewAdxl345(
 		sensor.cancelFunc()
 		return nil, err
 	}
+
+	interruptMap := map[string]board.DigitalInterrupt{}
+	if (cfg.SingleTap != nil) && (cfg.SingleTap.InterruptPin != "") {
+		interruptMap, err = addInterruptPin(b, cfg.SingleTap.InterruptPin, interruptMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if (cfg.FreeFall != nil) && (cfg.FreeFall.InterruptPin != "") {
+		interruptMap, err = addInterruptPin(b, cfg.SingleTap.InterruptPin, interruptMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	ticksChan := make(chan board.Tick)
-	if sensor.echoInterrupt1 != nil {
-		sensor.startInterruptPolling(sensor.echoInterrupt1, ticksChan)
+	for _, interrupt := range interruptMap {
+		sensor.startInterruptMonitoring(interrupt, ticksChan)
 	}
-	if sensor.echoInterrupt2 != nil {
-		sensor.startInterruptPolling(sensor.echoInterrupt2, ticksChan)
-	}
+
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptPolling(interrupt board.DigitalInterrupt, ticksChan chan board.Tick) {
+func (adxl *adxl345) startInterruptMonitoring(interrupt board.DigitalInterrupt, ticksChan chan board.Tick) {
 	utils.PanicCapturingGo(func() {
 		interrupt.AddCallback(ticksChan)
 		defer interrupt.RemoveCallback(ticksChan)
@@ -280,6 +268,18 @@ func (adxl *adxl345) startInterruptPolling(interrupt board.DigitalInterrupt, tic
 			}
 		}
 	})
+}
+
+func addInterruptPin(b board.Board, interruptName string, interruptMap map[string]board.DigitalInterrupt) (map[string]board.DigitalInterrupt, error) {
+	_, ok := interruptMap[interruptName]
+	if !ok {
+		interrupt, ok := b.DigitalInterruptByName(interruptName)
+		if !ok {
+			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", interruptName)
+		}
+		interruptMap[interruptName] = interrupt
+	}
+	return interruptMap, nil
 }
 
 func getInterruptConfigurations(cfg *AttrConfig) map[byte]byte {
