@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
@@ -129,7 +130,11 @@ func (s *syncer) SyncDirectory(dir string) {
 				//nolint:gosec
 				f, err := os.Open(newP)
 				if err != nil {
-					s.logger.Errorw("error opening file", "error", err)
+					// Don't log if the file does not exist, because that means it was successfully synced and deleted
+					// in between paths being built and this executing.
+					if !errors.Is(err, os.ErrNotExist) {
+						s.logger.Errorw("error opening file", "error", err)
+					}
 					return
 				}
 

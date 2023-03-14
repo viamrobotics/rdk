@@ -282,6 +282,7 @@ func TestDataCaptureUpload(t *testing.T) {
 					test.That(t, err, test.ShouldBeNil)
 				}()
 
+				newDMSvc.Close(context.Background())
 				newestDMSvc := newTestDataManager(t)
 				defer newestDMSvc.Close(context.Background())
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
