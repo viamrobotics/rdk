@@ -106,7 +106,6 @@ type adxl345 struct {
 	i2cAddress               byte
 	logger                   golog.Logger
 	interruptsEnabled        byte
-	interruptsBitmap         byte
 	interruptsFound          map[string]int
 	configuredRegisterValues map[byte]byte
 
@@ -163,7 +162,6 @@ func NewAdxl345(
 		bus:                      bus,
 		i2cAddress:               address,
 		interruptsEnabled:        interruptConfigurations[IntEnableAddr],
-		interruptsBitmap:         interruptConfigurations[IntMapAddr],
 		logger:                   logger,
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
@@ -222,7 +220,7 @@ func NewAdxl345(
 	})
 	sensor.interruptsFound = make(map[string]int)
 	sensor.readInterrupts(sensor.cancelContext)
-	if err := sensor.configureInterruptRegisters(ctx); err != nil {
+	if err := sensor.configureInterruptRegisters(ctx, interruptConfigurations[IntMapAddr]); err != nil {
 		sensor.cancelFunc()
 		return nil, err
 	}
@@ -368,12 +366,12 @@ func (adxl *adxl345) writeByte(ctx context.Context, register, value byte) error 
 	return handle.WriteByteData(ctx, register, value)
 }
 
-func (adxl *adxl345) configureInterruptRegisters(ctx context.Context) error {
+func (adxl *adxl345) configureInterruptRegisters(ctx context.Context, interruptBitMap byte) error {
 	if adxl.interruptsEnabled == 0 {
 		return nil
 	}
 	adxl.configuredRegisterValues[IntEnableAddr] = adxl.interruptsEnabled
-	adxl.configuredRegisterValues[IntMapAddr] = adxl.interruptsBitmap
+	adxl.configuredRegisterValues[IntMapAddr] = interruptBitMap
 	for key, value := range defaultRegisterValues {
 		if configuredVal, ok := adxl.configuredRegisterValues[key]; ok {
 			value = configuredVal
