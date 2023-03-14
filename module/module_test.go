@@ -107,12 +107,13 @@ func TestModuleFunctions(t *testing.T) {
 	t.Run("HandlerMap", func(t *testing.T) {
 		// test the raw return
 		handlers := resp.GetHandlermap().GetHandlers()
-		test.That(t, handlers[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
-		test.That(t, handlers[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-		// use test.ShouldBeIn as depending on order of handler return, component handler
-		// could be either gizmo or thingamabob.
-		test.That(t, handlers[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "base")
-		test.That(t, handlers[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mybase")
+		test.That(t, "acme", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
+		test.That(t, "rdk", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
+		test.That(t, "component", test.ShouldBeIn, handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type)
+		test.That(t, "gizmo", test.ShouldBeIn, handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype)
+		test.That(t, "base", test.ShouldBeIn, handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype)
+		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
+		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
 
 		// convert from proto
 		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), conn)
@@ -121,15 +122,22 @@ func TestModuleFunctions(t *testing.T) {
 
 		for k, v := range hmap {
 			test.That(t, k.Subtype, test.ShouldBeIn, gizmoapi.Subtype, base.Subtype)
-			test.That(t, v[0], test.ShouldBeIn, mygizmo.Model, mybase.Model)
+			if k.Subtype == gizmoapi.Subtype {
+				test.That(t, mygizmo.Model, test.ShouldResemble, v[0])
+			} else {
+				test.That(t, mybase.Model, test.ShouldResemble, v[0])
+			}
 		}
 
 		// convert back to proto
 		handlers2 := hmap.ToProto().GetHandlers()
-		test.That(t, handlers2[0].Subtype.Subtype.Namespace, test.ShouldEqual, "acme")
-		test.That(t, handlers2[0].Subtype.Subtype.Type, test.ShouldEqual, "component")
-		test.That(t, handlers2[0].Subtype.Subtype.Subtype, test.ShouldBeIn, "gizmo", "base")
-		test.That(t, handlers2[0].GetModels()[0], test.ShouldBeIn, "acme:demo:mygizmo", "acme:demo:mybase")
+		test.That(t, "acme", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace)
+		test.That(t, "rdk", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace)
+		test.That(t, "component", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type)
+		test.That(t, "gizmo", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype)
+		test.That(t, "base", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype)
+		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn, handlers2[0].GetModels()[0], handlers2[1].GetModels()[0])
+		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers2[0].GetModels()[0], handlers2[1].GetModels()[0])
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {

@@ -9,12 +9,13 @@ import (
 
 	"go.viam.com/rdk/services/slam/builtin"
 	slamConfig "go.viam.com/slam/config"
+	slamTesthelper "go.viam.com/slam/testhelper"
 )
 
 func TestConfigValidation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	name1, err := createTempFolderArchitecture()
+	name1, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("valid config with sensor", func(t *testing.T) {
