@@ -178,6 +178,19 @@ func (svc *builtIn) closeCollectors() {
 	wg.Wait()
 }
 
+func (svc *builtIn) flushCollectors() {
+	wg := sync.WaitGroup{}
+	for _, collector := range svc.collectors {
+		currCollector := collector
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			currCollector.Collector.Flush()
+		}()
+	}
+	wg.Wait()
+}
+
 // Parameters stored for each collector.
 type collectorAndConfig struct {
 	Collector  data.Collector
@@ -276,15 +289,19 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Create a collector for this resource and method.
+	targetDir := filepath.Join(svc.captureDir, captureMetadata.GetComponentType(), captureMetadata.GetComponentName(),
+		captureMetadata.GetMethodName())
+	if err := os.MkdirAll(targetDir, 0o700); err != nil {
+		return nil, err
+	}
 	params := data.CollectorParams{
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target: datacapture.NewBuffer(filepath.Join(svc.captureDir, time.Now().Format(time.RFC3339Nano)),
-			captureMetadata),
-		QueueSize:  captureQueueSize,
-		BufferSize: captureBufferSize,
-		Logger:     svc.logger,
+		Target:        datacapture.NewBuffer(targetDir, captureMetadata),
+		QueueSize:     captureQueueSize,
+		BufferSize:    captureBufferSize,
+		Logger:        svc.logger,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
@@ -352,6 +369,7 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 		}
 	}
 
+	svc.flushCollectors()
 	svc.syncer.SyncDirectory(svc.captureDir)
 	svc.syncAdditionalSyncPaths()
 	svc.lock.Unlock()
@@ -504,6 +522,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-ticker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
+					svc.flushCollectors()
 					svc.syncer.SyncDirectory(svc.captureDir)
 					svc.syncAdditionalSyncPaths()
 				}
