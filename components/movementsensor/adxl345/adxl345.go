@@ -177,12 +177,22 @@ func NewAdxl345(
 		}
 		sensor.echoInterrupt1 = i1
 	}
-	if (cfg.FreeFall != nil) && ((cfg.FreeFall.EchoInterrupt != cfg.SingleTap.EchoInterrupt) || (cfg.FreeFall.EchoInterrupt != "")) {
-		i2, ok := b.DigitalInterruptByName(cfg.FreeFall.EchoInterrupt)
-		if !ok {
-			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.EchoInterrupt)
+	if cfg.FreeFall != nil {
+		if cfg.SingleTap == nil {
+			i2, ok := b.DigitalInterruptByName(cfg.FreeFall.EchoInterrupt)
+			if !ok {
+				return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.EchoInterrupt)
+			}
+			sensor.echoInterrupt2 = i2
+		} else {
+			if (cfg.FreeFall.EchoInterrupt != cfg.SingleTap.EchoInterrupt) || (cfg.FreeFall.EchoInterrupt != "") {
+				i2, ok := b.DigitalInterruptByName(cfg.FreeFall.EchoInterrupt)
+				if !ok {
+					return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.EchoInterrupt)
+				}
+				sensor.echoInterrupt2 = i2
+			}
 		}
-		sensor.echoInterrupt2 = i2
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
