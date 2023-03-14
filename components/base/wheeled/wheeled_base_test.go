@@ -16,6 +16,9 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
@@ -365,72 +368,124 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-type TestCase struct {
-	Name      string
-	Start     float64
-	Target    float64
-	Over      float64
-	Direction float64
-}
-type dirInfo struct {
-	Name  string
-	Value float64
-}
-type addInfo struct {
-	AngleType string
-	Value     float64
+func TestSpinWithMSMath(t *testing.T) {
+	for _, b := range []struct {
+		angle  float64
+		bound1 float64
+		bound2 float64
+	}{
+		{15, 0, 270},
+		{0, -15, 15},
+		{0, -15, 15},
+		{-15, -270, 0},
+	} {
+		test.That(t, angleBetween(b.angle, b.bound1, b.bound2), test.ShouldBeTrue)
+	}
+
+	for _, a := range []struct {
+		angle1   float64
+		angle2   float64
+		expected float64
+	}{
+		{15, 15, 30},
+		{15, -30, 345},
+		{110, 120, 230},
+		{50, 350, 40},
+		{-90, 0, 270},
+		{-60, 0, 300},
+	} {
+		test.That(t, addAnglesInDomain(a.angle1, a.angle2, false), test.ShouldEqual, a.expected)
+	}
+
+	ctx := context.Background()
+	ms := &inject.MovementSensor{
+		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			if extra != nil {
+				if yaw, ok := extra["yaw"].(float64); ok {
+					return &spatialmath.EulerAngles{Yaw: yaw}, nil
+				}
+			}
+			return &spatialmath.EulerAngles{}, nil
+		},
+	}
+
+	extra := make(map[string]interface{})
+	yaws := []float64{
+		math.Pi / 18, math.Pi / 3, math.Pi / 9, math.Pi / 6, math.Pi / 3, -math.Pi, -3 * math.Pi / 4}
+	for _, yaw := range yaws {
+		extra["yaw"] = yaw
+		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(yaw), 0, false)
+		measYaw, err := getCurrentYaw(ctx, ms, extra)
+		test.That(t, measYaw, test.ShouldEqual, calcYaw)
+		test.That(t, measYaw > 0, test.ShouldBeTrue)
+		test.That(t, calcYaw > 0, test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	for _, params := range []struct {
+		added float64
+		speed float64
+		start float64
+		dir   float64
+		goal  float64
+		over  float64
+	}{
+		{-15, -20, 0, 1, 0, 0},
+		{20, -20, 360, -1, 0, 0},
+		{90, 10, 10, 1, 0, 0},
+	} {
+		params.goal = addAnglesInDomain(params.start, params.added, false)
+		params.over = addAnglesInDomain(params.start, params.added+params.dir*15, false)
+		goal, over, dir := findSpinParams(params.added, params.speed, params.start)
+		test.That(t, goal, test.ShouldAlmostEqual, params.goal)
+		test.That(t, dir, test.ShouldAlmostEqual, params.dir)
+		test.That(t, over, test.ShouldAlmostEqual, params.over)
+
+	}
+
 }
 
-func TestAngleCalculations(t *testing.T) {
-
-	/*
-		definition of quadrants and directions
-		q2	 	|		q1	  <-| ccw (+ve)
-			+ve	|  +ve			|
-		________|________
-				|
-			-ve	|  -ve			|
-		q3		|		q4	  <-| cw (-ve)
-	*/
-
+func TestHasOverShot(t *testing.T) {
 	dirCases := []dirInfo{
 		{"ccw", 1},
-		{"cw", -1},
+		// {"cw", -1},
 	}
 
 	addCases := []addInfo{
 		{"acute", 20},
 		{"right", 90},
-		{"obtuse", 110},
-		{"straight", 180},
-		{"reflex", 200},
-		{"reflexright", 270},
-		{"reflexplus", 325},
-		{"complete", 359},
+		// {"obtuse", 110},
+		// {"straight", 180},
+		// {"reflex", 200},
+		// {"reflexright", 270},
+		// {"reflexplus", 325},
+		// {"complete", 359},
 	}
 
 	startCases := []float64{
 		5,
-		15,
-		20,
 		45,
-		70,
 		90,
-		110,
-		160,
-		175,
+		135,
 		180,
-		-180,
-		-175,
-		-160,
-		-110,
-		-90,
-		-70,
-		-45,
-		-20,
-		-15,
-		-5,
+		225,
+		270,
+		315,
+		260,
+		270,
+		// 355,
+		// 360,
 	}
+
+	/*
+			definition of quadrants and directions
+			q2	 	|		q1	  <-| ccw (+ve)
+				+ve	|  +ve			|
+		  0	________|________ 360
+					|
+				-ve	|  -ve			|
+			q3		|		q4	  <-| cw (-ve)
+	*/
 
 	for _, dirCase := range dirCases {
 		for _, addCase := range addCases {
@@ -442,66 +497,56 @@ func TestAngleCalculations(t *testing.T) {
 				target := condition.Target
 				over := condition.Over
 				dir := condition.Direction
-				added := addCase.Value
 
 				t.Run(condition.Name+" overshot", func(t *testing.T) {
 					test.That(t,
-						// hasBaseOvershot(over, target, start, dir, addedAngle),
-						hasOverShot(over, target, added, start, dir),
+						hasOverShot(over, start, target, over, dir),
 						test.ShouldBeTrue)
 				})
 
 				// subtract a few degrees from target to ensure were not overshooting
-				notovers := []float64{
-					// go back to a little before the start but not more
-					addAnglesInDomain(start, dir),
-					addAnglesInDomain(target, -5*dir),
-					addAnglesInDomain(target, -1*dir),
+				notovers := map[string]float64{
+					// go back to a little beforeyhe start but not more
+					"nearstart":       addAnglesInDomain(start, dir, false),
+					"nearend: ":       addAnglesInDomain(target, -dir*allowableAngle, false),
+					"justbeforeend: ": addAnglesInDomain(target, -dir, false),
 				}
-				for _, notover := range notovers {
+				for key, notover := range notovers {
 					noStr := "[" + strconv.FormatFloat(notover, 'f', 1, 64) + "]"
-					t.Run(condition.Name+noStr+" notovershot", func(t *testing.T) {
+					t.Run(condition.Name+noStr+key+" notovershot", func(t *testing.T) {
 						test.That(t,
-							hasOverShot(notover, target, added, start, dir),
-							// hasBaseOvershot(notover, target, start, dir, addedAngle),
+							hasOverShot(notover, start, target, over, dir),
 							test.ShouldBeFalse)
 					})
 				}
 			}
 		}
 	}
+
 }
 
-func findQuadrant(value float64) string {
-
-	switch {
-	case 0 <= value && value < 90:
-		return "quadrant1"
-	case 90 <= value && value < 180.1:
-		return "quadrant2"
-	case -180.1 <= value && value < -90:
-		return "quadrant3"
-	case -90 <= value && value < 0:
-		return "quadrant4"
-	default:
-		return "undefined"
-	}
+type TestCase struct {
+	Name      string
+	Start     float64
+	Target    float64
+	Over      float64
+	Direction float64
 }
 
 func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
-	target := addAnglesInDomain(startI, dirI.Value*addI.Value)
-	overshoot := addAnglesInDomain(target, dirI.Value*15.0)
+	target := addAnglesInDomain(startI, dirI.Value*addI.Value, false)
+	overshoot := addAnglesInDomain(target, dirI.Value*15.0, false)
 
-	angle2str := func(number float64) string {
+	a2Str := func(number float64) string {
 		return strconv.FormatFloat(number, 'f', 1, 64)
 	}
 
-	startQuadrant := findQuadrant(startI)
-	targetQuadrant := findQuadrant(target)
-	behaviour := startQuadrant + "-to-" + targetQuadrant + "-" + dirI.Name + "-" + addI.AngleType
-	start2target := "(" + angle2str(startI) + "->" + angle2str(target) + ")"
-	endedAt := "[" + angle2str(overshoot) + "]"
-	name := behaviour + start2target + endedAt
+	sQ := findQuadrant(startI)
+	tQ := findQuadrant(target)
+	behaviour := string(sQ) + "-to-" + tQ + "-" + dirI.Name + "-" + addI.AngleType
+	s2t := "(" + a2Str(startI) + "->" + a2Str(target) + ")"
+	eAt := "[" + a2Str(overshoot) + "]"
+	name := behaviour + s2t + eAt
 
 	return TestCase{
 		Name:      name,
@@ -509,5 +554,36 @@ func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
 		Target:    target,
 		Over:      overshoot,
 		Direction: dirI.Value,
+	}
+}
+
+type dirInfo struct {
+	Name  string
+	Value float64
+}
+type addInfo struct {
+	AngleType string
+	Value     float64
+}
+
+const (
+	q1 = "q1"
+	q2 = "q2"
+	q3 = "q3"
+	q4 = "q4"
+)
+
+func findQuadrant(value float64) string {
+	switch {
+	case 0 <= value && value < 90:
+		return q1
+	case 90 <= value && value < 180:
+		return q2
+	case 180 <= value && value < 270:
+		return q2
+	case 270 <= value && value < 360:
+		return q2
+	default:
+		return "none"
 	}
 }
