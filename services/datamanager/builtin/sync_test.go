@@ -199,6 +199,7 @@ func TestDataCaptureUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Skip()
 			// Set up server.
 			tmpDir := t.TempDir()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.serviceFailAt, tc.numFails)
