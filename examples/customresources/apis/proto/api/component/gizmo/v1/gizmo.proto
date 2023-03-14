@@ -3,6 +3,7 @@ syntax = "proto3";
 package acme.component.gizmo.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "go.acme.com/proto/api/component/gizmo/v1";
 
@@ -22,6 +23,12 @@ service GizmoService {
   rpc DoTwo(DoTwoRequest) returns (DoTwoResponse) {
     option (google.api.http) = {
       post: "/acme/api/v1/component/gizmo/{name}/do_two"
+    };
+  }
+
+  rpc DoCommand(DoCommandRequest) returns (DoCommandResponse) {
+    option (google.api.http) = {
+      post: "/acme/api/v1/component/gizmo/{name}/do_command"
     };
   }
 }
@@ -69,4 +76,13 @@ message DoTwoRequest {
 
 message DoTwoResponse {
   string ret1 = 1;
+}
+
+message DoCommandRequest {
+  string name = 1;
+  google.protobuf.Struct command = 2;
+}
+
+message DoCommandResponse {
+  google.protobuf.Struct result = 1;
 }
