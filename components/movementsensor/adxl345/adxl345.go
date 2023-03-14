@@ -44,27 +44,27 @@ type AttrConfig struct {
 	BoardName              string              `json:"board"`
 	I2cBus                 string              `json:"i2c_bus"`
 	UseAlternateI2CAddress bool                `json:"use_alternate_i2c_address,omitempty"`
-	SingleTap              *TapAttrConfig      `json:"single_tap,omitempty"`
+	SingleTap              *TapAttrConfig      `json:"tap,omitempty"`
 	FreeFall               *FreeFallAttrConfig `json:"free_fall,omitempty"`
 }
 
 // TapAttrConfig is a description of the configs for tap registers.
 type TapAttrConfig struct {
-	AccelerometerPin int    `json:"accelerometer_pin"`
-	EchoInterrupt    string `json:"interrupt_pin"`
-	ExcludeTapX      bool   `json:"exclude_tap_x,omitempty"`
-	ExcludeTapY      bool   `json:"exclude_tap_y,omitempty"`
-	ExcludeTapZ      bool   `json:"exclude_tap_z,omitempty"`
-	ThreshTap        byte   `json:"thresh_tap,omitempty"`
-	Dur              byte   `json:"dur,omitempty"`
+	AccelerometerPin int     `json:"accelerometer_pin"`
+	InterruptPin     string  `json:"interrupt_pin"`
+	ExcludeX         bool    `json:"exclude_x,omitempty"`
+	ExcludeY         bool    `json:"exclude_y,omitempty"`
+	ExcludeZ         bool    `json:"exclude_z,omitempty"`
+	Threshold        float32 `json:"threshold,omitempty"`
+	Dur              float32 `json:"dur_us,omitempty"`
 }
 
 // FreeFallAttrConfig is a description of the configs for free fall registers.
 type FreeFallAttrConfig struct {
-	AccelerometerPin int    `json:"accelerometer_pin"`
-	EchoInterrupt    string `json:"interrupt_pin"`
-	ThreshFF         byte   `json:"thresh_ff,omitempty"`
-	TimeFF           byte   `json:"time_ff,omitempty"`
+	AccelerometerPin int     `json:"accelerometer_pin"`
+	InterruptPin     string  `json:"interrupt_pin"`
+	Threshold        float32 `json:"threshold,omitempty"`
+	Time             float32 `json:"time_ms,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
@@ -170,25 +170,25 @@ func NewAdxl345(
 		configuredRegisterValues: configuredRegisterValues,
 	}
 
-	if (cfg.SingleTap != nil) && (cfg.SingleTap.EchoInterrupt != "") {
-		i1, ok := b.DigitalInterruptByName(cfg.SingleTap.EchoInterrupt)
+	if (cfg.SingleTap != nil) && (cfg.SingleTap.InterruptPin != "") {
+		i1, ok := b.DigitalInterruptByName(cfg.SingleTap.InterruptPin)
 		if !ok {
-			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.SingleTap.EchoInterrupt)
+			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.SingleTap.InterruptPin)
 		}
 		sensor.echoInterrupt1 = i1
 	}
 	if cfg.FreeFall != nil {
 		if cfg.SingleTap == nil {
-			i2, ok := b.DigitalInterruptByName(cfg.FreeFall.EchoInterrupt)
+			i2, ok := b.DigitalInterruptByName(cfg.FreeFall.InterruptPin)
 			if !ok {
-				return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.EchoInterrupt)
+				return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.InterruptPin)
 			}
 			sensor.echoInterrupt2 = i2
 		} else {
-			if (cfg.FreeFall.EchoInterrupt != cfg.SingleTap.EchoInterrupt) || (cfg.FreeFall.EchoInterrupt != "") {
-				i2, ok := b.DigitalInterruptByName(cfg.FreeFall.EchoInterrupt)
+			if (cfg.FreeFall.InterruptPin != cfg.SingleTap.InterruptPin) || (cfg.FreeFall.InterruptPin != "") {
+				i2, ok := b.DigitalInterruptByName(cfg.FreeFall.InterruptPin)
 				if !ok {
-					return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.EchoInterrupt)
+					return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", cfg.FreeFall.InterruptPin)
 				}
 				sensor.echoInterrupt2 = i2
 			}
@@ -304,13 +304,13 @@ func getSingleTapRegisterValues(singleTapConfigs *TapAttrConfig, registerValues 
 		return registerValues
 	}
 
-	registerValues[TapAxesAddr] = getAxes(singleTapConfigs.ExcludeTapX, singleTapConfigs.ExcludeTapY, singleTapConfigs.ExcludeTapZ)
+	registerValues[TapAxesAddr] = getAxes(singleTapConfigs.ExcludeX, singleTapConfigs.ExcludeY, singleTapConfigs.ExcludeZ)
 
-	if singleTapConfigs.ThreshTap != 0 {
-		registerValues[ThreshTapAddr] = singleTapConfigs.ThreshTap
+	if singleTapConfigs.Threshold != 0 {
+		registerValues[ThreshTapAddr] = byte((singleTapConfigs.Threshold / 62.5))
 	}
 	if singleTapConfigs.Dur != 0 {
-		registerValues[DurAddr] = singleTapConfigs.Dur
+		registerValues[DurAddr] = byte((singleTapConfigs.Dur / 625))
 	}
 	return registerValues
 }
@@ -320,11 +320,11 @@ func getFreeFallRegisterValues(freeFallConfigs *FreeFallAttrConfig, registerValu
 	if freeFallConfigs == nil {
 		return registerValues
 	}
-	if freeFallConfigs.ThreshFF != 0 {
-		registerValues[ThreshFfAddr] = freeFallConfigs.ThreshFF
+	if freeFallConfigs.Threshold != 0 {
+		registerValues[ThreshFfAddr] = byte((freeFallConfigs.Threshold / 62.5))
 	}
-	if freeFallConfigs.TimeFF != 0 {
-		registerValues[TimeFfAddr] = freeFallConfigs.TimeFF
+	if freeFallConfigs.Time != 0 {
+		registerValues[TimeFfAddr] = byte((freeFallConfigs.Time / .5))
 	}
 	return registerValues
 }
