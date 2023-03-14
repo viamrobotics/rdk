@@ -496,6 +496,7 @@ func TestManagerAdd(t *testing.T) {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, nil
