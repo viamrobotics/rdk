@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 )
 
 type testReader struct {
@@ -53,14 +54,18 @@ func TestAnalogSmoother1(t *testing.T) {
 	_, ok = as.(*AnalogSmoother)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	// Sleep far longer than needed. Want to hit the reader limit for deterministic behavior.
-	time.Sleep(500 * time.Millisecond)
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 200, func(tb testing.TB) {
+		tb.Helper()
+		v, err := as.Read(context.Background(), nil)
+		test.That(tb, err, test.ShouldEqual, errStopReading)
+		test.That(tb, v, test.ShouldEqual, 52)
 
-	v, err := as.Read(context.Background(), nil)
-	test.That(t, testReader.n, test.ShouldEqual, testReader.lim)
-	test.That(t, err, test.ShouldEqual, errStopReading)
-	test.That(t, v, test.ShouldEqual, 52)
+		// need lock to access testReader.n
+		testReader.mu.Lock()
+		defer testReader.mu.Unlock()
+		test.That(tb, testReader.n, test.ShouldEqual, testReader.lim)
+	})
 
-	err = utils.TryClose(context.Background(), as)
+	err := utils.TryClose(context.Background(), as)
 	test.That(t, err, test.ShouldBeNil)
 }
