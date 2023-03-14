@@ -74,6 +74,7 @@ func TestInterrupts(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
 	})
@@ -95,6 +96,7 @@ func TestInterrupts(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 0)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
 	})
@@ -116,6 +118,7 @@ func TestInterrupts(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 0)
 	})
