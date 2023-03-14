@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -304,16 +303,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, errors.Errorf("module cannot service api: %s", cfg.API)
 	}
 
-	if cfg.API.ResourceType == resource.ResourceTypeComponent && cfg.API != generic.Subtype {
-		genSvc, ok := m.services[generic.Subtype]
-		if !ok {
-			return nil, errors.New("module cannot service the generic API")
-		}
-		if err := genSvc.Add(cfg.ResourceName(), res); err != nil {
-			return nil, err
-		}
-	}
-
 	return &pb.AddResourceResponse{}, subSvc.Add(cfg.ResourceName(), res)
 }
 
@@ -371,16 +360,6 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 			comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
 			if err != nil {
 				return nil, err
-			}
-
-			if cfg.API != generic.Subtype {
-				genSvc, ok := m.services[generic.Subtype]
-				if !ok {
-					return nil, errors.New("no generic service")
-				}
-				if err := genSvc.ReplaceOne(cfg.ResourceName(), comp); err != nil {
-					return nil, err
-				}
 			}
 
 			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), comp)
@@ -471,16 +450,6 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		m.logger.Error(err)
 	}
 
-	if name.Subtype.ResourceType == resource.ResourceTypeComponent && name.Subtype != generic.Subtype {
-		genSvc, ok := m.services[generic.Subtype]
-		if !ok {
-			return nil, errors.New("no generic service")
-		}
-		if err := genSvc.Remove(name); err != nil {
-			return nil, err
-		}
-	}
-
 	return &pb.RemoveResourceResponse{}, svc.Remove(name)
 }
 
@@ -511,16 +480,9 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
 	m.mu.Lock()
 	_, ok := m.services[api]
-	_, okGeneric := m.services[generic.Subtype]
 	m.mu.Unlock()
 	if !ok {
 		if err := m.addAPIFromRegistry(ctx, api); err != nil {
-			return err
-		}
-	}
-
-	if api.ResourceType == resource.ResourceTypeComponent && !okGeneric && api != generic.Subtype {
-		if err := m.addAPIFromRegistry(ctx, generic.Subtype); err != nil {
 			return err
 		}
 	}
