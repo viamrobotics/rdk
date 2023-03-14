@@ -18,11 +18,11 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/referenceframe"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -447,6 +447,7 @@ func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referencefram
 		r += geoCfg.R
 	case spatialmath.CapsuleType:
 		r += geoCfg.L / 2
+	case spatialmath.PointType:
 	case spatialmath.UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
@@ -460,11 +461,15 @@ func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referencefram
 		return nil, spatialmath.ErrGeometryTypeUnsupported
 	}
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
+	if err != nil {
+		// could not create a sphere, just use a point instead
+		sphere = spatialmath.NewPoint(r3.Vector{}, geoCfg.Label)
+	}
 
 	// TODO(rb): figure out a better set of limits to impose on the base frame
 	frame2D, err := referenceframe.NewMobile2DFrame(
 		sphere.Label(),
-		[]referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}},
+		[]referenceframe.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}},
 		sphere)
 	if err != nil {
 		return nil, err

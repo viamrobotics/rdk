@@ -91,12 +91,14 @@ type LocalBase interface {
 	Width(ctx context.Context) (int, error)
 }
 
+// KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	Base
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
 
+// KinematicWrappable is an interface for Bases that can be wrapped to become a KinematicBase.
 type KinematicWrappable interface {
 	WrapWithKinematics(slam.Service) (KinematicBase, error)
 }
