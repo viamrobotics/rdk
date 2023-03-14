@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/utils/testutils"
 )
 
 func TestValidateConfig(t *testing.T) {
@@ -180,22 +180,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	test.That(t, closeWasCalled, test.ShouldBeTrue)
 }
 
-func TestLinearAcceleration(t *testing.T) {
-	bytesToReturn := make([]byte, 16)
-	// x-accel
-	bytesToReturn[0] = 64
-	bytesToReturn[1] = 0
-	expectedX := 9810.0
-	// y-accel
-	bytesToReturn[2] = 32
-	bytesToReturn[3] = 0
-	expectedY := 4905.0
-	// z-accel
-	bytesToReturn[4] = 16
-	bytesToReturn[5] = 0
-	expectedZ := 2452.5
-
-	logger := golog.NewTestLogger(t)
+func setupDependencies(mockData []byte) (config.Component, registry.Dependencies) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
@@ -209,12 +194,13 @@ func TestLinearAcceleration(t *testing.T) {
 			UseAlternateI2CAddress: true,
 		},
 	}
+
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 		if register == defaultAddressRegister {
 			return []byte{expectedDefaultAddress}, nil
 		}
-		return bytesToReturn, nil
+		return mockData, nil
 	}
 	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
 		return nil
@@ -228,9 +214,29 @@ func TestLinearAcceleration(t *testing.T) {
 		}
 		return i2c, true
 	}
-	deps := registry.Dependencies{
+	return cfg, registry.Dependencies{
 		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 	}
+}
+
+//nolint:dupl
+func TestLinearAcceleration(t *testing.T) {
+	linearAccelMockData := make([]byte, 16)
+	// x-accel
+	linearAccelMockData[0] = 64
+	linearAccelMockData[1] = 0
+	expectedAccelX := 9810.0
+	// y-accel
+	linearAccelMockData[2] = 32
+	linearAccelMockData[3] = 0
+	expectedAccelY := 4905.0
+	// z-accel
+	linearAccelMockData[4] = 16
+	linearAccelMockData[5] = 0
+	expectedAccelZ := 2452.5
+
+	logger := golog.NewTestLogger(t)
+	cfg, deps := setupDependencies(linearAccelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(context.Background(), sensor)
@@ -241,62 +247,29 @@ func TestLinearAcceleration(t *testing.T) {
 	})
 	accel, err := sensor.LinearAcceleration(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, accel.X, test.ShouldEqual, expectedX)
-	test.That(t, accel.Y, test.ShouldEqual, expectedY)
-	test.That(t, accel.Z, test.ShouldEqual, expectedZ)
+	test.That(t, accel.X, test.ShouldEqual, expectedAccelX)
+	test.That(t, accel.Y, test.ShouldEqual, expectedAccelY)
+	test.That(t, accel.Z, test.ShouldEqual, expectedAccelZ)
 }
 
+//nolint:dupl
 func TestAngularVelocity(t *testing.T) {
-	bytesToReturn := make([]byte, 16)
+	angVelMockData := make([]byte, 16)
 	// x-vel
-	bytesToReturn[8] = 64
-	bytesToReturn[9] = 0
-	expectedX := 125.0
+	angVelMockData[8] = 64
+	angVelMockData[9] = 0
+	expectedAngVelX := 125.0
 	// y-accel
-	bytesToReturn[10] = 32
-	bytesToReturn[11] = 0
-	expectedY := 62.5
+	angVelMockData[10] = 32
+	angVelMockData[11] = 0
+	expectedAngVelY := 62.5
 	// z-accel
-	bytesToReturn[12] = 16
-	bytesToReturn[13] = 0
-	expectedZ := 31.25
+	angVelMockData[12] = 16
+	angVelMockData[13] = 0
+	expectedAngVelZ := 31.25
 
 	logger := golog.NewTestLogger(t)
-	testBoardName := "board"
-	i2cName := "i2c"
-
-	cfg := config.Component{
-		Name:  "movementsensor",
-		Model: model,
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
-			BoardName:              testBoardName,
-			I2cBus:                 i2cName,
-			UseAlternateI2CAddress: true,
-		},
-	}
-	i2cHandle := &inject.I2CHandle{}
-	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-		if register == defaultAddressRegister {
-			return []byte{expectedDefaultAddress}, nil
-		}
-		return bytesToReturn, nil
-	}
-	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
-		return nil
-	}
-	i2cHandle.CloseFunc = func() error { return nil }
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-		return i2c, true
-	}
-	deps := registry.Dependencies{
-		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
-	}
+	cfg, deps := setupDependencies(angVelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(context.Background(), sensor)
@@ -307,53 +280,19 @@ func TestAngularVelocity(t *testing.T) {
 	})
 	angVel, err := sensor.AngularVelocity(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angVel.X, test.ShouldEqual, expectedX)
-	test.That(t, angVel.Y, test.ShouldEqual, expectedY)
-	test.That(t, angVel.Z, test.ShouldEqual, expectedZ)
+	test.That(t, angVel.X, test.ShouldEqual, expectedAngVelX)
+	test.That(t, angVel.Y, test.ShouldEqual, expectedAngVelY)
+	test.That(t, angVel.Z, test.ShouldEqual, expectedAngVelZ)
 }
 
 func TestTemperature(t *testing.T) {
-	bytesToReturn := make([]byte, 16)
-	bytesToReturn[6] = 231
-	bytesToReturn[7] = 202
+	temperatureMockData := make([]byte, 16)
+	temperatureMockData[6] = 231
+	temperatureMockData[7] = 202
 	expectedTemp := 18.3
 
 	logger := golog.NewTestLogger(t)
-	testBoardName := "board"
-	i2cName := "i2c"
-
-	cfg := config.Component{
-		Name:  "movementsensor",
-		Model: model,
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
-			BoardName:              testBoardName,
-			I2cBus:                 i2cName,
-			UseAlternateI2CAddress: true,
-		},
-	}
-	i2cHandle := &inject.I2CHandle{}
-	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-		if register == defaultAddressRegister {
-			return []byte{expectedDefaultAddress}, nil
-		}
-		return bytesToReturn, nil
-	}
-	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
-		return nil
-	}
-	i2cHandle.CloseFunc = func() error { return nil }
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-		return i2c, true
-	}
-	deps := registry.Dependencies{
-		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
-	}
+	cfg, deps := setupDependencies(temperatureMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(context.Background(), sensor)
