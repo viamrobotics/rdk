@@ -832,7 +832,7 @@ onUnmounted(() => {
 
     <!-- ******* DO ******* -->
     <DoCommand
-      v-if="generic in filterResources(resources, 'rdk', 'component', 'generic')"
+      v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
       :client="client"
       :resources="filterResources(resources, 'rdk', 'component', 'generic')"
     />
