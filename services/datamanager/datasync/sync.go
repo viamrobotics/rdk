@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -56,19 +57,27 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMil
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
+	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
+		logger.Debug("Using no-op sync manager when Cloud config is not available")
+		return NewNoopManager(), nil
+	}
+
 	tlsConfig := config.NewTLSConfig(cfg).Config
-	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
 		rpc.WithTLSConfig(tlsConfig),
 		rpc.WithEntityCredentials(
-			cloudConfig.ID,
+			cfg.Cloud.ID,
 			rpc.Credentials{
 				Type:    rdkutils.CredentialsTypeRobotSecret,
-				Payload: cloudConfig.Secret,
+				Payload: cfg.Cloud.Secret,
 			}),
 	}
 
-	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
+	appURLParsed, err := url.Parse(cfg.Cloud.AppAddress)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := NewConnection(logger, appURLParsed.Host, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +190,9 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		s.cancelCtx,
 		func(ctx context.Context) error {
 			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
-			s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			if err != nil {
+				s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			}
 			return err
 		},
 	)
