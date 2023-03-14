@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam/builtin"
+	slamConfig "go.viam.com/slam/config"
 )
 
 const (
@@ -66,7 +68,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	createFakeSLAMLibraries()
 	useLiveData := true
 	dataRateMs := 200
-	attrCfgGood := &builtin.AttrConfig{
+	attrCfgGood := &slamConfig.AttrConfig{
 		Sensors: []string{"good_color_camera"},
 		ConfigParams: map[string]string{
 			"mode":              "mono",
@@ -77,11 +79,11 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			"orb_n_min_th_fast": "7",
 		},
 		DataDirectory: name,
-		DataRateMs:    dataRateMs,
+		DataRateMsec:  dataRateMs,
 		Port:          "localhost:4445",
 		UseLiveData:   &useLiveData,
 	}
-	attrCfgGoodHighDataRateMs := &builtin.AttrConfig{
+	attrCfgGoodHighDataRateMsec := &slamConfig.AttrConfig{
 		Sensors: []string{"good_color_camera"},
 		ConfigParams: map[string]string{
 			"mode":              "mono",
@@ -92,11 +94,11 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			"orb_n_min_th_fast": "7",
 		},
 		DataDirectory: name,
-		DataRateMs:    10000,
+		DataRateMsec:  10000,
 		Port:          "localhost:4445",
 		UseLiveData:   &useLiveData,
 	}
-	attrCfgBadCam := &builtin.AttrConfig{
+	attrCfgBadCam := &slamConfig.AttrConfig{
 		Sensors: []string{"bad_camera_intrinsics"},
 		ConfigParams: map[string]string{
 			"mode":              "mono",
@@ -107,7 +109,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			"orb_n_min_th_fast": "7",
 		},
 		DataDirectory: name,
-		DataRateMs:    dataRateMs,
+		DataRateMsec:  dataRateMs,
 		Port:          "localhost:4445",
 		UseLiveData:   &useLiveData,
 	}
@@ -116,7 +118,9 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with good camera and defined params", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
+		grpcServer, port := setupTestGRPCServer(t)
+		attrCfgGood.Port = "localhost:" + strconv.Itoa(port)
+
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -153,7 +157,9 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with previous map and good camera", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
+		grpcServer, port := setupTestGRPCServer(t)
+		attrCfgGood.Port = "localhost:" + strconv.Itoa(port)
+
 		svc, err := createSLAMService(t, attrCfgGood, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -178,8 +184,10 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with high dataRateMs", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		grpcServer := setupTestGRPCServer(attrCfgGoodHighDataRateMs.Port)
-		svc, err := createSLAMService(t, attrCfgGoodHighDataRateMs, "fake_orbslamv3", logger, false, true)
+		grpcServer, port := setupTestGRPCServer(t)
+		attrCfgGoodHighDataRateMsec.Port = "localhost:" + strconv.Itoa(port)
+
+		svc, err := createSLAMService(t, attrCfgGoodHighDataRateMsec, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -212,7 +220,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with camera that errors from bad orbslam params", func(t *testing.T) {
 		// check if a param is empty
-		attrCfgBadParam1 := &builtin.AttrConfig{
+		attrCfgBadParam1 := &slamConfig.AttrConfig{
 			Sensors: []string{"good_color_camera"},
 			ConfigParams: map[string]string{
 				"mode":              "mono",
@@ -223,7 +231,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 				"orb_n_min_th_fast": "7",
 			},
 			DataDirectory: name,
-			DataRateMs:    dataRateMs,
+			DataRateMsec:  dataRateMs,
 			Port:          "localhost:4445",
 			UseLiveData:   &useLiveData,
 		}
@@ -232,7 +240,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		_, err := createSLAMService(t, attrCfgBadParam1, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_n_features has an invalid definition")
 
-		attrCfgBadParam2 := &builtin.AttrConfig{
+		attrCfgBadParam2 := &slamConfig.AttrConfig{
 			Sensors: []string{"good_color_camera"},
 			ConfigParams: map[string]string{
 				"mode":              "mono",
@@ -243,7 +251,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 				"orb_n_min_th_fast": "7",
 			},
 			DataDirectory: name,
-			DataRateMs:    dataRateMs,
+			DataRateMsec:  dataRateMs,
 			Port:          "localhost:4445",
 			UseLiveData:   &useLiveData,
 		}

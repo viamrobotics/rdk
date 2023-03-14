@@ -20,8 +20,9 @@ type Geometry interface {
 	// For certain entity pairs (box-box) this may be a conservative estimate of separation distance rather than exact.
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
-	Label() string  // Label is the name of the geometry
-	String() string // String is a string representation of the geometry data structure
+	SetLabel(string) // SetLabel sets the name of the geometry
+	Label() string   // Label is the name of the geometry
+	String() string  // String is a string representation of the geometry data structure
 	ToPoints(float64) []r3.Vector
 	json.Marshaler
 }
@@ -91,7 +92,7 @@ func NewGeometryConfig(gc Geometry) (*GeometryConfig, error) {
 	}
 	offset := gc.Pose()
 	o := offset.Orientation()
-	config.TranslationOffset = Compose(NewPoseFromOrientation(OrientationInverse(o)), offset).Point()
+	config.TranslationOffset = offset.Point()
 	orientationConfig, err := NewOrientationConfig(o)
 	if err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	if err != nil {
 		return nil, err
 	}
-	offset := Compose(NewPoseFromOrientation(orientation), NewPoseFromPoint(config.TranslationOffset))
+	offset := NewPose(config.TranslationOffset, orientation)
 
 	// build GeometryCreator depending on specified type
 	switch config.Type {

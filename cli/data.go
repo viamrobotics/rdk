@@ -24,7 +24,7 @@ import (
 const (
 	dataDir                  = "data"
 	metadataDir              = "metadata"
-	defaultParallelDownloads = 10
+	defaultParallelDownloads = 100
 	maxRetryCount            = 5
 	logEveryN                = 100
 	maxLimit                 = 100

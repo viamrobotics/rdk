@@ -619,7 +619,12 @@ func New(
 	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
-func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
+func (r *localRobot) newService(ctx context.Context, config config.Service) (res interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(errors.Errorf("%v", r), "panic creating service")
+		}
+	}()
 	rName := config.ResourceName()
 	f := registry.ServiceLookup(rName.Subtype, config.Model)
 	// If service model/type not found then print list of valid models they can choose from
@@ -635,7 +640,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	}
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 
-	// If MaxInstance equals zero then there is not limit on the number of services
+	// If MaxInstance equals zero then there is not a limit on the number of services
 	if c.MaxInstance != 0 {
 		if err := r.checkMaxInstance(rName.Subtype, c.MaxInstance); err != nil {
 			return nil, err
@@ -676,7 +681,12 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 	return deps, nil
 }
 
-func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
+func (r *localRobot) newResource(ctx context.Context, config config.Component) (res interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(errors.Errorf("%v", r), "panic creating resource")
+		}
+	}()
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
@@ -887,6 +897,34 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	// Before reconfiguring, go through resources in newConfig, call Validate on all
+	// modularized resources, and store those resources' implicit dependencies.
+	for i, c := range newConfig.Components {
+		if r.modules.Provides(c) {
+			implicitDeps, err := r.modules.ValidateConfig(ctx, c)
+			if err != nil {
+				r.logger.Errorw("Modular config validation error found in component: "+c.Name, "error", err)
+				continue
+			}
+
+			// Modify component to add its implicit dependencies.
+			newConfig.Components[i].ImplicitDependsOn = implicitDeps
+		}
+	}
+	for i, s := range newConfig.Services {
+		c := config.ServiceConfigToShared(s)
+		if r.modules.Provides(c) {
+			implicitDeps, err := r.modules.ValidateConfig(ctx, c)
+			if err != nil {
+				r.logger.Errorw("Modular config validation error found in service: "+s.Name, "error", err)
+				continue
+			}
+
+			// Modify service to add its implicit dependencies.
+			newConfig.Services[i].ImplicitDependsOn = implicitDeps
+		}
+	}
+
 	var allErrs error
 
 	newConfig = r.updateDefaultServiceNames(newConfig)

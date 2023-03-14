@@ -15,7 +15,9 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -26,6 +28,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
+
+var validateConfigTimeout = 5 * time.Second
 
 // NewManager returns a Manager.
 func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
@@ -195,6 +199,40 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	return err
 }
 
+// ValidateConfig determines whether the given config is valid and returns its implicit
+// dependencies.
+func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([]string, error) {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	module, ok := mgr.getModule(cfg)
+	if !ok {
+		return nil,
+			errors.Errorf("no module registered to serve resource api %s and model %s",
+				cfg.ResourceName().Subtype, cfg.Model)
+	}
+
+	cfgProto, err := config.ComponentConfigToProto(&cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Override context with new timeout.
+	var cancel func()
+	ctx, cancel = context.WithTimeout(ctx, validateConfigTimeout)
+	defer cancel()
+
+	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: cfgProto})
+	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
+	// receiving logic.
+	if err != nil && status.Code(err) == codes.Unimplemented {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return resp.Dependencies, nil
+}
+
 func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 	for _, module := range mgr.modules {
 		var api resource.RPCSubtype
@@ -261,7 +299,9 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 func (m *module) startProcess(ctx context.Context, parentAddr string, logger golog.Logger) error {
 	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
-
+	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
+		return err
+	}
 	pcfg := pexec.ProcessConfig{
 		ID:   m.name,
 		Name: m.exe,

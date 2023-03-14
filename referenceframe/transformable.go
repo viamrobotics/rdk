@@ -1,8 +1,6 @@
 package referenceframe
 
 import (
-	"strconv"
-
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
@@ -194,7 +192,11 @@ func LinkInFramesFromTransformsProtobuf(protoSlice []*commonpb.Transform) ([]*Li
 // GeometriesInFrame is a data structure that packages geometries with the name of the frame in which it was observed.
 type GeometriesInFrame struct {
 	frame      string
-	geometries map[string]spatialmath.Geometry
+	geometries []spatialmath.Geometry
+
+	// This is an internal data structure used for O(1) access to named sub-geometries.
+	// Do not access directly. This will not be accurate for unnamed geometries.
+	geometriesMap map[string]spatialmath.Geometry
 }
 
 // Parent returns the name of the frame in which the geometries were observed.
@@ -203,28 +205,46 @@ func (gF *GeometriesInFrame) Parent() string {
 }
 
 // Geometries returns the geometries observed.
-func (gF *GeometriesInFrame) Geometries() map[string]spatialmath.Geometry {
+func (gF *GeometriesInFrame) Geometries() []spatialmath.Geometry {
 	if gF.geometries == nil {
-		return make(map[string]spatialmath.Geometry)
+		return []spatialmath.Geometry{}
 	}
 	return gF.geometries
+}
+
+// GeometryByName returns the named geometry if it exists in the GeometriesInFrame, and nil otherwise.
+// If multiple geometries exist with identical names one will be chosen at random.
+func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
+	if gF.geometriesMap == nil {
+		return nil
+	}
+	if geom, ok := gF.geometriesMap[name]; ok {
+		return geom
+	}
+	return nil
 }
 
 // Transform changes the GeometriesInFrame gF into the reference frame specified by the tf argument.
 // The tf PoseInFrame represents the pose of the gF reference frame with respect to the destination reference frame.
 func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
-	geometries := make(map[string]spatialmath.Geometry)
-	for name, geometry := range gF.geometries {
-		geometries[name] = geometry.Transform(tf.pose)
+	geometries := make([]spatialmath.Geometry, 0, len(gF.geometries))
+	for _, geometry := range gF.geometries {
+		geometries = append(geometries, geometry.Transform(tf.pose))
 	}
 	return NewGeometriesInFrame(tf.parent, geometries)
 }
 
 // NewGeometriesInFrame generates a new GeometriesInFrame.
-func NewGeometriesInFrame(frame string, geometries map[string]spatialmath.Geometry) *GeometriesInFrame {
+func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *GeometriesInFrame {
+	geometriesMap := map[string]spatialmath.Geometry{}
+	for _, geometry := range geometries {
+		geometriesMap[geometry.Label()] = geometry
+	}
+
 	return &GeometriesInFrame{
-		frame:      frame,
-		geometries: geometries,
+		frame:         frame,
+		geometries:    geometries,
+		geometriesMap: geometriesMap,
 	}
 }
 
@@ -242,16 +262,13 @@ func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.
 
 // ProtobufToGeometriesInFrame converts a GeometriesInFrame message as specified in common.proto to a GeometriesInFrame struct.
 func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*GeometriesInFrame, error) {
-	geometries := make(map[string]spatialmath.Geometry)
-	for i, geometry := range proto.GetGeometries() {
+	geometries := []spatialmath.Geometry{}
+	for _, geometry := range proto.GetGeometries() {
 		g, err := spatialmath.NewGeometryFromProto(geometry)
 		if err != nil {
 			return nil, err
 		}
-		geometries[strconv.Itoa(i)] = g
+		geometries = append(geometries, g)
 	}
-	return &GeometriesInFrame{
-		frame:      proto.GetReferenceFrame(),
-		geometries: geometries,
-	}, nil
+	return NewGeometriesInFrame(proto.GetReferenceFrame(), geometries), nil
 }

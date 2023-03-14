@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	modelName            = resource.NewDefaultModel("AM5-AS5048")
+	modelName            = resource.NewDefaultModel("AMS-AS5048")
 	scalingFactor        = 360.0 / math.Pow(2, 14)
 	supportedConnections = utils.NewStringSet(i2cConn)
 )
@@ -121,7 +121,7 @@ func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 }
 
 // AS5048 is a struct representing an instance of a hardware unit
-// in AM5's AS5048 series of Hall-effect encoders.
+// in AMS's AS5048 series of Hall-effect encoders.
 type AS5048 struct {
 	mu                      sync.RWMutex
 	logger                  golog.Logger
