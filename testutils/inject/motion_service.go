@@ -17,6 +17,14 @@ type MotionService struct {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		slamName resource.Name,
+		extra map[string]interface{},
+	) (bool, error)
+	MoveSingleComponentFunc func(
+		ctx context.Context,
+		componentName resource.Name,
+		grabPose *referenceframe.PoseInFrame,
+		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPoseFunc func(
@@ -36,12 +44,13 @@ func (mgs *MotionService) Move(
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.Move(ctx, componentName, grabPose, worldState, extra)
+		return mgs.Service.Move(ctx, componentName, grabPose, worldState, slamName, extra)
 	}
-	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, extra)
+	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, slamName, extra)
 }
 
 // MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
@@ -55,7 +64,7 @@ func (mgs *MotionService) MoveSingleComponent(
 	if mgs.MoveFunc == nil {
 		return mgs.Service.MoveSingleComponent(ctx, componentName, grabPose, worldState, extra)
 	}
-	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, extra)
+	return mgs.MoveSingleComponentFunc(ctx, componentName, grabPose, worldState, extra)
 }
 
 // GetPose calls the injected GetPose or the real variant.
