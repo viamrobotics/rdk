@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	yawPollTimeMs  = 50
+	yawPollTimeMs  = 10
 	allowableAngle = 15
 	errTarget      = 5
 )
@@ -148,7 +148,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
 	// revIncrement := wheelrpm * yawPollTimeMs
 
-	startYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
+	startYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from 0 -> 360
 	if err != nil {
 		return err
 	}
@@ -156,45 +156,45 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 	targetYaw, overshoot, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
 
-	ticker := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond))) // ~rename
+	ticker := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond)))
 	defer ticker.Stop()
 
 	base.logger.Debug("starting for loop")
 	for {
-		// select {
-		// case <-ctx.Done():
-		// 	base.logger.Debug("base spin with movement sensor context cancelled")
-		// 	return nil
-		// default:
-		// }
+		select {
+		case <-ctx.Done():
+			base.logger.Debug("base spin with movement sensor context cancelled")
+			return nil
+		default:
+		}
 		select {
 		case <-ctx.Done():
 			base.logger.Debug("base spin with movement sensor context cancelled")
 			return nil
 		case <-ticker.C:
-			currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from -179 to 179
-			if err != nil {
-				errCounter++
-				if errCounter > 100 {
-					return errors.New("imu sensor unreachable, had 100 error counts when trying to read yaw angle")
-				}
+		}
+		currYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from 0 -> 360
+		if err != nil {
+			errCounter++
+			if errCounter > 100 {
+				return errors.New("imu sensor unreachable, had 100 error counts when trying to read yaw angle")
 			}
+		}
+		errCounter = 0
 
-			errCounter = 0
-			errAngle := targetYaw - currYaw
+		errAngle := targetYaw - currYaw
 
-			overshot := hasOverShot(currYaw, targetYaw, angleDeg, startYaw, dir)
+		overshot := hasOverShot(currYaw, startYaw, targetYaw, overshoot, dir)
 
-			// poll the sensor for the current error in angle
-			// also check if we've overshot our target by fifteen degrees
-			base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot:%t", currYaw, targetYaw, overshoot, overshot)
-			if math.Abs(errAngle) < errTarget || overshot {
-				if err := base.Stop(ctx, nil); err != nil {
-					return err
-				}
-				base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshot? %t", currYaw, targetYaw, overshot)
-				return nil
+		// poll the sensor for the current error in angle
+		// also check if we've overshot our target by fifteen degrees
+		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot:%t", currYaw, targetYaw, overshoot, overshot)
+		if math.Abs(errAngle) < errTarget || overshot {
+			if err := base.Stop(ctx, nil); err != nil {
+				return err
 			}
+			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshot? %t", currYaw, targetYaw, overshot)
+			return nil
 		}
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
 		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
@@ -203,23 +203,21 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	}
 }
 
-func hasOverShot(now, goal, added, start, dir float64) bool {
-	return false
-}
-
 func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
 ) (float64, error) {
 	orientation, err := ms.Orientation(ctx, extra)
 	if err != nil {
 		return 0, err
 	}
-	return rdkutils.RadToDeg(orientation.EulerAngles().Yaw), nil
+	// Add Pi  to make the computation for overshoot simpler
+	// turns imus from -180 -> 180 to a 0 -> 360 range
+	return addAnglesInDomain(rdkutils.RadToDeg(orientation.EulerAngles().Yaw), 0, false), nil
 }
 
 // TODO: RSDK-1698, considers dealing with imus that
 // return values between -180 to 180 and 0-360 (probably components using our sensor filters).
 // current tests only consider -179 to 179 domain logic.
-func addAnglesInDomain(target, current float64) float64 {
+func addAnglesInDomain(target, current float64, half bool) float64 {
 	angle := target + current
 	// reduce the angle
 	angle = math.Mod(angle, 360)
@@ -227,21 +225,23 @@ func addAnglesInDomain(target, current float64) float64 {
 	// force it to be the positive remainder, so that 0 <= angle < 360
 	angle = math.Mod(angle+360, 360)
 
-	// force into the minimum absolute value residue class, so that -180 < angle <= 180
-	if angle > 180 {
-		angle -= 360
-	}
-
-	// handle case of IMUs not reporting -179 to 179 and skipping 180 degrees
-	if math.Abs(angle) == 180 {
-		angle -= 0.1
+	if half {
+		// force into the minimum absolute value residue class, so that -180 < angle <= 180
+		if angle > 180 {
+			angle -= 360
+		}
+		// handle case of IMUs not reporting the full
+		// -180 -> 180 range
+		if math.Abs(angle) == 180 {
+			angle -= 0.1
+		}
 	}
 
 	return angle
 }
 
 func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, float64) {
-	targetYaw := addAnglesInDomain(angleDeg, currYaw)
+	targetYaw := addAnglesInDomain(angleDeg, currYaw, false)
 	dir := 1.0
 	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
 		// both positive or both negative -> counterclockwise spin call
@@ -250,8 +250,66 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, fl
 		// cloxkwise spin calls subtract allowable angles
 		dir = -1
 	}
-	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle)
+	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle, false)
 	return targetYaw, overshoot, dir
+}
+
+// this function does not wrap around 360 degrees currently
+func angleBetween(angle, bound1, bound2 float64) bool {
+	if bound2 > bound1 {
+		return angle > bound1 && angle < bound2
+	} else {
+		return angle > bound2 && angle < bound1
+	}
+
+}
+
+func hasOverShot(angle, start, target, over, dir float64) bool {
+
+	switch {
+	// counterclockwise cases
+	case dir == 1:
+		switch {
+		// handle edge cases of transition from q4 -> q1
+
+		// target is between 360 minus sovershoot  and 360 overshoot window, we check if we are in range
+		// or if we have overshot into quadrant 1
+		case angleBetween(target, 270, 360):
+			if angleBetween(over, 0, 90) {
+				return angleBetween(angle, target, 360) || angleBetween(angle, 0, 90)
+			}
+			return angleBetween(angle, target, 360) //|| angleBetween(angle, 0, 90)
+		// target is between 0 and the overshoot window, we check if we are in range
+		// or if we have overshot into quadrant 1
+		// case angleBetween(target, 0, 90):
+		// return angleBetween(angle, 0, target) || angleBetween(angle, target, 90)
+		// target will always be larger than current angle unless, we have overshot in
+		// the default range
+		default:
+			return angle-target > 0 || angle-over > 0
+		}
+
+	// clockwise cases
+	case dir == -1:
+		switch {
+		// handle edge cases of transition from q1 -> q4
+		// target is between 360-overshoot  and 360 overshoot window, we check if we are in range
+		// or if we have overshot into quadrant 4
+		case angleBetween(target, 0, allowableAngle):
+			return angleBetween(angle, target, 0)
+			// target is between 360 minus overshoot  and 360 overshoot window, we check if we are in range
+		// or if we have overshot into quadrant 4
+		case angleBetween(target, 360, 360-allowableAngle):
+			return angleBetween(angle, target, 360)
+		// target will always be smaller tahn current angle, unless we have overshot in
+		// the default range
+		default:
+			return angle-target < 0 || angle-over < 0
+
+		}
+	}
+
+	return angleBetween(angle, target, over)
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
