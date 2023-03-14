@@ -337,7 +337,7 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	componentReference := resp.GetComponentReference()
 	returnedExt := resp.Extra.AsMap()
 
-	return checkQuaternionFromClientAlgo(pose, componentReference, returnedExt)
+	return slamUtils.CheckQuaternionFromClientAlgo(pose, componentReference, returnedExt)
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
