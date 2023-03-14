@@ -5,25 +5,26 @@ import (
 	"sync"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 func TestReadInterrupts(t *testing.T) {
 	ctx := context.Background()
 	cancelContext, cancelFunc := context.WithCancel(ctx)
+	i2cHandle := &inject.I2CHandle{}
+	i2cHandle.CloseFunc = func() error { return nil }
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return i2cHandle, nil
+	}
 
 	t.Run("increments tap and freefall counts when both interrupts have gone off", func(t *testing.T) {
-		i2cHandle := &inject.I2CHandle{}
-		i2cHandle.CloseFunc = func() error { return nil }
 		i2cHandle.ReadBlockDataFunc = func(context.Context, byte, uint8) ([]byte, error) {
 			intSourceRegister := byte(1<<6) + byte(1<<2)
 			return []byte{intSourceRegister}, nil
-		}
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
 		}
 
 		sensor := &adxl345{
@@ -40,15 +41,9 @@ func TestReadInterrupts(t *testing.T) {
 	})
 
 	t.Run("increments freefall count only when freefall has gone off", func(t *testing.T) {
-		i2cHandle := &inject.I2CHandle{}
-		i2cHandle.CloseFunc = func() error { return nil }
 		i2cHandle.ReadBlockDataFunc = func(context.Context, byte, uint8) ([]byte, error) {
 			intSourceRegister := byte(1 << 2)
 			return []byte{intSourceRegister}, nil
-		}
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
 		}
 
 		sensor := &adxl345{
@@ -65,15 +60,9 @@ func TestReadInterrupts(t *testing.T) {
 	})
 
 	t.Run("increments tap count only when only tap has gone off", func(t *testing.T) {
-		i2cHandle := &inject.I2CHandle{}
-		i2cHandle.CloseFunc = func() error { return nil }
 		i2cHandle.ReadBlockDataFunc = func(context.Context, byte, uint8) ([]byte, error) {
 			intSourceRegister := byte(1 << 6)
 			return []byte{intSourceRegister}, nil
-		}
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
 		}
 
 		sensor := &adxl345{
@@ -90,15 +79,9 @@ func TestReadInterrupts(t *testing.T) {
 	})
 
 	t.Run("does not increment counts when neither interrupt has gone off", func(t *testing.T) {
-		i2cHandle := &inject.I2CHandle{}
-		i2cHandle.CloseFunc = func() error { return nil }
 		i2cHandle.ReadBlockDataFunc = func(context.Context, byte, uint8) ([]byte, error) {
 			intSourceRegister := byte(0)
 			return []byte{intSourceRegister}, nil
-		}
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
 		}
 
 		sensor := &adxl345{
