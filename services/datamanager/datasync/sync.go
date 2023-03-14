@@ -29,7 +29,6 @@ var (
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
 	maxRetryInterval       = time.Hour
-	managerInitTimeout     = 10 * time.Second
 )
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
