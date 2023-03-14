@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +75,11 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 			}),
 	}
 
-	conn, err := NewConnection(logger, cfg.Cloud.AppAddress, rpcOpts)
+	appURLParsed, err := url.Parse(cfg.Cloud.AppAddress)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := NewConnection(logger, appURLParsed.Host, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +200,11 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		s.cancelCtx,
 		func(ctx context.Context) error {
 			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
-			if strings.Contains(err.Error(), context.Canceled.Error()) {
-				s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
-			} else {
-				s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+      if err != nil {
+			  if strings.Contains(err.Error(), context.Canceled.Error()) {
+				  s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			  } else {
+          s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
 			}
 			return err
 		},
