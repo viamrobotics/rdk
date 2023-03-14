@@ -200,15 +200,15 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		s.cancelCtx,
 		func(ctx context.Context) error {
 			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
-      if err != nil {
-			  if strings.Contains(err.Error(), context.Canceled.Error()) {
-				  s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
-			  } else {
-          s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+			if err != nil {
+				if strings.Contains(err.Error(), context.Canceled.Error()) {
+					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+				} else {
+					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
+				}
 			}
 			return err
-		},
-	)
+		})
 	if uploadErr != nil {
 		err := f.Close()
 		if err != nil {
@@ -266,7 +266,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		case <-cancelCtx.Done():
 			ticker.Stop()
 			return cancelCtx.Err()
-		// Otherwise, try again after nextWait.
+			// Otherwise, try again after nextWait.
 		case <-ticker.C:
 			if err := fn(cancelCtx); err != nil {
 				// If error, retry with a new nextWait.
@@ -293,7 +293,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
