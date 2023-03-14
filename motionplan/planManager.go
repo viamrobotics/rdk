@@ -480,7 +480,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		orientTol, ok := planningOpts["orient_tolerance"].(float64)
 		if !ok {
 			// Default
-			orientTol = defaultLinearDeviation
+			orientTol = defaultOrientationDeviation
 		}
 		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 		opt.AddConstraint(defaultLinearConstraintName, constraint)

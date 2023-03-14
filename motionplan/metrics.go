@@ -21,6 +21,15 @@ func weightedSqNormDist(from, to spatial.Pose) float64 {
 	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(10.).Norm2()
 }
 
+// NewZeroMetric always returns zero as the distance between two points.
+func NewZeroMetric() Metric {
+	return zeroDist
+}
+
+func zeroDist(from, to spatial.Pose) float64 {
+	return 0
+}
+
 type combinableMetric struct {
 	metrics []Metric
 }

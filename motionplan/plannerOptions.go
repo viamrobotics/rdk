@@ -85,7 +85,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
 	opt.AddConstraint(defaultJointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = NewSquaredNormMetric()
-	opt.pathDist = NewSquaredNormMetric()
+	opt.pathDist = NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 
 	// Set defaults
 	opt.MaxSolutions = defaultSolutionsToSeed
