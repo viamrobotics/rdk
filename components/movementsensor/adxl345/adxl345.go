@@ -268,16 +268,16 @@ func (adxl *adxl345) startInterruptMonitoring(interrupt board.DigitalInterrupt, 
 	})
 }
 
-func addInterruptPin(b board.Board, interruptName string, interruptMap map[string]board.DigitalInterrupt) (map[string]board.DigitalInterrupt, error) {
-	_, ok := interruptMap[interruptName]
+func addInterruptPin(b board.Board, name string, interrupts map[string]board.DigitalInterrupt) (map[string]board.DigitalInterrupt, error) {
+	_, ok := interrupts[name]
 	if !ok {
-		interrupt, ok := b.DigitalInterruptByName(interruptName)
+		interrupt, ok := b.DigitalInterruptByName(name)
 		if !ok {
-			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", interruptName)
+			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", name)
 		}
-		interruptMap[interruptName] = interrupt
+		interrupts[name] = interrupt
 	}
-	return interruptMap, nil
+	return interrupts, nil
 }
 
 func getInterruptConfigurations(cfg *AttrConfig) map[byte]byte {
