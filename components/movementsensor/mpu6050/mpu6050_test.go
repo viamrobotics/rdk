@@ -221,6 +221,9 @@ func setupDependencies(mockData []byte) (config.Component, registry.Dependencies
 
 //nolint:dupl
 func TestLinearAcceleration(t *testing.T) {
+	// linear acceleration, temperature, and angular velocity are all read
+	// sequentially from the same series of 16-bytes, so we need to fill in
+	// the mock data at the appropriate portion of the sequence
 	linearAccelMockData := make([]byte, 16)
 	// x-accel
 	linearAccelMockData[0] = 64
@@ -254,6 +257,9 @@ func TestLinearAcceleration(t *testing.T) {
 
 //nolint:dupl
 func TestAngularVelocity(t *testing.T) {
+	// linear acceleration, temperature, and angular velocity are all read
+	// sequentially from the same series of 16-bytes, so we need to fill in
+	// the mock data at the appropriate portion of the sequence
 	angVelMockData := make([]byte, 16)
 	// x-vel
 	angVelMockData[8] = 64
@@ -286,6 +292,9 @@ func TestAngularVelocity(t *testing.T) {
 }
 
 func TestTemperature(t *testing.T) {
+	// linear acceleration, temperature, and angular velocity are all read
+	// sequentially from the same series of 16-bytes, so we need to fill in
+	// the mock data at the appropriate portion of the sequence
 	temperatureMockData := make([]byte, 16)
 	temperatureMockData[6] = 231
 	temperatureMockData[7] = 202
