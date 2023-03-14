@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"io/ioutil"
 	"math"
 	"net"
 	"os"
@@ -42,6 +41,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	slamConfig "go.viam.com/slam/config"
+	slamTesthelper "go.viam.com/slam/testhelper"
 )
 
 const (
@@ -95,7 +95,7 @@ func closeOutSLAMService(t *testing.T, name string) {
 	t.Helper()
 
 	if name != "" {
-		err := resetFolder(name)
+		err := slamTesthelper.ResetFolder(name)
 		test.That(t, err, test.ShouldBeNil)
 	}
 
@@ -516,7 +516,8 @@ func createSLAMService(
 }
 
 func TestGeneralNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -533,7 +534,6 @@ func TestGeneralNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 
 		test.That(t, err, test.ShouldBeNil)
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
@@ -553,7 +553,6 @@ func TestGeneralNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("configuring camera error: error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
@@ -577,7 +576,6 @@ func TestGeneralNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, "test", logger, false, false)
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "runtime slam service error: invalid slam algorithm \"test\"")
 
@@ -588,7 +586,8 @@ func TestGeneralNew(t *testing.T) {
 }
 
 func TestCartographerNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -605,7 +604,6 @@ func TestCartographerNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -623,7 +621,6 @@ func TestCartographerNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err = createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: error getting data in desired mode: %v", attrCfg.Sensors[0]))
@@ -639,7 +636,6 @@ func TestCartographerNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err = createSLAMService(t, attrCfg, "fake_cartographer", logger, false, false)
 
 		test.That(t, err, test.ShouldBeError,
@@ -649,7 +645,8 @@ func TestCartographerNew(t *testing.T) {
 }
 
 func TestORBSLAMNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -666,7 +663,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -684,7 +680,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err = createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(attrCfg.Sensors)).Error())
@@ -702,7 +697,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		expectedError := errors.New("configuring camera error: error getting distortion_parameters for slam service, only BrownConrady distortion parameters are supported").Error()
 		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
@@ -742,7 +736,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err = createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
@@ -760,7 +753,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -778,7 +770,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: "+
@@ -795,7 +786,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring,
@@ -812,7 +802,6 @@ func TestORBSLAMNew(t *testing.T) {
 		}
 
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: lidar not camera"))
@@ -821,7 +810,8 @@ func TestORBSLAMNew(t *testing.T) {
 }
 
 func TestCartographerDataProcess(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger, obs := golog.NewObservedTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -836,7 +826,6 @@ func TestCartographerDataProcess(t *testing.T) {
 	}
 
 	// Create slam service
-	logger, obs := golog.NewObservedTestLogger(t)
 	svc, err := createSLAMService(t, attrCfg, "fake_cartographer", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -893,7 +882,8 @@ func TestCartographerDataProcess(t *testing.T) {
 }
 
 func TestORBSLAMDataProcess(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger, obs := golog.NewObservedTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -909,7 +899,6 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	}
 
 	// Create slam service
-	logger, obs := golog.NewObservedTestLogger(t)
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -971,7 +960,8 @@ func TestORBSLAMDataProcess(t *testing.T) {
 }
 
 func TestEndpointFailures(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -988,7 +978,6 @@ func TestEndpointFailures(t *testing.T) {
 	}
 
 	// Create slam service
-	logger := golog.NewTestLogger(t)
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1036,12 +1025,11 @@ func TestEndpointFailures(t *testing.T) {
 }
 
 func TestSLAMProcessSuccess(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
-
-	logger := golog.NewTestLogger(t)
 
 	t.Run("Test online SLAM process with default parameters", func(t *testing.T) {
 
@@ -1131,7 +1119,8 @@ func TestSLAMProcessSuccess(t *testing.T) {
 }
 
 func TestSLAMProcessFail(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -1148,7 +1137,6 @@ func TestSLAMProcessFail(t *testing.T) {
 	}
 
 	// Create slam service
-	logger := golog.NewTestLogger(t)
 	svc, err := createSLAMService(t, attrCfg, "fake_orbslamv3", logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1179,83 +1167,4 @@ func TestSLAMProcessFail(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
-}
-
-func createTempFolderArchitecture() (string, error) {
-	name, err := os.MkdirTemp("", "*")
-	if err != nil {
-		return "nil", err
-	}
-
-	if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
-		return "", err
-	}
-	if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
-		return "", err
-	}
-	if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
-		return "", err
-	}
-	return name, nil
-}
-
-func resetFolder(path string) error {
-	err := os.RemoveAll(path)
-	if err != nil {
-		return err
-	}
-	err = os.Mkdir(path, os.ModePerm)
-	return err
-}
-
-func checkDeleteProcessedData(t *testing.T, mode slam.Mode, dir string, prev int, deleteProcessedData, useLiveData bool) int {
-	var numFiles int
-
-	switch mode {
-	case slam.Mono:
-		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-
-		numFiles = numFilesRGB
-	case slam.Rgbd:
-		numFilesRGB, err := checkDataDirForExpectedFiles(t, dir+"/data/rgb", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-
-		numFilesDepth, err := checkDataDirForExpectedFiles(t, dir+"/data/depth", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, numFilesRGB, test.ShouldEqual, numFilesDepth)
-		numFiles = numFilesRGB
-	case slam.Dim2d:
-		numFiles2D, err := checkDataDirForExpectedFiles(t, dir+"/data", prev, deleteProcessedData, useLiveData)
-		test.That(t, err, test.ShouldBeNil)
-		numFiles = numFiles2D
-	default:
-	}
-	return numFiles
-}
-
-// Compares the number of files found in a specified data directory with the previous number found and uses
-// the online state and delete_processed_data value to evaluate this comparison.
-func checkDataDirForExpectedFiles(t *testing.T, dir string, prev int, delete_processed_data, useLiveData bool) (int, error) {
-
-	files, err := ioutil.ReadDir(dir)
-	test.That(t, err, test.ShouldBeNil)
-
-	if prev == 0 {
-		return len(files), nil
-	}
-	if delete_processed_data && useLiveData {
-		test.That(t, prev, test.ShouldBeLessThanOrEqualTo, dataBufferSize+1)
-	}
-	if !delete_processed_data && useLiveData {
-		test.That(t, prev, test.ShouldBeLessThan, len(files))
-	}
-	if delete_processed_data && !useLiveData {
-		return 0, errors.New("the delete_processed_data value cannot be true when running SLAM in offline mode")
-	}
-	if !delete_processed_data && !useLiveData {
-		test.That(t, prev, test.ShouldEqual, len(files))
-	}
-	return len(files), nil
 }
