@@ -158,7 +158,7 @@ func TestGeometries(t *testing.T) {
 	test.That(t, geometries, test.ShouldBeNil)
 
 	// test creating a new mobile frame with a geometry
-	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
+	mf, err := New3DOFMobileFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
 	test.That(t, err, test.ShouldBeNil)
