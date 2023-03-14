@@ -3,7 +3,7 @@
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { Client, BoardClient, ServiceError } from '@viamrobotics/sdk';
+import { Client, BoardClient, type ServiceError } from '@viamrobotics/sdk';
 
 const props = defineProps<{
   name: string

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+
+import { $ref } from 'vue/macros';
 import { onMounted, onUnmounted, watch } from 'vue';
 import { displayError } from '../../lib/error';
 import {
@@ -6,7 +8,7 @@ import {
   CameraClient,
   Client,
   commonApi,
-  ServiceError,
+  type ServiceError,
 } from '@viamrobotics/sdk';
 import { cameraStreamStates, selectedMap } from '../../lib/camera-state';
 
@@ -87,7 +89,7 @@ const viewFrame = async (cameraName: string) => {
     return;
   }
 
-  imgEl.setAttribute('src', URL.createObjectURL(blob));
+  imgEl?.setAttribute('src', URL.createObjectURL(blob));
 };
 
 const clearFrameInterval = () => {

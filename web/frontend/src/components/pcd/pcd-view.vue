@@ -527,7 +527,10 @@ const init = (pointcloud: Uint8Array) => {
   // eslint-disable-next-line unicorn/text-encoding-identifier-case
   const decoder = new TextDecoder('utf-8');
   const file = new File([decoder.decode(pointcloud)], 'pointcloud.txt');
-  download.href = URL.createObjectURL(file);
+
+  if (download) {
+    download.href = URL.createObjectURL(file);
+  }
 
   if (props.cameraName) {
     getSegmenterNames();
@@ -535,7 +538,10 @@ const init = (pointcloud: Uint8Array) => {
 };
 
 onMounted(() => {
-  container.append(renderer.domElement);
+  if (container) {
+    container.append(renderer.domElement);
+  }
+
   renderer.setAnimationLoop(animate);
 
   if (props.pointcloud) {

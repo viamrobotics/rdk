@@ -1,18 +1,20 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
 
+import { $ref, $computed } from 'vue/macros';
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import type { Credentials } from '@viamrobotics/rpc';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
+import { svelteAdapter } from '../lib/svelte-adapter';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { addResizeListeners } from '../lib/resize';
 import {
   Client,
-  ResponseStream,
-  ServiceError,
+  type ResponseStream,
+  type ServiceError,
   commonApi,
   robotApi,
   sensorsApi,
@@ -28,7 +30,7 @@ import {
 } from '../lib/resource';
 
 import Arm from './arm.vue';
-import AudioInput from './audio-input.vue';
+import AudioInputSvelte from './audio-input.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
@@ -53,6 +55,8 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from '../lib/fixers';
+
+const AudioInput = svelteAdapter(AudioInputSvelte);
 
 const props = defineProps<{
   host: string;
