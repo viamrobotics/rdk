@@ -222,8 +222,7 @@ func NewAdxl345(
 	})
 	sensor.interruptsFound = make(map[string]int)
 	sensor.readInterrupts(sensor.cancelContext)
-	err = sensor.configureInterruptRegisters(ctx)
-	if err != nil {
+	if err := sensor.configureInterruptRegisters(ctx); err != nil {
 		sensor.cancelFunc()
 		return nil, err
 	}
@@ -235,6 +234,7 @@ func NewAdxl345(
 			return nil, err
 		}
 	}
+
 	if (cfg.FreeFall != nil) && (cfg.FreeFall.InterruptPin != "") {
 		interruptMap, err = addInterruptPin(b, cfg.SingleTap.InterruptPin, interruptMap)
 		if err != nil {
@@ -242,8 +242,8 @@ func NewAdxl345(
 		}
 	}
 
-	ticksChan := make(chan board.Tick)
 	for _, interrupt := range interruptMap {
+		ticksChan := make(chan board.Tick)
 		sensor.startInterruptMonitoring(interrupt, ticksChan)
 	}
 
