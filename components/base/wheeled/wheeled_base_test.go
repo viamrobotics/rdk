@@ -358,9 +358,7 @@ func TestKinematicBase(t *testing.T) {
 	kinematicCfg := testCfg
 
 	// can't directly compare radius, so look at larger and smaller spheres as a proxy
-	biggerSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10.1, "")
-	test.That(t, err, test.ShouldBeNil)
-	smallerSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 9.9, "")
+	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range testCases {
@@ -378,14 +376,9 @@ func TestKinematicBase(t *testing.T) {
 			}
 			kwb, ok := wb.(*kinematicWheeledBase)
 			test.That(t, ok, test.ShouldBeTrue)
-			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, 2))
+			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, 3))
 			test.That(t, err, test.ShouldBeNil)
-			encompassed, err := geometry.GeometryByName(testCfg.Name + ":" + label).EncompassedBy(biggerSphere)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, encompassed, test.ShouldBeTrue)
-			encompassed, err = geometry.GeometryByName(testCfg.Name + ":" + label).EncompassedBy(smallerSphere)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, encompassed, test.ShouldBeFalse)
+			test.That(t, geometry.GeometryByName(testCfg.Name+":"+label).AlmostEqual(expectedSphere), test.ShouldBeTrue)
 		})
 	}
 }
