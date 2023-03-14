@@ -3,12 +3,10 @@
 import { computed } from 'vue';
 import type { inputControllerApi } from '@viamrobotics/sdk';
 
-interface Props {
+const props = defineProps<{
   name: string
   status: inputControllerApi.Status.AsObject
-}
-
-const props = defineProps<Props>();
+}>();
 
 const controlOrder = [
   'AbsoluteX',
@@ -52,17 +50,21 @@ const getValue = (controlMatch: string) => {
   return '';
 };
 
-const controls: string[][] = [];
+const controls = $computed(() => {
+  const pendingControls = [];
 
-for (const ctrl of controlOrder) {
-  const value = getValue(ctrl);
-  if (value !== '') {
-    controls.push([
-      ctrl.replace('Absolute', '').replace('Button', ''),
-      value,
-    ]);
+  for (const ctrl of controlOrder) {
+    const value = getValue(ctrl);
+    if (value !== '') {
+      pendingControls.push([
+        ctrl.replace('Absolute', '').replace('Button', ''),
+        value,
+      ]);
+    }
   }
-}
+
+  return pendingControls;
+});
 
 </script>
 

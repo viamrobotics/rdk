@@ -5,7 +5,7 @@ import { Client, gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   name: string
   status: {
     parts: {
@@ -15,9 +15,7 @@ interface Props {
     }[]
   }
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const increment = (axis: number, amount: number) => {
   const pos: number[] = [];

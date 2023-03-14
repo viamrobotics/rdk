@@ -89,7 +89,6 @@ func TestModelGeometries(t *testing.T) {
 	offset := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
 	bc, err := spatial.NewBox(offset, r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	// m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/model_test.json"), "")
 	frame1, err := NewStaticFrameWithGeometry("link1", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
 	frame2, err := NewRotationalFrame("", spatial.R4AA{RY: 1}, Limit{Min: -360, Max: 360})
@@ -102,17 +101,17 @@ func TestModelGeometries(t *testing.T) {
 	inputs := make([]Input, len(m.DoF()))
 	geometries, _ := m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
-	link1 := geometries.Geometries()["test:link1"].Pose().Point()
+	link1 := geometries.GeometryByName("test:link1").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
-	link2 := geometries.Geometries()["test:link2"].Pose().Point()
+	link2 := geometries.GeometryByName("test:link2").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, 1e-8), test.ShouldBeTrue)
 
 	// transform the model 90 degrees at the joint
 	inputs[0] = Input{math.Pi / 2}
 	geometries, _ = m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
-	link1 = geometries.Geometries()["test:link1"].Pose().Point()
+	link1 = geometries.GeometryByName("test:link1").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
-	link2 = geometries.Geometries()["test:link2"].Pose().Point()
+	link2 = geometries.GeometryByName("test:link2").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, 1e-8), test.ShouldBeTrue)
 }
