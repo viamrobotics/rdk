@@ -14,8 +14,7 @@ func NewClient(conn rpc.ClientConn) v1.DataSyncServiceClient {
 }
 
 // NewConnection builds a connection to the passed address with the passed rpcOpts.
-func NewConnection(logger *zap.SugaredLogger, address string, rpcOpts []rpc.DialOption) (rpc.ClientConn, error) {
-	ctx := context.Background()
+func NewConnection(ctx context.Context, logger *zap.SugaredLogger, address string, rpcOpts []rpc.DialOption) (rpc.ClientConn, error) {
 	conn, err := rpc.DialDirectGRPC(
 		ctx,
 		address,

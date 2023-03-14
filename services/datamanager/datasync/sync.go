@@ -29,6 +29,7 @@ var (
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
 	maxRetryInterval       = time.Hour
+	managerInitTimeout     = 10 * time.Second
 )
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -57,6 +58,9 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMil
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), managerInitTimeout)
+	defer cancel()
+
 	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
 		logger.Debug("Using no-op sync manager when Cloud config is not available")
 		return NewNoopManager(), nil
@@ -77,7 +81,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 	if err != nil {
 		return nil, err
 	}
-	conn, err := NewConnection(logger, appURLParsed.Host, rpcOpts)
+	conn, err := NewConnection(ctx, logger, appURLParsed.Host, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
