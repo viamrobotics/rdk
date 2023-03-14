@@ -106,7 +106,7 @@ type adxl345 struct {
 	i2cAddress               byte
 	logger                   golog.Logger
 	interruptsEnabled        byte
-	interruptsMap            byte
+	interruptsBitmap         byte
 	interruptsFound          map[string]int
 	configuredRegisterValues map[byte]byte
 
@@ -163,7 +163,7 @@ func NewAdxl345(
 		bus:                      bus,
 		i2cAddress:               address,
 		interruptsEnabled:        interruptConfigurations[IntEnableAddr],
-		interruptsMap:            interruptConfigurations[IntMapAddr],
+		interruptsBitmap:         interruptConfigurations[IntMapAddr],
 		logger:                   logger,
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
@@ -373,7 +373,7 @@ func (adxl *adxl345) configureInterruptRegisters(ctx context.Context) error {
 		return nil
 	}
 	adxl.configuredRegisterValues[IntEnableAddr] = adxl.interruptsEnabled
-	adxl.configuredRegisterValues[IntMapAddr] = adxl.interruptsMap
+	adxl.configuredRegisterValues[IntMapAddr] = adxl.interruptsBitmap
 	for key, value := range defaultRegisterValues {
 		if configuredVal, ok := adxl.configuredRegisterValues[key]; ok {
 			value = configuredVal
