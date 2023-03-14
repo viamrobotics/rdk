@@ -246,7 +246,7 @@ func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logge
 		logger = logger.With("camera_label", label)
 	}
 
-	cancelCtx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &monitoredWebcam{
 		cam:       cam,
 		label:     label,
