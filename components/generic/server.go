@@ -5,7 +5,8 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/generic/v1"
+	commonpb "go.viam.com/api/common/v1"
+	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/subtype"
@@ -13,12 +14,12 @@ import (
 
 // subtypeServer implements the generic.Generic service.
 type subtypeServer struct {
-	pb.UnimplementedGenericServiceServer
+	genericpb.UnimplementedGenericServiceServer
 	s subtype.Service
 }
 
 // NewServer constructs an generic gRPC service subtypeServer.
-func NewServer(s subtype.Service) pb.GenericServiceServer {
+func NewServer(s subtype.Service) genericpb.GenericServiceServer {
 	return &subtypeServer{s: s}
 }
 
@@ -36,7 +37,7 @@ func (s *subtypeServer) getGeneric(name string) (Generic, error) {
 }
 
 // DoCommand returns an arbitrary command and returns arbitrary results.
-func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
+func (s *subtypeServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRequest) (*commonpb.DoCommandResponse, error) {
 	genericDevice, err := s.getGeneric(req.Name)
 	if err != nil {
 		return nil, err
@@ -49,5 +50,5 @@ func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.DoCommandResponse{Result: res}, nil
+	return &commonpb.DoCommandResponse{Result: res}, nil
 }

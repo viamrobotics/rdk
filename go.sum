@@ -1266,8 +1266,6 @@ github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95 h1:L8QM9bvf
 github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95/go.mod h1:rlzQ04UMyJXu/aOvhd8qT+hvDrFpiwqp8MRXDY9szc0=
 github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 h1:M8mH9eK4OUR4lu7Gd+PU1fV2/qnDNfzT635KRSObncs=
 github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567/go.mod h1:DWNGW8A4Y+GyBgPuaQJuWiy0XYftx4Xm/y5Jqk9I6VQ=
-github.com/raybjork/api v0.0.0-20230310213510-f207dfec088c h1:Pe0Y8eBJAA0Ze1acVxcxwTbcW+Kg+GSfBa/cgfroXYM=
-github.com/raybjork/api v0.0.0-20230310213510-f207dfec088c/go.mod h1:v7SdHHR8bvAxV9UGuUsp6MWQYcRHssHkI5FC05W+uyg=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rhysd/actionlint v1.6.23 h1:041VOXgZddfvSJa9Il+WT3Iwuo/j0Nmu4bhpAScrds4=
 github.com/rhysd/actionlint v1.6.23/go.mod h1:o5qc1K3I9taGMBhL7mVkpRd64hx3YqI+3t8ewGfYXfE=
@@ -1574,6 +1572,8 @@ go.uber.org/zap v1.13.0/go.mod h1:zwrFLgMcdUuIBviXEYEH1YKNaOBnKXsx2IPda5bBwHM=
 go.uber.org/zap v1.23.0/go.mod h1:D+nX8jyLsMHMYrln8A0rJjFt/T/9/bGgIhAqxv5URuY=
 go.uber.org/zap v1.24.0 h1:FiJd5l1UOLj0wCgbSE0rwwXHzEdAZS6hiiSnxJN/D60=
 go.uber.org/zap v1.24.0/go.mod h1:2kMP+WWQ8aoFoedH3T2sq6iJ2yDWpHbP0f6MQbS9Gkg=
+go.viam.com/api v0.1.89 h1:ehCWLFVZkoCgkSvs3KwfVdN2WZl45cUCJgGrB/cr0iU=
+go.viam.com/api v0.1.89/go.mod h1:v7SdHHR8bvAxV9UGuUsp6MWQYcRHssHkI5FC05W+uyg=
 go.viam.com/slam v0.1.30 h1:JpvHtCR/X0+8I77QGBiJczoISpc4JQIZcQIHT9V7HUA=
 go.viam.com/slam v0.1.30/go.mod h1:xPgjNsRQhdvxCRncRmkuyqteqWr12eAO+1tnMM49BaI=
 go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e h1:1tJIJv/zsobFV5feR2ZiG/+VGZkRPVHqJrSTkXbWfqQ=
