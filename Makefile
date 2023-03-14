@@ -23,7 +23,7 @@ build-go:
 
 build-web: web/runtime-shared/static/control.js
 
-# this assumes that control.js is always updated when this target runs
+# only generate static files when source has changed.
 web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
 	npm ci --audit=false --prefix web/frontend
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
