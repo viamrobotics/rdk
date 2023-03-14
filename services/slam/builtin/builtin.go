@@ -97,44 +97,6 @@ func init() {
 	}
 }
 
-// RuntimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
-// not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
-// are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
-// Returns the slam mode.
-func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
-	slamLib, ok := slam.SLAMLibraries[model]
-	if !ok {
-		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
-	}
-
-	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
-	if !ok {
-		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
-			model, svcConfig.ConfigParams["mode"])
-	}
-
-	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
-
-	if slamMode == slam.Rgbd || slamMode == slam.Mono {
-		var directoryNames []string
-		if slamMode == slam.Rgbd {
-			directoryNames = []string{"rgb", "depth"}
-		} else if slamMode == slam.Mono {
-			directoryNames = []string{"rgb"}
-		}
-		for _, directoryName := range directoryNames {
-			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
-			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-				logger.Warnf("%v directory does not exist", directoryPath)
-				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-				}
-			}
-		}
-	}
-	return slamMode, nil
-}
-
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
 func runtimeServiceValidation(
@@ -531,9 +493,36 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "runtime slam config error")
+	modelName := string(config.Model.Name)
+	slamLib, ok := slam.SLAMLibraries[modelName]
+	if !ok {
+		return nil, errors.Errorf("%v algorithm specified not in implemented list", modelName)
+	}
+
+	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+	if !ok {
+		return nil, errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
+			modelName, svcConfig.ConfigParams["mode"])
+	}
+
+	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
+
+	if slamMode == slam.Rgbd || slamMode == slam.Mono {
+		var directoryNames []string
+		if slamMode == slam.Rgbd {
+			directoryNames = []string{"rgb", "depth"}
+		} else if slamMode == slam.Mono {
+			directoryNames = []string{"rgb"}
+		}
+		for _, directoryName := range directoryNames {
+			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
+			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+				logger.Warnf("%v directory does not exist", directoryPath)
+				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+					return nil, errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+				}
+			}
+		}
 	}
 
 	port, dataRateMsec, mapRateSec, useLiveData, deleteProcessedData, err :=
