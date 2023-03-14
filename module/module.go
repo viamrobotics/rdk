@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -30,6 +31,19 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/subtype"
 )
+
+// CheckSocketAddressLength returns an error if the socket path is too long for the OS.
+func CheckSocketAddressLength(addr string) error {
+	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
+	maxSocketAddressLength := 103
+	if runtime.GOOS == "linux" {
+		maxSocketAddressLength = 107
+	}
+	if len(addr) > maxSocketAddressLength {
+		return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", maxSocketAddressLength, addr)
+	}
+	return nil
+}
 
 // HandlerMap is the format for api->model pairs that the module will service.
 // Ex: mymap["rdk:component:motor"] = ["acme:marine:thruster", "acme:marine:outboard"].
@@ -387,6 +401,49 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	return nil, errors.Errorf("can't recreate resource %+v", req.Config)
+}
+
+// Validator is a resource configuration object that implements Validate.
+type Validator interface {
+	// Validate ensures that the object is valid and returns any implicit dependencies.
+	Validate(path string) ([]string, error)
+}
+
+// ValidateConfig receives the validation request for a resource from the parent.
+func (m *Module) ValidateConfig(ctx context.Context,
+	req *pb.ValidateConfigRequest,
+) (*pb.ValidateConfigResponse, error) {
+	c, err := config.ComponentConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to find map converter for a component.
+	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.API.ResourceSubtype)
+	conv := config.FindMapConverter(cType, c.Model)
+	// If no map converter for a component exists, try to find map converter for a
+	// service.
+	if conv == nil {
+		conv = config.FindServiceMapConverter(cType, c.Model)
+	}
+	if conv != nil {
+		converted, err := conv(c.Attributes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error converting attributes for resource")
+		}
+		validator, ok := converted.(Validator)
+		if ok {
+			implicitDeps, err := validator.Validate(c.Name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error validating resource")
+			}
+			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
+		}
+	}
+
+	// Resource configuration object does not implement Validate, but return an
+	// empty response and no error to maintain backward compatibility.
+	return &pb.ValidateConfigResponse{}, nil
 }
 
 // RemoveResource receives the request for resource removal.

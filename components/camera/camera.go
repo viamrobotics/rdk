@@ -189,6 +189,7 @@ func NewFromSource(
 	}
 	actualSystem := syst
 	if actualSystem == nil {
+		//nolint:staticcheck
 		srcCam, ok := source.(Camera)
 		if ok {
 			props, err := srcCam.Properties(ctx)

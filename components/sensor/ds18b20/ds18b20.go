@@ -88,5 +88,5 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{"temp": temp}, nil
+	return map[string]interface{}{"degrees_celsius": temp}, nil
 }

@@ -91,7 +91,6 @@ func (s *subtypeServer) GetImage(
 			release()
 		}
 	}()
-
 	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
 	resp := pb.GetImageResponse{
 		MimeType: actualMIME,

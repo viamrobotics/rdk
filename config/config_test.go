@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -118,32 +119,6 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Remotes, test.ShouldHaveLength, 1)
 	test.That(t, cfg.Remotes[0].ConnectionCheckInterval, test.ShouldEqual, 12*time.Second)
 	test.That(t, cfg.Remotes[0].ReconnectInterval, test.ShouldEqual, 3*time.Second)
-}
-
-func TestCreateCloudRequest(t *testing.T) {
-	cfg := config.Cloud{
-		ID:     "a",
-		Secret: "b",
-		Path:   "c",
-	}
-
-	version := "test-version"
-	gitRevision := "test-git-revision"
-	config.Version = version
-	config.GitRevision = gitRevision
-
-	r, err := config.CreateCloudRequest(context.Background(), &cfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
-	test.That(t, r.URL.String(), test.ShouldEqual, "c?id=a")
-
-	userInfo := map[string]interface{}{}
-	userInfoJSON := r.Header.Get("User-Info")
-	json.Unmarshal([]byte(userInfoJSON), &userInfo)
-
-	test.That(t, userInfo["version"], test.ShouldEqual, version)
-	test.That(t, userInfo["gitRevision"], test.ShouldEqual, gitRevision)
 }
 
 func TestConfigEnsure(t *testing.T) {
@@ -546,6 +521,49 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	}
 
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+}
+
+func TestValidNameRegex(t *testing.T) {
+	// validNameRegex is the pattern that matches to a valid name.
+	// The name must begin with a letter i.e. [a-zA-Z],
+	// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
+	name := "justLetters"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "numbersAndLetters1"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "letters-and-dashes"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "letters_and_underscores"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+
+	name = "1number"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "a!"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "s p a c e s"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "period."
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+}
+
+func TestRemoteValidate(t *testing.T) {
+	t.Run("remote invalid name", func(t *testing.T) {
+		lc := &referenceframe.LinkConfig{
+			Parent: "parent",
+		}
+		validRemote := config.Remote{
+			Name:    "foo-_remote",
+			Address: "address",
+			Frame:   lc,
+		}
+
+		err := validRemote.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		validRemote.Name = "foo.remote"
+		err = validRemote.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+	})
 }
 
 func TestCopyOnlyPublicFields(t *testing.T) {

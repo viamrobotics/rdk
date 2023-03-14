@@ -7,20 +7,15 @@ import { mdiArrowUp as w, mdiRestore as a, mdiReload as d, mdiArrowDown as s } f
 import Icon from './icon.vue';
 import { watch, onUnmounted } from 'vue';
 
-interface Emits {
-  (event: 'keydown', key: Keys): void
+const emit = defineEmits<{(event: 'keydown', key: Keys): void
   (event: 'keyup', key: Keys): void
   (event: 'toggle', active: boolean): void
   (event: 'update-keyboard-state', value: boolean): void
-}
+}>();
 
-const emit = defineEmits<Emits>();
-
-interface Props {
+const props = defineProps<{
   isActive: boolean,
-}
-
-const props = defineProps<Props>();
+}>();
 
 const keyIcons = { w, a, s, d };
 

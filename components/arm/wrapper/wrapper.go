@@ -34,6 +34,9 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.ArmName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
+	if _, err := referenceframe.ModelFromPath(cfg.ModelFilePath, ""); err != nil {
+		return nil, err
+	}
 	deps = append(deps, cfg.ArmName)
 	return deps, nil
 }
@@ -83,6 +86,30 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 		logger: logger,
 		robot:  r,
 	}, nil
+}
+
+// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
+// See config.UpdateActionType for more information.
+func (wrapper *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
+	if _, ok := c.ConvertedAttributes.(*AttrConfig); !ok {
+		return config.Rebuild
+	}
+
+	modelFilePath := c.ConvertedAttributes.(*AttrConfig).ModelFilePath
+	armName := c.ConvertedAttributes.(*AttrConfig).ArmName
+	if modelFilePath != "" && armName == "" {
+		// there is case where ok == true but newCfg.ModelFilePath == ""
+		// because newCfg.ArmName is required as well.
+		if model, err := referenceframe.ModelFromPath(modelFilePath, ""); err != nil {
+			// unlikely to hit debug as we check for errors in Validate()
+			wrapper.logger.Debugw("invalid model file path:", "error", err.Error())
+		} else {
+			wrapper.model = model
+		}
+		return config.None
+	}
+
+	return config.Reconfigure
 }
 
 // ModelFrame returns the dynamic frame of the model.

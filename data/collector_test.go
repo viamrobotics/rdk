@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -33,10 +35,10 @@ func (r *structReading) toProto() *structpb.Struct {
 }
 
 var (
-	dummyStructCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return dummyStructReading, nil
 	})
-	dummyBinaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	binaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return dummyBytesReading, nil
 	})
 	dummyStructReading      = structReading{}
@@ -65,81 +67,52 @@ func TestNewCollector(t *testing.T) {
 	test.That(t, err2, test.ShouldBeNil)
 }
 
-// Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
-// is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.
+// Test that the Collector correctly writes the SensorData on an interval.
 func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
-	// Set sleepIntervalCutoff high, because tests using the prod cutoff (2ms) have enough variation in timing
-	// to make them flaky.
-	sleepCaptureCutoff = time.Millisecond * 100
-	tickerInterval := time.Millisecond * 101
-	sleepInterval := time.Millisecond * 99
+	tickerInterval := sleepCaptureCutoff + 1
+	sleepInterval := sleepCaptureCutoff - 1
+
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        l,
+	}
 
 	tests := []struct {
 		name           string
-		capturer       Capturer
-		params         CollectorParams
-		wait           time.Duration
+		captureFunc    CaptureFunc
+		interval       time.Duration
 		expectReadings int
 		expFiles       int
 	}{
 		{
-			name:     "Ticker based struct writer.",
-			capturer: dummyStructCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      tickerInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
+			name:           "Ticker based struct writer.",
+			captureFunc:    structCapturer,
+			interval:       tickerInterval,
 			expectReadings: 2,
 			expFiles:       1,
 		},
 		{
-			name:     "Sleep based struct writer.",
-			capturer: dummyStructCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      sleepInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
+			name:           "Sleep based struct writer.",
+			captureFunc:    structCapturer,
+			interval:       sleepInterval,
 			expectReadings: 2,
 			expFiles:       1,
 		},
 		{
-			name:     "Ticker based binary writer.",
-			capturer: dummyBinaryCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      tickerInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           tickerInterval*time.Duration(2) + tickerInterval/time.Duration(2),
+			name:           "Ticker based binary writer.",
+			captureFunc:    binaryCapturer,
+			interval:       tickerInterval,
 			expectReadings: 2,
 			expFiles:       2,
 		},
 		{
-			name:     "Sleep based binary writer.",
-			capturer: dummyBinaryCapturer,
-			params: CollectorParams{
-				ComponentName: "testComponent",
-				Interval:      sleepInterval,
-				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-				QueueSize:     queueSize,
-				BufferSize:    bufferSize,
-				Logger:        l,
-			},
-			wait:           sleepInterval*time.Duration(2) + sleepInterval/time.Duration(2),
+			name:           "Sleep based binary writer.",
+			captureFunc:    binaryCapturer,
+			interval:       sleepInterval,
 			expectReadings: 2,
 			expFiles:       2,
 		},
@@ -147,19 +120,67 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+			defer cancel()
 			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
-			target := datacapture.NewBuffer(tmpDir, &md)
-			test.That(t, target, test.ShouldNotBeNil)
+			tgt := datacapture.NewBuffer(tmpDir, &md)
+			test.That(t, tgt, test.ShouldNotBeNil)
+			wrote := make(chan struct{})
+			target := &signalingBuffer{
+				bw:    tgt,
+				wrote: wrote,
+			}
 
-			tc.params.Target = target
-			c, err := NewCollector(tc.capturer, tc.params)
+			mockClock := clock.NewMock()
+			params.Interval = tc.interval
+			params.Target = target
+			params.Clock = mockClock
+			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
+			// We need to avoid adding time until after the the underlying goroutine has started sleeping.
+			// If we add time before that point, data will never be captured, because time will never be greater than
+			// the initially calculated time.
+			// Sleeping for 1ms is a hacky way to ensure that we don't encounter this situation. It gives 1ms
+			// for those few sequential lines in collector.go to execute, so that that occurs before we add time below.
+			time.Sleep(time.Millisecond)
+			for i := 0; i < tc.expectReadings; i++ {
+				mockClock.Add(params.Interval)
+				select {
+				case <-ctx.Done():
+					t.Fatalf("timed out waiting for data to be written")
+				case <-wrote:
+				}
+			}
+			close(wrote)
 
-			// Verify that the data it wrote matches what we expect.
-			time.Sleep(tc.wait)
+			// If it's a sleep based collector, we need to move the clock forward one more time after calling Close.
+			// Otherwise, it will stay asleep indefinitely and Close will block forever.
+			// This loop guarantees that the clock is moved forward at least once after Close is called. After Close
+			// returns and the closed channel is closed, this loop will terminate.
+			closed := make(chan struct{})
+			sleepCollector := tc.interval < sleepCaptureCutoff
+			wg := sync.WaitGroup{}
+			if sleepCollector {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for i := 0; i < 1000; i++ {
+						select {
+						case <-closed:
+							return
+						default:
+							time.Sleep(time.Millisecond * 1)
+							mockClock.Add(tc.interval)
+						}
+					}
+				}()
+			}
 			c.Close()
+			close(closed)
+			wg.Wait()
+
 			var actReadings []*v1.SensorData
 			files := getAllFiles(tmpDir)
 			for _, file := range files {
@@ -179,49 +200,67 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	target := datacapture.NewBuffer(tmpDir, &md)
-	sleepCaptureCutoff = time.Millisecond * 10
+	buf := datacapture.NewBuffer(tmpDir, &md)
+	wrote := make(chan struct{})
+	target := &signalingBuffer{
+		bw:    buf,
+		wrote: wrote,
+	}
+	mockClock := clock.NewMock()
+	interval := time.Millisecond * 5
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 5,
+		Interval:      interval,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
 		Logger:        l,
+		Clock:         mockClock,
 	}
-	c, _ := NewCollector(dummyStructCapturer, params)
+	c, _ := NewCollector(structCapturer, params)
+
+	// Start collecting, and validate it is writing.
 	c.Collect()
-	time.Sleep(time.Millisecond * 25)
+	mockClock.Add(interval)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		t.Fatalf("timed out waiting for data to be written")
+	case <-wrote:
+	}
 
-	// Close and measure fileSize.
+	// Close and validate no additional writes occur even after an additional interval.
 	c.Close()
-	files := getAllFiles(target.Directory)
-	test.That(t, len(files), test.ShouldEqual, 1)
-	fileSize1 := files[0].Size()
-
-	// Assert capture is no longer being called/file is no longer being written to.
-	time.Sleep(time.Millisecond * 25)
-	filesAfterWait := getAllFiles(target.Directory)
-	test.That(t, len(filesAfterWait), test.ShouldEqual, 1)
-	test.That(t, filesAfterWait[0].Size(), test.ShouldEqual, fileSize1)
+	mockClock.Add(interval)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*10)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+	case <-wrote:
+		t.Fatalf("unexpected write after close")
+	}
 }
 
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
 func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
-	md := v1.DataCaptureMetadata{}
-	target := datacapture.NewBuffer(tmpDir, &md)
+	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
+	captured := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		select {
+		case <-ctx.Done():
+		case captured <- struct{}{}:
+		}
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
-	sleepCaptureCutoff = time.Millisecond * 10
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 5,
+		Interval:      time.Millisecond * 1,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
 		QueueSize:     queueSize,
@@ -230,12 +269,9 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	}
 	c, _ := NewCollector(errorCapturer, params)
 	c.Collect()
-	time.Sleep(25 * time.Millisecond)
+	<-captured
 	c.Close()
-
-	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
-	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
-	time.Sleep(10 * time.Millisecond)
+	close(captured)
 
 	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
@@ -267,4 +303,23 @@ func getAllFiles(dir string) []os.FileInfo {
 		return nil
 	})
 	return files
+}
+
+type signalingBuffer struct {
+	bw    datacapture.BufferedWriter
+	wrote chan struct{}
+}
+
+func (b *signalingBuffer) Write(data *v1.SensorData) error {
+	ret := b.bw.Write(data)
+	b.wrote <- struct{}{}
+	return ret
+}
+
+func (b *signalingBuffer) Flush() error {
+	return b.bw.Flush()
+}
+
+func (b *signalingBuffer) Path() string {
+	return b.bw.Path()
 }

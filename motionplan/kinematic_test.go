@@ -25,37 +25,37 @@ var (
 )
 
 func BenchmarkFK(b *testing.B) {
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	for n := 0; n < b.N; n++ {
-		_, err := ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0}})
+		_, err := ComputePosition(m, &pb.JointPositions{Values: make([]float64, 7)})
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
 
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
-	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
+	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/yahboom/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Confirm end effector starts at 300, 0, 360.25
+	// Confirm end effector starts at 248.55, 0, 115
 	expect := spatial.NewPose(
-		r3.Vector{X: 300, Y: 0, Z: 360.25},
-		&spatial.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0},
+		r3.Vector{X: 248.55, Y: 0, Z: 115},
+		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1},
 	)
 	pos, err := ComputePosition(m, &pb.JointPositions{Values: make([]float64, 5)})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
-	// Test the 6dof arm we actually have
-	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
+	// Test the 6dof xarm we actually have
+	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Confirm end effector starts at 365, 0, 360.25
+	// Confirm end effector starts at 207, 0, 112
 	expect = spatial.NewPose(
-		r3.Vector{X: 365, Y: 0, Z: 360.25},
-		&spatial.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0},
+		r3.Vector{X: 207, Y: 0, Z: 112},
+		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: -1},
 	)
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: make([]float64, 6)})
 	test.That(t, err, test.ShouldBeNil)
@@ -71,8 +71,8 @@ func TestForwardKinematics(t *testing.T) {
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	expect = spatial.NewPose(
-		r3.Vector{X: 57.5, Y: 57.5, Z: 545.1208197765168},
-		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0.5, OY: 0.5, OZ: 0.707},
+		r3.Vector{X: 181, Y: 181, Z: 303.76},
+		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0.5, OY: 0.5, OZ: -0.707},
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
@@ -80,8 +80,8 @@ func TestForwardKinematics(t *testing.T) {
 	pos, err = ComputePosition(m, &pb.JointPositions{Values: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	expect = spatial.NewPose(
-		r3.Vector{X: 258.0935, Y: -258.0935, Z: 360.25},
-		&spatial.OrientationVectorDegrees{Theta: utils.RadToDeg(0.7854), OX: 0.707, OY: -0.707, OZ: 0},
+		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
+		&spatial.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: -1},
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
@@ -95,11 +95,11 @@ func TestForwardKinematics(t *testing.T) {
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputeOOBPosition(m, &pb.JointPositions{Values: newPos})
 	expect = spatial.NewPose(
-		r3.Vector{X: 258.093975133089884366199840, Y: -258.093975133089884366199840, Z: 360.250000000000113686837722},
-		&spatial.R4AA{Theta: -2.48798057005674, RX: 0.23071941493324336, RY: -0.7100813450467474, RZ: 0.6652465971273088},
+		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
+		&spatial.R4AA{Theta: math.Pi, RX: 0.31, RY: -0.95, RZ: 0},
 	)
-	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 }
 
 const derivEqualityEpsilon = 1e-16
@@ -287,7 +287,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -346,7 +346,7 @@ func TestSVAvsDH(t *testing.T) {
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, runtime.NumCPU()/400000)
 	test.That(t, err, test.ShouldBeNil)

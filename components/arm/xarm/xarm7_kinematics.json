@@ -61,9 +61,9 @@
                 "y": 130,
                 "z": 180,
                 "translation": {
-                    "x": 0,
+                    "x": 32.88,
                     "y": -10,
-                    "z": 46.5
+                    "z": 32.88
                 },
                 "orientation": {
                     "type": "ov_degrees",
@@ -89,9 +89,9 @@
                 "y": 150,
                 "z": 250,
                 "translation": {
-                    "x": 0,
+                    "x": 60.98,
                     "y": -37.5,
-                    "z": 86.25
+                    "z": -60.98
                 },
                 "orientation": {
                     "type": "ov_degrees",

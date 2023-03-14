@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -156,7 +157,8 @@ func (s *piPigpioServo) pigpioErrors(res int) error {
 	case res == 0:
 		return nil
 	case res < 0 && res != C.PI_BAD_PULSEWIDTH && res != C.PI_NOT_SERVO_GPIO:
-		return errors.Errorf("gpioServo on pin %s failed with %d", s.pinname, res)
+		errMsg := fmt.Sprintf("gpioServo on pin %s failed", s.pinname)
+		return picommon.ConvertErrorCodeToMessage(res, errMsg)
 	default:
 		return nil
 	}

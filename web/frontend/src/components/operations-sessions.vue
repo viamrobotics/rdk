@@ -5,23 +5,18 @@ import { Client, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   operations: {
     op: robotApi.Operation.AsObject
     elapsed: number
   }[],
-
   sessions: robotApi.Session.AsObject[],
   sessionsSupported: boolean,
-
   connectionManager: {
     rtt: number;
   },
-
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();

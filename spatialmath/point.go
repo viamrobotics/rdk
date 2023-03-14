@@ -36,10 +36,12 @@ func (pt *point) MarshalJSON() ([]byte, error) {
 
 // Label returns the labels of this point.
 func (pt *point) Label() string {
-	if pt != nil {
-		return pt.label
-	}
-	return ""
+	return pt.label
+}
+
+// SetLabel sets the label of this point.
+func (pt *point) SetLabel(label string) {
+	pt.label = label
 }
 
 // Pose returns the pose of the point.

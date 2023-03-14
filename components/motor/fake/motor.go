@@ -42,7 +42,7 @@ type Config struct {
 	Encoder          string    `json:"encoder,omitempty"`
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
-	DirectionFlip    bool      `json:"direction_flip"`
+	DirectionFlip    bool      `json:"dir_flip"`
 }
 
 // Validate ensures all parts of the config are valid.
