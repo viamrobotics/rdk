@@ -282,6 +282,7 @@ func TestDataCaptureUpload(t *testing.T) {
 					test.That(t, err, test.ShouldBeNil)
 				}()
 
+				newDMSvc.Close(context.Background())
 				newestDMSvc := newTestDataManager(t)
 				defer newestDMSvc.Close(context.Background())
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
@@ -370,7 +371,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
-			tmpDir := t.TempDir()
+			additionalPathsDir := t.TempDir()
+			captureDir := t.TempDir()
 
 			var failFor int
 			if tc.serviceFail {
@@ -395,7 +397,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			svcConfig.SyncIntervalMins = fiftyMillis
-			svcConfig.AdditionalSyncPaths = []string{tmpDir}
+			svcConfig.AdditionalSyncPaths = []string{additionalPathsDir}
+			svcConfig.CaptureDir = captureDir
 
 			// Start dmsvc.
 			dmsvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
@@ -405,7 +408,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			// Write some files to the path.
 			fileContents := make([]byte, datasync.UploadChunkSize*4)
 			fileContents = append(fileContents, []byte("happy cows come from california")...)
-			tmpFile, err := os.Create(filepath.Join(tmpDir, fileName))
+			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
@@ -419,7 +422,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			time.Sleep(syncTime)
 
 			// Validate error and URs.
-			remainingFiles := getAllFilePaths(tmpDir)
+			remainingFiles := getAllFilePaths(additionalPathsDir)
 			if tc.serviceFail {
 				// Error case.
 				test.That(t, len(remainingFiles), test.ShouldEqual, 1)

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam/builtin"
 	slamConfig "go.viam.com/slam/config"
+	slamTesthelper "go.viam.com/slam/testhelper"
 )
 
 const (
@@ -62,7 +63,8 @@ func findLastYAML(folderName string) (string, string, error) {
 }
 
 func TestOrbslamYAMLNew(t *testing.T) {
-	name, err := createTempFolderArchitecture()
+	logger := golog.NewTestLogger(t)
+	name, err := slamTesthelper.CreateTempFolderArchitecture(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -117,7 +119,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	var fakeMapTimestamp string
 	t.Run("New orbslamv3 service with good camera and defined params", func(t *testing.T) {
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		grpcServer, port := setupTestGRPCServer(t)
 		attrCfgGood.Port = "localhost:" + strconv.Itoa(port)
 
@@ -156,7 +157,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with previous map and good camera", func(t *testing.T) {
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		grpcServer, port := setupTestGRPCServer(t)
 		attrCfgGood.Port = "localhost:" + strconv.Itoa(port)
 
@@ -183,7 +183,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with high dataRateMs", func(t *testing.T) {
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		grpcServer, port := setupTestGRPCServer(t)
 		attrCfgGoodHighDataRateMsec.Port = "localhost:" + strconv.Itoa(port)
 
@@ -211,7 +210,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfgBadCam, "fake_orbslamv3", logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring,
@@ -236,7 +234,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			UseLiveData:   &useLiveData,
 		}
 		// Create slam service
-		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfgBadParam1, "fake_orbslamv3", logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_n_features has an invalid definition")
 
