@@ -82,7 +82,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.87
+	go.viam.com/api v0.1.89
 	go.viam.com/slam v0.1.31-0.20230314162335-4ce0cf3ae5a7
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.1.15
