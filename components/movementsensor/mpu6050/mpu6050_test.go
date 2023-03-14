@@ -242,7 +242,7 @@ func TestLinearAcceleration(t *testing.T) {
 	defer utils.TryClose(context.Background(), sensor)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		linAcc, err := sensor.LinearAcceleration(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, linAcc, test.ShouldNotBeZeroValue)
 	})
 	accel, err := sensor.LinearAcceleration(context.Background(), nil)
@@ -275,7 +275,7 @@ func TestAngularVelocity(t *testing.T) {
 	defer utils.TryClose(context.Background(), sensor)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		angVel, err := sensor.AngularVelocity(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, angVel, test.ShouldNotBeZeroValue)
 	})
 	angVel, err := sensor.AngularVelocity(context.Background(), nil)
@@ -298,7 +298,7 @@ func TestTemperature(t *testing.T) {
 	defer utils.TryClose(context.Background(), sensor)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		readings, err := sensor.Readings(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, readings["temperature_celsius"], test.ShouldNotBeZeroValue)
 	})
 	readings, err := sensor.Readings(context.Background(), nil)
