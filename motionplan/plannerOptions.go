@@ -224,8 +224,9 @@ func (p *plannerOptions) createCollisionConstraints(
 		for _, geom := range geomsInFrame.Geometries() {
 			geomName := geom.Label()
 
-			// Ensure we're not double-adding components which only have one geometry, named identically to the component
-			if parentName != "" && geomName == parentName {
+			// Ensure we're not double-adding components which only have one geometry, named identically to the component.
+			// Truly anonymous geometries e.g. passed via worldstate are skipped unless they are labeled
+			if (parentName != "" && geomName == parentName) || geomName == "" {
 				continue
 			}
 			if _, ok := validGeoms[geomName]; ok {
@@ -262,12 +263,19 @@ func (p *plannerOptions) createCollisionConstraints(
 
 	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all
 	// sub-pieces, e.g. myUR5arm:upper_arm_link, myUR5arm:base_link, etc. Individual sub-pieces may also be so addressed.
-	allowNameToSubGeoms := func(cName string) ([]string, error) {
+	var allowNameToSubGeoms func(cName string) ([]string, error) // Pre-define to allow recursive call
+	allowNameToSubGeoms = func(cName string) ([]string, error) {
 		// Check if an entire component is specified
 		if geomsInFrame, ok := allFsGeoms[cName]; ok {
 			subNames := []string{}
 			for _, subGeom := range geomsInFrame.Geometries() {
 				subNames = append(subNames, subGeom.Label())
+			}
+			// If this is an entire component, it likely has an origin frame. Collect any origin geometries as well if so.
+			// These will be the geometries that a user specified for this component in their RDK config.
+			originGeoms, err := allowNameToSubGeoms(cName + "_origin")
+			if err == nil && len(originGeoms) > 0 {
+				subNames = append(subNames, originGeoms...)
 			}
 			return subNames, nil
 		}
