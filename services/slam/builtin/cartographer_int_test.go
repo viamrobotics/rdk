@@ -16,9 +16,9 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
+	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -29,12 +29,6 @@ const (
 
 // Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
-	actualMIME, _, pointcloudOld, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
-	t.Logf("Pointcloud points: %v", pointcloudOld.Size())
-	test.That(t, pointcloudOld.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
-
 	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
@@ -45,22 +39,23 @@ func testCartographerMap(t *testing.T, svc slam.Service) {
 }
 
 // Checks the cartographer position within a defined tolerance.
-func testCartographerPosition(t *testing.T, svc slam.Service) {
-	expectedPos := r3.Vector{X: -0.004, Y: 0.004, Z: 0}
+func testCartographerPosition(t *testing.T, svc slam.Service, expectedComponentRef string) {
+	expectedPos := r3.Vector{X: -0.004, Y: 0, Z: -0.004}
 	tolerancePos := 0.04
-	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: -1}
+	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 1, RZ: 0}
 	toleranceOri := 0.5
 
-	position, err := svc.Position(context.Background(), "test", map[string]interface{}{})
+	position, componentRef, err := svc.GetPosition(context.Background(), "test")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, componentRef, test.ShouldEqual, expectedComponentRef)
 
-	actualPos := position.Pose().Point()
+	actualPos := position.Point()
 	t.Logf("Position point: (%v, %v, %v)", actualPos.X, actualPos.Y, actualPos.Z)
 	test.That(t, actualPos.X, test.ShouldBeBetween, expectedPos.X-tolerancePos, expectedPos.X+tolerancePos)
 	test.That(t, actualPos.Y, test.ShouldBeBetween, expectedPos.Y-tolerancePos, expectedPos.Y+tolerancePos)
 	test.That(t, actualPos.Z, test.ShouldBeBetween, expectedPos.Z-tolerancePos, expectedPos.Z+tolerancePos)
 
-	actualOri := position.Pose().Orientation().AxisAngles()
+	actualOri := position.Orientation().AxisAngles()
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v", actualOri.RX, actualOri.RY, actualOri.RZ, actualOri.Theta)
 	test.That(t, actualOri.RX, test.ShouldBeBetween, expectedOri.RX-toleranceOri, expectedOri.RX+toleranceOri)
 	test.That(t, actualOri.RY, test.ShouldBeBetween, expectedOri.RY-toleranceOri, expectedOri.RY+toleranceOri)
@@ -70,12 +65,8 @@ func testCartographerPosition(t *testing.T, svc slam.Service) {
 
 // Checks the cartographer internal state.
 func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir string) {
-	internalState, err := svc.GetInternalState(context.Background(), "test")
-	test.That(t, err, test.ShouldBeNil)
-
 	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(internalState), test.ShouldEqual, len(internalStateStream))
 
 	// Save the data from the call to GetInternalStateStream for use in next test.
 	timeStamp := time.Now()
@@ -102,7 +93,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	deleteProcessedData := false
 	useLiveData := true
 
-	attrCfg := &builtin.AttrConfig{
+	attrCfg := &slamConfig.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode":  reflect.ValueOf(mode).String(),
@@ -151,7 +142,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, attrCfg.Sensors[0])
 	testCartographerMap(t, svc)
 
 	// Close out slam service
@@ -181,7 +172,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	useLiveData = false
 	mapRate = 1
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -221,7 +212,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, "") // leaving this empty because cartographer does not interpret the component reference in offline mode
 	testCartographerMap(t, svc)
 
 	// Sleep to ensure cartographer saves at least one map
@@ -250,7 +241,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = true
 	useLiveData = true
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -295,7 +286,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, attrCfg.Sensors[0])
 	testCartographerMap(t, svc)
 
 	// Remove maps so that testing is done on the map generated by the internal map
@@ -324,7 +315,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 
 	mapRate = 1
 
-	attrCfg = &builtin.AttrConfig{
+	attrCfg = &slamConfig.AttrConfig{
 		Sensors: []string{"cartographer_int_lidar"},
 		ConfigParams: map[string]string{
 			"mode": reflect.ValueOf(mode).String(),
@@ -370,7 +361,7 @@ func integrationtestHelperCartographer(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testCartographerPosition(t, svc)
+	testCartographerPosition(t, svc, attrCfg.Sensors[0])
 	testCartographerMap(t, svc)
 
 	// Close out slam service

@@ -6,7 +6,7 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -60,35 +60,48 @@ func (slamSvc *SLAM) getCount() int {
 func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 	include bool, extra map[string]interface{},
 ) (string, image.Image, *vision.Object, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetMap")
+	defer span.End()
 	slamSvc.incrementDataCount()
-	return fakeGetMap(datasetDirectory, slamSvc, mimeType)
+	return fakeGetMap(ctx, datasetDirectory, slamSvc, mimeType)
 }
 
 // Position returns a PoseInFrame of the robot's current location according to SLAM.
 func (slamSvc *SLAM) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
-	return fakePosition(datasetDirectory, slamSvc, name)
+	ctx, span := trace.StartSpan(ctx, "slam::fake::Position")
+	defer span.End()
+	return fakePosition(ctx, datasetDirectory, slamSvc, name)
 }
 
 // GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
 func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
-	return nil, "", errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPosition")
+	defer span.End()
+	return fakeGetPosition(ctx, datasetDirectory, slamSvc)
 }
 
 // GetInternalState returns the internal state of a slam algo. Currently the internal state of cartographer.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte, error) {
-	return fakeGetInternalState(datasetDirectory, slamSvc)
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
+	defer span.End()
+	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
 }
 
 // GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
 // map.
 func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMapStream")
+	defer span.End()
+	slamSvc.incrementDataCount()
+	return fakeGetPointCloudMapStream(ctx, datasetDirectory, slamSvc)
 }
 
 // GetInternalStateStream returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
 func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	return nil, errors.New("unimplemented stub")
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalStateStream")
+	defer span.End()
+	return fakeGetInternalStateStream(ctx, datasetDirectory, slamSvc)
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting

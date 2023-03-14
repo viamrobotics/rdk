@@ -19,8 +19,11 @@ import (
 const MagicNumIntVersionX = 6363110499870197078
 
 // MagicNumIntViamType is the magic number (as an int) for the custom Viam depth type.
-// magic number for ViamCustomType is uint64([]byte("DEPTHMAP")), Little Endian.
-const MagicNumIntViamType = 5782988369567958340
+// magic number for ViamCustomType is uint64([]byte("DEPTHMAP")), Big Endian.
+const MagicNumIntViamType = 4919426490892632400
+
+// MagicNumIntViamTypeLittleEndian is "PAMHTPED" for the ReadDepthMap function which uses LittleEndian to read.
+const MagicNumIntViamTypeLittleEndian = 5782988369567958340
 
 func _readNext(r io.Reader) (int64, error) {
 	data := make([]byte, 8)
@@ -63,7 +66,7 @@ func ReadDepthMap(r io.Reader) (*DepthMap, error) {
 	switch firstBytes {
 	case MagicNumIntVersionX: // magic number for VERSIONX
 		return readDepthMapVersionX(r)
-	case MagicNumIntViamType: // magic number for ViamCustomType is int64([]byte("DEPTHMAP"))
+	case MagicNumIntViamTypeLittleEndian: // magic number for ViamCustomType PAMHTPED (LittleEndian DEPTHMAP)
 		return readDepthMapViam(r)
 	default:
 		return readDepthMapRaw(r, firstBytes)
@@ -88,20 +91,25 @@ func readDepthMapRaw(ff io.Reader, firstBytes int64) (*DepthMap, error) {
 func readDepthMapViam(ff io.Reader) (*DepthMap, error) {
 	f := bufio.NewReader(ff)
 	dm := &DepthMap{}
+	data := make([]byte, 8)
 
-	rawWidth, err := _readNext(f)
+	_, err := f.Read(data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read vnd.viam.dep width")
 	}
+	rawWidth := binary.BigEndian.Uint64(data)
 	dm.width = int(rawWidth)
-	rawHeight, err := _readNext(f)
+
+	_, err = f.Read(data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read vnd.viam.dep height")
 	}
+	rawHeight := binary.BigEndian.Uint64(data)
 	dm.height = int(rawHeight)
+
 	// dump the rest of the bytes in a depth slice
 	datSlice := make([]Depth, dm.height*dm.width)
-	err = binary.Read(f, binary.LittleEndian, &datSlice)
+	err = binary.Read(f, binary.BigEndian, &datSlice)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read vnd.viam.dep data slice")
 	}
@@ -315,20 +323,20 @@ func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	width := img.Bounds().Dx()
 	height := img.Bounds().Dy()
 
-	binary.LittleEndian.PutUint64(buf, uint64(MagicNumIntViamType))
+	binary.BigEndian.PutUint64(buf, uint64(MagicNumIntViamType))
 	n, err := out.Write(buf)
 	totalN += int64(n)
 	if err != nil {
 		return totalN, err
 	}
-	binary.LittleEndian.PutUint64(buf, uint64(width))
+	binary.BigEndian.PutUint64(buf, uint64(width))
 	n, err = out.Write(buf)
 	totalN += int64(n)
 	if err != nil {
 		return totalN, err
 	}
 
-	binary.LittleEndian.PutUint64(buf, uint64(height))
+	binary.BigEndian.PutUint64(buf, uint64(height))
 	n, err = out.Write(buf)
 	totalN += int64(n)
 	if err != nil {
@@ -336,18 +344,18 @@ func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	}
 	switch dm := img.(type) {
 	case *DepthMap:
-		err = binary.Write(out, binary.LittleEndian, dm.data) // uint16 data
+		err = binary.Write(out, binary.BigEndian, dm.data)
 		if err != nil {
 			return totalN, err
 		}
-		totalN += int64(len(dm.data) * 2)
+		totalN += int64(len(dm.data) * 2) // uint16 data
 	case *image.Gray16:
 		grayBuf := make([]byte, 2)
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
 				i := dm.PixOffset(x, y)
 				z := uint16(dm.Pix[i+0])<<8 | uint16(dm.Pix[i+1])
-				binary.LittleEndian.PutUint16(grayBuf, z)
+				binary.BigEndian.PutUint16(grayBuf, z)
 				n, err = out.Write(grayBuf)
 				totalN += int64(n)
 				if err != nil {

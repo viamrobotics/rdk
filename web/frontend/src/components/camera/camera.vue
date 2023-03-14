@@ -4,14 +4,13 @@ import { displayError } from '../../lib/error';
 import {
   StreamClient,
   CameraClient,
-  Camera,
   Client,
   commonApi,
   ServiceError,
 } from '@viamrobotics/sdk';
 import { cameraStreamStates, selectedMap } from '../../lib/camera-state';
 
-interface Props {
+const props = defineProps<{
   cameraName: string;
   parentName: string;
   resources: commonApi.ResourceName.AsObject[];
@@ -19,9 +18,7 @@ interface Props {
   showExportScreenshot: boolean;
   refreshRate: string | undefined;
   triggerRefresh: boolean;
-}
-
-const props = defineProps<Props>();
+}>();
 
 let videoStream = $ref<MediaStream>();
 const imgEl = $ref<HTMLImageElement>();
@@ -30,7 +27,13 @@ let cameraOn = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let camerasOn = $ref(0);
 
-const manageStreamStates = () => {
+const manageStreamStates = (cameraIsOn: boolean) => {
+  cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
+    on: cameraIsOn,
+    live: true,
+    name: props.cameraName,
+  });
+
   let counter = 0;
   for (const value of cameraStreamStates.values()) {
     if (value.name === props.cameraName && value.on) {
@@ -57,13 +60,7 @@ const viewCamera = async (isOn: boolean) => {
   });
 
   if (props.refreshRate === 'Live') {
-    cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
-      on: isOn,
-      live: true,
-      name: props.cameraName,
-    });
-
-    manageStreamStates();
+    manageStreamStates(isOn);
 
     if (camerasOn === 1) {
       try {
@@ -84,7 +81,7 @@ const viewCamera = async (isOn: boolean) => {
 const viewFrame = async (cameraName: string) => {
   let blob;
   try {
-    blob = await new CameraClient(props.client, cameraName).renderFrame(Camera.MimeType.JPEG);
+    blob = await new CameraClient(props.client, cameraName).renderFrame('image/jpeg');
   } catch (error) {
     displayError(error as ServiceError);
     return;
@@ -137,7 +134,7 @@ const exportScreenshot = async (cameraName: string) => {
   let blob;
   try {
     blob = await new CameraClient(props.client, cameraName).renderFrame(
-      Camera.MimeType.JPEG
+      'image/jpeg'
     );
   } catch (error) {
     displayError(error as ServiceError);
@@ -157,7 +154,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   cameraOn = false;
-
+  manageStreamStates(false);
   clearFrameInterval();
 });
 

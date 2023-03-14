@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -96,23 +95,18 @@ func init() {
 		},
 		func(r io.Reader) (image.Config, error) {
 			// Using Gray 16 as underlying color model for depth
-			f := r.(*bufio.Reader)
-			firstBytes, err := _readNext(r)
-			if err != nil || firstBytes != MagicNumIntViamType {
-				return image.Config{}, errors.Wrap(err, "first image bytes do not match expected magic number")
-			}
-			rawWidth, err := _readNext(f)
+			imgBytes := make([]byte, RawDepthHeaderLength)
+			_, err := io.ReadFull(r, imgBytes)
 			if err != nil {
 				return image.Config{}, err
 			}
-			rawHeight, err := _readNext(f)
-			if err != nil {
-				return image.Config{}, err
-			}
+			header := imgBytes[:RawDepthHeaderLength]
+			width := binary.BigEndian.Uint64(header[8:16])
+			height := binary.BigEndian.Uint64(header[16:24])
 			return image.Config{
 				ColorModel: color.Gray16Model,
-				Width:      int(rawWidth),
-				Height:     int(rawHeight),
+				Width:      int(width),
+				Height:     int(height),
 			}, nil
 		},
 	)
