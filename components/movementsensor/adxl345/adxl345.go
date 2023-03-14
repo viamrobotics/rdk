@@ -234,7 +234,7 @@ func NewAdxl345(
 	}
 
 	if (cfg.FreeFall != nil) && (cfg.FreeFall.InterruptPin != "") {
-		interruptMap, err = addInterruptPin(b, cfg.SingleTap.InterruptPin, interruptMap)
+		interruptMap, err = addInterruptPin(b, cfg.FreeFall.InterruptPin, interruptMap)
 		if err != nil {
 			return nil, err
 		}
