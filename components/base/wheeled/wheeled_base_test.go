@@ -7,15 +7,30 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
+
+var testCfg config.Component = config.Component{
+	Name:  "test",
+	Type:  base.Subtype.ResourceSubtype,
+	Model: resource.Model{Name: "wheeled_base"},
+	ConvertedAttributes: &AttrConfig{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m", "br-m"},
+	},
+}
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
@@ -34,22 +49,11 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := config.Component{
-		Name:  "test",
-		Type:  base.Subtype.ResourceSubtype,
-		Model: resource.Model{Name: "wheeled_base"},
-		ConvertedAttributes: &AttrConfig{
-			WidthMM:              100,
-			WheelCircumferenceMM: 1000,
-			Left:                 []string{"fl-m", "bl-m"},
-			Right:                []string{"fr-m", "br-m"},
-		},
-	}
-	deps, err := cfg.Validate("path")
+	deps, err := testCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, logger)
+	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -308,28 +312,82 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// valid config
-	compCfg := config.Component{
-		Name:  "test",
-		Type:  base.Subtype.ResourceSubtype,
-		Model: resource.Model{Name: "wheeled_base"},
-		ConvertedAttributes: &AttrConfig{
-			WidthMM:              100,
-			WheelCircumferenceMM: 1000,
-			Left:                 []string{"fl-m", "bl-m"},
-			Right:                []string{"fr-m", "br-m"},
-		},
-	}
-	deps, err := compCfg.Validate("path")
+	deps, err := testCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, compCfg, logger)
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, len(base.left), test.ShouldEqual, 2)
 	test.That(t, len(base.right), test.ShouldEqual, 2)
 	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
+}
+
+func TestKinematicBase(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	label := "base"
+	frame := &referenceframe.LinkConfig{
+		Geometry: &spatialmath.GeometryConfig{
+			R:                 5,
+			X:                 4,
+			Y:                 3,
+			L:                 10,
+			TranslationOffset: r3.Vector{X: 3, Y: 4, Z: 0},
+			Label:             label,
+		},
+	}
+
+	testCases := []struct {
+		geoType spatialmath.GeometryType
+		success bool
+	}{
+		{spatialmath.SphereType, true},
+		{spatialmath.BoxType, true},
+		{spatialmath.CapsuleType, true},
+		{spatialmath.UnknownType, true},
+		{spatialmath.GeometryType("bad"), false},
+	}
+
+	deps, err := testCfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+	kinematicCfg := testCfg
+
+	// can't directly compare radius, so look at larger and smaller spheres as a proxy
+	biggerSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10.1, "")
+	test.That(t, err, test.ShouldBeNil)
+	smallerSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 9.9, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, tc := range testCases {
+		t.Run(string(tc.geoType), func(t *testing.T) {
+			frame.Geometry.Type = tc.geoType
+			kinematicCfg.Frame = frame
+			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
+			test.That(t, err, test.ShouldBeNil)
+			wrappable, ok := basic.(base.KinematicWrappable)
+			test.That(t, ok, test.ShouldBeTrue)
+			wb, err := wrappable.WrapWithKinematics(nil)
+			test.That(t, err == nil, test.ShouldEqual, tc.success)
+			if err != nil {
+				return
+			}
+			kwb, ok := wb.(*kinematicWheeledBase)
+			test.That(t, ok, test.ShouldBeTrue)
+			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, 2))
+			test.That(t, err, test.ShouldBeNil)
+			encompassed, err := geometry.GeometryByName(testCfg.Name + ":" + label).EncompassedBy(biggerSphere)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, encompassed, test.ShouldBeTrue)
+			encompassed, err = geometry.GeometryByName(testCfg.Name + ":" + label).EncompassedBy(smallerSphere)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, encompassed, test.ShouldBeFalse)
+		})
+	}
 }
 
 func TestValidate(t *testing.T) {
