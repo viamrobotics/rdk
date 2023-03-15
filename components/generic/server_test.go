@@ -5,7 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	pb "go.viam.com/api/component/generic/v1"
+	commonpb "go.viam.com/api/common/v1"
+	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
@@ -15,7 +16,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer() (pb.GenericServiceServer, *inject.Generic, *inject.Generic, error) {
+func newServer() (genericpb.GenericServiceServer, *inject.Generic, *inject.Generic, error) {
 	injectGeneric := &inject.Generic{}
 	injectGeneric2 := &inject.Generic{}
 	resourceMap := map[resource.Name]interface{}{
@@ -56,19 +57,19 @@ func TestGenericDo(t *testing.T) {
 	commandStruct, err := protoutils.StructToStructPb(generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 
-	req := pb.DoCommandRequest{Name: testGenericName, Command: commandStruct}
+	req := commonpb.DoCommandRequest{Name: testGenericName, Command: commandStruct}
 	resp, err := genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp.Result.AsMap()["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
 	test.That(t, resp.Result.AsMap()["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-	req = pb.DoCommandRequest{Name: failGenericName, Command: commandStruct}
+	req = commonpb.DoCommandRequest{Name: failGenericName, Command: commandStruct}
 	resp, err = genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resp, test.ShouldBeNil)
 
-	req = pb.DoCommandRequest{Name: fakeGenericName, Command: commandStruct}
+	req = commonpb.DoCommandRequest{Name: fakeGenericName, Command: commandStruct}
 	resp, err = genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resp, test.ShouldBeNil)
