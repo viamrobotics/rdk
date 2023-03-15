@@ -45,6 +45,14 @@ func (pin *gpioPin) openGpioFd() error {
 		return nil // The pin is already opened, don't re-open it.
 	}
 
+	if pin.hwPwm != nil {
+		// If the pin is currently used by the hardware PWM chip, shut that down before we can open
+		// it for basic GPIO use.
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
+	}
+
 	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
 		return err
@@ -81,16 +89,11 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	pin.swPwmRunning = false
-	if pin.hwPwm != nil {
-		if err := pin.hwPwm.Close(); err != nil {
-			return err
-		}
-	}
 	if err := pin.openGpioFd(); err != nil {
 		return err
 	}
 
+	pin.swPwmRunning = false
 	return pin.setInternal(isHigh)
 }
 
@@ -114,11 +117,6 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if pin.hwPwm != nil {
-		if err := pin.hwPwm.Close(); err != nil {
-			return false, err
-		}
-	}
 	if err := pin.openGpioFd(); err != nil {
 		return false, err
 	}
