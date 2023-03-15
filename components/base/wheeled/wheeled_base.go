@@ -184,7 +184,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 		errAngle := targetYaw - currYaw
 
-		overshot := hasOverShot(currYaw, startYaw, targetYaw, overshoot, dir)
+		overshot := hasOverShot(currYaw, startYaw, targetYaw, overshoot, angleDeg, dir)
 
 		// poll the sensor for the current error in angle
 		// also check if we've overshot our target by fifteen degrees
@@ -254,62 +254,39 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, fl
 	return targetYaw, overshoot, dir
 }
 
-// this function does not wrap around 360 degrees currently
+// this function does not wrap around 360 degrees currently.
 func angleBetween(angle, bound1, bound2 float64) bool {
 	if bound2 > bound1 {
-		return angle > bound1 && angle < bound2
-	} else {
-		return angle > bound2 && angle < bound1
+		return angle > bound1 && angle <= bound2
 	}
-
+	return angle > bound2 && angle <= bound1
 }
 
-func hasOverShot(angle, start, target, over, dir float64) bool {
+func hasOverShot(angle, start, target, over, added, dir float64) bool {
 
-	switch {
-	// counterclockwise cases
-	case dir == 1:
+	if dir == -1 {
 		switch {
-		// handle edge cases of transition from q4 -> q1
-
-		// target is between 360 minus sovershoot  and 360 overshoot window, we check if we are in range
-		// or if we have overshot into quadrant 1
-		case angleBetween(target, 270, 360):
-			if angleBetween(over, 0, 90) {
-				return angleBetween(angle, target, 360) || angleBetween(angle, 0, 90)
-			}
-			return angleBetween(angle, target, 360) //|| angleBetween(angle, 0, 90)
-		// target is between 0 and the overshoot window, we check if we are in range
-		// or if we have overshot into quadrant 1
-		// case angleBetween(target, 0, 90):
-		// return angleBetween(angle, 0, target) || angleBetween(angle, target, 90)
-		// target will always be larger than current angle unless, we have overshot in
-		// the default range
+		case rdkutils.Float64AlmostEqual(target, 0, 0.5):
+			return angleBetween(angle, 0, allowableAngle)
+		case rdkutils.Float64AlmostEqual(added, 360, 0.5):
+			return angleBetween(angle, target-allowableAngle, target)
+		case over < target:
+			return angleBetween(angle, over, start)
 		default:
-			return angle-target > 0 || angle-over > 0
+			return !angleBetween(angle, target, over)
 		}
 
-	// clockwise cases
-	case dir == -1:
-		switch {
-		// handle edge cases of transition from q1 -> q4
-		// target is between 360-overshoot  and 360 overshoot window, we check if we are in range
-		// or if we have overshot into quadrant 4
-		case angleBetween(target, 0, allowableAngle):
-			return angleBetween(angle, target, 0)
-			// target is between 360 minus overshoot  and 360 overshoot window, we check if we are in range
-		// or if we have overshot into quadrant 4
-		case angleBetween(target, 360, 360-allowableAngle):
-			return angleBetween(angle, target, 360)
-		// target will always be smaller tahn current angle, unless we have overshot in
-		// the default range
-		default:
-			return angle-target < 0 || angle-over < 0
-
-		}
 	}
-
-	return angleBetween(angle, target, over)
+	switch {
+	case rdkutils.Float64AlmostEqual(target, 0, 0.5):
+		return angleBetween(angle, 0, allowableAngle)
+	case rdkutils.Float64AlmostEqual(added, 360, 0.5):
+		return angleBetween(angle, target-allowableAngle, target)
+	case over > target:
+		return angleBetween(angle, target, over)
+	default:
+		return !angleBetween(angle, start, target)
+	}
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
