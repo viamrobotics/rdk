@@ -27,8 +27,8 @@ const (
 	milliAmp             = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
 	milliOhm             = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
 	defaultI2Caddr       = 0x40
-	senseResistor        = 100 * milliOhm  // .1 ohm = 100 * milliOhm * microOhm * nanoOhm
-	maxCurrent           = 3200 * milliAmp // 3.2 amp = 3200 * milliAmpere * microAmpere * nanoAmpere
+	senseResistor        = 100 * milliOhm  // .1 ohm
+	maxCurrent           = 3200 * milliAmp // 3.2 amp
 	calibratescale       = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12
 	configRegister       = 0x00
 	shuntVoltageRegister = 0x01
