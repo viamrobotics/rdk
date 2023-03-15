@@ -119,7 +119,7 @@ func newSensor(
 	return s, nil
 }
 
-// ina219 is a i2c sensor device that reports voltage, current and power
+// ina219 is a i2c sensor device that reports voltage, current and power.
 type ina219 struct {
 	generic.Unimplemented
 	logger     golog.Logger
