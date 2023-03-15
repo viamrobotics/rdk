@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -218,6 +219,7 @@ type collectorAndConfig struct {
 type componentMethodMetadata struct {
 	ComponentName  string
 	ComponentModel resource.Model
+	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
 
@@ -349,6 +351,7 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
 		MethodMetadata: metadata,
+		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 	}
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
@@ -458,6 +461,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 					ComponentName:  attributes.Name,
 					ComponentModel: attributes.Model,
 					MethodMetadata: methodMetadata,
+					MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 				}
 
 				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, attributes)
