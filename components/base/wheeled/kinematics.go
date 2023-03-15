@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 type kinematicWheeledBase struct {
@@ -24,6 +25,10 @@ func WrapWithKinematics(base *wheeledBase, slam slam.Service) (base.KinematicBas
 	kwb := &kinematicWheeledBase{
 		wheeledBase: base,
 		slam:        slam,
+	}
+	kwb.model, err = kwb.buildModel()
+	if err != nil {
+		return nil, err
 	}
 	return kwb, err
 }
@@ -42,7 +47,28 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return errors.New("not implemented yet")
 }
 
-func model(cfg config.Component) (referenceframe.Model, error) {
+func (kwb *kinematicWheeledBase) buildModel() (referenceframe.Model, error) {
+	if kwb.collisionGeometry == nil {
+		return nil, errors.New("cannot create model for base with no collision geometry")
+	}
+
+	// get the limits of the SLAM map to set as the extents of the frame
+	kwb.slam.GetMap(context.Background(), "", utils.MimeTypePCD, )
+
+	// build the model
+	frame2D, err := referenceframe.NewMobile2DFrame(
+		kwb.collisionGeometry.Label(),
+		[]referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}},
+		kwb.collisionGeometry)
+	if err != nil {
+		return nil, err
+	}
+	model := referenceframe.NewSimpleModel(kwb.name)
+	model.OrdTransforms = []referenceframe.Frame{frame2D}
+	return model, nil
+}
+
+func collisionGeometry(cfg config.Component) (spatialmath.Geometry, error) {
 	// TODO(rb): this is a hacky workaround for not having kinematics for bases yet
 	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
 	geoCfg := cfg.Frame.Geometry
@@ -54,7 +80,6 @@ func model(cfg config.Component) (referenceframe.Model, error) {
 		r += geoCfg.R
 	case spatialmath.CapsuleType:
 		r += geoCfg.L / 2
-	case spatialmath.PointType:
 	case spatialmath.UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
@@ -64,6 +89,7 @@ func model(cfg config.Component) (referenceframe.Model, error) {
 		} else {
 			r += geoCfg.R
 		}
+	case spatialmath.PointType:
 	default:
 		return nil, spatialmath.ErrGeometryTypeUnsupported
 	}
@@ -72,16 +98,5 @@ func model(cfg config.Component) (referenceframe.Model, error) {
 		// could not create a sphere, just use a point instead
 		sphere = spatialmath.NewPoint(r3.Vector{}, geoCfg.Label)
 	}
-
-	// TODO(rb): figure out a better set of limits to impose on the base frame
-	frame2D, err := referenceframe.NewMobile2DFrame(
-		sphere.Label(),
-		[]referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}},
-		sphere)
-	if err != nil {
-		return nil, err
-	}
-	model := referenceframe.NewSimpleModel(cfg.Name)
-	model.OrdTransforms = []referenceframe.Frame{frame2D}
-	return model, nil
+	return sphere, nil
 }
