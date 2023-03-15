@@ -42,7 +42,10 @@ func (lF *LinkInFrame) ToStaticFrame(name string) (Frame, error) {
 		pose = spatialmath.NewZeroPose()
 	}
 	if lF.geometry != nil {
-		return NewStaticFrameWithGeometry(name, pose, lF.geometry)
+		// deep copy geometry
+		newGeom := lF.geometry.Transform(spatialmath.NewZeroPose())
+		newGeom.SetLabel(name)
+		return NewStaticFrameWithGeometry(name, pose, newGeom)
 	}
 
 	return NewStaticFrame(name, pose)

@@ -3,6 +3,8 @@ package inject
 import (
 	"context"
 
+	servicepb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -17,6 +19,7 @@ type MotionService struct {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		constraints *servicepb.Constraints,
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
@@ -44,13 +47,14 @@ func (mgs *MotionService) Move(
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	constraints *servicepb.Constraints,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.Move(ctx, componentName, grabPose, worldState, slamName, extra)
+		return mgs.Service.Move(ctx, componentName, grabPose, worldState, constraints, slamName, extra)
 	}
-	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, slamName, extra)
+	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, constraints, slamName, extra)
 }
 
 // MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
