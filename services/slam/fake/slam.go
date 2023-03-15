@@ -113,5 +113,6 @@ func (slamSvc *SLAM) incrementDataCount() {
 func (slamSvc *SLAM) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::DoCommand")
 	defer span.End()
+	slamSvc.incrementDataCount()
 	return fakeParallelProjectionOntoXZWithRobotMarker(ctx, datasetDirectory, slamSvc, cmd)
 }
