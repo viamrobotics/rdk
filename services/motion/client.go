@@ -40,6 +40,7 @@ func (c *client) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *pb.Constraints,
+	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -51,12 +52,13 @@ func (c *client) Move(
 		return false, err
 	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
-		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldStateMsg,
-		Constraints:   constraints,
-		Extra:         ext,
+		Name:            c.name,
+		ComponentName:   protoutils.ResourceNameToProto(componentName),
+		Destination:     referenceframe.PoseInFrameToProtobuf(destination),
+		WorldState:      worldStateMsg,
+		Constraints:     constraints,
+		SlamServiceName: protoutils.ResourceNameToProto(slamName),
+		Extra:           ext,
 	})
 	if err != nil {
 		return false, err
