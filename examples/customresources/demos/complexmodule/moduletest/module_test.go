@@ -361,7 +361,7 @@ func touchFile(path string) error {
 }
 
 func TestValidationFailure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger, logs := golog.NewObservedTestLogger(t)
 
 	// bad_modular_validation.json contains a "mybase" modular component that will
 	// fail modular Validation due to a missing "motorL" attribute.
@@ -397,7 +397,7 @@ func TestValidationFailure(t *testing.T) {
 		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that motors were added but base was not due to failed Validation.
+	// Assert that motors were added but base was not.
 	_, err = rc.ResourceByName(motor.Named("motor1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = rc.ResourceByName(motor.Named("motor2"))
@@ -405,4 +405,10 @@ func TestValidationFailure(t *testing.T) {
 	_, err = rc.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble, `resource "rdk:component:base/base1" not found`)
+
+	// Assert that Validation failure is present in server output, but build failure
+	// is not.
+	test.That(t, logs.FilterMessageSnippet(
+		"Modular config validation error found in component: base1").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }
