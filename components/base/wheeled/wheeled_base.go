@@ -184,7 +184,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 		errAngle := targetYaw - currYaw
 
-		overshot := hasOverShot(currYaw, startYaw, targetYaw, overshoot, angleDeg, dir)
+		overshot := hasOverShot(currYaw, startYaw, targetYaw, dir)
 
 		// poll the sensor for the current error in angle
 		// also check if we've overshot our target by fifteen degrees
@@ -225,6 +225,7 @@ func addAnglesInDomain(target, current float64, half bool) float64 {
 	// force it to be the positive remainder, so that 0 <= angle < 360
 	angle = math.Mod(angle+360, 360)
 
+	
 	if half {
 		// force into the minimum absolute value residue class, so that -180 < angle <= 180
 		if angle > 180 {
@@ -262,30 +263,19 @@ func angleBetween(angle, bound1, bound2 float64) bool {
 	return angle > bound2 && angle <= bound1
 }
 
-func hasOverShot(angle, start, target, over, added, dir float64) bool {
-
-	if dir == -1 {
-		switch {
-		case rdkutils.Float64AlmostEqual(target, 0, 0.5):
-			return angleBetween(angle, 0, allowableAngle)
-		case rdkutils.Float64AlmostEqual(added, 360, 0.5):
-			return angleBetween(angle, target-allowableAngle, target)
-		case over < target:
-			return angleBetween(angle, over, start)
-		default:
-			return !angleBetween(angle, target, over)
-		}
-
-	}
+func hasOverShot(angle, start, target, dir float64) bool {
 	switch {
-	case rdkutils.Float64AlmostEqual(target, 0, 0.5):
-		return angleBetween(angle, 0, allowableAngle)
-	case rdkutils.Float64AlmostEqual(added, 360, 0.5):
-		return angleBetween(angle, target-allowableAngle, target)
-	case over > target:
-		return angleBetween(angle, target, over)
+	// for most cases, the absolute angle of our overshoot is larger than our target
+	// however we need to check is we are within range if our start angle is smaller
+	// than our target
+	case dir*start > dir*target:
+		// we check if the current angle is within the allowable range
+		// multiplying each angle by the direction functions like taking an absolute
+		return angleBetween(dir*angle, dir*target, dir*start)
+	// for cases with a quadrant switch from 1 -> in either direction
+	// the overshoot range is the outside range between the start and target
 	default:
-		return !angleBetween(angle, start, target)
+		return !angleBetween(dir*angle, dir*start, dir*target)
 	}
 }
 
