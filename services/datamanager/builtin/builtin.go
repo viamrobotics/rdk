@@ -118,7 +118,7 @@ type builtIn struct {
 	syncLogger                  golog.Logger
 	captureDir                  string
 	captureDisabled             bool
-	collectors                  map[collectorID]*collectorAndConfig
+	collectors                  map[componentMethodMetadata]*collectorAndConfig
 	lock                        sync.Mutex
 	backgroundWorkers           sync.WaitGroup
 	waitAfterLastModifiedMillis int
@@ -155,7 +155,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		logger:                      logger,
 		syncLogger:                  syncLogger,
 		captureDir:                  viamCaptureDotDir,
-		collectors:                  make(map[collectorID]*collectorAndConfig),
+		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
 		backgroundWorkers:           sync.WaitGroup{},
 		lock:                        sync.Mutex{},
 		syncIntervalMins:            0,
@@ -215,7 +215,7 @@ type collectorAndConfig struct {
 
 // Identifier for a particular collector: component name, component model, component type,
 // method parameters, and method name.
-type collectorID struct {
+type componentMethodMetadata struct {
 	ComponentName  string
 	ComponentModel resource.Model
 	MethodMetadata data.MethodMetadata
@@ -232,7 +232,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
-	collectorID collectorID,
+	collectorID componentMethodMetadata,
 	attributes dataCaptureConfig) (
 	*collectorAndConfig, error,
 ) {
@@ -338,14 +338,14 @@ func (svc *builtIn) initSyncer(cfg *config.Config) error {
 }
 
 // getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
-func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *collectorID) {
+func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
 		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
 
-	componentMetadata := collectorID{
+	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
 		MethodMetadata: metadata,
@@ -440,11 +440,11 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
 		svc.closeCollectors()
-		svc.collectors = make(map[collectorID]*collectorAndConfig)
+		svc.collectors = make(map[componentMethodMetadata]*collectorAndConfig)
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
-	newCollectors := make(map[collectorID]*collectorAndConfig)
+	newCollectors := make(map[componentMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
 		for _, attributes := range allComponentAttributes {
 			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
@@ -454,7 +454,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 					MethodName: attributes.Method,
 				}
 
-				collID := collectorID{
+				collID := componentMethodMetadata{
 					ComponentName:  attributes.Name,
 					ComponentModel: attributes.Model,
 					MethodMetadata: methodMetadata,
