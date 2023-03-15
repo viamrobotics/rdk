@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -68,17 +69,26 @@ func TestSessions(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("window size=%s", windowSize), func(t *testing.T) {
 			logger := golog.NewTestLogger(t)
-			stopChMotor1 := make(chan struct{})
-			stopChMotor2 := make(chan struct{})
-			stopChEcho1 := make(chan struct{})
-			stopChBase1 := make(chan struct{})
+
+			stopChs := map[string]*StopChan{
+				"motor1": {make(chan struct{}), "motor1"},
+				"motor2": {make(chan struct{}), "motor2"},
+				"echo1":  {make(chan struct{}), "echo1"},
+				"base1":  {make(chan struct{}), "base1"},
+			}
+			stopChNames := make([]string, 0, len(stopChs))
+			for name := range stopChs {
+				stopChNames = append(stopChNames, name)
+			}
+
+			ensureStop := makeEnsureStop(stopChs)
 
 			modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 			streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-			dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
-			dummyMotor2 := dummyMotor{stopCh: stopChMotor2}
-			dummyEcho1 := dummyEcho{stopCh: stopChEcho1}
-			dummyBase1 := dummyBase{stopCh: stopChBase1}
+			dummyMotor1 := dummyMotor{stopCh: stopChs["motor1"].Chan}
+			dummyMotor2 := dummyMotor{stopCh: stopChs["motor2"].Chan}
+			dummyEcho1 := dummyEcho{stopCh: stopChs["echo1"].Chan}
+			dummyBase1 := dummyBase{stopCh: stopChs["base1"].Chan}
 			registry.RegisterComponent(
 				motor.Subtype,
 				modelName,
@@ -123,35 +133,35 @@ func TestSessions(t *testing.T) {
 			)
 
 			roboConfig := fmt.Sprintf(`{
-		"network":{
-			"sessions": {
-				"heartbeat_window": %[1]q
+				"network":{
+					"sessions": {
+						"heartbeat_window": %[1]q
+					}
+				},
+				"components": [
+					{
+						"model": "%[2]s",
+						"name": "motor1",
+						"type": "motor"
+					},
+					{
+						"model": "%[2]s",
+						"name": "motor2",
+						"type": "motor"
+					},
+					{
+						"model": "%[3]s",
+						"name": "echo1",
+						"type": "echo"
+					},
+					{
+						"model": "%[2]s",
+						"name": "base1",
+						"type": "base"
+					}
+				]
 			}
-		},
-		"components": [
-			{
-				"model": "%[2]s",
-				"name": "motor1",
-				"type": "motor"
-			},
-			{
-				"model": "%[2]s",
-				"name": "motor2",
-				"type": "motor"
-			},
-			{
-				"model": "%[3]s",
-				"name": "dummy1",
-				"type": "echo"
-			},
-			{
-				"model": "%[2]s",
-				"name": "base1",
-				"type": "base"
-			}
-		]
-	}
-	`, windowSize, modelName, streamModelName)
+			`, windowSize, modelName, streamModelName)
 
 			cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -170,7 +180,7 @@ func TestSessions(t *testing.T) {
 			motor1, err := motor.FromRobot(roboClient, "motor1")
 			test.That(t, err, test.ShouldBeNil)
 
-			// this kind of method doesn't cause safety monitoring
+			t.Log("get position of motor1 which will not be safety monitored")
 			pos, err := motor1.Position(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pos, test.ShouldEqual, 2.0)
@@ -178,17 +188,7 @@ func TestSessions(t *testing.T) {
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 			// kind of racy but it's okay
-			select {
-			case <-stopChMotor1:
-				panic("unexpected")
-			case <-stopChMotor2:
-				panic("unexpected")
-			case <-stopChEcho1:
-				panic("unexpected")
-			case <-stopChBase1:
-				panic("unexpected")
-			default:
-			}
+			ensureStop(t, "", stopChNames)
 
 			roboClient, err = client.New(ctx, addr, logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -196,42 +196,13 @@ func TestSessions(t *testing.T) {
 			motor1, err = motor.FromRobot(roboClient, "motor1")
 			test.That(t, err, test.ShouldBeNil)
 
-			// this should cause safety monitoring
+			t.Log("set power of motor1 which will be safety monitored")
 			test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
 			startAt := time.Now()
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
-			select {
-			case <-stopChMotor1:
-				panic("unexpected; too fast")
-			case <-stopChMotor2:
-				panic("unexpected; too fast")
-			case <-stopChEcho1:
-				panic("unexpected; too fast")
-			case <-stopChBase1:
-				panic("unexpected; too fast")
-			default:
-			}
-
-			select {
-			case <-stopChMotor1:
-				select {
-				case <-stopChMotor2:
-					panic("unexpected; wrong stop")
-				case <-stopChEcho1:
-					panic("unexpected; wrong stop")
-				case <-stopChBase1:
-					panic("unexpected; wrong stop")
-				default:
-				}
-			case <-stopChMotor2:
-				panic("unexpected; wrong stop")
-			case <-stopChEcho1:
-				panic("unexpected; wrong stop")
-			case <-stopChBase1:
-				panic("unexpected; wrong stop")
-			}
+			ensureStop(t, "motor1", stopChNames)
 
 			test.That(t,
 				time.Since(startAt),
@@ -241,7 +212,8 @@ func TestSessions(t *testing.T) {
 			)
 
 			dummyMotor1.mu.Lock()
-			stopChMotor1 = make(chan struct{})
+			stopChs["motor1"].Chan = make(chan struct{})
+			dummyMotor1.stopCh = stopChs["motor1"].Chan
 			dummyMotor1.mu.Unlock()
 
 			roboClient, err = client.New(ctx, addr, logger)
@@ -250,15 +222,16 @@ func TestSessions(t *testing.T) {
 			motor2, err := motor.FromRobot(roboClient, "motor2")
 			test.That(t, err, test.ShouldBeNil)
 
-			// this should cause safety monitoring
+			t.Log("set power of motor2 which will be safety monitored")
 			test.That(t, motor2.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-			dummyName := resource.NameFromSubtype(echoSubType, "dummy1")
-			dummy1Client, err := roboClient.ResourceByName(dummyName)
+			dummyName := resource.NameFromSubtype(echoSubType, "echo1")
+			echo1Client, err := roboClient.ResourceByName(dummyName)
 			test.That(t, err, test.ShouldBeNil)
-			dummy1Conn := dummy1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
+			echo1Conn := echo1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
 
-			echoMultiClient, err := dummy1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "dummy1"})
+			t.Log("echo multiple of echo1 which will be safety monitored")
+			echoMultiClient, err := echo1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
 			test.That(t, err, test.ShouldBeNil)
 			_, err = echoMultiClient.Recv() // EOF; okay
 			test.That(t, err, test.ShouldBeError, io.EOF)
@@ -266,33 +239,10 @@ func TestSessions(t *testing.T) {
 			startAt = time.Now()
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
-			select {
-			case <-stopChMotor1:
-				panic("unexpected; too fast")
-			case <-stopChMotor2:
-				panic("unexpected; too fast")
-			case <-stopChEcho1:
-				panic("unexpected; too fast")
-			case <-stopChBase1:
-				panic("unexpected; too fast")
-			default:
-			}
-
-			for idx, ch := range []chan struct{}{
-				stopChMotor2, stopChEcho1, stopChBase1,
-			} {
-				logger.Info("check stop on ", idx)
-				select {
-				case <-stopChMotor1:
-					panic("unexpected; wrong stop")
-				case <-ch:
-					select {
-					case <-stopChMotor1:
-						panic("unexpected; wrong stop")
-					default:
-					}
-				}
-			}
+			checkAgainst := []string{"motor1"}
+			ensureStop(t, "motor2", checkAgainst)
+			ensureStop(t, "echo1", checkAgainst)
+			ensureStop(t, "base1", checkAgainst)
 
 			test.That(t,
 				time.Since(startAt),
@@ -310,21 +260,30 @@ func TestSessions(t *testing.T) {
 
 func TestSessionsWithRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	stopChRemMotor1 := make(chan struct{})
-	stopChRemMotor2 := make(chan struct{})
-	stopChRemEcho1 := make(chan struct{})
-	stopChRemBase1 := make(chan struct{})
-	stopChMotor1 := make(chan struct{})
-	stopChBase1 := make(chan struct{})
+
+	stopChs := map[string]*StopChan{
+		"remMotor1": {make(chan struct{}), "remMotor1"},
+		"remMotor2": {make(chan struct{}), "remMotor2"},
+		"remEcho1":  {make(chan struct{}), "remEcho1"},
+		"remBase1":  {make(chan struct{}), "remBase1"},
+		"motor1":    {make(chan struct{}), "motor1"},
+		"base1":     {make(chan struct{}), "base1"},
+	}
+	stopChNames := make([]string, 0, len(stopChs))
+	for name := range stopChs {
+		stopChNames = append(stopChNames, name)
+	}
+
+	ensureStop := makeEnsureStop(stopChs)
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-	dummyRemMotor1 := dummyMotor{stopCh: stopChRemMotor1}
-	dummyRemMotor2 := dummyMotor{stopCh: stopChRemMotor2}
-	dummyRemEcho1 := dummyEcho{stopCh: stopChRemEcho1}
-	dummyRemBase1 := dummyBase{stopCh: stopChRemBase1}
-	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
-	dummyBase1 := dummyBase{stopCh: stopChBase1}
+	dummyRemMotor1 := dummyMotor{stopCh: stopChs["remMotor1"].Chan}
+	dummyRemMotor2 := dummyMotor{stopCh: stopChs["remMotor2"].Chan}
+	dummyRemEcho1 := dummyEcho{stopCh: stopChs["remEcho1"].Chan}
+	dummyRemBase1 := dummyBase{stopCh: stopChs["remBase1"].Chan}
+	dummyMotor1 := dummyMotor{stopCh: stopChs["motor1"].Chan}
+	dummyBase1 := dummyBase{stopCh: stopChs["base1"].Chan}
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
@@ -394,7 +353,7 @@ func TestSessionsWithRemote(t *testing.T) {
 			},
 			{
 				"model": "%[2]s",
-				"name": "dummy1",
+				"name": "echo1",
 				"type": "echo",
 				"attributes": {
 					"rem": true
@@ -461,7 +420,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
 	test.That(t, err, test.ShouldBeNil)
 
-	// this kind of method doesn't cause safety monitoring
+	t.Log("get position of rem1:motor1 which will not be safety monitored")
 	pos, err := motor1.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, 2.0)
@@ -469,21 +428,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 	// kind of racy but it's okay
-	select {
-	case <-stopChRemMotor1:
-		panic("unexpected")
-	case <-stopChRemMotor2:
-		panic("unexpected")
-	case <-stopChRemEcho1:
-		panic("unexpected")
-	case <-stopChRemBase1:
-		panic("unexpected")
-	case <-stopChMotor1:
-		panic("unexpected")
-	case <-stopChBase1:
-		panic("unexpected")
-	default:
-	}
+	ensureStop(t, "", stopChNames)
 
 	roboClient, err = client.New(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -492,54 +437,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// this should cause safety monitoring
+	t.Log("set power of rem1:motor1 which will be safety monitored")
 	test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
 	startAt := time.Now()
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
-	select {
-	case <-stopChRemMotor1:
-		panic("unexpected; too fast")
-	case <-stopChRemMotor2:
-		panic("unexpected; too fast")
-	case <-stopChRemEcho1:
-		panic("unexpected; too fast")
-	case <-stopChRemBase1:
-		panic("unexpected; too fast")
-	case <-stopChMotor1:
-		panic("unexpected; too fast")
-	case <-stopChBase1:
-		panic("unexpected; too fast")
-	default:
-	}
-
-	select {
-	case <-stopChRemMotor1:
-		select {
-		case <-stopChRemMotor2:
-			panic("unexpected; wrong stop")
-		case <-stopChRemEcho1:
-			panic("unexpected; wrong stop")
-		case <-stopChRemBase1:
-			panic("unexpected; wrong stop")
-		case <-stopChMotor1:
-			panic("unexpected; wrong stop")
-		case <-stopChBase1:
-			panic("unexpected; wrong stop")
-		default:
-		}
-	case <-stopChRemMotor2:
-		panic("unexpected; wrong stop")
-	case <-stopChRemEcho1:
-		panic("unexpected; wrong stop")
-	case <-stopChRemBase1:
-		panic("unexpected; wrong stop")
-	case <-stopChMotor1:
-		panic("unexpected; wrong stop")
-	case <-stopChBase1:
-		panic("unexpected; wrong stop")
-	}
-
+	ensureStop(t, "remMotor1", stopChNames)
 	test.That(t,
 		time.Since(startAt),
 		test.ShouldBeBetweenOrEqual,
@@ -548,8 +452,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	)
 
 	dummyRemMotor1.mu.Lock()
-	stopChRemMotor1 = make(chan struct{})
-	dummyRemMotor1.stopCh = stopChRemMotor1
+	stopChs["remMotor1"].Chan = make(chan struct{})
+	dummyRemMotor1.stopCh = stopChs["remMotor1"].Chan
 	dummyRemMotor1.mu.Unlock()
 
 	logger.Info("close robot instead of client")
@@ -560,54 +464,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
 	test.That(t, err, test.ShouldBeNil)
 
-	// this should cause safety monitoring
+	t.Log("set power of rem1:motor1 which will be safety monitored")
 	test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
 	startAt = time.Now()
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 
-	select {
-	case <-stopChRemMotor1:
-		panic("unexpected; too fast")
-	case <-stopChRemMotor2:
-		panic("unexpected; too fast")
-	case <-stopChRemEcho1:
-		panic("unexpected; too fast")
-	case <-stopChRemBase1:
-		panic("unexpected; too fast")
-	case <-stopChMotor1:
-		panic("unexpected; too fast")
-	case <-stopChBase1:
-		panic("unexpected; too fast")
-	default:
-	}
-
-	select {
-	case <-stopChRemMotor1:
-		select {
-		case <-stopChRemMotor2:
-			panic("unexpected; wrong stop")
-		case <-stopChRemEcho1:
-			panic("unexpected; wrong stop")
-		case <-stopChRemBase1:
-			panic("unexpected; wrong stop")
-		case <-stopChMotor1:
-			panic("unexpected; wrong stop")
-		case <-stopChBase1:
-			panic("unexpected; wrong stop")
-		default:
-		}
-	case <-stopChRemMotor2:
-		panic("unexpected; wrong stop")
-	case <-stopChRemEcho1:
-		panic("unexpected; wrong stop")
-	case <-stopChRemBase1:
-		panic("unexpected; wrong stop")
-	case <-stopChMotor1:
-		panic("unexpected; wrong stop")
-	case <-stopChBase1:
-		panic("unexpected; wrong stop")
-	}
+	ensureStop(t, "remMotor1", stopChNames)
 
 	test.That(t,
 		time.Since(startAt),
@@ -619,8 +482,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 	dummyRemMotor1.mu.Lock()
-	stopChRemMotor1 = make(chan struct{})
-	dummyRemMotor1.stopCh = stopChRemMotor1
+	stopChs["remMotor1"].Chan = make(chan struct{})
+	dummyRemMotor1.stopCh = stopChs["remMotor1"].Chan
 	dummyRemMotor1.mu.Unlock()
 
 	r, err = robotimpl.New(ctx, cfg, logger)
@@ -636,15 +499,15 @@ func TestSessionsWithRemote(t *testing.T) {
 	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
 	test.That(t, err, test.ShouldBeNil)
 
-	// this should cause safety monitoring
+	t.Log("set power of rem1:motor2 which will be safety monitored")
 	test.That(t, motor2.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-	dummyName := resource.NameFromSubtype(echoSubType, "dummy1")
-	dummy1Client, err := roboClient.ResourceByName(dummyName)
+	dummyName := resource.NameFromSubtype(echoSubType, "echo1")
+	echo1Client, err := roboClient.ResourceByName(dummyName)
 	test.That(t, err, test.ShouldBeNil)
-	dummy1Conn := dummy1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
+	echo1Conn := echo1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
 
-	echoMultiClient, err := dummy1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "dummy1"})
+	echoMultiClient, err := echo1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = echoMultiClient.Recv() // EOF; okay
 	test.That(t, err, test.ShouldBeError, io.EOF)
@@ -652,45 +515,10 @@ func TestSessionsWithRemote(t *testing.T) {
 	startAt = time.Now()
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
-	select {
-	case <-stopChRemMotor1:
-		panic("unexpected; too fast")
-	case <-stopChRemMotor2:
-		panic("unexpected; too fast")
-	case <-stopChRemEcho1:
-		panic("unexpected; too fast")
-	case <-stopChRemBase1:
-		panic("unexpected; too fast")
-	case <-stopChMotor1:
-		panic("unexpected; too fast")
-	case <-stopChBase1:
-		panic("unexpected; too fast")
-	default:
-	}
-
-	for idx, ch := range []chan struct{}{
-		stopChRemMotor2, stopChRemBase1, stopChRemEcho1,
-	} {
-		logger.Info("check stop on ", idx)
-		select {
-		case <-stopChRemMotor1:
-			panic("unexpected; wrong stop")
-		case <-stopChMotor1:
-			panic("unexpected; wrong stop")
-		case <-stopChBase1:
-			panic("unexpected; wrong stop")
-		case <-ch:
-			select {
-			case <-stopChRemMotor1:
-				panic("unexpected; wrong stop")
-			case <-stopChMotor1:
-				panic("unexpected; wrong stop")
-			case <-stopChBase1:
-				panic("unexpected; wrong stop")
-			default:
-			}
-		}
-	}
+	checkAgainst := []string{"remMotor1", "motor1", "base1"}
+	ensureStop(t, "remMotor2", checkAgainst)
+	ensureStop(t, "remBase1", checkAgainst)
+	ensureStop(t, "remEcho1", checkAgainst)
 
 	test.That(t,
 		time.Since(startAt),
@@ -1140,4 +968,53 @@ func (srv *echoServer) Stop(ctx context.Context, req *echopb.StopRequest) (*echo
 		return nil, err
 	}
 	return &echopb.StopResponse{}, nil
+}
+
+type StopChan struct {
+	Chan chan struct{}
+	Name string
+}
+
+func makeEnsureStop(stopChs map[string]*StopChan) func(t *testing.T, name string, checkAgainst []string) {
+	return func(t *testing.T, name string, checkAgainst []string) {
+		t.Helper()
+		stopCases := make([]reflect.SelectCase, 0, len(checkAgainst))
+		for _, checkName := range checkAgainst {
+			test.That(t, stopChs, test.ShouldContainKey, checkName)
+			if stopChs[checkName].Name == name {
+				continue
+			}
+			stopCases = append(stopCases, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(stopChs[checkName].Chan),
+			})
+		}
+
+		if name == "" {
+			t.Log("checking nothing stops")
+			stopCases = append(stopCases, reflect.SelectCase{
+				Dir: reflect.SelectDefault,
+			})
+		} else {
+			test.That(t, stopChs, test.ShouldContainKey, name)
+			expectedCh := stopChs[name]
+
+			stopCases = append(stopCases, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(expectedCh.Chan),
+			})
+			t.Logf("waiting for %q to stop", name)
+		}
+
+		choice, _, _ := reflect.Select(stopCases)
+		if choice == len(stopCases)-1 {
+			return
+		}
+		for _, ch := range stopChs {
+			if ch.Chan == stopCases[choice].Chan.Interface() {
+				t.Fatalf("expected %q to stop but got %q", name, ch.Name)
+			}
+		}
+		t.Fatal("unreachable; bug")
+	}
 }
