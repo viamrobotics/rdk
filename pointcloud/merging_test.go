@@ -40,6 +40,7 @@ func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
 }
 
 func TestApplyOffset(t *testing.T) {
+	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	logger := golog.NewTestLogger(t)
 	pc1 := NewWithPrealloc(3)
@@ -114,6 +115,7 @@ func TestApplyOffset(t *testing.T) {
 }
 
 func TestMergePoints1(t *testing.T) {
+	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	logger := golog.NewTestLogger(t)
 	clouds := makeClouds(t)
@@ -132,6 +134,7 @@ func TestMergePoints1(t *testing.T) {
 }
 
 func TestMergePoints2(t *testing.T) {
+	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	logger := golog.NewTestLogger(t)
 	clouds := makeThreeCloudsWithOffsets(t)
