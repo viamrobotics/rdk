@@ -21,11 +21,9 @@ type ConstraintInput struct {
 	Frame      referenceframe.Frame
 }
 
-// Constraint defines functions able to determine whether or not a given position is valid.
-// TODO (pl): Determine how Gradient should fit into this
-// A bool returning whether the given input is known to be good, and a float representing how far the input is
-// from "ideal".
-type Constraint func(*ConstraintInput) (bool, float64)
+// ArcConstraint tests whether 
+type ArcConstraint func(*ConstraintInput) (bool, float64)
+type StateConstraint func(*ConstraintInput) (bool, float64)
 
 // constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
