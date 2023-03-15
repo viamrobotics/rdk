@@ -24,23 +24,19 @@ const (
 	TimeFfAddr byte = 0x29
 )
 
-// types of interrupts.
+// InterruptID is a type of interrupts available on ADXL345.
 type InterruptID = uint8
 
 const (
+	// SingleTap is a key value used to find various needs associated with this interrupt.
 	SingleTap InterruptID = iota
-	FreeFall  InterruptID = iota
+	// FreeFall is a key value used to find various needs associated with this interrupt.
+	FreeFall InterruptID = iota
 )
 
 var interruptBitPosition = map[InterruptID]byte{
 	SingleTap: 1 << 6,
 	FreeFall:  1 << 2,
-}
-
-// If you ever want to print out the names, use this.
-var interruptNames = map[InterruptID]string{
-	SingleTap: "SINGLE_TAP",
-	FreeFall:  "FREE_FALL",
 }
 
 /*
