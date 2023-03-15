@@ -437,10 +437,9 @@ func TestSpinWithMSMath(t *testing.T) {
 	} {
 		params.goal = addAnglesInDomain(params.start, params.added, false)
 		params.over = addAnglesInDomain(params.start, params.added+params.dir*15, false)
-		goal, over, dir := findSpinParams(params.added, params.speed, params.start)
+		goal, dir := findSpinParams(params.added, params.speed, params.start)
 		test.That(t, goal, test.ShouldAlmostEqual, params.goal)
 		test.That(t, dir, test.ShouldAlmostEqual, params.dir)
-		test.That(t, over, test.ShouldAlmostEqual, params.over)
 	}
 }
 
