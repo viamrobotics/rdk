@@ -2,12 +2,16 @@ package builtin
 
 import (
 	"context"
-	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/services/datamanager/datacapture"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 )
 
@@ -42,6 +46,12 @@ func TestDataCaptureEnabled(t *testing.T) {
 		filePaths := getAllFilePaths(dir)
 		for _, path := range filePaths {
 			d, err := datacapture.SensorDataFromFilePath(path)
+			// It's possible a file was closed (and so its extension changed) in between the points where we gathered
+			// file names and here. So if the file does not exist, check if the extension has just been changed.
+			if errors.Is(err, os.ErrNotExist) {
+				path = strings.TrimSuffix(path, filepath.Ext(path)) + datacapture.FileExt
+				d, err = datacapture.SensorDataFromFilePath(path)
+			}
 			test.That(t, err, test.ShouldBeNil)
 			sd = append(sd, d...)
 		}
