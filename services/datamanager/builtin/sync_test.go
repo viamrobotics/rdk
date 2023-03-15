@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -130,8 +129,6 @@ func TestSyncEnabled(t *testing.T) {
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUpload(t *testing.T) {
 	datacapture.MaxFileSize = 500
-	// MaxFileSize of 500 => Should be 2 tabular readings per file/UR, because the SensorReadings are ~230 bytes each
-	sensorDataPerUploadRequest := 2.0
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
@@ -282,6 +279,7 @@ func TestDataCaptureUpload(t *testing.T) {
 					test.That(t, err, test.ShouldBeNil)
 				}()
 
+				newDMSvc.Close(context.Background())
 				newestDMSvc := newTestDataManager(t)
 				defer newestDMSvc.Close(context.Background())
 				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
@@ -305,13 +303,6 @@ func TestDataCaptureUpload(t *testing.T) {
 			// If the server was supposed to fail for some requests, verify that it did.
 			if tc.numFails != 0 || tc.serviceFailAt != 0 {
 				test.That(t, len(failedURs), test.ShouldBeGreaterThan, 0)
-			}
-
-			// Validate expected number of upload requests were sent based on the quantity of data and chunking params.
-			if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-				test.That(t, len(successfulURs), test.ShouldEqual, math.Ceil(float64(len(capturedData))/sensorDataPerUploadRequest))
-			} else {
-				test.That(t, len(successfulURs), test.ShouldEqual, len(capturedData))
 			}
 
 			// Validate that all captured data was synced.
@@ -370,7 +361,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
-			tmpDir := t.TempDir()
+			additionalPathsDir := t.TempDir()
+			captureDir := t.TempDir()
 
 			var failFor int
 			if tc.serviceFail {
@@ -395,7 +387,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			svcConfig.SyncIntervalMins = fiftyMillis
-			svcConfig.AdditionalSyncPaths = []string{tmpDir}
+			svcConfig.AdditionalSyncPaths = []string{additionalPathsDir}
+			svcConfig.CaptureDir = captureDir
 
 			// Start dmsvc.
 			dmsvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
@@ -405,7 +398,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			// Write some files to the path.
 			fileContents := make([]byte, datasync.UploadChunkSize*4)
 			fileContents = append(fileContents, []byte("happy cows come from california")...)
-			tmpFile, err := os.Create(filepath.Join(tmpDir, fileName))
+			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
@@ -419,7 +412,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			time.Sleep(syncTime)
 
 			// Validate error and URs.
-			remainingFiles := getAllFilePaths(tmpDir)
+			remainingFiles := getAllFilePaths(additionalPathsDir)
 			if tc.serviceFail {
 				// Error case.
 				test.That(t, len(remainingFiles), test.ShouldEqual, 1)

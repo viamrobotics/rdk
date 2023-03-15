@@ -62,6 +62,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, passedErr
@@ -71,15 +72,17 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, passedErr)
 
 	// returns response
-	injectMS.MoveFunc = func(
+	successfulMoveFunc := func(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil
 	}
+	injectMS.MoveFunc = successfulMoveFunc
 	resp, err := server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
@@ -91,15 +94,7 @@ func TestServerMove(t *testing.T) {
 		motion.Named(testMotionServiceName2): injectMS,
 	}
 	server, _ = newServer(omMap)
-	injectMS.MoveFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) (bool, error) {
-		return true, nil
-	}
+	injectMS.MoveFunc = successfulMoveFunc
 	resp, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)

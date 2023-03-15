@@ -13,6 +13,11 @@ var dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Col
 }
 
 func TestRegister(t *testing.T) {
+	defer func() {
+		for k := range collectorRegistry {
+			delete(collectorRegistry, k)
+		}
+	}()
 	md := MethodMetadata{
 		Subtype:    resource.NewDefaultSubtype("type", resource.ResourceTypeComponent),
 		MethodName: "method",
