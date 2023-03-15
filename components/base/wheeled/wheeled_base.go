@@ -25,9 +25,8 @@ import (
 )
 
 const (
-	yawPollTimeMs  = 10
-	allowableAngle = 15
-	errTarget      = 5
+	yawPollTimeMs = 10
+	errTarget     = 5
 )
 
 var modelname = resource.NewDefaultModel("wheeled") // baseControlDebug = false
@@ -154,7 +153,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	}
 	errCounter := 0
 
-	targetYaw, overshoot, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
+	targetYaw, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
 
 	ticker := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond)))
 	defer ticker.Stop()
@@ -188,7 +187,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 		// poll the sensor for the current error in angle
 		// also check if we've overshot our target by fifteen degrees
-		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshoot:%.2f, overshot:%t", currYaw, targetYaw, overshoot, overshot)
+		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshot:%t", currYaw, targetYaw, overshot)
 		if math.Abs(errAngle) < errTarget || overshot {
 			if err := base.Stop(ctx, nil); err != nil {
 				return err
@@ -225,7 +224,6 @@ func addAnglesInDomain(target, current float64, half bool) float64 {
 	// force it to be the positive remainder, so that 0 <= angle < 360
 	angle = math.Mod(angle+360, 360)
 
-	
 	if half {
 		// force into the minimum absolute value residue class, so that -180 < angle <= 180
 		if angle > 180 {
@@ -241,7 +239,7 @@ func addAnglesInDomain(target, current float64, half bool) float64 {
 	return angle
 }
 
-func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, float64) {
+func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64) {
 	targetYaw := addAnglesInDomain(angleDeg, currYaw, false)
 	dir := 1.0
 	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
@@ -251,8 +249,7 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, fl
 		// cloxkwise spin calls subtract allowable angles
 		dir = -1
 	}
-	overshoot := addAnglesInDomain(targetYaw, dir*allowableAngle, false)
-	return targetYaw, overshoot, dir
+	return targetYaw, dir
 }
 
 // this function does not wrap around 360 degrees currently.
