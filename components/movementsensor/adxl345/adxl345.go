@@ -478,11 +478,15 @@ func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+
+	readings, err := movementsensor.Readings(ctx, adxl, extra)
+	if err != nil {
+		return nil, err
+	}
+
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 
-	readings := make(map[string]interface{})
-	readings["linear_acceleration"] = adxl.linearAcceleration
 	readings["single_tap_count"] = adxl.interruptsFound[SingleTap]
 	readings["freefall_count"] = adxl.interruptsFound[FreeFall]
 
