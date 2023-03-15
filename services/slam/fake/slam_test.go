@@ -22,7 +22,7 @@ import (
 )
 
 func TestFakeSLAMPosition(t *testing.T) {
-	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+	slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 	pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pInFrame.Parent(), test.ShouldEqual, slamSvc.Name)
@@ -44,7 +44,7 @@ func TestFakeSLAMPosition(t *testing.T) {
 
 func TestFakeSLAMGetPosition(t *testing.T) {
 	expectedComponentReference := ""
-	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+	slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
 	p, componentReference, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
 	test.That(t, err, test.ShouldBeNil)
@@ -65,7 +65,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 }
 
 func TestFakeSLAMGetInternalState(t *testing.T) {
-	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+	slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 	data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
@@ -76,13 +76,13 @@ func TestFakeSLAMGetInternalState(t *testing.T) {
 
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map advances the test data", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 		extra := map[string]interface{}{}
 		verifyGetMapStateful(t, rdkutils.MimeTypePCD, slamSvc, extra)
 	})
 
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 		extra := map[string]interface{}{}
 		verifyGetPointCloudMapStreamStateful(t, slamSvc, extra)
 	})
@@ -92,7 +92,7 @@ func TestFakeSLAMGetMap(t *testing.T) {
 	extra := map[string]interface{}{}
 
 	t.Run("Test getting valid JPEG map", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 		pInFrame := referenceframe.NewPoseInFrame(
 			slamSvc.Name,
 			spatialmath.NewPose(
@@ -119,7 +119,7 @@ func TestFakeSLAMGetMap(t *testing.T) {
 	})
 
 	t.Run("Test getting invalid PNG map", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 		pInFrame := referenceframe.NewPoseInFrame(
 			slamSvc.Name,
 			spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0},
@@ -143,7 +143,7 @@ func TestFakeSLAMGetMap(t *testing.T) {
 func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake internal state in chunks"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData, err := os.ReadFile(path)
@@ -163,7 +163,7 @@ func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 func TestFakeSLAMGetPointMapStream(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
 		data := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)

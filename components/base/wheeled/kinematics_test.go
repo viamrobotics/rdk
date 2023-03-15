@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 )
@@ -46,20 +47,27 @@ func TestKinematicBase(t *testing.T) {
 	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 
+	fakeSLAM := fake.NewSLAM("test", logger)
+
 	for _, tc := range testCases {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			frame.Geometry.Type = tc.geoType
 			kinematicCfg.Frame = frame
 			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
-			wb, err := WrapWithKinematics(basic.(*wheeledBase), nil)
+			wb, err := WrapWithKinematics(basic.(*wheeledBase), fakeSLAM)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
 			}
 			kwb, ok := wb.(*kinematicWheeledBase)
 			test.That(t, ok, test.ShouldBeTrue)
-			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(kwb.model.DoF())))
+			limits := kwb.model.DoF()
+			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
+			test.That(t, limits[1].Min, test.ShouldBeLessThan, 0)
+			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
+			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
+			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, geometry.GeometryByName(testCfg.Name+":"+label).AlmostEqual(expectedSphere), test.ShouldBeTrue)
 		})

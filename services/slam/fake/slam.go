@@ -49,6 +49,10 @@ type SLAM struct {
 	logger    golog.Logger
 }
 
+func NewSLAM(name string, logger golog.Logger) *SLAM {
+	return &SLAM{Name: name, logger: logger}
+}
+
 func (slamSvc *SLAM) getCount() int {
 	if slamSvc.dataCount < 0 {
 		return 0
