@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	yawPollTimeMs = 10
-	errTarget     = 5
+	yawPollTime = 10 * time.Millisecond
+	errTarget   = 5
 )
 
 var modelname = resource.NewDefaultModel("wheeled") // baseControlDebug = false
@@ -155,7 +155,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 	targetYaw, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
 
-	ticker := time.NewTicker(time.Duration(yawPollTimeMs * float64(time.Millisecond)))
+	ticker := time.NewTicker(yawPollTime)
 	defer ticker.Stop()
 
 	base.logger.Debug("starting for loop")
