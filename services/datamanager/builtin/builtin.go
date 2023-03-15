@@ -235,12 +235,12 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
 	md componentMethodMetadata,
-	attributes dataCaptureConfig) (
+	config dataCaptureConfig) (
 	*collectorAndConfig, error,
 ) {
 	// Build metadata.
-	captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+	captureMetadata, err := datacapture.BuildCaptureMetadata(config.Type, config.Name,
+		config.Model, config.Method, config.AdditionalParams, config.Tags)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// TODO: DATA-451 https://viam.atlassian.net/browse/DATA-451 (validate method params)
 
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(&attributes) {
+		if storedCollectorAndConfig.Config.Equals(&config) {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		} else {
@@ -260,14 +260,14 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// Build and start a new collector for this component/method.
 	// Get the resource from the local or remote robot.
 	var res interface{}
-	if attributes.RemoteRobotName != "" {
-		remoteRobot, exists := svc.r.RemoteByName(attributes.RemoteRobotName)
+	if config.RemoteRobotName != "" {
+		remoteRobot, exists := svc.r.RemoteByName(config.RemoteRobotName)
 		if !exists {
-			return nil, errors.Errorf("failed to find remote %s", attributes.RemoteRobotName)
+			return nil, errors.Errorf("failed to find remote %s", config.RemoteRobotName)
 		}
-		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(attributes.Type, attributes.Name))
+		res, err = remoteRobot.ResourceByName(resource.NameFromSubtype(config.Type, config.Name))
 	} else {
-		res, err = svc.r.ResourceByName(resource.NameFromSubtype(attributes.Type, attributes.Name))
+		res, err = svc.r.ResourceByName(resource.NameFromSubtype(config.Type, config.Name))
 	}
 	if err != nil {
 		return nil, err
@@ -280,20 +280,20 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Parameters to initialize collector.
-	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
+	interval := getDurationFromHz(config.CaptureFrequencyHz)
 
 	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
-	captureQueueSize := attributes.CaptureQueueSize
+	captureQueueSize := config.CaptureQueueSize
 	if captureQueueSize == 0 {
 		captureQueueSize = defaultCaptureQueueSize
 	}
 
-	captureBufferSize := attributes.CaptureBufferSize
+	captureBufferSize := config.CaptureBufferSize
 	if captureBufferSize == 0 {
 		captureBufferSize = defaultCaptureBufferSize
 	}
 
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(attributes.AdditionalParams)
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		return nil, err
 	}
 	params := data.CollectorParams{
-		ComponentName: attributes.Name,
+		ComponentName: config.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
 		Target:        datacapture.NewBuffer(targetDir, captureMetadata),
@@ -319,7 +319,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 	collector.Collect()
 
-	return &collectorAndConfig{collector, attributes}, nil
+	return &collectorAndConfig{collector, config}, nil
 }
 
 func (svc *builtIn) closeSyncer() {
@@ -428,7 +428,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	allComponentAttributes, err := buildDataCaptureConfigs(cfg, svcConfig.CaptureDir)
+	dcConfigs, err := buildDataCaptureConfigs(cfg, svcConfig.CaptureDir)
 	if err != nil {
 		return err
 	}
@@ -449,7 +449,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[componentMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
-		for _, attributes := range allComponentAttributes {
+		for _, attributes := range dcConfigs {
 			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
 				// Create component/method metadata to check if the collector exists.
 				methodMetadata := data.MethodMetadata{
