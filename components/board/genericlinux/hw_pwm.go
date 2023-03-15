@@ -46,9 +46,11 @@ func newPwmDevice(chipName string, line int) (*pwmDevice, error) {
 }
 
 func writeValue(filepath string, value uint64) error {
-	// The permissions on the file (the third argument) aren't important: if the file needs to be
-	// created, something has gone horribly wrong!
-	return os.WriteFile(filepath, []byte(fmt.Sprintf("%d", value)), 0o600)
+	data := []byte(fmt.Sprintf("%d", value))
+	// The file permissions (the third argument) aren't important: if the file needs to be created,
+	// something has gone horribly wrong!
+	err := os.WriteFile(filepath, data, 0o600)
+	return errors.Wrap(err, filepath)
 }
 
 func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
@@ -114,13 +116,24 @@ func (pwm *pwmDevice) disable() error {
 	return nil
 }
 
+// Only call this from public functions, to avoid double-wrapping the errors.
+func (pwm *pwmDevice) wrapError(err error) error {
+	// Note that if err is nil, errors.Wrap() will return nil, too.
+	return errors.Wrap(err, fmt.Sprintf("HW PWM chipPath %s, line %s", pwm.chipPath, pwm.line))
+}
+
 // SetPwm configures an exported pin and enables its output signal.
 // Warning: if this function returns a non-nil error, it could leave the pin in an indeterminate
 // state. Maybe it's exported, maybe not. Maybe it's enabled, maybe not. The new frequency and duty
 // cycle each might or might not be set.
-func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
+func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
+
+	// If there is ever an error in here, annotate it with which sysfs device and line we're using.
+	defer func() {
+		err = pwm.wrapError(err)
+	}()
 
 	// Every time this pin is used as a (non-PWM) GPIO input or output, it gets unexported on the
 	// PWM chip. Make sure to re-export it here.
@@ -171,5 +184,5 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 func (pwm *pwmDevice) Close() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
-	return pwm.unexport()
+	return pwm.wrapError(pwm.unexport())
 }
