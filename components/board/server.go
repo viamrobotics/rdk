@@ -138,8 +138,8 @@ func (s *subtypeServer) PWMFrequency(ctx context.Context, req *pb.PWMFrequencyRe
 	return &pb.PWMFrequencyResponse{FrequencyHz: uint64(freq)}, nil
 }
 
-// SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
-// frequency.
+// SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency.
+// For Raspberry Pis, 0 will use a default PWM frequency of 800.
 func (s *subtypeServer) SetPWMFrequency(
 	ctx context.Context,
 	req *pb.SetPWMFrequencyRequest,

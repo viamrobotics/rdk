@@ -398,7 +398,7 @@ func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 	return gp.pwmFreq, nil
 }
 
-// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+// SetPWMFreq sets the given pin to the given PWM frequency.
 func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.pwmFreq = freqHz
 	return nil
