@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -96,11 +95,6 @@ type KinematicBase interface {
 	Base
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
-}
-
-// KinematicWrappable is an interface for Bases that can be wrapped to become a KinematicBase.
-type KinematicWrappable interface {
-	WrapWithKinematics(slam.Service) (KinematicBase, error)
 }
 
 var (
