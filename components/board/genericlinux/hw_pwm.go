@@ -122,8 +122,8 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
 
-	// What we really want in this function is a monad: for every interaction with sysfs, check if
-	// it returned an error, and if so return early.
+	// Every time this pin is used as a (non-PWM) GPIO input or output, it gets unexported on the
+	// PWM chip. Make sure to re-export it here.
 	if err := pwm.export(); err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) error {
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
 	// pin should be high within a period. It's not how the rest of the world defines a duty cycle,
 	// so we will refer to it here as the active duration.
-	periodNs := 1000 * 1000 * 1000 / uint64(freqHz)
+	periodNs := 1e9 / uint64(freqHz)
 	activeDurationNs := uint64(float64(periodNs) * dutyCycle)
 
 	// We are never allowed to set the active duration higher than the period. Change the order we
