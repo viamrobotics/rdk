@@ -52,6 +52,8 @@ func (pin *gpioPin) openGpioFd() error {
 
 	// The 0 just means the default value for this pin is off. We'll set it to the intended value
 	// in Set(), below.
+	// NOTE: we could pass in extra flags to configure the pin to be open-source or open-drain, but
+	// we haven't done that yet, and instead go with whatever the default on the board is.
 	line, err := chip.OpenLine(pin.offset, 0, gpio.Output, "viam-gpio")
 	if err != nil {
 		return err
@@ -288,7 +290,6 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
-	// TODO: do we need to configure the line to be open-drain or open-source?
 	line, err := chip.OpenLineWithEvents(
 		uint32(mapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt")
 	if err != nil {
@@ -297,7 +298,7 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 
 	interrupt, err := board.CreateDigitalInterrupt(config)
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, line.Close())
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
