@@ -232,7 +232,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
-	collectorID componentMethodMetadata,
+	md componentMethodMetadata,
 	attributes dataCaptureConfig) (
 	*collectorAndConfig, error,
 ) {
@@ -245,10 +245,10 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// TODO: DATA-451 https://viam.atlassian.net/browse/DATA-451 (validate method params)
 
-	if storedCollectorAndConfig, ok := svc.collectors[collectorID]; ok {
+	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
 		if storedCollectorAndConfig.Config.Equals(&attributes) {
 			// If the attributes have not changed, do nothing and leave the existing collector.
-			return svc.collectors[collectorID], nil
+			return svc.collectors[md], nil
 		} else {
 			// If the attributes have changed, close the existing collector.
 			storedCollectorAndConfig.Collector.Close()
@@ -272,9 +272,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Get collector constructor for the component subtype and method.
-	collectorConstructor := data.CollectorLookup(collectorID.MethodMetadata)
+	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
-		return nil, errors.Errorf("failed to find collector constructor for %s", collectorID.MethodMetadata)
+		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
 	// Parameters to initialize collector.
@@ -454,25 +454,25 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 					MethodName: attributes.Method,
 				}
 
-				collID := componentMethodMetadata{
+				componentMethodMetadata := componentMethodMetadata{
 					ComponentName:  attributes.Name,
 					ComponentModel: attributes.Model,
 					MethodMetadata: methodMetadata,
 				}
 
-				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(collID, attributes)
+				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, attributes)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
 				} else {
-					newCollectors[collID] = newCollectorAndConfig
+					newCollectors[componentMethodMetadata] = newCollectorAndConfig
 				}
 			}
 		}
 	}
 
 	// If a component/method has been removed from the config, close the collector.
-	for collID, collAndConfig := range svc.collectors {
-		if _, present := newCollectors[collID]; !present {
+	for md, collAndConfig := range svc.collectors {
+		if _, present := newCollectors[md]; !present {
 			collAndConfig.Collector.Close()
 		}
 	}
