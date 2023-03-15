@@ -43,6 +43,7 @@ type Service interface {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		constraints *servicepb.Constraints,
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
@@ -109,12 +110,13 @@ func (svc *reconfigurableMotionService) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	constraints *servicepb.Constraints,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Move(ctx, componentName, destination, worldState, slamName, extra)
+	return svc.actual.Move(ctx, componentName, destination, worldState, constraints, slamName, extra)
 }
 
 func (svc *reconfigurableMotionService) MoveSingleComponent(
