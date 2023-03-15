@@ -51,6 +51,9 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.BoardName != "" {
 		deps = append(deps, cfg.BoardName)
 	}
+	if cfg.Encoder != "" {
+		deps = append(deps, cfg.Encoder)
+	}
 	return deps, nil
 }
 
