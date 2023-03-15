@@ -60,7 +60,7 @@ var defaultRegisterValues = map[byte]byte{
 
 	// Free Fall
 	TimeFfAddr:   0x20, // 0x14 - 0x46 are recommended
-	ThreshFfAddr: 0x07, // 0x05 - 0x09 are recomended
+	ThreshFfAddr: 0x07, // 0x05 - 0x09 are recommended
 }
 
 const (

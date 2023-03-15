@@ -482,7 +482,6 @@ func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-
 	readings, err := movementsensor.Readings(ctx, adxl, extra)
 	if err != nil {
 		return nil, err
