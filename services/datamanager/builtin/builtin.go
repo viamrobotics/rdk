@@ -3,7 +3,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,9 +14,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	goutils "go.viam.com/utils"
-	"golang.org/x/exp/slices"
-
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
@@ -30,6 +26,8 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
+	"golang.org/x/exp/slices"
 )
 
 func init() {
@@ -66,7 +64,7 @@ const defaultCaptureBufferSize = 4096
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
-// Attributes to initialize the collector for a component or remote.
+// Config to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string            `json:"name"`
 	Model              resource.Model    `json:"model"`
@@ -120,7 +118,7 @@ type builtIn struct {
 	syncLogger                  golog.Logger
 	captureDir                  string
 	captureDisabled             bool
-	collectors                  map[componentMethodMetadata]*collectorAndConfig
+	collectors                  map[collectorID]*collectorAndConfig
 	lock                        sync.Mutex
 	backgroundWorkers           sync.WaitGroup
 	waitAfterLastModifiedMillis int
@@ -157,7 +155,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		logger:                      logger,
 		syncLogger:                  syncLogger,
 		captureDir:                  viamCaptureDotDir,
-		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
+		collectors:                  make(map[collectorID]*collectorAndConfig),
 		backgroundWorkers:           sync.WaitGroup{},
 		lock:                        sync.Mutex{},
 		syncIntervalMins:            0,
@@ -211,16 +209,15 @@ func (svc *builtIn) flushCollectors() {
 
 // Parameters stored for each collector.
 type collectorAndConfig struct {
-	Collector  data.Collector
-	Attributes dataCaptureConfig
+	Collector data.Collector
+	Config    dataCaptureConfig
 }
 
 // Identifier for a particular collector: component name, component model, component type,
 // method parameters, and method name.
-type componentMethodMetadata struct {
+type collectorID struct {
 	ComponentName  string
 	ComponentModel resource.Model
-	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
 
@@ -235,7 +232,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
-	componentMetadata componentMethodMetadata,
+	collectorID collectorID,
 	attributes dataCaptureConfig) (
 	*collectorAndConfig, error,
 ) {
@@ -248,18 +245,17 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// TODO: DATA-451 https://viam.atlassian.net/browse/DATA-451 (validate method params)
 
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
-		if storedCollectorParams.Attributes.Equals(&attributes) {
-			// If the attributes have not changed, do nothing.
-			return svc.collectors[componentMetadata], nil
+	if storedCollectorAndConfig, ok := svc.collectors[collectorID]; ok {
+		if storedCollectorAndConfig.Config.Equals(&attributes) {
+			// If the attributes have not changed, do nothing and leave the existing collector.
+			return svc.collectors[collectorID], nil
 		} else {
 			// If the attributes have changed, close the existing collector.
-			storedCollectorParams.Collector.Close()
+			storedCollectorAndConfig.Collector.Close()
 		}
 	}
 
 	// If one did not already exist or the outdated one was just closed, build a new one.
-
 	// Get the resource from the local or remote robot.
 	var res interface{}
 	if attributes.RemoteRobotName != "" {
@@ -276,9 +272,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Get collector constructor for the component subtype and method.
-	collectorConstructor := data.CollectorLookup(componentMetadata.MethodMetadata)
+	collectorConstructor := data.CollectorLookup(collectorID.MethodMetadata)
 	if collectorConstructor == nil {
-		return nil, errors.Errorf("failed to find collector for %s", componentMetadata.MethodMetadata)
+		return nil, errors.Errorf("failed to find collector constructor for %s", collectorID.MethodMetadata)
 	}
 
 	// Parameters to initialize collector.
@@ -342,17 +338,16 @@ func (svc *builtIn) initSyncer(cfg *config.Config) error {
 }
 
 // getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
-func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata) {
+func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *collectorID) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
 		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
 
-	componentMetadata := componentMethodMetadata{
+	componentMetadata := collectorID{
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
-		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 		MethodMetadata: metadata,
 	}
 
@@ -445,11 +440,11 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
 		svc.closeCollectors()
-		svc.collectors = make(map[componentMethodMetadata]*collectorAndConfig)
+		svc.collectors = make(map[collectorID]*collectorAndConfig)
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
-	newCollectors := make(map[componentMethodMetadata]*collectorAndConfig)
+	newCollectors := make(map[collectorID]*collectorAndConfig)
 	if !svc.captureDisabled {
 		for _, attributes := range allComponentAttributes {
 			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
@@ -459,27 +454,26 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 					MethodName: attributes.Method,
 				}
 
-				componentMetadata := componentMethodMetadata{
+				collID := collectorID{
 					ComponentName:  attributes.Name,
 					ComponentModel: attributes.Model,
-					MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 					MethodMetadata: methodMetadata,
 				}
 
-				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMetadata, attributes)
+				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(collID, attributes)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
 				} else {
-					newCollectors[componentMetadata] = newCollectorAndConfig
+					newCollectors[collID] = newCollectorAndConfig
 				}
 			}
 		}
 	}
 
 	// If a component/method has been removed from the config, close the collector.
-	for componentMetadata, params := range svc.collectors {
-		if _, present := newCollectors[componentMetadata]; !present {
-			params.Collector.Close()
+	for collID, collAndConfig := range svc.collectors {
+		if _, present := newCollectors[collID]; !present {
+			collAndConfig.Collector.Close()
 		}
 	}
 	svc.collectors = newCollectors

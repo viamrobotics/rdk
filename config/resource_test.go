@@ -524,7 +524,7 @@ func TestServiceValidate(t *testing.T) {
 		})
 	})
 
-	t.Run("Attributes", func(t *testing.T) {
+	t.Run("Config", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
 				Name:       "frame1",
