@@ -411,7 +411,8 @@ func TestSpinWithMSMath(t *testing.T) {
 
 	extra := make(map[string]interface{})
 	yaws := []float64{
-		math.Pi / 18, math.Pi / 3, math.Pi / 9, math.Pi / 6, math.Pi / 3, -math.Pi, -3 * math.Pi / 4}
+		math.Pi / 18, math.Pi / 3, math.Pi / 9, math.Pi / 6, math.Pi / 3, -math.Pi, -3 * math.Pi / 4,
+	}
 	for _, yaw := range yaws {
 		extra["yaw"] = yaw
 		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(yaw), 0, false)
@@ -440,26 +441,26 @@ func TestSpinWithMSMath(t *testing.T) {
 		test.That(t, goal, test.ShouldAlmostEqual, params.goal)
 		test.That(t, dir, test.ShouldAlmostEqual, params.dir)
 		test.That(t, over, test.ShouldAlmostEqual, params.over)
-
 	}
-
 }
 
 func TestHasOverShot(t *testing.T) {
 	dirCases := []dirInfo{
 		{"ccw", 1},
-		// {"cw", -1},
+		{"cw", -1},
 	}
 
 	addCases := []addInfo{
 		{"acute", 20},
 		{"right", 90},
-		// {"obtuse", 110},
-		// {"straight", 180},
-		// {"reflex", 200},
-		// {"reflexright", 270},
-		// {"reflexplus", 325},
-		// {"complete", 359},
+		{"obtuse", 110},
+		{"straight", 180},
+		{"reflex", 200},
+		{"reflexright", 270},
+		{"reflexplus", 325},
+		{"reflexplus", 340},
+		{"reflexplus", 345},
+		{"complete", 359},
 	}
 
 	startCases := []float64{
@@ -473,15 +474,15 @@ func TestHasOverShot(t *testing.T) {
 		315,
 		260,
 		270,
-		// 355,
-		// 360,
+		355,
+		359,
 	}
 
 	/*
 			definition of quadrants and directions
 			q2	 	|		q1	  <-| ccw (+ve)
 				+ve	|  +ve			|
-		  0	________|________ 360
+		180 ________|________ 0
 					|
 				-ve	|  -ve			|
 			q3		|		q4	  <-| cw (-ve)
@@ -492,21 +493,21 @@ func TestHasOverShot(t *testing.T) {
 			for _, start := range startCases {
 				condition := makeCondition(addCase, dirCase, start)
 
-				// fmt.Println(condition.Name)
 				start := condition.Start
 				target := condition.Target
 				over := condition.Over
 				dir := condition.Direction
+				added := addCase.Value
 
 				t.Run(condition.Name+" overshot", func(t *testing.T) {
 					test.That(t,
-						hasOverShot(over, start, target, over, dir),
+						hasOverShot(over, start, target, over, added, dir),
 						test.ShouldBeTrue)
 				})
 
 				// subtract a few degrees from target to ensure were not overshooting
 				notovers := map[string]float64{
-					// go back to a little beforeyhe start but not more
+					// go back to a little before the start but not more
 					"nearstart":       addAnglesInDomain(start, dir, false),
 					"nearend: ":       addAnglesInDomain(target, -dir*allowableAngle, false),
 					"justbeforeend: ": addAnglesInDomain(target, -dir, false),
@@ -515,14 +516,13 @@ func TestHasOverShot(t *testing.T) {
 					noStr := "[" + strconv.FormatFloat(notover, 'f', 1, 64) + "]"
 					t.Run(condition.Name+noStr+key+" notovershot", func(t *testing.T) {
 						test.That(t,
-							hasOverShot(notover, start, target, over, dir),
+							hasOverShot(notover, start, target, over, added, dir),
 							test.ShouldBeFalse)
 					})
 				}
 			}
 		}
 	}
-
 }
 
 type TestCase struct {
@@ -543,7 +543,7 @@ func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
 
 	sQ := findQuadrant(startI)
 	tQ := findQuadrant(target)
-	behaviour := string(sQ) + "-to-" + tQ + "-" + dirI.Name + "-" + addI.AngleType
+	behaviour := sQ + "-to-" + tQ + "-" + dirI.Name + "-" + addI.AngleType
 	s2t := "(" + a2Str(startI) + "->" + a2Str(target) + ")"
 	eAt := "[" + a2Str(overshoot) + "]"
 	name := behaviour + s2t + eAt
