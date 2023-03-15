@@ -256,7 +256,7 @@ func (b *arduinoBoard) setPWMArduino(pin string, dutyCyclePct float64) error {
 	return nil
 }
 
-// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+// SetPWMFreq sets the given pin to the given PWM frequency.
 func (b *arduinoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	return b.setPWMFreqArduino(pin, freqHz)
 }
