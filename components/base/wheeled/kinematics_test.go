@@ -43,7 +43,6 @@ func TestKinematicBase(t *testing.T) {
 	motorDeps := fakeMotorDependencies(t, deps)
 	kinematicCfg := testCfg
 
-	// can't directly compare radius, so look at larger and smaller spheres as a proxy
 	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 

@@ -25,7 +25,6 @@ func WrapWithKinematics(base *wheeledBase, slam slam.Service) (base.KinematicBas
 		wheeledBase: base,
 		slam:        slam,
 	}
-	kwb.model, err = kwb.buildModel(base.cfg)
 	return kwb, err
 }
 
@@ -43,7 +42,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return errors.New("not implemented yet")
 }
 
-func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referenceframe.Model, error) {
+func model(cfg config.Component) (referenceframe.Model, error) {
 	// TODO(rb): this is a hacky workaround for not having kinematics for bases yet
 	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
 	geoCfg := cfg.Frame.Geometry
