@@ -2,7 +2,7 @@
 // typically used for battery state monitoring.
 // Datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
-package power_ina219
+package ina219
 
 import (
 	"context"
@@ -72,7 +72,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
 			}
-			return newSensor(ctx, deps, config.Name, attr, logger)
+			return newSensor(ctx, deps, attr, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
@@ -85,7 +85,6 @@ func init() {
 func newSensor(
 	ctx context.Context,
 	deps registry.Dependencies,
-	name string,
 	attr *AttrConfig,
 	logger golog.Logger,
 ) (sensor.Sensor, error) {
@@ -113,7 +112,7 @@ func newSensor(
 		addr:   byte(addr),
 	}
 
-	err = s.calibrate(ctx)
+	err = s.calibrate()
 	if err != nil {
 		return nil, err
 	}
@@ -132,14 +131,14 @@ type ina219 struct {
 	cal        uint16
 }
 
-type PowerMonitor struct {
+type powerMonitor struct {
 	Shunt   int64
 	Voltage float64
 	Current float64
 	Power   float64
 }
 
-func (d *ina219) calibrate(ctx context.Context) error {
+func (d *ina219) calibrate() error {
 	if senseResistor <= 0 {
 		return fmt.Errorf("ina219 calibrate: senseResistor value invalid %d", senseResistor)
 	}
@@ -186,7 +185,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
-	var pm PowerMonitor
+	var pm powerMonitor
 
 	// get shunt voltage - currently we are not returning - is it useful?
 	shunt, err := handle.ReadBlockData(ctx, shuntVoltageRegister, 2)
@@ -196,6 +195,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	// Least significant bit is 10µV.
 	pm.Shunt = int64(binary.BigEndian.Uint16(shunt)) * 10 * 1000
+	d.logger.Debugf("ina219 shunt : %d", pm.Shunt)
 
 	bus, err := handle.ReadBlockData(ctx, busVoltageRegister, 2)
 	if err != nil {
