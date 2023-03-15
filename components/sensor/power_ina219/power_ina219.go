@@ -72,7 +72,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
 			}
-			return newSensor(ctx, deps, attr, logger)
+			return newSensor(deps, attr, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
@@ -83,7 +83,6 @@ func init() {
 }
 
 func newSensor(
-	ctx context.Context,
 	deps registry.Dependencies,
 	attr *AttrConfig,
 	logger golog.Logger,
