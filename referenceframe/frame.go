@@ -477,11 +477,8 @@ type mobile2DFrame struct {
 }
 
 // NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
-// This frame takes limits corresponding to either the inputs:
-//   - (x, y) in the case that the limits slice is length 2
-//   - (x, y, theta) in the case that the limits slice is length 3, with the theta value being ignored for the purposes of transformation
 func NewMobile2DFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
-	if !(len(limits) == 2 || len(limits) == 3) {
+	if len(limits) != 2 {
 		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limits))
 	}
 	return &mobile2DFrame{baseFrame: &baseFrame{name: name, limits: limits}, geometry: geometry}, nil
