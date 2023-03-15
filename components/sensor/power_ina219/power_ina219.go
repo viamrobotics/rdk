@@ -1,4 +1,4 @@
-// Package power_ina219 implements an ina219 voltage/current/power monitor sensor -
+// Package ina219 implements an ina219 voltage/current/power monitor sensor -
 // typically used for battery state monitoring.
 // Datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
