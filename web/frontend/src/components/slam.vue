@@ -24,6 +24,7 @@ let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
 let show3d = $ref(false);
 let refresh2DCancelled  = true;
+let iterations  = 0;
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
@@ -44,7 +45,9 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
 const fetchSLAMMap = (name: string): Promise<Uint8Array | undefined> => {
   return new Promise((resolve, reject) => {
     // return nextTick(() => {
-    console.log('fetchSLAMMap start');
+    iterations += 1;
+    console.log(`fetchSLAMMap start ${iterations}`);
+
     const req = new slamApi.GetPointCloudMapStreamRequest();
     req.setName(name);
     rcLogConditionally(req);
@@ -80,7 +83,6 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array | undefined> => {
 
 const fetchSLAMPose = (name: string): Promise<commonApi.Pose | undefined> => {
   return new Promise((resolve, reject): void => {
-    console.log('fetchSLAMPose start');
     const req = new slamApi.GetPositionNewRequest();
     req.setName(name);
     props.client.slamService.getPositionNew(req, new grpc.Metadata(), (error, res): void => {
