@@ -1,17 +1,17 @@
 package wheeled
 
 import (
+	"bytes"
 	"context"
-	"math"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 type kinematicWheeledBase struct {
@@ -53,12 +53,20 @@ func (kwb *kinematicWheeledBase) buildModel() (referenceframe.Model, error) {
 	}
 
 	// get the limits of the SLAM map to set as the extents of the frame
-	kwb.slam.GetMap(context.Background(), "", utils.MimeTypePCD, )
+	data, err := slam.GetPointCloudMapFull(context.Background(), kwb.slam, "")
+	if err != nil {
+		return nil, err
+	}
+	pcd, err := pointcloud.ReadPCD(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	dims := pcd.MetaData()
 
-	// build the model
+	// build the model - SLAM convention is that the XZ plane is the ground plane
 	frame2D, err := referenceframe.NewMobile2DFrame(
 		kwb.collisionGeometry.Label(),
-		[]referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}},
+		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}},
 		kwb.collisionGeometry)
 	if err != nil {
 		return nil, err
