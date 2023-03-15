@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	goutils "go.viam.com/utils"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -77,6 +79,20 @@ type dataCaptureConfig struct {
 	Disabled           bool              `json:"disabled"`
 	RemoteRobotName    string            // Empty if this component is locally accessed
 	Tags               []string          `json:"tags"`
+}
+
+func (c *dataCaptureConfig) Equals(other *dataCaptureConfig) bool {
+	return c.Name == other.Name &&
+		c.Model == other.Model &&
+		c.Type == other.Type &&
+		c.Method == other.Method &&
+		c.CaptureFrequencyHz == other.CaptureFrequencyHz &&
+		c.CaptureQueueSize == other.CaptureQueueSize &&
+		c.CaptureBufferSize == other.CaptureBufferSize &&
+		c.Disabled == other.Disabled &&
+		c.RemoteRobotName == other.RemoteRobotName &&
+		slices.Compare(c.Tags, other.Tags) == 0 &&
+		reflect.DeepEqual(c.AdditionalParams, other.AdditionalParams)
 }
 
 type dataCaptureConfigs struct {
@@ -242,11 +258,16 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// TODO: DATA-451 https://viam.atlassian.net/browse/DATA-451 (validate method params)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
-		collector := storedCollectorParams.Collector
-		collector.Close()
+		if storedCollectorParams.Attributes.Equals(&attributes) {
+			// If the attributes have not changed, do nothing.
+			return &componentMetadata, nil
+		} else {
+			// If the attributes have changed, close the existing collector.
+			storedCollectorParams.Collector.Close()
+		}
 	}
 
-	// Get the resource corresponding to the component subtype and name.
+	// If one did not already exist or the outdated one was just closed, build a new one.
 
 	// Get the resource from the local or remote robot.
 	var res interface{}
