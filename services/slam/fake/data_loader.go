@@ -1,10 +1,14 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/jpeg"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -16,6 +20,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -116,6 +121,62 @@ func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (
 	return data, nil
 }
 
+func fakeParallelProjectionOntoXZWithRobotMarker(ctx context.Context, datasetDir string, slamSvc *SLAM, cmd map[string]interface{}) (map[string]interface{}, error) {
+	commandRaw, ok := cmd["command"]
+	if !ok {
+		slamSvc.logger.Warn("no command")
+		return nil, errors.New("missing 'command' value")
+	}
+
+	command, ok := commandRaw.(string)
+	if !ok {
+		slamSvc.logger.Warn("command is not a string")
+		return nil, errors.New("command must be a string")
+	}
+
+	switch command {
+	case "render_pointcloud_map":
+		f, err := fakeGetPointCloudMapStream(ctx, datasetDir, slamSvc)
+		if err != nil {
+			return nil, err
+		}
+		pointcloudBytes, err := concatenateChunksToFull(f)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// bufio.NewReader(bytes.NewReader(pc))
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pointcloudBytes))
+		if err != nil {
+			return nil, err
+		}
+
+		pose, _, err := fakeGetPosition(ctx, datasetDir, slamSvc)
+		if err != nil {
+			return nil, err
+		}
+		ppRM := transform.NewParallelProjectionOntoXZWithRobotMarker(&pose)
+		imageData, _, err := ppRM.PointCloudToRGBD(pc)
+		if err != nil {
+			return nil, err
+		}
+		var image bytes.Buffer
+		if err := jpeg.Encode(&image, imageData, nil); err != nil {
+			return nil, err
+		}
+
+		slamSvc.logger.Warn("image len", image.Len())
+
+		encodedImage := b64.RawStdEncoding.EncodeToString(image.Bytes())
+
+		return map[string]interface{}{"return": encodedImage}, nil
+	default:
+		slamSvc.logger.Warn("no such command")
+		return nil, fmt.Errorf("no such command: %s", commandRaw)
+	}
+}
+
 func fakeGetPointCloudMapStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
@@ -213,4 +274,20 @@ func positionNewFromJSON(data []byte) (positionNew, error) {
 		return position, err
 	}
 	return position, nil
+}
+
+// // Helper function that concatenates the chunks from a streamed grpc endpoint.
+func concatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+	var fullBytes []byte
+	for {
+		chunk, err := f()
+		if errors.Is(err, io.EOF) {
+			return fullBytes, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		fullBytes = append(fullBytes, chunk...)
+	}
 }

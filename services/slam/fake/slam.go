@@ -109,3 +109,9 @@ func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (f
 func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
+
+func (slamSvc *SLAM) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::DoCommand")
+	defer span.End()
+	return fakeParallelProjectionOntoXZWithRobotMarker(ctx, datasetDirectory, slamSvc, cmd)
+}
