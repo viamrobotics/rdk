@@ -70,11 +70,8 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 		}
 	}
 
-	if base.left == nil {
-		return errors.Errorf("mybase %q is missing left motor", cfg.Name)
-	}
-	if base.right == nil {
-		return errors.Errorf("mybase %q is missing right motor", cfg.Name)
+	if base.left == nil || base.right == nil {
+		return errors.Errorf(`mybase %q needs both "motorL" and "motorR"`, cfg.Name)
 	}
 	return nil
 }
