@@ -236,6 +236,8 @@ func NewAdxl345(
 	if (cfg.SingleTap != nil) && (cfg.SingleTap.InterruptPin != "") {
 		interruptMap, err = addInterruptPin(b, cfg.SingleTap.InterruptPin, interruptMap)
 		if err != nil {
+			// shut down goroutine reading sensor in the background
+			sensor.cancelFunc()
 			return nil, err
 		}
 	}
@@ -243,6 +245,8 @@ func NewAdxl345(
 	if (cfg.FreeFall != nil) && (cfg.FreeFall.InterruptPin != "") {
 		interruptMap, err = addInterruptPin(b, cfg.FreeFall.InterruptPin, interruptMap)
 		if err != nil {
+			// shut down goroutine reading sensor in the background
+			sensor.cancelFunc()
 			return nil, err
 		}
 	}
