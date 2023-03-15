@@ -451,20 +451,22 @@ func TestHasOverShot(t *testing.T) {
 	}
 
 	addCases := []addInfo{
+		{"acute", 5},
 		{"acute", 20},
 		{"right", 90},
 		{"obtuse", 110},
 		{"straight", 180},
 		{"reflex", 200},
 		{"reflexright", 270},
-		{"reflexplus", 325},
-		{"reflexplus", 340},
 		{"reflexplus", 345},
+		{"reflexplus", 350},
 		{"complete", 359},
 	}
 
 	startCases := []float64{
 		5,
+		12,
+		15,
 		45,
 		90,
 		135,
@@ -474,6 +476,7 @@ func TestHasOverShot(t *testing.T) {
 		315,
 		260,
 		270,
+		345,
 		355,
 		359,
 	}
@@ -501,22 +504,22 @@ func TestHasOverShot(t *testing.T) {
 
 				t.Run(condition.Name+" overshot", func(t *testing.T) {
 					test.That(t,
-						hasOverShot(over, start, target, over, added, dir),
+						hasOverShot(over, start, target, dir),
 						test.ShouldBeTrue)
 				})
 
-				// subtract a few degrees from target to ensure were not overshooting
+				// test a few cases in range ensure were not falsely overshooting
 				notovers := map[string]float64{
-					// go back to a little before the start but not more
-					"nearstart":       addAnglesInDomain(start, dir, false),
-					"nearend: ":       addAnglesInDomain(target, -dir*allowableAngle, false),
-					"justbeforeend: ": addAnglesInDomain(target, -dir, false),
+					"+":  addAnglesInDomain(start, dir, false),
+					"++": addAnglesInDomain(start, dir*added/2, false),
+					"--": addAnglesInDomain(target, -dir*added/2, false),
+					"-":  addAnglesInDomain(target, -dir, false),
 				}
 				for key, notover := range notovers {
 					noStr := "[" + strconv.FormatFloat(notover, 'f', 1, 64) + "]"
 					t.Run(condition.Name+noStr+key+" notovershot", func(t *testing.T) {
 						test.That(t,
-							hasOverShot(notover, start, target, over, added, dir),
+							hasOverShot(notover, start, target, dir),
 							test.ShouldBeFalse)
 					})
 				}
@@ -535,7 +538,7 @@ type TestCase struct {
 
 func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
 	target := addAnglesInDomain(startI, dirI.Value*addI.Value, false)
-	overshoot := addAnglesInDomain(target, dirI.Value*15.0, false)
+	overshoot := addAnglesInDomain(target, dirI.Value, false)
 
 	a2Str := func(number float64) string {
 		return strconv.FormatFloat(number, 'f', 1, 64)
@@ -580,9 +583,9 @@ func findQuadrant(value float64) string {
 	case 90 <= value && value < 180:
 		return q2
 	case 180 <= value && value < 270:
-		return q2
+		return q3
 	case 270 <= value && value < 360:
-		return q2
+		return q4
 	default:
 		return "none"
 	}
