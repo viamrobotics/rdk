@@ -106,7 +106,7 @@ type adxl345 struct {
 	i2cAddress               byte
 	logger                   golog.Logger
 	interruptsEnabled        byte
-	interruptsFound          map[string]int
+	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
 
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
@@ -220,7 +220,7 @@ func NewAdxl345(
 			}
 		}
 	})
-	sensor.interruptsFound = make(map[string]int)
+	sensor.interruptsFound = make(map[InterruptID]int)
 	if err := sensor.readInterrupts(sensor.cancelContext); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()

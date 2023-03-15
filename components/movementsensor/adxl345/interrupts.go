@@ -25,14 +25,22 @@ const (
 )
 
 // types of interrupts.
+type InterruptID = uint8
+
 const (
-	SingleTap string = "SINGLE_TAP"
-	FreeFall  string = "FREE_FALL"
+	SingleTap InterruptID = iota
+	FreeFall  InterruptID = iota
 )
 
-var interruptBitPosition = map[string]byte{
+var interruptBitPosition = map[InterruptID]byte{
 	SingleTap: 1 << 6,
 	FreeFall:  1 << 2,
+}
+
+// If you ever want to print out the names, use this.
+var interruptNames = map[InterruptID]string{
+	SingleTap: "SINGLE_TAP",
+	FreeFall:  "FREE_FALL",
 }
 
 /*

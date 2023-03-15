@@ -142,7 +142,7 @@ func TestReadInterrupts(t *testing.T) {
 
 		sensor := &adxl345{
 			bus:               i2c,
-			interruptsFound:   map[string]int{},
+			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
 			mu:                sync.Mutex{},
@@ -161,7 +161,7 @@ func TestReadInterrupts(t *testing.T) {
 
 		sensor := &adxl345{
 			bus:               i2c,
-			interruptsFound:   map[string]int{},
+			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
 			mu:                sync.Mutex{},
@@ -180,7 +180,7 @@ func TestReadInterrupts(t *testing.T) {
 
 		sensor := &adxl345{
 			bus:               i2c,
-			interruptsFound:   map[string]int{},
+			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
 			mu:                sync.Mutex{},
@@ -199,7 +199,7 @@ func TestReadInterrupts(t *testing.T) {
 
 		sensor := &adxl345{
 			bus:               i2c,
-			interruptsFound:   map[string]int{},
+			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
 			mu:                sync.Mutex{},
