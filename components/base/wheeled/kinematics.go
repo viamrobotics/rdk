@@ -46,12 +46,11 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referenceframe.Model, error) {
 	// TODO(rb): this is a hacky workaround for not having kinematics for bases yet
 	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
-	// determine offset to use
 	geoCfg := cfg.Frame.Geometry
 	r := geoCfg.TranslationOffset.Norm()
 	switch geoCfg.Type {
 	case spatialmath.BoxType:
-		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm()
+		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm() / 2
 	case spatialmath.SphereType:
 		r += geoCfg.R
 	case spatialmath.CapsuleType:
@@ -60,7 +59,7 @@ func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referencefram
 	case spatialmath.UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
-			r += norm
+			r += norm / 2
 		} else if geoCfg.L != 0 {
 			r += geoCfg.L / 2
 		} else {
@@ -78,7 +77,7 @@ func (kwb *kinematicWheeledBase) buildModel(cfg config.Component) (referencefram
 	// TODO(rb): figure out a better set of limits to impose on the base frame
 	frame2D, err := referenceframe.NewMobile2DFrame(
 		sphere.Label(),
-		[]referenceframe.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}},
+		[]referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}},
 		sphere)
 	if err != nil {
 		return nil, err

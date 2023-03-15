@@ -19,8 +19,8 @@ func TestKinematicBase(t *testing.T) {
 	frame := &referenceframe.LinkConfig{
 		Geometry: &spatialmath.GeometryConfig{
 			R:                 5,
-			X:                 4,
-			Y:                 3,
+			X:                 8,
+			Y:                 6,
 			L:                 10,
 			TranslationOffset: r3.Vector{X: 3, Y: 4, Z: 0},
 			Label:             label,
@@ -60,7 +60,7 @@ func TestKinematicBase(t *testing.T) {
 			}
 			kwb, ok := wb.(*kinematicWheeledBase)
 			test.That(t, ok, test.ShouldBeTrue)
-			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, 3))
+			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(kwb.model.DoF())))
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, geometry.GeometryByName(testCfg.Name+":"+label).AlmostEqual(expectedSphere), test.ShouldBeTrue)
 		})
