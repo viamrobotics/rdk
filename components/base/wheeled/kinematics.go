@@ -79,6 +79,8 @@ func (kwb *kinematicWheeledBase) buildModel() (referenceframe.Model, error) {
 func collisionGeometry(cfg config.Component) (spatialmath.Geometry, error) {
 	// TODO(rb): this is a hacky workaround for not having kinematics for bases yet
 	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
+	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
+	// and should match the convention of +Y being forward for bases
 	geoCfg := cfg.Frame.Geometry
 	r := geoCfg.TranslationOffset.Norm()
 	switch geoCfg.Type {

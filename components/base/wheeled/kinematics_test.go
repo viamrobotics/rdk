@@ -47,15 +47,13 @@ func TestKinematicBase(t *testing.T) {
 	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	fakeSLAM := fake.NewSLAM("test", logger)
-
 	for _, tc := range testCases {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			frame.Geometry.Type = tc.geoType
 			kinematicCfg.Frame = frame
 			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
-			wb, err := WrapWithKinematics(basic.(*wheeledBase), fakeSLAM)
+			wb, err := WrapWithKinematics(basic.(*wheeledBase), fake.NewSLAM("", logger))
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
