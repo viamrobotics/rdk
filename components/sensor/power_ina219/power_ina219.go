@@ -204,7 +204,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	// Check if bit zero is set, if set the ADC has overflowed.
 	if binary.BigEndian.Uint16(bus)&1 > 0 {
-		return nil, fmt.Errorf("ina219 bus voltage register overflow")
+		return nil, fmt.Errorf("ina219 bus voltage register overflow, register: %d", busVoltageRegister)
 	}
 
 	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
