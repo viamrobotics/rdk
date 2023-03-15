@@ -47,7 +47,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			fmt.Fprintf(os.Stdout, "\nModel: %s", res.Name)
 		}
 
-		fmt.Fprint(os.Stdout, "\nConfig:")
+		fmt.Fprint(os.Stdout, "\nAttributes:")
 		for _, conv := range compAttrConvs {
 			if !(conv.Model.String() == res.Name && conv.Subtype == res.Subtype) {
 				continue
@@ -77,7 +77,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			panic(fmt.Errorf("unknown resource type %q", res.ResourceType))
 		}
 		if mapConv == nil {
-			fmt.Fprintf(os.Stdout, "\n\tConfig handled manually; follow Config usage at %s", registrarLoc)
+			fmt.Fprintf(os.Stdout, "\n\tAttributes handled manually; follow Attributes usage at %s", registrarLoc)
 		} else {
 			var printTypeInfo func(t reflect.Type, indent int)
 			printTypeInfo = func(t reflect.Type, indent int) {
