@@ -43,7 +43,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 	testFilesContainSensorData := func(t *testing.T, dir string) {
 		t.Helper()
-
 		var sd []*v1.SensorData
 		filePaths := getAllFilePaths(dir)
 		for _, path := range filePaths {

@@ -255,7 +255,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		}
 	}
 
-	// If one did not already exist or the outdated one was just closed, build a new one.
+	// Build and start a new collector for this component/method.
 	// Get the resource from the local or remote robot.
 	var res interface{}
 	if attributes.RemoteRobotName != "" {
