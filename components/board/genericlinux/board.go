@@ -250,6 +250,7 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	// TODO(RSDK-2345): If the name is numerical and doesn't already exist, create it here anyway.
 	interrupt, ok := b.interrupts[name]
 	if !ok {
 		return nil, false
