@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/utils"
 	goutils "go.viam.com/utils"
 	"golang.org/x/exp/slices"
@@ -128,9 +127,6 @@ type builtIn struct {
 	syncRoutineCancelFn context.CancelFunc
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
-
-	modelManager            model.Manager
-	modelManagerConstructor model.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -161,7 +157,6 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		additionalSyncPaths:         []string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewDefaultManager,
-		modelManagerConstructor:     model.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil

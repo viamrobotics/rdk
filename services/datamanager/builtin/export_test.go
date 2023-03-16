@@ -3,17 +3,11 @@ package builtin
 
 import (
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/rdk/services/datamanager/model"
 )
 
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
 func (svc *builtIn) SetSyncerConstructor(fn datasync.ManagerConstructor) {
 	svc.syncerConstructor = fn
-}
-
-// SetModelrConstructor sets the modelManager constructor for the data manager to use when creating its modelManager.
-func (svc *builtIn) SetModelManagerConstructor(fn model.ManagerConstructor) {
-	svc.modelManagerConstructor = fn
 }
 
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
