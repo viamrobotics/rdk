@@ -50,8 +50,9 @@ const viewCamera = async () => {
     try {
       await streams.add(props.cameraName);
     } catch (error) {
-      if (error.message !== 'stream already active') {
-        displayError(error as ServiceError);
+      const tempError = error as ServiceError;
+      if (tempError.message !== 'stream already active') {
+        displayError(tempError as ServiceError);
       }
     }
   } else if (camerasOn === 0) {
