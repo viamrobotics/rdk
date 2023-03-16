@@ -458,6 +458,7 @@ func (svc *webService) Stop() {
 		cancel()
 	}
 	svc.cancelFuncs = nil
+	svc.isRunning = false
 }
 
 // Close closes a webService via calls to its Cancel func.
@@ -469,6 +470,7 @@ func (svc *webService) Close() error {
 		cancel()
 	}
 	svc.cancelFuncs = nil
+	svc.isRunning = false
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
 	}
