@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -25,7 +26,7 @@ import (
 )
 
 const (
-	yawPollTime = 10 * time.Millisecond
+	yawPollTime = 50 * time.Millisecond
 	errTarget   = 5
 )
 
@@ -106,8 +107,9 @@ type wheeledBase struct {
 	movementSensors   []movementsensor.MovementSensor
 	orientationSensor movementsensor.MovementSensor
 
-	opMgr  operation.SingleOperationManager
-	logger golog.Logger
+	opMgr                   operation.SingleOperationManager
+	activeBackgroundWorkers *sync.WaitGroup
+	logger                  golog.Logger
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -117,9 +119,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if base.orientationSensor != nil {
-		if rdkutils.Float64AlmostEqual(angleDeg, 360, 0.01) {
-			angleDeg -= 0.01
-		}
+		// if rdkutils.Float64AlmostEqual(angleDeg, 360, 0.01) {
+		// 	angleDeg -= 0.01
+		// }
 		base.logger.Debugf("received a spin with movement sensor: angle: %.2f, speed: %.2f", angleDeg, degsPerSec)
 		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
 	}
@@ -144,8 +146,9 @@ func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64)
 }
 
 func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+
 	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
-	// revIncrement := wheelrpm * yawPollTimeMs
+	revInc := revs * .1
 
 	startYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from 0 -> 360
 	if err != nil {
@@ -168,6 +171,7 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		}
 		select {
 		case <-ctx.Done():
+			ticker.Stop()
 			base.logger.Debug("base spin with movement sensor context cancelled")
 			return nil
 		case <-ticker.C:
@@ -187,19 +191,24 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 
 		// poll the sensor for the current error in angle
 		// also check if we've overshot our target by fifteen degrees
-		base.logger.Debugf("currentYaw: %.2f, targetYaw:%.2f, overshot:%t", currYaw, targetYaw, overshot)
+		base.logger.Debugf(
+			"startYaw: %.2f, currentYaw: %.2f, targetYaw:%.2f, overshot:%t",
+			startYaw, currYaw, targetYaw, overshot)
 		if math.Abs(errAngle) < errTarget || overshot {
 			if err := base.Stop(ctx, nil); err != nil {
 				return err
 			}
-			base.logger.Debugf("stopping base with currentYaw: %.2f, targetYaw:%.2f, overshot? %t", currYaw, targetYaw, overshot)
+			base.logger.Debugf(
+				"stopping base with errAngle:%.2f, overshot? %t",
+				errAngle, overshot)
 			return nil
 		}
 		// runAll calls GoFor, which has a necessary terminating condition of rotations reached
-		if err := base.runAll(ctx, -wheelrpm, revs, wheelrpm, revs); err != nil {
+		if err := base.runAll(ctx, -wheelrpm, revInc, wheelrpm, revInc); err != nil {
 			return err
 		}
 	}
+
 }
 
 func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
@@ -255,7 +264,7 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64) {
 // this function does not wrap around 360 degrees currently.
 func angleBetween(angle, bound1, bound2 float64) bool {
 	if bound2 > bound1 {
-		return angle > bound1 && angle <= bound2
+		return angle >= bound1 && angle < bound2
 	}
 	return angle > bound2 && angle <= bound1
 }
@@ -265,14 +274,15 @@ func hasOverShot(angle, start, target, dir float64) bool {
 	// for most cases, the absolute angle of our overshoot is larger than our target
 	// however we need to check is we are within range if our start angle is smaller
 	// than our target
-	case dir*start > dir*target:
+	case dir == 1 && start > target:
 		// we check if the current angle is within the allowable range
 		// multiplying each angle by the direction functions like taking an absolute
-		return angleBetween(dir*angle, dir*target, dir*start)
+		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start, 360)
+		return over
 	// for cases with a quadrant switch from 1 -> in either direction
 	// the overshoot range is the outside range between the start and target
 	default:
-		return !angleBetween(dir*angle, dir*start, dir*target)
+		return !angleBetween(angle, start, target)
 	}
 }
 
@@ -513,10 +523,11 @@ func createWheeledBase(
 	}
 
 	base := &wheeledBase{
-		widthMm:              attr.WidthMM,
-		wheelCircumferenceMm: attr.WheelCircumferenceMM,
-		spinSlipFactor:       attr.SpinSlipFactor,
-		logger:               logger,
+		widthMm:                 attr.WidthMM,
+		wheelCircumferenceMm:    attr.WheelCircumferenceMM,
+		spinSlipFactor:          attr.SpinSlipFactor,
+		logger:                  logger,
+		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
 
 	if base.spinSlipFactor == 0 {
