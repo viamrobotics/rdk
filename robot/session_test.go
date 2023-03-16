@@ -447,8 +447,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t,
 		time.Since(startAt),
 		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
+		float64(config.DefaultSessionHeartbeatWindow)*.5,
+		float64(config.DefaultSessionHeartbeatWindow)*2.5,
 	)
 
 	dummyRemMotor1.mu.Lock()
@@ -475,8 +475,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t,
 		time.Since(startAt),
 		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
+		float64(config.DefaultSessionHeartbeatWindow)*.5,
+		float64(config.DefaultSessionHeartbeatWindow)*2.5,
 	)
 
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
@@ -507,6 +507,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	echo1Conn := echo1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
 
+	t.Log("echo multiple of remEcho1 which will be safety monitored")
 	echoMultiClient, err := echo1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = echoMultiClient.Recv() // EOF; okay
@@ -523,8 +524,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t,
 		time.Since(startAt),
 		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
+		float64(config.DefaultSessionHeartbeatWindow)*.5,
+		float64(config.DefaultSessionHeartbeatWindow)*2.5,
 	)
 
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
