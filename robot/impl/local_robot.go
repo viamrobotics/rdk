@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -990,7 +989,6 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 		// Replace all package references with the actual path containing the package
 		// on the robot.
 		if walker, ok := s.ConvertedAttributes.(config.Walker); ok {
-			fmt.Println("found walker for service ", s.Name)
 			newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
 			if err != nil {
 				allErrs = multierr.Combine(allErrs, err)
@@ -1006,7 +1004,6 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 		// Replace all package references with the actual path containing the package
 		// on the robot.
 		if walker, ok := c.ConvertedAttributes.(config.Walker); ok {
-			fmt.Println("found walker for component ", c.Name)
 			newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
 			if err != nil {
 				allErrs = multierr.Combine(allErrs, err)
