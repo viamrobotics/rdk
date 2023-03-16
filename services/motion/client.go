@@ -39,6 +39,7 @@ func (c *client) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	constraints *pb.Constraints,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
@@ -55,6 +56,7 @@ func (c *client) Move(
 		ComponentName:   protoutils.ResourceNameToProto(componentName),
 		Destination:     referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:      worldStateMsg,
+		Constraints:     constraints,
 		SlamServiceName: protoutils.ResourceNameToProto(slamName),
 		Extra:           ext,
 	})

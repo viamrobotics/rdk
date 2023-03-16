@@ -59,6 +59,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		worldState,
+		req.GetConstraints(),
 		slamServiceName,
 		req.Extra.AsMap(),
 	)

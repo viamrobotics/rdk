@@ -177,7 +177,19 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer close(m1chan)
 	defer close(m2chan)
 
-	mp.logger.Debugf("running CBiRRT with start map of size %d and goal map of size %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
+	seedPos, err := mp.frame.Transform(seed)
+	if err != nil {
+		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
+		return
+	}
+
+	mp.logger.Debugf(
+		"running CBiRRT from start pose %v to goal %v with start map of size %d and goal map of size %d",
+		spatialmath.PoseToProtobuf(seedPos),
+		spatialmath.PoseToProtobuf(goal),
+		len(rrt.maps.startMap),
+		len(rrt.maps.goalMap),
+	)
 
 	for i := 0; i < mp.algOpts.PlanIter; i++ {
 		select {
