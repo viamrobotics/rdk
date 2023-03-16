@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -51,6 +52,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.BoardName != "" {
 		deps = append(deps, cfg.BoardName)
 	}
+	if cfg.Encoder != "" {
+		if cfg.TicksPerRotation <= 0 {
+			return nil, utils.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
+		}
+		deps = append(deps, cfg.Encoder)
+	}
 	return deps, nil
 }
 
@@ -83,9 +90,6 @@ func init() {
 				}
 
 				if mcfg.Encoder != "" {
-					if mcfg.TicksPerRotation <= 0 {
-						return nil, errors.New("need nonzero TicksPerRotation for encoded motor")
-					}
 					m.TicksPerRotation = mcfg.TicksPerRotation
 
 					e, err := encoder.FromDependencies(deps, mcfg.Encoder)
