@@ -696,7 +696,7 @@ func TestWebWithStreams(t *testing.T) {
 	robot.MockResourcesFromMap(rs)
 	updateable, ok := svc.(resource.Updateable)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = updateable.Update(ctx, rs)
+	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test that new streams are available
