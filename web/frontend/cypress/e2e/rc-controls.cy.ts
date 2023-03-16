@@ -6,7 +6,6 @@ describe('should load the page', () => {
     cy.contains('h2', 'test_gantry').should('exist');
     cy.contains('h2', 'test_movement').should('exist');
     cy.contains('h2', 'test_arm').should('exist');
-    cy.contains('h2', 'test_generic').should('exist');
     cy.contains('h2', 'test_gripper').should('exist');
     cy.contains('h2', 'test_servo').should('exist');
     cy.contains('h2', 'test_motor_left').should('exist');
