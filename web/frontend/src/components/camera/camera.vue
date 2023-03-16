@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, watch } from 'vue';
 import { displayError } from '../../lib/error';
 import {
   StreamClient,
@@ -51,19 +51,16 @@ const viewCamera = async () => {
       await streams.add(props.cameraName);
     } catch (error) {
       if (error.message !== 'stream already active') {
-        displayError(error);
+        displayError(error as ServiceError);
       }
     }
   } else if (camerasOn === 0) {
     try {
       await streams.remove(props.cameraName);
     } catch (error) {
-      if (error.message !== 'stream already active') {
-        displayError(error);
-      }
+      displayError(error as ServiceError);
     }
   }
-
 };
 
 const viewFrame = async (cameraName: string) => {
