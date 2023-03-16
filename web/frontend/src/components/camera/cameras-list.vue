@@ -73,7 +73,7 @@ const setupCamera = (cameraName: string) => {
       </div>
 
       <Camera
-        v-show="openCameras[camera.name]"
+        v-if="openCameras[camera.name]"
         :key="camera.name"
         :camera-name="camera.name"
         :parent-name="parentName"
