@@ -67,6 +67,40 @@ type FreeFallAttrConfig struct {
 	Time             float32 `json:"time_ms,omitempty"`
 }
 
+func (tapCfg *TapAttrConfig) ValidateTapConfigs(path string) error {
+	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
+		return errors.New("adxl345: Accelerometer pin must be 1 or 2")
+	}
+	if tapCfg.Threshold != 0 {
+		if tapCfg.Threshold < 0 || tapCfg.Threshold > 15937 {
+			return errors.New("adxl345: Tap threshold must be 0 between and 15,937mg")
+		}
+	}
+	if tapCfg.Dur != 0 {
+		if tapCfg.Dur < 0 || tapCfg.Dur > 159375 {
+			return errors.New("adxl345: Tap dur must be between 0 and 160,000µs")
+		}
+	}
+	return nil
+}
+
+func (freefallCfg *FreeFallAttrConfig) ValidateFreeFallConfigs(path string) error {
+	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
+		return errors.New("Accelerometer pin must be 1 or 2")
+	}
+	if freefallCfg.Threshold != 0 {
+		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > 15937 {
+			return errors.New("Accelerometer tap threshold must be 0 between and 15,937mg")
+		}
+	}
+	if freefallCfg.Time != 0 {
+		if freefallCfg.Time < 0 || freefallCfg.Time > 1275 {
+			return errors.New("Accelerometer tap time must be between 0 and 1,275ms")
+		}
+	}
+	return nil
+}
+
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
@@ -75,6 +109,16 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	}
 	if cfg.I2cBus == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	if cfg.SingleTap != nil {
+		if err := cfg.SingleTap.ValidateTapConfigs(path); err != nil {
+			return nil, err
+		}
+	}
+	if cfg.FreeFall != nil {
+		if err := cfg.FreeFall.ValidateFreeFallConfigs(path); err != nil {
+			return nil, err
+		}
 	}
 	var deps []string
 	deps = append(deps, cfg.BoardName)
