@@ -6,10 +6,11 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"go.viam.com/rdk/components/audioinput"
 	"net"
 	"testing"
 	"time"
+
+	"go.viam.com/rdk/components/audioinput"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
@@ -33,6 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
