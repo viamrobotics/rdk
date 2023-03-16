@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -402,7 +403,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	solvedPose, err := fs.Transform(plan[len(plan)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal1, 0.01), test.ShouldBeTrue)
-	visualization.VisualizePlan()
+	visualization.VisualizePlan(fs, fs.Frame("xArmVgripper"), plan, &frame.WorldState{})
 }
 
 func TestMultiArmSolve(t *testing.T) {
@@ -410,7 +411,7 @@ func TestMultiArmSolve(t *testing.T) {
 	positions := frame.StartPositions(fs)
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
 	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	newPos, err := PlanMotion(
+	plan, err := PlanMotion(
 		context.Background(),
 		logger.Sugar(),
 		frame.NewPoseInFrame("urCamera", goal2),
@@ -423,12 +424,42 @@ func TestMultiArmSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), "urCamera")
+	solvedPose, err := fs.Transform(plan[len(plan)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), "urCamera")
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := fs.Transform(newPos[len(newPos)-1], frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()), "xArmVgripper")
+	solvedPose2, err := fs.Transform(plan[len(plan)-1], frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()), "xArmVgripper")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose2.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
+	visualization.VisualizePlan(fs, fs.Frame("xArmVgripper"), plan, &frame.WorldState{})
+}
+
+func TestReachOverArm(t *testing.T) {
+	// setup frame system with an xarm
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	offset, err := referenceframe.NewStaticFrame("offset", spatialmath.NewPoseFromPoint(r3.Vector{X: -500, Y: 200}))
+	test.That(t, err, test.ShouldBeNil)
+	goal := referenceframe.NewPoseInFrame("offset", spatialmath.NewPose(r3.Vector{Y: -500, Z: 100}, &spatialmath.OrientationVector{OZ: -1}))
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
+	fs.AddFrame(offset, fs.World())
+	fs.AddFrame(xarm, offset)
+
+	// plan to a location, it should intepolate to get there
+	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	plan, err := PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, opts)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldEqual, 2)
+
+	// now add a UR arm in its way
+	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(ur5, fs.World())
+
+	// the plan should no longer be able to interpolate, but it should still be able to get there
+	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	plan, err = PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, opts)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
 
 func TestSliceUniq(t *testing.T) {

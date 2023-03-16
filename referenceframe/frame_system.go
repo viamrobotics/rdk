@@ -334,7 +334,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (*Geom
 	for _, name := range system.FrameNames() {
 		geosInFrame, err := system.Frame(name).Geometries(inputs[name])
 		if err != nil {
-			errAll = multierr.Append(errAll, err)
+			errAll = multierr.Append(errAll, err)	
 			continue
 		}
 		if len(geosInFrame.Geometries()) > 0 {
