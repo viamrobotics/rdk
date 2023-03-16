@@ -85,7 +85,7 @@ require (
 	go.viam.com/api v0.1.89
 	go.viam.com/slam v0.1.31
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.15
+	go.viam.com/utils v0.1.17-0.20230315230042-173a6ac16169
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.3.0
 	golang.org/x/tools v0.6.0
