@@ -6,10 +6,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/test"
 )
 
 func TestKinematicBase(t *testing.T) {
@@ -53,7 +54,7 @@ func TestKinematicBase(t *testing.T) {
 			kinematicCfg.Frame = frame
 			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
-			wb, err := WrapWithKinematics(basic.(*wheeledBase), fake.NewSLAM("", logger))
+			wb, err := WrapWithKinematics(ctx, basic.(*wheeledBase), fake.NewSLAM("", logger))
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return

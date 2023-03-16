@@ -49,6 +49,7 @@ type SLAM struct {
 	logger    golog.Logger
 }
 
+// NewSLAM is a constructor for a fake slam service.
 func NewSLAM(name string, logger golog.Logger) *SLAM {
 	return &SLAM{Name: name, logger: logger}
 }
