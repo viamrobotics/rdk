@@ -171,7 +171,10 @@ func (a *Attributes) Walk(visitor config.Visitor) error {
 		}
 		cfg.Type = typ.(string)
 
-		//cfg.Parameters.Walk(visitor).(config.AttributeMap)
+		err = cfg.Parameters.Walk(visitor)
+		if err != nil {
+			return err
+		}
 
 		a.ModelRegistry[i] = cfg // is this necessary?
 	}
