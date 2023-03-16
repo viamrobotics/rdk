@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/utils"
 	goutils "go.viam.com/utils"
 	"golang.org/x/exp/slices"
@@ -102,12 +100,11 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string         `json:"capture_dir"`
-	AdditionalSyncPaths   []string       `json:"additional_sync_paths"`
-	SyncIntervalMins      float64        `json:"sync_interval_mins"`
-	CaptureDisabled       bool           `json:"capture_disabled"`
-	ScheduledSyncDisabled bool           `json:"sync_disabled"`
-	ModelsToDeploy        []*model.Model `json:"models_on_robot"`
+	CaptureDir            string   `json:"capture_dir"`
+	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
+	SyncIntervalMins      float64  `json:"sync_interval_mins"`
+	CaptureDisabled       bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -130,9 +127,6 @@ type builtIn struct {
 	syncRoutineCancelFn context.CancelFunc
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
-
-	modelManager            model.Manager
-	modelManagerConstructor model.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -163,7 +157,6 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		additionalSyncPaths:         []string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewDefaultManager,
-		modelManagerConstructor:     model.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
@@ -403,29 +396,6 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		svc.closeCollectors()
 		svc.closeSyncer()
 		return err
-	}
-
-	// Check that we have models to download and appropriate credentials.
-	if len(svcConfig.ModelsToDeploy) > 0 && cfg.Cloud != nil {
-		if svc.modelManager == nil {
-			modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
-			if err != nil {
-				return errors.Wrap(err, "failed to initialize new modelManager")
-			}
-			svc.modelManager = modelManager
-		}
-
-		// Download models from models_on_robot.
-		modelsToDeploy := svcConfig.ModelsToDeploy
-		errorChannel := make(chan error, len(modelsToDeploy))
-		go svc.modelManager.DownloadModels(cfg, modelsToDeploy, errorChannel)
-		if len(errorChannel) != 0 {
-			var errMsgs []string
-			for err := range errorChannel {
-				errMsgs = append(errMsgs, err.Error())
-			}
-			return errors.New(strings.Join(errMsgs[:], ", "))
-		}
 	}
 
 	dcConfigs, err := buildDataCaptureConfigs(cfg, svcConfig.CaptureDir)
