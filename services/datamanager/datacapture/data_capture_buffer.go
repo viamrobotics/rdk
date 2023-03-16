@@ -9,6 +9,13 @@ import (
 // MaxFileSize is the maximum size in bytes of a data capture file.
 var MaxFileSize = int64(64 * 1024)
 
+// BufferedWriter is a buffered, persistent queue of SensorData.
+type BufferedWriter interface {
+	Write(item *v1.SensorData) error
+	Flush() error
+	Path() string
+}
+
 // Buffer is a persistent queue of SensorData backed by a series of datacapture.Files.
 type Buffer struct {
 	Directory string
@@ -79,4 +86,9 @@ func (b *Buffer) Flush() error {
 	}
 	b.nextFile = nil
 	return nil
+}
+
+// Path returns the path to the directory containing the backing data capture files.
+func (b *Buffer) Path() string {
+	return b.Directory
 }

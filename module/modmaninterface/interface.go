@@ -16,6 +16,7 @@ type ModuleManager interface {
 	ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error
 	RemoveResource(ctx context.Context, name resource.Name) error
 	IsModularResource(name resource.Name) bool
+	ValidateConfig(ctx context.Context, cfg config.Component) ([]string, error)
 
 	Provides(cfg config.Component) bool
 

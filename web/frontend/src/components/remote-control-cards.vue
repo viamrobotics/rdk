@@ -54,7 +54,7 @@ import {
   fixServoStatus,
 } from '../lib/fixers';
 
-interface Props {
+const props = defineProps<{
   host: string;
   bakedAuth?: {
     authEntity: string;
@@ -63,9 +63,7 @@ interface Props {
   supportedAuthTypes: string[],
   webrtcEnabled: boolean,
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -227,11 +225,8 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
       const name = resourceNameToString(nameObj);
       rawStatus[name] = statusJs as unknown as robotApi.Status;
       status[name] = fixed as unknown as robotApi.Status;
-    } catch (error) {
-      toast.error(
-        `Couldn't fix status for ${resourceNameToString(nameObj)}`,
-        error
-      );
+    } catch {
+      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
     }
   }
 };
@@ -837,9 +832,9 @@ onUnmounted(() => {
 
     <!-- ******* DO ******* -->
     <DoCommand
-      v-if="connectedOnce"
+      v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
       :client="client"
-      :resources="filterComponentsWithNames(resources)"
+      :resources="filterResources(resources, 'rdk', 'component', 'generic')"
     />
 
     <!-- ******* OPERATIONS AND SESSIONS ******* -->

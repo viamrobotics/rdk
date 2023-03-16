@@ -83,7 +83,6 @@
 			"type": "base",
 			"name": "base1",
 			"model": "acme:demo:mybase",
-			"depends_on": ["motor1", "motor2"],
 			"attributes": {
 				"motorL": "motor1",
 				"motorR": "motor2"

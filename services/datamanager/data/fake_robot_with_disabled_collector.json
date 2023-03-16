@@ -15,7 +15,7 @@
             "capture_methods": [
               {
                 "method": "EndPosition",
-                "capture_frequency_hz": 100,
+                "capture_frequency_hz": 500,
                 "tags": [
                   "a",
                   "b"

@@ -10,7 +10,7 @@ import {
 } from '@viamrobotics/sdk';
 import { cameraStreamStates, selectedMap } from '../../lib/camera-state';
 
-interface Props {
+const props = defineProps<{
   cameraName: string;
   parentName: string;
   resources: commonApi.ResourceName.AsObject[];
@@ -18,9 +18,7 @@ interface Props {
   showExportScreenshot: boolean;
   refreshRate: string | undefined;
   triggerRefresh: boolean;
-}
-
-const props = defineProps<Props>();
+}>();
 
 let videoStream = $ref<MediaStream>();
 const imgEl = $ref<HTMLImageElement>();

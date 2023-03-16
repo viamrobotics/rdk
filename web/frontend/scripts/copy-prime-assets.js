@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable unicorn/prefer-module */
-const fs = require('node:fs');
+import fs from 'node:fs';
 
 const source = './node_modules/@viamrobotics/prime/dist';
 const dest = '../runtime-shared/static';

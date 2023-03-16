@@ -5,16 +5,14 @@ import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import { Client, BoardClient, ServiceError } from '@viamrobotics/sdk';
 
-interface Props {
+const props = defineProps<{
   name: string
   status: {
     analogsMap: Record<string, { value: number }>
     digitalInterruptsMap: Record<string, { value: number }>
   }
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 const boardClient = new BoardClient(props.client, props.name, { requestLogger: rcLogConditionally });
 const getPin = $ref('');

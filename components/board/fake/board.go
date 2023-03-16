@@ -372,6 +372,8 @@ type GPIOPin struct {
 // Set sets the pin to either low or high.
 func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.high = high
+	gp.pwm = 0
+	gp.pwmFreq = 0
 	return nil
 }
 
@@ -396,7 +398,7 @@ func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 	return gp.pwmFreq, nil
 }
 
-// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+// SetPWMFreq sets the given pin to the given PWM frequency.
 func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.pwmFreq = freqHz
 	return nil

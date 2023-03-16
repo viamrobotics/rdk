@@ -25,6 +25,7 @@ type depthToPretty struct {
 
 func propsFromVideoSource(ctx context.Context, source gostream.VideoSource) (camera.Properties, error) {
 	var camProps camera.Properties
+	//nolint:staticcheck
 	if cameraSrc, ok := source.(camera.Camera); ok {
 		props, err := cameraSrc.Properties(ctx)
 		if err != nil {
