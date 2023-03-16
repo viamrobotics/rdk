@@ -4,7 +4,6 @@ package vision
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"sync"
 
@@ -177,9 +176,8 @@ func (a *Attributes) Walk(visitor config.Visitor) (interface{}, error) {
 			return nil, err
 		}
 		cfg.Parameters = params.(config.AttributeMap)
-		fmt.Println(cfg.Parameters)
 
-		a.ModelRegistry[i] = cfg // is this necessary?
+		a.ModelRegistry[i] = cfg
 	}
 
 	return a, nil
