@@ -289,6 +289,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	if err := svc.runWeb(cancelCtx, o); err != nil {
 		cancelFunc()
 		svc.cancelFuncs = nil
+		svc.isRunning = false
 		return err
 	}
 	return nil
@@ -635,7 +636,9 @@ func (svc *webService) startImageStream(ctx context.Context, source gostream.Vid
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		return webstream.StreamAudioSource(ctx, source, stream, opts)
+		cancelCtx, cancelFunc := context.WithCancel(ctx)
+		svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+		return webstream.StreamAudioSource(cancelCtx, source, stream, opts)
 	})
 }
 

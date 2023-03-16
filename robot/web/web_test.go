@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"go.viam.com/rdk/components/audioinput"
 	"net"
 	"testing"
 	"time"
@@ -661,6 +662,7 @@ func TestWebWithStreams(t *testing.T) {
 	const (
 		camera1Key = "camera1"
 		camera2Key = "camera2"
+		audioKey   = "audio"
 	)
 
 	// Start a robot with a camera
@@ -699,12 +701,21 @@ func TestWebWithStreams(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Add an audio stream
+	audio := &inject.AudioInput{}
+	rs[audioinput.Named(audioKey)] = audio
+	robot.MockResourcesFromMap(rs)
+	updateable, ok = svc.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = updateable.Update(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+
 	// Test that new streams are available
 	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Names, test.ShouldContain, camera1Key)
 	test.That(t, resp.Names, test.ShouldContain, camera2Key)
-	test.That(t, resp.Names, test.ShouldHaveLength, 2)
+	test.That(t, resp.Names, test.ShouldHaveLength, 3)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
