@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/components/audioinput"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
