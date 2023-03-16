@@ -30,7 +30,7 @@ func newGeneric(name string) generic.Generic {
 	return &Generic{Name: name}
 }
 
-// Generic is a fake Generic device that always returns the set location.
+// Generic is a fake Generic device that always echos inputs back to the caller.
 type Generic struct {
 	Name string
 	generic.Echo
