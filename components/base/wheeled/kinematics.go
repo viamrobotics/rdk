@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
@@ -20,13 +21,15 @@ type kinematicWheeledBase struct {
 	model referenceframe.Model
 }
 
-func WrapWithKinematics(base *wheeledBase, slam slam.Service) (base.KinematicBase, error) {
+// WrapWithKinematics takes a wheeledBase component and adds a slam service to it
+// It also adds kinematic model so that it can be controlled.
+func WrapWithKinematics(ctx context.Context, base *wheeledBase, slam slam.Service) (base.KinematicBase, error) {
 	var err error
 	kwb := &kinematicWheeledBase{
 		wheeledBase: base,
 		slam:        slam,
 	}
-	kwb.model, err = kwb.buildModel()
+	kwb.model, err = kwb.buildModel(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,13 +50,15 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return errors.New("not implemented yet")
 }
 
-func (kwb *kinematicWheeledBase) buildModel() (referenceframe.Model, error) {
+// ModelFrame builds the kinematic model associated with the kinematicWheeledBase
+// Note that this model is not intended to be registered in the frame system
+func (kwb *kinematicWheeledBase) buildModel(ctx context.Context) (referenceframe.Model, error) {
 	if kwb.collisionGeometry == nil {
 		return nil, errors.New("cannot create model for base with no collision geometry")
 	}
 
 	// get the limits of the SLAM map to set as the extents of the frame
-	data, err := slam.GetPointCloudMapFull(context.Background(), kwb.slam, "")
+	data, err := slam.GetPointCloudMapFull(ctx, kwb.slam, "")
 	if err != nil {
 		return nil, err
 	}
