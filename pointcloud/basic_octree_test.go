@@ -619,8 +619,6 @@ func TestCachedMaxChildProbability(t *testing.T) {
 	err = addPoints(octree, pointsAndData)
 	test.That(t, err, test.ShouldBeNil)
 
-	// printBasicOctree(golog.NewTestLogger(t), octree, "")
-
 	internalMPCMap := make(map[r3.Vector]int)
 	internalMPCMap[r3.Vector{X: 0, Y: 0, Z: 0}] = 10
 	internalMPCMap[r3.Vector{X: -.5, Y: -.5, Z: -.5}] = 5
