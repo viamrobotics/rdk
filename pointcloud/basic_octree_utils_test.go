@@ -12,7 +12,7 @@ import (
 // Test creation of empty leaf node, filled leaf node and internal node.
 func TestNodeCreation(t *testing.T) {
 	t.Run("Create empty leaf node", func(t *testing.T) {
-		basicOct := newLeafNodeEmpty()
+		basicOct := newLeafNodeEmpty(nil)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeEmpty)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{})
@@ -22,7 +22,7 @@ func TestNodeCreation(t *testing.T) {
 	t.Run("Create filled leaf node", func(t *testing.T) {
 		p := r3.Vector{X: 0, Y: 0, Z: 0}
 		d := NewValueData(1.0)
-		basicOct := newLeafNodeFilled(p, d)
+		basicOct := newLeafNodeFilled(p, d, nil)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeFilled)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{P: p, D: d})
@@ -31,7 +31,7 @@ func TestNodeCreation(t *testing.T) {
 
 	t.Run("Create internal node", func(t *testing.T) {
 		var children []*BasicOctree
-		basicOct := newInternalNode(children)
+		basicOct := newInternalNode(children, nil)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{})
@@ -121,11 +121,11 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
+		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0), basicOct.node.root)
 		err = basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 
-		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
+		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0), basicOct.node.root)
 		err1 := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1.0))
 		test.That(t, err1, test.ShouldBeError, errors.Errorf("error in splitting octree into new octants: %v", err))
 	})
@@ -278,14 +278,14 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 					center:     newCenter,
 					sideLength: newSideLength,
 					size:       0,
-					node:       newLeafNodeEmpty(),
+					node:       newLeafNodeEmpty(oct),
 					meta:       NewMetaData(),
 				}
 				children = append(children, child)
 			}
 		}
 	}
-	oct.node = newInternalNode(children)
+	oct.node = newInternalNode(children, oct.node.root)
 	oct.node.children[0] = createLopsidedOctree(oct.node.children[0], i+1, max)
 	return oct
 }
@@ -305,15 +305,14 @@ func stringBasicOctreeNodeType(n NodeType) string {
 	return ""
 }
 
-//nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
-	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
-		bOct.center.X, bOct.center.Y, bOct.center.Z,
-		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
+	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxChildProbability: %v\n", s,
+		bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
+		len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxChildProb)
 
 	if bOct.node.nodeType == leafNodeFilled {
-		logger.Infof("%s (%e %e %e) - Val: %v\n", s,
-			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
+		logger.Infof("%s (%e %e %e) - Val: %v | MaxChildProbability: %v\n", s,
+			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value(), bOct.node.maxChildProb)
 	}
 	for _, v := range bOct.node.children {
 		printBasicOctree(logger, v, s+"-+-")

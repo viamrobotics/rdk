@@ -33,9 +33,11 @@ type BasicOctree struct {
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
 // PointAndData datatype representing a point in space.
 type basicOctreeNode struct {
-	nodeType NodeType
-	children []*BasicOctree
-	point    PointAndData
+	nodeType     NodeType
+	children     []*BasicOctree
+	root         *BasicOctree
+	point        PointAndData
+	maxChildProb int
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -45,7 +47,7 @@ func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) 
 	}
 
 	octree := &BasicOctree{
-		node:       newLeafNodeEmpty(),
+		node:       newLeafNodeEmpty(nil),
 		center:     center,
 		sideLength: sideLength,
 		size:       0,
