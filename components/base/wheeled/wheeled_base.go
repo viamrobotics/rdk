@@ -271,6 +271,12 @@ func angleBetween(angle, bound1, bound2 float64) bool {
 
 func hasOverShot(angle, start, target, dir float64) bool {
 	switch {
+
+	case dir == -1 && start > target:
+		over := angleBetween(angle, 0, target) || angleBetween(angle, 360, start)
+		return over
+	case dir == -1 && target > start:
+		return angleBetween(angle, target, start)
 	// for most cases, the absolute angle of our overshoot is larger than our target
 	// however we need to check is we are within range if our start angle is smaller
 	// than our target
