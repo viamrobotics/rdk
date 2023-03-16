@@ -147,8 +147,16 @@ func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64)
 
 func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 
+	if rdkutils.Float64AlmostEqual(angleDeg, 360, 2) {
+		// if we're exactly 360 degrees away from target
+		// we are at the target and the base won't move
+		angleDeg -= 3
+		base.logger.Warn(
+			"changing angle to 357, base is already at target by adding 360 degrees",
+		)
+	}
 	wheelrpm, revs := base.spinMath(angleDeg, degsPerSec)
-	revInc := revs * .1
+	revInc := revs * .1 // TODO RSDK - refine runAll increments
 
 	startYaw, err := getCurrentYaw(ctx, base.orientationSensor, extra) // from 0 -> 360
 	if err != nil {
@@ -180,7 +188,9 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 		if err != nil {
 			errCounter++
 			if errCounter > 100 {
-				return errors.New("imu sensor unreachable, had 100 error counts when trying to read yaw angle")
+				return errors.New(
+					"imu sensor unreachable, 100 error counts when trying to read yaw angle",
+				)
 			}
 		}
 		errCounter = 0
@@ -271,23 +281,23 @@ func angleBetween(angle, bound1, bound2 float64) bool {
 
 func hasOverShot(angle, start, target, dir float64) bool {
 	switch {
-
 	case dir == -1 && start > target:
+		// for cases with a quadrant switch from 1 -> 4
+		// check if the current angle is in the regions before the
+		// target and after the start
 		over := angleBetween(angle, 0, target) || angleBetween(angle, 360, start)
 		return over
 	case dir == -1 && target > start:
+		// the overshoot range is the inside range between the start and target
 		return angleBetween(angle, target, start)
-	// for most cases, the absolute angle of our overshoot is larger than our target
-	// however we need to check is we are within range if our start angle is smaller
-	// than our target
 	case dir == 1 && start > target:
-		// we check if the current angle is within the allowable range
-		// multiplying each angle by the direction functions like taking an absolute
+		// for cases with a quadrant switch from 1 -> 4
+		// check if the current angle is not in the regions after the
+		// target and before the start
 		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start, 360)
 		return over
-	// for cases with a quadrant switch from 1 -> in either direction
-	// the overshoot range is the outside range between the start and target
 	default:
+		// the overshoot range is the outside range between the start and target
 		return !angleBetween(angle, start, target)
 	}
 }
