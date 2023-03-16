@@ -73,15 +73,16 @@ const setupCamera = (cameraName: string) => {
       </div>
 
       <Camera
-        v-if="openCameras[camera.name]"
+        v-show="openCameras[camera.name]"
         :key="camera.name"
         :camera-name="camera.name"
         :parent-name="parentName"
         :client="client"
         :resources="resources"
         :show-export-screenshot="true"
-        :refresh-rate="refreshFrequency[camera.name]"
+        :refresh-rate="refreshFrequency[camera.name]? refreshFrequency[camera.name]: 'Live'"
         :trigger-refresh="triggerRefresh"
+        :toggle="openCameras[camera.name]? openCameras[camera.name]:false"
       />
 
       <PCD
