@@ -454,7 +454,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-show="openCameras[camera.name]"
+              v-if="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
