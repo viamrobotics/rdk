@@ -593,7 +593,7 @@ var (
 	}
 )
 
-// Validate returns true if the cofnig is valid. Ensures each key is valid and meets the required constraints.
+// Validate returns true if the config is valid. Ensures each key is valid and meets the required constraints.
 func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
