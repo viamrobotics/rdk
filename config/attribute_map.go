@@ -314,31 +314,31 @@ func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
 	if t.Kind() != reflect.Struct {
 		return nil, errors.Errorf("data of type %T is not a struct", data)
 	}
-
+	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
 	if value.Kind() == reflect.Ptr && value.IsNil() {
-		return nil, nil
+		return res, nil
 	}
-	value = reflect.Indirect(value) // Get the value that this points to if it's a pointer
-
+	value = reflect.Indirect(value)
 	for i := 0; i < t.NumField(); i++ {
+		sField := t.Field(i)
+		key := sField.Name
+
 		field := value.Field(i).Interface()
 
-		fieldValue := reflect.ValueOf(field)
-		if isEmptyValue(fieldValue) {
+		if isEmptyValue(reflect.ValueOf(field)) {
+			res[key] = data
 			continue
 		}
 
-		newField, err := w.walkInterface(field)
+		data, err := w.walkInterface(field)
 		if err != nil {
 			return nil, err
 		}
 
-		if reflect.TypeOf(field).Kind() == reflect.Ptr {
-			value.Field(i).Set(reflect.ValueOf(newField))
-		}
+		res[key] = data
 	}
-	return value.Interface(), nil
+	return res, nil
 }
 
 func isEmptyValue(v reflect.Value) bool {
