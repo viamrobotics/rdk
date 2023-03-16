@@ -81,7 +81,7 @@ func TestBasicOctreeNew(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("New Octree as basic octree", func(t *testing.T) {
-		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
+		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty(nil))
 		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
 		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
 		test.That(t, basicOct.meta, test.ShouldResemble, NewMetaData())
@@ -105,7 +105,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		data1 := NewValueData(1)
 		err = basicOct.Set(point1, data1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeFilled(point1, data1))
+		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeFilled(point1, data1, basicOct.node.root))
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
 
 		validateBasicOctree(t, basicOct, center, side)
@@ -190,7 +190,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newInternalNode([]*BasicOctree{})
+		basicOct.node = newInternalNode([]*BasicOctree{}, basicOct.node.root)
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
@@ -199,7 +199,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newInternalNode([]*BasicOctree{})
+		basicOct.node = newInternalNode([]*BasicOctree{}, basicOct.node.root)
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
@@ -597,4 +597,81 @@ func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 	})
 
 	validateBasicOctree(t, basicOct, basicOct.center, basicOct.sideLength)
+}
+
+func TestCachedMaxChildProbability(t *testing.T) {
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 2.0
+
+	octree, err := createNewOctree(center, side)
+	test.That(t, err, test.ShouldBeNil)
+
+	pointsAndData := []PointAndData{
+		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+		{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3)},
+		{P: r3.Vector{X: .5, Y: 0, Z: .5}, D: NewValueData(10)},
+		{P: r3.Vector{X: .5, Y: .5, Z: 0}, D: NewValueData(1)},
+		{P: r3.Vector{X: .55, Y: .55, Z: 0}, D: NewValueData(4)},
+		{P: r3.Vector{X: -.55, Y: -.55, Z: 0}, D: NewValueData(5)},
+		{P: r3.Vector{X: .755, Y: .755, Z: 0}, D: NewValueData(6)},
+	}
+
+	err = addPoints(octree, pointsAndData)
+	test.That(t, err, test.ShouldBeNil)
+
+	// printBasicOctree(golog.NewTestLogger(t), octree, "")
+
+	internalMPCMap := make(map[r3.Vector]int)
+	internalMPCMap[r3.Vector{X: 0, Y: 0, Z: 0}] = 10
+	internalMPCMap[r3.Vector{X: -.5, Y: -.5, Z: -.5}] = 5
+	internalMPCMap[r3.Vector{X: .5, Y: .5, Z: -.5}] = 6
+	internalMPCMap[r3.Vector{X: .75, Y: .75, Z: -.25}] = 6
+
+	leafMPCMap := make(map[r3.Vector]int)
+	leafMPCMap[r3.Vector{X: 0, Y: 0, Z: 0}] = 2
+	leafMPCMap[r3.Vector{X: .5, Y: 0, Z: 0}] = 3
+	leafMPCMap[r3.Vector{X: .5, Y: 0, Z: .5}] = 10
+	leafMPCMap[r3.Vector{X: .5, Y: .5, Z: 0}] = 1
+	leafMPCMap[r3.Vector{X: .55, Y: .55, Z: 0}] = 4
+	leafMPCMap[r3.Vector{X: -.55, Y: -.55, Z: 0}] = 5
+	leafMPCMap[r3.Vector{X: .755, Y: .755, Z: 0}] = 6
+
+	err = validateProbability(t, octree, internalMPCMap, leafMPCMap)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func validateProbability(t *testing.T, octree *BasicOctree, internalMPCMap, leafMPCMap map[r3.Vector]int) error {
+	t.Helper()
+	misMatch := errors.New("node's MPC: does not match the expected value")
+	switch octree.node.nodeType {
+	case internalNode:
+		p := octree.center
+		// look up center and check
+		internalMPC := internalMPCMap[p]
+		actualMPC := octree.node.maxChildProb
+		if internalMPC != actualMPC {
+			return misMatch
+		}
+		// recur on children
+		for _, child := range octree.node.children {
+			err := validateProbability(t, child, internalMPCMap, leafMPCMap)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case leafNodeFilled:
+		p := octree.node.point.P
+		// look up actual point and check
+		leafMPC := leafMPCMap[p]
+		actualMPC := octree.node.maxChildProb
+		if leafMPC != actualMPC {
+			return misMatch
+		}
+		return nil
+
+	case leafNodeEmpty:
+	}
+	return nil
 }
