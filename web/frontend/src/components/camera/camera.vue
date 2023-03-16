@@ -18,6 +18,7 @@ const props = defineProps<{
   showExportScreenshot: boolean;
   refreshRate: string | undefined;
   triggerRefresh: boolean;
+  toggle:boolean | undefined | null;
 }>();
 
 let videoStream = $ref<MediaStream>();
@@ -43,39 +44,26 @@ const manageStreamStates = (cameraIsOn: boolean) => {
   camerasOn = counter;
 };
 
-const viewCamera = async (isOn: boolean) => {
+const viewCamera = async () => {
   const streams = new StreamClient(props.client);
-
-  streams.on('track', (event) => {
-    let [eventStream] = event.streams;
-    eventStream = event.streams[0];
-    if (!eventStream) {
-      throw new Error('expected event stream to exist');
-    }
-    // Ignore event if received for the wrong stream, in the case of multiple cameras
-    if (eventStream.id !== props.cameraName) {
-      return;
-    }
-    videoStream = eventStream;
-  });
-
-  if (props.refreshRate === 'Live') {
-    manageStreamStates(isOn);
-
-    if (camerasOn === 1) {
-      try {
-        await streams.add(props.cameraName);
-      } catch (error) {
-        displayError(error as ServiceError);
+  if (camerasOn === 1 && props.toggle) {
+    try {
+      await streams.add(props.cameraName);
+    } catch (error) {
+      if (error.message !== 'stream already active') {
+        displayError(error);
       }
-    } else if (camerasOn === 0) {
-      try {
-        await streams.remove(props.cameraName);
-      } catch (error) {
-        displayError(error as ServiceError);
+    }
+  } else if (camerasOn === 0) {
+    try {
+      await streams.remove(props.cameraName);
+    } catch (error) {
+      if (error.message !== 'stream already active') {
+        displayError(error);
       }
     }
   }
+
 };
 
 const viewFrame = async (cameraName: string) => {
@@ -115,10 +103,11 @@ const selectCameraView = () => {
   const selectedInterval: number = selectedMap[props.refreshRate as keyof typeof selectedMap];
 
   if (props.refreshRate === 'Live') {
-    viewCamera(true);
+    manageStreamStates(true);
+    viewCamera();
   } else {
-    viewCamera(false);
-
+    manageStreamStates(false);
+    viewCamera();
     viewCameraFrame(props.cameraName, selectedInterval);
   }
 };
@@ -145,17 +134,20 @@ const exportScreenshot = async (cameraName: string) => {
 };
 
 onMounted(() => {
-  cameraOn = true;
+  const streams = new StreamClient(props.client);
 
-  clearFrameInterval();
-
-  selectCameraView();
-});
-
-onUnmounted(() => {
-  cameraOn = false;
-  manageStreamStates(false);
-  clearFrameInterval();
+  streams.on('track', (event) => {
+    let [eventStream] = event.streams;
+    eventStream = event.streams[0];
+    if (!eventStream) {
+      throw new Error('expected event stream to exist');
+    }
+    //  Ignore event if received for the wrong stream, in the case of multiple cameras
+    if (eventStream.id !== props.cameraName) {
+      return;
+    }
+    videoStream = eventStream;
+  });
 });
 
 // on prop change select camera view
@@ -166,6 +158,21 @@ watch(() => props.refreshRate, () => {
 // on prop change refresh camera
 watch(() => props.triggerRefresh, () => {
   refreshCamera();
+});
+
+watch(() => props.toggle, () => {
+  if (props.toggle === true) {
+    cameraOn = true;
+    manageStreamStates(true);
+    clearFrameInterval();
+    selectCameraView();
+
+  } else if (props.toggle === false && cameraOn === true) {
+    cameraOn = false;
+    manageStreamStates(false);
+    viewCamera();
+    clearFrameInterval();
+  }
 });
 
 </script>

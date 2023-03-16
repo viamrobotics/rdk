@@ -454,7 +454,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-if="openCameras[camera.name]"
+              v-show="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
@@ -463,6 +463,7 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
+              :toggle="openCameras[camera.name]?openCameras[camera.name]:false"
             />
           </template>
         </div>
