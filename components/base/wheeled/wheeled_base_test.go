@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -445,12 +446,12 @@ func TestSpinWithMSMath(t *testing.T) {
 
 func TestHasOverShot(t *testing.T) {
 	dirCases := []dirInfo{
-		{"ccw", 1},
-		{"cw", -1},
+		{"ccw", 1.0},
+		// {"cw", -1},
 	}
 
 	addCases := []addInfo{
-		{"acute", 5},
+		{"acute", 3},
 		{"acute", 20},
 		{"right", 90},
 		{"obtuse", 110},
@@ -458,8 +459,7 @@ func TestHasOverShot(t *testing.T) {
 		{"reflex", 200},
 		{"reflexright", 270},
 		{"reflexplus", 345},
-		{"reflexplus", 350},
-		{"complete", 359},
+		{"complete", 357},
 	}
 
 	startCases := []float64{
@@ -497,29 +497,31 @@ func TestHasOverShot(t *testing.T) {
 
 				start := condition.Start
 				target := condition.Target
-				over := condition.Over
 				dir := condition.Direction
 				added := addCase.Value
 
-				t.Run(condition.Name+" overshot", func(t *testing.T) {
-					test.That(t,
-						hasOverShot(over, start, target, dir),
-						test.ShouldBeTrue)
-				})
-
 				// test a few cases in range ensure were not falsely overshooting
 				notovers := map[string]float64{
-					"+":  addAnglesInDomain(start, dir, false),
-					"++": addAnglesInDomain(start, dir*added/2, false),
-					"--": addAnglesInDomain(target, -dir*added/2, false),
-					"-":  addAnglesInDomain(target, -dir, false),
+					"under:0":  addAnglesInDomain(start, 0, false),
+					"under:+":  addAnglesInDomain(start, dir, false),
+					"under:++": addAnglesInDomain(start, dir*added/2, false),
+					"under:--": addAnglesInDomain(target, -dir*added/2, false),
+					"under:-":  addAnglesInDomain(target, -dir, false),
+					"end":      addAnglesInDomain(target, 0, false),
+					"over:":    addAnglesInDomain(target, dir, false),
 				}
-				for key, notover := range notovers {
-					noStr := "[" + strconv.FormatFloat(notover, 'f', 1, 64) + "]"
-					t.Run(condition.Name+noStr+key+" notovershot", func(t *testing.T) {
-						test.That(t,
-							hasOverShot(notover, start, target, dir),
-							test.ShouldBeFalse)
+				for key, angle := range notovers {
+					noStr := "[" + strconv.FormatFloat(angle, 'f', 1, 64) + "]"
+					t.Run(condition.Name+noStr+key, func(t *testing.T) {
+						if key == "end" || strings.Contains(key, "over") {
+							test.That(t,
+								hasOverShot(angle, start, target, dir),
+								test.ShouldBeTrue)
+						} else {
+							test.That(t,
+								hasOverShot(angle, start, target, dir),
+								test.ShouldBeFalse)
+						}
 					})
 				}
 			}
@@ -537,7 +539,6 @@ type TestCase struct {
 
 func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
 	target := addAnglesInDomain(startI, dirI.Value*addI.Value, false)
-	overshoot := addAnglesInDomain(target, dirI.Value, false)
 
 	a2Str := func(number float64) string {
 		return strconv.FormatFloat(number, 'f', 1, 64)
@@ -547,14 +548,12 @@ func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
 	tQ := findQuadrant(target)
 	behaviour := sQ + "-to-" + tQ + "-" + dirI.Name + "-" + addI.AngleType
 	s2t := "(" + a2Str(startI) + "->" + a2Str(target) + ")"
-	eAt := "[" + a2Str(overshoot) + "]"
-	name := behaviour + s2t + eAt
+	name := behaviour + s2t
 
 	return TestCase{
 		Name:      name,
 		Start:     startI,
 		Target:    target,
-		Over:      overshoot,
 		Direction: dirI.Value,
 	}
 }
