@@ -243,7 +243,7 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger, opts ...Option) Service {
+func New(_ context.Context, r robot.Robot, logger golog.Logger, opts ...Option) Service {
 	var wOpts options
 	for _, opt := range opts {
 		opt.apply(&wOpts)
@@ -260,18 +260,18 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger, opts ...Option
 }
 
 type webService struct {
-	mu           sync.Mutex
-	r            robot.Robot
-	rpcServer    rpc.Server
-	modServer    rpc.Server
-	streamServer *StreamServer
-	services     map[resource.Subtype]subtype.Service
-	opts         options
-	addr         string
-	modAddr      string
-
+	mu                      sync.Mutex
+	r                       robot.Robot
+	rpcServer               rpc.Server
+	modServer               rpc.Server
+	streamServer            *StreamServer
+	services                map[resource.Subtype]subtype.Service
+	opts                    options
+	addr                    string
+	modAddr                 string
 	logger                  golog.Logger
-	cancelFunc              func()
+	cancelFuncs             []func()
+	isRunning               bool
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -279,15 +279,16 @@ type webService struct {
 func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.cancelFunc != nil {
+	if svc.isRunning {
 		return errors.New("web server already started")
 	}
+	svc.isRunning = true
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	svc.cancelFunc = cancelFunc
+	svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
 
 	if err := svc.runWeb(cancelCtx, o); err != nil {
 		cancelFunc()
-		svc.cancelFunc = nil
+		svc.cancelFuncs = nil
 		return err
 	}
 	return nil
@@ -452,10 +453,10 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.cancelFunc = nil
+	for _, cancel := range svc.cancelFuncs {
+		cancel()
 	}
+	svc.cancelFuncs = nil
 }
 
 // Close closes a webService via calls to its Cancel func.
@@ -463,10 +464,10 @@ func (svc *webService) Close() error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var err error
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.cancelFunc = nil
+	for _, cancel := range svc.cancelFuncs {
+		cancel()
 	}
+	svc.cancelFuncs = nil
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
 	}
@@ -626,7 +627,9 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		return webstream.StreamVideoSource(ctxWithJPEGHint, source, stream, opts)
+		cancelCtx, cancelFunc := context.WithCancel(ctxWithJPEGHint)
+		svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+		return webstream.StreamVideoSource(cancelCtx, source, stream, opts)
 	})
 }
 
