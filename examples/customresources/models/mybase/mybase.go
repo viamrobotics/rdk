@@ -27,19 +27,19 @@ var (
 func init() {
 	registry.RegisterComponent(base.Subtype, Model, registry.Component{Constructor: newBase})
 
-  // Use RegisterComponentAttributeMapConverter to register a custom configuration
+	// Use RegisterComponentAttributeMapConverter to register a custom configuration
 	// struct that has a Validate(string) ([]string, error) method.
 	//
 	// The Validate method will automatically be called in RDK's module manager to
 	// Validate the MyBase's configuration and register implicit dependencies.
 	config.RegisterComponentAttributeMapConverter(
-    base.Subtype,
-    Model,
-    func(attributes config.AttributeMap) (interface{}, error) {
-      var conf MyBaseConfig
-      return config.TransformAttributeMapToStruct(&conf, attributes)
-    },
-    &MyBaseConfig{})
+		base.Subtype,
+		Model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf MyBaseConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&MyBaseConfig{})
 }
 
 func newBase(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -70,6 +70,9 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 		}
 	}
 
+	if base.left == nil || base.right == nil {
+		return errors.Errorf(`mybase %q needs both "motorL" and "motorR"`, cfg.Name)
+	}
 	return nil
 }
 

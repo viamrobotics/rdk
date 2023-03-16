@@ -37,8 +37,8 @@ func TestComplexModule(t *testing.T) {
 	// Modify the example config to run directly, without compiling the module first.
 	cfgFilename, port, err := modifyCfg(utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func(){
-			test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
+	defer func() {
+		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
 	}()
 
 	// Build a binary server and module. This seperate process avoids having custom APIs (imported above) in the parent server.
@@ -53,12 +53,12 @@ func TestComplexModule(t *testing.T) {
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
 		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
-		CWD: utils.ResolveFile("./"),
-		Log: true,
+		CWD:  utils.ResolveFile("./"),
+		Log:  true,
 	}, logger)
 
 	err = server.Start(context.Background())
-	test.That(t, err, test.ShouldBeNil)	
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, server.Stop(), test.ShouldBeNil)
 	}()
@@ -71,7 +71,7 @@ func TestComplexModule(t *testing.T) {
 
 	// Gizmo is a custom component model and API.
 	t.Run("Test Gizmo", func(t *testing.T) {
-	 	res, err := rc.ResourceByName(gizmoapi.Named("gizmo1"))
+		res, err := rc.ResourceByName(gizmoapi.Named("gizmo1"))
 		test.That(t, err, test.ShouldBeNil)
 
 		giz := res.(gizmoapi.Gizmo)
@@ -97,7 +97,7 @@ func TestComplexModule(t *testing.T) {
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3,  test.ShouldResemble, []bool{true, true})
+		test.That(t, ret3, test.ShouldResemble, []bool{true, true})
 	})
 
 	// Summation is a custom service model and API.
@@ -297,11 +297,11 @@ func TestComplexModule(t *testing.T) {
 }
 
 func connect(port string, logger golog.Logger) (robot.Robot, error) {
-	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second * 30)
+	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
-		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond * 500)
-		rc, err := client.New(dialCtx, "localhost:" + port, logger,
+		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+		rc, err := client.New(dialCtx, "localhost:"+port, logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
@@ -322,13 +322,13 @@ func modifyCfg(cfgIn string, logger golog.Logger) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
- 	port := strconv.Itoa(p)
- 	if err != nil {
- 		return "", "", err
- 	}
+	port := strconv.Itoa(p)
+	if err != nil {
+		return "", "", err
+	}
 
- 	// workaround because config.Read can't validate a module config with a "missing" ExePath
- 	touchFile("./complexmodule")
+	// workaround because config.Read can't validate a module config with a "missing" ExePath
+	touchFile("./complexmodule")
 	defer os.Remove("./complexmodule")
 	cfg, err := config.Read(context.Background(), cfgIn, logger)
 	if err != nil {
@@ -358,4 +358,57 @@ func touchFile(path string) error {
 		return err
 	}
 	return f.Close()
+}
+
+func TestValidationFailure(t *testing.T) {
+	logger, logs := golog.NewObservedTestLogger(t)
+
+	// bad_modular_validation.json contains a "mybase" modular component that will
+	// fail modular Validation due to a missing "motorL" attribute.
+	cfgFilename, port, err := modifyCfg(
+		utils.ResolveFile("examples/customresources/demos/complexmodule/moduletest/bad_modular_validation.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
+	}()
+
+	builder := exec.Command("bash", "-c", "make -s server && cd examples/customresources/demos/complexmodule && go build .")
+	builder.Dir = utils.ResolveFile("")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	server := pexec.NewManagedProcess(pexec.ProcessConfig{
+		Name: "bash",
+		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		CWD:  utils.ResolveFile("./"),
+		Log:  true,
+	}, logger)
+
+	err = server.Start(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, server.Stop(), test.ShouldBeNil)
+	}()
+
+	rc, err := connect(port, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that motors were added but base was not.
+	_, err = rc.ResourceByName(motor.Named("motor1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = rc.ResourceByName(motor.Named("motor2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = rc.ResourceByName(base.Named("base1"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldResemble, `resource "rdk:component:base/base1" not found`)
+
+	// Assert that Validation failure is present in server output, but build failure
+	// is not.
+	test.That(t, logs.FilterMessageSnippet(
+		"Modular config validation error found in component: base1").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }

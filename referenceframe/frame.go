@@ -359,7 +359,7 @@ func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPosition
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
 func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if pf.geometry == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometry", pf)
+		return NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 	pose, err := pf.Transform(input)
 	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {

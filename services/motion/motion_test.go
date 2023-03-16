@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/generic"
@@ -46,6 +47,7 @@ func (m *mock) Move(
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
+	constraints *servicepb.Constraints,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
@@ -99,6 +101,7 @@ func TestFromRobot(t *testing.T) {
 		gripper.Named("fake"),
 		grabPose,
 		&referenceframe.WorldState{},
+		nil,
 		slam.Named(""),
 		map[string]interface{}{},
 	)

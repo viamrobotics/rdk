@@ -357,12 +357,11 @@ func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 func (mpu *mpu6050) Close(ctx context.Context) error {
-	mpu.mu.Lock()
-	defer mpu.mu.Unlock()
-
 	mpu.cancelFunc()
 	mpu.activeBackgroundWorkers.Wait()
 
+	mpu.mu.Lock()
+	defer mpu.mu.Unlock()
 	// Set the Sleep bit (bit 6) in the power control register (register 107).
 	err := mpu.writeByte(ctx, 107, 1<<6)
 	if err != nil {

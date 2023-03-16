@@ -18,7 +18,7 @@ func Overlay(img image.Image, classifications Classifications) (image.Image, err
 	y := 30
 	for _, classification := range classifications {
 		rimage.DrawString(gimg,
-			fmt.Sprintf("%v: %.2f %%", classification.Label(), classification.Score()*100.),
+			fmt.Sprintf("%v: %.2f", classification.Label(), classification.Score()),
 			image.Point{x, y},
 			color.NRGBA{255, 0, 0, 255},
 			30)

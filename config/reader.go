@@ -95,7 +95,7 @@ func RegisterComponentAttributeMapConverter(
 	)
 }
 
-// TransformAttributeMapToStruct uses an attribute map to transform attributes to the perscribed format.
+// TransformAttributeMapToStruct uses an attribute map to transform attributes to the prescribed format.
 func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (interface{}, error) {
 	var md mapstructure.Metadata
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{

@@ -77,6 +77,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destination *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
+			constraints *servicepb.Constraints,
 			slamName resource.Name,
 			extra map[string]interface{},
 		) (bool, error) {
@@ -96,7 +97,7 @@ func TestClient(t *testing.T) {
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, slam.Named(""), map[string]interface{}{})
+		result, err := client.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, slam.Named(""), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -153,6 +154,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			grabPose *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
+			constraints *servicepb.Constraints,
 			slamName resource.Name,
 			extra map[string]interface{},
 		) (bool, error) {
@@ -169,7 +171,7 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, slam.Named(""), map[string]interface{}{})
+		resp, err := client2.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, slam.Named(""), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})

@@ -18,6 +18,7 @@ import (
 	boardpb "go.viam.com/api/component/board/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	gripperpb "go.viam.com/api/component/gripper/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -496,6 +497,7 @@ func TestManagerAdd(t *testing.T) {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
+		constraints *motionpb.Constraints,
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {

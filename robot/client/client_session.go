@@ -41,7 +41,7 @@ func (rc *RobotClient) sessionReset() {
 }
 
 func (rc *RobotClient) heartbeatLoop() {
-	rc.activeBackgroundWorkers.Add(1)
+	rc.heartbeatWorkers.Add(1)
 	utils.ManagedGo(func() {
 		rc.sessionMu.RLock()
 		ticker := time.NewTicker(rc.sessionHeartbeatInterval)
@@ -49,7 +49,7 @@ func (rc *RobotClient) heartbeatLoop() {
 		defer ticker.Stop()
 
 		for {
-			if !utils.SelectContextOrWaitChan(rc.closeContext, ticker.C) {
+			if !utils.SelectContextOrWaitChan(rc.heartbeatCtx, ticker.C) {
 				return
 			}
 
@@ -66,7 +66,7 @@ func (rc *RobotClient) heartbeatLoop() {
 			sendReq := &pb.SendSessionHeartbeatRequest{
 				Id: sessID,
 			}
-			if _, err := rc.client.SendSessionHeartbeat(rc.closeContext, sendReq); err != nil {
+			if _, err := rc.client.SendSessionHeartbeat(rc.heartbeatCtx, sendReq); err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.Unavailable {
 					rc.sessionReset()
 					return
@@ -81,7 +81,7 @@ func (rc *RobotClient) heartbeatLoop() {
 				return
 			}
 		}
-	}, rc.activeBackgroundWorkers.Done)
+	}, rc.heartbeatWorkers.Done)
 }
 
 func (rc *RobotClient) sessionMetadataInner(ctx context.Context) context.Context {
@@ -111,7 +111,7 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		return rc.sessionMetadataInner(ctx), nil
 	}
 
-	reqCtx, cancel := utils.MergeContext(ctx, rc.closeContext)
+	reqCtx, cancel := utils.MergeContext(ctx, rc.backgroundCtx)
 	defer cancel()
 
 	var startReq pb.StartSessionRequest
@@ -215,11 +215,12 @@ func isStatusNoSessionError(err error) bool {
 type firstMessageClientStreamWrapper struct {
 	mu sync.RWMutex
 	grpc.ClientStream
-	sendMsgs  []interface{}
-	closeSend bool
-	rc        *RobotClient
-	firstRecv bool
-	invoke    func() (grpc.ClientStream, error)
+	sendMsgs                 []interface{}
+	closeSend                bool
+	rc                       *RobotClient
+	firstRecv                bool
+	invoke                   func() (grpc.ClientStream, error)
+	safetyMonitorFromHeaders func(hdr metadata.MD)
 }
 
 func (w *firstMessageClientStreamWrapper) SendMsg(m interface{}) error {
@@ -246,6 +247,15 @@ func (w *firstMessageClientStreamWrapper) RecvMsg(m interface{}) error {
 	}
 	w.firstRecv = true
 	w.mu.Unlock()
+
+	if w.safetyMonitorFromHeaders != nil {
+		defer func() {
+			// do this last in case we hit a retry
+			if md, err := w.ClientStream.Header(); err == nil {
+				w.safetyMonitorFromHeaders(md)
+			}
+		}()
+	}
 
 	err := w.ClientStream.RecvMsg(m)
 	if err == nil {
@@ -301,19 +311,6 @@ func (rc *RobotClient) sessionStreamClientInterceptor(
 	streamer grpc.Streamer,
 	opts ...grpc.CallOption,
 ) (cs grpc.ClientStream, err error) {
-	defer func() {
-		if rc.remoteName != "" && cs != nil {
-			rc.activeBackgroundWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer rc.activeBackgroundWorkers.Done()
-				md, err := cs.Header()
-				if err != nil {
-					return
-				}
-				rc.safetyMonitorFromHeaders(ctx, md)
-			})
-		}
-	}()
 	invoke := func() (grpc.ClientStream, error) {
 		ctx, sessErr := rc.sessionMetadata(ctx, method)
 		if sessErr != nil {
@@ -321,13 +318,13 @@ func (rc *RobotClient) sessionStreamClientInterceptor(
 		}
 		return streamer(ctx, desc, cc, method, opts...)
 	}
-	if !rc.useSessionInRequest(ctx, method) {
-		// we won't retry but we will pass along any metadata we get from the remote to our parent(s).
-		return invoke()
-	}
+	useSession := rc.useSessionInRequest(ctx, method)
 
 	invokeCS, err := func() (grpc.ClientStream, error) {
 		invokeCS, invokeErr := invoke()
+		if !useSession {
+			return invokeCS, invokeErr
+		}
 		if invokeErr != nil {
 			if isStatusNoSessionError(err) {
 				// Note(erd): this should never happen based on how gRPC streams work thus far
@@ -343,9 +340,15 @@ func (rc *RobotClient) sessionStreamClientInterceptor(
 	if err != nil {
 		return nil, err
 	}
-	return &firstMessageClientStreamWrapper{
+	wrapper := &firstMessageClientStreamWrapper{
 		ClientStream: invokeCS,
 		rc:           rc,
 		invoke:       invoke,
-	}, nil
+	}
+	if rc.remoteName != "" {
+		wrapper.safetyMonitorFromHeaders = func(hdr metadata.MD) {
+			rc.safetyMonitorFromHeaders(ctx, hdr)
+		}
+	}
+	return wrapper, nil
 }
