@@ -1,8 +1,8 @@
 package config
 
 type Walker interface {
-	// Walk walks a structure, possibly returning an error.
-	Walk(Visitor) error
+	// Walk walks a structure and returns a new structure, with or without modifications.
+	Walk(Visitor) (interface{}, error)
 }
 
 type Visitor interface {

@@ -4,6 +4,7 @@ package vision
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"sync"
 
@@ -157,29 +158,31 @@ type Attributes struct {
 }
 
 // Walk implements the config.Walker interface.
-func (a *Attributes) Walk(visitor config.Visitor) error {
+func (a *Attributes) Walk(visitor config.Visitor) (interface{}, error) {
 	for i, cfg := range a.ModelRegistry {
 		name, err := visitor.Visit(cfg.Name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		cfg.Name = name.(string)
 
 		typ, err := visitor.Visit(cfg.Type)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		cfg.Type = typ.(string)
 
-		err = cfg.Parameters.Walk(visitor)
+		params, err := cfg.Parameters.Walk(visitor)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		cfg.Parameters = params.(config.AttributeMap)
+		fmt.Println(cfg.Parameters)
 
 		a.ModelRegistry[i] = cfg // is this necessary?
 	}
 
-	return nil
+	return a, nil
 }
 
 type reconfigurableVision struct {

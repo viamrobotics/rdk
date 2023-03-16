@@ -991,11 +991,12 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 		// on the robot.
 		if walker, ok := s.ConvertedAttributes.(config.Walker); ok {
 			fmt.Println("found walker for service ", s.Name)
-			err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
+			newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
 			if err != nil {
 				allErrs = multierr.Combine(allErrs, err)
 				continue
 			}
+			s.ConvertedAttributes = newAttrs
 		}
 		cfg.Services[i] = s
 

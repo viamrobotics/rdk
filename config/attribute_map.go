@@ -202,10 +202,15 @@ func (am AttributeMap) BoolSlice(name string, def bool) []bool {
 	panic(errors.Errorf("wanted a []bool for (%s) but got (%v) %T", name, x, x))
 }
 
-func (am AttributeMap) Walk(visitor Visitor) error {
+// Walk implements the Walker interface.
+func (am AttributeMap) Walk(visitor Visitor) (interface{}, error) {
 	w := attrWalker{visitor: visitor}
-	_, err := w.walkMap(am)
-	return err
+	m, err := w.walkMap(am)
+	if err != nil {
+		return nil, err
+	}
+
+	return AttributeMap(m), nil
 }
 
 type attrWalker struct {
