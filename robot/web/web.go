@@ -42,7 +42,6 @@ import (
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module"
@@ -421,7 +420,6 @@ func (svc *webService) Update(ctx context.Context, resources map[resource.Name]i
 func (svc *webService) updateResources(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
-	components := make(map[resource.Name]interface{})
 	for n, v := range resources {
 		r, ok := groupedResources[n.Subtype]
 		if !ok {
@@ -429,11 +427,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 		}
 		r[n] = v
 		groupedResources[n.Subtype] = r
-		if n.Subtype.Type.ResourceType == resource.ResourceTypeComponent {
-			components[n] = v
-		}
 	}
-	groupedResources[generic.Subtype] = components
 
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]
@@ -657,9 +651,15 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 		if err != nil {
 			return err
 		}
+		matches, err := fs.Glob(embedFS, "*.js")
+		if err != nil {
+			return err
+		}
+		if len(matches) == 0 {
+			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web'.")
+		}
 		staticDir = http.FS(embedFS)
 	}
-
 	mux.Handle(pat.Get("/static/*"), gziphandler.GzipHandler(http.StripPrefix("/static", http.FileServer(staticDir))))
 	mux.Handle(pat.New("/"), app)
 

@@ -283,7 +283,7 @@ func unzipFile(f *zip.File, destination string) error {
 	if err != nil {
 		return err
 	}
-	//nolint:errcheck
+	//nolint:gosec,errcheck
 	defer zippedFile.Close()
 
 	// Gosec is worried about a decompression bomb; we restrict the size of the
