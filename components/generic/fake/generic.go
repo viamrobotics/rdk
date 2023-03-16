@@ -30,7 +30,7 @@ func newGeneric(name string) generic.Generic {
 	return &Generic{Name: name}
 }
 
-// Sensor is a fake Sensor device that always returns the set location.
+// Generic is a fake Generic device that always returns the set location.
 type Generic struct {
 	Name string
 	generic.Echo
