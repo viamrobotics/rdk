@@ -203,7 +203,9 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
+	m.logger.Debug("Set Power Cancelled context")
 	if math.Abs(powerPct) <= 0.01 {
+		m.logger.Debug("power cancelled running")
 		return m.Stop(ctx, extra)
 	}
 	// Stop locks/unlocks the mutex as well so in the case that the power ~= 0
@@ -239,7 +241,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		return m.setPWM(ctx, powerPct, extra)
 	}
 
-	return errors.New("trying to go backwards but don't have dir or a&b pins")
+	return errors.New("trying to go backwards but don't have dir or a/in1&b/in2 pins")
 }
 
 // If revolutions is 0, the returned wait duration will be 0 representing that
@@ -275,9 +277,10 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.SetPower(ctx, powerPct, extra)
-	if err != nil {
+	m.logger.Debug("running motor")
+	if err := m.SetPower(ctx, powerPct, extra); err != nil {
 		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+
 	}
 
 	if revolutions == 0 {
@@ -285,6 +288,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+		m.logger.Debugf("timed wait op stopping motor, waitDur %.2f", waitDur)
 		return m.Stop(ctx, extra)
 	}
 	return nil
@@ -299,6 +303,7 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.logger.Debug("motor has cancelled running")
 	m.opMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()

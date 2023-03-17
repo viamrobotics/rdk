@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
@@ -20,10 +21,13 @@ type SingleOperationManager struct {
 
 // CancelRunning cancel's a current operation unless it's mine.
 func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
+	logger := golog.Global()
 	if ctx.Value(somCtxKeySingleOp) != nil {
+		logger.Debug("not cancelling context")
 		return
 	}
 	sm.mu.Lock()
+	logger.Debug("cancelling running")
 	defer sm.mu.Unlock()
 	sm.cancelInLock(ctx)
 }
@@ -140,14 +144,18 @@ func (sm *SingleOperationManager) WaitForSuccess(
 }
 
 func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
+	logger := golog.Global()
 	myOp := ctx.Value(somCtxKeySingleOp)
 	op := sm.currentOp
 
 	if op == nil || myOp == op {
+		logger.Debug("not doing anything")
 		return
 	}
 
+	logger.Debug("cancelling function")
 	op.cancelFunc()
+	logger.Debug("abandoning work")
 
 	sm.currentOp = nil
 }

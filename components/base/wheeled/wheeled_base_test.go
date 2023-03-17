@@ -508,6 +508,7 @@ func TestHasOverShot(t *testing.T) {
 					"under:++": addAnglesInDomain(start, dir*added/2, false),
 					"under:--": addAnglesInDomain(target, -dir*added/2, false),
 					"under:-":  addAnglesInDomain(target, -dir, false),
+					"end:":     addAnglesInDomain(target, target, false),
 					// TODO: RSDK- refine overshot cases, test end and cw failure
 					"over:": addAnglesInDomain(target, dir, false),
 				}
