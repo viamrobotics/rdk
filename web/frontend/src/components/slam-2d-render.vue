@@ -77,41 +77,46 @@ const disposeScene = () => {
   scene.clear();
 };
 
+<<<<<<< HEAD
 const updateCloud = (pointcloud: Uint8Array) => {
-  disposeScene();
+  try {
+    disposeScene();
 
-  const viewHeight = 1;
-  const viewWidth = viewHeight * 2;
+    const viewHeight = 1;
+    const viewWidth = viewHeight * 2;
 
-  const points = loader.parse(pointcloud.buffer, '');
-  points.geometry.computeBoundingSphere();
+    const points = loader.parse(pointcloud.buffer, '');
+    points.geometry.computeBoundingSphere();
 
-  const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
-  camera.position.set(center.x, 100, center.z);
-  camera.lookAt(center.x, 0, center.z);
+    const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
+    camera.position.set(center.x, 100, center.z);
+    camera.lookAt(center.x, 0, center.z);
 
-  const aspect = canvas.clientHeight / canvas.clientWidth;
-  camera.zoom = aspect > 1
-    ? viewHeight / (radius * 2)
-    : camera.zoom = viewWidth / (radius * 2);
+    const aspect = canvas.clientHeight / canvas.clientWidth;
+    camera.zoom = aspect > 1
+      ? viewHeight / (radius * 2)
+      : camera.zoom = viewWidth / (radius * 2);
 
-  camera.updateProjectionMatrix();
+    camera.updateProjectionMatrix();
 
-  controls.target.set(center.x, 0, center.z);
-  controls.maxZoom = radius * 2;
+    controls.target.set(center.x, 0, center.z);
+    controls.maxZoom = radius * 2;
 
-  const intersectionPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
-    new MeshDiscardMaterial()
-  );
-  intersectionPlane.name = 'Intersection Plane';
-  intersectionPlane.position.y = -1;
-  intersectionPlane.position.set(center.x, 0, center.z);
-  raycaster.objects = [intersectionPlane];
+    const intersectionPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
+      new MeshDiscardMaterial()
+    );
+    intersectionPlane.name = 'Intersection Plane';
+    intersectionPlane.position.y = -1;
+    intersectionPlane.position.set(center.x, 0, center.z);
+    raycaster.objects = [intersectionPlane];
 
-  scene.add(points);
-  scene.add(marker);
-  scene.add(intersectionPlane);
+    scene.add(points);
+    scene.add(marker);
+    scene.add(intersectionPlane);
+  } catch (error) {
+    console.error('failed to update pointcloud', error);
+  }
 };
 
 const updatePose = (newPose: commonApi.Pose) => {
