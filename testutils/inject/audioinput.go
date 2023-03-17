@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"

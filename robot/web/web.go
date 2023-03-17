@@ -243,7 +243,7 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(_ context.Context, r robot.Robot, logger golog.Logger, opts ...Option) Service {
+func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 	var wOpts options
 	for _, opt := range opts {
 		opt.apply(&wOpts)
@@ -270,7 +270,8 @@ type webService struct {
 	addr                    string
 	modAddr                 string
 	logger                  golog.Logger
-	cancelFuncs             []func()
+	cancelCtx               context.Context
+	cancelFunc              func()
 	isRunning               bool
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -283,22 +284,15 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 		return errors.New("web server already started")
 	}
 	svc.isRunning = true
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+	svc.cancelCtx, svc.cancelFunc = context.WithCancel(ctx)
 
-	if err := svc.runWeb(cancelCtx, o); err != nil {
-		cancelFunc()
-		svc.cancelFuncs = nil
+	if err := svc.runWeb(svc.cancelCtx, o); err != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
 		svc.isRunning = false
 		return err
 	}
 	return nil
-}
-
-func (svc *webService) addCancelFunc(fn func()) {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	svc.cancelFuncs = append(svc.cancelFuncs, fn)
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
@@ -460,10 +454,10 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	for _, cancel := range svc.cancelFuncs {
-		cancel()
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
 	}
-	svc.cancelFuncs = nil
 	svc.isRunning = false
 }
 
@@ -472,10 +466,10 @@ func (svc *webService) Close() error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var err error
-	for _, cancel := range svc.cancelFuncs {
-		cancel()
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
 	}
-	svc.cancelFuncs = nil
 	svc.isRunning = false
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
@@ -636,16 +630,14 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		cancelCtx, cancelFunc := context.WithCancel(ctxWithJPEGHint)
-		svc.addCancelFunc(cancelFunc)
+		cancelCtx, _ := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
 		return webstream.StreamVideoSource(cancelCtx, source, stream, opts)
 	})
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		cancelCtx, cancelFunc := context.WithCancel(ctx)
-		svc.addCancelFunc(cancelFunc)
+		cancelCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		return webstream.StreamAudioSource(cancelCtx, source, stream, opts)
 	})
 }

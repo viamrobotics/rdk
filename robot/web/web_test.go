@@ -61,7 +61,7 @@ func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -89,7 +89,7 @@ func TestModule(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -142,7 +142,7 @@ func TestWebStartOptions(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -183,7 +183,7 @@ func TestWebWithAuth(t *testing.T) {
 		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
-			svc := web.New(ctx, injectRobot, logger)
+			svc := web.New(injectRobot, logger)
 
 			keyset := jwk.NewSet()
 			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -368,7 +368,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	altName := primitive.NewObjectID().Hex()
 	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -523,7 +523,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -538,7 +538,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-	svc = web.New(ctx, injectRobot, logger)
+	svc = web.New(injectRobot, logger)
 
 	options, _, _ = robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -558,7 +558,7 @@ func TestWebUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(robot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -604,7 +604,7 @@ func TestWebUpdate(t *testing.T) {
 		return injectArm, nil
 	}
 
-	svc2 := web.New(ctx, robot2, logger)
+	svc2 := web.New(robot2, logger)
 
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
@@ -677,7 +677,7 @@ func TestWebWithStreams(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robot.LoggerFunc = func() golog.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -740,7 +740,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robot.LoggerFunc = func() golog.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -802,7 +802,7 @@ func TestForeignResource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(robot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -859,7 +859,7 @@ func TestForeignResource(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
-	svc = web.New(ctx, injectRobot, logger)
+	svc = web.New(injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -930,7 +930,7 @@ func TestRawClientOperation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, iRobot, logger)
+	svc := web.New(iRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -995,7 +995,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 	t.Run("web start", func(t *testing.T) {
 		t.Run("default timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 			err := svc.Start(ctx, options)
@@ -1029,7 +1029,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 			err := svc.Start(ctx, options)
@@ -1066,7 +1066,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 	})
 	t.Run("module start", func(t *testing.T) {
 		t.Run("default timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -1099,7 +1099,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
