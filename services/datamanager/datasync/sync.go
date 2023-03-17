@@ -108,8 +108,7 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		progressLock:       &sync.Mutex{},
 		inProgress:         make(map[string]bool),
 
-		// TODO: channel size?
-		syncErrs:   make(chan error, 100),
+		syncErrs:   make(chan error, 10),
 		closed:     &atomic.Bool{},
 		logRoutine: sync.WaitGroup{},
 	}
