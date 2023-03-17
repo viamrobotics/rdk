@@ -832,9 +832,9 @@ onUnmounted(() => {
 
     <!-- ******* DO ******* -->
     <DoCommand
-      v-if="connectedOnce"
+      v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
       :client="client"
-      :resources="filterComponentsWithNames(resources)"
+      :resources="filterResources(resources, 'rdk', 'component', 'generic')"
     />
 
     <!-- ******* OPERATIONS AND SESSIONS ******* -->
