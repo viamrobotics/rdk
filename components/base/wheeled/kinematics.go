@@ -113,8 +113,7 @@ func collisionGeometry(cfg config.Component) (spatialmath.Geometry, error) {
 	}
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
 	if err != nil {
-		// could not create a sphere, just use a point instead
-		sphere = spatialmath.NewPoint(r3.Vector{}, geoCfg.Label)
+		return nil, err
 	}
 	return sphere, nil
 }
