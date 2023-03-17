@@ -72,12 +72,12 @@ func (tapCfg *TapAttrConfig) ValidateTapConfigs(path string) error {
 		return errors.New("adxl345: Accelerometer pin must be 1 or 2")
 	}
 	if tapCfg.Threshold != 0 {
-		if tapCfg.Threshold < 0 || tapCfg.Threshold > 15937 {
+		if tapCfg.Threshold < 0 || tapCfg.Threshold > (255*ThreshTapScaleFactor) {
 			return errors.New("adxl345: Tap threshold must be 0 between and 15,937mg")
 		}
 	}
 	if tapCfg.Dur != 0 {
-		if tapCfg.Dur < 0 || tapCfg.Dur > 159375 {
+		if tapCfg.Dur < 0 || tapCfg.Dur > (255*DurScaleFactor) {
 			return errors.New("adxl345: Tap dur must be between 0 and 160,000µs")
 		}
 	}
@@ -89,12 +89,12 @@ func (freefallCfg *FreeFallAttrConfig) ValidateFreeFallConfigs(path string) erro
 		return errors.New("Accelerometer pin must be 1 or 2")
 	}
 	if freefallCfg.Threshold != 0 {
-		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > 15937 {
+		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > (255*ThreshFfScaleFactor) {
 			return errors.New("Accelerometer tap threshold must be 0 between and 15,937mg")
 		}
 	}
 	if freefallCfg.Time != 0 {
-		if freefallCfg.Time < 0 || freefallCfg.Time > 1275 {
+		if freefallCfg.Time < 0 || freefallCfg.Time > (255*TimeFfScaleFactor) {
 			return errors.New("Accelerometer tap time must be between 0 and 1,275ms")
 		}
 	}
@@ -371,10 +371,10 @@ func getSingleTapRegisterValues(singleTapConfigs *TapAttrConfig) map[byte]byte {
 	registerValues[TapAxesAddr] = getAxes(singleTapConfigs.ExcludeX, singleTapConfigs.ExcludeY, singleTapConfigs.ExcludeZ)
 
 	if singleTapConfigs.Threshold != 0 {
-		registerValues[ThreshTapAddr] = byte((singleTapConfigs.Threshold / 62.5))
+		registerValues[ThreshTapAddr] = byte((singleTapConfigs.Threshold / ThreshTapScaleFactor))
 	}
 	if singleTapConfigs.Dur != 0 {
-		registerValues[DurAddr] = byte((singleTapConfigs.Dur / 625))
+		registerValues[DurAddr] = byte((singleTapConfigs.Dur / DurScaleFactor))
 	}
 	return registerValues
 }
@@ -386,10 +386,10 @@ func getFreeFallRegisterValues(freeFallConfigs *FreeFallAttrConfig) map[byte]byt
 		return registerValues
 	}
 	if freeFallConfigs.Threshold != 0 {
-		registerValues[ThreshFfAddr] = byte((freeFallConfigs.Threshold / 62.5))
+		registerValues[ThreshFfAddr] = byte((freeFallConfigs.Threshold / ThreshFfScaleFactor))
 	}
 	if freeFallConfigs.Time != 0 {
-		registerValues[TimeFfAddr] = byte((freeFallConfigs.Time / .5))
+		registerValues[TimeFfAddr] = byte((freeFallConfigs.Time / TimeFfScaleFactor))
 	}
 	return registerValues
 }

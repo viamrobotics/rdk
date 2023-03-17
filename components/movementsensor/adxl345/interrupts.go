@@ -64,6 +64,13 @@ var defaultRegisterValues = map[byte]byte{
 }
 
 const (
+	ThreshTapScaleFactor float32 = 62.5
+	DurScaleFactor       float32 = 625
+	TimeFfScaleFactor    float32 = .5
+	ThreshFfScaleFactor  float32 = 62.5
+)
+
+const (
 	xBit byte = 1 << 0
 	yBit      = 1 << 1
 	zBit      = 1 << 2
