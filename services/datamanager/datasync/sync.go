@@ -256,7 +256,6 @@ func (s *syncer) log() {
 		}
 		s.logger.Error(err)
 	}
-	return
 }
 
 // exponentialRetry calls fn and retries with exponentially increasing waits from initialWait to a
