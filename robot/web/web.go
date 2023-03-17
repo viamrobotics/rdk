@@ -295,6 +295,12 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	return nil
 }
 
+func (svc *webService) addCancelFunc(fn func()) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	svc.cancelFuncs = append(svc.cancelFuncs, fn)
+}
+
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
 func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
 	defer func() {
@@ -631,7 +637,7 @@ func (svc *webService) startImageStream(ctx context.Context, source gostream.Vid
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		cancelCtx, cancelFunc := context.WithCancel(ctxWithJPEGHint)
-		svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+		svc.addCancelFunc(cancelFunc)
 		return webstream.StreamVideoSource(cancelCtx, source, stream, opts)
 	})
 }
@@ -639,7 +645,7 @@ func (svc *webService) startImageStream(ctx context.Context, source gostream.Vid
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		cancelCtx, cancelFunc := context.WithCancel(ctx)
-		svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+		svc.addCancelFunc(cancelFunc)
 		return webstream.StreamAudioSource(cancelCtx, source, stream, opts)
 	})
 }
