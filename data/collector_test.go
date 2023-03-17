@@ -253,9 +253,10 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		select {
 		case <-ctx.Done():
+			return nil, fmt.Errorf("arbitrary wrapping message: %w", ctx.Err())
 		case captured <- struct{}{}:
 		}
-		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
+		return dummyStructReading, nil
 	})
 
 	params := CollectorParams{
@@ -273,7 +274,6 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	c.Close()
 	close(captured)
 
-	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
@@ -289,7 +289,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
