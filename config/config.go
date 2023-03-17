@@ -468,9 +468,6 @@ type NetworkConfigData struct {
 
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
-
-	// Webrtc indicates whether or not to enable WebRTC support.
-	WebRTC bool `json:"webrtc"`
 }
 
 // MarshalJSON marshals out this config.

@@ -36,7 +36,7 @@ type Arguments struct {
 	SharedDir                    string `flag:"shareddir,usage=web resource directory"`
 	Version                      bool   `flag:"version,usage=print version"`
 	WebProfile                   bool   `flag:"webprofile,usage=include profiler in http server"`
-	WebRTC                       bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	WebRTC                       bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs   bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv                 bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry              bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
@@ -179,7 +179,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.Pprof = s.args.WebProfile
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
-	options.WebRTC = s.args.WebRTC || cfg.Network.WebRTC
+	options.WebRTC = s.args.WebRTC
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
