@@ -3,8 +3,10 @@ package inject
 import (
 	"context"
 
+
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
@@ -41,7 +43,7 @@ func (ai *AudioInput) MediaProperties(ctx context.Context) (prop.Audio, error) {
 	if ai.AudioInput != nil {
 		return ai.AudioInput.MediaProperties(ctx)
 	}
-	return prop.Audio{}, ctx.Err()
+	return prop.Audio{}, errors.Wrap(ctx.Err(), "media properties unavailable")
 }
 
 // Close calls the injected Close or the real version.
