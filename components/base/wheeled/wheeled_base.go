@@ -174,8 +174,9 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
-
 		for {
+			// RSDK-2384 - use a new cancel ctx for sensor loops
+			// to have them stop when cotnext is done
 			select {
 			case <-base.cancelCtx.Done():
 				ticker.Stop()
@@ -502,7 +503,6 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 // Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	base.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range base.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx, extra))
