@@ -273,12 +273,12 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64) {
 }
 
 // this function does not wrap around 360 degrees currently.
-func angleBetween(angle, bound1, bound2 float64) bool {
+func angleBetween(current, bound1, bound2 float64) bool {
 	if bound2 > bound1 {
-		inBewtween := angle >= bound1 && angle < bound2
+		inBewtween := current >= bound1 && current < bound2
 		return inBewtween
 	}
-	inBewteen := angle > bound2 && angle <= bound1
+	inBewteen := current > bound2 && current <= bound1
 	return inBewteen
 }
 

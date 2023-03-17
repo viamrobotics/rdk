@@ -516,7 +516,7 @@ func TestHasOverShot(t *testing.T) {
 					t.Run(condition.Name+noStr+key, func(t *testing.T) {
 						if key == "end:" || key == "over:" {
 							// skipped edge case
-							if dirCase.Name == "ccw" && target == 0.0 {
+							if key == "end:" && dirCase.Name == "cw" && target == 0.0 {
 								t.Skip()
 							} else {
 								test.That(t,
