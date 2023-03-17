@@ -473,21 +473,22 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 	return nil
 }
 
-func parsePCDHeader(in *bufio.Reader) (pcdHeader, error) {
-	header := pcdHeader{}
-	for headerLineCount := 0; headerLineCount < len(pcdHeaderFields); headerLineCount++ {
+func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
+	header := &pcdHeader{}
+	headerLineCount := 0
+	for headerLineCount < len(pcdHeaderFields) {
 		line, err := in.ReadString('\n')
 		if err != nil {
-			return pcdHeader{}, fmt.Errorf("error reading header line %d: %w", headerLineCount, err)
+			return nil, fmt.Errorf("error reading header line %d: %w", headerLineCount, err)
 		}
 		line, _, _ = strings.Cut(line, pcdCommentChar)
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		err = parsePCDHeaderLine(line, headerLineCount, &header)
+		err = parsePCDHeaderLine(line, headerLineCount, header)
 		if err != nil {
-			return pcdHeader{}, err
+			return nil, err
 		}
 		headerLineCount++
 	}
@@ -558,7 +559,7 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 		}
 		in.Reset(bufio.NewReader(bytes.NewReader(buf)))
 
-		meta, err := parsePCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), header)
+		meta, err := parsePCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), *header)
 		if err != nil {
 			return nil, err
 		}
@@ -572,9 +573,9 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 	}
 	switch header.data {
 	case PCDAscii:
-		return readPCDASCII(in, header, pc)
+		return readPCDASCII(in, *header, pc)
 	case PCDBinary:
-		return readPCDBinary(in, header, pc)
+		return readPCDBinary(in, *header, pc)
 	case PCDCompressed:
 		// return readPCDCompressed(in, header)
 		return nil, errors.New("compressed pcd not yet supported")
@@ -705,7 +706,7 @@ func GetPCDMetaData(in bufio.Reader) (MetaData, error) {
 	if err != nil {
 		return MetaData{}, err
 	}
-	return parsePCDMetaData(in, header)
+	return parsePCDMetaData(in, *header)
 }
 
 // reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.
