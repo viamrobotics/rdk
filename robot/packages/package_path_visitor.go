@@ -20,26 +20,22 @@ func NewPackagePathVisitor(packageManager Manager) *PackagePathVisitor {
 func (v *PackagePathVisitor) Visit(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 
+	var s string
 	if t.Kind() == reflect.String {
-		ref := config.GetPackageReference(data.(string))
-		if ref != nil {
-			packagePath, err := v.packageManager.PackagePath(PackageName(ref.Package))
-			if err != nil {
-				return nil, err
-			}
-			data = path.Join(packagePath, ref.PathInPackage)
-		}
-		return data, nil
+		s = data.(string)
 	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.String {
-		ref := config.GetPackageReference(*data.(*string))
-		if ref != nil {
-			packagePath, err := v.packageManager.PackagePath(PackageName(ref.Package))
-			if err != nil {
-				return nil, err
-			}
-			data = path.Join(packagePath, ref.PathInPackage)
-		}
-		return &data, nil
+		s = *data.(*string)
+	} else {
+		return data, nil
 	}
-	return data, nil
+
+	ref := config.GetPackageReference(s)
+	if ref != nil {
+		packagePath, err := v.packageManager.PackagePath(PackageName(ref.Package))
+		if err != nil {
+			return nil, err
+		}
+		s = path.Join(packagePath, ref.PathInPackage)
+	}
+	return s, nil
 }
