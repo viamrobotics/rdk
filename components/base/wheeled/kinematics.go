@@ -86,6 +86,9 @@ func collisionGeometry(cfg config.Component) (spatialmath.Geometry, error) {
 	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
 	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
 	// and should match the convention of +Y being forward for bases
+	if cfg.Frame == nil || cfg.Frame.Geometry == nil {
+		return nil, errors.New("base not configured with a geometry on its frame, cannot create collision geometry for it")
+	}
 	geoCfg := cfg.Frame.Geometry
 	r := geoCfg.TranslationOffset.Norm()
 	switch geoCfg.Type {
