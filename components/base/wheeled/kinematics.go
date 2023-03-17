@@ -52,7 +52,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 }
 
 // ModelFrame builds the kinematic model associated with the kinematicWheeledBase
-// Note that this model is not intended to be registered in the frame system
+// Note that this model is not intended to be registered in the frame system.
 func (kwb *kinematicWheeledBase) buildModel(ctx context.Context) (referenceframe.Model, error) {
 	if kwb.collisionGeometry == nil {
 		return nil, errors.New("cannot create model for base with no collision geometry")

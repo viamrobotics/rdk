@@ -699,6 +699,7 @@ func parsePCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
 	return meta, nil
 }
 
+// GetPCDMetaData returns the metadata for the PCD read from the provided reader.
 func GetPCDMetaData(in bufio.Reader) (MetaData, error) {
 	header, err := parsePCDHeader(&in)
 	if err != nil {
