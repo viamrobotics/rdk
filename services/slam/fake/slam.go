@@ -67,7 +67,7 @@ func (slamSvc *SLAM) GetMap(ctx context.Context, name, mimeType string, cp *refe
 ) (string, image.Image, *vision.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetMap")
 	defer span.End()
-	slamSvc.incrementDataCount()
+	// slamSvc.incrementDataCount()
 	return fakeGetMap(ctx, datasetDirectory, slamSvc, mimeType)
 }
 
@@ -97,7 +97,7 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) ([]byte,
 func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMapStream")
 	defer span.End()
-	slamSvc.incrementDataCount()
+	// slamSvc.incrementDataCount()
 	return fakeGetPointCloudMapStream(ctx, datasetDirectory, slamSvc)
 }
 
