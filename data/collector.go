@@ -82,7 +82,7 @@ func (c *collector) Flush() {
 	}
 }
 
-// Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and writeCaptureResults the results to
+// Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
 // c.target. It blocks until the underlying capture goroutine starts.
 func (c *collector) Collect() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
@@ -98,7 +98,7 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.captureWorkers.Done()
 		if err := c.writeCaptureResults(); err != nil {
-			c.captureErrors <- errors.Wrap(err, fmt.Sprintf("failed to writeCaptureResults to collector %s", c.target.Path()))
+			c.captureErrors <- errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path()))
 		}
 	})
 	c.logRoutine.Add(1)
@@ -274,7 +274,7 @@ func (c *collector) writeCaptureResults() error {
 func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
 		if c.closed.Load() {
-			// Don't logCaptureErrs context cancellation errors if the collector has already been closed. This means the collector
+			// Don't log context cancellation errors if the collector has already been closed. This means the collector
 			// cancelled the context, and the context cancellation error is expected.
 			if errors.Is(err, context.Canceled) {
 				continue

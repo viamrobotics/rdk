@@ -151,7 +151,7 @@ func (s *syncer) SyncDirectory(dir string) {
 				//nolint:gosec
 				f, err := os.Open(newP)
 				if err != nil {
-					// Don't logSyncErrs if the file does not exist, because that means it was successfully synced and deleted
+					// Don't log if the file does not exist, because that means it was successfully synced and deleted
 					// in between paths being built and this executing.
 					if !errors.Is(err, os.ErrNotExist) {
 						s.syncErrs <- errors.Wrap(err, "error opening file")
@@ -247,7 +247,7 @@ func (s *syncer) unmarkInProgress(path string) {
 func (s *syncer) logSyncErrs() {
 	for err := range s.syncErrs {
 		if s.closed.Load() {
-			// Don't logSyncErrs context cancellation errors if the Manager has already been closed. This means the Manager
+			// Don't log context cancellation errors if the Manager has already been closed. This means the Manager
 			// cancelled the context, and the context cancellation error is expected.
 			if strings.Contains(err.Error(), context.Canceled.Error()) {
 				continue
@@ -310,7 +310,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
