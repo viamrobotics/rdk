@@ -124,7 +124,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if base.orientationSensor != nil {
-		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
+		return base.spinWithMovementSensor(angleDeg, degsPerSec, extra)
 	}
 	return base.spin(ctx, angleDeg, degsPerSec)
 }
@@ -143,7 +143,7 @@ func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64)
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
-func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	if rdkutils.Float64AlmostEqual(angleDeg, 360, 2) {
 		// if we're exactly 360 degrees away from target
 		// we are at the target and the base won't move
@@ -159,7 +159,9 @@ func (base *wheeledBase) spinWithMovementSensor(ctx context.Context, angleDeg, d
 	utils.ManagedGo(func() {
 		// runAll calls GoFor, which blockers until the timed operation is done, or returns nil if a zero is passed in
 		// the code inside this goroutine would block the sensor for loop if taken out
-		base.runAll(base.cancelCtx, -wheelrpm, 0, wheelrpm, 0)
+		if err := base.runAll(base.cancelCtx, -wheelrpm, 0, wheelrpm, 0); err != nil {
+			base.logger.Error(err)
+		}
 	}, base.activeBackgroundWorkers.Done)
 
 	startYaw, err := getCurrentYaw(base.cancelCtx, base.orientationSensor, extra)
@@ -233,34 +235,21 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 	}
 	// Add Pi  to make the computation for overshoot simpler
 	// turns imus from -180 -> 180 to a 0 -> 360 range
-	return addAnglesInDomain(rdkutils.RadToDeg(orientation.EulerAngles().Yaw), 0, false), nil
+	return addAnglesInDomain(rdkutils.RadToDeg(orientation.EulerAngles().Yaw), 0), nil
 }
 
-func addAnglesInDomain(target, current float64, half bool) float64 {
+func addAnglesInDomain(target, current float64) float64 {
 	angle := target + current
 	// reduce the angle
 	angle = math.Mod(angle, 360)
 
 	// force it to be the positive remainder, so that 0 <= angle < 360
 	angle = math.Mod(angle+360, 360)
-
-	if half {
-		// force into the minimum absolute value residue class, so that -180 < angle <= 180
-		if angle > 180 {
-			angle -= 360
-		}
-		// handle case of IMUs not reporting the full
-		// -180 -> 180 range
-		if math.Abs(angle) == 180 {
-			angle -= 0.1
-		}
-	}
-
 	return angle
 }
 
 func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64) {
-	targetYaw := addAnglesInDomain(angleDeg, currYaw, false)
+	targetYaw := addAnglesInDomain(angleDeg, currYaw)
 	dir := 1.0
 	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
 		// both positive or both negative -> counterclockwise spin call

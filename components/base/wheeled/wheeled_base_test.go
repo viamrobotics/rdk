@@ -394,7 +394,7 @@ func TestSpinWithMSMath(t *testing.T) {
 		{-90, 0, 270},
 		{-60, 0, 300},
 	} {
-		test.That(t, addAnglesInDomain(a.angle1, a.angle2, false), test.ShouldEqual, a.expected)
+		test.That(t, addAnglesInDomain(a.angle1, a.angle2), test.ShouldEqual, a.expected)
 	}
 
 	ctx := context.Background()
@@ -415,7 +415,7 @@ func TestSpinWithMSMath(t *testing.T) {
 	}
 	for _, yaw := range yaws {
 		extra["yaw"] = yaw
-		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(yaw), 0, false)
+		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(yaw), 0)
 		measYaw, err := getCurrentYaw(ctx, ms, extra)
 		test.That(t, measYaw, test.ShouldEqual, calcYaw)
 		test.That(t, measYaw > 0, test.ShouldBeTrue)
@@ -435,8 +435,8 @@ func TestSpinWithMSMath(t *testing.T) {
 		{20, -20, 360, -1, 0, 0},
 		{90, 10, 10, 1, 0, 0},
 	} {
-		params.goal = addAnglesInDomain(params.start, params.added, false)
-		params.over = addAnglesInDomain(params.start, params.added+params.dir*15, false)
+		params.goal = addAnglesInDomain(params.start, params.added)
+		params.over = addAnglesInDomain(params.start, params.added+params.dir*15)
 		goal, dir := findSpinParams(params.added, params.speed, params.start)
 		test.That(t, goal, test.ShouldAlmostEqual, params.goal)
 		test.That(t, dir, test.ShouldAlmostEqual, params.dir)
@@ -502,14 +502,14 @@ func TestHasOverShot(t *testing.T) {
 
 				// test a few cases in range ensure were not falsely overshooting
 				notovers := map[string]float64{
-					"start":    addAnglesInDomain(start, 0, false),
-					"under:+":  addAnglesInDomain(start, dir, false),
-					"under:++": addAnglesInDomain(start, dir*added/2, false),
-					"under:--": addAnglesInDomain(target, -dir*added/2, false),
-					"under:-":  addAnglesInDomain(target, -dir, false),
-					"end:":     addAnglesInDomain(target, 0, false),
+					"start":    addAnglesInDomain(start, 0),
+					"under:+":  addAnglesInDomain(start, dir),
+					"under:++": addAnglesInDomain(start, dir*added/2),
+					"under:--": addAnglesInDomain(target, -dir*added/2),
+					"under:-":  addAnglesInDomain(target, -dir),
+					"end:":     addAnglesInDomain(target, 0),
 					// TODO: RSDK- refine overshot cases, test end and cw failure
-					"over:": addAnglesInDomain(target, dir, false),
+					"over:": addAnglesInDomain(target, dir),
 				}
 				for key, angle := range notovers {
 					noStr := "[" + strconv.FormatFloat(angle, 'f', 1, 64) + "]"
@@ -544,7 +544,7 @@ type TestCase struct {
 }
 
 func makeCondition(addI addInfo, dirI dirInfo, startI float64) TestCase {
-	target := addAnglesInDomain(startI, dirI.Value*addI.Value, false)
+	target := addAnglesInDomain(startI, dirI.Value*addI.Value)
 
 	a2Str := func(number float64) string {
 		return strconv.FormatFloat(number, 'f', 1, 64)
