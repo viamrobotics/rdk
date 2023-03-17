@@ -130,7 +130,7 @@ func TestSyncEnabled(t *testing.T) {
 func TestDataCaptureUpload(t *testing.T) {
 	datacapture.MaxFileSize = 500
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor.Store(int32(1))
+	datasync.RetryExponentialFactor.Store(int32(2))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
 	captureTime := time.Millisecond * 300
 
@@ -168,6 +168,8 @@ func TestDataCaptureUpload(t *testing.T) {
 			dataType:   v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync: true,
 		},
+		// TODO: this is deadlocking. I think because we get >100 failures really quickly. We shouldn't deadlock when
+		// the error queue is full.
 		{
 			name:          "If tabular sync fails part way through, it should be resumed without duplicate uploads",
 			dataType:      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
