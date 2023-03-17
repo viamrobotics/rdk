@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -38,24 +39,28 @@ type Collector interface {
 type collector struct {
 	clock             clock.Clock
 	queue             chan *v1.SensorData
+	captureErrors     chan error
 	interval          time.Duration
 	params            map[string]*anypb.Any
 	lock              *sync.Mutex
 	logger            golog.Logger
 	backgroundWorkers sync.WaitGroup
+	logRoutine        sync.WaitGroup
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
 	captureFunc       CaptureFunc
-	closed            bool
+	closed            *atomic.Bool
 	target            datacapture.BufferedWriter
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines.
 func (c *collector) Close() {
-	if c.closed {
+	if c.closed.Load() {
 		return
 	}
+	c.closed.Store(true)
+
 	c.cancel()
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
@@ -63,16 +68,17 @@ func (c *collector) Close() {
 	if err := c.target.Flush(); err != nil {
 		c.logger.Errorw("failed to flush capture queue", "error", err)
 	}
+	close(c.captureErrors)
+	c.logRoutine.Wait()
 	//nolint:errcheck
 	_ = c.logger.Sync()
-	c.closed = true
 }
 
 func (c *collector) Flush() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to flush collector", "error", err)
+		c.captureErrors <- errors.Wrap(err, "failed to flush collector")
 	}
 }
 
@@ -92,8 +98,13 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw(fmt.Sprintf("failed to write to collector %s", c.target.Path()), "error", err)
+			c.captureErrors <- errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path()))
 		}
+	})
+	c.logRoutine.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer c.logRoutine.Done()
+		c.log()
 	})
 	<-started
 }
@@ -118,9 +129,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				c.logger.Errorw("unexpected error in collector context", "error", err)
-			}
+			c.captureErrors <- errors.Wrap(err, "error in context")
 			captureWorkers.Wait()
 			close(c.queue)
 			return
@@ -152,9 +161,7 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				c.logger.Errorw("unexpected error in collector context", "error", err)
-			}
+			c.captureErrors <- errors.Wrap(err, "error in context")
 			captureWorkers.Wait()
 			close(c.queue)
 			return
@@ -180,11 +187,7 @@ func (c *collector) getAndPushNextReading() {
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			c.logger.Debugw("error while capturing data", "error", err)
-			return
-		}
-		c.logger.Errorw("error while capturing data", "error", err)
+		c.captureErrors <- errors.Wrap(err, "error while capturing data")
 		return
 	}
 
@@ -204,7 +207,7 @@ func (c *collector) getAndPushNextReading() {
 		// If it's not bytes, it's a struct.
 		pbReading, err := protoutils.StructToStructPb(reading)
 		if err != nil {
-			c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
+			c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
 			return
 		}
 
@@ -243,19 +246,23 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}
 	return &collector{
 		queue:             make(chan *v1.SensorData, params.QueueSize),
+		captureErrors:     make(chan error, params.QueueSize),
 		interval:          params.Interval,
 		params:            params.MethodParams,
 		lock:              &sync.Mutex{},
 		logger:            params.Logger,
 		backgroundWorkers: sync.WaitGroup{},
+		logRoutine:        sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
 		cancel:            cancelFunc,
 		captureFunc:       captureFunc,
 		target:            params.Target,
 		clock:             c,
+		closed:            &atomic.Bool{},
 	}, nil
 }
 
+// TODO: We should ave this for errors coming from getAndpush, too
 func (c *collector) write() error {
 	for msg := range c.queue {
 		if err := c.target.Write(msg); err != nil {
@@ -263,6 +270,20 @@ func (c *collector) write() error {
 		}
 	}
 	return nil
+}
+
+func (c *collector) log() {
+	for err := range c.captureErrors {
+		if c.closed.Load() {
+			// Don't log context cancellation errors if the collector has already been closed. This means the collector
+			// cancelled the context, and the context cancellation error is expected.
+			if errors.Is(err, context.Canceled) {
+				continue
+			}
+		}
+		c.logger.Error(err)
+	}
+	return
 }
 
 // InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
