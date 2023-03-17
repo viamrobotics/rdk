@@ -168,8 +168,6 @@ func TestDataCaptureUpload(t *testing.T) {
 			dataType:   v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync: true,
 		},
-		// TODO: this is deadlocking. I think because we get >100 failures really quickly. We shouldn't deadlock when
-		// the error queue is full.
 		{
 			name:          "If tabular sync fails part way through, it should be resumed without duplicate uploads",
 			dataType:      v1.DataType_DATA_TYPE_TABULAR_SENSOR,

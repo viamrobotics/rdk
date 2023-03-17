@@ -33,8 +33,6 @@ var (
 	maxRetryInterval       = time.Hour
 )
 
-// TODO: Goal: don't log cancel if cancelled because Manager was closed
-
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
 	SyncDirectory(dir string)
@@ -133,7 +131,6 @@ func (s *syncer) Close() {
 			s.logger.Errorw("error closing datasync server connection", "error", err)
 		}
 	}
-	// TODO: this is waiting for the syncErrs channel to be drained, but it's not being drained
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
@@ -190,7 +187,6 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		func(ctx context.Context) error {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				// TODO: All the routines are blocking here
 				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.GetPath()))
 			}
 			return err
