@@ -7,16 +7,20 @@ import (
 	"go.viam.com/rdk/config"
 )
 
+// PackagePathVisitor is a visitor that replaces strings containing with references to package names
+// with the path containing the package files on the robot.
 type PackagePathVisitor struct {
 	packageManager Manager
 }
 
+// NewPackagePathVisitor creates a new PackagePathVisitor.
 func NewPackagePathVisitor(packageManager Manager) *PackagePathVisitor {
 	return &PackagePathVisitor{
 		packageManager: packageManager,
 	}
 }
 
+// Visit implements config.Visitor.
 func (v *PackagePathVisitor) Visit(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 
