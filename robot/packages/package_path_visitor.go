@@ -1,10 +1,7 @@
 package packages
 
 import (
-	"path"
 	"reflect"
-
-	"go.viam.com/rdk/config"
 )
 
 // PackagePathVisitor is a visitor that replaces strings containing references to package names
@@ -34,13 +31,5 @@ func (v *PackagePathVisitor) Visit(data interface{}) (interface{}, error) {
 		return data, nil
 	}
 
-	ref := config.GetPackageReference(s)
-	if ref != nil {
-		packagePath, err := v.packageManager.PackagePath(PackageName(ref.Package))
-		if err != nil {
-			return nil, err
-		}
-		s = path.Join(packagePath, ref.PathInPackage)
-	}
-	return s, nil
+	return v.packageManager.RefPath(s)
 }
