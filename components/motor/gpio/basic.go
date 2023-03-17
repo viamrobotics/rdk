@@ -284,7 +284,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
-		m.logger.Debugf("timed wait op stopping motor, waitDur %.2f", waitDur)
 		return m.Stop(ctx, extra)
 	}
 	return nil
