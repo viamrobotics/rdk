@@ -37,20 +37,20 @@ type Collector interface {
 }
 
 type collector struct {
-	clock             clock.Clock
-	queue             chan *v1.SensorData
-	captureErrors     chan error
-	interval          time.Duration
-	params            map[string]*anypb.Any
-	lock              *sync.Mutex
-	logger            golog.Logger
-	backgroundWorkers sync.WaitGroup
-	logRoutine        sync.WaitGroup
-	cancelCtx         context.Context
-	cancel            context.CancelFunc
-	captureFunc       CaptureFunc
-	closed            *atomic.Bool
-	target            datacapture.BufferedWriter
+	clock          clock.Clock
+	captureResults chan *v1.SensorData
+	captureErrors  chan error
+	interval       time.Duration
+	params         map[string]*anypb.Any
+	lock           *sync.Mutex
+	logger         golog.Logger
+	captureWorkers sync.WaitGroup
+	logRoutine     sync.WaitGroup
+	cancelCtx      context.Context
+	cancel         context.CancelFunc
+	captureFunc    CaptureFunc
+	closed         *atomic.Bool
+	target         datacapture.BufferedWriter
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -62,11 +62,11 @@ func (c *collector) Close() {
 	c.closed.Store(true)
 
 	c.cancel()
-	c.backgroundWorkers.Wait()
+	c.captureWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to flush capture queue", "error", err)
+		c.logger.Errorw("failed to flush capture captureResults", "error", err)
 	}
 	close(c.captureErrors)
 	c.logRoutine.Wait()
@@ -89,14 +89,14 @@ func (c *collector) Collect() {
 	defer span.End()
 
 	started := make(chan struct{})
-	c.backgroundWorkers.Add(1)
+	c.captureWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer c.backgroundWorkers.Done()
+		defer c.captureWorkers.Done()
 		c.capture(started)
 	})
-	c.backgroundWorkers.Add(1)
+	c.captureWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer c.backgroundWorkers.Done()
+		defer c.captureWorkers.Done()
 		if err := c.write(); err != nil {
 			c.captureErrors <- errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path()))
 		}
@@ -131,7 +131,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 		if err := c.cancelCtx.Err(); err != nil {
 			c.captureErrors <- errors.Wrap(err, "error in context")
 			captureWorkers.Wait()
-			close(c.queue)
+			close(c.captureResults)
 			return
 		}
 		c.clock.Sleep(until)
@@ -139,7 +139,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 		select {
 		case <-c.cancelCtx.Done():
 			captureWorkers.Wait()
-			close(c.queue)
+			close(c.captureResults)
 			return
 		default:
 			captureWorkers.Add(1)
@@ -163,14 +163,14 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 		if err := c.cancelCtx.Err(); err != nil {
 			c.captureErrors <- errors.Wrap(err, "error in context")
 			captureWorkers.Wait()
-			close(c.queue)
+			close(c.captureResults)
 			return
 		}
 
 		select {
 		case <-c.cancelCtx.Done():
 			captureWorkers.Wait()
-			close(c.queue)
+			close(c.captureResults)
 			return
 		case <-ticker.C:
 			captureWorkers.Add(1)
@@ -223,10 +223,10 @@ func (c *collector) getAndPushNextReading() {
 	}
 
 	select {
-	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
+	// If c.captureResults is full, c.captureResults <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-	case c.queue <- &msg:
+	case c.captureResults <- &msg:
 	}
 }
 
@@ -245,26 +245,26 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		c = params.Clock
 	}
 	return &collector{
-		queue:             make(chan *v1.SensorData, params.QueueSize),
-		captureErrors:     make(chan error, params.QueueSize),
-		interval:          params.Interval,
-		params:            params.MethodParams,
-		lock:              &sync.Mutex{},
-		logger:            params.Logger,
-		backgroundWorkers: sync.WaitGroup{},
-		logRoutine:        sync.WaitGroup{},
-		cancelCtx:         cancelCtx,
-		cancel:            cancelFunc,
-		captureFunc:       captureFunc,
-		target:            params.Target,
-		clock:             c,
-		closed:            &atomic.Bool{},
+		captureResults: make(chan *v1.SensorData, params.QueueSize),
+		captureErrors:  make(chan error, params.QueueSize),
+		interval:       params.Interval,
+		params:         params.MethodParams,
+		lock:           &sync.Mutex{},
+		logger:         params.Logger,
+		captureWorkers: sync.WaitGroup{},
+		logRoutine:     sync.WaitGroup{},
+		cancelCtx:      cancelCtx,
+		cancel:         cancelFunc,
+		captureFunc:    captureFunc,
+		target:         params.Target,
+		clock:          c,
+		closed:         &atomic.Bool{},
 	}, nil
 }
 
 // TODO: We should ave this for errors coming from getAndpush, too.
 func (c *collector) write() error {
-	for msg := range c.queue {
+	for msg := range c.captureResults {
 		if err := c.target.Write(msg); err != nil {
 			return err
 		}
