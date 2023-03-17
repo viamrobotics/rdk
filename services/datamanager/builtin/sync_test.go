@@ -130,7 +130,7 @@ func TestSyncEnabled(t *testing.T) {
 func TestDataCaptureUpload(t *testing.T) {
 	datacapture.MaxFileSize = 500
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor.Store(int32(2))
+	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
 	captureTime := time.Millisecond * 300
 
