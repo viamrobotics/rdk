@@ -1,6 +1,7 @@
 package wheeled
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 
@@ -62,11 +63,10 @@ func (kwb *kinematicWheeledBase) buildModel(ctx context.Context) (referenceframe
 	if err != nil {
 		return nil, err
 	}
-	pcd, err := pointcloud.ReadPCD(bytes.NewReader(data))
+	dims, err := pointcloud.GetPCDMetaData(*bufio.NewReader(bytes.NewReader(data)))
 	if err != nil {
 		return nil, err
 	}
-	dims := pcd.MetaData()
 
 	// build the model - SLAM convention is that the XZ plane is the ground plane
 	frame2D, err := referenceframe.NewMobile2DFrame(
