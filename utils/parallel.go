@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
@@ -130,8 +129,6 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 
-	logger := golog.Global()
-	logger.Debugf("runInParallel context error is %s: ", ctx.Err())
 	var wg sync.WaitGroup
 
 	var bigError error
@@ -139,11 +136,8 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	storeError := func(err error) {
 		bigErrorMutex.Lock()
 		defer bigErrorMutex.Unlock()
-		logger.Debugf("runInParallel bigError is %v", bigError)
 		if bigError == nil || !errors.Is(err, context.Canceled) {
-			logger.Debugf("runInParallel biggError receiving error is %v", err)
 			bigError = multierr.Combine(bigError, err)
-			logger.Debugf(" runInParallel combined bigError is %v", bigError)
 		}
 	}
 
@@ -157,7 +151,6 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 		}()
 		err := f(ctx)
 		if err != nil {
-			logger.Errorf("runInParallel got err %v from functions, cancelling all routines", err)
 			storeError(err)
 			cancel()
 		}
