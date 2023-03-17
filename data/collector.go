@@ -78,7 +78,7 @@ func (c *collector) Flush() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Flush(); err != nil {
-		c.captureErrors <- errors.Wrap(err, "failed to flush collector")
+		c.logger.Errorw("failed to flush collector", "error", err)
 	}
 }
 
@@ -262,7 +262,6 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}, nil
 }
 
-// TODO: We should ave this for errors coming from getAndpush, too.
 func (c *collector) write() error {
 	for msg := range c.captureResults {
 		if err := c.target.Write(msg); err != nil {
