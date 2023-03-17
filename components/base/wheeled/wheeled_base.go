@@ -116,15 +116,14 @@ type wheeledBase struct {
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
+// TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
+// TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if base.orientationSensor != nil {
-		// if rdkutils.Float64AlmostEqual(angleDeg, 360, 0.01) {
-		// 	angleDeg -= 0.01
-		// }
 		return base.spinWithMovementSensor(ctx, angleDeg, degsPerSec, extra)
 	}
 	return base.spin(ctx, angleDeg, degsPerSec)
@@ -236,9 +235,6 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 	return addAnglesInDomain(rdkutils.RadToDeg(orientation.EulerAngles().Yaw), 0, false), nil
 }
 
-// TODO: RSDK-1698, considers dealing with imus that
-// return values between -180 to 180 and 0-360 (probably components using our sensor filters).
-// current tests only consider -179 to 179 domain logic.
 func addAnglesInDomain(target, current float64, half bool) float64 {
 	angle := target + current
 	// reduce the angle
@@ -309,6 +305,7 @@ func hasOverShot(angle, start, target, dir float64) bool {
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
+// TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
@@ -387,6 +384,7 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 }
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
+// TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
@@ -399,6 +397,7 @@ func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vec
 }
 
 // SetPower commands the base motors to run at powers correspoinding to input linear and angular powers.
+// TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
@@ -426,6 +425,7 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 }
 
 // returns rpm, revolutions for a spin motion.
+// TODO - RSDK-2356 check math for output speeds.
 func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
@@ -502,6 +502,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 // Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	base.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range base.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx, extra))
