@@ -66,7 +66,7 @@ func (c *collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to flush capture captureResults", "error", err)
+		c.logger.Errorw("failed to flush capture data", "error", err)
 	}
 	close(c.captureErrors)
 	c.logRoutine.Wait()

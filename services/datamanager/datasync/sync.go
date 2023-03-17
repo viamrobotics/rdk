@@ -123,7 +123,6 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
 	s.closed.Store(true)
-
 	s.cancelFunc()
 	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
@@ -311,7 +310,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
