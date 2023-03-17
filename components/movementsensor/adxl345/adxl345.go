@@ -69,16 +69,16 @@ type FreeFallAttrConfig struct {
 
 func (tapCfg *TapAttrConfig) ValidateTapConfigs(path string) error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
-		return errors.New("adxl345: Accelerometer pin must be 1 or 2")
+		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
 	if tapCfg.Threshold != 0 {
 		if tapCfg.Threshold < 0 || tapCfg.Threshold > (255*ThreshTapScaleFactor) {
-			return errors.New("adxl345: Tap threshold must be 0 between and 15,937mg")
+			return errors.New("Tap threshold on the ADXL345 must be 0 between and 15,937mg")
 		}
 	}
 	if tapCfg.Dur != 0 {
 		if tapCfg.Dur < 0 || tapCfg.Dur > (255*DurScaleFactor) {
-			return errors.New("adxl345: Tap dur must be between 0 and 160,000µs")
+			return errors.New("Tap dur on the ADXL345 must be between 0 and 160,000µs")
 		}
 	}
 	return nil
@@ -86,16 +86,16 @@ func (tapCfg *TapAttrConfig) ValidateTapConfigs(path string) error {
 
 func (freefallCfg *FreeFallAttrConfig) ValidateFreeFallConfigs(path string) error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
-		return errors.New("Accelerometer pin must be 1 or 2")
+		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
 	if freefallCfg.Threshold != 0 {
 		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > (255*ThreshFfScaleFactor) {
-			return errors.New("Accelerometer tap threshold must be 0 between and 15,937mg")
+			return errors.New("Accelerometer tap threshold on the ADXL345 must be 0 between and 15,937mg")
 		}
 	}
 	if freefallCfg.Time != 0 {
 		if freefallCfg.Time < 0 || freefallCfg.Time > (255*TimeFfScaleFactor) {
-			return errors.New("Accelerometer tap time must be between 0 and 1,275ms")
+			return errors.New("Accelerometer tap time on the ADXL345 must be between 0 and 1,275ms")
 		}
 	}
 	return nil
@@ -313,9 +313,7 @@ func (adxl *adxl345) startInterruptMonitoring(interrupt board.DigitalInterrupt, 
 				return
 			case tick := <-ticksChan:
 				if tick.High {
-					func() {
-						utils.UncheckedError(adxl.readInterrupts(adxl.cancelContext))
-					}()
+					utils.UncheckedError(adxl.readInterrupts(adxl.cancelContext))
 				}
 			}
 		}
@@ -327,7 +325,7 @@ func addInterruptPin(b board.Board, name string, interrupts map[string]board.Dig
 	if !ok {
 		interrupt, ok := b.DigitalInterruptByName(name)
 		if !ok {
-			return nil, errors.Errorf("adxl345: cannot grab digital interrupt: %s", name)
+			return nil, errors.Errorf("cannot grab digital interrupt: %s", name)
 		}
 		interrupts[name] = interrupt
 	}
