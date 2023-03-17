@@ -244,8 +244,10 @@ func TestClose(t *testing.T) {
 	}
 }
 
-// TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
-func TestCtxCancelledLoggedAsDebug(t *testing.T) {
+// TestCtxCancelledNotLoggedafterClose verifies that context cancelled errors are not logged if they occur after Close
+// has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
+// for any running capture routines.
+func TestCtxCancelledNotLoggedafterClose(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
@@ -289,7 +291,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
