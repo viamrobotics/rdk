@@ -262,7 +262,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}, nil
 }
 
-// TODO: We should ave this for errors coming from getAndpush, too
+// TODO: We should ave this for errors coming from getAndpush, too.
 func (c *collector) write() error {
 	for msg := range c.queue {
 		if err := c.target.Write(msg); err != nil {
@@ -283,7 +283,6 @@ func (c *collector) log() {
 		}
 		c.logger.Error(err)
 	}
-	return
 }
 
 // InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
