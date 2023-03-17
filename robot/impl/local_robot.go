@@ -984,29 +984,28 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 }
 
 func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
-	walkConvertedAttributes := func(convertedAttributes interface{}, allErrs error) interface{} {
+	walkConvertedAttributes := func(convertedAttributes interface{}, allErrs error) (interface{}, error) {
 		// Replace all package references with the actual path containing the package
 		// on the robot.
 		if walker, ok := convertedAttributes.(config.Walker); ok {
 			newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
 			if err != nil {
 				allErrs = multierr.Combine(allErrs, err)
-				return convertedAttributes
+				return convertedAttributes, allErrs
 			}
 			convertedAttributes = newAttrs
 		}
-		return convertedAttributes
+		return convertedAttributes, allErrs
 	}
 
 	var allErrs error
 	for i, s := range cfg.Services {
-		s.ConvertedAttributes = walkConvertedAttributes(s.ConvertedAttributes, allErrs)
+		s.ConvertedAttributes, allErrs = walkConvertedAttributes(s.ConvertedAttributes, allErrs)
 		cfg.Services[i] = s
-
 	}
 
 	for i, c := range cfg.Components {
-		c.ConvertedAttributes = walkConvertedAttributes(c.ConvertedAttributes, allErrs)
+		c.ConvertedAttributes, allErrs = walkConvertedAttributes(c.ConvertedAttributes, allErrs)
 		cfg.Components[i] = c
 	}
 

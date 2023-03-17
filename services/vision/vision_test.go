@@ -3,9 +3,10 @@ package vision
 import (
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot/packages"
-	"go.viam.com/test"
 )
 
 func TestAttributesWalker(t *testing.T) {

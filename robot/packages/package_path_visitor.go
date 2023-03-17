@@ -21,11 +21,12 @@ func (v *PackagePathVisitor) Visit(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 
 	var s string
-	if t.Kind() == reflect.String {
+	switch {
+	case t.Kind() == reflect.String:
 		s = data.(string)
-	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.String {
+	case t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.String:
 		s = *data.(*string)
-	} else {
+	default:
 		return data, nil
 	}
 
