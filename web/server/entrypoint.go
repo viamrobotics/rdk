@@ -319,7 +319,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				}
 				var options weboptions.Options
 
-				if !diff.NetworkEqual || !diff.MediaEqual {
+				if !diff.NetworkEqual {
 					if err := myRobot.StopWeb(); err != nil {
 						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
 						continue
@@ -333,7 +333,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				myRobot.Reconfigure(ctx, processedConfig)
 
-				if !diff.NetworkEqual || !diff.MediaEqual {
+				if !diff.NetworkEqual {
 					if err := myRobot.StartWeb(ctx, options); err != nil {
 						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}
