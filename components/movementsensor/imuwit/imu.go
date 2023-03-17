@@ -217,12 +217,12 @@ func NewWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(ctx, portReader, logger)
+	i.startUpdateLoop(ctx, portReader)
 
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader) {
 	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -244,7 +244,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 			}
 			select {
 			case <-ctx.Done():
-				imu.logger.Debug("imu cancelled context")
 				return
 			default:
 			}
