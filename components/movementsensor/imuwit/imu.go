@@ -244,6 +244,7 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 			}
 			select {
 			case <-ctx.Done():
+				imu.logger.Debug("imu cancelled context")
 				return
 			default:
 			}
@@ -257,7 +258,7 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				switch {
 				case err != nil:
 					imu.err.Set(err)
-					logger.Error(err)
+					imu.logger.Error(err)
 				case len(line) != 11:
 					imu.numBadReadings++
 					return

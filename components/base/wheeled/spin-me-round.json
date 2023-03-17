@@ -1,0 +1,55 @@
+{
+  "components": [
+   
+    {
+      "model": "wheeled",
+      "name": "lots-of-fun",
+      "type": "base",
+      "attributes": {
+        "left": [
+          "like_a_record_baby:left"
+        ],
+        "right": [
+          "like_a_record_baby:right"
+        ],
+        "movement_sensor": [
+          "like_a_record_baby:round"
+        ],
+        "wheel_circumference_mm": 250,
+        "width_mm": 400
+      },
+      "depends_on": [
+        "like_a_record_baby:local",
+        "like_a_record_baby:right",
+        "like_a_record_baby:left"
+      ]
+    },
+    {
+        "model": "wheeled",
+        "name": "round-round-round-round",
+        "type": "base",
+        "attributes": {
+            "left": [
+                "like_a_record_baby:left"
+            ],
+            "right": [
+                "like_a_record_baby:right"
+            ],
+            "wheel_circumference_mm": 250,
+            "width_mm": 400
+        },
+        "depends_on": [
+            "like_a_record_baby:local",
+            "like_a_record_baby:right",
+            "like_a_record_baby:left"
+        ]
+    }
+  ],
+  "remotes": [
+    {
+        "name": "like_a_record_baby",
+        "address": "like-a-record-baby.ikzfbcf5i3.viam.cloud",
+        "secret": "6usxkova9cclqx8i6amz72mo56src2nmsmrdrvqfm38jt86o"
+    }
+  ]
+}
