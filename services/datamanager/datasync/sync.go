@@ -116,10 +116,10 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 		logRoutine: sync.WaitGroup{},
 	}
 	ret.logRoutine.Add(1)
-	go func() {
+	goutils.PanicCapturingGo(func() {
 		defer ret.logRoutine.Done()
 		ret.log()
-	}()
+	})
 	return &ret, nil
 }
 
