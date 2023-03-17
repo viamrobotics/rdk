@@ -7,8 +7,6 @@ import (
 	"image"
 	"os"
 	"path/filepath"
-	"time"
-
 	// "time"
 
 	"github.com/golang/geo/r3"
@@ -135,7 +133,7 @@ func fakeGetPointCloudMapStream(_ context.Context, datasetDir string, slamSvc *S
 		}
 
 		// slamSvc.logger.Debug("sleeping 33 Milliseconds")
-		time.Sleep(time.Millisecond * 33)
+		// time.Sleep(time.Millisecond * 33)
 		return chunk[:bytesRead], err
 	}
 	return f, nil
