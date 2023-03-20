@@ -30,7 +30,7 @@ const (
 	errTarget   = 5
 )
 
-var modelname = resource.NewDefaultModel("wheeled") // baseControlDebug = false
+var modelname = resource.NewDefaultModel("wheeled")
 
 // AttrConfig is how you configure a wheeled base.
 type AttrConfig struct {
@@ -144,20 +144,20 @@ func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64)
 }
 
 func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	if rdkutils.Float64AlmostEqual(angleDeg, 360, 2) {
-		// if we're exactly 360 degrees away from target
-		// we are at the target and the base won't move
-		angleDeg -= 3
-		base.logger.Warn(
-			"changing angle to 357, base is already at target by adding 360 degrees",
-		)
-	}
+	// if rdkutils.Float64AlmostEqual(angleDeg, 360, 2) {
+	// 	// if we're exactly 360 degrees away from target
+	// 	// we are at the target and the base won't move
+	// 	angleDeg -= 3
+	// 	base.logger.Warn(
+	// 		"changing angle to 357, base is already at target by adding 360 degrees",
+	// 	)
+	// }
 
 	wheelrpm, _ := base.spinMath(angleDeg, degsPerSec)
 
 	base.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		// runAll calls GoFor, which blockers until the timed operation is done, or returns nil if a zero is passed in
+		// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
 		// the code inside this goroutine would block the sensor for loop if taken out
 		if err := base.runAll(base.cancelCtx, -wheelrpm, 0, wheelrpm, 0); err != nil {
 			base.logger.Error(err)
@@ -170,6 +170,8 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 	} // from 0 -> 360
 
 	errCounter := 0
+	numTurns := int(angleDeg) / int(360) // rounds down to full number of turns
+	loopIteration := 0
 
 	targetYaw, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
 	base.activeBackgroundWorkers.Add(1)
@@ -191,7 +193,17 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 				return
 			case <-ticker.C:
 			}
-			currYaw, err := getCurrentYaw(base.cancelCtx, base.orientationSensor, extra) // from 0 -> 360
+
+			// possible fix for 360 degrees
+			// just skip the loop
+			if loopIteration == 0 {
+				base.logger.Debugf("loop iteration is %v", loopIteration)
+				loopIteration = 1
+				continue
+			}
+
+			// imu readings are limited from 0 -> 360
+			currYaw, err := getCurrentYaw(base.cancelCtx, base.orientationSensor, extra)
 			if err != nil {
 				errCounter++
 				if errCounter > 100 {
@@ -200,10 +212,18 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 					return
 				}
 			}
-			errCounter = 0
+			errCounter = 0 // reset reading error count to zero if we are successfully reading again
+
+			if numTurns != 0 {
+				base.logger.Debug("we need to turn more")
+				if rdkutils.Float64AlmostEqual(startYaw, currYaw, 1) {
+					numTurns -= 1
+					base.logger.Debugf("numturns now %v", numTurns)
+				}
+				continue
+			}
 
 			errAngle := targetYaw - currYaw
-
 			overshot := hasOverShot(currYaw, startYaw, targetYaw, dir)
 
 			// poll the sensor for the current error in angle
@@ -222,6 +242,7 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 				return
 			}
 		}
+
 	}, base.activeBackgroundWorkers.Done)
 
 	return nil
