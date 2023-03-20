@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/rpc/oauth"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/referenceframe"
@@ -755,7 +754,7 @@ func TestAuthConfigToProto(t *testing.T) {
 		validateAuthConfig(t, *out, testAuthConfig)
 	})
 
-	t.Run("web oauth auth handler", func(t *testing.T) {
+	t.Run("external auth config", func(t *testing.T) {
 		keyset := jwk.NewSet()
 		privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
 		test.That(t, err, test.ShouldBeNil)
@@ -765,17 +764,10 @@ func TestAuthConfigToProto(t *testing.T) {
 		test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
 
 		authConfig := AuthConfig{
-			Handlers: []AuthHandlerConfig{
-				{
-					Type:   oauth.CredentialsTypeOAuthWeb,
-					Config: AttributeMap{},
-					WebOAuthConfig: &WebOAuthConfig{
-						AllowedAudiences: []string{"aud1", "aud2"},
-						JSONKeySet:       keysetToInterface(t, keyset).AsMap(),
-					},
-				},
-			},
 			TLSAuthEntities: []string{"tls1", "tls2"},
+			ExternalAuthConfig: &ExternalAuthConfig{
+				JSONKeySet: keysetToInterface(t, keyset).AsMap(),
+			},
 		}
 
 		proto, err := AuthConfigToProto(&authConfig)
@@ -783,7 +775,7 @@ func TestAuthConfigToProto(t *testing.T) {
 		out, err := AuthConfigFromProto(proto)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, out.Handlers[0], test.ShouldResemble, authConfig.Handlers[0])
+		test.That(t, out.ExternalAuthConfig, test.ShouldResemble, authConfig.ExternalAuthConfig)
 	})
 }
 

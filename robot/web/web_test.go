@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -23,8 +25,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/rpc/oauth"
-	oauthutils "go.viam.com/utils/rpc/oauth/testutils"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -199,7 +199,6 @@ func TestWebWithAuth(t *testing.T) {
 			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
 			locationSecrets := []string{"locsosecret", "locsec2"}
-			expectedAudiences := []string{"https://app.viam.dev/"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -213,14 +212,9 @@ func TestWebWithAuth(t *testing.T) {
 						"secrets": locationSecrets,
 					},
 				},
-				{
-					Type:   oauth.CredentialsTypeOAuthWeb,
-					Config: config.AttributeMap{},
-					WebOAuthConfig: &config.WebOAuthConfig{
-						AllowedAudiences: expectedAudiences,
-						ValidatedKeySet:  keyset,
-					},
-				},
+			}
+			options.Auth.ExternalAuthConfig = &config.ExternalAuthConfig{
+				ValidatedKeySet: keyset,
 			}
 			if tc.Managed {
 				options.BakedAuthEntity = "blah"
@@ -309,16 +303,24 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				t.Run("can connect with web-oauth", func(t *testing.T) {
-					accessToken, err := oauthutils.SignWebAuthAccessToken(privKeyForWebAuth, entityName, expectedAudiences[0], "iss", "key-id-1")
-					test.That(t, err, test.ShouldBeNil)
-					conn, err = rgrpc.Dial(context.Background(), addr, logger,
-						rpc.WithAllowInsecureWithCredentialsDowngrade(),
-						rpc.WithStaticAuthenticationMaterial(accessToken),
-					)
-					test.That(t, err, test.ShouldBeNil)
-					test.That(t, conn.Close(), test.ShouldBeNil)
-				})
+				if tc.EntityName != "" {
+					t.Run("can connect with external auth", func(t *testing.T) {
+						accessToken, err := signJWKBasedExternalAccessToken(
+							privKeyForWebAuth,
+							entityName,
+							options.FQDN,
+							"iss",
+							"key-id-1",
+						)
+						test.That(t, err, test.ShouldBeNil)
+						conn, err = rgrpc.Dial(context.Background(), addr, logger,
+							rpc.WithAllowInsecureWithCredentialsDowngrade(),
+							rpc.WithStaticAuthenticationMaterial(accessToken),
+						)
+						test.That(t, err, test.ShouldBeNil)
+						test.That(t, conn.Close(), test.ShouldBeNil)
+					})
+				}
 			} else {
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
@@ -1137,4 +1139,30 @@ func (srv *echoServer) EchoMultiple(
 
 func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
 	return &echopb.EchoResponse{}, nil
+}
+
+// signJWKBasedExternalAccessToken returns an access jwt access token typically returned by an OIDC provider.
+func signJWKBasedExternalAccessToken(
+	key *rsa.PrivateKey,
+	entity, aud, iss, keyID string,
+) (string, error) {
+	token := &jwt.Token{
+		Header: map[string]interface{}{
+			"typ": "JWT",
+			"alg": jwt.SigningMethodRS256.Alg(),
+			"kid": keyID,
+		},
+		Claims: rpc.JWTClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Audience: []string{aud},
+				Issuer:   iss,
+				Subject:  fmt.Sprintf("someauthprovider/%s", entity),
+				IssuedAt: jwt.NewNumericDate(time.Now()),
+			},
+			AuthCredentialsType: rpc.CredentialsTypeExternal,
+		},
+		Method: jwt.SigningMethodRS256,
+	}
+
+	return token.SignedString(key)
 }

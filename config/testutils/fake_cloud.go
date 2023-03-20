@@ -55,9 +55,11 @@ func NewFakeCloudServer(ctx context.Context, logger golog.Logger) (*FakeCloudSer
 
 	server.rpcServer, err = rpc.NewServer(logger,
 		rpc.WithDisableMulticastDNS(),
-		rpc.WithAuthHandler(rutils.CredentialsTypeRobotSecret, rpc.MakeFuncAuthHandler(
+		rpc.WithAuthHandler(rutils.CredentialsTypeRobotSecret, rpc.AuthHandlerFunc(
 			server.robotSecretAuthenticate,
-			server.robotSecretVerifyEntity,
+		)),
+		rpc.WithEntityDataLoader(rutils.CredentialsTypeRobotSecret, rpc.EntityDataLoaderFunc(
+			server.robotSecretEntityDataLoad,
 		)),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{Enable: false}))
 	if err != nil {
@@ -191,11 +193,11 @@ func (s *FakeCloudServer) robotSecretAuthenticate(ctx context.Context, entity, p
 	return map[string]string{}, nil
 }
 
-func (s *FakeCloudServer) robotSecretVerifyEntity(ctx context.Context, entity string) (interface{}, error) {
+func (s *FakeCloudServer) robotSecretEntityDataLoad(ctx context.Context, claims rpc.Claims) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, ok := s.deviceConfigs[entity]
+	_, ok := s.deviceConfigs[claims.Entity()]
 	if !ok {
 		return nil, errors.New("failed to verify entity in fake server")
 	}
