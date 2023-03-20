@@ -2,7 +2,7 @@ package builtin
 
 import (
 	"context"
-	"fmt"
+	"github.com/benbjohnson/clock"
 	"io"
 	"os"
 	"path/filepath"
@@ -35,27 +35,6 @@ var (
 // TODO: what do we actually want to test? That the underlying sync.Manager.SyncDirectory() is called, and successfully
 // finds + syncs all data in that dir
 func TestSyncEnabled(t *testing.T) {
-	waitForAndGetUploadRequests := func(srv *mockDataSyncServiceServer) []*v1.DataCaptureUploadRequest {
-		var reqs []*v1.DataCaptureUploadRequest
-		var added []*v1.DataCaptureUploadRequest
-
-		added = []*v1.DataCaptureUploadRequest{}
-		succ := srv.getSuccessfulDCUploadRequests()
-		added = append(added, succ...)
-		reqs = append(reqs, added...)
-		for i := 0; i < 100; i++ {
-			if len(reqs) > 0 && len(added) == 0 {
-				return reqs
-			}
-			time.Sleep(time.Millisecond * 10)
-			succ = srv.getSuccessfulDCUploadRequests()[len(reqs):]
-			added = []*v1.DataCaptureUploadRequest{}
-			added = append(added, succ...)
-			reqs = append(reqs, added...)
-		}
-		return reqs
-	}
-
 	tests := []struct {
 		name                        string
 		initialServiceDisableStatus bool
@@ -86,6 +65,8 @@ func TestSyncEnabled(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
+			mockClock := clock.NewMock()
+			clockVar = mockClock
 			tmpDir := t.TempDir()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0, 0)
 			defer func() {
@@ -112,12 +93,24 @@ func TestSyncEnabled(t *testing.T) {
 
 			// Let run for a second, then change status.
 			// TODO: Instead of doing this, wait until both files have appeared and the sync.Manager has been called
-			initialURs := waitForAndGetUploadRequests(mockService)
+			// TODO: first need to add the capture time
+			// captureTime := time.Millisecond * 20
+			// mockClock.Add(captureTime)
+			// mockClock.Add(captureTime)
+			time.Sleep(time.Millisecond * 100)
+			mockClock.Add(time.Millisecond * 55)
+			var receivedReq bool
+			wait := time.After(time.Millisecond * 100)
+			select {
+			case <-wait:
+			case <-mockService.succesfulDCRequests:
+				receivedReq = true
+			}
 
 			if !tc.initialServiceDisableStatus {
-				test.That(t, len(initialURs), test.ShouldBeGreaterThan, 0)
+				test.That(t, receivedReq, test.ShouldBeTrue)
 			} else {
-				test.That(t, len(initialURs), test.ShouldEqual, 0)
+				test.That(t, receivedReq, test.ShouldBeFalse)
 			}
 
 			// Set up service config.
@@ -131,17 +124,29 @@ func TestSyncEnabled(t *testing.T) {
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
+			// TODO: drain the channel
+			for len(mockService.succesfulDCRequests) > 0 {
+				<-mockService.succesfulDCRequests
+			}
 
 			// Let run for a second, then change status.
-			newUploads := waitForAndGetUploadRequests(mockService)
+			var receivedReqTwo bool
+			// TODO: make this deterministically wait until capture has started instead of sleeping
+			time.Sleep(time.Millisecond * 100)
+			mockClock.Add(time.Millisecond * 55)
+			wait = time.After(time.Millisecond * 100)
+			select {
+			case <-wait:
+			case <-mockService.succesfulDCRequests:
+				receivedReqTwo = true
+			}
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			newUploadCount := len(newUploads)
 			if !tc.newServiceDisableStatus {
-				test.That(t, newUploadCount, test.ShouldBeGreaterThan, len(initialURs))
+				test.That(t, receivedReqTwo, test.ShouldBeTrue)
 			} else {
-				test.That(t, newUploadCount, test.ShouldEqual, len(initialURs))
+				test.That(t, receivedReqTwo, test.ShouldBeFalse)
 			}
 		})
 	}
@@ -559,11 +564,13 @@ func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
 }
 
 type mockDataSyncServiceServer struct {
+	succesfulDCRequests chan *v1.DataCaptureUploadRequest
+	failedDCRequests    chan *v1.DataCaptureUploadRequest
+
 	successfulDCUploadRequests *[]*v1.DataCaptureUploadRequest
 	failedDCUploadRequests     *[]*v1.DataCaptureUploadRequest
 	fileUploadRequests         *[]*v1.FileUploadRequest
 	lock                       *sync.Mutex
-	failAt                     int32
 	failFor                    int32
 	callCount                  *atomic.Int32
 	v1.UnimplementedDataSyncServiceServer
@@ -572,7 +579,6 @@ type mockDataSyncServiceServer struct {
 func (m *mockDataSyncServiceServer) getSuccessfulDCUploadRequests() []*v1.DataCaptureUploadRequest {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	fmt.Println("calling getSuccessfulDCUploadRequests", len(*m.successfulDCUploadRequests))
 	return *m.successfulDCUploadRequests
 }
 
@@ -588,12 +594,6 @@ func (m *mockDataSyncServiceServer) getFileUploadRequests() []*v1.FileUploadRequ
 	return *m.fileUploadRequests
 }
 
-func (m *mockDataSyncServiceServer) setFailAt(v int32) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.failAt = v
-}
-
 func (m *mockDataSyncServiceServer) clear() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -603,23 +603,17 @@ func (m *mockDataSyncServiceServer) clear() {
 }
 
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
-	fmt.Println("Called DataCaptureUpload")
-
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	defer m.callCount.Add(1)
 
-	if m.failAt != 0 && m.callCount.Load() >= m.failAt {
-		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
-		return nil, errors.New("oh no error!!")
-	}
-
 	if m.failFor != 0 && m.callCount.Load() < m.failFor {
 		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
+		m.failedDCRequests <- ur
 		return nil, errors.New("oh no error!!")
 	}
-	fmt.Println("appending to successfulDCUploadRequests")
 	*m.successfulDCUploadRequests = append(*m.successfulDCUploadRequests, ur)
+	m.succesfulDCRequests <- ur
 	return &v1.DataCaptureUploadResponse{}, nil
 }
 
@@ -655,12 +649,14 @@ func buildAndStartLocalSyncServer(t *testing.T, failAt int, failFor int) (rpc.Se
 	test.That(t, err, test.ShouldBeNil)
 
 	mockService := mockDataSyncServiceServer{
+		succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 10),
+		failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 10),
+
 		successfulDCUploadRequests:         &[]*v1.DataCaptureUploadRequest{},
 		failedDCUploadRequests:             &[]*v1.DataCaptureUploadRequest{},
 		fileUploadRequests:                 &[]*v1.FileUploadRequest{},
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
-		failAt:                             int32(failAt),
 		callCount:                          &atomic.Int32{},
 		failFor:                            int32(failFor),
 	}

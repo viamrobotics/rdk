@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"github.com/benbjohnson/clock"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -59,6 +60,8 @@ const defaultCaptureQueueSize = 250
 
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
+
+var clockVar clock.Clock
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
@@ -471,12 +474,15 @@ func (svc *builtIn) cancelSyncScheduler() {
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
+	started := make(chan struct{})
+
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
+		started <- struct{}{}
 		defer svc.backgroundWorkers.Done()
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 		intervalMillis := 60000.0 * intervalMins
-		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
+		ticker := clockVar.Ticker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
 		for {
@@ -501,6 +507,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			}
 		}
 	})
+	<-started
 }
 
 // Get the config associated with the data manager service.
