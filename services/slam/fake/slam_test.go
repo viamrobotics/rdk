@@ -112,8 +112,8 @@ func TestFakeSLAMGetMap(t *testing.T) {
 		test.That(t, mimeType, test.ShouldEqual, rdkutils.MimeTypeJPEG)
 		test.That(t, vObj, test.ShouldBeNil)
 		test.That(t, im, test.ShouldNotBeNil)
-		test.That(t, im.Bounds().Max.X, test.ShouldEqual, 3642)
-		test.That(t, im.Bounds().Max.Y, test.ShouldEqual, 2323)
+		test.That(t, im.Bounds().Max.X, test.ShouldEqual, 1265)
+		test.That(t, im.Bounds().Max.Y, test.ShouldEqual, 785)
 		test.That(t, im.Bounds().Min.X, test.ShouldEqual, 0)
 		test.That(t, im.Bounds().Min.Y, test.ShouldEqual, 0)
 	})
@@ -208,6 +208,18 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 
 	// Call GetMap twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
+		_, _, vObj, err := slamSvc.GetMap(
+			context.Background(),
+			slamSvc.Name,
+			mimeType,
+			&referenceframe.PoseInFrame{},
+			true,
+			extra,
+		)
+
+		getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
+		test.That(t, err, test.ShouldBeNil)
+
 		pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, extra)
 		test.That(t, err, test.ShouldBeNil)
 		getPositionResults = append(getPositionResults, pInFrame.Pose())
@@ -215,18 +227,6 @@ func verifyGetMapStateful(t *testing.T, mimeType string, slamSvc *SLAM, extra ma
 		data, err := slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 		test.That(t, err, test.ShouldBeNil)
 		getInternalStateResults = append(getInternalStateResults, len(data))
-
-		_, _, vObj, err := slamSvc.GetMap(
-			context.Background(),
-			slamSvc.Name,
-			mimeType,
-			pInFrame,
-			true,
-			extra,
-		)
-
-		getMapPcdResults = append(getMapPcdResults, vObj.MetaData().MaxX)
-		test.That(t, err, test.ShouldBeNil)
 	}
 
 	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
@@ -277,6 +277,17 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 
 	// Call GetPointCloudMapStream twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
+		f, err := slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f, test.ShouldNotBeNil)
+		pcd, err := helperConcatenateChunksToFull(f)
+		test.That(t, err, test.ShouldBeNil)
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+		test.That(t, err, test.ShouldBeNil)
+
+		getPointCloudMapResults = append(getPointCloudMapResults, pc.MetaData().MaxX)
+		test.That(t, err, test.ShouldBeNil)
+
 		pInFrame, err := slamSvc.Position(context.Background(), slamSvc.Name, extra)
 		test.That(t, err, test.ShouldBeNil)
 		positionResults = append(positionResults, pInFrame.Pose())
@@ -289,23 +300,12 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM, extra map
 		test.That(t, err, test.ShouldBeNil)
 		getInternalStateResults = append(getInternalStateResults, len(data))
 
-		f, err := slamSvc.GetInternalStateStream(context.Background(), slamSvc.Name)
+		f, err = slamSvc.GetInternalStateStream(context.Background(), slamSvc.Name)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		internalState, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
 		getInternalStateStreamResults = append(getInternalStateStreamResults, len(internalState))
-
-		f, err = slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f, test.ShouldNotBeNil)
-		pcd, err := helperConcatenateChunksToFull(f)
-		test.That(t, err, test.ShouldBeNil)
-		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-		test.That(t, err, test.ShouldBeNil)
-
-		getPointCloudMapResults = append(getPointCloudMapResults, pc.MetaData().MaxX)
-		test.That(t, err, test.ShouldBeNil)
 	}
 
 	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
