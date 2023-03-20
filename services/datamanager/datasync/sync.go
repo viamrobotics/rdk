@@ -132,6 +132,7 @@ func (s *syncer) Close() {
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
+	goutils.UncheckedError(s.logger.Sync())
 }
 
 func (s *syncer) SyncDirectory(dir string) {
@@ -310,7 +311,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
