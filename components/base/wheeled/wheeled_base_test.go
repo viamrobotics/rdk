@@ -17,6 +17,18 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+var testCfg config.Component = config.Component{
+	Name:  "test",
+	Type:  base.Subtype.ResourceSubtype,
+	Model: resource.Model{Name: "wheeled_base"},
+	ConvertedAttributes: &AttrConfig{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m", "br-m"},
+	},
+}
+
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
@@ -34,22 +46,11 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := config.Component{
-		Name:  "test",
-		Type:  base.Subtype.ResourceSubtype,
-		Model: resource.Model{Name: "wheeled_base"},
-		ConvertedAttributes: &AttrConfig{
-			WidthMM:              100,
-			WheelCircumferenceMM: 1000,
-			Left:                 []string{"fl-m", "bl-m"},
-			Right:                []string{"fr-m", "br-m"},
-		},
-	}
-	deps, err := cfg.Validate("path")
+	deps, err := testCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, logger)
+	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -308,22 +309,11 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// valid config
-	compCfg := config.Component{
-		Name:  "test",
-		Type:  base.Subtype.ResourceSubtype,
-		Model: resource.Model{Name: "wheeled_base"},
-		ConvertedAttributes: &AttrConfig{
-			WidthMM:              100,
-			WheelCircumferenceMM: 1000,
-			Left:                 []string{"fl-m", "bl-m"},
-			Right:                []string{"fr-m", "br-m"},
-		},
-	}
-	deps, err := compCfg.Validate("path")
+	deps, err := testCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, compCfg, logger)
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)

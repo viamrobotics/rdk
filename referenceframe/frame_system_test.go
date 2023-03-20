@@ -119,7 +119,6 @@ func TestFrameModelPart(t *testing.T) {
 }
 
 func TestFramesFromPart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := UnmarshalModelJSON(jsonData, "")

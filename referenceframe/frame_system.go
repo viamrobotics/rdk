@@ -316,21 +316,23 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 // the point representation of their geometry type with respect to the world.
 func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
-	geometries, err := FrameSystemGeometries(system, inputs)
+	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
 		logger.Debug(err)
 	}
-	for _, geometry := range geometries.Geometries() {
-		vectorMap[geometry.Label()] = geometry.ToPoints(defaultPointDensity)
+	for _, geometries := range geometriesInWorldFrame {
+		for _, geometry := range geometries.Geometries() {
+			vectorMap[geometry.Label()] = geometry.ToPoints(defaultPointDensity)
+		}
 	}
 	return vectorMap, nil
 }
 
 // FrameSystemGeometries takes in a framesystem and returns a map where all elements
 // are GeometriesInFrame modified to be with respect to the world.
-func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (*GeometriesInFrame, error) {
+func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[string]*GeometriesInFrame, error) {
 	var errAll error
-	allGeometries := make([]spatial.Geometry, 0)
+	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range system.FrameNames() {
 		geosInFrame, err := system.Frame(name).Geometries(inputs[name])
 		if err != nil {
@@ -342,11 +344,11 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (*Geom
 			if err != nil {
 				errAll = multierr.Append(errAll, err)
 			} else {
-				allGeometries = append(allGeometries, transformed.(*GeometriesInFrame).Geometries()...)
+				allGeometries[name], _ = transformed.(*GeometriesInFrame)
 			}
 		}
 	}
-	return NewGeometriesInFrame(World, allGeometries), errAll
+	return allGeometries, errAll
 }
 
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted

@@ -253,9 +253,12 @@ func (p *plannerOptions) createCollisionConstraints(
 	if err != nil {
 		return err
 	}
-	err = addGeomNames(frameName, allFsGeoms)
-	if err != nil {
-		return err
+	for frameName, geomsInFrame := range allFsGeoms {
+		validGeoms[frameName] = true
+		err = addGeomNames(frameName, geomsInFrame)
+		if err != nil {
+			return err
+		}
 	}
 
 	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all

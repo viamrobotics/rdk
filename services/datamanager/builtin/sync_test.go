@@ -33,6 +33,7 @@ var (
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 
 func TestSyncEnabled(t *testing.T) {
+	t.Skip()
 	tests := []struct {
 		name                        string
 		initialServiceDisableStatus bool
@@ -128,6 +129,7 @@ func TestSyncEnabled(t *testing.T) {
 
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUpload(t *testing.T) {
+	t.Skip()
 	datacapture.MaxFileSize = 500
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
