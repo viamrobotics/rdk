@@ -13,7 +13,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
@@ -113,7 +112,6 @@ type builtIn struct {
 	r                           robot.Robot
 	cfg                         *config.Config
 	logger                      golog.Logger
-	syncLogger                  golog.Logger
 	captureDir                  string
 	captureDisabled             bool
 	collectors                  map[componentMethodMetadata]*collectorAndConfig
@@ -133,20 +131,9 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
-	var syncLogger golog.Logger
-	// Create a production logger for its smart sampling defaults, since if many collectors or upload retries
-	// fail at once, the syncer will otherwise spam logs.
-	productionLogger, err := zap.NewProduction()
-	if err != nil {
-		syncLogger = logger // Default to the provided logger.
-	} else {
-		syncLogger = productionLogger.Sugar()
-	}
-
 	dataManagerSvc := &builtIn{
 		r:                           r,
 		logger:                      logger,
-		syncLogger:                  syncLogger,
 		captureDir:                  viamCaptureDotDir,
 		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
 		backgroundWorkers:           sync.WaitGroup{},
@@ -359,10 +346,10 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(svc.cfg)
 		if err != nil {
-			svc.lock.Unlock()
 			return err
 		}
 	}
@@ -370,7 +357,6 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	svc.flushCollectors()
 	svc.syncer.SyncDirectory(svc.captureDir)
 	svc.syncAdditionalSyncPaths()
-	svc.lock.Unlock()
 	return nil
 }
 

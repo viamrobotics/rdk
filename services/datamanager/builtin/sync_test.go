@@ -38,18 +38,19 @@ func TestSyncEnabled(t *testing.T) {
 	waitForAndGetUploadRequests := func(srv *mockDataSyncServiceServer) []*v1.DataCaptureUploadRequest {
 		var reqs []*v1.DataCaptureUploadRequest
 		var added []*v1.DataCaptureUploadRequest
-		for i := 0; i < 20; i++ {
+
+		added = []*v1.DataCaptureUploadRequest{}
+		succ := srv.getSuccessfulDCUploadRequests()
+		added = append(added, succ...)
+		reqs = append(reqs, added...)
+		for i := 0; i < 100; i++ {
 			if len(reqs) > 0 && len(added) == 0 {
-				srv.clear()
 				return reqs
 			}
-			time.Sleep(time.Millisecond * 100)
-			succ := srv.getSuccessfulDCUploadRequests()
-			fmt.Println("succ", len(succ))
+			time.Sleep(time.Millisecond * 10)
+			succ = srv.getSuccessfulDCUploadRequests()[len(reqs):]
 			added = []*v1.DataCaptureUploadRequest{}
 			added = append(added, succ...)
-			added = append(added, srv.getFailedDCUploadRequests()...)
-			fmt.Println("added:", len(added))
 			reqs = append(reqs, added...)
 		}
 		return reqs
@@ -138,9 +139,9 @@ func TestSyncEnabled(t *testing.T) {
 
 			newUploadCount := len(newUploads)
 			if !tc.newServiceDisableStatus {
-				test.That(t, newUploadCount, test.ShouldBeGreaterThan, 0)
+				test.That(t, newUploadCount, test.ShouldBeGreaterThan, len(initialURs))
 			} else {
-				test.That(t, newUploadCount, test.ShouldEqual, 0)
+				test.That(t, newUploadCount, test.ShouldEqual, len(initialURs))
 			}
 		})
 	}
