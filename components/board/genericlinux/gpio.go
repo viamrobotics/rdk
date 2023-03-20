@@ -306,7 +306,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			logger:     logger,
 		}
 		if mapping.HWPWMSupported {
-			hwPwm, err := newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID)
+			hwPwm, err := newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)
 			if err != nil {
 				// Close all interrupt pins before we return the error, so they're not in use next
 				// time we try to initialize the board.
@@ -334,7 +334,7 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 ) (*digitalInterrupt, error) {
 	pinInt, err := strconv.Atoi(config.Pin)
 	if err != nil {
-		return nil, errors.Errorf("pin names must be numerical, not '%s'", config.Pin)
+		return nil, errors.Errorf("pin numbers must be numerical, not '%s'", config.Pin)
 	}
 	mapping, ok := gpioMappings[pinInt]
 	if !ok {
