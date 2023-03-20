@@ -31,11 +31,13 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -43,6 +45,7 @@ import (
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -551,6 +554,10 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 
 func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 // Close attempts to close all parts of the board cleanly.

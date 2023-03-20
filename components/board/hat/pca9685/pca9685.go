@@ -11,11 +11,13 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -151,6 +153,13 @@ func (pca *PCA9685) parsePin(pin string) (int, error) {
 // ModelAttributes returns attributes related to the model of this board.
 func (pca *PCA9685) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+// SetPowerMode sets the board to the given power mode. If provided,
+// the board will exit the given power mode after the specified
+// duration.
+func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 // Status returns the board status which is always empty.
