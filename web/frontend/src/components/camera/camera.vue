@@ -73,7 +73,7 @@ const viewFrame = async (cameraName: string) => {
     return;
   }
 
-  imgEl.setAttribute('src', URL.createObjectURL(blob));
+  imgEl?.setAttribute('src', URL.createObjectURL(blob));
 };
 
 const clearFrameInterval = () => {
