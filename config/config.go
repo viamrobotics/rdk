@@ -17,7 +17,6 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/rpc/oauth"
 
 	"go.viam.com/rdk/referenceframe"
 	rutils "go.viam.com/rdk/utils"
@@ -569,12 +568,12 @@ func (sc *SessionsConfig) Validate(path string) error {
 type AuthConfig struct {
 	Handlers        []AuthHandlerConfig `json:"handlers"`
 	TLSAuthEntities []string            `json:"tls_auth_entities"`
+	// TODO(erd): test
+	ExternalAuthConfig *ExternalAuthConfig `json:"external_auth_config,omitempty"`
 }
 
-// WebOAuthConfig contains the structued AuthHandlerConfig for the CredentialsTypeOAuthWeb type.
-type WebOAuthConfig struct {
-	// The allowed jwt audiences the OAuthWeb auth handler will accept.
-	AllowedAudiences []string `json:"allowed_audiences"`
+// ExternalAuthConfig contains information needed to verify externally authenticated tokens.
+type ExternalAuthConfig struct {
 	// contains the raw jwks json.
 	JSONKeySet AttributeMap `json:"jwks"`
 
@@ -583,19 +582,19 @@ type WebOAuthConfig struct {
 }
 
 var (
-	allowedKeyTypesForWebOAuth = map[string]bool{
+	allowedKeyTypesForExternalAuth = map[string]bool{
 		"RSA": true,
 	}
 
-	allowedAlgsForWebOAuth = map[string]bool{
+	allowedAlgsForExternalAuth = map[string]bool{
 		"RS256": true,
 		"RS384": true,
 		"RS512": true,
 	}
 )
 
-// Validate returns true if the WebOAuth is valid. Ensures each key is valid and meets the required constraints.
-func (c *WebOAuthConfig) Validate(path string) error {
+// Validate returns true if the config is valid. Ensures each key is valid and meets the required constraints.
+func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
 	if err != nil {
@@ -618,12 +617,12 @@ func (c *WebOAuthConfig) Validate(path string) error {
 			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i), errors.New("failed to parse jwks, missing index"))
 		}
 
-		if _, ok := allowedKeyTypesForWebOAuth[key.KeyType().String()]; !ok {
+		if _, ok := allowedKeyTypesForExternalAuth[key.KeyType().String()]; !ok {
 			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
 				errors.Errorf("failed to parse jwks, invalid key type (%s) only (RSA) supported", key.KeyType().String()))
 		}
 
-		if _, ok := allowedAlgsForWebOAuth[key.Algorithm()]; !ok {
+		if _, ok := allowedAlgsForExternalAuth[key.Algorithm()]; !ok {
 			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
 				errors.Errorf("failed to parse jwks, invalid alg (%s) type only (RS256, RS384, RS512) supported", key.Algorithm()))
 		}
@@ -638,9 +637,6 @@ func (c *WebOAuthConfig) Validate(path string) error {
 type AuthHandlerConfig struct {
 	Type   rpc.CredentialsType `json:"type"`
 	Config AttributeMap        `json:"config"`
-
-	// Structured config for credential type CredentialsTypeOAuthWeb. When this is set the Config field should be empty.
-	WebOAuthConfig *WebOAuthConfig `json:"web_oauth_config,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -653,6 +649,11 @@ func (config *AuthConfig) Validate(path string) error {
 		}
 		seenTypes[string(handler.Type)] = struct{}{}
 		if err := handler.Validate(handlerPath); err != nil {
+			return err
+		}
+	}
+	if config.ExternalAuthConfig != nil {
+		if err := config.ExternalAuthConfig.Validate(fmt.Sprintf("%s.%s", path, "external_auth_config")); err != nil {
 			return err
 		}
 	}
@@ -669,19 +670,11 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
 			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
 		}
-	case oauth.CredentialsTypeOAuthWeb:
-		if len(config.Config) != 0 {
-			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path),
-				errors.Errorf("config should be empty (use web_oauth_config) for type: %q", oauth.CredentialsTypeOAuthWeb))
-		}
-
-		subPath := fmt.Sprintf("%s.%s", path, "web_oauth_config")
-		if config.WebOAuthConfig == nil {
-			return utils.NewConfigValidationError(subPath,
-				errors.Errorf("web_oauth_config is required for type: %q", oauth.CredentialsTypeOAuthWeb))
-		}
-
-		return config.WebOAuthConfig.Validate(subPath)
+	case rpc.CredentialsTypeExternal:
+		return errors.New("robot cannot issue external auth tokens")
+	case rpc.CredentialsType("oauth-web-auth"):
+		// TODO(APP-1412): remove after a week from being deployed
+		return nil
 	default:
 		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}

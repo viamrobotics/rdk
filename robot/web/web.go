@@ -31,11 +31,9 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/jwks"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
-	"go.viam.com/utils/rpc/oauth"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
@@ -161,18 +159,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Two known auth handlers (LocationSecret, WebOauth).
 func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 	hasLocationSecretHandler := false
-	hasWebOAuthHandler := false
 	for _, h := range handlers {
 		if h.Type == rutils.CredentialsTypeRobotLocationSecret {
 			hasLocationSecretHandler = true
 		}
-
-		if h.Type == oauth.CredentialsTypeOAuthWeb {
-			hasWebOAuthHandler = true
-		}
 	}
 
-	if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+	if len(handlers) == 1 && hasLocationSecretHandler {
 		return true
 	}
 
@@ -832,6 +825,8 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
+		rpc.WithAuthIssuer(options.FQDN),
+		rpc.WithAuthAudience(options.FQDN),
 		rpc.WithInstanceNames(hosts.Names...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
@@ -940,7 +935,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			}
 		}
 		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {
-			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
+			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities))
 		}
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
@@ -971,23 +966,19 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					handler.Type,
 					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
-			case oauth.CredentialsTypeOAuthWeb:
-				webOauthOptions := oauth.WebOAuthOptions{
-					AllowedAudiences: handler.WebOAuthConfig.AllowedAudiences,
-					KeyProvider:      jwks.NewStaticJWKKeyProvider(handler.WebOAuthConfig.ValidatedKeySet),
-					EntityVerifier: func(ctx context.Context, entity string) (interface{}, error) {
-						// For webauth handlers we assume some user subject/entity. For consistency with the app
-						// pass the entity as the email to the custom entity info set in the context.
-						return map[string]interface{}{"email": entity}, nil
-					},
-					Logger: svc.logger,
-				}
-
-				rpcOpts = append(rpcOpts, oauth.WithWebOAuthTokenAuthHandler(webOauthOptions))
+			case rpc.CredentialsType("oauth-web-auth"):
+				// TODO(APP-1412): remove after a week from being deployed
+			case rpc.CredentialsTypeExternal:
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
 			}
 		}
+	}
+
+	if options.Auth.ExternalAuthConfig != nil {
+		rpcOpts = append(rpcOpts, rpc.WithExternalAuthJWKSetTokenVerifier(
+			options.Auth.ExternalAuthConfig.ValidatedKeySet,
+		))
 	}
 
 	return rpcOpts, nil
