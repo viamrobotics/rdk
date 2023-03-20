@@ -6,9 +6,9 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 )
 
 // Board is an injected board.
