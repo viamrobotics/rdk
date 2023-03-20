@@ -31,5 +31,14 @@ func (v *PackagePathVisitor) Visit(data interface{}) (interface{}, error) {
 		return data, nil
 	}
 
-	return v.packageManager.RefPath(s)
+	withReplacedRefs, err := v.packageManager.RefPath(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the input was a pointer, return a pointer.
+	if t.Kind() == reflect.Ptr {
+		return &withReplacedRefs, nil
+	}
+	return withReplacedRefs, nil
 }
