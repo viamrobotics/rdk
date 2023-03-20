@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -87,6 +88,13 @@ type LocalBase interface {
 	Base
 	// Width returns the width of the base in millimeters.
 	Width(ctx context.Context) (int, error)
+}
+
+// KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
+type KinematicBase interface {
+	Base
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
 }
 
 var (
