@@ -72,6 +72,7 @@ func fakeGetMap(_ context.Context, datasetDir string, slamSvc *SLAM, mimeType st
 	switch mimeType {
 	case rdkutils.MimeTypePCD:
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+		path = "result.pcd"
 		slamSvc.logger.Debug("Reading " + path)
 
 		f, err := os.Open(path)
@@ -118,6 +119,8 @@ func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (
 
 func fakeGetPointCloudMapStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+	path = "../large_pcd_134M.pcd"
+	//path = "../large_pcd_245M.pcd"
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
 	if err != nil {
