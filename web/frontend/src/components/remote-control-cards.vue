@@ -9,6 +9,7 @@ import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { addResizeListeners } from '../lib/resize';
+import { StreamManager } from './camera/camera-stream-manager';
 import {
   Client,
   ResponseStream,
@@ -77,7 +78,7 @@ const relevantSubtypesForStatus = [
 ];
 
 const password = $ref<string>('');
-const bakedAuth = $computed(() => props.bakedAuth || {} as {authEntity: string, creds: Credentials});
+const bakedAuth = $computed(() => props.bakedAuth || {} as { authEntity: string, creds: Credentials });
 const supportedAuthTypes = $computed(() => props.supportedAuthTypes);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
@@ -94,6 +95,8 @@ let resourcesOnce = false;
 let errorMessage = $ref('');
 let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
+const streamManager = new StreamManager(filterResources(resources, 'rdk', 'component', 'camera'), props.client);
+
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
@@ -315,8 +318,8 @@ const queryMetadata = () => {
           const resource = stringToResourceName(elem);
           if (
             resource.namespace === 'rdk' &&
-                        resource.type === 'component' &&
-                        relevantSubtypesForStatus.includes(resource.subtype!)
+            resource.type === 'component' &&
+            relevantSubtypesForStatus.includes(resource.subtype!)
           ) {
             shouldRestartStatusStream = true;
             break;
@@ -433,9 +436,9 @@ const createAppConnectionManager = () => {
   const isConnected = () => {
     return (
       statuses.resources &&
-            statuses.ops &&
-            // check status on interval if direct grpc
-            (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+      statuses.ops &&
+      // check status on interval if direct grpc
+      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
     );
   };
 
@@ -524,6 +527,7 @@ const createAppConnectionManager = () => {
         await fetchCurrentOps();
         lastStatusTS = Date.now();
         console.log('reconnected');
+        streamManager.refreshStreams();
       } catch (error) {
         if (ConnectionClosedError.isError(error)) {
           console.error('failed to reconnect; retrying');
@@ -555,6 +559,7 @@ const createAppConnectionManager = () => {
     rtt,
   };
 };
+
 appConnectionManager = createAppConnectionManager();
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
@@ -677,9 +682,9 @@ onUnmounted(() => {
             v-model="password"
             :disabled="disableAuthElements"
             class="
-              mb-2 block w-full appearance-none border p-2 text-gray-700
-              transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-            "
+                mb-2 block w-full appearance-none border p-2 text-gray-700
+                transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+              "
             type="password"
             autocomplete="off"
             @keyup.enter="doLogin(authType)"
@@ -709,6 +714,7 @@ onUnmounted(() => {
       :name="base.name"
       :client="client"
       :resources="resources"
+      :stream-manager="streamManager"
     />
 
     <!-- ******* GANTRY *******  -->
@@ -795,6 +801,7 @@ onUnmounted(() => {
     <CamerasList
       parent-name="app"
       :client="client"
+      :stream-manager="streamManager"
       :resources="filterResources(resources, 'rdk', 'component', 'camera')"
     />
 
@@ -853,13 +860,13 @@ onUnmounted(() => {
 
 <style>
 #source {
-    position: relative;
-    width: 50%;
-    height: 50%;
+  position: relative;
+  width: 50%;
+  height: 50%;
 }
 
 h3 {
-    margin: 0.1em;
-    margin-block-end: 0.1em;
+  margin: 0.1em;
+  margin-block-end: 0.1em;
 }
 </style>
