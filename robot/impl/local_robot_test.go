@@ -1894,17 +1894,19 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 			{
 				Name: "Vision-Service",
 				Type: vision.SubtypeName,
-				Attributes: config.AttributeMap(map[string]interface{}{
-					"register_models": map[string]interface{}{
-						"type": "tflite_classifier",
-						"name": "my_classifier",
-						"parameters": map[string]interface{}{
-							"model_path":  "${packages.package-1}/model.tflite",
-							"label_path":  "${pacakges.package-2}/labels.txt",
-							"num_threads": 1,
+				ConvertedAttributes: &vision.Attributes{
+					ModelRegistry: []vision.VisModelConfig{
+						{
+							Type: "tflite_classifier",
+							Name: "my_classifier",
+							Parameters: config.AttributeMap(map[string]interface{}{
+								"model_path":  "${packages.package-1}/model.tflite",
+								"label_path":  "${pacakges.package-2}/labels.txt",
+								"num_threads": 1,
+							}),
 						},
 					},
-				}),
+				},
 			},
 		},
 		Components: []config.Component{
