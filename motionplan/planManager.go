@@ -412,7 +412,15 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt.extra = planningOpts
 
 	// add collision constraints
-	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, pm.fs, seedMap, []*Collision{}, getCollisionDepth)
+	err := opt.createCollisionConstraints(
+		pm.frame,
+		pm.fs,
+		worldState,
+		seedMap,
+		cons.GetCollisionSpecification(),
+		defaultGetCollisionDepth,
+		pm.logger,
+	)
 	if err != nil {
 		return nil, err
 	}

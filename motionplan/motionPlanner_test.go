@@ -452,7 +452,7 @@ func TestReachOverArm(t *testing.T) {
 
 	// plan to a location, it should intepolate to get there
 	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
-	plan, err := PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, opts)
+	plan, err := PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, nil, opts)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldEqual, 2)
 
@@ -463,7 +463,7 @@ func TestReachOverArm(t *testing.T) {
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
 	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
-	plan, err = PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, opts)
+	plan, err = PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, nil, opts)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
