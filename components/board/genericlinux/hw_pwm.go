@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 )
 
@@ -17,7 +18,8 @@ type pwmDevice struct {
 	chipPath string
 	line     int
 
-	mu sync.Mutex
+	mu     sync.Mutex
+	logger golog.Logger
 
 	// These values are mutable
 	periodNs         uint64
@@ -26,7 +28,7 @@ type pwmDevice struct {
 	isEnabled        bool
 }
 
-func newPwmDevice(chipName string, line int) (*pwmDevice, error) {
+func newPwmDevice(chipName string, line int, logger golog.Logger) (*pwmDevice, error) {
 	// There should be a single directory within /sys/devices/platform/<chipName>/pwm/, whose name
 	// is mirrored in /sys/class/pwm. That's the one we want to use.
 	// TODO[RSDK-2332]: make this universally usable by all genericlinux boards.
@@ -39,7 +41,7 @@ func newPwmDevice(chipName string, line int) (*pwmDevice, error) {
 	for _, file := range files {
 		if strings.Contains(file.Name(), "pwmchip") && file.IsDir() {
 			chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
-			return &pwmDevice{chipPath: chipPath, line: line}, nil
+			return &pwmDevice{chipPath: chipPath, line: line, logger: logger}, nil
 		}
 	}
 	return nil, errors.Errorf("Could not find any PWM device with name %s", chipName)
@@ -57,19 +59,50 @@ func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
 	return writeValue(fmt.Sprintf("%s/%s", pwm.chipPath, filename), value)
 }
 
+func (pwm *pwmDevice) linePath() string {
+	return fmt.Sprintf("%s, pwm%d", pwmchipPath, pwm.line)
+}
+
 func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
-	return writeValue(fmt.Sprintf("%s/pwm%d/%s", pwm.chipPath, pwm.line, filename), value)
+	return writeValue(fmt.Sprintf("%s/%s", pwm.linePath(), filename), value)
 }
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
 func (pwm *pwmDevice) export() error {
+	// check if the device is already exported. If so, return. If not, try exporting it.
+
 	if pwm.isExported {
-		return nil // Already exported
+		// We're expecting the file to already be exported, so we shouldn't re-export it.
+		// Double-check that assumption
+		if _, err := os.LStat(pwm.linePath()); err != nil {
+			if os.IsNotExist(err) {
+				// Someone has been fiddling with sysfs while we weren't watching. Try to get our
+				// state back to the ground truth.
+				pwm.logger.Warnf("Hardware PWM chip %s line %d was expected to already be " +
+				                 "exported, but was not! Attempting to re-export...",
+								 pwm.chipPath, pwm.line)
+				pwm.isExported = false
+			} else {
+				// We encountered an unexpected error when statting the file. Give up for now.
+				return err
+			}
+		} else {
+			// Otherwise, we expected the file to exist, and it did. All is well.
+			pwm.logger.Debugf("Skipping exporting of already-exported HW PWM on chip %s, line %d",
+							  pwm.chipPath, pwm.line)
+			return nil
+		}
 	}
-	if err := pwm.writeChip("export", uint64(pwm.line)); err != nil {
+
+	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
+	// causing trouble if you start using the pin for something else.
+	if err := pwm.disable(); err != nil {
 		return err
 	}
-	pwm.isExported = true
+	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
+		return err
+	}
+	pwm.isExported = false
 	return nil
 }
 
@@ -77,6 +110,8 @@ func (pwm *pwmDevice) export() error {
 // longer in use (so it can be reused as an input pin, etc.).
 func (pwm *pwmDevice) unexport() error {
 	if !pwm.isExported {
+		pwm.logger.Debugf("Skipping un-exporting of already-un-exported HW PWM on chip %s, line %d",
+		                  pwm.chipPath, pwm.line)
 		return nil // Already unexported
 	}
 	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
@@ -94,7 +129,9 @@ func (pwm *pwmDevice) unexport() error {
 // Enable tells an exported pin to output the PWM signal it has been configured with.
 func (pwm *pwmDevice) enable() error {
 	if pwm.isEnabled {
-		return nil // Already enabled
+		pwm.logger.Debugf("Skipping enabling of already-enabled HW PWM on chip %s, line %d",
+		                  pwm.chipPath, pwm.line)
+		return nil
 	}
 	if err := pwm.writeLine("enable", 1); err != nil {
 		return err
@@ -107,7 +144,9 @@ func (pwm *pwmDevice) enable() error {
 // reconfiguring and re-enabling.
 func (pwm *pwmDevice) disable() error {
 	if !pwm.isEnabled {
-		return nil // Already disabled
+		pwm.logger.Debugf("Skipping disabling of already-disabled HW PWM on chip %s, line %d",
+		                  pwm.chipPath, pwm.line)
+		return nil
 	}
 	if err := pwm.writeLine("enable", 0); err != nil {
 		return err
@@ -151,7 +190,9 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	activeDurationNs := uint64(float64(periodNs) * dutyCycle)
 
 	// We are never allowed to set the active duration higher than the period. Change the order we
-	// set the values to ensure this.
+	// set the values to ensure this. Specifically, we must avoid setting the new period lower than
+	// the current active duration, or setting the new active duration higher than the current
+	// period.
 	if periodNs < pwm.activeDurationNs {
 		// The new period is smaller than the old active duration. Change the active duration
 		// first.
