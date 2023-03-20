@@ -45,6 +45,7 @@ import (
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
 )
