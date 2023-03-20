@@ -26,8 +26,6 @@ var (
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
-	captureTime := time.Millisecond * 25
-
 	// On slower machines, it's possible that capture hasn't begun after captureTime. Give up to 20x
 	// as long for this to occur.
 	waitForCaptureFiles := func(captureDir string) {
@@ -36,7 +34,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
 				return
 			}
-			time.Sleep(captureTime)
+			time.Sleep(time.Millisecond * 25)
 			files = getAllFileInfos(captureDir)
 		}
 	}
@@ -158,7 +156,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 			err = dmsvc.Update(context.Background(), initConfig)
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(captureTime)
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
 				testFilesContainSensorData(t, initCaptureDir)
@@ -188,7 +185,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
 
-			time.Sleep(captureTime)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
 				testFilesContainSensorData(t, updatedCaptureDir)
