@@ -1,7 +1,6 @@
 package wheeled
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 
@@ -63,7 +62,7 @@ func (kwb *kinematicWheeledBase) buildModel(ctx context.Context) (referenceframe
 	if err != nil {
 		return nil, err
 	}
-	dims, err := pointcloud.GetPCDMetaData(*bufio.NewReader(bytes.NewReader(data)))
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
