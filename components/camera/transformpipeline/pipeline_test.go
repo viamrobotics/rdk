@@ -18,7 +18,7 @@ import (
 )
 
 func TestTransformPipelineColor(t *testing.T) {
-	transformConf := &transformConfig{
+	transformConf := &TransformConfig{
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "rotate", Attributes: config.AttributeMap{}},
@@ -62,7 +62,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 		Ppy:    36.7736000,
 	}
 
-	transformConf := &transformConfig{
+	transformConf := &TransformConfig{
 		CameraParameters: intrinsics,
 		Source:           "source",
 		Pipeline: []Transformation{
@@ -101,7 +101,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 }
 
 func TestTransformPipelineDepth2(t *testing.T) {
-	transform1 := &transformConfig{
+	transform1 := &TransformConfig{
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
@@ -110,7 +110,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 			{Type: "depth_to_pretty", Attributes: config.AttributeMap{}},
 		},
 	}
-	transform2 := &transformConfig{
+	transform2 := &TransformConfig{
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
@@ -145,7 +145,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 }
 
 func TestNullPipeline(t *testing.T) {
-	transform1 := &transformConfig{
+	transform1 := &TransformConfig{
 		Source:   "source",
 		Pipeline: []Transformation{},
 	}
@@ -157,7 +157,7 @@ func TestNullPipeline(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
 
-	transform2 := &transformConfig{
+	transform2 := &TransformConfig{
 		Source:   "source",
 		Pipeline: []Transformation{{Type: "identity", Attributes: nil}},
 	}
@@ -178,13 +178,13 @@ func TestPipeIntoPipe(t *testing.T) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
-	transform1 := &transformConfig{
+	transform1 := &TransformConfig{
 		CameraParameters: intrinsics1,
 		Source:           "source",
 		Pipeline:         []Transformation{{Type: "rotate", Attributes: config.AttributeMap{}}},
 	}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 10, Height: 20}
-	transform2 := &transformConfig{
+	transform2 := &TransformConfig{
 		CameraParameters: intrinsics2,
 		Source:           "transform2",
 		Pipeline: []Transformation{

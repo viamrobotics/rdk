@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -37,6 +38,8 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
+	fakecamera "go.viam.com/rdk/components/camera/fake"
+	"go.viam.com/rdk/components/camera/transformpipeline"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
@@ -1862,6 +1865,92 @@ func TestConfigPackages(t *testing.T) {
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "some-name-2"))
+}
+
+func TestConfigPackageReferenceReplacement(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+
+	packageDir := t.TempDir()
+
+	robotConfig := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+			{
+				Name:    "some-name-2",
+				Package: "package-2",
+				Version: "latest",
+			},
+		},
+		Services: []config.Service{
+			{
+				Name: "Vision-Service",
+				Type: vision.SubtypeName,
+				Attributes: config.AttributeMap(map[string]interface{}{
+					"register_models": map[string]interface{}{
+						"type": "tflite_classifier",
+						"name": "my_classifier",
+						"parameters": map[string]interface{}{
+							"model_path":  "${packages.package-1}/model.tflite",
+							"label_path":  "${pacakges.package-2}/labels.txt",
+							"num_threads": 1,
+						},
+					},
+				}),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:                "cam",
+				Type:                camera.SubtypeName,
+				Model:               resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fakecamera.Attrs{},
+			},
+			{
+				Name:  "transform",
+				Type:  camera.SubtypeName,
+				Model: resource.NewDefaultModel("transform"),
+				ConvertedAttributes: &transformpipeline.TransformConfig{
+					Source: "cam",
+					Pipeline: []transformpipeline.Transformation{
+						{
+							Type: "classifications",
+							Attributes: config.AttributeMap(map[string]interface{}{
+								"classifier_name":      "my_classifier",
+								"confidence_threshold": 0.6,
+							}),
+						},
+					},
+				},
+			},
+		},
+		PackagePath: packageDir,
+	}
+
+	fakePackageServer.StorePackage(robotConfig.Packages...)
+
+	r, err := robotimpl.New(ctx, robotConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Since we've used package references for the vision service which is referenced in the
+	// transform camera, make sure we can stream images from this camera.
+	transformCamera, err := camera.FromRobot(r, "transform")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformCamera.(resource.Reconfigurable).Name(), test.ShouldResemble, camera.Named("transform"))
+	_, _, err = camera.ReadImage(context.Background(), transformCamera)
+	test.That(t, err, test.ShouldBeNil)
+
 }
 
 func TestReconnectRemote(t *testing.T) {

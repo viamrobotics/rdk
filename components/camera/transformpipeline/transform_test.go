@@ -10,7 +10,7 @@ import (
 )
 
 func TestJSONSchema(t *testing.T) {
-	tr := &transformConfig{}
+	tr := &TransformConfig{}
 	schema := jsonschema.Reflect(tr)
 	jsonBytes, err := json.MarshalIndent(schema, "", "  ")
 	test.That(t, err, test.ShouldBeNil)
