@@ -8,37 +8,40 @@ import (
 )
 
 // Creates a new LeafNodeEmpty.
-func newLeafNodeEmpty(parent *BasicOctree) basicOctreeNode {
+func newLeafNodeEmpty(parent *BasicOctree, depth int) basicOctreeNode {
 	octNode := basicOctreeNode{
-		children:     nil,
-		root:         parent,
-		nodeType:     leafNodeEmpty,
-		point:        PointAndData{},
-		maxChildProb: -1,
+		children: nil,
+		parent:   parent,
+		nodeType: leafNodeEmpty,
+		point:    PointAndData{},
+		maxProb:  -1.,
+		depth:    depth,
 	}
 	return octNode
 }
 
 // Creates a new InternalNode with specified children nodes.
-func newInternalNode(tree []*BasicOctree, parent *BasicOctree) basicOctreeNode {
+func newInternalNode(tree []*BasicOctree, parent *BasicOctree, depth int) basicOctreeNode {
 	octNode := basicOctreeNode{
-		children:     tree,
-		root:         parent,
-		nodeType:     internalNode,
-		point:        PointAndData{},
-		maxChildProb: -1,
+		children: tree,
+		parent:   parent,
+		nodeType: internalNode,
+		point:    PointAndData{},
+		maxProb:  -1.,
+		depth:    depth,
 	}
 	return octNode
 }
 
 // Creates a new LeafNodeFilled and stores specified position and data.
-func newLeafNodeFilled(p r3.Vector, d Data, parent *BasicOctree) basicOctreeNode {
+func newLeafNodeFilled(p r3.Vector, d Data, parent *BasicOctree, depth int) basicOctreeNode {
 	octNode := basicOctreeNode{
-		children:     nil,
-		root:         parent,
-		nodeType:     leafNodeFilled,
-		point:        PointAndData{P: p, D: d},
-		maxChildProb: d.Value(),
+		children: nil,
+		parent:   parent,
+		nodeType: leafNodeFilled,
+		point:    PointAndData{P: p, D: d},
+		maxProb:  float64(d.Value()) / 100,
+		depth:    depth,
 	}
 	return octNode
 }
@@ -70,7 +73,7 @@ func (octree *BasicOctree) splitIntoOctants() error {
 						center:     newCenter,
 						sideLength: newSideLength,
 						size:       0,
-						node:       newLeafNodeEmpty(octree),
+						node:       newLeafNodeEmpty(octree, octree.node.depth+1),
 						meta:       NewMetaData(),
 					}
 					children = append(children, child)
@@ -81,7 +84,7 @@ func (octree *BasicOctree) splitIntoOctants() error {
 		// Extract data before redefining node as InternalNode with eight new children nodes
 		p := octree.node.point.P
 		d := octree.node.point.D
-		octree.node = newInternalNode(children, octree.node.root)
+		octree.node = newInternalNode(children, octree.node.parent, octree.node.depth)
 		octree.meta = NewMetaData()
 		octree.size = 0
 		return octree.Set(p, d)
@@ -99,41 +102,43 @@ func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
 // helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
 // If the maximum recursion depth is reached before a valid node is found for the point it will return
 // an error.
-func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) error {
+func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (float64, error) {
 	if recursionDepth >= maxRecursionDepth {
-		return errors.New("error max allowable recursion depth reached")
+		return 0., errors.New("error max allowable recursion depth reached")
 	}
 	if (PointAndData{P: p, D: d} == PointAndData{}) {
-		return nil
+		return 0., nil
 	}
 
 	if !octree.checkPointPlacement(p) {
-		return errors.New("error point is outside the bounds of this octree")
+		return 0., errors.New("error point is outside the bounds of this octree")
 	}
 
 	switch octree.node.nodeType {
 	case internalNode:
 		for _, childNode := range octree.node.children {
 			if childNode.checkPointPlacement(p) {
-				err := childNode.helperSet(p, d, recursionDepth+1)
+				mp, err := childNode.helperSet(p, d, recursionDepth+1)
 				if err == nil {
 					// Update metadata
 					octree.meta.Merge(p, d)
 					octree.size++
+					octree.node.maxProb = math.Max(mp, octree.node.maxProb)
 				}
-				return err
+				return 0., err
 			}
 		}
-		return errors.New("error invalid internal node detected, please check your tree")
+		return 0., errors.New("error invalid internal node detected, please check your tree")
 
 	case leafNodeFilled:
 		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
 			// Update data in point
 			octree.node.point.D = d
-			return nil
+			octree.node.maxProb = float64(d.Value()) / 100
+			return octree.node.maxProb, nil
 		}
 		if err := octree.splitIntoOctants(); err != nil {
-			return errors.Errorf("error in splitting octree into new octants: %v", err)
+			return 0., errors.Errorf("error in splitting octree into new octants: %v", err)
 		}
 		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
 		return octree.helperSet(p, d, recursionDepth+1)
@@ -142,50 +147,11 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) er
 		// Update metadata
 		octree.meta.Merge(p, d)
 		octree.size++
-		octree.node = newLeafNodeFilled(p, d, octree.node.root)
-
-		// case where we add the first leaf to the octree
-		if recursionDepth == 0 {
-			return nil
-		}
-
-		nodeMPC := octree.node.maxChildProb
-		rootMPC := octree.node.root.node.maxChildProb
-		// only update tree if the new probability is greater than the node's root
-		if nodeMPC < rootMPC {
-			return nil
-		}
-		octDepth := getDepth(octree.node, 0)
-		err := updateChildProb(octree.node, octDepth)
-		return err
+		octree.node = newLeafNodeFilled(p, d, octree.node.parent, octree.node.depth)
+		return octree.node.maxProb, nil
 	}
 
-	return nil
-}
-
-// updateChildProb recursively updates the max probability child of the node's root.
-func updateChildProb(node basicOctreeNode, octDepth int) error {
-	if octDepth > 1 {
-		root := node.root
-		root.node.maxChildProb = node.maxChildProb
-		return updateChildProb(root.node, octDepth-1)
-	} else if octDepth == 1 {
-		root := node.root
-		if root.node.maxChildProb < node.maxChildProb {
-			root.node.maxChildProb = node.maxChildProb
-		}
-		return nil
-	}
-	return nil
-}
-
-// getDepths returns the depth of the given node with respect to the topmost root.
-func getDepth(node basicOctreeNode, depth int) int {
-	root := node.root
-	if root != nil {
-		return getDepth(root.node, depth+1)
-	}
-	return depth
+	return 0., nil
 }
 
 // helperIterate is a recursive helper function for iterating through a basic octree that returns
@@ -228,4 +194,23 @@ func getCenterFromPcMetaData(meta MetaData) r3.Vector {
 // Helper function for calculating the max side length of a pointcloud based on its metadata.
 func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
 	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
+}
+
+func getMaxProb(octree *BasicOctree, p r3.Vector) (float64, error) {
+	switch octree.node.nodeType {
+	case internalNode:
+		for _, child := range octree.node.children {
+			if mp, err := getMaxProb(child, p); err == nil {
+				return mp, nil
+			}
+		}
+	case leafNodeFilled:
+		point := octree.node.point.P
+		if point == p {
+			mpc := octree.node.maxProb
+			return mpc, nil
+		}
+	case leafNodeEmpty:
+	}
+	return 0., errors.New("point not found in passed in octree")
 }

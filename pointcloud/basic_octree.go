@@ -33,11 +33,12 @@ type BasicOctree struct {
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
 // PointAndData datatype representing a point in space.
 type basicOctreeNode struct {
-	nodeType     NodeType
-	children     []*BasicOctree
-	root         *BasicOctree
-	point        PointAndData
-	maxChildProb int
+	nodeType NodeType
+	children []*BasicOctree
+	parent   *BasicOctree
+	point    PointAndData
+	maxProb  float64
+	depth    int
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -47,7 +48,7 @@ func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) 
 	}
 
 	octree := &BasicOctree{
-		node:       newLeafNodeEmpty(nil),
+		node:       newLeafNodeEmpty(nil, 0),
 		center:     center,
 		sideLength: sideLength,
 		size:       0,
@@ -65,7 +66,8 @@ func (octree *BasicOctree) Size() int {
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
-	return octree.helperSet(p, d, 0)
+	_, err := octree.helperSet(p, d, 0)
+	return err
 }
 
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
