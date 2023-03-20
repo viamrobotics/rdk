@@ -489,7 +489,7 @@ func newWithResources(
 	}
 
 	r.internalServices = make(map[internalServiceName]interface{})
-	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
+	r.internalServices[webName] = web.New(r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 	r.internalServices[packageManagerName] = r.packageManager
 
