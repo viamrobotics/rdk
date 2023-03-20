@@ -6,16 +6,12 @@ package piimpl
 /*
 	This driver contains various functionalities of raspberry pi board using the
 	pigpio library (https://abyz.me.uk/rpi/pigpio/pdif2.html).
-
 	NOTE: This driver only supports software PWM functionality of raspberry pi.
 		  For software PWM, we currently support the default sample rate of
 		  5 microseconds, which supports the following 18 frequencies (Hz):
-
 		  8000  4000  2000 1600 1000  800  500  400  320
           250   200   160  100   80   50   40   20   10
-
 		  Details on this can be found here -> https://abyz.me.uk/rpi/pigpio/pdif2.html#set_PWM_frequency
-
 */
 
 // #include <stdlib.h>
@@ -26,6 +22,7 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -97,7 +94,7 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	internals |= C.PI_CFG_NOSIGHANDLER
 	resCode := C.gpioCfgSetInternals(internals)
 	if resCode < 0 {
-		return nil, errors.Errorf("gpioCfgSetInternals failed with code: %d", resCode)
+		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioCfgSetInternals failed with code")
 	}
 
 	// setup
@@ -111,7 +108,6 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	}
 
 	instanceMu.Lock()
-	logger.Info("initializing pigpio C library")
 
 	// if pigpio is not initialized, only then we initialize it.
 	if !pigpioInitialized {
@@ -129,7 +125,6 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
 	}
-
 	pigpioInitialized = true
 
 	initGood := false
@@ -263,7 +258,7 @@ func (pi *piPigpio) GetGPIOBcom(bcom int) (bool, error) {
 		}
 		res := C.gpioSetMode(C.uint(bcom), C.PI_INPUT)
 		if res != 0 {
-			return false, errors.Errorf("failed to set mode %d", res)
+			return false, picommon.ConvertErrorCodeToMessage(int(res), "failed to set mode")
 		}
 		pi.gpioConfigSet[bcom] = true
 	}
@@ -282,7 +277,7 @@ func (pi *piPigpio) SetGPIOBcom(bcom int, high bool) error {
 		}
 		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
 		if res != 0 {
-			return errors.Errorf("failed to set mode %d", res)
+			return picommon.ConvertErrorCodeToMessage(int(res), "failed to set mode")
 		}
 		pi.gpioConfigSet[bcom] = true
 	}
@@ -325,7 +320,7 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
 	if newRes == C.PI_BAD_USER_GPIO {
-		return errors.New("pwm set freq failed")
+		return picommon.ConvertErrorCodeToMessage(int(newRes), "pwm set freq failed")
 	}
 
 	if newRes != C.int(freqHz) {
@@ -392,7 +387,6 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		return nil, errors.New("pi SPI cannot use both native CS pins and extended/gpio CS pins at the same time")
 	}
 
-	//nolint:dupword
 	// Bitfields for mode
 	// Mode POL PHA
 	// 0    0   0
@@ -411,7 +405,8 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	handle := C.spiOpen(nativeCS, (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus.busSelect, handle, spiFlags)
+		errMsg := fmt.Sprintf("error opening SPI Bus %s, flags were %X", s.bus.busSelect, spiFlags)
+		return nil, picommon.ConvertErrorCodeToMessage(int(handle), errMsg)
 	}
 	defer C.spiClose((C.uint)(handle))
 
