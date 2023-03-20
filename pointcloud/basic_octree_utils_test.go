@@ -300,7 +300,7 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 
 // Helper functions for visualizing octree during testing
 //
-
+//nolint:unused
 func stringBasicOctreeNodeType(n NodeType) string {
 	switch n {
 	case internalNode:
@@ -313,6 +313,7 @@ func stringBasicOctreeNodeType(n NodeType) string {
 	return ""
 }
 
+//nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
 	logger.Infof("%v %e %e %e - %v | Depth: %v Children: %v Side: %v Size: %v MaxChildProbability: %f\n",
 		s, bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
