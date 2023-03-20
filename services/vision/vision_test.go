@@ -26,8 +26,9 @@ func TestAttributesWalker(t *testing.T) {
 		}
 	}
 
-	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", "${packages.test_model}/textFile.txt")
 	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
+	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", "${packages.test_model}/textFile.txt")
+	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", "${packages.test_model}/textFile.txt")
 
 	packageManager := packages.NewNoopManager()
 
@@ -45,6 +46,7 @@ func TestAttributesWalker(t *testing.T) {
 		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Parameters["num_threads"], test.ShouldEqual, 1)
 	}
 
-	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
 	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
+	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
+	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
 }
