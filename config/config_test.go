@@ -21,13 +21,13 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/rpc/oauth"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -522,6 +522,49 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
+func TestValidNameRegex(t *testing.T) {
+	// validNameRegex is the pattern that matches to a valid name.
+	// The name must begin with a letter i.e. [a-zA-Z],
+	// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
+	name := "justLetters"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "numbersAndLetters1"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "letters-and-dashes"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+	name = "letters_and_underscores"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
+
+	name = "1number"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "a!"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "s p a c e s"
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	name = "period."
+	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+}
+
+func TestRemoteValidate(t *testing.T) {
+	t.Run("remote invalid name", func(t *testing.T) {
+		lc := &referenceframe.LinkConfig{
+			Parent: "parent",
+		}
+		validRemote := config.Remote{
+			Name:    "foo-_remote",
+			Address: "address",
+			Frame:   lc,
+		}
+
+		err := validRemote.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		validRemote.Name = "foo.remote"
+		err = validRemote.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+	})
+}
+
 func TestCopyOnlyPublicFields(t *testing.T) {
 	t.Run("copy sample config", func(t *testing.T) {
 		content, err := os.ReadFile("data/robot.json")
@@ -769,50 +812,10 @@ func TestAuthConfigEnsure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("web-oauth handler with config specified", func(t *testing.T) {
+	t.Run("external auth with invalid keyset", func(t *testing.T) {
 		config := config.Config{
 			Auth: config.AuthConfig{
-				Handlers: []config.AuthHandlerConfig{
-					{
-						Type:   oauth.CredentialsTypeOAuthWeb,
-						Config: config.AttributeMap{"key": "abc123"},
-					},
-				},
-			},
-		}
-
-		err := config.Ensure(true)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "config should be empty (use web_oauth_config)")
-	})
-
-	t.Run("web-oauth handler with missing WebOAuthConfig", func(t *testing.T) {
-		config := config.Config{
-			Auth: config.AuthConfig{
-				Handlers: []config.AuthHandlerConfig{
-					{
-						Type:   oauth.CredentialsTypeOAuthWeb,
-						Config: config.AttributeMap{},
-					},
-				},
-			},
-		}
-
-		err := config.Ensure(true)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "web_oauth_config is required for type")
-	})
-
-	t.Run("web-oauth handler with invalid keyset", func(t *testing.T) {
-		config := config.Config{
-			Auth: config.AuthConfig{
-				Handlers: []config.AuthHandlerConfig{
-					{
-						Type:   oauth.CredentialsTypeOAuthWeb,
-						Config: config.AttributeMap{},
-						WebOAuthConfig: &config.WebOAuthConfig{
-							AllowedAudiences: []string{"aud1"},
-						},
-					},
-				},
+				ExternalAuthConfig: &config.ExternalAuthConfig{},
 			},
 		}
 
@@ -820,7 +823,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to parse jwks")
 	})
 
-	t.Run("web-oauth handler valid config", func(t *testing.T) {
+	t.Run("external auth valid config", func(t *testing.T) {
 		algTypes := map[string]bool{
 			"RS256": true,
 			"RS384": true,
@@ -839,15 +842,8 @@ func TestAuthConfigEnsure(t *testing.T) {
 
 			config := config.Config{
 				Auth: config.AuthConfig{
-					Handlers: []config.AuthHandlerConfig{
-						{
-							Type:   oauth.CredentialsTypeOAuthWeb,
-							Config: config.AttributeMap{},
-							WebOAuthConfig: &config.WebOAuthConfig{
-								AllowedAudiences: []string{"aud1"},
-								JSONKeySet:       keysetToAttributeMap(t, keyset),
-							},
-						},
+					ExternalAuthConfig: &config.ExternalAuthConfig{
+						JSONKeySet: keysetToAttributeMap(t, keyset),
 					},
 				},
 			}
@@ -855,8 +851,8 @@ func TestAuthConfigEnsure(t *testing.T) {
 			err = config.Ensure(true)
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, config.Auth.Handlers[0].WebOAuthConfig.ValidatedKeySet, test.ShouldNotBeNil)
-			_, ok := config.Auth.Handlers[0].WebOAuthConfig.ValidatedKeySet.LookupKeyID("key-id-1")
+			test.That(t, config.Auth.ExternalAuthConfig.ValidatedKeySet, test.ShouldNotBeNil)
+			_, ok := config.Auth.ExternalAuthConfig.ValidatedKeySet.LookupKeyID("key-id-1")
 			test.That(t, ok, test.ShouldBeTrue)
 		}
 	})
@@ -880,15 +876,8 @@ func TestAuthConfigEnsure(t *testing.T) {
 
 				config := config.Config{
 					Auth: config.AuthConfig{
-						Handlers: []config.AuthHandlerConfig{
-							{
-								Type:   oauth.CredentialsTypeOAuthWeb,
-								Config: config.AttributeMap{},
-								WebOAuthConfig: &config.WebOAuthConfig{
-									AllowedAudiences: []string{"aud1"},
-									JSONKeySet:       keysetToAttributeMap(t, keyset),
-								},
-							},
+						ExternalAuthConfig: &config.ExternalAuthConfig{
+							JSONKeySet: keysetToAttributeMap(t, keyset),
 						},
 					},
 				}
@@ -899,18 +888,11 @@ func TestAuthConfigEnsure(t *testing.T) {
 		}
 	})
 
-	t.Run("web-oauth handler no keys", func(t *testing.T) {
+	t.Run("external auth no keys", func(t *testing.T) {
 		config := config.Config{
 			Auth: config.AuthConfig{
-				Handlers: []config.AuthHandlerConfig{
-					{
-						Type:   oauth.CredentialsTypeOAuthWeb,
-						Config: config.AttributeMap{},
-						WebOAuthConfig: &config.WebOAuthConfig{
-							AllowedAudiences: []string{"aud1"},
-							JSONKeySet:       keysetToAttributeMap(t, jwk.NewSet()),
-						},
-					},
+				ExternalAuthConfig: &config.ExternalAuthConfig{
+					JSONKeySet: keysetToAttributeMap(t, jwk.NewSet()),
 				},
 			},
 		}

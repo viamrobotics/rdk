@@ -1,6 +1,6 @@
 <!-- eslint-disable multiline-comment-style -->
 <script setup lang="ts">
-// @ts-nocheck TODO: fix typecheck errors in https://viam.atlassian.net/browse/RSDK-1897
+
 /**
  * @TODO: No disposing of THREE resources currently.
  * This is causing memory leaks.
@@ -17,14 +17,12 @@ import { toast } from '../../lib/toast';
 import { Client, commonApi, motionApi } from '@viamrobotics/sdk';
 import InfoButton from '../info-button.vue';
 
-interface Props {
+const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   cameraName?: string
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const container = $ref<HTMLDivElement>();
 
@@ -261,13 +259,14 @@ const update = (cloud: Uint8Array) => {
     (mesh.material as THREE.MeshBasicMaterial).dispose();
   }
 
-  const points = loader.parse(cloud.buffer, '');
+  const points = loader.parse(cloud.buffer);
   points.name = 'points';
-  const positions = points.geometry.attributes.position!.array;
+  const positions = (points.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
 
   // TODO (hackday): colors is not consistently returned, if not just render all points as blue
   // eslint-disable-next-line unicorn/prefer-spread
-  const colors = points.geometry.attributes.color?.array ?? Array.from(positions).flatMap(() => [0.3, 0.5, 0.7]);
+  const colorAttrib = points.geometry.attributes.color as THREE.BufferAttribute | undefined;
+  const colors = colorAttrib?.array ?? [...positions].flatMap(() => [0.3, 0.5, 0.7]);
 
   const count = positions.length / 3;
   const material = new THREE.MeshBasicMaterial();
@@ -326,7 +325,8 @@ const loadBoundingBox = (index: number) => {
   const segment = objects[index];
 
   if (!segment) {
-    return toast.error('Segment cannot be found.');
+    toast.error('Segment cannot be found.');
+    return;
   }
 
   const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
@@ -345,7 +345,8 @@ const loadPoint = (index: number) => {
   const segment = objects[index];
 
   if (!segment) {
-    return toast.error('Segment cannot be found.');
+    toast.error('Segment cannot be found.');
+    return;
   }
 
   const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
@@ -402,7 +403,8 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   const points = scene.getObjectByName('points') as THREE.InstancedMesh;
 
   if (intersect?.instanceId === undefined) {
-    return toast.info('No point intersected.');
+    toast.info('No point intersected.');
+    return;
   }
 
   points.getMatrixAt(intersect.instanceId, matrix);
@@ -414,7 +416,8 @@ const handleMove = () => {
   const [gripper] = filterResources(props.resources, 'rdk', 'component', 'gripper');
 
   if (gripper === undefined) {
-    return toast.error('No gripper component detected.');
+    toast.error('No gripper component detected.');
+    return;
   }
 
   /*
@@ -424,7 +427,8 @@ const handleMove = () => {
   const [motion] = filterResources(props.resources, 'rdk', 'service', 'motion');
 
   if (motion === undefined) {
-    return toast.error('No motion service detected.');
+    toast.error('No motion service detected.');
+    return;
   }
 
   const req = new motionApi.MoveRequest();
@@ -524,7 +528,9 @@ const init = (pointcloud: Uint8Array) => {
   // eslint-disable-next-line unicorn/text-encoding-identifier-case
   const decoder = new TextDecoder('utf-8');
   const file = new File([decoder.decode(pointcloud)], 'pointcloud.txt');
-  download.href = URL.createObjectURL(file);
+  if (download) {
+    download.href = URL.createObjectURL(file);
+  }
 
   if (props.cameraName) {
     getSegmenterNames();
@@ -532,7 +538,7 @@ const init = (pointcloud: Uint8Array) => {
 };
 
 onMounted(() => {
-  container.append(renderer.domElement);
+  container?.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
 
   if (props.pointcloud) {

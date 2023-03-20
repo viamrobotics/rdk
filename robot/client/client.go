@@ -75,12 +75,11 @@ type RobotClient struct {
 	changeChan chan bool
 
 	activeBackgroundWorkers *sync.WaitGroup
-	cancelBackgroundWorkers func()
+	backgroundCtx           context.Context
+	backgroundCtxCancel     func()
 	logger                  golog.Logger
 
 	notifyParent func()
-
-	closeContext context.Context
 
 	// sessions
 	sessionsDisabled         bool
@@ -88,6 +87,9 @@ type RobotClient struct {
 	sessionsSupported        *bool // when nil, we have not yet checked
 	currentSessionID         string
 	sessionHeartbeatInterval time.Duration
+	heartbeatWorkers         *sync.WaitGroup
+	heartbeatCtx             context.Context
+	heartbeatCtxCancel       func()
 }
 
 var exemptFromConnectionCheck = map[string]bool{
@@ -193,21 +195,25 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
-	closeCtx, cancel := context.WithCancel(ctx)
+	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
+	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
 	rc := &RobotClient{
 		remoteName:              rOpts.remoteName,
 		address:                 address,
-		cancelBackgroundWorkers: cancel,
+		backgroundCtx:           backgroundCtx,
+		backgroundCtxCancel:     backgroundCtxCancel,
 		mu:                      &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
-		closeContext:            closeCtx,
 		dialOptions:             rOpts.dialOptions,
 		notifyParent:            nil,
 		resourceClients:         make(map[resource.Name]interface{}),
 		remoteNameMap:           make(map[resource.Name]resource.Name),
 		sessionsDisabled:        rOpts.disableSessions,
+		heartbeatWorkers:        &sync.WaitGroup{},
+		heartbeatCtx:            heartbeatCtx,
+		heartbeatCtxCancel:      heartbeatCtxCancel,
 	}
 
 	// interceptors are applied in order from first to last
@@ -258,7 +264,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		refresh := checkConnectedTime == refreshTime
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime, refresh)
+			rc.checkConnection(backgroundCtx, checkConnectedTime, reconnectTime, refresh)
 		}, rc.activeBackgroundWorkers.Done)
 
 		// If checkConnection() is running refresh, there is no need to create a separate
@@ -271,7 +277,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.RefreshEvery(closeCtx, refreshTime)
+			rc.RefreshEvery(backgroundCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -319,7 +325,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 
 	client := pb.NewRobotServiceClient(conn)
 
-	refClient := grpcreflect.NewClient(rc.closeContext, reflectpb.NewServerReflectionClient(conn))
+	refClient := grpcreflect.NewClient(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
 
 	rc.conn = conn
 	rc.client = client
@@ -464,13 +470,15 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 // Close cleanly closes the underlying connections and stops the refresh goroutine
 // if it is running.
 func (rc *RobotClient) Close(ctx context.Context) error {
-	rc.cancelBackgroundWorkers()
+	rc.backgroundCtxCancel()
 	rc.activeBackgroundWorkers.Wait()
 	if rc.changeChan != nil {
 		close(rc.changeChan)
 		rc.changeChan = nil
 	}
 	rc.refClient.Reset()
+	rc.heartbeatCtxCancel()
+	rc.heartbeatWorkers.Wait()
 	return rc.conn.Close()
 }
 
@@ -559,7 +567,7 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 	}
 	// pass in conn
 	nameR := name.ShortName()
-	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
+	resourceClient := c.RPCClient(rc.backgroundCtx, rc.conn, nameR, rc.Logger())
 	if c.Reconfigurable == nil {
 		return resourceClient, nil
 	}

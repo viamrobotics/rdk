@@ -5,12 +5,10 @@ import { Client, gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   name: string
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 const stop = () => {
   const request = new gripperApi.StopRequest();

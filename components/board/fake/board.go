@@ -5,16 +5,19 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -238,6 +241,13 @@ func (b *Board) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
+// SetPowerMode sets the board to the given power mode. If provided,
+// the board will exit the given power mode after the specified
+// duration.
+func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.CloseCount++
@@ -372,6 +382,8 @@ type GPIOPin struct {
 // Set sets the pin to either low or high.
 func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.high = high
+	gp.pwm = 0
+	gp.pwmFreq = 0
 	return nil
 }
 
@@ -396,7 +408,7 @@ func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 	return gp.pwmFreq, nil
 }
 
-// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+// SetPWMFreq sets the given pin to the given PWM frequency.
 func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.pwmFreq = freqHz
 	return nil
