@@ -9,11 +9,13 @@ import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
+import { StreamManager } from './camera/camera-stream-manager';
 
 interface Props {
   name: string;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
+  streamManager:StreamManager;
 }
 
 const enum Keymap {
@@ -455,7 +457,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-show="openCameras[camera.name]"
+              v-if="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
@@ -464,6 +466,7 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
+              :stream-manager="props.streamManager"
             />
           </template>
         </div>
