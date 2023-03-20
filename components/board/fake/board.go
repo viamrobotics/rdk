@@ -5,16 +5,19 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -236,6 +239,13 @@ func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*comm
 // ModelAttributes returns attributes related to the model of this board.
 func (b *Board) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+// SetPowerMode sets the board to the given power mode. If provided,
+// the board will exit the given power mode after the specified
+// duration.
+func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 // Close attempts to cleanly close each part of the board.
