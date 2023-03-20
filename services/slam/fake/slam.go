@@ -33,7 +33,7 @@ func init() {
 				config config.Service,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return &SLAM{Name: config.Name, logger: logger, dataCount: -1}, nil
+				return NewSLAM(config.Name, logger), nil
 			},
 		},
 	)
@@ -47,6 +47,11 @@ type SLAM struct {
 	Name      string
 	dataCount int
 	logger    golog.Logger
+}
+
+// NewSLAM is a constructor for a fake slam service.
+func NewSLAM(name string, logger golog.Logger) *SLAM {
+	return &SLAM{Name: name, logger: logger, dataCount: -1}
 }
 
 func (slamSvc *SLAM) getCount() int {

@@ -473,6 +473,28 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 	return nil
 }
 
+func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
+	header := &pcdHeader{}
+	headerLineCount := 0
+	for headerLineCount < len(pcdHeaderFields) {
+		line, err := in.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("error reading header line %d: %w", headerLineCount, err)
+		}
+		line, _, _ = strings.Cut(line, pcdCommentChar)
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		err = parsePCDHeaderLine(line, headerLineCount, header)
+		if err != nil {
+			return nil, err
+		}
+		headerLineCount++
+	}
+	return header, nil
+}
+
 // PCType is the type of point cloud to read the PCD file into.
 type PCType int
 
@@ -517,28 +539,12 @@ func ReadPCDToBasicOctree(inRaw io.Reader) (*BasicOctree, error) {
 }
 
 func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
-	header := pcdHeader{}
-	in := bufio.NewReader(inRaw)
-	var line string
-	var err error
-	headerLineCount := 0
-	for headerLineCount < len(pcdHeaderFields) {
-		line, err = in.ReadString('\n')
-		if err != nil {
-			return nil, fmt.Errorf("error reading header line %d: %w", headerLineCount, err)
-		}
-		line, _, _ = strings.Cut(line, pcdCommentChar)
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		err := parsePCDHeaderLine(line, headerLineCount, &header)
-		if err != nil {
-			return nil, err
-		}
-		headerLineCount++
-	}
 	var pc PointCloud
+	in := bufio.NewReader(inRaw)
+	header, err := parsePCDHeader(in)
+	if err != nil {
+		return nil, err
+	}
 	switch pctype {
 	case BasicType:
 		pc = NewWithPrealloc(int(header.points))
@@ -553,7 +559,7 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 		}
 		in.Reset(bufio.NewReader(bytes.NewReader(buf)))
 
-		meta, err := getPCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), header)
+		meta, err := parsePCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), *header)
 		if err != nil {
 			return nil, err
 		}
@@ -567,9 +573,9 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 	}
 	switch header.data {
 	case PCDAscii:
-		return readPCDASCII(in, header, pc)
+		return readPCDASCII(in, *header, pc)
 	case PCDBinary:
-		return readPCDBinary(in, header, pc)
+		return readPCDBinary(in, *header, pc)
 	case PCDCompressed:
 		// return readPCDCompressed(in, header)
 		return nil, errors.New("compressed pcd not yet supported")
@@ -664,7 +670,7 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointClou
 	return pc, nil
 }
 
-func getPCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
+func parsePCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
 	meta := NewMetaData()
 	switch header.data {
 	case PCDAscii:
@@ -692,6 +698,16 @@ func getPCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
 	}
 
 	return meta, nil
+}
+
+// GetPCDMetaData returns the metadata for the PCD read from the provided reader.
+func GetPCDMetaData(inRaw io.Reader) (MetaData, error) {
+	in := bufio.NewReader(inRaw)
+	header, err := parsePCDHeader(in)
+	if err != nil {
+		return MetaData{}, err
+	}
+	return parsePCDMetaData(*in, *header)
 }
 
 // reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.

@@ -476,9 +476,7 @@ type mobile2DFrame struct {
 	geometry spatial.Geometry
 }
 
-// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
-// This frame will have a name, limits (representing the bounds the frame is allowed to translate within) and a geometry
-// defined by the arguments passed into this function.
+// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0.
 func NewMobile2DFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
 	if len(limits) != 2 {
 		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limits))

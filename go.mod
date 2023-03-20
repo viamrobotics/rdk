@@ -62,7 +62,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/mediadevices v0.4.0
+	github.com/pion/mediadevices v0.4.1-0.20230320003250-11bf55f80ca8
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.58
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
@@ -82,13 +82,13 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.89
+	go.viam.com/api v0.1.92
 	go.viam.com/slam v0.1.31
-	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.17-0.20230315230042-173a6ac16169
+	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
+	go.viam.com/utils v0.1.17-0.20230320131150-fc1f54523dac
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.6.0
-	golang.org/x/tools v0.7.0
+	golang.org/x/image v0.5.0
+	golang.org/x/tools v0.6.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4
@@ -212,6 +212,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
 	github.com/gordonklaus/ineffassign v0.0.0-20230107090616-13ace0543b28 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.4.2 // indirect
 	github.com/gostaticanalysis/forcetypeassert v0.1.0 // indirect
@@ -355,6 +356,7 @@ require (
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
+	github.com/zitadel/oidc v1.13.2 // indirect
 	gitlab.com/bosi/decorder v0.2.3 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
@@ -370,6 +372,7 @@ require (
 	google.golang.org/api v0.112.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.4.2 // indirect
 	howett.net/plist v1.0.0 // indirect
