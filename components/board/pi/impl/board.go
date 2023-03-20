@@ -126,8 +126,9 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 				return nil, errors.New("not running as root, try sudo")
 			}
 			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
+		}
 	}
-  
+
 	pigpioInitialized = true
 
 	initGood := false
