@@ -334,7 +334,7 @@ func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (*Geom
 	for _, name := range system.FrameNames() {
 		geosInFrame, err := system.Frame(name).Geometries(inputs[name])
 		if err != nil {
-			errAll = multierr.Append(errAll, err)	
+			errAll = multierr.Append(errAll, err)
 			continue
 		}
 		if len(geosInFrame.Geometries()) > 0 {
@@ -493,7 +493,7 @@ func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, err
 }
 
 // CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
-func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Frame, error) {
+func CreateFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}

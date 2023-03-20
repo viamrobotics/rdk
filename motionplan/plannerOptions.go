@@ -249,16 +249,13 @@ func (p *plannerOptions) createCollisionConstraints(
 
 	// TODO(pl): non-moving frame system geometries are not currently supported for collision avoidance ( RSDK-2129 ) but are included here
 	// in anticipation of support and to prevent spurious errors.
-	allFsGeoms, err := referenceframe.FrameSystemGeometries(fs, seedMap, logger)
+	allFsGeoms, err := referenceframe.FrameSystemGeometries(fs, seedMap)
 	if err != nil {
 		return err
 	}
-	for frameName, geomsInFrame := range allFsGeoms {
-		validGeoms[frameName] = true
-		err = addGeomNames(frameName, geomsInFrame)
-		if err != nil {
-			return err
-		}
+	err = addGeomNames(frameName, allFsGeoms)
+	if err != nil {
+		return err
 	}
 
 	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all
@@ -315,7 +312,7 @@ func (p *plannerOptions) createCollisionConstraints(
 	}
 
 	// add collision constraints
-	selfCollisionConstraint, err := newSelfCollisionConstraint(frame, seedMap, allowedCollisions, reportDistances)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(frame, fs, seedMap, allowedCollisions, reportDistances)
 	if err != nil {
 		return err
 	}

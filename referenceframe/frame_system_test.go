@@ -129,7 +129,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
 		ModelFrame:  nil,
 	}
-	_, _, err = CreateFramesFromPart(part, logger)
+	_, _, err = CreateFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 
 	// slightly specified part
@@ -137,7 +137,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
 		ModelFrame:  nil,
 	}
-	modelFrame, originFrame, err := CreateFramesFromPart(part, logger)
+	modelFrame, originFrame, err := CreateFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.FrameConfig.name))
 	originTailFrame, ok := NewZeroStaticFrame(part.FrameConfig.name + "_origin").(*staticFrame)
@@ -160,7 +160,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: lif,
 		ModelFrame:  model,
 	}
-	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)
+	modelFrame, originFrame, err = CreateFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame.Name(), test.ShouldEqual, part.FrameConfig.name)
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
@@ -181,7 +181,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: lif,
 		ModelFrame:  model,
 	}
-	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)
+	modelFrame, originFrame, err = CreateFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	modelGeoms, err := modelFrame.Geometries(make([]Input, len(modelFrame.DoF())))
 	test.That(t, err, test.ShouldBeNil)
@@ -208,7 +208,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: lif,
 		ModelFrame:  model,
 	}
-	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)
+	modelFrame, originFrame, err = CreateFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	modelFrameGeoms, err := modelFrame.Geometries(make([]Input, len(modelFrame.DoF())))
 	test.That(t, err, test.ShouldBeNil)
@@ -429,7 +429,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 			FrameConfig: lif,
 			ModelFrame:  model,
 		}
-		armFrame, _, err := CreateFramesFromPart(part, logger)
+		armFrame, _, err := CreateFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
 		fs.AddFrame(armFrame, fs.World())
 		// -----
@@ -459,7 +459,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 			FrameConfig: lif,
 			ModelFrame:  model,
 		}
-		armFrame, _, err := CreateFramesFromPart(part, logger)
+		armFrame, _, err := CreateFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
 		fs.AddFrame(armFrame, fs.World())
 		// -----
@@ -510,7 +510,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 			FrameConfig: lif,
 			ModelFrame:  model,
 		}
-		armFrame, _, err := CreateFramesFromPart(part, logger)
+		armFrame, _, err := CreateFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
 		fs.AddFrame(armFrame, fs.World())
 		blockName := "block"
