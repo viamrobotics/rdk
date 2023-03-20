@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -621,7 +620,6 @@ func TestCachedMaxProbability(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	validateBasicOctree(t, octree, octree.center, octree.sideLength)
-	printBasicOctree(golog.NewTestLogger(t), octree, "")
 
 	// test that we can query the tree for max prob
 	mp, err := getMaxProb(octree, r3.Vector{X: 0, Y: 0, Z: 0})
