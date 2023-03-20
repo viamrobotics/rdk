@@ -64,10 +64,14 @@ var defaultRegisterValues = map[byte]byte{
 }
 
 const (
+	// ThreshTapScaleFactor is the scale factor for THRESH_TAP register.
 	ThreshTapScaleFactor float32 = 62.5
-	DurScaleFactor       float32 = 625
-	TimeFfScaleFactor    float32 = .5
-	ThreshFfScaleFactor  float32 = 62.5
+	// DurScaleFactor is the scale factor for DUR register.
+	DurScaleFactor float32 = 625
+	// TimeFfScaleFactor is the scale factor for TIME_FF register.
+	TimeFfScaleFactor float32 = .5
+	// ThreshFfScaleFactor is the scale factor for THRESH_FF register.
+	ThreshFfScaleFactor float32 = 62.5
 )
 
 const (
