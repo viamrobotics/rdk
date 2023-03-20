@@ -701,12 +701,13 @@ func parsePCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
 }
 
 // GetPCDMetaData returns the metadata for the PCD read from the provided reader.
-func GetPCDMetaData(in bufio.Reader) (MetaData, error) {
-	header, err := parsePCDHeader(&in)
+func GetPCDMetaData(inRaw io.Reader) (MetaData, error) {
+	in := bufio.NewReader(inRaw)
+	header, err := parsePCDHeader(in)
 	if err != nil {
 		return MetaData{}, err
 	}
-	return parsePCDMetaData(in, *header)
+	return parsePCDMetaData(*in, *header)
 }
 
 // reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.
