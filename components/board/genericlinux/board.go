@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	goutils "go.viam.com/utils"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -499,6 +501,10 @@ func (b *sysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (
 
 func (b *sysfsBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+func (b *sysfsBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 func (b *sysfsBoard) Close() error {

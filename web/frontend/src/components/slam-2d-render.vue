@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
-import { threeInstance, resizeRendererToDisplaySize } from 'trzy';
+import { $ref } from 'vue/macros';
+import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -26,29 +27,45 @@ const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer } = threeInstance();
+const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
 
-renderer.domElement.style.cssText = 'width:100%;height:100%;';
+canvas.style.cssText = 'width:100%;height:100%;';
 
 const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
 camera.userData.size = 2;
+setCamera(camera);
+scene.add(camera);
+
+const controls = new MapControls(camera, canvas);
+controls.enableRotate = false;
+
+const raycaster = new MouseRaycaster({ camera, canvas, recursive: false });
+
+raycaster.addEventListener('click', (event) => {
+  const [intersection] = event.intersections as THREE.Intersection[];
+  const { point } = intersection;
+  console.log(point);
+});
 
 const markerSize = 0.5;
 const marker = new THREE.Mesh(
   new THREE.PlaneGeometry(markerSize, markerSize).rotateX(-Math.PI / 2),
   new THREE.MeshBasicMaterial({ color: 'red' })
 );
+marker.name = 'Marker';
 // This ensures the robot marker renders on top of the pointcloud data
 marker.renderOrder = 999;
 
-const controls = new MapControls(camera, renderer.domElement);
-
 const disposeScene = () => {
-  scene.traverse((object: THREE.Points | THREE.Material | unknown) => {
-    if (object instanceof THREE.Points) {
+  scene.traverse((object) => {
+    if (object.name === 'Marker') {
+      return;
+    }
+
+    if (object instanceof THREE.Points || object instanceof THREE.Mesh) {
       object.geometry.dispose();
 
       if (object.material instanceof THREE.Material) {
@@ -60,54 +77,80 @@ const disposeScene = () => {
   scene.clear();
 };
 
-const update = (pointcloud: Uint8Array, pose: commonApi.Pose) => {
-  const points = loader.parse(pointcloud.buffer, '');
-
-  const x = pose.getX!();
-  const z = pose.getZ!();
-  marker.position.setX(x);
-  marker.position.setZ(z);
-
+const updateCloud = (pointcloud: Uint8Array) => {
   disposeScene();
+
+  const viewHeight = 1;
+  const viewWidth = viewHeight * 2;
+
+  const points = loader.parse(pointcloud.buffer, '');
+  points.geometry.computeBoundingSphere();
+
+  const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
+  camera.position.set(center.x, 100, center.z);
+  camera.lookAt(center.x, 0, center.z);
+
+  const aspect = canvas.clientHeight / canvas.clientWidth;
+  camera.zoom = aspect > 1
+    ? viewHeight / (radius * 2)
+    : camera.zoom = viewWidth / (radius * 2);
+
+  camera.updateProjectionMatrix();
+
+  controls.target.set(center.x, 0, center.z);
+  controls.maxZoom = radius * 2;
+
+  const intersectionPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
+    new MeshDiscardMaterial()
+  );
+  intersectionPlane.name = 'Intersection Plane';
+  intersectionPlane.position.y = -1;
+  intersectionPlane.position.set(center.x, 0, center.z);
+  raycaster.objects = [intersectionPlane];
+
   scene.add(points);
   scene.add(marker);
+  scene.add(intersectionPlane);
 };
 
-const init = (pointcloud: Uint8Array, pose: commonApi.Pose) => {
-  update(pointcloud, pose);
+const updatePose = (newPose: commonApi.Pose) => {
+  const x = newPose.getX();
+  const z = newPose.getZ();
+  marker.position.setX(x);
+  marker.position.setZ(z);
 };
 
 onMounted(() => {
-  container.append(renderer.domElement);
+  container?.append(canvas);
 
-  camera.position.set(0, 100, 0);
-  camera.lookAt(0, 0, 0);
+  run();
 
-  renderer.setAnimationLoop(() => {
-    resizeRendererToDisplaySize(camera, renderer);
+  if (props.pointcloud !== undefined) {
+    updateCloud(props.pointcloud);
+  }
 
-    renderer.render(scene, camera);
-    controls.update();
-  });
-
-  if (props.pointcloud !== undefined && props.pose !== undefined) {
-    init(props.pointcloud, props.pose);
+  if (props.pose !== undefined) {
+    updatePose(props.pose);
   }
 });
 
 onUnmounted(() => {
-  renderer.setAnimationLoop(null);
+  pause();
   disposeScene();
 });
 
-watch(
-  [() => (props.pointCloudUpdateCount), () => (props.pose)],
-  () => {
-    if (props.pointcloud !== undefined && props.pose !== undefined) {
-      init(props.pointcloud, props.pose);
-    }
+watch(() => props.pose, (newPose) => {
+  if (newPose !== undefined) {
+    updatePose(newPose);
   }
-);
+});
+
+watch(() => props.pointCloudUpdateCount, () => {
+  if (props.pointcloud !== undefined) {
+    updateCloud(props.pointcloud);
+  }
+});
 
 </script>
 
