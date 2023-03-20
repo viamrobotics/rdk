@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -31,8 +32,29 @@ var (
 )
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
-
+// TODO: what do we actually want to test? That the underlying sync.Manager.SyncDirectory() is called, and successfully
+// finds + syncs all data in that dir
 func TestSyncEnabled(t *testing.T) {
+	waitForAndGetUploadRequests := func(srv *mockDataSyncServiceServer) []*v1.DataCaptureUploadRequest {
+		var reqs []*v1.DataCaptureUploadRequest
+		var added []*v1.DataCaptureUploadRequest
+		for i := 0; i < 20; i++ {
+			if len(reqs) > 0 && len(added) == 0 {
+				srv.clear()
+				return reqs
+			}
+			time.Sleep(time.Millisecond * 100)
+			succ := srv.getSuccessfulDCUploadRequests()
+			fmt.Println("succ", len(succ))
+			added = []*v1.DataCaptureUploadRequest{}
+			added = append(added, succ...)
+			added = append(added, srv.getFailedDCUploadRequests()...)
+			fmt.Println("added:", len(added))
+			reqs = append(reqs, added...)
+		}
+		return reqs
+	}
+
 	tests := []struct {
 		name                        string
 		initialServiceDisableStatus bool
@@ -88,13 +110,13 @@ func TestSyncEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), cfg)
 
 			// Let run for a second, then change status.
-			time.Sleep(syncTime)
+			// TODO: Instead of doing this, wait until both files have appeared and the sync.Manager has been called
+			initialURs := waitForAndGetUploadRequests(mockService)
 
-			initialUploadCount := len(mockService.getSuccessfulDCUploadRequests())
 			if !tc.initialServiceDisableStatus {
-				test.That(t, initialUploadCount, test.ShouldBeGreaterThan, 0)
+				test.That(t, len(initialURs), test.ShouldBeGreaterThan, 0)
 			} else {
-				test.That(t, initialUploadCount, test.ShouldEqual, 0)
+				test.That(t, len(initialURs), test.ShouldEqual, 0)
 			}
 
 			// Set up service config.
@@ -110,17 +132,15 @@ func TestSyncEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Let run for a second, then change status.
-			time.Sleep(syncTime)
+			newUploads := waitForAndGetUploadRequests(mockService)
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			newUploadCount := len(mockService.getSuccessfulDCUploadRequests())
+			newUploadCount := len(newUploads)
 			if !tc.newServiceDisableStatus {
-				test.That(t, newUploadCount, test.ShouldBeGreaterThan, initialUploadCount)
+				test.That(t, newUploadCount, test.ShouldBeGreaterThan, 0)
 			} else {
-				// +1 to give leeway if an additional upload call was made between measuring initialUploadCount
-				// and calling Update
-				test.That(t, newUploadCount, test.ShouldBeBetweenOrEqual, initialUploadCount, initialUploadCount+1)
+				test.That(t, newUploadCount, test.ShouldEqual, 0)
 			}
 		})
 	}
@@ -253,7 +273,6 @@ func TestDataCaptureUpload(t *testing.T) {
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			svcConfig.SyncIntervalMins = fiftyMillis
-			time.Sleep(time.Duration(testLastModifiedMillis) * time.Millisecond)
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -526,6 +545,7 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 }
 
+// TODO: Wrap this in some sort of signaling syncer
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
 	return func(logger golog.Logger, cfg *config.Config, lastModMillis int) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
@@ -551,6 +571,7 @@ type mockDataSyncServiceServer struct {
 func (m *mockDataSyncServiceServer) getSuccessfulDCUploadRequests() []*v1.DataCaptureUploadRequest {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	fmt.Println("calling getSuccessfulDCUploadRequests", len(*m.successfulDCUploadRequests))
 	return *m.successfulDCUploadRequests
 }
 
@@ -572,7 +593,17 @@ func (m *mockDataSyncServiceServer) setFailAt(v int32) {
 	m.failAt = v
 }
 
+func (m *mockDataSyncServiceServer) clear() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	*m.successfulDCUploadRequests = nil
+	*m.failedDCUploadRequests = nil
+	*m.fileUploadRequests = nil
+}
+
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
+	fmt.Println("Called DataCaptureUpload")
+
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	defer m.callCount.Add(1)
@@ -586,6 +617,7 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 		*m.failedDCUploadRequests = append(*m.failedDCUploadRequests, ur)
 		return nil, errors.New("oh no error!!")
 	}
+	fmt.Println("appending to successfulDCUploadRequests")
 	*m.successfulDCUploadRequests = append(*m.successfulDCUploadRequests, ur)
 	return &v1.DataCaptureUploadResponse{}, nil
 }

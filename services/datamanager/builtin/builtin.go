@@ -143,8 +143,6 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		syncLogger = productionLogger.Sugar()
 	}
 
-	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
-	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &builtIn{
 		r:                           r,
 		logger:                      logger,
@@ -459,15 +457,12 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// TODO DATA-861: this means that the ticker is reset everytime we call Update with sync enabled, regardless of
 	//      whether or not the interval has changed. We should not do that.
 	svc.cancelSyncScheduler()
+	svc.closeSyncer()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-		if svc.syncer == nil {
-			if err := svc.initSyncer(cfg); err != nil {
-				return err
-			}
+		if err := svc.initSyncer(cfg); err != nil {
+			return err
 		}
 		svc.startSyncScheduler(svc.syncIntervalMins)
-	} else {
-		svc.closeSyncer()
 	}
 
 	return nil
