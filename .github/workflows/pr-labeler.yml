@@ -27,9 +27,6 @@ jobs:
             }
             let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: context.payload.sender.login});
             if (orgResp.status === 204) {
-              // pr owner is an org member
-              await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["viam-org"]});
-              await new Promise((r) => setTimeout(r, 2000));
               // order of labeling events must be preserved, so two seperate calls
               await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["safe to test"]});
               return true;

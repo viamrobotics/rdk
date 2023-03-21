@@ -2,16 +2,14 @@
 
 import { computed } from 'vue';
 
-interface Props {
+const props = withDefaults(defineProps<{
   path: string
   title?: string
   size?: number | string
   rotate?: number | string
   color?: string
   spin?: boolean | string
-}
-
-const props = withDefaults(defineProps<Props>(), {
+}>(), {
   size: 18,
   rotate: 0,
   spin: false,

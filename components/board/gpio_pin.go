@@ -19,6 +19,7 @@ type GPIOPin interface {
 	// PWMFreq gets the PWM frequency of the pin.
 	PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error)
 
-	// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+	// SetPWMFreq sets the given pin to the given PWM frequency. For Raspberry Pis,
+	// 0 will use a default PWM frequency of 800.
 	SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error
 }

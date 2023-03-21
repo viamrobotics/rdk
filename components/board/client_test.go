@@ -4,10 +4,12 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -181,6 +183,14 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, digital1Val, test.ShouldEqual, 287)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
+
+		// SetPowerMode (currently unimplemented in RDK)
+		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
+			return viamgrpc.UnimplementedError
+		}
+		err = client.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldHaveSameTypeAs, viamgrpc.UnimplementedError)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}

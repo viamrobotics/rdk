@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	goutils "go.viam.com/utils"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -107,12 +109,24 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				cancelCtx:     cancelCtx,
 				cancelFunc:    cancelFunc,
 			}
-			if !usePeriphGpio {
+
+			if usePeriphGpio {
+				if len(conf.DigitalInterrupts) != 0 {
+					return nil, errors.New(
+						"Digital interrupts on Periph GPIO pins are not yet supported")
+				}
+			} else {
 				// We currently have two implementations of GPIO pins on these boards: one using
 				// libraries from periph.io and one using an ioctl approach. If we're using the
 				// latter, we need to initialize it here.
-				b.gpios = gpioInitialize( // Defined in gpio.go
-					b.cancelCtx, gpioMappings, &b.activeBackgroundWorkers, b.logger)
+				gpios, interrupts, err := gpioInitialize( // Defined in gpio.go
+					b.cancelCtx, gpioMappings, conf.DigitalInterrupts, &b.activeBackgroundWorkers,
+					b.logger)
+				if err != nil {
+					return nil, err
+				}
+				b.gpios = gpios
+				b.interrupts = interrupts
 			}
 			return &b, nil
 		}})
@@ -165,7 +179,9 @@ type sysfsBoard struct {
 	logger       golog.Logger
 
 	usePeriphGpio bool
-	gpios         map[string]*gpioPin // Only used for non-periph.io pins
+	// These next two are only used for non-periph.io pins
+	gpios      map[string]*gpioPin
+	interrupts map[string]*digitalInterrupt
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -236,8 +252,12 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	b.logger.Warn("Digital interrupts are not currently supported on sysfs boards.")
-	return nil, false
+	// TODO(RSDK-2345): If the name is numerical and doesn't already exist, create it here anyway.
+	interrupt, ok := b.interrupts[name]
+	if !ok {
+		return nil, false
+	}
+	return interrupt.interrupt, true
 }
 
 func (b *sysfsBoard) SPINames() []string {
@@ -483,6 +503,10 @@ func (b *sysfsBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
+func (b *sysfsBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
 func (b *sysfsBoard) Close() error {
 	b.mu.Lock()
 	b.cancelFunc()
@@ -497,6 +521,9 @@ func (b *sysfsBoard) Close() error {
 	var err error
 	for _, pin := range b.gpios {
 		err = multierr.Combine(err, pin.Close())
+	}
+	for _, interrupt := range b.interrupts {
+		err = multierr.Combine(err, interrupt.Close())
 	}
 	return err
 }

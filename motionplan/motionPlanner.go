@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -17,6 +18,8 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
+
+const defaultRandomSeed = 0
 
 // motionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
@@ -43,9 +46,20 @@ func PlanMotion(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	fs frame.FrameSystem,
 	worldState *frame.WorldState,
+	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	return motionPlanInternal(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+	return motionPlanInternal(
+		ctx,
+		logger,
+		dst,
+		f,
+		seedMap,
+		fs,
+		worldState,
+		constraintSpec,
+		planningOpts,
+	)
 }
 
 // PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
@@ -55,6 +69,7 @@ func PlanRobotMotion(ctx context.Context,
 	r robot.Robot,
 	fs frame.FrameSystem,
 	worldState *frame.WorldState,
+	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
@@ -62,7 +77,17 @@ func PlanRobotMotion(ctx context.Context,
 		return nil, err
 	}
 
-	return motionPlanInternal(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+	return motionPlanInternal(
+		ctx,
+		r.Logger(),
+		dst,
+		f,
+		seedMap,
+		fs,
+		worldState,
+		constraintSpec,
+		planningOpts,
+	)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -72,6 +97,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f frame.Frame,
 	seed []frame.Input,
+	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
@@ -85,12 +111,13 @@ func PlanFrameMotion(ctx context.Context,
 	solutionMap, err := motionPlanInternal(
 		ctx,
 		logger,
-		[]*frame.PoseInFrame{destination},
+		destination,
 		f,
 		seedMap,
 		fs,
 		nil,
-		[]map[string]interface{}{planningOpts},
+		constraintSpec,
+		planningOpts,
 	)
 	if err != nil {
 		return nil, err
@@ -98,37 +125,23 @@ func PlanFrameMotion(ctx context.Context,
 	return FrameStepsFromRobotPath(f.Name(), solutionMap)
 }
 
-// PlanWaypoints plans motions to a list of destinations in order for a given frame. It takes a given frame system, wraps it with a
-// SolvableFS, and solves. It will generate a list of intermediate waypoints as well to pass to the solvable framesystem if possible.
-func PlanWaypoints(ctx context.Context,
-	logger golog.Logger,
-	goals []*frame.PoseInFrame,
-	f frame.Frame,
-	seedMap map[string][]frame.Input,
-	fs frame.FrameSystem,
-	worldState *frame.WorldState,
-	motionConfigs []map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	return motionPlanInternal(ctx, logger, goals, f, seedMap, fs, worldState, motionConfigs)
-}
-
 // motionPlanInternal is the internal private function that all motion planning access calls. This will construct the plan manager for each
 // waypoint, and return at the end.
-// This has the same function signature as `PlanWaypoints` but is a private function so as to not have public functions call other.
 func motionPlanInternal(ctx context.Context,
 	logger golog.Logger,
-	goals []*frame.PoseInFrame,
+	goal *frame.PoseInFrame,
 	f frame.Frame,
 	seedMap map[string][]frame.Input,
 	fs frame.FrameSystem,
 	worldState *frame.WorldState,
-	motionConfigs []map[string]interface{},
+	constraintSpec *pb.Constraints,
+	motionConfig map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	if len(goals) == 0 {
-		return nil, errors.New("no destinations passed to PlanWaypoints")
+	if goal == nil {
+		return nil, errors.New("no destination passed to Motion")
 	}
 
-	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
+	steps := []map[string][]frame.Input{}
 
 	// Get parentage of solver frame. This will also verify the frame is in the frame system
 	solveFrame := fs.Frame(f.Name())
@@ -140,80 +153,56 @@ func motionPlanInternal(ctx context.Context,
 		return nil, err
 	}
 
-	opts := make([]map[string]interface{}, 0, len(goals))
-
-	// If no planning opts, use default. If one, use for all goals. If one per goal, use respective option. Otherwise error.
-	if len(motionConfigs) != len(goals) {
-		switch len(motionConfigs) {
-		case 0:
-			for range goals {
-				opts = append(opts, map[string]interface{}{})
-			}
-		case 1:
-			// If one config passed, use it for all waypoints
-			for range goals {
-				opts = append(opts, motionConfigs[0])
-			}
-		default:
-			return nil, errors.New("goals and motion configs had different lengths")
+	// Create a frame to solve for, and an IK solver with that frame.
+	sf, err := newSolverFrame(fs, solveFrameList, goal.Parent(), seedMap)
+	if err != nil {
+		return nil, err
+	}
+	if len(sf.DoF()) == 0 {
+		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+	}
+	seed, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+	wsPb := &commonpb.WorldState{}
+	if worldState != nil {
+		wsPb, err = frame.WorldStateToProtobuf(worldState)
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		opts = motionConfigs
 	}
 
-	// Each goal is a different PoseInFrame and so may have a different destination Frame. Since the motion can be solved from either end,
-	// each goal is solved independently.
-	for i, goal := range goals {
-		// Create a frame to solve for, and an IK solver with that frame.
-		sf, err := newSolverFrame(fs, solveFrameList, goal.Parent(), seedMap)
-		if err != nil {
-			return nil, err
-		}
-		if len(sf.DoF()) == 0 {
-			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
-		}
-		seed, err := sf.mapToSlice(seedMap)
-		if err != nil {
-			return nil, err
-		}
-		startPose, err := sf.Transform(seed)
-		if err != nil {
-			return nil, err
-		}
-		wsPb := &commonpb.WorldState{}
-		if worldState != nil {
-			wsPb, err = frame.WorldStateToProtobuf(worldState)
-			if err != nil {
-				return nil, err
-			}
-		}
+	logger.Infof(
+		"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
+		f.Name(),
+		frame.PoseInFrameToProtobuf(goal),
+		seedMap,
+		spatialmath.PoseToProtobuf(startPose),
+		wsPb,
+	)
+	logger.Debugf("motion config for this step: %v", motionConfig)
 
-		logger.Infof(
-			"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
-			f.Name(),
-			frame.PoseInFrameToProtobuf(goal),
-			seedMap,
-			spatialmath.PoseToProtobuf(startPose),
-			wsPb,
-		)
-		logger.Debugf("motion config for this step: %v", opts[i])
+	rseed := defaultRandomSeed
+	if seed, ok := motionConfig["rseed"].(int); ok {
+		rseed = seed
+	}
 
-		sfPlanner, err := newPlanManager(sf, fs, logger, i)
-		if err != nil {
-			return nil, err
-		}
-		resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
-		if err != nil {
-			return nil, err
-		}
-		for j, resultSlice := range resultSlices {
-			stepMap := sf.sliceToMap(resultSlice)
-			steps = append(steps, stepMap)
-			if j == len(resultSlices)-1 {
-				// update seed map
-				seedMap = stepMap
-			}
-		}
+	sfPlanner, err := newPlanManager(sf, fs, logger, rseed)
+	if err != nil {
+		return nil, err
+	}
+	resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, constraintSpec, motionConfig)
+	if err != nil {
+		return nil, err
+	}
+	for _, resultSlice := range resultSlices {
+		stepMap := sf.sliceToMap(resultSlice)
+		steps = append(steps, stepMap)
 	}
 
 	logger.Debugf("final plan steps: %v", steps)

@@ -174,6 +174,8 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
 	defer i.mu.Unlock()
 	for id := range i.callbacks {
 		if i.callbacks[id] == c {
+			// To remove this item, we replace it with the last item in the list, then truncate the
+			// list by 1.
 			i.callbacks[id] = i.callbacks[len(i.callbacks)-1]
 			i.callbacks = i.callbacks[:len(i.callbacks)-1]
 			break

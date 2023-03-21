@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
@@ -21,7 +22,7 @@ const (
 	defaultFallbackTimeout    = 1.5
 
 	// set this to true to get collision penetration depth, which is useful for debugging.
-	getCollisionDepth = false
+	defaultGetCollisionDepth = false
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -48,6 +49,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	seedMap map[string][]referenceframe.Input,
 	goalPos spatialmath.Pose,
 	worldState *referenceframe.WorldState,
+	constraintSpec *pb.Constraints,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
@@ -81,8 +83,18 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	var goals []spatialmath.Pose
 	var opts []*plannerOptions
 
+	subWaypoints := false
+
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
+		subWaypoints = true
+	}
+
+	if len(constraintSpec.GetLinearConstraint()) > 0 {
+		subWaypoints = true
+	}
+
+	if subWaypoints {
 		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
@@ -94,7 +106,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, motionConfig)
+			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraintSpec, motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -105,7 +117,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		seedPos = from
 	}
 	goals = append(goals, goalPos)
-	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, motionConfig)
+	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, constraintSpec, motionConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -115,18 +127,10 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	// Set up planners for later execution
 	for _, opt := range opts {
 		// Build planner
-		var randseed *rand.Rand
-		if seed, ok := opt.extra["rseed"].(int); ok {
-			//nolint: gosec
-			randseed = rand.New(rand.NewSource(int64(seed)))
-		} else {
-			//nolint: gosec
-			randseed = rand.New(rand.NewSource(int64(pm.randseed.Int())))
-		}
-
+		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
 			pm.frame,
-			randseed,
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			opt,
 		)
@@ -314,18 +318,10 @@ func (pm *planManager) planParallelRRTMotion(
 		// Create fallback planner
 		var fallbackPlanner motionPlanner
 		if pathPlanner.opt().Fallback != nil {
-			var randseed *rand.Rand
-			if seed, ok := pathPlanner.opt().extra["rseed"].(int); ok {
-				//nolint: gosec
-				randseed = rand.New(rand.NewSource(int64(seed)))
-			} else {
-				//nolint: gosec
-				randseed = rand.New(rand.NewSource(int64(pm.randseed.Int())))
-			}
-
+			//nolint: gosec
 			fallbackPlanner, err = pathPlanner.opt().Fallback.PlannerConstructor(
 				pm.frame,
-				randseed,
+				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 				pm.logger,
 				pathPlanner.opt().Fallback,
 			)
@@ -405,24 +401,33 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
+	cons *pb.Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
+	planAlg := ""
+
 	// Start with normal options
 	opt := newBasicPlannerOptions()
 
 	opt.extra = planningOpts
 
-	// add collision constraints
-	selfCollisionConstraint, err := newSelfCollisionConstraint(pm.frame, seedMap, []*Collision{}, getCollisionDepth)
+	err := opt.createCollisionConstraints(
+		pm.frame,
+		pm.fs,
+		worldState,
+		seedMap,
+		cons.GetCollisionSpecification(),
+		defaultGetCollisionDepth,
+		pm.logger,
+	)
 	if err != nil {
 		return nil, err
 	}
-	obstacleConstraint, err := newObstacleConstraint(pm.frame, pm.fs, worldState, seedMap, []*Collision{}, getCollisionDepth)
-	if err != nil {
-		return nil, err
+
+	hasTopoConstraint := opt.addPbTopoConstraints(from, to, cons)
+	if hasTopoConstraint {
+		planAlg = "cbirrt"
 	}
-	opt.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
-	opt.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
@@ -444,7 +449,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	var planAlg string
 	alg, ok := planningOpts["planning_alg"]
 	if ok {
 		planAlg, ok = alg.(string)
@@ -476,7 +480,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		orientTol, ok := planningOpts["orient_tolerance"].(float64)
 		if !ok {
 			// Default
-			orientTol = defaultLinearDeviation
+			orientTol = defaultOrientationDeviation
 		}
 		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 		opt.AddConstraint(defaultLinearConstraintName, constraint)
@@ -513,7 +517,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, cons, try1)
 			if err != nil {
 				return nil, err
 			}

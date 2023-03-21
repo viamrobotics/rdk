@@ -190,9 +190,9 @@ func (cg *collisionGraph) collisions() []Collision {
 	return collisions
 }
 
-// ignoreCollision finds the specified collision and marks it as something never to check for or report.
+// addCollisionSpecification marks the two objects specified as colliding.
 func (cg *collisionGraph) addCollisionSpecification(specification *Collision) {
-	cg.setDistance(specification.name1, specification.name2, math.NaN())
+	cg.setDistance(specification.name1, specification.name2, math.Inf(-1))
 }
 
 func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geometry, error) {

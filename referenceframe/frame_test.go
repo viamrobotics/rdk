@@ -298,6 +298,7 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 
+	bc.SetLabel("test")
 	sFrameif, err = frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	sFrame, err = sFrameif.ToStaticFrame("test")
