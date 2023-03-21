@@ -107,8 +107,9 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	movementSensors   []movementsensor.MovementSensor
-	orientationSensor movementsensor.MovementSensor
+	sensors *sensors
+	// movementSensors   []movementsensor.MovementSensor
+	// orientationSensor movementsensor.MovementSensor
 
 	opMgr                   operation.SingleOperationManager
 	activeBackgroundWorkers *sync.WaitGroup
@@ -120,6 +121,13 @@ type wheeledBase struct {
 	collisionGeometry spatialmath.Geometry
 }
 
+type sensors struct {
+	cancelCtx   context.Context
+	cancelFunc  func()
+	all         []movementsensor.MovementSensor
+	orientation movementsensor.MovementSensor
+}
+
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 // TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
 // TODO RSDK-2362 check choppiness of movement when run as a remote.
@@ -128,7 +136,8 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	defer done()
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
-	if base.orientationSensor != nil {
+	if base.sensors != nil {
+		base.sensors.cancelCtx, base.sensors.cancelFunc = context.WithCancel(base.cancelCtx)
 		return base.spinWithMovementSensor(angleDeg, degsPerSec, extra)
 	}
 	return base.spin(ctx, angleDeg, degsPerSec)
@@ -160,7 +169,7 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 		}
 	}, base.activeBackgroundWorkers.Done)
 
-	startYaw, err := getCurrentYaw(base.cancelCtx, base.orientationSensor, extra)
+	startYaw, err := getCurrentYaw(base.cancelCtx, base.sensors.orientation, extra)
 	if err != nil {
 		return err
 	} // from 0 -> 360
@@ -178,20 +187,22 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			// RSDK-2384 - use a new cancel ctx for sensor loops
 			// to have them stop when cotnext is done
 			select {
-			case <-base.cancelCtx.Done():
+			case <-base.sensors.cancelCtx.Done():
+				base.logger.Debug("cancelled context 1")
 				ticker.Stop()
 				return
 			default:
 			}
 			select {
-			case <-base.cancelCtx.Done():
+			case <-base.sensors.cancelCtx.Done():
+				base.logger.Debug("cancelled context 2")
 				ticker.Stop()
 				return
 			case <-ticker.C:
 			}
 
 			// imu readings are limited from 0 -> 360
-			currYaw, err := getCurrentYaw(base.cancelCtx, base.orientationSensor, extra)
+			currYaw, err := getCurrentYaw(base.cancelCtx, base.sensors.orientation, extra)
 
 			if err != nil {
 				errCounter++
@@ -204,8 +215,7 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			errCounter = 0 // reset reading error count to zero if we are successfully reading again
 
 			// if the imu yaw reading is close to 360, we are nearing a full turn,
-			// so we adjust the current reading
-			// by 360 * the number of turns we've done
+			// so we adjust the current reading by 360 * the number of turns we've done
 			if adjustYaw && (oneTurn-currYaw < errTarget) {
 				turnCount++
 				currYaw = +float64(oneTurn * turnCount)
@@ -511,7 +521,9 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 // Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-
+	if base.sensors != nil {
+		base.sensors.cancelFunc()
+	}
 	var err error
 	for _, m := range base.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx, extra))
@@ -592,15 +604,16 @@ func createWheeledBase(
 		base.right = append(base.right, m)
 	}
 
+	base.sensors = &sensors{}
 	for _, msName := range attr.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
 		}
-		base.movementSensors = append(base.movementSensors, ms)
+		base.sensors.all = append(base.sensors.all, ms)
 		props, err := ms.Properties(ctx, nil)
 		if props.OrientationSupported && err == nil {
-			base.orientationSensor = ms
+			base.sensors.orientation = ms
 		}
 	}
 	base.allMotors = append(base.allMotors, base.left...)
