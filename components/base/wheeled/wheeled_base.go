@@ -122,6 +122,7 @@ type wheeledBase struct {
 }
 
 type sensors struct {
+	sensorMu    sync.Mutex
 	ctx         context.Context
 	cancel      func()
 	all         []movementsensor.MovementSensor
@@ -137,6 +138,8 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if base.sensors.orientation != nil {
+		base.sensors.sensorMu.Lock()
+		defer base.sensors.sensorMu.Unlock()
 		base.sensors.cancel()
 		base.sensors.ctx, base.sensors.cancel = context.WithCancel(context.Background())
 		return base.spinWithMovementSensor(angleDeg, degsPerSec, extra)
@@ -174,9 +177,9 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 	if err != nil {
 		return err
 	} // from 0 -> 360
-	targetYaw, dir := findSpinParams(angleDeg, degsPerSec, startYaw)
-
+	targetYaw, dir, fullTurns := findSpinParams(angleDeg, degsPerSec, startYaw)
 	adjustYaw := rdkutils.Float64AlmostEqual(angleDeg, float64(oneTurn), 0.1)
+
 	turnCount := 0
 	errCounter := 0
 
@@ -189,15 +192,11 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			// to have them stop when cotnext is done
 			select {
 			case <-base.sensors.ctx.Done():
-				base.logger.Debug("cancelled context 1")
-				ticker.Stop()
 				return
 			default:
 			}
 			select {
 			case <-base.sensors.ctx.Done():
-				base.logger.Debug("cancelled context 2")
-				ticker.Stop()
 				return
 			case <-ticker.C:
 			}
@@ -218,7 +217,9 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			// so we adjust the current reading by 360 * the number of turns we've done
 			if adjustYaw && (oneTurn-currYaw < errTarget) {
 				turnCount++
-				currYaw = +float64(oneTurn * turnCount)
+				if !(turnCount == fullTurns) {
+					currYaw = +float64(oneTurn * turnCount)
+				}
 			}
 
 			atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg)
@@ -227,7 +228,7 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			base.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 
 			// poll the sensor for the current error in angle
-			// check if we've overshot our target by fifteen degrees
+			// check if we've overshot our target by the errTarget value
 			// check if we've travelled at all
 			if (atTarget && minTravel) || (overShot && minTravel) {
 				ticker.Stop()
@@ -257,7 +258,9 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra 
 ) (float64, error) {
 	orientation, err := ms.Orientation(ctx, extra)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(
+			err, "error getting orientation from sensor, spin will proceed without sensor feedback",
+		)
 	}
 	// Add Pi  to make the computation for overshoot simpler
 	// turns imus from -180 -> 180 to a 0 -> 360 range
@@ -274,7 +277,7 @@ func addAnglesInDomain(target, current float64) float64 {
 	return angle
 }
 
-func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64) {
+func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, int) {
 	targetYaw := addAnglesInDomain(angleDeg, currYaw)
 	dir := 1.0
 	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
@@ -284,7 +287,9 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64) {
 		// cloxkwise spin calls subtract allowable angles
 		dir = -1
 	}
-	return targetYaw, dir
+	fullTurns := int(angleDeg) / int(oneTurn)
+
+	return targetYaw, dir, fullTurns
 }
 
 // this function does not wrap around 360 degrees currently.
@@ -309,7 +314,7 @@ func hasOverShot(angle, start, target, dir float64) bool {
 		// the overshoot range is the inside range between the start and target
 		return angleBetween(angle, target, start)
 	case dir == 1 && start > target:
-		// for cases with a quadrant switch from 1 -> 4
+		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is not in the regions after the
 		// target and before the start
 		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start, 360)
