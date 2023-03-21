@@ -8,7 +8,6 @@ import (
 )
 
 func TestPackagePathVisitor(t *testing.T) {
-
 	testStringNoRef := "some/path/file_name.txt"
 	testStringRef := "${packages.custom_package}/file_name.txt"
 	testStringRefReplaced := "custom_package/file_name.txt"
