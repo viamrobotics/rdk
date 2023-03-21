@@ -4,13 +4,13 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"github.com/benbjohnson/clock"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sync"
 	"time"
 
+	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -61,7 +61,7 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-var clockVar clock.Clock
+var clock = clk.New()
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
@@ -482,7 +482,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 		defer svc.backgroundWorkers.Done()
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 		intervalMillis := 60000.0 * intervalMins
-		ticker := clockVar.Ticker(time.Millisecond * time.Duration(intervalMillis))
+		ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
 		for {
