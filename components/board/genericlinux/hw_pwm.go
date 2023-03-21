@@ -14,18 +14,12 @@ import (
 )
 
 type pwmDevice struct {
-	// These values are immutable
 	chipPath string
 	line     int
 
+	// We have no mutable state, but the mutex is used to write to multiple pseudofiles atomically.
 	mu     sync.Mutex
 	logger golog.Logger
-
-	// These values are mutable
-	periodNs         uint64
-	activeDurationNs uint64
-	isExported       bool
-	isEnabled        bool
 }
 
 func newPwmDevice(chipName string, line int, logger golog.Logger) (*pwmDevice, error) {
@@ -69,51 +63,32 @@ func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
 func (pwm *pwmDevice) export() error {
-	// check if the device is already exported. If so, return. If not, try exporting it.
-
-	if pwm.isExported {
-		// We're expecting the file to already be exported, so we shouldn't re-export it.
-		// Double-check that assumption
-		if _, err := os.LStat(pwm.linePath()); err != nil {
-			if os.IsNotExist(err) {
-				// Someone has been fiddling with sysfs while we weren't watching. Try to get our
-				// state back to the ground truth.
-				pwm.logger.Warnf("Hardware PWM chip %s line %d was expected to already be " +
-				                 "exported, but was not! Attempting to re-export...",
-								 pwm.chipPath, pwm.line)
-				pwm.isExported = false
-			} else {
-				// We encountered an unexpected error when statting the file. Give up for now.
-				return err
-			}
-		} else {
-			// Otherwise, we expected the file to exist, and it did. All is well.
-			pwm.logger.Debugf("Skipping exporting of already-exported HW PWM on chip %s, line %d",
-							  pwm.chipPath, pwm.line)
-			return nil
+	if _, err := os.LStat(pwm.linePath()); err != nil {
+		if os.IsNotExist(err) {
+			// The pseudofile we're trying to export doesn't yet exist. Export it now. This is the
+			// happy path.
+			return pwm.writeChip("export", uint64(pwm.line))
 		}
+		return err // Something unexpected has gone wrong.
 	}
-
-	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
-	// causing trouble if you start using the pin for something else.
-	if err := pwm.disable(); err != nil {
-		return err
-	}
-	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
-		return err
-	}
-	pwm.isExported = false
+	// Otherwise, the line we're trying to export already exists.
+	pwm.logger.Debugf("Skipping re-export of already-exported line %d on HW PWM chip %s",
+					  pwm.line, pwm.chipPath)
 	return nil
 }
 
 // Unexport turns off any PWM signal the pin was providing, and tells the OS that this pin is no
 // longer in use (so it can be reused as an input pin, etc.).
 func (pwm *pwmDevice) unexport() error {
-	if !pwm.isExported {
-		pwm.logger.Debugf("Skipping un-exporting of already-un-exported HW PWM on chip %s, line %d",
-		                  pwm.chipPath, pwm.line)
-		return nil // Already unexported
+	if _, err := os.LStat(pwm.linePath()); err != nil {
+		if os.IsNotExist(err) {
+			pwm.logger.Debugf("Skipping unexport of already-unexported line %d on HW PWM chip %s",
+							  pwm.line, pwm.chipPath)
+			return nil
+		}
+		return err // Something has gone wrong.
 	}
+
 	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
 	// causing trouble if you start using the pin for something else.
 	if err := pwm.disable(); err != nil {
@@ -122,37 +97,20 @@ func (pwm *pwmDevice) unexport() error {
 	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
 		return err
 	}
-	pwm.isExported = false
 	return nil
 }
 
 // Enable tells an exported pin to output the PWM signal it has been configured with.
 func (pwm *pwmDevice) enable() error {
-	if pwm.isEnabled {
-		pwm.logger.Debugf("Skipping enabling of already-enabled HW PWM on chip %s, line %d",
-		                  pwm.chipPath, pwm.line)
-		return nil
-	}
-	if err := pwm.writeLine("enable", 1); err != nil {
-		return err
-	}
-	pwm.isEnabled = true
-	return nil
+	// There is no harm in enabling an already-enabled pin; no errors will be returned if we try.
+	return pwm.writeLine("enable", 1)
 }
 
 // Disable tells an exported pin to stop outputting its PWM signal, but it is still available for
 // reconfiguring and re-enabling.
 func (pwm *pwmDevice) disable() error {
-	if !pwm.isEnabled {
-		pwm.logger.Debugf("Skipping disabling of already-disabled HW PWM on chip %s, line %d",
-		                  pwm.chipPath, pwm.line)
-		return nil
-	}
-	if err := pwm.writeLine("enable", 0); err != nil {
-		return err
-	}
-	pwm.isEnabled = false
-	return nil
+	// There is no harm in disabling an already-disabled pin; no errors will be returned if we try.
+	return pwm.writeLine("enable", 0)
 }
 
 // Only call this from public functions, to avoid double-wrapping the errors.
@@ -189,34 +147,19 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	periodNs := 1e9 / uint64(freqHz)
 	activeDurationNs := uint64(float64(periodNs) * dutyCycle)
 
-	// We are never allowed to set the active duration higher than the period. Change the order we
-	// set the values to ensure this. Specifically, we must avoid setting the new period lower than
-	// the current active duration, or setting the new active duration higher than the current
-	// period.
-	if periodNs < pwm.activeDurationNs {
-		// The new period is smaller than the old active duration. Change the active duration
-		// first.
-		if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
-			return err
-		}
-		pwm.activeDurationNs = activeDurationNs
-
-		if err := pwm.writeLine("period", periodNs); err != nil {
-			return err
-		}
-		pwm.periodNs = periodNs
-	} else {
-		// The new period is at least as large as the old active duration. It's safe to change the
-		// period first.
-		if err := pwm.writeLine("period", periodNs); err != nil {
-			return err
-		}
-		pwm.periodNs = periodNs
-
-		if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
-			return err
-		}
-		pwm.activeDurationNs = activeDurationNs
+	// If we ever try setting the active duration higher than the period (or the period lower than
+	// the active duration), we will get an error. Try setting one, then the other, then the first
+	// one again. If the first of those three had errors by being too small/large, the last one
+	// should take care of it. So, we purposely ignore any errors on the first value we try to
+	// write.
+	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
+		// This is okay; we'll change the period and then try setting the active duration again.
+	}
+	if err := pwm.writeLine("period", periodNs); err != nil {
+		return err
+	}
+	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
+		return err
 	}
 
 	return pwm.enable()
