@@ -123,12 +123,10 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
-		test.That(t, err, test.ShouldBeNil)
 		err = basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 
 		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
-		test.That(t, err, test.ShouldBeNil)
 		err1 := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1.0))
 		e := "error in splitting octree into new octants: error point is outside the bounds of this octree"
 		test.That(t, err1.Error(), test.ShouldEqual, e)
