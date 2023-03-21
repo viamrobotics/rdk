@@ -7,13 +7,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+const unexplored = -1.
+
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
-		maxProb:  -1.,
+		maxProb:  -unexplored,
 	}
 	return octNode
 }
@@ -24,26 +26,35 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    PointAndData{},
-		maxProb:  -1.,
+		maxProb:  unexplored,
 	}
 	return octNode
 }
 
 // Creates a new LeafNodeFilled and stores specified position and data.
-func newLeafNodeFilled(p r3.Vector, d Data) (basicOctreeNode, error) {
-	// if !d.HasValue() {
-	// 	d.SetValue(1)
-	// }
-	if d.Value() > 100 || d.Value() < 0 {
-		return basicOctreeNode{}, errors.New("value must be in range [0,100]")
-	}
+func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
+	maxProb := validateData(d)
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
-		maxProb:  float64(d.Value()) / 100,
+		maxProb:  maxProb,
 	}
-	return octNode, nil
+	return octNode
+}
+
+// validateData checks the data param for newLeafNodeFilled and returns a float.
+func validateData(d Data) float64 {
+	var maxProb float64
+	switch {
+	case !d.HasValue():
+		maxProb = 1
+	case d.Value() > 100 || d.Value() < 0:
+		maxProb = unexplored
+	default:
+		maxProb = float64(d.Value()) / 100
+	}
+	return maxProb
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
@@ -148,7 +159,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		// Update metadata
 		octree.meta.Merge(p, d)
 		octree.size++
-		octree.node, err = newLeafNodeFilled(p, d)
+		octree.node = newLeafNodeFilled(p, d)
 		return octree.node.maxProb, err
 	}
 
@@ -195,15 +206,4 @@ func getCenterFromPcMetaData(meta MetaData) r3.Vector {
 // Helper function for calculating the max side length of a pointcloud based on its metadata.
 func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
 	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
-}
-
-func getMaxProb(octree *BasicOctree, p r3.Vector) (float64, error) {
-	d, err := octree.At(p.X, p.Y, p.Z)
-	if !err {
-		return 0, errors.New("point not found in octree")
-	}
-	if !d.HasValue() {
-		return 0, errors.New("no value in data")
-	}
-	return float64(d.Value()) / 100., nil
 }
