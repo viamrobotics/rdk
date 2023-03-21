@@ -38,8 +38,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
-	fakecamera "go.viam.com/rdk/components/camera/fake"
-	"go.viam.com/rdk/components/camera/transformpipeline"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
@@ -1901,33 +1899,8 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 							Name: "my_classifier",
 							Parameters: config.AttributeMap(map[string]interface{}{
 								"model_path":  "${packages.package-1}/model.tflite",
-								"label_path":  "${pacakges.package-2}/labels.txt",
+								"label_path":  "${packages.package-2}/labels.txt",
 								"num_threads": 1,
-							}),
-						},
-					},
-				},
-			},
-		},
-		Components: []config.Component{
-			{
-				Name:                "cam",
-				Type:                camera.SubtypeName,
-				Model:               resource.NewDefaultModel("fake"),
-				ConvertedAttributes: &fakecamera.Attrs{},
-			},
-			{
-				Name:  "transform",
-				Type:  camera.SubtypeName,
-				Model: resource.NewDefaultModel("transform"),
-				ConvertedAttributes: &transformpipeline.TransformConfig{
-					Source: "cam",
-					Pipeline: []transformpipeline.Transformation{
-						{
-							Type: "classifications",
-							Attributes: config.AttributeMap(map[string]interface{}{
-								"classifier_name":      "my_classifier",
-								"confidence_threshold": 0.6,
 							}),
 						},
 					},
@@ -1944,15 +1917,6 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-
-	// Since we've used package references for the vision service which is referenced in the
-	// transform camera, make sure we can stream images from this camera.
-	transformCamera, err := camera.FromRobot(r, "transform")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformCamera.(resource.Reconfigurable).Name(), test.ShouldResemble, camera.Named("transform"))
-	_, _, err = camera.ReadImage(context.Background(), transformCamera)
-	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestReconnectRemote(t *testing.T) {

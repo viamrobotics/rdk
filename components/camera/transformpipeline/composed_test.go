@@ -49,7 +49,7 @@ func TestComposed(t *testing.T) {
 		},
 	}
 	// make transform pipeline, expected result with correct config
-	conf := &TransformConfig{
+	conf := &transformConfig{
 		Pipeline: []Transformation{
 			{
 				Type:       "overlay",
@@ -90,7 +90,7 @@ func TestComposed(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	// wrong config, no attributes
-	conf = &TransformConfig{
+	conf = &transformConfig{
 		Pipeline: []Transformation{
 			{
 				Type: "overlay", // no attributes
