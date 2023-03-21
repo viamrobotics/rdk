@@ -1,6 +1,5 @@
 import type {
   Client,
-  commonApi,
 } from '@viamrobotics/sdk';
 import { CameraManager } from './camera-manager';
 

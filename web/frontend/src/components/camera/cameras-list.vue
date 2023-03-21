@@ -7,7 +7,7 @@ import type {
 import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
 import { selectedMap } from '../../lib/camera-state';
-import type { StreamManager } f./stream-managernager';
+import type { StreamManager } from './stream-manager';
 
 const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[],

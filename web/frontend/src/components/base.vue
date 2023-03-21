@@ -9,7 +9,7 @@ import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
-import type { StreamManager } f./camera/stream-managernager';
+import type { StreamManager } from './camera/stream-manager';
 
 const enum Keymap {
   LEFT = 'a',
