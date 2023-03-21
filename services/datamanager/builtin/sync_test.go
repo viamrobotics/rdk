@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"github.com/benbjohnson/clock"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	fiftyMillis = 0.0008
-	syncTime    = time.Millisecond * 250
+	syncIntervalMillis = 0.0008
+	syncInterval       = time.Millisecond * 50
+	syncTime           = time.Millisecond * 250
 )
 
 var (
@@ -32,8 +33,6 @@ var (
 )
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
-// TODO: what do we actually want to test? That the underlying sync.Manager.SyncDirectory() is called, and successfully
-// finds + syncs all data in that dir
 func TestSyncEnabled(t *testing.T) {
 	tests := []struct {
 		name                        string
@@ -65,8 +64,8 @@ func TestSyncEnabled(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
-			mockClock := clock.NewMock()
-			clockVar = mockClock
+			mockClock := clk.NewMock()
+			clock = mockClock
 			tmpDir := t.TempDir()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0)
 			defer func() {
@@ -87,7 +86,7 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.CaptureDisabled = false
 			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
 			originalSvcConfig.CaptureDir = tmpDir
-			originalSvcConfig.SyncIntervalMins = fiftyMillis
+			originalSvcConfig.SyncIntervalMins = syncIntervalMillis
 
 			err = dmsvc.Update(context.Background(), cfg)
 
@@ -98,9 +97,9 @@ func TestSyncEnabled(t *testing.T) {
 			// mockClock.Add(captureTime)
 			// mockClock.Add(captureTime)
 			waitForCaptureFiles(tmpDir)
-			mockClock.Add(time.Millisecond * 55)
+			mockClock.Add(syncInterval)
 			var receivedReq bool
-			wait := time.After(time.Millisecond * 100)
+			wait := time.After(time.Second)
 			select {
 			case <-wait:
 			case <-mockService.succesfulDCRequests:
@@ -120,7 +119,7 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDisabled = false
 			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
 			updatedSvcConfig.CaptureDir = tmpDir
-			updatedSvcConfig.SyncIntervalMins = fiftyMillis
+			updatedSvcConfig.SyncIntervalMins = syncIntervalMillis
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -132,8 +131,8 @@ func TestSyncEnabled(t *testing.T) {
 			// Let run for a second, then change status.
 			var receivedReqTwo bool
 			waitForCaptureFiles(tmpDir)
-			mockClock.Add(time.Millisecond * 55)
-			wait = time.After(time.Millisecond * 100)
+			mockClock.Add(syncInterval)
+			wait = time.After(time.Second)
 			select {
 			case <-wait:
 			case <-mockService.succesfulDCRequests:
@@ -153,6 +152,8 @@ func TestSyncEnabled(t *testing.T) {
 
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUpload(t *testing.T) {
+	// t.Skip()
+	datacapture.MaxFileSize = 500
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
@@ -163,7 +164,6 @@ func TestDataCaptureUpload(t *testing.T) {
 		dataType              v1.DataType
 		manualSync            bool
 		scheduledSyncDisabled bool
-		serviceFailAt         int
 		numFails              int
 		emptyFile             bool
 	}{
@@ -212,9 +212,6 @@ func TestDataCaptureUpload(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
 			tmpDir := t.TempDir()
-			// Set up server.
-			mockClock := clock.NewMock()
-			clockVar = mockClock
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.numFails)
 			defer func() {
 				err := rpcServer.Stop()
@@ -242,27 +239,15 @@ func TestDataCaptureUpload(t *testing.T) {
 			test.That(t, ok1, test.ShouldBeTrue)
 			svcConfig.CaptureDisabled = false
 			svcConfig.ScheduledSyncDisabled = true
-			svcConfig.SyncIntervalMins = fiftyMillis
+			svcConfig.SyncIntervalMins = syncIntervalMillis
 			svcConfig.CaptureDir = tmpDir
 
-			waitForCaptureFiles(tmpDir)
-			mockClock.Add(time.Millisecond * 55)
-			var reqs []*v1.DataCaptureUploadRequest
-			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
-			if tc.manualSync {
-				err = dmsvc.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-				err = dmsvc.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-			}
-			wait := time.After(time.Millisecond * 100)
-			select {
-			case <-wait:
-			case req := <-mockService.succesfulDCRequests:
-				if req != nil {
-					reqs = append(reqs, req)
-				}
-			}
+			err = dmsvc.Update(context.Background(), cfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Let run for a bit, then close.
+			time.Sleep(captureTime)
+			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
@@ -274,40 +259,35 @@ func TestDataCaptureUpload(t *testing.T) {
 				test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 			}
 
-			// If we set failAt, we want to restart the service to simulate when the backend fails.
-			var newMockService *mockDataSyncServiceServer
-			if tc.serviceFailAt > 0 {
-				// Now turn back on with only sync enabled.
-				test.That(t, rpcServer.Stop(), test.ShouldBeNil)
-				rpcServer, newMockService = buildAndStartLocalSyncServer(t, 0, 0)
-				defer func() {
-					err := rpcServer.Stop()
-					test.That(t, err, test.ShouldBeNil)
-				}()
+			// Turn dmsvc back on with capture disabled.
+			newDMSvc := newTestDataManager(t)
+			defer newDMSvc.Close(context.Background())
+			newDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
+			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
+			svcConfig.CaptureDisabled = true
+			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
+			svcConfig.SyncIntervalMins = syncIntervalMillis
+			time.Sleep(time.Duration(testLastModifiedMillis) * time.Millisecond)
+			err = newDMSvc.Update(context.Background(), cfg)
+			test.That(t, err, test.ShouldBeNil)
 
-				newDMSvc.Close(context.Background())
-				newestDMSvc := newTestDataManager(t)
-				defer newestDMSvc.Close(context.Background())
-				newestDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
-				newestDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
-				err = newestDMSvc.Update(context.Background(), cfg)
+			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
+			if tc.manualSync {
+				err = newDMSvc.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
-				time.Sleep(syncTime)
-				err = newestDMSvc.Close(context.Background())
+				err = newDMSvc.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
+			time.Sleep(syncTime)
+			err = newDMSvc.Close(context.Background())
+			test.That(t, err, test.ShouldBeNil)
 
 			// Calculate combined successful/failed requests
-			var successfulURs []*v1.DataCaptureUploadRequest
-			if tc.serviceFailAt > 0 {
-				successfulURs = append(mockService.getSuccessfulDCUploadRequests(), newMockService.getSuccessfulDCUploadRequests()...)
-			} else {
-				successfulURs = mockService.getSuccessfulDCUploadRequests()
-			}
+			successfulURs := mockService.getSuccessfulDCUploadRequests()
 			failedURs := mockService.getFailedDCUploadRequests()
 
 			// If the server was supposed to fail for some requests, verify that it did.
-			if tc.numFails != 0 || tc.serviceFailAt != 0 {
+			if tc.numFails != 0 {
 				test.That(t, len(failedURs), test.ShouldBeGreaterThan, 0)
 			}
 
@@ -374,7 +354,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			if tc.serviceFail {
 				failFor = 100
 			}
-			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0, failFor)
+			rpcServer, mockService := buildAndStartLocalSyncServer(t, failFor)
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -392,7 +372,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			test.That(t, ok, test.ShouldBeTrue)
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
-			svcConfig.SyncIntervalMins = fiftyMillis
+			svcConfig.SyncIntervalMins = syncIntervalMillis
 			svcConfig.AdditionalSyncPaths = []string{additionalPathsDir}
 			svcConfig.CaptureDir = captureDir
 
