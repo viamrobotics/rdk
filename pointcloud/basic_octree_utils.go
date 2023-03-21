@@ -8,42 +8,39 @@ import (
 )
 
 // Creates a new LeafNodeEmpty.
-func newLeafNodeEmpty(parent *BasicOctree, depth int) basicOctreeNode {
+func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
-		parent:   parent,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
 		maxProb:  -1.,
-		depth:    depth,
 	}
 	return octNode
 }
 
 // Creates a new InternalNode with specified children nodes.
-func newInternalNode(tree []*BasicOctree, parent *BasicOctree, depth int) basicOctreeNode {
+func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: tree,
-		parent:   parent,
 		nodeType: internalNode,
 		point:    PointAndData{},
 		maxProb:  -1.,
-		depth:    depth,
 	}
 	return octNode
 }
 
 // Creates a new LeafNodeFilled and stores specified position and data.
-func newLeafNodeFilled(p r3.Vector, d Data, parent *BasicOctree, depth int) basicOctreeNode {
+func newLeafNodeFilled(p r3.Vector, d Data) (basicOctreeNode, error) {
+	if !d.HasValue() {
+		errors.New("please specify a value for the point within the Data struct")
+	}
 	octNode := basicOctreeNode{
 		children: nil,
-		parent:   parent,
 		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
 		maxProb:  float64(d.Value()) / 100,
-		depth:    depth,
 	}
-	return octNode
+	return octNode, nil
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
@@ -73,7 +70,7 @@ func (octree *BasicOctree) splitIntoOctants() error {
 						center:     newCenter,
 						sideLength: newSideLength,
 						size:       0,
-						node:       newLeafNodeEmpty(octree, octree.node.depth+1),
+						node:       newLeafNodeEmpty(),
 						meta:       NewMetaData(),
 					}
 					children = append(children, child)
@@ -84,7 +81,7 @@ func (octree *BasicOctree) splitIntoOctants() error {
 		// Extract data before redefining node as InternalNode with eight new children nodes
 		p := octree.node.point.P
 		d := octree.node.point.D
-		octree.node = newInternalNode(children, octree.node.parent, octree.node.depth)
+		octree.node = newInternalNode(children)
 		octree.meta = NewMetaData()
 		octree.size = 0
 		return octree.Set(p, d)
@@ -114,6 +111,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		return 0., errors.New("error point is outside the bounds of this octree")
 	}
 
+	var err error
 	switch octree.node.nodeType {
 	case internalNode:
 		for _, childNode := range octree.node.children {
@@ -125,7 +123,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 					octree.size++
 					octree.node.maxProb = math.Max(mp, octree.node.maxProb)
 				}
-				return 0., err
+				return octree.node.maxProb, err
 			}
 		}
 		return 0., errors.New("error invalid internal node detected, please check your tree")
@@ -147,8 +145,8 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		// Update metadata
 		octree.meta.Merge(p, d)
 		octree.size++
-		octree.node = newLeafNodeFilled(p, d, octree.node.parent, octree.node.depth)
-		return octree.node.maxProb, nil
+		octree.node, err = newLeafNodeFilled(p, d)
+		return octree.node.maxProb, err
 	}
 
 	return 0., nil
@@ -197,20 +195,12 @@ func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
 }
 
 func getMaxProb(octree *BasicOctree, p r3.Vector) (float64, error) {
-	switch octree.node.nodeType {
-	case internalNode:
-		for _, child := range octree.node.children {
-			if mp, err := getMaxProb(child, p); err == nil {
-				return mp, nil
-			}
-		}
-	case leafNodeFilled:
-		point := octree.node.point.P
-		if point == p {
-			mpc := octree.node.maxProb
-			return mpc, nil
-		}
-	case leafNodeEmpty:
+	d, err := octree.At(p.X, p.Y, p.Z)
+	if !err {
+		return 0, errors.New("point not found in octree")
 	}
-	return 0., errors.New("point not found in passed in octree")
+	if !d.HasValue() {
+		return 0, errors.New("no value in data")
+	}
+	return float64(d.Value()) / 100., nil
 }
