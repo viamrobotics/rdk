@@ -23,11 +23,12 @@ let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
 let show3d = $ref(false);
 let refresh2DCancelled = true;
+let refresh3DCancelled = true;
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
 let slam2dTimeoutId = -1;
-let slam3dIntervalId = -1;
+let slam3dTimeoutId = -1;
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -40,7 +41,7 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
   return result;
 };
 
-const fetchSLAMMap = (name: string): Promise<Uint8Array | undefined> => {
+const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
   return new Promise((resolve, reject) => {
     const req = new slamApi.GetPointCloudMapStreamRequest();
     req.setName(name);
@@ -73,7 +74,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array | undefined> => {
   });
 };
 
-const fetchSLAMPose = (name: string): Promise<commonApi.Pose | undefined> => {
+const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   return new Promise((resolve, reject): void => {
     const req = new slamApi.GetPositionNewRequest();
     req.setName(name);
@@ -95,9 +96,6 @@ const refresh2d = async (name: string) => {
 
 const scheduleRefresh2d = (name: string, time: string) => {
   const timeoutCallback = async () => {
-    if (refresh2DCancelled) {
-      return;
-    }
     try {
       const results = await refresh2d(name);
       if (results && results.length === 2) {
@@ -114,6 +112,26 @@ const scheduleRefresh2d = (name: string, time: string) => {
     scheduleRefresh2d(name, time);
   };
   slam2dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
+};
+
+const scheduleRefresh3d = (name: string, time: string) => {
+  const timeoutCallback = async () => {
+    try {
+      const result = await fetchSLAMMap(name);
+      if (result) {
+        pointcloud = result;
+        pointCloudUpdateCount += 1;
+      }
+    } catch (error) {
+      displayError(error);
+      return;
+    }
+    if (refresh3DCancelled) {
+      return;
+    }
+    scheduleRefresh3d(name, time);
+  };
+  slam3dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
 };
 
 const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
@@ -138,18 +156,25 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
   }
 };
 
-const updateSLAM3dRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
-  clearInterval(slam3dIntervalId);
+const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+  refresh3DCancelled = true;
+  window.clearTimeout(slam3dTimeoutId);
 
   if (time === 'manual') {
-    fetchSLAMMap(name);
+    try {
+      const result = await fetchSLAMMap(name);
+      if (result) {
+        pointcloud = result;
+        pointCloudUpdateCount += 1;
+      }
+    } catch (error) {
+      displayError(error);
+    }
   } else if (time === 'off') {
     // do nothing
   } else {
-    fetchSLAMMap(name);
-    slam3dIntervalId = window.setInterval(() => {
-      fetchSLAMMap(name);
-    }, Number.parseFloat(time) * 1000);
+    refresh3DCancelled = false;
+    scheduleRefresh3d(name, time);
   }
 };
 
