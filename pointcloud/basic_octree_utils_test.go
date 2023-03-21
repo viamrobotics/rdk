@@ -12,7 +12,7 @@ import (
 // Test creation of empty leaf node, filled leaf node and internal node.
 func TestNodeCreation(t *testing.T) {
 	t.Run("Create empty leaf node", func(t *testing.T) {
-		basicOct := newLeafNodeEmpty(nil, 0)
+		basicOct := newLeafNodeEmpty()
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeEmpty)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{})
@@ -22,7 +22,8 @@ func TestNodeCreation(t *testing.T) {
 	t.Run("Create filled leaf node", func(t *testing.T) {
 		p := r3.Vector{X: 0, Y: 0, Z: 0}
 		d := NewValueData(1.0)
-		basicOct := newLeafNodeFilled(p, d, nil, 0)
+		basicOct, err := newLeafNodeFilled(p, d)
+		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeFilled)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{P: p, D: d})
@@ -31,7 +32,7 @@ func TestNodeCreation(t *testing.T) {
 
 	t.Run("Create internal node", func(t *testing.T) {
 		var children []*BasicOctree
-		basicOct := newInternalNode(children, nil, 0)
+		basicOct := newInternalNode(children)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{})
@@ -121,11 +122,13 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0), basicOct.node.parent, basicOct.node.depth)
+		basicOct.node, err = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
+		test.That(t, err, test.ShouldBeNil)
 		err = basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 
-		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0), basicOct.node.parent, basicOct.node.depth)
+		basicOct.node, err = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
+		test.That(t, err, test.ShouldBeNil)
 		err1 := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1.0))
 		test.That(t, err1, test.ShouldBeError, errors.Errorf("error in splitting octree into new octants: %v", err))
 	})
@@ -162,7 +165,7 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper function that recursively checks a basic octree's structure and metadata.
-func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) int {
+func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) (int, float64) {
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
@@ -170,9 +173,8 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 
 	validateMetadata(t, bOct)
 
-	leafMPCMap := make(map[r3.Vector]float64)
-
 	var size int
+	var maxProb float64
 	switch bOct.node.nodeType {
 	case internalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -208,13 +210,16 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 				numLeafNodeEmptyNodes++
 			}
 
-			size += validateBasicOctree(t, child, r3.Vector{
+			sizeX, recursedMaxProb := validateBasicOctree(t, child, r3.Vector{
 				X: center.X + i*sideLength/4.,
 				Y: center.Y + j*sideLength/4.,
 				Z: center.Z + k*sideLength/4.,
 			}, sideLength/2.)
+			size = size + sizeX
+			maxProb = recursedMaxProb
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)
+		test.That(t, bOct.node.maxProb, test.ShouldBeGreaterThanOrEqualTo, maxProb)
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
@@ -222,19 +227,14 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 		test.That(t, bOct.checkPointPlacement(bOct.node.point.P), test.ShouldBeTrue)
 		test.That(t, bOct.size, test.ShouldEqual, 1)
 		size = bOct.size
-
-		p := bOct.node.point.P
-		mpc := bOct.node.maxProb
-		leafMPCMap[p] = mpc
-		_, err := validateProbability(t, bOct, leafMPCMap)
-		test.That(t, err, test.ShouldBeNil)
+		maxProb = bOct.node.maxProb
 	case leafNodeEmpty:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
 		test.That(t, bOct.node.point, test.ShouldResemble, PointAndData{})
 		test.That(t, bOct.size, test.ShouldEqual, 0)
 		size = bOct.size
 	}
-	return size
+	return size, maxProb
 }
 
 // Helper function for checking basic octree metadata.
@@ -286,14 +286,14 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 					center:     newCenter,
 					sideLength: newSideLength,
 					size:       0,
-					node:       newLeafNodeEmpty(oct, oct.node.depth),
+					node:       newLeafNodeEmpty(),
 					meta:       NewMetaData(),
 				}
 				children = append(children, child)
 			}
 		}
 	}
-	oct.node = newInternalNode(children, oct.node.parent, oct.node.depth)
+	oct.node = newInternalNode(children)
 	oct.node.children[0] = createLopsidedOctree(oct.node.children[0], i+1, max)
 	return oct
 }
@@ -315,14 +315,14 @@ func stringBasicOctreeNodeType(n NodeType) string {
 
 //nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
-	logger.Infof("%v %e %e %e - %v | Depth: %v Children: %v Side: %v Size: %v MaxChildProbability: %f\n",
+	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxChildProbability: %f\n",
 		s, bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
-		bOct.node.depth, len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxProb)
+		len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxProb)
 
 	if bOct.node.nodeType == leafNodeFilled {
-		logger.Infof("%s (%e %e %e) - Val: %v | Depth: %v MaxChildProbability: %f\n",
+		logger.Infof("%s (%e %e %e) - Val: %v | MaxChildProbability: %f\n",
 			s, bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z,
-			bOct.node.point.D.Value(), bOct.node.depth, bOct.node.maxProb)
+			bOct.node.point.D.Value(), bOct.node.maxProb)
 	}
 	for _, v := range bOct.node.children {
 		printBasicOctree(logger, v, s+"-+-")
