@@ -13,18 +13,17 @@ export class StreamManager {
 
   client: Client;
 
-  constructor (cameras:commonApi.ResourceName.AsObject[], client:Client) {
+  constructor (client:Client) {
     this.isConnected = true;
     this.cameraList = [];
     this.cameraManagers = new Map<string, CameraManager>();
     this.client = client;
-    // this.refreshStreams();
   }
 
   setCameraManager (cameraName:string) {
-    const tempManager = new CameraManager(cameraName,this.client);
-    this.cameraManagers.set(cameraName, tempManager)
-    return tempManager
+    const tempManager = new CameraManager(cameraName, this.client);
+    this.cameraManagers.set(cameraName, tempManager);
+    return tempManager;
   }
 
   refreshStreams () {
