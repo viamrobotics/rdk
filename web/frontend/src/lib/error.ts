@@ -2,7 +2,7 @@ import type { ServiceError } from '@viamrobotics/sdk';
 import { toast } from './toast';
 
 export const isServiceError = (error: unknown): boolean => {
-  return error instanceof Object && error && 'message' in error && 'code' in error && 'metadata' in error
+  return error instanceof Object && error && 'message' in error && 'code' in error && 'metadata' in error;
 };
 
 export const displayError = (error: ServiceError | string | null) => {
