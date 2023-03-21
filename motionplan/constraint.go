@@ -480,17 +480,14 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	return validFunc, gradFunc
 }
 
-// NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses.
-func NewPositionOnlyMetric() Metric {
-	return positionOnlyDist
-}
-
-// positionOnlyDist returns the point-wise distance between two poses without regard for orientation.
+// NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses without regard for orientation.
 // This is useful for scenarios where there are not enough DOF to control orientation, but arbitrary spatial points may
 // still be arived at.
-func positionOnlyDist(from, to spatial.Pose) float64 {
-	pDist := from.Point().Distance(to.Point())
-	return pDist * pDist
+func NewPositionOnlyMetric(goal spatial.Pose) Metric {
+	return func(from spatial.Pose) float64 {
+		pDist := from.Point().Distance(goal.Point())
+		return pDist * pDist
+	}
 }
 
 //~ // Prevents recalculation of startPos. If no startPos has been calculated, just pass nil.

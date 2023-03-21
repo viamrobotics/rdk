@@ -92,7 +92,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
-	opt.DistanceFunc = defaultDistanceFunc
+	//~ opt.DistanceFunc = defaultDistanceFunc
 
 	// Note the direct reference to a default here.
 	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
@@ -137,7 +137,7 @@ type plannerOptions struct {
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
-	DistanceFunc Constraint
+	//~ DistanceFunc Constraint
 
 	PlannerConstructor plannerConstructor
 
