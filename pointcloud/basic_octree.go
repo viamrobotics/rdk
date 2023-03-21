@@ -61,7 +61,7 @@ func (octree *BasicOctree) Size() int {
 	return octree.size
 }
 
-// MaxProb returns the trees max probability.
+// MaxProb returns the octree's max probability.
 func (octree *BasicOctree) MaxProb() float64 {
 	return octree.node.maxProb
 }

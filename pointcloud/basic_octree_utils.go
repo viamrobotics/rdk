@@ -15,7 +15,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
-		maxProb:  -emptyProb,
+		maxProb:  emptyProb,
 	}
 	return octNode
 }
@@ -33,7 +33,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 
 // Creates a new LeafNodeFilled and stores specified position and data.
 func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
-	maxProb := validateData(d)
+	maxProb := getRawProb(d)
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeFilled,
@@ -43,16 +43,16 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 	return octNode
 }
 
-// validateData checks the data param for newLeafNodeFilled and returns a float.
-func validateData(d Data) float64 {
+// getRawProb checks the data param for newLeafNodeFilled and returns a float.
+func getRawProb(d Data) float64 {
 	var maxProb float64
 	switch {
 	case !d.HasValue():
 		maxProb = 1
-	case d.Value() > 100 || d.Value() < 0:
-		maxProb = emptyProb
-	default:
+	case d.Value() <= 100 || d.Value() >= 0:
 		maxProb = float64(d.Value()) / 100
+	default:
+		maxProb = emptyProb
 	}
 	return maxProb
 }

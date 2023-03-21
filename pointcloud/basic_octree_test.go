@@ -116,19 +116,21 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
+		d1 := 1
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, .01)
+		test.That(t, mp, test.ShouldEqual, float64(d1)/100)
 
-		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(2))
+		d2 := 2
+		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 2)
 		mp = basicOct.node.children[0].MaxProb()
-		test.That(t, mp, test.ShouldEqual, .02)
+		test.That(t, mp, test.ShouldEqual, float64(d2)/100)
 		mp = basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, .02)
+		test.That(t, mp, test.ShouldEqual, float64(d2)/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -137,22 +139,25 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(3))
+		d3 := 3
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d3))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, .03)
+		test.That(t, mp, test.ShouldEqual, float64(d3)/100)
 
-		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(2))
+		d2 := 2
+		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		mp = basicOct.node.children[0].MaxProb()
-		test.That(t, mp, test.ShouldEqual, .03)
+		test.That(t, mp, test.ShouldEqual, float64(d3)/100)
 
-		err = basicOct.Set(r3.Vector{X: -.4, Y: 0, Z: 0}, NewValueData(4))
+		d4 := 4
+		err = basicOct.Set(r3.Vector{X: -.4, Y: 0, Z: 0}, NewValueData(d4))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 3)
 		mp = basicOct.node.children[0].MaxProb()
-		test.That(t, mp, test.ShouldEqual, .04)
+		test.That(t, mp, test.ShouldEqual, float64(d4)/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -619,46 +624,47 @@ func TestCachedMaxProbability(t *testing.T) {
 	octree, err := createNewOctree(center, side)
 	test.That(t, err, test.ShouldBeNil)
 
-	pointsAndData := []PointAndData{
-		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
-		{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3)},
-		{P: r3.Vector{X: .5, Y: 0, Z: .5}, D: NewValueData(10)},
-		{P: r3.Vector{X: .5, Y: .5, Z: 0}, D: NewValueData(1)},
-		{P: r3.Vector{X: .55, Y: .55, Z: 0}, D: NewValueData(4)},
-		{P: r3.Vector{X: -.55, Y: -.55, Z: 0}, D: NewValueData(5)},
-		{P: r3.Vector{X: .755, Y: .755, Z: 0}, D: NewValueData(6)},
-	}
+	t.Run("get the max prob from an octree", func(t *testing.T) {
+		pointsAndData := []PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3)},
+			{P: r3.Vector{X: .5, Y: 0, Z: .5}, D: NewValueData(10)},
+			{P: r3.Vector{X: .5, Y: .5, Z: 0}, D: NewValueData(1)},
+			{P: r3.Vector{X: .55, Y: .55, Z: 0}, D: NewValueData(4)},
+			{P: r3.Vector{X: -.55, Y: -.55, Z: 0}, D: NewValueData(5)},
+			{P: r3.Vector{X: .755, Y: .755, Z: 0}, D: NewValueData(6)},
+		}
 
-	err = addPoints(octree, pointsAndData)
-	test.That(t, err, test.ShouldBeNil)
+		err = addPoints(octree, pointsAndData)
+		test.That(t, err, test.ShouldBeNil)
 
-	validateBasicOctree(t, octree, octree.center, octree.sideLength)
+		validateBasicOctree(t, octree, octree.center, octree.sideLength)
 
-	// test that we can get the max prob from a tree
-	mp := octree.MaxProb()
-	test.That(t, mp, test.ShouldEqual, 0.1)
+		mp := octree.MaxProb()
+		test.That(t, mp, test.ShouldEqual, 0.1)
 
-	mp = octree.node.children[0].MaxProb()
-	test.That(t, mp, test.ShouldEqual, 0.05)
+		mp = octree.node.children[0].MaxProb()
+		test.That(t, mp, test.ShouldEqual, 0.05)
+	})
+	t.Run("cannot set arbitrary values into the octree", func(t *testing.T) {
+		d := NewValueData(101)
+		node := newLeafNodeFilled(r3.Vector{}, d)
+		filledNode := basicOctreeNode{
+			children: nil,
+			nodeType: leafNodeFilled,
+			point:    PointAndData{P: r3.Vector{}, D: d},
+			maxProb:  -1,
+		}
+		test.That(t, node, test.ShouldResemble, filledNode)
 
-	// test that we cannot set arbitrary values into the octree
-	d := NewValueData(101)
-	node := newLeafNodeFilled(r3.Vector{}, d)
-	filledNode := basicOctreeNode{
-		children: nil,
-		nodeType: leafNodeFilled,
-		point:    PointAndData{P: r3.Vector{}, D: d},
-		maxProb:  -1,
-	}
-	test.That(t, node, test.ShouldResemble, filledNode)
-
-	d = &basicData{value: 0, hasValue: false}
-	node = newLeafNodeFilled(r3.Vector{}, d)
-	filledNode = basicOctreeNode{
-		children: nil,
-		nodeType: leafNodeFilled,
-		point:    PointAndData{P: r3.Vector{}, D: d},
-		maxProb:  1,
-	}
-	test.That(t, node, test.ShouldResemble, filledNode)
+		d = &basicData{value: 0, hasValue: false}
+		node = newLeafNodeFilled(r3.Vector{}, d)
+		filledNode = basicOctreeNode{
+			children: nil,
+			nodeType: leafNodeFilled,
+			point:    PointAndData{P: r3.Vector{}, D: d},
+			maxProb:  1,
+		}
+		test.That(t, node, test.ShouldResemble, filledNode)
+	})
 }
