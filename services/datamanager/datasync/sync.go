@@ -52,6 +52,10 @@ type syncer struct {
 
 	progressLock *sync.Mutex
 	inProgress   map[string]bool
+
+	syncErrs   chan error
+	closed     *atomic.Bool
+	logRoutine sync.WaitGroup
 }
 
 // ManagerConstructor is a function for building a Manager.
@@ -93,22 +97,32 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
+		partID:             partID,
 		conn:               conn,
 		client:             client,
 		logger:             logger,
 		backgroundWorkers:  sync.WaitGroup{},
 		cancelCtx:          cancelCtx,
 		cancelFunc:         cancelFunc,
-		partID:             partID,
+		lastModifiedMillis: lastModifiedMillis,
 		progressLock:       &sync.Mutex{},
 		inProgress:         make(map[string]bool),
-		lastModifiedMillis: lastModifiedMillis,
+
+		syncErrs:   make(chan error, 10),
+		closed:     &atomic.Bool{},
+		logRoutine: sync.WaitGroup{},
 	}
+	ret.logRoutine.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer ret.logRoutine.Done()
+		ret.logSyncErrs()
+	})
 	return &ret, nil
 }
 
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
+	s.closed.Store(true)
 	s.cancelFunc()
 	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
@@ -116,6 +130,9 @@ func (s *syncer) Close() {
 		}
 	}
 	s.backgroundWorkers.Wait()
+	close(s.syncErrs)
+	s.logRoutine.Wait()
+	goutils.UncheckedError(s.logger.Sync())
 }
 
 func (s *syncer) SyncDirectory(dir string) {
@@ -138,7 +155,7 @@ func (s *syncer) SyncDirectory(dir string) {
 					// Don't log if the file does not exist, because that means it was successfully synced and deleted
 					// in between paths being built and this executing.
 					if !errors.Is(err, os.ErrNotExist) {
-						s.logger.Errorw("error opening file", "error", err)
+						s.syncErrs <- errors.Wrap(err, "error opening file")
 					}
 					return
 				}
@@ -146,10 +163,10 @@ func (s *syncer) SyncDirectory(dir string) {
 				if datacapture.IsDataCaptureFile(f) {
 					captureFile, err := datacapture.ReadFile(f)
 					if err != nil {
-						s.logger.Errorw("error reading capture file", "error", err)
+						s.syncErrs <- errors.Wrap(err, "error reading data capture file")
 						err := f.Close()
 						if err != nil {
-							s.logger.Errorw("error closing file", "error", err)
+							s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 						}
 						return
 					}
@@ -169,11 +186,7 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		func(ctx context.Context) error {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				if strings.Contains(err.Error(), context.Canceled.Error()) {
-					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
-				} else {
-					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
-				}
+				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.GetPath()))
 			}
 			return err
 		},
@@ -181,16 +194,12 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 	if uploadErr != nil {
 		err := f.Close()
 		if err != nil {
-			s.logger.Errorw("error closing file", "error", err)
+			s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 		}
 		return
 	}
 	if err := f.Delete(); err != nil {
-		s.logger.Error(err)
-		err := f.Close()
-		if err != nil {
-			s.logger.Errorw("error closing file", "error", err)
-		}
+		s.syncErrs <- errors.Wrap(err, "error deleting data capture file")
 		return
 	}
 }
@@ -201,23 +210,19 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		func(ctx context.Context) error {
 			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				if strings.Contains(err.Error(), context.Canceled.Error()) {
-					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
-				} else {
-					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
-				}
+				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.Name()))
 			}
 			return err
 		})
 	if uploadErr != nil {
 		err := f.Close()
 		if err != nil {
-			s.logger.Errorw("error closing file", "error", err)
+			s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 		}
 		return
 	}
 	if err := os.Remove(f.Name()); err != nil {
-		s.logger.Error(fmt.Sprintf("error deleting file %s", f.Name()), "error", err)
+		s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name()))
 		return
 	}
 }
@@ -238,6 +243,19 @@ func (s *syncer) unmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	delete(s.inProgress, path)
+}
+
+func (s *syncer) logSyncErrs() {
+	for err := range s.syncErrs {
+		if s.closed.Load() {
+			// Don't log context cancellation errors if the Manager has already been closed. This means the Manager
+			// cancelled the context, and the context cancellation error is expected.
+			if strings.Contains(err.Error(), context.Canceled.Error()) {
+				continue
+			}
+		}
+		s.logger.Error(err)
+	}
 }
 
 // exponentialRetry calls fn and retries with exponentially increasing waits from initialWait to a
