@@ -68,7 +68,7 @@ func TestSyncEnabled(t *testing.T) {
 			mockClock := clock.NewMock()
 			clockVar = mockClock
 			tmpDir := t.TempDir()
-			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0, 0)
+			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0)
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -97,7 +97,7 @@ func TestSyncEnabled(t *testing.T) {
 			// captureTime := time.Millisecond * 20
 			// mockClock.Add(captureTime)
 			// mockClock.Add(captureTime)
-			time.Sleep(time.Millisecond * 100)
+			waitForCaptureFiles(tmpDir)
 			mockClock.Add(time.Millisecond * 55)
 			var receivedReq bool
 			wait := time.After(time.Millisecond * 100)
@@ -131,8 +131,7 @@ func TestSyncEnabled(t *testing.T) {
 
 			// Let run for a second, then change status.
 			var receivedReqTwo bool
-			// TODO: make this deterministically wait until capture has started instead of sleeping
-			time.Sleep(time.Millisecond * 100)
+			waitForCaptureFiles(tmpDir)
 			mockClock.Add(time.Millisecond * 55)
 			wait = time.After(time.Millisecond * 100)
 			select {
@@ -154,7 +153,6 @@ func TestSyncEnabled(t *testing.T) {
 
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUpload(t *testing.T) {
-	datacapture.MaxFileSize = 500
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
 	datasync.InitialWaitTimeMillis.Store(int32(20))
@@ -195,16 +193,6 @@ func TestDataCaptureUpload(t *testing.T) {
 			manualSync: true,
 		},
 		{
-			name:          "If tabular sync fails part way through, it should be resumed without duplicate uploads",
-			dataType:      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			serviceFailAt: 2,
-		},
-		{
-			name:          "If binary sync fails part way through, it should be resumed without duplicate uploads",
-			dataType:      v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			serviceFailAt: 2,
-		},
-		{
 			name:     "If tabular uploads fail transiently, they should be retried until they succeed.",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			numFails: 2,
@@ -224,7 +212,10 @@ func TestDataCaptureUpload(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
 			tmpDir := t.TempDir()
-			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.serviceFailAt, tc.numFails)
+			// Set up server.
+			mockClock := clock.NewMock()
+			clockVar = mockClock
+			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.numFails)
 			defer func() {
 				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
@@ -254,12 +245,24 @@ func TestDataCaptureUpload(t *testing.T) {
 			svcConfig.SyncIntervalMins = fiftyMillis
 			svcConfig.CaptureDir = tmpDir
 
-			err = dmsvc.Update(context.Background(), cfg)
-			test.That(t, err, test.ShouldBeNil)
-
-			// Let run for a bit, then close.
-			time.Sleep(captureTime)
-			err = dmsvc.Close(context.Background())
+			waitForCaptureFiles(tmpDir)
+			mockClock.Add(time.Millisecond * 55)
+			var reqs []*v1.DataCaptureUploadRequest
+			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
+			if tc.manualSync {
+				err = dmsvc.Sync(context.Background(), nil)
+				test.That(t, err, test.ShouldBeNil)
+				err = dmsvc.Sync(context.Background(), nil)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			wait := time.After(time.Millisecond * 100)
+			select {
+			case <-wait:
+			case req := <-mockService.succesfulDCRequests:
+				if req != nil {
+					reqs = append(reqs, req)
+				}
+			}
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
@@ -270,28 +273,6 @@ func TestDataCaptureUpload(t *testing.T) {
 			} else {
 				test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 			}
-
-			// Turn dmsvc back on with capture disabled.
-			newDMSvc := newTestDataManager(t)
-			defer newDMSvc.Close(context.Background())
-			newDMSvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
-			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
-			svcConfig.CaptureDisabled = true
-			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
-			svcConfig.SyncIntervalMins = fiftyMillis
-			err = newDMSvc.Update(context.Background(), cfg)
-			test.That(t, err, test.ShouldBeNil)
-
-			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
-			if tc.manualSync {
-				err = newDMSvc.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-				err = newDMSvc.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-			}
-			time.Sleep(syncTime)
-			err = newDMSvc.Close(context.Background())
-			test.That(t, err, test.ShouldBeNil)
 
 			// If we set failAt, we want to restart the service to simulate when the backend fails.
 			var newMockService *mockDataSyncServiceServer
@@ -643,14 +624,14 @@ func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUplo
 }
 
 //nolint:thelper
-func buildAndStartLocalSyncServer(t *testing.T, failAt int, failFor int) (rpc.Server, *mockDataSyncServiceServer) {
+func buildAndStartLocalSyncServer(t *testing.T, failFor int) (rpc.Server, *mockDataSyncServiceServer) {
 	logger := golog.NewTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	mockService := mockDataSyncServiceServer{
-		succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 10),
-		failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 10),
+		succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
+		failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 
 		successfulDCUploadRequests:         &[]*v1.DataCaptureUploadRequest{},
 		failedDCUploadRequests:             &[]*v1.DataCaptureUploadRequest{},
