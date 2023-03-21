@@ -246,11 +246,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, mp, test.ShouldEqual, float64(d1)/100)
 
 		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth)
-		d2 := 2
-		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewValueData(d2))
-		mp = basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, float64(d2)/100)
-
+		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewBasicData())
 		test.That(t, err, test.ShouldBeError, errors.New("error max allowable recursion depth reached"))
 	})
 
