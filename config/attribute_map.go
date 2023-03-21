@@ -1,6 +1,8 @@
 package config
 
 import (
+	"reflect"
+
 	"github.com/pkg/errors"
 )
 
@@ -198,4 +200,164 @@ func (am AttributeMap) BoolSlice(name string, def bool) []bool {
 	}
 
 	panic(errors.Errorf("wanted a []bool for (%s) but got (%v) %T", name, x, x))
+}
+
+// Walk implements the Walker interface.
+func (am AttributeMap) Walk(visitor Visitor) (interface{}, error) {
+	w := attrWalker{visitor: visitor}
+	m, err := w.walkMap(am)
+	if err != nil {
+		return nil, err
+	}
+
+	return AttributeMap(m), nil
+}
+
+type attrWalker struct {
+	visitor Visitor
+}
+
+func (w *attrWalker) walkMap(data interface{}) (map[string]interface{}, error) {
+	s := reflect.ValueOf(data)
+	if s.Kind() != reflect.Map {
+		return nil, errors.Errorf("data of type %T is not a map", data)
+	}
+
+	iter := reflect.ValueOf(data).MapRange()
+	result := map[string]interface{}{}
+	var err error
+	for iter.Next() {
+		k := iter.Key()
+		if k.Kind() != reflect.String {
+			return nil, errors.Errorf("map keys of type %v are not strings", k.Kind())
+		}
+		v := iter.Value().Interface()
+		result[k.String()], err = w.walkInterface(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
+	if data == nil {
+		return data, nil
+	}
+
+	t := reflect.TypeOf(data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	var newData interface{}
+	var err error
+	switch t.Kind() {
+	case reflect.Struct:
+		newData, err = w.walkStruct(data)
+		if err != nil {
+			return nil, err
+		}
+	case reflect.Map:
+		newData, err = w.walkMap(data)
+		if err != nil {
+			return nil, err
+		}
+	case reflect.Slice:
+		newData, err = w.walkSlice(data)
+		if err != nil {
+			return nil, err
+		}
+	case reflect.String:
+		fallthrough
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		fallthrough
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		fallthrough
+	case reflect.Array, reflect.Bool, reflect.Chan, reflect.Complex128, reflect.Complex64, reflect.Float32,
+		reflect.Float64, reflect.Func, reflect.Interface, reflect.Invalid, reflect.Pointer,
+		reflect.Uintptr, reflect.UnsafePointer:
+		fallthrough
+	default:
+		newData, err = w.visitor.Visit(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newData, nil
+}
+
+func (w *attrWalker) walkSlice(data interface{}) ([]interface{}, error) {
+	s := reflect.ValueOf(data)
+	if s.Kind() != reflect.Slice {
+		return nil, errors.Errorf("data of type %T is not a slice", data)
+	}
+
+	newList := make([]interface{}, 0, s.Len())
+	for i := 0; i < s.Len(); i++ {
+		value := s.Index(i).Interface()
+		data, err := w.walkInterface(value)
+		if err != nil {
+			return nil, err
+		}
+		newList = append(newList, data)
+	}
+	return newList, nil
+}
+
+func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
+	t := reflect.TypeOf(data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return nil, errors.Errorf("data of type %T is not a struct", data)
+	}
+	res := map[string]interface{}{}
+	value := reflect.ValueOf(data)
+	if value.Kind() == reflect.Ptr && value.IsNil() {
+		return res, nil
+	}
+	value = reflect.Indirect(value)
+	for i := 0; i < t.NumField(); i++ {
+		sField := t.Field(i)
+		key := sField.Name
+
+		field := value.Field(i).Interface()
+
+		if isEmptyValue(reflect.ValueOf(field)) {
+			res[key] = data
+			continue
+		}
+
+		data, err := w.walkInterface(field)
+		if err != nil {
+			return nil, err
+		}
+
+		res[key] = data
+	}
+	return res, nil
+}
+
+func isEmptyValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	case reflect.Chan, reflect.Complex128, reflect.Complex64, reflect.Func, reflect.Invalid, reflect.Struct,
+		reflect.UnsafePointer:
+		fallthrough
+	default:
+		return false
+	}
 }
