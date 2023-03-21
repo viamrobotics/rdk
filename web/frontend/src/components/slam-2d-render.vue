@@ -77,7 +77,6 @@ const disposeScene = () => {
   scene.clear();
 };
 
-<<<<<<< HEAD
 const updateCloud = (pointcloud: Uint8Array) => {
   try {
     disposeScene();
