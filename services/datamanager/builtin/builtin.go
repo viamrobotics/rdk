@@ -293,6 +293,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
+		Clock:         clock,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
@@ -312,7 +313,7 @@ func (svc *builtIn) closeSyncer() {
 }
 
 func (svc *builtIn) initSyncer(cfg *config.Config) error {
-	syncer, err := svc.syncerConstructor(svc.logger, cfg, svc.waitAfterLastModifiedMillis)
+	syncer, err := svc.syncerConstructor(svc.logger, cfg)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -357,17 +358,8 @@ func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.flushCollectors()
-	svc.syncer.SyncDirectory(svc.captureDir)
-	svc.syncAdditionalSyncPaths()
+	svc.sync()
 	return nil
-}
-
-// Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
-func (svc *builtIn) syncAdditionalSyncPaths() {
-	for _, dir := range svc.additionalSyncPaths {
-		svc.syncer.SyncDirectory(dir)
-	}
 }
 
 // Update updates the data manager service when the config has changed.
@@ -499,15 +491,45 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-ticker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.flushCollectors()
-					svc.syncer.SyncDirectory(svc.captureDir)
-					svc.syncAdditionalSyncPaths()
+					svc.sync()
 				}
 				svc.lock.Unlock()
 			}
 		}
 	})
 	<-started
+}
+
+func (svc *builtIn) sync() {
+	svc.flushCollectors()
+	toSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
+	for _, ap := range svc.additionalSyncPaths {
+		toSync = append(toSync, getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)...)
+	}
+	for _, p := range toSync {
+		svc.syncer.SyncFile(p)
+	}
+}
+
+// nolint
+func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
+	var filePaths []string
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
+		// may still be being written).
+		timeSinceMod := time.Since(info.ModTime())
+		if timeSinceMod > (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
+			filePaths = append(filePaths, path)
+		}
+		return nil
+	})
+	return filePaths
 }
 
 // Get the config associated with the data manager service.
