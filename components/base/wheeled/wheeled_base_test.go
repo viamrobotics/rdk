@@ -359,7 +359,29 @@ func TestValidate(t *testing.T) {
 }
 
 func TestSpinWithMSMath(t *testing.T) {
-	for _, b := range []struct {
+	// tests getTurnState, if we're atTarget, overshot or travelled the minimum amount
+	for _, stops := range []struct {
+		curr     float64
+		start    float64
+		target   float64
+		dir      float64
+		angleDeg float64
+		atTarget [3]bool
+	}{
+		{1.0, 0, 10, 1, 10, [3]bool{false, false, false}},
+		{10, 0, 10, 1, 10, [3]bool{true, true, true}},
+		{719, 10, 730, 1, 720, [3]bool{false, false, true}},
+		{745, 10, 730, 1, 720, [3]bool{false, true, true}},
+	} {
+		at, over, min := getTurnState(
+			stops.curr, stops.start, stops.target, stops.dir, stops.angleDeg)
+		test.That(t, at, test.ShouldEqual, stops.atTarget[0])
+		test.That(t, over, test.ShouldEqual, stops.atTarget[1])
+		test.That(t, min, test.ShouldEqual, stops.atTarget[2])
+	}
+
+	// test angleBewteen calculations
+	for _, bound := range []struct {
 		angle  float64
 		bound1 float64
 		bound2 float64
@@ -369,10 +391,11 @@ func TestSpinWithMSMath(t *testing.T) {
 		{0, -15, 15},
 		{-15, -270, 0},
 	} {
-		test.That(t, angleBetween(b.angle, b.bound1, b.bound2), test.ShouldBeTrue)
+		test.That(t, angleBetween(bound.angle, bound.bound1, bound.bound2), test.ShouldBeTrue)
 	}
 
-	for _, a := range []struct {
+	// test addAnglesInDomain calculation
+	for _, add := range []struct {
 		angle1   float64
 		angle2   float64
 		expected float64
@@ -384,9 +407,10 @@ func TestSpinWithMSMath(t *testing.T) {
 		{-90, 0, 270},
 		{-60, 0, 300},
 	} {
-		test.That(t, addAnglesInDomain(a.angle1, a.angle2), test.ShouldEqual, a.expected)
+		test.That(t, addAnglesInDomain(add.angle1, add.angle2), test.ShouldEqual, add.expected)
 	}
 
+	// test getCurrentYaw
 	ctx := context.Background()
 	ms := &inject.MovementSensor{
 		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
@@ -398,7 +422,6 @@ func TestSpinWithMSMath(t *testing.T) {
 			return &spatialmath.EulerAngles{}, nil
 		},
 	}
-
 	extra := make(map[string]interface{})
 	yaws := []float64{
 		math.Pi / 18, math.Pi / 3, math.Pi / 9, math.Pi / 6, math.Pi / 3, -math.Pi, -3 * math.Pi / 4,
@@ -413,20 +436,19 @@ func TestSpinWithMSMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}
 
+	// test findSpin Parameters calculations
 	for _, params := range []struct {
 		added float64
 		speed float64
 		start float64
 		dir   float64
 		goal  float64
-		over  float64
 	}{
-		{-15, -20, 0, 1, 0, 0},
-		{20, -20, 360, -1, 0, 0},
-		{90, 10, 10, 1, 0, 0},
+		{-15, -20, 0, 1, 0},
+		{20, -20, 360, -1, 0},
+		{90, 10, 10, 1, 0},
 	} {
 		params.goal = addAnglesInDomain(params.start, params.added)
-		params.over = addAnglesInDomain(params.start, params.added+params.dir*15)
 		goal, dir := findSpinParams(params.added, params.speed, params.start)
 		test.That(t, goal, test.ShouldAlmostEqual, params.goal)
 		test.That(t, dir, test.ShouldAlmostEqual, params.dir)
