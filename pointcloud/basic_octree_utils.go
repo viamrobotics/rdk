@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const unexplored = -1.
+const emptyProb = -1.
 
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
@@ -15,7 +15,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
-		maxProb:  -unexplored,
+		maxProb:  -emptyProb,
 	}
 	return octNode
 }
@@ -26,7 +26,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    PointAndData{},
-		maxProb:  unexplored,
+		maxProb:  emptyProb,
 	}
 	return octNode
 }
@@ -50,7 +50,7 @@ func validateData(d Data) float64 {
 	case !d.HasValue():
 		maxProb = 1
 	case d.Value() > 100 || d.Value() < 0:
-		maxProb = unexplored
+		maxProb = emptyProb
 	default:
 		maxProb = float64(d.Value()) / 100
 	}
