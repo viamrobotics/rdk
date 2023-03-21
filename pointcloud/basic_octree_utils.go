@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// emptyProb is assigned to a node if it has nil data value.
 const emptyProb = -1.
 
 // Creates a new LeafNodeEmpty.
