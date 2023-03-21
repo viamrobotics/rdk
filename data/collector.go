@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -49,17 +48,17 @@ type collector struct {
 	cancelCtx      context.Context
 	cancel         context.CancelFunc
 	captureFunc    CaptureFunc
-	closed         *atomic.Bool
+	closed         bool
 	target         datacapture.BufferedWriter
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines.
 func (c *collector) Close() {
-	if c.closed.Load() {
+	if c.closed {
 		return
 	}
-	c.closed.Store(true)
+	c.closed = true
 
 	c.cancel()
 	c.captureWorkers.Wait()
@@ -70,8 +69,7 @@ func (c *collector) Close() {
 	}
 	close(c.captureErrors)
 	c.logRoutine.Wait()
-	//nolint:errcheck
-	_ = c.logger.Sync()
+	utils.UncheckedError(c.logger.Sync())
 }
 
 func (c *collector) Flush() {
@@ -258,7 +256,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		captureFunc:    captureFunc,
 		target:         params.Target,
 		clock:          c,
-		closed:         &atomic.Bool{},
+		closed:         false,
 	}, nil
 }
 
@@ -273,7 +271,7 @@ func (c *collector) writeCaptureResults() error {
 
 func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
-		if c.closed.Load() {
+		if c.closed {
 			// Don't log context cancellation errors if the collector has already been closed. This means the collector
 			// cancelled the context, and the context cancellation error is expected.
 			if errors.Is(err, context.Canceled) {
