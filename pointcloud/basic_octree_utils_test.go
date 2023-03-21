@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -22,8 +23,7 @@ func TestNodeCreation(t *testing.T) {
 	t.Run("Create filled leaf node", func(t *testing.T) {
 		p := r3.Vector{X: 0, Y: 0, Z: 0}
 		d := NewValueData(1.0)
-		basicOct, err := newLeafNodeFilled(p, d)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newLeafNodeFilled(p, d)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeFilled)
 		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{P: p, D: d})
@@ -122,12 +122,12 @@ func TestSplitIntoOctants(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node, err = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
+		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
 		test.That(t, err, test.ShouldBeNil)
 		err = basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 
-		basicOct.node, err = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
+		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
 		test.That(t, err, test.ShouldBeNil)
 		err1 := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1.0))
 		e := "error in splitting octree into new octants: error point is outside the bounds of this octree"
@@ -211,16 +211,17 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 				numLeafNodeEmptyNodes++
 			}
 
-			sizeX, recursedMaxProb := validateBasicOctree(t, child, r3.Vector{
+			childSize, childMaxProb := validateBasicOctree(t, child, r3.Vector{
 				X: center.X + i*sideLength/4.,
 				Y: center.Y + j*sideLength/4.,
 				Z: center.Z + k*sideLength/4.,
 			}, sideLength/2.)
-			size += sizeX
-			maxProb = recursedMaxProb
+			size += childSize
+			maxProb = math.Max(maxProb, childMaxProb)
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)
-		test.That(t, bOct.node.maxProb, test.ShouldBeGreaterThanOrEqualTo, maxProb)
+		test.That(t, bOct.node.maxProb, test.ShouldEqual, maxProb)
+		test.That(t, bOct.node.maxProb, test.ShouldEqual, bOct.MaxProb())
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
