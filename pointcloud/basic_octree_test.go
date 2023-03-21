@@ -176,12 +176,18 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
+		d1 := 1
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
+		mp := basicOct.MaxProb()
+		test.That(t, mp, test.ShouldEqual, float64(d1)/100)
 
-		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(1))
+		d2 := 2
+		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.size, test.ShouldEqual, 2)
+		mp = basicOct.MaxProb()
+		test.That(t, mp, test.ShouldEqual, float64(d2)/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -190,16 +196,20 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		val := 1
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(val))
+		d1 := 1
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, val)
+		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, d1)
+		mp := basicOct.MaxProb()
+		test.That(t, mp, test.ShouldEqual, float64(d1)/100)
 
-		val = 2
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(val))
+		d2 := 2
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, val)
+		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, d2)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
+		mp = basicOct.MaxProb()
+		test.That(t, mp, test.ShouldEqual, float64(d2)/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -229,11 +239,17 @@ func TestBasicOctreeSet(t *testing.T) {
 
 		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth-1)
 
-		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewBasicData())
+		d1 := 1
+		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
+		mp := basicOct.MaxProb()
+		test.That(t, mp, test.ShouldEqual, float64(d1)/100)
 
 		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth)
-		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewBasicData())
+		d2 := 2
+		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewValueData(d2))
+		mp = basicOct.MaxProb()
+		test.That(t, mp, test.ShouldEqual, float64(d2)/100)
 
 		test.That(t, err, test.ShouldBeError, errors.New("error max allowable recursion depth reached"))
 	})
