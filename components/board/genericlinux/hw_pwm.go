@@ -54,7 +54,7 @@ func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
 }
 
 func (pwm *pwmDevice) linePath() string {
-	return fmt.Sprintf("%s, pwm%d", pwm.chipPath, pwm.line)
+	return fmt.Sprintf("%s/pwm%d", pwm.chipPath, pwm.line)
 }
 
 func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
@@ -116,7 +116,7 @@ func (pwm *pwmDevice) disable() error {
 // Only call this from public functions, to avoid double-wrapping the errors.
 func (pwm *pwmDevice) wrapError(err error) error {
 	// Note that if err is nil, errors.Wrap() will return nil, too.
-	return errors.Wrap(err, fmt.Sprintf("HW PWM chipPath %s, line %s", pwm.chipPath, pwm.line))
+	return errors.Wrap(err, fmt.Sprintf("HW PWM chipPath %s, line %d", pwm.chipPath, pwm.line))
 }
 
 // SetPwm configures an exported pin and enables its output signal.
@@ -138,7 +138,12 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		return err
 	}
 	if err := pwm.disable(); err != nil {
-		return err
+		// This is (surprisingly) okay: disabling the pin will return errors if its period and
+		// active duration are 0, for example when they haven't been set since the last time the
+		// system was rebooted. If the error was something more serious than that, we'll encounter
+		// it again later in this function, and will return it then. (Note: disabling the pin will
+		// not return errors if the period and active duration are nonzero, even if the pin is
+		// already disabled!)
 	}
 
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
