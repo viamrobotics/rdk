@@ -61,6 +61,11 @@ func (octree *BasicOctree) Size() int {
 	return octree.size
 }
 
+// MaxProb returns the trees max probability.
+func (octree *BasicOctree) MaxProb() float64 {
+	return octree.node.maxProb
+}
+
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
