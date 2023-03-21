@@ -244,8 +244,10 @@ func TestClose(t *testing.T) {
 	}
 }
 
-// TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
-func TestCtxCancelledLoggedAsDebug(t *testing.T) {
+// TestCtxCancelledNotLoggedAfterClose verifies that context cancelled errors are not logged if they occur after Close
+// has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
+// for any running capture routines.
+func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
@@ -253,9 +255,10 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		select {
 		case <-ctx.Done():
+			return nil, fmt.Errorf("arbitrary wrapping message: %w", ctx.Err())
 		case captured <- struct{}{}:
 		}
-		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
+		return dummyStructReading, nil
 	})
 
 	params := CollectorParams{
@@ -273,7 +276,6 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	c.Close()
 	close(captured)
 
-	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
