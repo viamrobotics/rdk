@@ -26,18 +26,6 @@ var (
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
-	// On slower machines, it's possible that capture hasn't begun after captureTime. Give up to 20x
-	// as long for this to occur.
-	waitForCaptureFiles := func(captureDir string) {
-		files := getAllFileInfos(captureDir)
-		for i := 0; i < 50; i++ {
-			if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
-				return
-			}
-			time.Sleep(time.Millisecond * 25)
-			files = getAllFileInfos(captureDir)
-		}
-	}
 
 	testFilesContainSensorData := func(t *testing.T, dir string) {
 		t.Helper()
@@ -198,5 +186,16 @@ func TestDataCaptureEnabled(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func waitForCaptureFiles(captureDir string) {
+	files := getAllFileInfos(captureDir)
+	for i := 0; i < 50; i++ {
+		if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
+			return
+		}
+		time.Sleep(time.Millisecond * 25)
+		files = getAllFileInfos(captureDir)
 	}
 }
