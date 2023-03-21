@@ -132,7 +132,8 @@ func (s *syncer) Close() {
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
-	goutils.UncheckedError(s.logger.Sync())
+	//nolint:errcheck
+	_ = s.logger.Sync()
 }
 
 func (s *syncer) SyncDirectory(dir string) {
