@@ -1897,11 +1897,11 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 						{
 							Type: "tflite_classifier",
 							Name: "my_classifier",
-							Parameters: config.AttributeMap(map[string]interface{}{
+							Parameters: config.AttributeMap{
 								"model_path":  "${packages.package-1}/model.tflite",
 								"label_path":  "${packages.package-2}/labels.txt",
 								"num_threads": 1,
-							}),
+							},
 						},
 					},
 				},

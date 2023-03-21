@@ -16,11 +16,11 @@ func TestAttributesWalker(t *testing.T) {
 				{
 					Name: "my_classifier",
 					Type: "classifications",
-					Parameters: config.AttributeMap(map[string]interface{}{
+					Parameters: config.AttributeMap{
 						"model_path":  modelPath,
 						"label_path":  labelPath,
 						"num_threads": 1,
-					}),
+					},
 				},
 			},
 		}
