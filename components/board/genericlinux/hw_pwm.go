@@ -54,7 +54,7 @@ func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
 }
 
 func (pwm *pwmDevice) linePath() string {
-	return fmt.Sprintf("%s, pwm%d", pwmchipPath, pwm.line)
+	return fmt.Sprintf("%s, pwm%d", pwm.chipPath, pwm.line)
 }
 
 func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
@@ -63,7 +63,7 @@ func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
 func (pwm *pwmDevice) export() error {
-	if _, err := os.LStat(pwm.linePath()); err != nil {
+	if _, err := os.Lstat(pwm.linePath()); err != nil {
 		if os.IsNotExist(err) {
 			// The pseudofile we're trying to export doesn't yet exist. Export it now. This is the
 			// happy path.
@@ -80,7 +80,7 @@ func (pwm *pwmDevice) export() error {
 // Unexport turns off any PWM signal the pin was providing, and tells the OS that this pin is no
 // longer in use (so it can be reused as an input pin, etc.).
 func (pwm *pwmDevice) unexport() error {
-	if _, err := os.LStat(pwm.linePath()); err != nil {
+	if _, err := os.Lstat(pwm.linePath()); err != nil {
 		if os.IsNotExist(err) {
 			pwm.logger.Debugf("Skipping unexport of already-unexported line %d on HW PWM chip %s",
 							  pwm.line, pwm.chipPath)
