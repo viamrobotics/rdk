@@ -81,7 +81,7 @@ func TestBasicOctreeNew(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("New Octree as basic octree", func(t *testing.T) {
-		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty(nil, 0))
+		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
 		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
 		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
 		test.That(t, basicOct.meta, test.ShouldResemble, NewMetaData())
@@ -105,7 +105,9 @@ func TestBasicOctreeSet(t *testing.T) {
 		data1 := NewValueData(1)
 		err = basicOct.Set(point1, data1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeFilled(point1, data1, basicOct.node.parent, 0))
+		node, err := newLeafNodeFilled(point1, data1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, basicOct.node, test.ShouldResemble, node)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
 
 		validateBasicOctree(t, basicOct, center, side)
@@ -190,7 +192,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newInternalNode([]*BasicOctree{}, basicOct.node.parent, 0)
+		basicOct.node = newInternalNode([]*BasicOctree{})
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
@@ -199,7 +201,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		basicOct.node = newInternalNode([]*BasicOctree{}, basicOct.node.parent, 0)
+		basicOct.node = newInternalNode([]*BasicOctree{})
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
@@ -632,53 +634,5 @@ func TestCachedMaxProbability(t *testing.T) {
 
 	_, err = getMaxProb(octree, r3.Vector{X: -.755, Y: -.755, Z: 0})
 
-	test.That(t, err.Error(), test.ShouldEqual, "point not found in passed in octree")
-}
-
-// validateProbability is a helper function that recursively checks that max probabilities are set as expected.
-func validateProbability(t *testing.T, octree *BasicOctree, leafMPCMap map[r3.Vector]float64) (float64, error) {
-	t.Helper()
-	misMatch := errors.New("node's MPC does not match the expected value")
-	switch octree.node.nodeType {
-	case internalNode:
-		allChildrenProbs := []float64{}
-		// recur on children
-		for _, child := range octree.node.children {
-			p, err := validateProbability(t, child, leafMPCMap)
-			if err != nil {
-				return 0, err
-			}
-			allChildrenProbs = append(allChildrenProbs, p)
-		}
-		computedMPC := getLargestNum(allChildrenProbs)
-		actualMPC := octree.node.maxProb
-		if computedMPC != actualMPC {
-			return 0, misMatch
-		}
-		return actualMPC, nil
-
-	case leafNodeFilled:
-		p := octree.node.point.P
-		// look up actual point and check
-		leafMPC := leafMPCMap[p]
-		actualMPC := octree.node.maxProb
-		if leafMPC != actualMPC {
-			return 0, misMatch
-		}
-		return actualMPC, nil
-
-	case leafNodeEmpty:
-	}
-	return 0, nil
-}
-
-// getLargestNum is a helper function for getting the largest value from a slice.
-func getLargestNum(l []float64) float64 {
-	largest := 0.
-	for _, v := range l {
-		if v > largest {
-			largest = v
-		}
-	}
-	return largest
+	test.That(t, err.Error(), test.ShouldEqual, "point not found in octree")
 }
