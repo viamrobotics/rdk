@@ -122,22 +122,22 @@ func TestAttributeMapWalk(t *testing.T) {
 
 	stringVal := "some string val"
 	complexData := internalAttr{
-		StringValue:    "${packages.some-package}/other/path",
+		StringValue:    "/some/path",
 		StringPtrValue: &stringVal,
 		StringArray:    []string{"one", "two", "three"},
 		BoolValue:      true,
 		ByteArray:      []byte("hello"),
-		Data:           dataV{Other: "${packages.some-package}/some/path"},
-		DataPtr:        &dataV{Other: "${packages.some-package}/some/path"},
+		Data:           dataV{Other: "this is a string"},
+		DataPtr:        &dataV{Other: "/some/other/path"},
 		DataMapStr: map[string]*dataV{
-			"other1": {Other: "${packages.some-package}/some/path"},
+			"other1": {Other: "/its/another/path"},
 			"other2": {Other: "hello2"},
 		},
 	}
 
 	attributes := AttributeMap{
 		"one":       float64(1),
-		"file_path": "${packages.some-package}/some/path",
+		"file_path": "/this/is/a/path",
 		"data":      complexData,
 	}
 
@@ -146,17 +146,17 @@ func TestAttributeMapWalk(t *testing.T) {
 
 	expectedAttrs := AttributeMap{
 		"one":       float64(1),
-		"file_path": "${packages.some-package}/some/path",
+		"file_path": "/this/is/a/path",
 		"data": map[string]interface{}{
-			"StringValue":    "${packages.some-package}/other/path",
+			"StringValue":    "/some/path",
 			"StringPtrValue": "some string val",
 			"StringArray":    []interface{}{"one", "two", "three"},
 			"BoolValue":      true,
 			"ByteArray":      []interface{}{byte('h'), byte('e'), byte('l'), byte('l'), byte('o')},
-			"Data":           map[string]interface{}{"Other": "${packages.some-package}/some/path"},
-			"DataPtr":        map[string]interface{}{"Other": "${packages.some-package}/some/path"},
+			"Data":           map[string]interface{}{"Other": "this is a string"},
+			"DataPtr":        map[string]interface{}{"Other": "/some/other/path"},
 			"DataMapStr": map[string]interface{}{
-				"other1": map[string]interface{}{"Other": "${packages.some-package}/some/path"},
+				"other1": map[string]interface{}{"Other": "/its/another/path"},
 				"other2": map[string]interface{}{"Other": "hello2"},
 			},
 		},
