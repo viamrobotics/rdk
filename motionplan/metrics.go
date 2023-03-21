@@ -7,37 +7,34 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Metric defines a distance function to be minimized by gradient descent algorithms.
-type Metric func(spatial.Pose, spatial.Pose) float64
+// Metric defines a distance function to be minimized by gradient descent algorithms. It calculates the distance of a given Pose from
+// 
+type Metric func(spatial.Pose) float64
 
 // NewSquaredNormMetric is the default distance function between two poses to be used for gradient descent.
-func NewSquaredNormMetric() Metric {
+func NewSquaredNormMetric(to spatial.Pose) Metric {
+	weightedSqNormDist := func(from spatial.Pose) float64 {
+		delta := spatial.PoseDelta(from, to)
+		// Increase weight for orientation since it's a small number
+		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(10.).Norm2()
+	}
 	return weightedSqNormDist
-}
-
-func weightedSqNormDist(from, to spatial.Pose) float64 {
-	delta := spatial.PoseDelta(from, to)
-	// Increase weight for orientation since it's a small number
-	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(10.).Norm2()
 }
 
 // NewZeroMetric always returns zero as the distance between two points.
 func NewZeroMetric() Metric {
-	return zeroDist
+	return func(from spatial.Pose)float64{return 0}
 }
 
-func zeroDist(from, to spatial.Pose) float64 {
-	return 0
-}
 
 type combinableMetric struct {
 	metrics []Metric
 }
 
-func (m *combinableMetric) combinedDist(p1, p2 spatial.Pose) float64 {
+func (m *combinableMetric) combinedDist(pose spatial.Pose) float64 {
 	dist := 0.
 	for _, metric := range m.metrics {
-		dist += metric(p1, p2)
+		dist += metric(pose)
 	}
 	return dist
 }

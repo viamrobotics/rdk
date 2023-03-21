@@ -70,11 +70,11 @@ const (
 	PositionOnlyMotionProfile = "position_only"
 )
 
-// defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
-func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
-	diff := make([]float64, 0, len(ci.StartInput))
-	for i, f := range ci.StartInput {
-		diff = append(diff, f.Value-ci.EndInput[i].Value)
+// defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ArcConstraintInput.
+func defaultDistanceFunc(ci *ArcConstraintInput) (bool, float64) {
+	diff := make([]float64, 0, len(ci.StartConfiguration))
+	for i, f := range ci.StartConfiguration {
+		diff = append(diff, f.Value-ci.EndConfiguration[i].Value)
 	}
 	// 2 is the L value returning a standard L2 Normalization
 	return true, floats.Norm(diff, 2)
@@ -108,7 +108,7 @@ func newBasicPlannerOptions() *plannerOptions {
 
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
-	constraintHandler
+	ConstraintHandler
 	metric   Metric // Distance function to the goal
 	pathDist Metric // Distance function to the nearest valid point
 	extra    map[string]interface{}
