@@ -204,7 +204,6 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 
 			// imu readings are limited from 0 -> 360
 			currYaw, err := getCurrentYaw(base.cancelCtx, base.sensors.orientation, extra)
-
 			if err != nil {
 				errCounter++
 				if errCounter > 100 {
@@ -228,7 +227,8 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			base.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 
 			// poll the sensor for the current error in angle
-			// also check if we've overshot our target by fifteen degrees
+			// check if we've overshot our target by fifteen degrees
+			// check if we've travelled at all
 			if (atTarget && minTravel) || (overShot && minTravel) {
 				ticker.Stop()
 				if err := base.Stop(base.cancelCtx, nil); err != nil {
@@ -252,6 +252,7 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget
 	minTravel = math.Abs(currYaw-startYaw) > math.Abs(angleDeg*increment)
 	return atTarget, overShot, minTravel
 }
+
 func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
 ) (float64, error) {
 	orientation, err := ms.Orientation(ctx, extra)
@@ -522,6 +523,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 // Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	// check if there are movement sensors to stop the sensor loop
 	if len(base.sensors.all) != 0 {
 		base.sensors.cancel()
 	}
@@ -605,6 +607,8 @@ func createWheeledBase(
 		base.right = append(base.right, m)
 	}
 
+	// spawn a new context for sensors so we don't add many background workers
+	// TODO RSDK-2384 something is cancelling base context in the actuating API calls
 	sensorCtx, sensorCancel := context.WithCancel(context.Background())
 	base.sensors = &sensors{ctx: sensorCtx, cancel: sensorCancel}
 	for _, msName := range attr.MovementSensor {
