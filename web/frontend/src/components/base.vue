@@ -9,14 +9,6 @@ import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
-import { StreamManager } from './camera/camera-stream-manager';
-
-interface Props {
-  name: string;
-  resources: commonApi.ResourceName.AsObject[];
-  client: Client;
-  streamManager:StreamManager;
-}
 
 const enum Keymap {
   LEFT = 'a',
@@ -25,7 +17,11 @@ const enum Keymap {
   BACKWARD = 's'
 }
 
-const props = defineProps<Props>();
+const props = defineProps<{
+  name: string;
+  resources: commonApi.ResourceName.AsObject[];
+  client: Client;
+}>();
 
 type Tabs = 'Keyboard' | 'Discrete'
 type MovementTypes = 'Continuous' | 'Discrete'
@@ -265,6 +261,7 @@ onUnmounted(() => {
   stop();
   window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
+
 </script>
 
 <template>
@@ -457,7 +454,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-if="openCameras[camera.name]"
+              v-show="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
@@ -466,7 +463,6 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
-              :stream-manager="props.streamManager"
             />
           </template>
         </div>

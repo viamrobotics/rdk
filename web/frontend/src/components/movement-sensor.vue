@@ -7,12 +7,10 @@ import type{ commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   name: string
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
 let angularVelocity = $ref<commonApi.Vector3.AsObject | undefined>();

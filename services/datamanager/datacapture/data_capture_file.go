@@ -81,14 +81,9 @@ func ReadFile(f *os.File) (*File, error) {
 
 // NewFile creates a new File with the specified md in the specified directory.
 func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
-	// First create directories and the file in it.
-	fileDir := filepath.Join(dir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
-	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-		return nil, err
-	}
-	fileName := filepath.Join(fileDir, getFileTimestampName()) + InProgressFileExt
+	fileName := filepath.Join(dir, getFileTimestampName()) + InProgressFileExt
 	//nolint:gosec
-	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o700)
+	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}

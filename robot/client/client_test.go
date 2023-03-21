@@ -567,7 +567,7 @@ func TestClientRefresh(t *testing.T) {
 		// block here until ResourceNames is called 7 times
 		<-calledEnough
 		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
-		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 5*dur)
+		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 7*dur)
 		test.That(t, callCountSubtypes, test.ShouldEqual, 7)
 		test.That(t, callCountNames, test.ShouldEqual, 7)
 

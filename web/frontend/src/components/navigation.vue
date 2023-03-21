@@ -8,13 +8,11 @@ import { Client, commonApi, robotApi, navigationApi, type ServiceError } from '@
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '../lib/log';
 
-interface Props {
+const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   name:string
   client: Client
-}
-
-const props = defineProps<Props>();
+}>();
 
 let googleMapsInitResolve: () => void;
 const mapReady = new Promise<void>((resolve) => {

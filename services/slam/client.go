@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/services/slam/internal/grpchelper"
+	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"

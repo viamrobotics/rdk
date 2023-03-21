@@ -98,6 +98,7 @@ type builtIn struct {
 	cancel                  func()
 	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
+	events                  chan (struct{})
 }
 
 // NewDefault returns a new remote control service for the given robot.
@@ -143,6 +144,7 @@ func NewBuiltIn(
 		logger:          logger,
 		cancelCtx:       cancelCtx,
 		cancel:          cancel,
+		events:          make(chan struct{}, 1),
 	}
 
 	if err := remoteSvc.start(ctx); err != nil {
@@ -225,6 +227,8 @@ func (svc *builtIn) start(ctx context.Context) error {
 		}
 
 	}
+
+	svc.eventProcessor(state)
 	return nil
 }
 
@@ -252,52 +256,117 @@ func (svc *builtIn) ControllerInputs() []input.Control {
 	return []input.Control{}
 }
 
-func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, event input.Event) {
-	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
-
-	state.mu.Lock()
-	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {
-		state.mu.Unlock()
-		return
-	}
-	state.mu.Unlock()
-
-	session.SafetyMonitor(ctx, svc.base)
+func (svc *builtIn) eventProcessor(state *throttleState) {
+	var currentLinear, currentAngular r3.Vector
+	var nextLinear, nextAngular r3.Vector
+	var inRetry bool
 
 	svc.activeBackgroundWorkers.Add(1)
-	vutils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-
-		if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
-			if err := svc.base.SetVelocity(
-				svc.cancelCtx,
-				r3.Vector{
-					X: svc.config.MaxLinearVelocity * newLinear.X,
-					Y: svc.config.MaxLinearVelocity * newLinear.Y,
-					Z: svc.config.MaxLinearVelocity * newLinear.Z,
-				},
-				r3.Vector{
-					X: svc.config.MaxAngularVelocity * newAngular.X,
-					Y: svc.config.MaxAngularVelocity * newAngular.Y,
-					Z: svc.config.MaxAngularVelocity * newAngular.Z,
-				},
-				nil,
-			); err != nil {
-				svc.logger.Errorw("error setting velocity", "error", err)
+	vutils.ManagedGo(func() {
+		for {
+			if svc.cancelCtx.Err() != nil {
 				return
 			}
-		} else {
-			if err := svc.base.SetPower(svc.cancelCtx, newLinear, newAngular, nil); err != nil {
-				svc.logger.Errorw("error setting power", "error", err)
-				return
+
+			if inRetry {
+				select {
+				case <-svc.cancelCtx.Done():
+				case <-svc.events:
+				default:
+				}
+			} else {
+				select {
+				case <-svc.cancelCtx.Done():
+				case <-svc.events:
+				}
+			}
+			state.mu.Lock()
+			nextLinear, nextAngular = state.linearThrottle, state.angularThrottle
+			state.mu.Unlock()
+
+			if currentLinear != nextLinear || currentAngular != nextAngular {
+				if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+					if err := svc.base.SetVelocity(
+						svc.cancelCtx,
+						r3.Vector{
+							X: svc.config.MaxLinearVelocity * nextLinear.X,
+							Y: svc.config.MaxLinearVelocity * nextLinear.Y,
+							Z: svc.config.MaxLinearVelocity * nextLinear.Z,
+						},
+						r3.Vector{
+							X: svc.config.MaxAngularVelocity * nextAngular.X,
+							Y: svc.config.MaxAngularVelocity * nextAngular.Y,
+							Z: svc.config.MaxAngularVelocity * nextAngular.Z,
+						},
+						nil,
+					); err != nil {
+						svc.logger.Errorw("error setting velocity", "error", err)
+						if !vutils.SelectContextOrWait(svc.cancelCtx, 10*time.Millisecond) {
+							return
+						}
+						inRetry = true
+						continue
+					}
+				} else {
+					if err := svc.base.SetPower(svc.cancelCtx, nextLinear, nextAngular, nil); err != nil {
+						svc.logger.Errorw("error setting power", "error", err)
+						if !vutils.SelectContextOrWait(svc.cancelCtx, 10*time.Millisecond) {
+							return
+						}
+						inRetry = true
+						continue
+					}
+				}
+				inRetry = false
+
+				currentLinear = nextLinear
+				currentAngular = nextAngular
 			}
 		}
+	}, svc.activeBackgroundWorkers.Done)
+}
 
-		state.mu.Lock()
-		state.linearThrottle = newLinear
-		state.angularThrottle = newAngular
-		state.mu.Unlock()
-	})
+func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, event input.Event) {
+
+	// Order of who processes what event is *not* guranteed. It depends on the mutex
+	// fairness mode. Ordering logic must be handled at a higher level in the robot.
+	// Other than that, values overwrite each other.
+	state.mu.Lock()
+	oldLinear := state.linearThrottle
+	oldAngular := state.angularThrottle
+	newLinear := oldLinear
+	newAngular := oldAngular
+
+	switch svc.controlMode {
+	case joyStickControl:
+		newLinear.Y, newAngular.Z = oneJoyStickEvent(event, state.linearThrottle.Y, state.angularThrottle.Z)
+	case droneControl:
+		newLinear, newAngular = droneEvent(event, state.linearThrottle, state.angularThrottle)
+	case triggerSpeedControl:
+		newLinear.Y, newAngular.Z = triggerSpeedEvent(event, state.linearThrottle.Y, state.angularThrottle.Z)
+	case buttonControl:
+		newLinear.Y, newAngular.Z, state.buttons = buttonControlEvent(event, state.buttons)
+	case arrowControl:
+		newLinear.Y, newAngular.Z, state.arrows = arrowEvent(event, state.arrows)
+	}
+	state.linearThrottle = newLinear
+	state.angularThrottle = newAngular
+	state.mu.Unlock()
+
+	if similar(newLinear, oldLinear, .05) && similar(newAngular, oldAngular, .05) {
+		return
+	}
+
+	// If we do not manage to send the event, that means the processor
+	// is working and it is about to see our state change anyway. This
+	// actls like a condition variable signal.
+	select {
+	case <-ctx.Done():
+	case svc.events <- struct{}{}:
+	default:
+	}
+
+	session.SafetyMonitor(ctx, svc.base)
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
