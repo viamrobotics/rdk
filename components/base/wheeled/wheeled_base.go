@@ -122,8 +122,8 @@ type wheeledBase struct {
 }
 
 type sensors struct {
-	cancelCtx   context.Context
-	cancelFunc  func()
+	ctx         context.Context
+	cancel      func()
 	all         []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
 }
@@ -136,8 +136,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	defer done()
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
-	if base.sensors != nil {
-		base.sensors.cancelCtx, base.sensors.cancelFunc = context.WithCancel(base.cancelCtx)
+	if base.sensors.orientation != nil {
+		base.sensors.cancel()
+		base.sensors.ctx, base.sensors.cancel = context.WithCancel(context.Background())
 		return base.spinWithMovementSensor(angleDeg, degsPerSec, extra)
 	}
 	return base.spin(ctx, angleDeg, degsPerSec)
@@ -187,14 +188,14 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			// RSDK-2384 - use a new cancel ctx for sensor loops
 			// to have them stop when cotnext is done
 			select {
-			case <-base.sensors.cancelCtx.Done():
+			case <-base.sensors.ctx.Done():
 				base.logger.Debug("cancelled context 1")
 				ticker.Stop()
 				return
 			default:
 			}
 			select {
-			case <-base.sensors.cancelCtx.Done():
+			case <-base.sensors.ctx.Done():
 				base.logger.Debug("cancelled context 2")
 				ticker.Stop()
 				return
@@ -521,8 +522,8 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 // Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	if base.sensors != nil {
-		base.sensors.cancelFunc()
+	if len(base.sensors.all) != 0 {
+		base.sensors.cancel()
 	}
 	var err error
 	for _, m := range base.allMotors {
@@ -604,7 +605,8 @@ func createWheeledBase(
 		base.right = append(base.right, m)
 	}
 
-	base.sensors = &sensors{}
+	sensorCtx, sensorCancel := context.WithCancel(context.Background())
+	base.sensors = &sensors{ctx: sensorCtx, cancel: sensorCancel}
 	for _, msName := range attr.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
 		if err != nil {
