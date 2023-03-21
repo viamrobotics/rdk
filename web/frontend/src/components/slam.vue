@@ -3,11 +3,13 @@
 
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, commonApi, slamApi } from '@viamrobotics/sdk';
-import { displayError } from '../lib/error';
+import { Client, commonApi, ServiceError, slamApi } from '@viamrobotics/sdk';
+import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
 import Slam2dRender from './slam-2d-render.vue';
+
+type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
 const props = defineProps<{
   name: string
@@ -91,19 +93,39 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 const refresh2d = async (name: string) => {
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
-  return Promise.all([map, returnedPose]);
+  const mapAndPose: MapAndPose = {
+    map,
+    pose: returnedPose,
+  };
+  return mapAndPose;
+};
+
+const handleRefresh2dResponse = (response: MapAndPose): void => {
+  pointcloud = response.map;
+  pose = response.pose;
+  pointCloudUpdateCount += 1;
+};
+
+const handleRefresh3dResponse = (response: Uint8Array): void => {
+  pointcloud = response;
+  pointCloudUpdateCount += 1;
+};
+
+const handleError = (errorLocation: string, error: unknown): void => {
+  if (isServiceError(error)) {
+    displayError(error as ServiceError);
+  } else {
+    displayError(`${errorLocation} hit error: ${error}`);
+  }
 };
 
 const scheduleRefresh2d = (name: string, time: string) => {
   const timeoutCallback = async () => {
     try {
-      const results = await refresh2d(name);
-      if (results && results.length === 2) {
-        [pointcloud, pose] = results;
-        pointCloudUpdateCount += 1;
-      }
+      const res = await refresh2d(name);
+      handleRefresh2dResponse(res);
     } catch (error) {
-      displayError(error);
+      handleError('refresh2d', error);
       return;
     }
     if (refresh2DCancelled) {
@@ -117,13 +139,10 @@ const scheduleRefresh2d = (name: string, time: string) => {
 const scheduleRefresh3d = (name: string, time: string) => {
   const timeoutCallback = async () => {
     try {
-      const result = await fetchSLAMMap(name);
-      if (result) {
-        pointcloud = result;
-        pointCloudUpdateCount += 1;
-      }
+      const res = await fetchSLAMMap(name);
+      handleRefresh3dResponse(res);
     } catch (error) {
-      displayError(error);
+      handleError('fetchSLAMMap', error);
       return;
     }
     if (refresh3DCancelled) {
@@ -140,13 +159,10 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
 
   if (time === 'manual') {
     try {
-      const results = await refresh2d(name);
-      if (results && results.length === 2) {
-        [pointcloud, pose] = results;
-        pointCloudUpdateCount += 1;
-      }
+      const res = await refresh2d(name);
+      handleRefresh2dResponse(res);
     } catch (error) {
-      displayError(error);
+      handleError('refresh2d', error);
     }
   } else if (time === 'off') {
     // do nothing
@@ -162,13 +178,10 @@ const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off'
 
   if (time === 'manual') {
     try {
-      const result = await fetchSLAMMap(name);
-      if (result) {
-        pointcloud = result;
-        pointCloudUpdateCount += 1;
-      }
+      const res = await fetchSLAMMap(name);
+      handleRefresh3dResponse(res);
     } catch (error) {
-      displayError(error);
+      handleError('fetchSLAMMap', error);
     }
   } else if (time === 'off') {
     // do nothing
