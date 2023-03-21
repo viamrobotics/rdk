@@ -123,7 +123,6 @@ func TestSyncEnabled(t *testing.T) {
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
-			// TODO: drain the channel
 			for len(mockService.succesfulDCRequests) > 0 {
 				<-mockService.succesfulDCRequests
 			}
