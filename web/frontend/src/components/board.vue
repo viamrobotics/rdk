@@ -112,7 +112,7 @@ const setPWMFrequency = async () => {
           :key="interruptName"
         >
           <th class="border border-black p-2">
-            {{ name }}
+            {{ interruptName }}
           </th>
           <td class="border border-black p-2">
             {{ di.value || 0 }}
