@@ -15,6 +15,11 @@
             "model": "fake"
         },
         {
+            "name": "base1",
+            "type": "base",
+            "model": "fake"
+        },
+        {
             "name": "board1",
             "type": "board",
             "model": "fake",
@@ -32,6 +37,11 @@
                     }
                 ]
             }
+        },
+        {
+            "name": "camera1",
+            "type": "camera",
+            "model": "fake"
         },
         {
             "name": "encoder1",
