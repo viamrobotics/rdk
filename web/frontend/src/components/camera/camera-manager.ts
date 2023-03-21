@@ -21,19 +21,19 @@ export class CameraManager {
   }
 
   addStream () {
-    console.log("Stream Count Add:" + this.streamCount)
+    console.log(`Stream Count Add:${this.streamCount}`);
     if (this.streamCount === 0) {
-      console.log('opening stream')
+      console.log('opening stream');
       this.open();
     }
     this.streamCount += 1;
   }
 
   removeStream () {
-    console.log("Stream Count Remove:" + this.streamCount)
+    console.log(`Stream Count Remove:${this.streamCount}`);
     this.streamCount -= 1;
     if (this.streamCount === 0) {
-      console.log('Closing Stream')
+      console.log('Closing Stream');
       this.close();
     }
   }

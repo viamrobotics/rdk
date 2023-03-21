@@ -9,7 +9,7 @@ import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { addResizeListeners } from '../lib/resize';
-import { StreamManager } from './camera/camera-stream-manager';
+import { StreamManager } from './camera/stream-manager';
 import {
   Client,
   ResponseStream,
@@ -93,7 +93,7 @@ let resourcesOnce = false;
 let errorMessage = $ref('');
 let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
-const streamManager = new StreamManager(filterResources(resources, 'rdk', 'component', 'camera'), props.client);
+const streamManager = new StreamManager(props.client);
 
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;

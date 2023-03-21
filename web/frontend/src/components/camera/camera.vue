@@ -8,10 +8,10 @@ import {
   ServiceError,
 } from '@viamrobotics/sdk';
 import { selectedMap } from '../../lib/camera-state';
-import { CameraManager } from './camera-manager';
-import { StreamManager } from './camera-stream-manager';
+import type { CameraManager } from './camera-manager';
+import type { StreamManager } from './stream-manager';
 
-interface Props {
+const props = defineProps< {
   cameraName: string;
   parentName: string;
   resources: commonApi.ResourceName.AsObject[];
@@ -20,9 +20,7 @@ interface Props {
   refreshRate: string | undefined;
   triggerRefresh: boolean;
   streamManager:StreamManager;
-}
-
-const props = defineProps<Props>();
+}>();
 
 const imgEl = $ref<HTMLImageElement>();
 
@@ -56,7 +54,10 @@ const setupManager = () => {
   if (!props.streamManager.cameraManagers.get(props.cameraName)) {
     props.streamManager.setCameraManager(props.cameraName);
   }
-  cameraManager = props.streamManager.cameraManagers.get(props.cameraName);
+  const tempManager = props.streamManager.cameraManagers.get(props.cameraName);
+  if (tempManager) {
+    cameraManager = tempManager;
+  }
 };
 
 const exportScreenshot = async (cameraName: string) => {
@@ -113,6 +114,11 @@ watch(() => props.refreshRate, () => {
 // on prop change refresh camera
 watch(() => props.triggerRefresh, () => {
   updateCameraRefreshRate();
+});
+
+// If a connection reset happens resetup the manager
+watch(() => props.streamManager.toggleRefresh, () => {
+  setupManager();
 });
 
 </script>

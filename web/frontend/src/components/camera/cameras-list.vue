@@ -7,15 +7,14 @@ import type {
 import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
 import { selectedMap } from '../../lib/camera-state';
-import { StreamManager } from './camera-stream-manager';
+import type { StreamManager } f./stream-managernager';
 
-interface Props {
+const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[],
   streamManager: StreamManager,
   client: Client,
   parentName: string
-}
-const props = defineProps<Props>();
+}>();
 
 const openCameras = $ref<Record<string, boolean | undefined>>({});
 const refreshFrequency = $ref<Record<string, string | undefined>>({});
