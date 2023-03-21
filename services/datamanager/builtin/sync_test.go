@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 
 const (
 	syncIntervalMillis = 0.0008
+	captureInterval    = time.Millisecond * 10
 	syncInterval       = time.Millisecond * 50
 	syncTime           = time.Millisecond * 250
 )
@@ -67,16 +69,16 @@ func TestSyncEnabled(t *testing.T) {
 			mockClock := clk.NewMock()
 			clock = mockClock
 			tmpDir := t.TempDir()
-			rpcServer, mockService := buildAndStartLocalSyncServer(t, 0)
-			defer func() {
-				err := rpcServer.Stop()
-				test.That(t, err, test.ShouldBeNil)
-			}()
 
 			// Set up data manager.
 			dmsvc := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
+			syncer := &mockSyncManager{
+				synced: make(chan string, 100),
+			}
+			dmsvc.SetSyncerConstructor(func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
+				return syncer, nil
+			})
 			cfg := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
@@ -88,15 +90,18 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.CaptureDir = tmpDir
 			originalSvcConfig.SyncIntervalMins = syncIntervalMillis
 
+			fmt.Println("Calling update")
 			err = dmsvc.Update(context.Background(), cfg)
+			fmt.Println("Returned from update")
 			test.That(t, err, test.ShouldBeNil)
+			mockClock.Add(captureInterval)
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
 			var receivedReq bool
-			wait := time.After(time.Second)
+			wait := time.After(time.Millisecond * 100)
 			select {
 			case <-wait:
-			case <-mockService.succesfulDCRequests:
+			case <-syncer.synced:
 				receivedReq = true
 			}
 
@@ -105,6 +110,7 @@ func TestSyncEnabled(t *testing.T) {
 			} else {
 				test.That(t, receivedReq, test.ShouldBeFalse)
 			}
+			fmt.Println("Passed first test")
 
 			// Set up service config.
 			updatedSvcConfig, ok2, err := getServiceConfig(cfg)
@@ -115,23 +121,30 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDir = tmpDir
 			updatedSvcConfig.SyncIntervalMins = syncIntervalMillis
 
+			fmt.Println("Called update again")
 			err = dmsvc.Update(context.Background(), cfg)
+			fmt.Println("Returned from update again")
 			test.That(t, err, test.ShouldBeNil)
-			for len(mockService.succesfulDCRequests) > 0 {
-				<-mockService.succesfulDCRequests
+			fmt.Println("Clearing syncer")
+			for len(syncer.synced) > 0 {
+				next := <-syncer.synced
+				fmt.Println(next)
 			}
+			fmt.Println("Cleared syncer channel")
 
-			// Let run for a second, then change status.
 			var receivedReqTwo bool
+			mockClock.Add(captureInterval)
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
-			wait = time.After(time.Second)
+			wait = time.After(time.Millisecond * 100)
 			select {
 			case <-wait:
-			case <-mockService.succesfulDCRequests:
+			case <-syncer.synced:
 				receivedReqTwo = true
 			}
+			fmt.Println("Called Close")
 			err = dmsvc.Close(context.Background())
+			fmt.Println("Returned from Close")
 			test.That(t, err, test.ShouldBeNil)
 
 			if !tc.newServiceDisableStatus {
@@ -143,8 +156,30 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
+type mockSyncManager struct {
+	actual datasync.Manager
+	synced chan string
+}
+
+func (m *mockSyncManager) SyncFile(path string) {
+	m.synced <- path
+	if m.actual != nil {
+		_ = os.Remove(path)
+	} else {
+		m.actual.SyncFile(path)
+	}
+}
+
+func (m *mockSyncManager) Close() {
+	if m.actual != nil {
+		m.actual.Close()
+	} else {
+		return
+	}
+}
+
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
-func TestDataCaptureUpload(t *testing.T) {
+func TestDataCaptureUploadIntegration(t *testing.T) {
 	// t.Skip()
 	datacapture.MaxFileSize = 500
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
@@ -204,6 +239,8 @@ func TestDataCaptureUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
+			mockClock := clk.NewMock()
+			clock = mockClock
 			tmpDir := t.TempDir()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t, tc.numFails)
 			defer func() {
@@ -505,15 +542,14 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 }
 
-// TODO: Wrap this in some sort of signaling syncer
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config, lastModMillis int) (datasync.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		if err != nil {
 			return nil, err
 		}
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn, lastModMillis)
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
 	}
 }
 
