@@ -443,15 +443,17 @@ func TestSpinWithMSMath(t *testing.T) {
 		start float64
 		dir   float64
 		goal  float64
+		turns int
 	}{
-		{-15, -20, 0, 1, 0},
-		{20, -20, 360, -1, 0},
-		{90, 10, 10, 1, 0},
+		{-15, -20, 0, 1, 0, 0},
+		{20, -20, 360, -1, 0, 1},
+		{90, 10, 10, 1, 0, 0},
 	} {
 		params.goal = addAnglesInDomain(params.start, params.added)
-		goal, dir := findSpinParams(params.added, params.speed, params.start)
+		goal, dir, turns := findSpinParams(params.added, params.speed, params.start)
 		test.That(t, goal, test.ShouldAlmostEqual, params.goal)
 		test.That(t, dir, test.ShouldAlmostEqual, params.dir)
+		test.That(t, turns, test.ShouldAlmostEqual, params.dir)
 	}
 }
 
