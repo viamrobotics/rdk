@@ -89,22 +89,22 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if err := pin.openGpioFd(); err != nil {
-		return err
-	}
-
 	pin.swPwmRunning = false
 	return pin.setInternal(isHigh)
 }
 
 // This function assumes you've already locked the mutex. It sets the value of a pin without
-// changing whether the pin is part of a PWM loop.
+// changing whether the pin is part of a software PWM loop.
 func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 	var value byte
 	if isHigh {
 		value = 1
 	} else {
 		value = 0
+	}
+
+	if err := pin.openGpioFd(); err != nil {
+		return err
 	}
 
 	return pin.line.SetValue(value)
