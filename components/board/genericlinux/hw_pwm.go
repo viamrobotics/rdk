@@ -73,7 +73,7 @@ func (pwm *pwmDevice) export() error {
 	}
 	// Otherwise, the line we're trying to export already exists.
 	pwm.logger.Debugf("Skipping re-export of already-exported line %d on HW PWM chip %s",
-					  pwm.line, pwm.chipPath)
+		pwm.line, pwm.chipPath)
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (pwm *pwmDevice) unexport() error {
 	if _, err := os.Lstat(pwm.linePath()); err != nil {
 		if os.IsNotExist(err) {
 			pwm.logger.Debugf("Skipping unexport of already-unexported line %d on HW PWM chip %s",
-							  pwm.line, pwm.chipPath)
+				pwm.line, pwm.chipPath)
 			return nil
 		}
 		return err // Something has gone wrong.
@@ -144,6 +144,8 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		// it again later in this function, and will return it then. (Note: disabling the pin will
 		// not return errors if the period and active duration are nonzero, even if the pin is
 		// already disabled!)
+		pwm.logger.Debugf("Ignoring trouble disabling HW PWM device %s line %d: %s",
+			pwm.chipPath, pwm.line, err)
 	}
 
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
@@ -157,13 +159,15 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	// one again. If the first of those three had errors by being too small/large, the last one
 	// should take care of it. So, we purposely ignore any errors on the first value we try to
 	// write.
-	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
-		// This is okay; we'll change the period and then try setting the active duration again.
-	}
 	if err := pwm.writeLine("period", periodNs); err != nil {
+		// This is okay; we'll change the active duration and then try setting the period again.
+		pwm.logger.Debugf("Ignoring trouble setting the period on HW PWM device %s line %d: %s",
+			pwm.chipPath, pwm.line, err)
+	}
+	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
 		return err
 	}
-	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
+	if err := pwm.writeLine("period", periodNs); err != nil {
 		return err
 	}
 
