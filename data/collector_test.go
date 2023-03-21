@@ -244,7 +244,7 @@ func TestClose(t *testing.T) {
 	}
 }
 
-// TestCtxCancelledNotLoggedafterClose verifies that context cancelled errors are not logged if they occur after Close
+// TestCtxCancelledNotLoggedAfterClose verifies that context cancelled errors are not logged if they occur after Close
 // has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
 // for any running capture routines.
 func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
