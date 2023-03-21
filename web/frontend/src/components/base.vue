@@ -124,6 +124,9 @@ const digestInput = async () => {
   const angular = { x: 0, y: 0, z: angularValue };
   try {
     await baseClient.setPower(linear, angular);
+    if (pressed.size <= 0) {
+      stop();
+    }
   } catch (error) {
     displayError(error as ServiceError);
 
