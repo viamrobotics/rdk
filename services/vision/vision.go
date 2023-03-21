@@ -156,6 +156,33 @@ type Attributes struct {
 	ModelRegistry []VisModelConfig `json:"register_models"`
 }
 
+// Walk implements the config.Walker interface.
+func (a *Attributes) Walk(visitor config.Visitor) (interface{}, error) {
+	for i, cfg := range a.ModelRegistry {
+		name, err := visitor.Visit(cfg.Name)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Name = name.(string)
+
+		typ, err := visitor.Visit(cfg.Type)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Type = typ.(string)
+
+		params, err := cfg.Parameters.Walk(visitor)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Parameters = params.(config.AttributeMap)
+
+		a.ModelRegistry[i] = cfg
+	}
+
+	return a, nil
+}
+
 type reconfigurableVision struct {
 	mu     sync.RWMutex
 	name   resource.Name
