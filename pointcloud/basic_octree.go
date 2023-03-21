@@ -35,10 +35,8 @@ type BasicOctree struct {
 type basicOctreeNode struct {
 	nodeType NodeType
 	children []*BasicOctree
-	parent   *BasicOctree
 	point    PointAndData
 	maxProb  float64
-	depth    int
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -48,7 +46,7 @@ func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) 
 	}
 
 	octree := &BasicOctree{
-		node:       newLeafNodeEmpty(nil, 0),
+		node:       newLeafNodeEmpty(),
 		center:     center,
 		sideLength: sideLength,
 		size:       0,
