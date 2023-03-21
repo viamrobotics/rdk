@@ -215,7 +215,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 				Y: center.Y + j*sideLength/4.,
 				Z: center.Z + k*sideLength/4.,
 			}, sideLength/2.)
-			size = size + sizeX
+			size += sizeX
 			maxProb = recursedMaxProb
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)

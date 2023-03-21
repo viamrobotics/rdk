@@ -635,4 +635,9 @@ func TestCachedMaxProbability(t *testing.T) {
 	_, err = getMaxProb(octree, r3.Vector{X: -.755, Y: -.755, Z: 0})
 
 	test.That(t, err.Error(), test.ShouldEqual, "point not found in octree")
+
+	// test that we cannot set arbitrary values into the octree
+	d := NewValueData(101)
+	_, err = newLeafNodeFilled(r3.Vector{}, d)
+	test.That(t, err.Error(), test.ShouldEqual, "value must be in range [0,100]")
 }
