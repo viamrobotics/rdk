@@ -1913,9 +1913,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, robotConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestReconnectRemote(t *testing.T) {

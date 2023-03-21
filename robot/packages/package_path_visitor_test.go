@@ -11,6 +11,7 @@ func TestPackagePathVisitor(t *testing.T) {
 	testStringNoRef := "some/path/file_name.txt"
 	testStringRef := "${packages.custom_package}/file_name.txt"
 	testStringRefReplaced := "custom_package/file_name.txt"
+	testInt := 17
 
 	testCases := []struct {
 		desc     string
@@ -39,8 +40,13 @@ func TestPackagePathVisitor(t *testing.T) {
 		},
 		{
 			"visit non-string type",
-			17,
-			17,
+			testInt,
+			testInt,
+		},
+		{
+			"visit pointer to non-string type",
+			&testInt,
+			&testInt,
 		},
 	}
 
@@ -54,18 +60,12 @@ func TestPackagePathVisitor(t *testing.T) {
 				if reflect.TypeOf(actual).Kind() != reflect.Ptr {
 					t.Fatal("input was pointer, but output was not")
 				}
-				if reflect.TypeOf(tc.input).Elem().Kind() != reflect.String {
-					// For now this test doesn't cover comparisons of pointer
-					// values for non-string types
-					return
-				}
 
-				actual = *actual.(*string)
-				tc.expected = *tc.expected.(*string)
+				tc.expected = reflect.Indirect(reflect.ValueOf(tc.expected)).Interface()
+				actual = reflect.Indirect(reflect.ValueOf(actual)).Interface()
 			}
-			if actual != tc.expected {
-				t.Fatalf("expected %v, got %v", tc.expected, actual)
-			}
+
+			test.That(t, actual, test.ShouldEqual, tc.expected)
 		})
 	}
 }
