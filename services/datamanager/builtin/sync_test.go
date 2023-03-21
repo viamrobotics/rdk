@@ -89,13 +89,7 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.SyncIntervalMins = syncIntervalMillis
 
 			err = dmsvc.Update(context.Background(), cfg)
-
-			// Let run for a second, then change status.
-			// TODO: Instead of doing this, wait until both files have appeared and the sync.Manager has been called
-			// TODO: first need to add the capture time
-			// captureTime := time.Millisecond * 20
-			// mockClock.Add(captureTime)
-			// mockClock.Add(captureTime)
+			test.That(t, err, test.ShouldBeNil)
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
 			var receivedReq bool
