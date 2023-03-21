@@ -31,8 +31,11 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 
 // Creates a new LeafNodeFilled and stores specified position and data.
 func newLeafNodeFilled(p r3.Vector, d Data) (basicOctreeNode, error) {
-	if !d.HasValue() {
-		errors.New("please specify a value for the point within the Data struct")
+	// if !d.HasValue() {
+	// 	d.SetValue(1)
+	// }
+	if d.Value() > 100 || d.Value() < 0 {
+		return basicOctreeNode{}, errors.New("value must be in range [0,100]")
 	}
 	octNode := basicOctreeNode{
 		children: nil,
