@@ -245,8 +245,7 @@ func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
 		return data, nil
 	}
 
-	torig := reflect.TypeOf(data)
-	t := torig
+	t := reflect.TypeOf(data)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
