@@ -49,10 +49,10 @@ func getRawProb(d Data) float64 {
 	switch {
 	case !d.HasValue():
 		maxProb = 1
-	case d.Value() <= 100 || d.Value() >= 0:
-		maxProb = float64(d.Value()) / 100
-	default:
+	case d.Value() > 100 || d.Value() < 0:
 		maxProb = emptyProb
+	default:
+		maxProb = float64(d.Value()) / 100
 	}
 	return maxProb
 }
