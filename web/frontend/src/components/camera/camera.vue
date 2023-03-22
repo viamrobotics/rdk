@@ -36,10 +36,10 @@ const clearFrameInterval = () => {
 const viewCameraFrame = (time: number) => {
   console.log(imgEl);
   clearFrameInterval();
-  cameraManager.setImageElement(imgEl);
+  cameraManager!.setImageElement(imgEl);
   if (time > 0) {
     cameraFrameIntervalId = window.setInterval(() => {
-      cameraManager.setImageElement(imgEl);
+      cameraManager!.setImageElement(imgEl);
     }, Number(time) * 1000);
   }
 };
@@ -51,13 +51,11 @@ const updateCameraRefreshRate = () => {
 };
 
 const setupManager = () => {
-  if (!props.streamManager.cameraManagers.get(props.cameraName)) {
-    props.streamManager.setCameraManager(props.cameraName);
+  let tempManager = props.streamManager.cameraManagers.get(props.cameraName);
+  if (typeof tempManager === 'undefined') {
+    tempManager = props.streamManager.setCameraManager(props.cameraName);
   }
-  const tempManager = props.streamManager.cameraManagers.get(props.cameraName);
-  if (tempManager) {
-    cameraManager = tempManager;
-  }
+  cameraManager = tempManager;
 };
 
 const exportScreenshot = async (cameraName: string) => {
@@ -75,7 +73,7 @@ const exportScreenshot = async (cameraName: string) => {
 };
 
 const videoStream = $computed(() => {
-  return cameraManager.VideoElement;
+  return cameraManager!.VideoElement;
 });
 
 setupManager();
@@ -84,14 +82,14 @@ onMounted(() => {
   cameraOn = true;
   if (props.refreshRate === 'Live') {
     isLive = true;
-    cameraManager.addStream();
+    cameraManager!.addStream();
   }
   updateCameraRefreshRate();
 });
 
 onUnmounted(() => {
   if (isLive) {
-    cameraManager.removeStream();
+    cameraManager!.removeStream();
   }
   cameraOn = false;
   isLive = false;
@@ -102,11 +100,11 @@ onUnmounted(() => {
 watch(() => props.refreshRate, () => {
   if (isLive && props.refreshRate !== 'Live') {
     isLive = false;
-    cameraManager.removeStream();
+    cameraManager!.removeStream();
   }
   if (isLive === false && props.refreshRate === 'Live') {
     isLive = true;
-    cameraManager.addStream();
+    cameraManager!.addStream();
   }
   updateCameraRefreshRate();
 });

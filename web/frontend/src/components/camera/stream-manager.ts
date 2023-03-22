@@ -29,14 +29,11 @@ export class StreamManager {
     for (const camera of this.cameraManagers.values()) {
       // Clean up previous camera managers
       const tempCam = this.cameraManagers.get(camera.cameraName);
-      this.cameraManagers.set(camera.cameraName, new CameraManager(camera.cameraName, this.client));
-      const currCam = this.cameraManagers.get(camera.cameraName);
+      const currCam = new CameraManager(camera.cameraName, this.client);
+      this.cameraManagers.set(camera.cameraName, currCam);
       if (tempCam && tempCam.streamCount > 0) {
-        tempCam.close();
-        if (currCam) {
-          currCam.streamCount = tempCam.streamCount - 1;
-          currCam.addStream();
-        }
+        currCam.addStream();
+        currCam.streamCount = tempCam.streamCount;
       }
     }
     this.toggleRefresh = !this.toggleRefresh;
