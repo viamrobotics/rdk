@@ -438,12 +438,15 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// TODO DATA-861: this means that the ticker is reset everytime we call Update with sync enabled, regardless of
 	//      whether or not the interval has changed. We should not do that.
 	svc.cancelSyncScheduler()
-	svc.closeSyncer()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-		if err := svc.initSyncer(cfg); err != nil {
-			return err
+		if svc.syncer == nil {
+			if err := svc.initSyncer(cfg); err != nil {
+				return err
+			}
 		}
 		svc.startSyncScheduler(svc.syncIntervalMins)
+	} else {
+		svc.closeSyncer()
 	}
 
 	return nil
