@@ -39,7 +39,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 
 	// get solve frame
 	solveFrame := fs.Frame(solveFrameName)
-	if goalFrame == nil {
+	if solveFrame == nil {
 		return nil, frame.NewFrameMissingError(solveFrameName)
 	}
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
@@ -79,7 +79,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	}
 	if pivotFrame.Name() == frame.World {
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
-		movingSubset1, err := movingFrames(solveFrameList)
+		moving, err = movingFrames(solveFrameList)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +87,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		if err != nil {
 			return nil, err
 		}
-		moving = append(movingSubset1, movingSubset2...)
+		moving = append(moving, movingSubset2...)
 	} else {
 		dof := 0
 		var solveMovingList []frame.Frame
@@ -121,7 +121,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			}
 		} else {
 			// Get all child nodes of pivot node
-			movingSubset1, err := movingFrames(solveMovingList)
+			moving, err = movingFrames(solveMovingList)
 			if err != nil {
 				return nil, err
 			}
@@ -129,7 +129,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			if err != nil {
 				return nil, err
 			}
-			moving = append(movingSubset1, movingSubset2...)
+			moving = append(moving, movingSubset2...)
 		}
 	}
 

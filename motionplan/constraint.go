@@ -230,7 +230,12 @@ func newObstacleConstraint(
 		return nil, err
 	}
 	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	return newCollisionConstraint(movingGeometries.Geometries(), worldState.Obstacles[0].Geometries(), collisionSpecifications, reportDistances)
+	return newCollisionConstraint(
+		movingGeometries.Geometries(),
+		worldState.Obstacles[0].Geometries(),
+		collisionSpecifications,
+		reportDistances,
+	)
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting
