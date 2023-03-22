@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -97,6 +98,9 @@ type wheeledBase struct {
 
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
+
+	name              string
+	collisionGeometry spatialmath.Geometry
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -361,6 +365,7 @@ func CreateWheeledBase(
 		wheelCircumferenceMm: attr.WheelCircumferenceMM,
 		spinSlipFactor:       attr.SpinSlipFactor,
 		logger:               logger,
+		name:                 cfg.Name,
 	}
 
 	if base.spinSlipFactor == 0 {
@@ -393,6 +398,12 @@ func CreateWheeledBase(
 
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)
+
+	collisionGeometry, err := collisionGeometry(cfg)
+	if err != nil {
+		logger.Warnf("could not build geometry for wheeledBase: %s", err.Error())
+	}
+	base.collisionGeometry = collisionGeometry
 
 	return base, nil
 }

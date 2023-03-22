@@ -358,7 +358,10 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 // lapses, any resources that have safety heart monitored methods, where this session was the last caller
 // on the resource, will be stopped.
 func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) (*pb.StartSessionResponse, error) {
-	authUID, _ := rpc.ContextAuthSubject(ctx)
+	var authUID string
+	if authEntity, ok := rpc.ContextAuthEntity(ctx); ok {
+		authUID = authEntity.Entity
+	}
 	if _, ok := session.FromContext(ctx); ok {
 		return nil, errors.New("session already exists")
 	}
@@ -413,7 +416,10 @@ func peerConnectionInfoToProto(info rpc.PeerConnectionInfo) *pb.PeerConnectionIn
 
 // SendSessionHeartbeat sends a heartbeat to the given session.
 func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHeartbeatRequest) (*pb.SendSessionHeartbeatResponse, error) {
-	authUID, _ := rpc.ContextAuthSubject(ctx)
+	var authUID string
+	if authEntity, ok := rpc.ContextAuthEntity(ctx); ok {
+		authUID = authEntity.Entity
+	}
 	sessID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, err

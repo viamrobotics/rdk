@@ -7,6 +7,7 @@ package board
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
@@ -116,6 +117,11 @@ type Board interface {
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
+
+	// SetPowerMode sets the board to the given power mode. If
+	// provided, the board will exit the given power mode after
+	// the specified duration.
+	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
 
 	generic.Generic
 }
@@ -361,6 +367,12 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ModelAttributes()
+}
+
+func (r *reconfigurableBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.SetPowerMode(ctx, mode, duration)
 }
 
 // Close attempts to cleanly close each part of the board.

@@ -19,12 +19,14 @@ import (
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -339,6 +341,10 @@ func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) 
 // ModelAttributes returns attributes related to the model of this board.
 func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 func (b *numatoBoard) Close() error {

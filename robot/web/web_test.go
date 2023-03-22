@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -23,8 +25,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/rpc/oauth"
-	oauthutils "go.viam.com/utils/rpc/oauth/testutils"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
@@ -60,7 +61,7 @@ func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -88,7 +89,7 @@ func TestModule(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -141,7 +142,7 @@ func TestWebStartOptions(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -182,7 +183,7 @@ func TestWebWithAuth(t *testing.T) {
 		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
-			svc := web.New(ctx, injectRobot, logger)
+			svc := web.New(injectRobot, logger)
 
 			keyset := jwk.NewSet()
 			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -199,7 +200,6 @@ func TestWebWithAuth(t *testing.T) {
 			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
 			locationSecrets := []string{"locsosecret", "locsec2"}
-			expectedAudiences := []string{"https://app.viam.dev/"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -213,14 +213,9 @@ func TestWebWithAuth(t *testing.T) {
 						"secrets": locationSecrets,
 					},
 				},
-				{
-					Type:   oauth.CredentialsTypeOAuthWeb,
-					Config: config.AttributeMap{},
-					WebOAuthConfig: &config.WebOAuthConfig{
-						AllowedAudiences: expectedAudiences,
-						ValidatedKeySet:  keyset,
-					},
-				},
+			}
+			options.Auth.ExternalAuthConfig = &config.ExternalAuthConfig{
+				ValidatedKeySet: keyset,
 			}
 			if tc.Managed {
 				options.BakedAuthEntity = "blah"
@@ -309,16 +304,24 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				t.Run("can connect with web-oauth", func(t *testing.T) {
-					accessToken, err := oauthutils.SignWebAuthAccessToken(privKeyForWebAuth, entityName, expectedAudiences[0], "iss", "key-id-1")
-					test.That(t, err, test.ShouldBeNil)
-					conn, err = rgrpc.Dial(context.Background(), addr, logger,
-						rpc.WithAllowInsecureWithCredentialsDowngrade(),
-						rpc.WithStaticAuthenticationMaterial(accessToken),
-					)
-					test.That(t, err, test.ShouldBeNil)
-					test.That(t, conn.Close(), test.ShouldBeNil)
-				})
+				if tc.EntityName != "" {
+					t.Run("can connect with external auth", func(t *testing.T) {
+						accessToken, err := signJWKBasedExternalAccessToken(
+							privKeyForWebAuth,
+							entityName,
+							options.FQDN,
+							"iss",
+							"key-id-1",
+						)
+						test.That(t, err, test.ShouldBeNil)
+						conn, err = rgrpc.Dial(context.Background(), addr, logger,
+							rpc.WithAllowInsecureWithCredentialsDowngrade(),
+							rpc.WithStaticAuthenticationMaterial(accessToken),
+						)
+						test.That(t, err, test.ShouldBeNil)
+						test.That(t, conn.Close(), test.ShouldBeNil)
+					})
+				}
 			} else {
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
@@ -367,7 +370,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	altName := primitive.NewObjectID().Hex()
 	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -522,7 +525,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, injectRobot, logger)
+	svc := web.New(injectRobot, logger)
 
 	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -537,7 +540,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-	svc = web.New(ctx, injectRobot, logger)
+	svc = web.New(injectRobot, logger)
 
 	options, _, _ = robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -557,7 +560,7 @@ func TestWebUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(robot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -603,7 +606,7 @@ func TestWebUpdate(t *testing.T) {
 		return injectArm, nil
 	}
 
-	svc2 := web.New(ctx, robot2, logger)
+	svc2 := web.New(robot2, logger)
 
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
@@ -661,6 +664,7 @@ func TestWebWithStreams(t *testing.T) {
 	const (
 		camera1Key = "camera1"
 		camera2Key = "camera2"
+		audioKey   = "audio"
 	)
 
 	// Start a robot with a camera
@@ -675,7 +679,7 @@ func TestWebWithStreams(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robot.LoggerFunc = func() golog.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -696,7 +700,16 @@ func TestWebWithStreams(t *testing.T) {
 	robot.MockResourcesFromMap(rs)
 	updateable, ok := svc.(resource.Updateable)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = updateable.Update(ctx, rs)
+	err = updateable.Update(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add an audio stream
+	audio := &inject.AudioInput{}
+	rs[audioinput.Named(audioKey)] = audio
+	robot.MockResourcesFromMap(rs)
+	updateable, ok = svc.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test that new streams are available
@@ -704,7 +717,7 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Names, test.ShouldContain, camera1Key)
 	test.That(t, resp.Names, test.ShouldContain, camera2Key)
-	test.That(t, resp.Names, test.ShouldHaveLength, 2)
+	test.That(t, resp.Names, test.ShouldHaveLength, 3)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
@@ -729,7 +742,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robot.LoggerFunc = func() golog.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -791,7 +804,7 @@ func TestForeignResource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
-	svc := web.New(ctx, robot, logger)
+	svc := web.New(robot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -848,7 +861,7 @@ func TestForeignResource(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
-	svc = web.New(ctx, injectRobot, logger)
+	svc = web.New(injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -919,7 +932,7 @@ func TestRawClientOperation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
-	svc := web.New(ctx, iRobot, logger)
+	svc := web.New(iRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -984,7 +997,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 	t.Run("web start", func(t *testing.T) {
 		t.Run("default timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 			err := svc.Start(ctx, options)
@@ -1018,7 +1031,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 			err := svc.Start(ctx, options)
@@ -1055,7 +1068,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 	})
 	t.Run("module start", func(t *testing.T) {
 		t.Run("default timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -1088,7 +1101,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
-			svc := web.New(ctx, iRobot, logger)
+			svc := web.New(iRobot, logger)
 
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -1137,4 +1150,30 @@ func (srv *echoServer) EchoMultiple(
 
 func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
 	return &echopb.EchoResponse{}, nil
+}
+
+// signJWKBasedExternalAccessToken returns an access jwt access token typically returned by an OIDC provider.
+func signJWKBasedExternalAccessToken(
+	key *rsa.PrivateKey,
+	entity, aud, iss, keyID string,
+) (string, error) {
+	token := &jwt.Token{
+		Header: map[string]interface{}{
+			"typ": "JWT",
+			"alg": jwt.SigningMethodRS256.Alg(),
+			"kid": keyID,
+		},
+		Claims: rpc.JWTClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Audience: []string{aud},
+				Issuer:   iss,
+				Subject:  fmt.Sprintf("someauthprovider/%s", entity),
+				IssuedAt: jwt.NewNumericDate(time.Now()),
+			},
+			AuthCredentialsType: rpc.CredentialsTypeExternal,
+		},
+		Method: jwt.SigningMethodRS256,
+	}
+
+	return token.SignedString(key)
 }
