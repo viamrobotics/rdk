@@ -61,6 +61,7 @@ func TestSyncEnabled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
 			mockClock := clk.NewMock()
+			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 			clock = mockClock
 			tmpDir := t.TempDir()
 			rpcServer, mockService := buildAndStartLocalSyncServer(t)

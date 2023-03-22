@@ -120,7 +120,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
 			mockClock := clk.NewMock()
-			// Make mockClock the package level clock used by the dmsvc so that we can simulate times passage
+			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 			clock = mockClock
 
 			// Set up robot config.
