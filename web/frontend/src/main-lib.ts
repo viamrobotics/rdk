@@ -1,8 +1,9 @@
 import './index.css';
-import { createApp } from 'vue';
+import { createApp, type App } from 'vue';
 import RemoteControlCards from './components/remote-control-cards.vue';
 import type { Credentials } from '@viamrobotics/rpc';
 import { Client } from '@viamrobotics/sdk';
+import { version } from '../package.json';
 
 export const createRcApp = (props: {
   host: string;
@@ -40,5 +41,11 @@ export const createRcApp = (props: {
     });
   }
 
-  return createApp(RemoteControlCards, props);
+  const app = createApp(RemoteControlCards, props) as App<Element> & { rcVersion: string };
+
+  app.rcVersion = version;
+
+  return app;
+
+  // return createApp(RemoteControlCards, props);
 };
