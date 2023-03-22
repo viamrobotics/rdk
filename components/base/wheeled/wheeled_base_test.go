@@ -4,16 +4,21 @@ import (
 	"context"
 	"math"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -64,6 +69,21 @@ func TestWheelBaseMath(t *testing.T) {
 		temp, err := base.Width(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, temp, test.ShouldEqual, 100)
+
+		test.That(t,
+			base.SetPower(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 1}, nil),
+			test.ShouldBeNil)
+
+		test.That(t,
+			base.SetVelocity(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 1}, nil),
+			test.ShouldBeNil)
+
+		moving, err := base.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeTrue)
+
+		test.That(t, base.Stop(ctx, nil), test.ShouldBeNil)
+		test.That(t, base.Close(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
@@ -589,4 +609,50 @@ func TestHasOverShot(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSpinWithMovementSensor(t *testing.T) {
+	m := inject.Motor{
+		GoForFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+			return nil
+		},
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			return nil
+		},
+	}
+	ms := &inject.MovementSensor{
+		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			return &spatialmath.EulerAngles{Yaw: 1}, nil
+		},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	logger := golog.NewDebugLogger("loggie")
+
+	base := wheeledBase{
+		Unimplemented:        generic.Unimplemented{},
+		widthMm:              1,
+		wheelCircumferenceMm: 1,
+		spinSlipFactor:       0,
+		left:                 []motor.Motor{&m},
+		right:                []motor.Motor{&m},
+		allMotors:            []motor.Motor{&m},
+		sensors: &sensors{
+			sensorMu:    sync.Mutex{},
+			ctx:         ctx,
+			cancel:      cancel,
+			all:         []movementsensor.MovementSensor{ms},
+			orientation: ms,
+		},
+		opMgr:                   operation.SingleOperationManager{},
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		logger:                  logger,
+		cancelCtx:               ctx,
+		cancelFunc:              cancel,
+		name:                    "base",
+		collisionGeometry:       nil,
+	}
+
+	err := base.spinWithMovementSensor(0, 0, nil)
+	test.That(t, err, test.ShouldBeNil)
+
 }
