@@ -131,21 +131,13 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func newSelfCollisionConstraint(
-	frame referenceframe.Frame,
+	frame *solverFrame,
 	fs referenceframe.FrameSystem,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) (Constraint, error) {
-	// extract inputs corresponding to the frame
-	var frameInputs []referenceframe.Input
-	var err error
-	switch f := frame.(type) {
-	case *solverFrame:
-		frameInputs, err = f.mapToSlice(observationInput)
-	default:
-		frameInputs, err = referenceframe.GetFrameInputs(f, observationInput)
-	}
+	frameInputs, err := frame.mapToSlice(observationInput)
 	if err != nil {
 		return nil, err
 	}
@@ -156,13 +148,16 @@ func newSelfCollisionConstraint(
 		return nil, err // no geometries defined for frame
 	}
 
-	// find all geometries that are not moving
-	staticGeometries, err := referenceframe.FrameSystemGeometries(fs, observationInput)
-	if err != nil {
-		return nil, err
-	}
-	for _, geometry := range movingGeometries.Geometries() {
-		staticGeometries.RemoveGeometry(geometry.Label())
+	// get nonmoving geometries
+	staticGeometries := make([]spatial.Geometry, 0)
+	for _, name := range fs.FrameNames() {
+		if !frame.movingFrame(name) {
+			geometries, err := referenceframe.FrameGeometriesInWorldFrame(fs, fs.Frame(name), observationInput)
+			if err != nil {
+				return nil, err
+			}
+			staticGeometries = append(staticGeometries, geometries.Geometries()...)
+		}
 	}
 
 	movingVsMovingConstraint, err := newCollisionConstraint(
@@ -176,7 +171,7 @@ func newSelfCollisionConstraint(
 	}
 	movingVsStaticConstraint, err := newCollisionConstraint(
 		movingGeometries.Geometries(),
-		staticGeometries.Geometries(),
+		staticGeometries,
 		collisionSpecifications,
 		reportDistances,
 	)

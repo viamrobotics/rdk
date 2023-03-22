@@ -312,45 +312,6 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// FrameSystemToPCD takes in a framesystem and returns a map where all elements are
-// the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
-	vectorMap := make(map[string][]r3.Vector)
-	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
-	if err != nil {
-		logger.Debug(err)
-	}
-	for _, geometries := range geometriesInWorldFrame {
-		for _, geometry := range geometries.Geometries() {
-			vectorMap[geometry.Label()] = geometry.ToPoints(defaultPointDensity)
-		}
-	}
-	return vectorMap, nil
-}
-
-// FrameSystemGeometries takes in a framesystem and returns a map where all elements
-// are GeometriesInFrame modified to be with respect to the world.
-func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input) (map[string]*GeometriesInFrame, error) {
-	var errAll error
-	allGeometries := make(map[string]*GeometriesInFrame, 0)
-	for _, name := range system.FrameNames() {
-		geosInFrame, err := system.Frame(name).Geometries(inputs[name])
-		if err != nil {
-			errAll = multierr.Append(errAll, err)
-			continue
-		}
-		if len(geosInFrame.Geometries()) > 0 {
-			transformed, err := system.Transform(inputs, geosInFrame, World)
-			if err != nil {
-				errAll = multierr.Append(errAll, err)
-			} else {
-				allGeometries[name], _ = transformed.(*GeometriesInFrame)
-			}
-		}
-	}
-	return allGeometries, errAll
-}
-
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
 // at the given frame and containing all descendents of it, while the original has the frame and its
 // descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
@@ -424,6 +385,57 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 		}
 	}
 	return positions
+}
+
+// FrameSystemToPCD takes in a framesystem and returns a map where all elements are
+// the point representation of their geometry type with respect to the world.
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
+	vectorMap := make(map[string][]r3.Vector)
+	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
+	if err != nil {
+		logger.Debug(err)
+	}
+	for _, geometries := range geometriesInWorldFrame {
+		for _, geometry := range geometries.Geometries() {
+			vectorMap[geometry.Label()] = geometry.ToPoints(defaultPointDensity)
+		}
+	}
+	return vectorMap, nil
+}
+
+// FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
+func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[string]*GeometriesInFrame, error) {
+	var errAll error
+	allGeometries := make(map[string]*GeometriesInFrame, 0)
+	for _, name := range fs.FrameNames() {
+		geometries, err := FrameGeometriesInWorldFrame(fs, fs.Frame(name), inputMap)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
+		allGeometries[name] = geometries
+	}
+	return allGeometries, errAll
+}
+
+// FrameGeometriesInWorldFrame returns the geometries associated with the given frame with respect to the frame system's World frame.
+func FrameGeometriesInWorldFrame(fs FrameSystem, frame Frame, inputMap map[string][]Input) (*GeometriesInFrame, error) {
+	inputs, err := GetFrameInputs(frame, inputMap)
+	if err != nil {
+		return nil, err
+	}
+	geosInFrame, err := frame.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	if len(geosInFrame.Geometries()) > 0 {
+		transformed, err := fs.Transform(inputMap, geosInFrame, World)
+		if err != nil {
+			return nil, err
+		}
+		return transformed.(*GeometriesInFrame), nil
+	}
+	return geosInFrame, nil
 }
 
 // ToProtobuf turns all the interfaces into serializable types.

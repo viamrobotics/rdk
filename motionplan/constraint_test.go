@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -139,20 +140,10 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(markerFrame, m)
 	test.That(t, err, test.ShouldBeNil)
-
-	solveFrame := markerFrame
 	goalFrame := fs.World()
 
-	sFrames, err := fs.TracebackFrame(solveFrame)
-	test.That(t, err, test.ShouldBeNil)
-
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf, err := newSolverFrame(
-		fs,
-		sFrames,
-		goalFrame.Name(),
-		frame.StartPositions(fs),
-	)
+	sf, err := newSolverFrame(fs, markerFrame.Name(), goalFrame.Name(), frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 
 	opt := newBasicPlannerOptions()
@@ -206,7 +197,9 @@ func TestCollisionConstraints(t *testing.T) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	selfCollisionConstraint, err := newSelfCollisionConstraint(model, fs, frame.StartPositions(fs), nil, true)
+	sf, err := newSolverFrame(fs, model.Name(), referenceframe.World, frame.StartPositions(fs))
+	test.That(t, err, test.ShouldBeNil)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, fs, frame.StartPositions(fs), nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
 	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, true)
@@ -241,7 +234,9 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(b, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	selfCollisionConstraint, err := newSelfCollisionConstraint(model, fs, frame.StartPositions(fs), nil, false)
+	sf, err := newSolverFrame(fs, model.Name(), referenceframe.World, frame.StartPositions(fs))
+	test.That(b, err, test.ShouldBeNil)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, fs, frame.StartPositions(fs), nil, false)
 	test.That(b, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
 	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, frame.StartPositions(fs), nil, false)
