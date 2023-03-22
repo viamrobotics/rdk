@@ -200,10 +200,10 @@ func TestCollisionConstraints(t *testing.T) {
 	handler := &constraintHandler{}
 	sf, err := newSolverFrame(fs, model.Name(), referenceframe.World, referenceframe.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, fs, referenceframe.StartPositions(fs), nil, true)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, referenceframe.StartPositions(fs), nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
-	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, referenceframe.StartPositions(fs), nil, true)
+	obstacleConstraint, err := newObstacleConstraint(sf, fs, worldState, referenceframe.StartPositions(fs), nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 
@@ -239,10 +239,10 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	handler := &constraintHandler{}
 	sf, err := newSolverFrame(fs, model.Name(), referenceframe.World, referenceframe.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
-	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, fs, referenceframe.StartPositions(fs), nil, false)
+	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, referenceframe.StartPositions(fs), nil, false)
 	test.That(b, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
-	obstacleConstraint, err := newObstacleConstraint(model, fs, worldState, referenceframe.StartPositions(fs), nil, false)
+	obstacleConstraint, err := newObstacleConstraint(sf, fs, worldState, referenceframe.StartPositions(fs), nil, false)
 	test.That(b, err, test.ShouldBeNil)
 	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 	rseed := rand.New(rand.NewSource(1))

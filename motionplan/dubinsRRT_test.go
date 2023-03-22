@@ -36,7 +36,9 @@ func TestDubinsRRT(t *testing.T) {
 
 	testDubin := func(worldState *frame.WorldState) bool {
 		opt := newBasicPlannerOptions()
-		collisionConstraint, err := newObstacleConstraint(dubins.Frame(), fs, worldState, frame.StartPositions(fs), nil, true)
+		sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
+		test.That(t, err, test.ShouldBeNil)
+		collisionConstraint, err := newObstacleConstraint(sf, fs, worldState, frame.StartPositions(fs), nil, true)
 		if err != nil {
 			return false
 		}

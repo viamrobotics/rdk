@@ -195,7 +195,11 @@ func simple2DMap() (*planConfig, error) {
 	opt := newBasicPlannerOptions()
 	startInput := referenceframe.StartPositions(fs)
 	startInput[modelName] = referenceframe.FloatsToInputs([]float64{-90., 90.})
-	collisionConstraint, err := newObstacleConstraint(model, fs, worldState, startInput, nil, false)
+	sf, err := newSolverFrame(fs, modelName, referenceframe.World, startInput)
+	if err != nil {
+		return nil, err
+	}
+	collisionConstraint, err := newObstacleConstraint(sf, fs, worldState, startInput, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +232,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraint, err := newSelfCollisionConstraint(sf, fs, referenceframe.StartPositions(fs), nil, false)
+	collisionConstraint, err := newSelfCollisionConstraint(sf, referenceframe.StartPositions(fs), nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +263,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraint, err := newSelfCollisionConstraint(sf, fs, referenceframe.StartPositions(fs), nil, false)
+	collisionConstraint, err := newSelfCollisionConstraint(sf, referenceframe.StartPositions(fs), nil, false)
 	if err != nil {
 		return nil, err
 	}

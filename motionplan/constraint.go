@@ -132,6 +132,69 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func newSelfCollisionConstraint(
 	frame *solverFrame,
+	observationInput map[string][]referenceframe.Input,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+) (Constraint, error) {
+	frameInputs, err := frame.mapToSlice(observationInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// create robot collision entities
+	movingGeometries, err := frame.Geometries(frameInputs)
+	if err != nil && len(movingGeometries.Geometries()) == 0 {
+		return nil, err // no geometries defined for frame
+	}
+
+	return newCollisionConstraint(movingGeometries.Geometries(), nil, collisionSpecifications, reportDistances)
+}
+
+// newObstacleConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
+// into collision with worldState geometries outside of the collisions present for the observationInput.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func newObstacleConstraint(
+	frame *solverFrame,
+	fs referenceframe.FrameSystem,
+	worldState *referenceframe.WorldState,
+	observationInput map[string][]referenceframe.Input,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+) (Constraint, error) {
+	// extract inputs corresponding to the frame
+	goodInputs, err := frame.mapToSlice(observationInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// create robot collision entities
+	movingGeometries, err := frame.Geometries(goodInputs)
+	if err != nil && len(movingGeometries.Geometries()) == 0 {
+		return nil, err // no geometries defined for frame
+	}
+
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldState, err = worldState.ToWorldFrame(fs, observationInput)
+	if err != nil {
+		return nil, err
+	}
+	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
+	return newCollisionConstraint(
+		movingGeometries.Geometries(),
+		worldState.Obstacles[0].Geometries(),
+		collisionSpecifications,
+		reportDistances,
+	)
+}
+
+// newRobtoConstraint creates a constraint that will be violated if geometries constituting the given frame ever come into collision with
+// and of the other geometries present in the provided frame system.
+// Collisions specified as collisionSpecifications will also be ignored
+// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func newRobotConstraint(
+	frame *solverFrame,
 	fs referenceframe.FrameSystem,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
@@ -160,82 +223,7 @@ func newSelfCollisionConstraint(
 		}
 	}
 
-	movingVsMovingConstraint, err := newCollisionConstraint(
-		movingGeometries.Geometries(),
-		nil,
-		collisionSpecifications,
-		reportDistances,
-	)
-	if err != nil {
-		return nil, err
-	}
-	movingVsStaticConstraint, err := newCollisionConstraint(
-		movingGeometries.Geometries(),
-		staticGeometries,
-		collisionSpecifications,
-		reportDistances,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return func(cInput *ConstraintInput) (bool, float64) {
-		success1, score1 := movingVsMovingConstraint(cInput)
-		if !success1 && !reportDistances {
-			return success1, score1
-		}
-		success2, score2 := movingVsStaticConstraint(cInput)
-		if !reportDistances {
-			return success2, score2
-		}
-		return success1 && success2, score1 + score2
-	}, nil
-}
-
-// newObstacleConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
-// into collision with worldState geometries outside of the collisions present for the observationInput.
-// Collisions specified as collisionSpecifications will also be ignored
-// if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func newObstacleConstraint(
-	frame referenceframe.Frame,
-	fs referenceframe.FrameSystem,
-	worldState *referenceframe.WorldState,
-	observationInput map[string][]referenceframe.Input,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
-) (Constraint, error) {
-	// extract inputs corresponding to the frame
-	var goodInputs []referenceframe.Input
-	var err error
-	switch f := frame.(type) {
-	case *solverFrame:
-		goodInputs, err = f.mapToSlice(observationInput)
-	default:
-		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// create robot collision entities
-	movingGeometries, err := frame.Geometries(goodInputs)
-	if err != nil && len(movingGeometries.Geometries()) == 0 {
-		return nil, err // no geometries defined for frame
-	}
-
-	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldState, err = worldState.ToWorldFrame(fs, observationInput)
-	if err != nil {
-		return nil, err
-	}
-	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	return newCollisionConstraint(
-		movingGeometries.Geometries(),
-		worldState.Obstacles[0].Geometries(),
-		collisionSpecifications,
-		reportDistances,
-	)
+	return newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, collisionSpecifications, reportDistances)
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting
