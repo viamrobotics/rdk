@@ -34,17 +34,16 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 
 // Creates a new LeafNodeFilled and stores specified position and data.
 func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
-	maxProb := getRawProb(d)
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
-		maxProb:  maxProb,
+		maxProb:  getRawProb(d),
 	}
 	return octNode
 }
 
-// getRawProb checks the data param for newLeafNodeFilled and returns a float.
+// getRawProb returns the data param as a probability value.
 func getRawProb(d Data) float64 {
 	var maxProb float64
 	switch {
@@ -147,7 +146,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
 			// Update data in point
 			octree.node.point.D = d
-			octree.node.maxProb = float64(d.Value()) / 100
+			octree.node.maxProb = getRawProb(d)
 			return octree.node.maxProb, nil
 		}
 		if err := octree.splitIntoOctants(); err != nil {
