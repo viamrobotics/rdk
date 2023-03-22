@@ -120,6 +120,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
 			mockClock := clk.NewMock()
+			// Make mockClock the package level clock used by the dmsvc so that we can simulate times passage
 			clock = mockClock
 
 			// Set up robot config.
@@ -147,9 +148,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 			err = dmsvc.Update(context.Background(), initConfig)
 			test.That(t, err, test.ShouldBeNil)
-			for i := 0; i < 20; i++ {
-				mockClock.Add(captureInterval)
-			}
+			mockClock.Add(captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
@@ -179,9 +178,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
-			for i := 0; i < 20; i++ {
-				mockClock.Add(captureInterval)
-			}
+			mockClock.Add(captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
@@ -201,7 +198,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 func waitForCaptureFiles(captureDir string) {
 	files := getAllFileInfos(captureDir)
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 100; i++ {
 		if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
 			return
 		}

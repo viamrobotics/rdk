@@ -523,7 +523,7 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if info.IsDir() {
 			return nil
 		}
-		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
+		// If a file was modified within the past lastModifiedMillis seconds, do not sync it (data
 		// may still be being written).
 		timeSinceMod := time.Since(info.ModTime())
 		if timeSinceMod > (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {

@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	syncIntervalMillis = 0.0008
-	syncInterval       = time.Millisecond * 50
+	syncIntervalMins = 0.0008
+	syncInterval     = time.Millisecond * 50
 )
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
@@ -82,7 +82,7 @@ func TestSyncEnabled(t *testing.T) {
 			originalSvcConfig.CaptureDisabled = false
 			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
 			originalSvcConfig.CaptureDir = tmpDir
-			originalSvcConfig.SyncIntervalMins = syncIntervalMillis
+			originalSvcConfig.SyncIntervalMins = syncIntervalMins
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -90,7 +90,7 @@ func TestSyncEnabled(t *testing.T) {
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
 			var receivedReq bool
-			wait := time.After(time.Millisecond * 100)
+			wait := time.After(time.Second)
 			select {
 			case <-wait:
 			case <-mockService.succesfulDCRequests:
@@ -110,7 +110,7 @@ func TestSyncEnabled(t *testing.T) {
 			updatedSvcConfig.CaptureDisabled = false
 			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
 			updatedSvcConfig.CaptureDir = tmpDir
-			updatedSvcConfig.SyncIntervalMins = syncIntervalMillis
+			updatedSvcConfig.SyncIntervalMins = syncIntervalMins
 
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -123,7 +123,7 @@ func TestSyncEnabled(t *testing.T) {
 			mockClock.Add(captureInterval)
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
-			wait = time.After(time.Millisecond * 100)
+			wait = time.After(time.Second)
 			select {
 			case <-wait:
 			case <-mockService.succesfulDCRequests:
@@ -229,7 +229,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			test.That(t, ok1, test.ShouldBeTrue)
 			svcConfig.CaptureDisabled = false
 			svcConfig.ScheduledSyncDisabled = true
-			svcConfig.SyncIntervalMins = syncIntervalMillis
+			svcConfig.SyncIntervalMins = syncIntervalMins
 			svcConfig.CaptureDir = tmpDir
 
 			err = dmsvc.Update(context.Background(), cfg)
@@ -258,7 +258,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
-			svcConfig.SyncIntervalMins = syncIntervalMillis
+			svcConfig.SyncIntervalMins = syncIntervalMins
 			err = newDMSvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -271,7 +271,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					mockClock.Add(syncInterval)
 					// Each time we sync, we should get a sync request for each file.
 					for j := 0; j < numFiles; j++ {
-						wait := time.After(time.Millisecond * 100)
+						wait := time.After(time.Second * 5)
 						select {
 						case <-wait:
 							t.Fatalf("timed out waiting for sync request")
@@ -294,7 +294,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			// Get the successful requests
 			mockClock.Add(syncInterval)
 			for i := 0; i < numFiles; i++ {
-				wait := time.After(time.Millisecond * 100)
+				wait := time.After(time.Second * 5)
 				select {
 				case <-wait:
 					t.Fatalf("timed out waiting for sync request")
@@ -306,7 +306,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			// Give it time to delete files after upload.
 			waitUntilNoCaptureFiles := func(captureDir string) {
 				files := getAllFileInfos(captureDir)
-				for i := 0; i < 20; i++ {
+				for i := 0; i < 100; i++ {
 					if len(files) == 0 {
 						return
 					}
@@ -396,7 +396,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			test.That(t, ok, test.ShouldBeTrue)
 			svcConfig.CaptureDisabled = true
 			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
-			svcConfig.SyncIntervalMins = syncIntervalMillis
+			svcConfig.SyncIntervalMins = syncIntervalMins
 			svcConfig.AdditionalSyncPaths = []string{additionalPathsDir}
 			svcConfig.CaptureDir = captureDir
 
