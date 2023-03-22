@@ -133,10 +133,8 @@ func (s *syncer) Close() {
 }
 
 func (s *syncer) SyncFile(path string) {
-	started := make(chan struct{})
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		started <- struct{}{}
 		defer s.backgroundWorkers.Done()
 		select {
 		case <-s.cancelCtx.Done():
@@ -159,15 +157,10 @@ func (s *syncer) SyncFile(path string) {
 			if datacapture.IsDataCaptureFile(f) {
 				captureFile, err := datacapture.ReadFile(f)
 				if err != nil {
-					s.logger.Errorw("error reading capture file", "error", err)
+					s.syncErrs <- errors.Wrap(err, "error reading data capture file")
 					err := f.Close()
 					if err != nil {
-						s.syncErrs <- errors.Wrap(err, "error reading data capture file")
-						err := f.Close()
-						if err != nil {
-							s.syncErrs <- errors.Wrap(err, "error closing data capture file")
-						}
-						return
+						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 					}
 					return
 				}
@@ -178,7 +171,6 @@ func (s *syncer) SyncFile(path string) {
 			s.unmarkInProgress(path)
 		}
 	})
-	<-started
 }
 
 func (s *syncer) syncDataCaptureFile(f *datacapture.File) {

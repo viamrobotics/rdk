@@ -470,16 +470,16 @@ func (svc *builtIn) cancelSyncScheduler() {
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
-	started := make(chan struct{})
+	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+	intervalMillis := 60000.0 * intervalMins
+	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
+	// clock.Add in sync_test.go.
+	ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
-		intervalMillis := 60000.0 * intervalMins
-		ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
-		started <- struct{}{}
 		for {
 			if err := cancelCtx.Err(); err != nil {
 				if !errors.Is(err, context.Canceled) {
@@ -500,7 +500,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			}
 		}
 	})
-	<-started
 }
 
 func (svc *builtIn) sync() {
