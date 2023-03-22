@@ -114,11 +114,6 @@ watch(() => props.triggerRefresh, () => {
   updateCameraRefreshRate();
 });
 
-// If a connection reset happens resetup the manager
-watch(() => props.streamManager.toggleRefresh, () => {
-  setupManager();
-});
-
 </script>
 
 <template>
