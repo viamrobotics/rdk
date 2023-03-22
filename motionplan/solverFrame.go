@@ -13,12 +13,12 @@ import (
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
-	name       string
-	fss        frame.FrameSystem
-	movingGeom []string      // List of names of all frames that could move, used for collision detection
-	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
-	solveFrame frame.Frame
-	goalFrame  frame.Frame
+	name         string
+	fss          frame.FrameSystem
+	movingFrames []string      // List of names of all frames that could move, used for collision detection
+	frames       []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
+	solveFrame   frame.Frame
+	goalFrame    frame.Frame
 	// If this is true, then goals are translated to their position in `World` before solving.
 	// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
 	// TODO(pl): explore allowing this to be frames other than world
@@ -26,33 +26,31 @@ type solverFrame struct {
 	origSeed    map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
 }
 
-func newSolverFrame(
-	fss frame.FrameSystem,
-	solveFrameList []frame.Frame,
-	goalFrameName string,
-	seedMap map[string][]frame.Input,
-) (*solverFrame, error) {
-	var movingGeom []string
-	var frames []frame.Frame
-	worldRooted := false
-
+func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, seedMap map[string][]frame.Input) (*solverFrame, error) {
 	// get goal frame
-	goalFrame := fss.Frame(goalFrameName)
+	goalFrame := fs.Frame(goalFrameName)
 	if goalFrame == nil {
 		return nil, frame.NewFrameMissingError(goalFrameName)
 	}
-	goalFrameList, err := fss.TracebackFrame(goalFrame)
+	goalFrameList, err := fs.TracebackFrame(goalFrame)
 	if err != nil {
 		return nil, err
 	}
 
 	// get solve frame
+	solveFrame := fs.Frame(solveFrameName)
+	if goalFrame == nil {
+		return nil, frame.NewFrameMissingError(solveFrameName)
+	}
+	solveFrameList, err := fs.TracebackFrame(solveFrame)
+	if err != nil {
+		return nil, err
+	}
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
 	}
-	solveFrame := solveFrameList[0]
 
-	movingGeomNames := func(frameList []frame.Frame) ([]string, error) {
+	movingFrames := func(frameList []frame.Frame) ([]string, error) {
 		// Find first moving frame
 		var moveF frame.Frame
 		for i := len(frameList) - 1; i >= 0; i-- {
@@ -64,7 +62,7 @@ func newSolverFrame(
 		if moveF == nil {
 			return []string{}, nil
 		}
-		movingFs, err := fss.FrameSystemSubset(moveF)
+		movingFs, err := fs.FrameSystemSubset(moveF)
 		if err != nil {
 			return nil, err
 		}
@@ -72,21 +70,24 @@ func newSolverFrame(
 	}
 
 	// find pivot frame between goal and solve frames
+	var moving []string
+	var frames []frame.Frame
+	worldRooted := false
 	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
 	if err != nil {
 		return nil, err
 	}
 	if pivotFrame.Name() == frame.World {
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
-		movingGeom, err = movingGeomNames(solveFrameList)
+		movingSubset1, err := movingFrames(solveFrameList)
 		if err != nil {
 			return nil, err
 		}
-		movingGeom2, err := movingGeomNames(goalFrameList)
+		movingSubset2, err := movingFrames(goalFrameList)
 		if err != nil {
 			return nil, err
 		}
-		movingGeom = append(movingGeom, movingGeom2...)
+		moving = append(movingSubset1, movingSubset2...)
 	} else {
 		dof := 0
 		var solveMovingList []frame.Frame
@@ -114,21 +115,21 @@ func newSolverFrame(
 		if dof == 0 {
 			worldRooted = true
 			frames = solveFrameList
-			movingGeom, err = movingGeomNames(solveFrameList)
+			moving, err = movingFrames(solveFrameList)
 			if err != nil {
 				return nil, err
 			}
 		} else {
 			// Get all child nodes of pivot node
-			movingGeom, err = movingGeomNames(solveMovingList)
+			movingSubset1, err := movingFrames(solveMovingList)
 			if err != nil {
 				return nil, err
 			}
-			movingGeom2, err := movingGeomNames(goalMovingList)
+			movingSubset2, err := movingFrames(goalMovingList)
 			if err != nil {
 				return nil, err
 			}
-			movingGeom = append(movingGeom, movingGeom2...)
+			moving = append(movingSubset1, movingSubset2...)
 		}
 	}
 
@@ -142,14 +143,14 @@ func newSolverFrame(
 	}
 
 	return &solverFrame{
-		name:        solveFrame.Name() + "_" + goalFrame.Name(),
-		fss:         fss,
-		movingGeom:  movingGeom,
-		frames:      frames,
-		solveFrame:  solveFrame,
-		goalFrame:   goalFrame,
-		worldRooted: worldRooted,
-		origSeed:    origSeed,
+		name:         solveFrame.Name() + "_" + goalFrame.Name(),
+		fss:          fs,
+		movingFrames: moving,
+		frames:       frames,
+		solveFrame:   solveFrame,
+		goalFrame:    goalFrame,
+		worldRooted:  worldRooted,
+		origSeed:     origSeed,
 	}, nil
 }
 
@@ -210,7 +211,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := []spatial.Geometry{}
-	for _, fName := range sf.movingGeom {
+	for _, fName := range sf.movingFrames {
 		f := sf.fss.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)
@@ -242,6 +243,16 @@ func (sf *solverFrame) DoF() []frame.Limit {
 		limits = append(limits, frame.DoF()...)
 	}
 	return limits
+}
+
+func (sf *solverFrame) movingFrame(name string) bool {
+	for _, movingName := range sf.movingFrames {
+		// TODO(rb): iterating over the list and doing string compares is bad - change after you get this working
+		if movingName == name {
+			return true
+		}
+	}
+	return false
 }
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating

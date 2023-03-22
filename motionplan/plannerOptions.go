@@ -207,7 +207,7 @@ func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, 
 }
 
 func (p *plannerOptions) createCollisionConstraints(
-	frame referenceframe.Frame,
+	frame *solverFrame,
 	fs referenceframe.FrameSystem,
 	worldState *referenceframe.WorldState,
 	seedMap map[string][]referenceframe.Input,
