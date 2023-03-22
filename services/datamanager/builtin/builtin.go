@@ -464,6 +464,7 @@ func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
+		svc.backgroundWorkers.Wait()
 		svc.syncRoutineCancelFn = nil
 	}
 }
@@ -473,13 +474,13 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		started <- struct{}{}
 		defer svc.backgroundWorkers.Done()
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 		intervalMillis := 60000.0 * intervalMins
 		ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
+		started <- struct{}{}
 		for {
 			if err := cancelCtx.Err(); err != nil {
 				if !errors.Is(err, context.Canceled) {
