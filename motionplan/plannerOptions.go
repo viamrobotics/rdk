@@ -44,12 +44,13 @@ const (
 	defaultSmoothIter = 20
 
 	// names of constraints.
-	defaultLinearConstraintName        = "defaultLinearConstraint"
-	defaultPseudolinearConstraintName  = "defaultPseudolinearConstraint"
-	defaultOrientationConstraintName   = "defaultOrientationConstraint"
-	defaultObstacleConstraintName      = "defaultObstacleConstraint"
-	defaultSelfCollisionConstraintName = "defaultSelfCollisionConstraint"
-	defaultJointConstraint             = "defaultJointSwingConstraint"
+	defaultLinearConstraintName         = "defaultLinearConstraint"
+	defaultPseudolinearConstraintName   = "defaultPseudolinearConstraint"
+	defaultOrientationConstraintName    = "defaultOrientationConstraint"
+	defaultObstacleConstraintName       = "defaultObstacleConstraint"
+	defaultSelfCollisionConstraintName  = "defaultSelfCollisionConstraint"
+	defaultRobotCollisionConstraintName = "defaultRobotCollisionConstraint"
+	defaultJointConstraint              = "defaultJointSwingConstraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
@@ -245,8 +246,7 @@ func (p *plannerOptions) createCollisionConstraints(
 		}
 	}
 
-	// TODO(pl): non-moving frame system geometries are not currently supported for collision avoidance ( RSDK-2129 ) but are included here
-	// in anticipation of support and to prevent spurious errors.
+	// Get names of all geometries in the frame system
 	allFsGeoms, err := referenceframe.FrameSystemGeometries(fs, seedMap)
 	if err != nil {
 		return err
@@ -312,8 +312,8 @@ func (p *plannerOptions) createCollisionConstraints(
 		}
 	}
 
-	// add collision constraints
-	selfCollisionConstraint, err := newSelfCollisionConstraint(frame, fs, seedMap, allowedCollisions, reportDistances)
+	// Add the collision constraints
+	selfCollisionConstraint, err := newSelfCollisionConstraint(frame, seedMap, allowedCollisions, reportDistances)
 	if err != nil {
 		return err
 	}
@@ -321,8 +321,13 @@ func (p *plannerOptions) createCollisionConstraints(
 	if err != nil {
 		return err
 	}
+	robotConstraint, err := newRobotConstraint(frame, fs, seedMap, allowedCollisions, reportDistances)
+	if err != nil {
+		return err
+	}
 	p.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
 	p.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
+	p.AddConstraint(defaultRobotCollisionConstraintName, robotConstraint)
 
 	return nil
 }
