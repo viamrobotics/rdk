@@ -129,9 +129,9 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 2)
 		mp = basicOct.node.children[0].MaxProb()
-		test.That(t, mp, test.ShouldEqual, float64(math.Max(float64(d1), float64(d2)))/100)
+		test.That(t, mp, test.ShouldEqual, math.Max(float64(d1), float64(d2))/100)
 		mp = basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, float64(math.Max(float64(d1), float64(d2)))/100)
+		test.That(t, mp, test.ShouldEqual, math.Max(float64(d1), float64(d2))/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -150,7 +150,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		mp = basicOct.node.children[0].MaxProb()
-		test.That(t, mp, test.ShouldEqual, float64(math.Max(float64(d2), float64(d3)))/100)
+		test.That(t, mp, test.ShouldEqual, math.Max(float64(d2), float64(d3))/100)
 
 		d4 := 4
 		err = basicOct.Set(r3.Vector{X: -.4, Y: 0, Z: 0}, NewValueData(d4))
@@ -189,7 +189,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.size, test.ShouldEqual, 2)
 		mp = basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, float64(math.Max(float64(d1), float64(d2)))/100)
+		test.That(t, mp, test.ShouldEqual, math.Max(float64(d1), float64(d2))/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
@@ -211,7 +211,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, d2)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 1)
 		mp = basicOct.MaxProb()
-		test.That(t, mp, test.ShouldEqual, float64(math.Max(float64(d1), float64(d2)))/100)
+		test.That(t, mp, test.ShouldEqual, math.Max(float64(d1), float64(d2))/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
