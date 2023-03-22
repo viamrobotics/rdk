@@ -470,8 +470,6 @@ func (svc *builtIn) cancelSyncScheduler() {
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
-	started := make(chan struct{})
-
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -480,7 +478,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 		ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
-		started <- struct{}{}
 		for {
 			if err := cancelCtx.Err(); err != nil {
 				if !errors.Is(err, context.Canceled) {
@@ -501,7 +498,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			}
 		}
 	})
-	<-started
 }
 
 func (svc *builtIn) sync() {
