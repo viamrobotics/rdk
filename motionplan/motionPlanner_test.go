@@ -452,7 +452,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(offset, fs.World())
 	fs.AddFrame(xarm, offset)
 
-	// plan to a location, it should intepolate to get there
+	// plan to a location, it should interpolate to get there
 	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), logger.Sugar(), goal, xarm, referenceframe.StartPositions(fs), fs, nil, nil, opts)
 	test.That(t, err, test.ShouldBeNil)
