@@ -159,7 +159,7 @@ func TestBasicOctreeSet(t *testing.T) {
 		test.That(t, basicOct.Size(), test.ShouldEqual, 3)
 		mp = basicOct.node.children[0].MaxProb()
 		greatest := math.Max(math.Max(float64(d2), float64(d3)), float64(d4))
-		test.That(t, mp, test.ShouldEqual, float64(greatest)/100)
+		test.That(t, mp, test.ShouldEqual, greatest/100)
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
