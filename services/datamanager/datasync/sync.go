@@ -107,17 +107,19 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
 	s.cancelFunc()
+	s.backgroundWorkers.Wait()
 	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
 			s.logger.Errorw("error closing datasync server connection", "error", err)
 		}
 	}
-	s.backgroundWorkers.Wait()
 }
 
 func (s *syncer) SyncFile(path string) {
+	started := make(chan struct{})
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
+		started <- struct{}{}
 		defer s.backgroundWorkers.Done()
 		select {
 		case <-s.cancelCtx.Done():
@@ -154,6 +156,7 @@ func (s *syncer) SyncFile(path string) {
 			s.unmarkInProgress(path)
 		}
 	})
+	<-started
 }
 
 func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
