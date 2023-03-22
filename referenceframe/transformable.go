@@ -227,7 +227,7 @@ func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
 	return nil
 }
 
-// RemoveGeometry removes the named geometry if it exists in the GeometriesInFrame and has no effect otherwise
+// RemoveGeometry removes the named geometry if it exists in the GeometriesInFrame and has no effect otherwise.
 func (gF *GeometriesInFrame) RemoveGeometry(name string) {
 	if gF.nameIndexMap == nil {
 		return

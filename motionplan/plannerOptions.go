@@ -5,7 +5,6 @@ import (
 	"math"
 	"runtime"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
 	"gonum.org/v1/gonum/floats"
 
@@ -213,7 +212,6 @@ func (p *plannerOptions) createCollisionConstraints(
 	seedMap map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
 	reportDistances bool,
-	logger golog.Logger,
 ) error {
 	allowedCollisions := []*Collision{}
 
