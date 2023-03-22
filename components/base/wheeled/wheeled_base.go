@@ -230,7 +230,7 @@ func (base *wheeledBase) spinWithMovementSensor(angleDeg, degsPerSec float64, ex
 			// poll the sensor for the current error in angle
 			// check if we've overshot our target by the errTarget value
 			// check if we've travelled at all
-			if (atTarget && minTravel) || (overShot && minTravel) {
+			if (atTarget && minTravel) || (overShot && minTravel) || (startYaw == targetYaw) {
 				ticker.Stop()
 				if err := base.Stop(base.cancelCtx, nil); err != nil {
 					return
