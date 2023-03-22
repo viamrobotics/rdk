@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	clk "github.com/benbjohnson/clock"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,7 @@ var (
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
-
+	captureInterval := time.Millisecond * 10
 	testFilesContainSensorData := func(t *testing.T, dir string) {
 		t.Helper()
 		var sd []*v1.SensorData
@@ -118,6 +119,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Set up capture directories.
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
+			mockClock := clk.NewMock()
+			clock = mockClock
 
 			// Set up robot config.
 			var initConfig *config.Config
@@ -144,6 +147,10 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 			err = dmsvc.Update(context.Background(), initConfig)
 			test.That(t, err, test.ShouldBeNil)
+			for i := 0; i < 20; i++ {
+				mockClock.Add(captureInterval)
+			}
+
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
 				testFilesContainSensorData(t, initCaptureDir)
@@ -172,6 +179,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
+			for i := 0; i < 20; i++ {
+				mockClock.Add(captureInterval)
+			}
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
