@@ -95,19 +95,18 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		partID:             partID,
-		conn:               conn,
-		client:             client,
-		logger:             logger,
-		backgroundWorkers:  sync.WaitGroup{},
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		lastModifiedMillis: lastModifiedMillis,
-		progressLock:       &sync.Mutex{},
-		inProgress:         make(map[string]bool),
-		syncErrs:   make(chan error, 10),
-		closed:     &atomic.Bool{},
-		logRoutine: sync.WaitGroup{},
+		partID:            partID,
+		conn:              conn,
+		client:            client,
+		logger:            logger,
+		backgroundWorkers: sync.WaitGroup{},
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
+		progressLock:      &sync.Mutex{},
+		inProgress:        make(map[string]bool),
+		syncErrs:          make(chan error, 10),
+		closed:            &atomic.Bool{},
+		logRoutine:        sync.WaitGroup{},
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -126,7 +125,7 @@ func (s *syncer) Close() {
 	s.logRoutine.Wait()
 	//nolint:errcheck
 	_ = s.logger.Sync()
-  if s.conn != nil {
+	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
 			s.logger.Errorw("error closing datasync server connection", "error", err)
 		}
