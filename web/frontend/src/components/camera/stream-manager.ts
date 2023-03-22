@@ -16,7 +16,6 @@ export class StreamManager {
     this.isConnected = true;
     this.cameraManagers = new Map<string, CameraManager>();
     this.client = client;
-    this.toggleRefresh = false;
   }
 
   setCameraManager (cameraName:string) {
@@ -28,14 +27,9 @@ export class StreamManager {
   refreshStreams () {
     for (const camera of this.cameraManagers.values()) {
       // Clean up previous camera managers
-      const tempCam = this.cameraManagers.get(camera.cameraName);
-      const currCam = new CameraManager(camera.cameraName, this.client);
-      this.cameraManagers.set(camera.cameraName, currCam);
-      if (tempCam && tempCam.streamCount > 0) {
-        currCam.addStream();
-        currCam.streamCount = tempCam.streamCount;
+      if (camera.streamCount > 0) {
+        camera.open();
       }
     }
-    this.toggleRefresh = !this.toggleRefresh;
   }
 }
