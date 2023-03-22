@@ -10,8 +10,6 @@ export class StreamManager {
 
   client: Client;
 
-  toggleRefresh: boolean;
-
   constructor (client:Client) {
     this.isConnected = true;
     this.cameraManagers = new Map<string, CameraManager>();
