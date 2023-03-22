@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -38,10 +39,13 @@ func (c *Camera) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
-	if c.StreamFunc == nil {
+	if c.StreamFunc != nil {
+		return c.StreamFunc(ctx, errHandlers...)
+	}
+	if c.Camera != nil {
 		return c.Camera.Stream(ctx, errHandlers...)
 	}
-	return c.StreamFunc(ctx, errHandlers...)
+	return nil, errors.Wrap(ctx.Err(), "no stream function available")
 }
 
 // Projector calls the injected Projector or the real version.

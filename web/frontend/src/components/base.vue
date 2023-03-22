@@ -463,6 +463,7 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
+              :toggle="openCameras[camera.name]?openCameras[camera.name]:false"
             />
           </template>
         </div>
