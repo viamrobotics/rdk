@@ -148,7 +148,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 			err = dmsvc.Update(context.Background(), initConfig)
 			test.That(t, err, test.ShouldBeNil)
-			mockClock.Add(captureInterval)
+			for i := 0; i < 20; i++ {
+				mockClock.Add(captureInterval)
+			}
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
@@ -178,7 +180,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
-			mockClock.Add(captureInterval)
+			for i := 0; i < 20; i++ {
+				mockClock.Add(captureInterval)
+			}
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
