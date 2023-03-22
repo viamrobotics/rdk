@@ -21,24 +21,21 @@ export class CameraManager {
   }
 
   addStream () {
-    console.log(`Stream Count Add:${this.streamCount}`);
     if (this.streamCount === 0) {
-      console.log('opening stream');
       this.open();
     }
     this.streamCount += 1;
   }
 
   removeStream () {
-    console.log(`Stream Count Remove:${this.streamCount}`);
     this.streamCount -= 1;
     if (this.streamCount === 0) {
-      console.log('Closing Stream');
       this.close();
     }
   }
 
   open () {
+    console.log('opening stream');
     this.stream.add(this.cameraName);
     this.stream.on('track', (event) => {
       const [eventStream] = event.streams;
@@ -54,6 +51,7 @@ export class CameraManager {
   }
 
   close () {
+    console.log('Closing Stream');
     this.stream.remove(this.cameraName);
   }
 

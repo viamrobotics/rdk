@@ -34,7 +34,6 @@ const clearFrameInterval = () => {
 };
 
 const viewCameraFrame = (time: number) => {
-  console.log(imgEl);
   clearFrameInterval();
   cameraManager!.setImageElement(imgEl);
   if (time > 0) {
@@ -52,7 +51,7 @@ const updateCameraRefreshRate = () => {
 
 const setupManager = () => {
   let tempManager = props.streamManager.cameraManagers.get(props.cameraName);
-  if (typeof tempManager === 'undefined') {
+  if (tempManager) {
     tempManager = props.streamManager.setCameraManager(props.cameraName);
   }
   cameraManager = tempManager;
