@@ -25,11 +25,6 @@ import (
 const (
 	syncIntervalMillis = 0.0008
 	syncInterval       = time.Millisecond * 50
-	syncTime           = time.Millisecond * 250
-)
-
-var (
-	testLastModifiedMillis = 10
 )
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
@@ -243,8 +238,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			// Let it capture a bit, then close.
 			for i := 0; i < 5; i++ {
 				mockClock.Add(captureInterval)
-				time.Sleep(time.Millisecond * 10)
 			}
+			waitForCaptureFiles(tmpDir)
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
@@ -309,8 +304,17 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			}
 
 			// Give it time to delete files after upload.
-			// TODO: replace with a select?
-			time.Sleep(time.Millisecond * 100)
+			waitUntilNoCaptureFiles := func(captureDir string) {
+				files := getAllFileInfos(captureDir)
+				for i := 0; i < 20; i++ {
+					if len(files) == 0 {
+						return
+					}
+					time.Sleep(time.Millisecond * 25)
+					files = getAllFileInfos(captureDir)
+				}
+			}
+			waitUntilNoCaptureFiles(tmpDir)
 			err = newDMSvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
@@ -397,7 +401,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			svcConfig.CaptureDir = captureDir
 
 			// Start dmsvc.
-			dmsvc.SetWaitAfterLastModifiedMillis(testLastModifiedMillis)
+			dmsvc.SetWaitAfterLastModifiedMillis(10)
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 

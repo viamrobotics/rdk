@@ -34,8 +34,8 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	SyncFile(path string)
-	Close()
+	SyncFile(path string) error
+	Close() error
 }
 
 // syncer is responsible for uploading files in captureDir to the cloud.
@@ -105,12 +105,12 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 }
 
 // Close closes all resources (goroutines) associated with s.
-func (s *syncer) Close() {
+func (s *syncer) Close() error {
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
 	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
-			s.logger.Errorw("error closing datasync server connection", "error", err)
+			return errors.Wrap(err, "error closing datasync server connection")
 		}
 	}
 }
