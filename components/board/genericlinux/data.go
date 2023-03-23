@@ -58,6 +58,15 @@ func noBoardError(modelName string) error {
 	return fmt.Errorf("could not determine %q model", modelName)
 }
 
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+    I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+    SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+    Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+    DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+    Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+}
+
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	const (
