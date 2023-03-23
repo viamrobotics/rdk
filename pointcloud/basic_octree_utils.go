@@ -7,8 +7,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// emptyProb is assigned to a node if it has nil data value.
-const emptyProb = -1.
+// emptyProb is assigned to nodes who have no value specified.
+var emptyProb = math.NaN()
+
+// unexploredProb is assigned to a node which does not have data specified.
+const unexploredProb = -1
 
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
@@ -16,7 +19,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
-		maxProb:  emptyProb,
+		maxProb:  unexploredProb,
 	}
 	return octNode
 }
@@ -27,7 +30,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    PointAndData{},
-		maxProb:  emptyProb,
+		maxProb:  unexploredProb,
 	}
 	return octNode
 }
@@ -45,16 +48,14 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 
 // getRawProb returns the data param as a probability value.
 func getRawProb(d Data) float64 {
-	var maxProb float64
-	switch {
-	case !d.HasValue():
-		maxProb = 1
-	case d.Value() <= 100 && d.Value() >= 0:
-		maxProb = float64(d.Value()) / 100
+	var val float64
+	switch d.HasValue() {
+	case true:
+		val = float64(d.Value())
 	default:
-		maxProb = emptyProb
+		val = emptyProb
 	}
-	return maxProb
+	return val
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
@@ -163,7 +164,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		return octree.node.maxProb, err
 	}
 
-	return 0, nil
+	return 0, errors.New("error attempting to set into invalid node type")
 }
 
 // helperIterate is a recursive helper function for iterating through a basic octree that returns
