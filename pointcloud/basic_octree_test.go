@@ -638,10 +638,9 @@ func TestCachedMaxProbability(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
-	octree, err := createNewOctree(center, side)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Run("get the max val from an octree", func(t *testing.T) {
+		octree, err := createNewOctree(center, side)
+		test.That(t, err, test.ShouldBeNil)
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
 			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3)},
