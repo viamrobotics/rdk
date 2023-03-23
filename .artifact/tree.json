@@ -50624,12 +50624,6 @@
     },
     "example_cartographer_outputs": {
       "viam-office-02-22-1": {
-        "image_map": {
-          "image_map_0.jpeg": {
-            "hash": "452b554255aa7bb43d74c2fa9ea40de9",
-            "size": 43997
-          }
-        },
         "internal_state": {
           "internal_state_0.pbstream": {
             "hash": "0a8e819b404566c918ca899a401f84e0",
@@ -50763,72 +50757,6 @@
           }
         },
         "position": {
-          "position_0.json": {
-            "hash": "9c01fff65a4952976a24c05910d6c982",
-            "size": 292
-          },
-          "position_1.json": {
-            "hash": "51bed3e6edf021715da980e9cda698bd",
-            "size": 282
-          },
-          "position_10.json": {
-            "hash": "ee1396640646861dbcfdda6f3a73d2e8",
-            "size": 282
-          },
-          "position_11.json": {
-            "hash": "e0836d058f54ebd3e9f6165c27d51d0a",
-            "size": 282
-          },
-          "position_12.json": {
-            "hash": "8986501ef190f3922ee54eb63a3d8fcf",
-            "size": 290
-          },
-          "position_13.json": {
-            "hash": "fb60167230d13b2e98ff39581d44049c",
-            "size": 282
-          },
-          "position_14.json": {
-            "hash": "812eee13d5bcdf0d2c5fa3fff0484693",
-            "size": 285
-          },
-          "position_15.json": {
-            "hash": "c2f996cc15209c51427e8e148f6200d0",
-            "size": 284
-          },
-          "position_2.json": {
-            "hash": "e556d6520f51e0da0f895ca3641d240e",
-            "size": 283
-          },
-          "position_3.json": {
-            "hash": "552f597eecb111aa386d7963e5d74e45",
-            "size": 282
-          },
-          "position_4.json": {
-            "hash": "8ca3cfac98a9f5d9aceec8e52f24827d",
-            "size": 286
-          },
-          "position_5.json": {
-            "hash": "d9e3759aa939f8b44ede502b6fa7437c",
-            "size": 282
-          },
-          "position_6.json": {
-            "hash": "708bc1608a3e9a48561e524e2ba459b4",
-            "size": 283
-          },
-          "position_7.json": {
-            "hash": "222544f74b8f91c9d22c3cc0c5d5abe2",
-            "size": 285
-          },
-          "position_8.json": {
-            "hash": "50975df4978328dcf8e702790641d7f1",
-            "size": 282
-          },
-          "position_9.json": {
-            "hash": "ee1396640646861dbcfdda6f3a73d2e8",
-            "size": 282
-          }
-        },
-        "position_new": {
           "position_0.json": {
             "hash": "9c01fff65a4952976a24c05910d6c982",
             "size": 292
