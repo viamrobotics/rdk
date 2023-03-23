@@ -81,16 +81,13 @@ func TestBasicOctreeNew(t *testing.T) {
 	basicOct, err := createNewOctree(center, sideValid)
 	test.That(t, err, test.ShouldBeNil)
 
-	// t.Run("New Octree as basic octree", func(t *testing.T) {
-	// 	test.That(t, basicOct.node.children, test.ShouldBeNil)
-	// 	test.That(t, basicOct.node.nodeType, test.ShouldResemble, leafNodeEmpty)
-	// 	test.That(t, basicOct.node.point, test.ShouldResemble, PointAndData{})
-	// 	test.That(t, math.IsNaN(basicOct.node.maxVal), test.ShouldBeTrue)
-	// 	test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
-	// 	test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
-	// 	test.That(t, basicOct.meta, test.ShouldResemble, NewMetaData())
-	// 	test.That(t, basicOct.MetaData(), test.ShouldResemble, NewMetaData())
-	// })
+	t.Run("New Octree as basic octree", func(t *testing.T) {
+		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
+		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
+		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
+		test.That(t, basicOct.meta, test.ShouldResemble, NewMetaData())
+		test.That(t, basicOct.MetaData(), test.ShouldResemble, NewMetaData())
+	})
 
 	validateBasicOctree(t, basicOct, center, sideValid)
 }
