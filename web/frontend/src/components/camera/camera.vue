@@ -72,7 +72,7 @@ const exportScreenshot = async (cameraName: string) => {
 };
 
 const videoStream = $computed(() => {
-  return cameraManager!.VideoElement;
+  return cameraManager!.videoStream;
 });
 
 setupManager();

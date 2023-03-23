@@ -10,7 +10,7 @@ export class CameraManager {
 
   streamCount:number;
 
-  stream:StreamClient;
+  streamClient:StreamClient;
 
   public videoStream:MediaStream;
 
@@ -19,7 +19,7 @@ export class CameraManager {
     this.cameraClient = new CameraClient(client, cameraName);
     this.client = client;
     this.streamCount = 0;
-    this.stream = streamClient;
+    this.streamClient = streamClient;
     this.videoStream = new MediaStream();
   }
 
@@ -38,8 +38,8 @@ export class CameraManager {
   }
 
   open () {
-    this.stream.add(this.cameraName);
-    this.stream.on('track', (event) => {
+    this.streamClient.add(this.cameraName);
+    this.streamClient.on('track', (event) => {
       const [eventStream] = event.streams;
       if (!eventStream) {
         throw new Error('expected event stream to exist');
@@ -53,7 +53,7 @@ export class CameraManager {
   }
 
   close () {
-    this.stream.remove(this.cameraName);
+    this.streamClient.remove(this.cameraName);
   }
 
   async setImageSrc (imgEl:HTMLImageElement|undefined) {
