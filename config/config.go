@@ -69,6 +69,7 @@ type Config struct {
 // and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
 var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
 
+// ErrInvalidName returns a human-readable error for when ValidNameRegex doesn't match.
 func ErrInvalidName(name string) error {
 	return errors.Errorf("name %q must start with a letter and must only contain letters, numbers, dashes, and underscores", name)
 }
