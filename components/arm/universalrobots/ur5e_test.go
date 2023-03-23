@@ -50,7 +50,7 @@ func testUR5eInverseKinematics(t *testing.T, pos spatialmath.Pose) {
 
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	steps, err := motionplan.PlanFrameMotion(ctx, logger, pos, m, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
+	steps, err := motionplan.PlanFrameMotion(ctx, logger, pos, m, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil, nil)
 
 	test.That(t, err, test.ShouldBeNil)
 	solution := steps[len(steps)-1]

@@ -16,6 +16,11 @@
             "model": "fake"
         },
         {
+            "name": "test_generic",
+            "type": "generic",
+            "model": "fake"
+        },
+        {
             "name": "test_gripper",
             "type": "gripper",
             "model": "fake"

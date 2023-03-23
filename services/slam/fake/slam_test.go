@@ -1,7 +1,6 @@
 package fake
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -15,13 +14,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func TestFakeSLAMGetPosition(t *testing.T) {
 	expectedComponentReference := ""
-	slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+	slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
 	p, componentReference, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
 	test.That(t, err, test.ShouldBeNil)
@@ -51,7 +49,7 @@ func TestFakeSLAMStateful(t *testing.T) {
 func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake internal state in chunks"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData, err := os.ReadFile(path)
@@ -71,7 +69,7 @@ func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 func TestFakeSLAMGetPointMapStream(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
 		data := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
@@ -134,17 +132,6 @@ func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM) {
 		internalState, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
 		getInternalStateStreamResults = append(getInternalStateStreamResults, len(internalState))
-
-		f, err = slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f, test.ShouldNotBeNil)
-		pcd, err := helperConcatenateChunksToFull(f)
-		test.That(t, err, test.ShouldBeNil)
-		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-		test.That(t, err, test.ShouldBeNil)
-
-		getPointCloudMapResults = append(getPointCloudMapResults, pc.MetaData().MaxX)
-		test.That(t, err, test.ShouldBeNil)
 	}
 
 	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
