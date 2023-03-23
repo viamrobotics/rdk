@@ -128,18 +128,21 @@ const digestInput = () => {
     baseClient.setPower(linear, angular);
   } catch (error) {
     displayError(error as ServiceError);
-    if (pressed.size <= 0) {
-      stop();
-    }
+  }
+
+  if (pressed.size <= 0) {
+    stop();
   }
 };
 
 const handleKeyDown = (key: Keys) => {
+  console.log(`handleKeyDown: ${key}`);
   pressed.add(key);
   digestInput();
 };
 
 const handleKeyUp = (key: Keys) => {
+  console.log(`handleKeyUp: ${key}`);
   pressed.delete(key);
 
   if (pressed.size > 0) {
