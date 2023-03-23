@@ -69,6 +69,10 @@ type Config struct {
 // and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
 var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
 
+func ErrInvalidName(name string) error {
+	return errors.Errorf("name %q must start with a letter and must only contain letters, numbers, dashes, and underscores", name)
+}
+
 // Ensure ensures all parts of the config are valid.
 func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
@@ -289,8 +293,7 @@ func (config *Remote) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if !ValidNameRegex.MatchString(config.Name) {
-		return utils.NewConfigValidationError(path,
-			errors.Errorf("Remote name %q must only contain letters, numbers, dashes, and underscores", config.Name))
+		return utils.NewConfigValidationError(path, ErrInvalidName(config.Name))
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
@@ -793,7 +796,7 @@ func (p *PackageConfig) Validate(path string) error {
 	}
 
 	if !ValidNameRegex.MatchString(p.Name) {
-		return errors.Errorf("package %s name must contain only letters, numbers, underscores and hyphens", path)
+		return ErrInvalidName(p.Name)
 	}
 
 	return nil
