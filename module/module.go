@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -304,16 +303,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, errors.Errorf("module cannot service api: %s", cfg.API)
 	}
 
-	if cfg.API.ResourceType == resource.ResourceTypeComponent && cfg.API != generic.Subtype {
-		genSvc, ok := m.services[generic.Subtype]
-		if !ok {
-			return nil, errors.New("module cannot service the generic API")
-		}
-		if err := genSvc.Add(cfg.ResourceName(), res); err != nil {
-			return nil, err
-		}
-	}
-
 	return &pb.AddResourceResponse{}, subSvc.Add(cfg.ResourceName(), res)
 }
 
@@ -373,16 +362,6 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 				return nil, err
 			}
 
-			if cfg.API != generic.Subtype {
-				genSvc, ok := m.services[generic.Subtype]
-				if !ok {
-					return nil, errors.New("no generic service")
-				}
-				if err := genSvc.ReplaceOne(cfg.ResourceName(), comp); err != nil {
-					return nil, err
-				}
-			}
-
 			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), comp)
 		}
 
@@ -401,6 +380,49 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	return nil, errors.Errorf("can't recreate resource %+v", req.Config)
+}
+
+// Validator is a resource configuration object that implements Validate.
+type Validator interface {
+	// Validate ensures that the object is valid and returns any implicit dependencies.
+	Validate(path string) ([]string, error)
+}
+
+// ValidateConfig receives the validation request for a resource from the parent.
+func (m *Module) ValidateConfig(ctx context.Context,
+	req *pb.ValidateConfigRequest,
+) (*pb.ValidateConfigResponse, error) {
+	c, err := config.ComponentConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to find map converter for a component.
+	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.API.ResourceSubtype)
+	conv := config.FindMapConverter(cType, c.Model)
+	// If no map converter for a component exists, try to find map converter for a
+	// service.
+	if conv == nil {
+		conv = config.FindServiceMapConverter(cType, c.Model)
+	}
+	if conv != nil {
+		converted, err := conv(c.Attributes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error converting attributes for resource")
+		}
+		validator, ok := converted.(Validator)
+		if ok {
+			implicitDeps, err := validator.Validate(c.Name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error validating resource")
+			}
+			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
+		}
+	}
+
+	// Resource configuration object does not implement Validate, but return an
+	// empty response and no error to maintain backward compatibility.
+	return &pb.ValidateConfigResponse{}, nil
 }
 
 // RemoveResource receives the request for resource removal.
@@ -426,16 +448,6 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	comp := svc.Resource(name.Name)
 	if err := utils.TryClose(ctx, comp); err != nil {
 		m.logger.Error(err)
-	}
-
-	if name.Subtype.ResourceType == resource.ResourceTypeComponent && name.Subtype != generic.Subtype {
-		genSvc, ok := m.services[generic.Subtype]
-		if !ok {
-			return nil, errors.New("no generic service")
-		}
-		if err := genSvc.Remove(name); err != nil {
-			return nil, err
-		}
 	}
 
 	return &pb.RemoveResourceResponse{}, svc.Remove(name)
@@ -468,16 +480,9 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
 	m.mu.Lock()
 	_, ok := m.services[api]
-	_, okGeneric := m.services[generic.Subtype]
 	m.mu.Unlock()
 	if !ok {
 		if err := m.addAPIFromRegistry(ctx, api); err != nil {
-			return err
-		}
-	}
-
-	if api.ResourceType == resource.ResourceTypeComponent && !okGeneric && api != generic.Subtype {
-		if err := m.addAPIFromRegistry(ctx, generic.Subtype); err != nil {
 			return err
 		}
 	}

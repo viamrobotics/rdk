@@ -1864,6 +1864,58 @@ func TestConfigPackages(t *testing.T) {
 	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "some-name-2"))
 }
 
+func TestConfigPackageReferenceReplacement(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+
+	packageDir := t.TempDir()
+
+	robotConfig := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+			{
+				Name:    "some-name-2",
+				Package: "package-2",
+				Version: "latest",
+			},
+		},
+		Services: []config.Service{
+			{
+				Name: "Vision-Service",
+				Type: vision.SubtypeName,
+				ConvertedAttributes: &vision.Attributes{
+					ModelRegistry: []vision.VisModelConfig{
+						{
+							Type: "tflite_classifier",
+							Name: "my_classifier",
+							Parameters: config.AttributeMap{
+								"model_path":  "${packages.package-1}/model.tflite",
+								"label_path":  "${packages.package-2}/labels.txt",
+								"num_threads": 1,
+							},
+						},
+					},
+				},
+			},
+		},
+		PackagePath: packageDir,
+	}
+
+	fakePackageServer.StorePackage(robotConfig.Packages...)
+
+	r, err := robotimpl.New(ctx, robotConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}
+
 func TestReconnectRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)

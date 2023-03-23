@@ -8,17 +8,20 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -256,7 +259,7 @@ func (b *arduinoBoard) setPWMArduino(pin string, dutyCyclePct float64) error {
 	return nil
 }
 
-// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+// SetPWMFreq sets the given pin to the given PWM frequency.
 func (b *arduinoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	return b.setPWMFreqArduino(pin, freqHz)
 }
@@ -303,6 +306,10 @@ func (b *arduinoBoard) Status(ctx context.Context, extra map[string]interface{})
 // ModelAttributes returns attributes related to the model of this board.
 func (b *arduinoBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+func (b *arduinoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 // Close shuts the board down, no methods should be called on the board after this.

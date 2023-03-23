@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/services/slam/internal/grpchelper"
+	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 )
 

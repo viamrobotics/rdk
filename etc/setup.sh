@@ -33,7 +33,8 @@ do_bullseye(){
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
 	# Raspberry Pi support
-	grep -q Raspberry /proc/cpuinfo && apt-get install -y wiringpi libpigpio-dev && exit
+	grep -q Raspberry /proc/cpuinfo && apt-get install -y wiringpi libpigpio-dev
+	grep -q Raspberry /proc/cpuinfo && exit
 
 	# Other arm64 (bring in pi repo at low priority for build support)
 	test "$(uname -m)" != "aarch64" || curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/raspberrypi.gpg

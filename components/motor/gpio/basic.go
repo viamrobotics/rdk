@@ -32,6 +32,10 @@ func NewMotor(b board.Board, mc Config, name string, logger golog.Logger) (motor
 		mc.MinPowerPct = 1.0
 	}
 
+	if mc.PWMFreq == 0 {
+		mc.PWMFreq = 800
+	}
+
 	m := &Motor{
 		Board:       b,
 		on:          false,

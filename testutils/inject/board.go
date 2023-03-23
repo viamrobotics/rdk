@@ -2,8 +2,10 @@ package inject
 
 import (
 	"context"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
+	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -31,6 +33,7 @@ type Board struct {
 	CloseFunc                  func(ctx context.Context) error
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
+	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 }
 
 // SPIByName calls the injected SPIByName or the real version.
@@ -177,4 +180,14 @@ func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 		return b.LocalBoard.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
+}
+
+// SetPowerMode sets the board to the given power mode. If
+// provided, the board will exit the given power mode after
+// the specified duration.
+func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
+	if b.SetPowerModeFunc == nil {
+		return b.LocalBoard.SetPowerMode(ctx, mode, duration)
+	}
+	return b.SetPowerModeFunc(ctx, mode, duration)
 }

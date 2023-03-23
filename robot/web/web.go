@@ -31,18 +31,15 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/jwks"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
-	"go.viam.com/utils/rpc/oauth"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module"
@@ -162,18 +159,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Two known auth handlers (LocationSecret, WebOauth).
 func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 	hasLocationSecretHandler := false
-	hasWebOAuthHandler := false
 	for _, h := range handlers {
 		if h.Type == rutils.CredentialsTypeRobotLocationSecret {
 			hasLocationSecretHandler = true
 		}
-
-		if h.Type == oauth.CredentialsTypeOAuthWeb {
-			hasWebOAuthHandler = true
-		}
 	}
 
-	if len(handlers) == 2 && hasLocationSecretHandler && hasWebOAuthHandler {
+	if len(handlers) == 1 && hasLocationSecretHandler {
 		return true
 	}
 
@@ -244,7 +236,7 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger, opts ...Option) Service {
+func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 	var wOpts options
 	for _, opt := range opts {
 		opt.apply(&wOpts)
@@ -261,18 +253,19 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger, opts ...Option
 }
 
 type webService struct {
-	mu           sync.Mutex
-	r            robot.Robot
-	rpcServer    rpc.Server
-	modServer    rpc.Server
-	streamServer *StreamServer
-	services     map[resource.Subtype]subtype.Service
-	opts         options
-	addr         string
-	modAddr      string
-
+	mu                      sync.Mutex
+	r                       robot.Robot
+	rpcServer               rpc.Server
+	modServer               rpc.Server
+	streamServer            *StreamServer
+	services                map[resource.Subtype]subtype.Service
+	opts                    options
+	addr                    string
+	modAddr                 string
 	logger                  golog.Logger
-	cancelFunc              func()
+	cancelCtx               context.Context
+	cancelFuncs             []func()
+	isRunning               bool
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -280,18 +273,28 @@ type webService struct {
 func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.cancelFunc != nil {
+	if svc.isRunning {
 		return errors.New("web server already started")
 	}
+	svc.isRunning = true
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	svc.cancelFunc = cancelFunc
 
-	if err := svc.runWeb(cancelCtx, o); err != nil {
+	svc.cancelCtx = cancelCtx
+	svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+
+	if err := svc.runWeb(svc.cancelCtx, o); err != nil {
 		cancelFunc()
-		svc.cancelFunc = nil
+		svc.cancelFuncs = nil
+		svc.isRunning = false
 		return err
 	}
 	return nil
+}
+
+func (svc *webService) addCancelFunc(fn func()) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	svc.cancelFuncs = append(svc.cancelFuncs, fn)
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
@@ -421,7 +424,6 @@ func (svc *webService) Update(ctx context.Context, resources map[resource.Name]i
 func (svc *webService) updateResources(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
-	components := make(map[resource.Name]interface{})
 	for n, v := range resources {
 		r, ok := groupedResources[n.Subtype]
 		if !ok {
@@ -429,11 +431,7 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 		}
 		r[n] = v
 		groupedResources[n.Subtype] = r
-		if n.Subtype.Type.ResourceType == resource.ResourceTypeComponent {
-			components[n] = v
-		}
 	}
-	groupedResources[generic.Subtype] = components
 
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]
@@ -458,10 +456,11 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.cancelFunc = nil
+	for _, fn := range svc.cancelFuncs {
+		fn()
 	}
+	svc.cancelFuncs = nil
+	svc.isRunning = false
 }
 
 // Close closes a webService via calls to its Cancel func.
@@ -469,10 +468,11 @@ func (svc *webService) Close() error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var err error
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.cancelFunc = nil
+	for _, fn := range svc.cancelFuncs {
+		fn()
 	}
+	svc.cancelFuncs = nil
+	svc.isRunning = false
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
 	}
@@ -632,13 +632,17 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		return webstream.StreamVideoSource(ctxWithJPEGHint, source, stream, opts)
+		cancelCtx, cancelFunc := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
+		svc.addCancelFunc(cancelFunc)
+		return webstream.StreamVideoSource(cancelCtx, source, stream, opts)
 	})
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		return webstream.StreamAudioSource(ctx, source, stream, opts)
+		cancelCtx, cancelFunc := utils.MergeContext(svc.cancelCtx, ctx)
+		svc.addCancelFunc(cancelFunc)
+		return webstream.StreamAudioSource(cancelCtx, source, stream, opts)
 	})
 }
 
@@ -838,6 +842,8 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
 	rpcOpts := []rpc.ServerOption{
+		rpc.WithAuthIssuer(options.FQDN),
+		rpc.WithAuthAudience(options.FQDN),
 		rpc.WithInstanceNames(hosts.Names...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
@@ -946,7 +952,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			}
 		}
 		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {
-			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
+			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities))
 		}
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
@@ -977,23 +983,19 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					handler.Type,
 					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
-			case oauth.CredentialsTypeOAuthWeb:
-				webOauthOptions := oauth.WebOAuthOptions{
-					AllowedAudiences: handler.WebOAuthConfig.AllowedAudiences,
-					KeyProvider:      jwks.NewStaticJWKKeyProvider(handler.WebOAuthConfig.ValidatedKeySet),
-					EntityVerifier: func(ctx context.Context, entity string) (interface{}, error) {
-						// For webauth handlers we assume some user subject/entity. For consistency with the app
-						// pass the entity as the email to the custom entity info set in the context.
-						return map[string]interface{}{"email": entity}, nil
-					},
-					Logger: svc.logger,
-				}
-
-				rpcOpts = append(rpcOpts, oauth.WithWebOAuthTokenAuthHandler(webOauthOptions))
+			case rpc.CredentialsType("oauth-web-auth"):
+				// TODO(APP-1412): remove after a week from being deployed
+			case rpc.CredentialsTypeExternal:
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
 			}
 		}
+	}
+
+	if options.Auth.ExternalAuthConfig != nil {
+		rpcOpts = append(rpcOpts, rpc.WithExternalAuthJWKSetTokenVerifier(
+			options.Auth.ExternalAuthConfig.ValidatedKeySet,
+		))
 	}
 
 	return rpcOpts, nil

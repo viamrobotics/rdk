@@ -353,10 +353,10 @@ func (m *cloudManager) downloadFileFromGCSURL(ctx context.Context, url string, p
 		return checksum, contentType, err
 	}
 
-	outHash := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	outHash := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	if outHash != checksum {
 		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, errors.Errorf("download did not match expected hash %s != %s", outHash, checksum)
+		return checksum, contentType, errors.Errorf("download did not match expected hash %s != %s", checksum, outHash)
 	}
 
 	return checksum, contentType, nil

@@ -16,7 +16,7 @@ func TestInferSignalingServerAddress(t *testing.T) {
 		{"unknownDomain", "", false, false},
 		{"xyz.viam.cloud", "app.viam.com:443", true, true},
 		{"abc.xyz.viam.cloud", "app.viam.com:443", true, true},
-		{"xyz.robot.viaminternal", "app.viaminternal:8089", false, true},
+		{"xyz.robot.viaminternal", "app.viaminternal:8089", true, true},
 		{"xyz.viamstg.cloud", "app.viam.dev:443", true, true},
 	}
 
