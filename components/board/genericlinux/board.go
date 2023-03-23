@@ -34,15 +34,6 @@ import (
 
 var _ = board.LocalBoard(&sysfsBoard{})
 
-// A Config describes the configuration of a board and all of its connected parts.
-type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
-}
-
 // RegisterBoard registers a sysfs based board of the given model.
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
 	registry.RegisterComponent(
