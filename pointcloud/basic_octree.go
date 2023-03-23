@@ -36,7 +36,7 @@ type basicOctreeNode struct {
 	nodeType NodeType
 	children []*BasicOctree
 	point    PointAndData
-	maxProb  float64
+	maxVal   float64
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -61,9 +61,9 @@ func (octree *BasicOctree) Size() int {
 	return octree.size
 }
 
-// MaxProb returns the octree's max probability.
-func (octree *BasicOctree) MaxProb() float64 {
-	return octree.node.maxProb
+// MaxVal returns the max value of all children's data for the passed in octree.
+func (octree *BasicOctree) MaxVal() float64 {
+	return octree.node.maxVal
 }
 
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after

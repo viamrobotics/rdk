@@ -10,16 +10,13 @@ import (
 // emptyProb is assigned to nodes who have no value specified.
 var emptyProb = math.NaN()
 
-// unexploredProb is assigned to a node which does not have data specified.
-const unexploredProb = -1
-
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
-		maxProb:  unexploredProb,
+		maxVal:   emptyProb,
 	}
 	return octNode
 }
@@ -30,7 +27,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    PointAndData{},
-		maxProb:  unexploredProb,
+		maxVal:   emptyProb,
 	}
 	return octNode
 }
@@ -41,7 +38,7 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 		children: nil,
 		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
-		maxProb:  getRawProb(d),
+		maxVal:   getRawProb(d),
 	}
 	return octNode
 }
@@ -131,14 +128,18 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 	case internalNode:
 		for _, childNode := range octree.node.children {
 			if childNode.checkPointPlacement(p) {
-				mp, err := childNode.helperSet(p, d, recursionDepth+1)
+				mv, err := childNode.helperSet(p, d, recursionDepth+1)
 				if err == nil {
 					// Update metadata
 					octree.meta.Merge(p, d)
 					octree.size++
-					octree.node.maxProb = math.Max(mp, octree.node.maxProb)
+					if math.IsNaN(octree.node.maxVal) {
+						octree.node.maxVal = mv
+					} else {
+						octree.node.maxVal = math.Max(mv, octree.node.maxVal)
+					}
 				}
-				return octree.node.maxProb, err
+				return octree.node.maxVal, err
 			}
 		}
 		return 0, errors.New("error invalid internal node detected, please check your tree")
@@ -147,8 +148,8 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
 			// Update data in point
 			octree.node.point.D = d
-			octree.node.maxProb = getRawProb(d)
-			return octree.node.maxProb, nil
+			octree.node.maxVal = getRawProb(d)
+			return octree.node.maxVal, nil
 		}
 		if err := octree.splitIntoOctants(); err != nil {
 			return 0, errors.Errorf("error in splitting octree into new octants: %v", err)
@@ -161,7 +162,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		octree.meta.Merge(p, d)
 		octree.size++
 		octree.node = newLeafNodeFilled(p, d)
-		return octree.node.maxProb, err
+		return octree.node.maxVal, err
 	}
 
 	return 0, errors.New("error attempting to set into invalid node type")
