@@ -21,6 +21,7 @@ type GPIOBoardMapping struct {
 	GPIOGlobal     int
 	GPIOName       string
 	PWMSysFsDir    string
+	PWMID          int
 	HWPWMSupported bool
 }
 
@@ -184,6 +185,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 			GPIOGlobal:     chipGPIOBase + chipRelativeID,
 			GPIOName:       pinDef.PinNameCVM,
 			PWMSysFsDir:    pinDef.PWMChipSysFSDir,
+			PWMID:          pinDef.PWMID,
 			HWPWMSupported: pinDef.PWMID != -1,
 		}
 	}
