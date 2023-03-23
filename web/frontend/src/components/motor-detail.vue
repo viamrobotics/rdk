@@ -5,16 +5,17 @@ import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
-interface Props {
+const motorPosFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
+const props = defineProps<{
   name: string;
   status: motorApi.Status.AsObject;
   client: Client;
-}
-
-const props = defineProps<Props>();
+}>();
 
 type MovementTypes = 'go' | 'goFor' | 'goTo';
-const motorClient = new MotorClient(props.client, props.name, { requestLogger: rcLogConditionally });
+const motorClient = new MotorClient(props.client, props.name, {
+  requestLogger: rcLogConditionally,
+});
 const position = $ref(0);
 const rpm = $ref(0);
 const power = $ref(50);
@@ -114,7 +115,6 @@ onMounted(async () => {
     displayError(error as ServiceError);
   }
 });
-
 </script>
 
 <template>
@@ -132,7 +132,7 @@ onMounted(async () => {
     >
       <v-badge
         v-if="properties?.positionReporting"
-        :label="`Position ${status.position}`"
+        :label="`Position ${motorPosFormat.format(status.position)}`"
       />
       <v-badge
         v-if="status.isPowered"

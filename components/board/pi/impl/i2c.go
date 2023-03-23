@@ -10,10 +10,12 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
+	picommon "go.viam.com/rdk/components/board/pi/common"
 )
 
 type piPigpioI2C struct {
@@ -32,10 +34,10 @@ func (s *piPigpioI2CHandle) Write(ctx context.Context, tx []byte) error {
 	txPtr := C.CBytes(tx)
 	defer C.free(txPtr)
 
-	ret := C.i2cWriteDevice(s.handle, (*C.char)(txPtr), (C.uint)(len(tx)))
+	ret := int(C.i2cWriteDevice(s.handle, (*C.char)(txPtr), (C.uint)(len(tx))))
 
-	if int(ret) != 0 {
-		return errors.Errorf("error with i2c write %q", ret)
+	if ret != 0 {
+		return picommon.ConvertErrorCodeToMessage(ret, "error with i2c write")
 	}
 
 	return nil
@@ -47,10 +49,10 @@ func (s *piPigpioI2CHandle) Read(ctx context.Context, count int) ([]byte, error)
 	rxPtr := C.CBytes(rx)
 	defer C.free(rxPtr)
 
-	ret := C.i2cReadDevice(s.handle, (*C.char)(rxPtr), (C.uint)(count))
+	ret := int(C.i2cReadDevice(s.handle, (*C.char)(rxPtr), (C.uint)(count)))
 
-	if int(ret) <= 0 {
-		return nil, errors.Errorf("error with i2c read %q", ret)
+	if ret <= 0 {
+		return nil, picommon.ConvertErrorCodeToMessage(ret, "error with i2c read")
 	}
 
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
@@ -59,7 +61,7 @@ func (s *piPigpioI2CHandle) Read(ctx context.Context, count int) ([]byte, error)
 func (s *piPigpioI2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	res := C.i2cReadByteData(s.handle, C.uint(register))
 	if res < 0 {
-		return 0, errors.Errorf("error in ReadByteData (%d)", res)
+		return 0, picommon.ConvertErrorCodeToMessage(int(res), "error in ReadByteData")
 	}
 	return byte(res & 0xFF), nil
 }
@@ -67,7 +69,7 @@ func (s *piPigpioI2CHandle) ReadByteData(ctx context.Context, register byte) (by
 func (s *piPigpioI2CHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	res := C.i2cWriteByteData(s.handle, C.uint(register), C.uint(data))
 	if res != 0 {
-		return errors.Errorf("error in WriteByteData (%d)", res)
+		return picommon.ConvertErrorCodeToMessage(int(res), "error in WriteByteData")
 	}
 	return nil
 }
@@ -81,7 +83,7 @@ func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, nu
 	response := C.i2cReadI2CBlockData(
 		s.handle, C.uint(register), (*C.char)(&data[0]), C.uint(numBytes))
 	if response < 0 {
-		return nil, errors.Errorf("error in ReadBlockData (%d)", response)
+		return nil, picommon.ConvertErrorCodeToMessage(int(response), "error in ReadBlockData")
 	}
 	return data, nil
 }
@@ -95,7 +97,7 @@ func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, d
 	response := C.i2cWriteI2CBlockData(
 		s.handle, C.uint(register), (*C.char)(&data[0]), C.uint(numBytes))
 	if response != 0 {
-		return errors.Errorf("error in WriteBlockData (%d)", response)
+		return picommon.ConvertErrorCodeToMessage(int(response), "error in WriteBlockData")
 	}
 	return nil
 }
@@ -109,7 +111,8 @@ func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	temp := C.i2cOpen(bus, (C.uint)(addr), handle.i2cFlags)
 
 	if temp < 0 {
-		return nil, errors.Errorf("error opening I2C Bus %d return code was %d, flags were %X", bus, temp, handle.i2cFlags)
+		errMsg := fmt.Sprintf("error opening I2C Bus %d, flags were %X", bus, handle.i2cFlags)
+		return nil, picommon.ConvertErrorCodeToMessage(int(temp), errMsg)
 	}
 	handle.handle = C.uint(temp)
 

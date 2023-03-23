@@ -359,7 +359,7 @@ func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPosition
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
 func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if pf.geometry == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometry", pf)
+		return NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 	pose, err := pf.Transform(input)
 	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
@@ -476,9 +476,7 @@ type mobile2DFrame struct {
 	geometry spatial.Geometry
 }
 
-// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
-// This frame will have a name, limits (representing the bounds the frame is allowed to translate within) and a geometry
-// defined by the arguments passed into this function.
+// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0.
 func NewMobile2DFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
 	if len(limits) != 2 {
 		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limits))

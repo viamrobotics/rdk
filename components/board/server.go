@@ -138,8 +138,8 @@ func (s *subtypeServer) PWMFrequency(ctx context.Context, req *pb.PWMFrequencyRe
 	return &pb.PWMFrequencyResponse{FrequencyHz: uint64(freq)}, nil
 }
 
-// SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
-// frequency.
+// SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency.
+// For Raspberry Pis, 0 will use a default PWM frequency of 800.
 func (s *subtypeServer) SetPWMFrequency(
 	ctx context.Context,
 	req *pb.SetPWMFrequencyRequest,
@@ -210,4 +210,29 @@ func (s *subtypeServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return protoutils.DoFromResourceServer(ctx, b, req)
+}
+
+func (s *subtypeServer) SetPowerMode(ctx context.Context,
+	req *pb.SetPowerModeRequest,
+) (*pb.SetPowerModeResponse, error) {
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Duration == nil {
+		err = b.SetPowerMode(ctx, req.PowerMode, nil)
+	} else {
+		if err := req.Duration.CheckValid(); err != nil {
+			return nil, err
+		}
+		duration := req.Duration.AsDuration()
+		err = b.SetPowerMode(ctx, req.PowerMode, &duration)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.SetPowerModeResponse{}, nil
 }

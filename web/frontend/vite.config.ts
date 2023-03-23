@@ -22,7 +22,7 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        control: './src/main.ts'
+        control: './src/main.ts',
       },
       output: {
         entryFileNames: '[name].js',
