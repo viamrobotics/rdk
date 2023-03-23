@@ -573,17 +573,12 @@ func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-		if m.fail.Load() {
-			m.failedDCRequests <- ur
-			return nil, errors.New("oh no error!!")
-		}
-		m.succesfulDCRequests <- ur
-		return &v1.DataCaptureUploadResponse{}, nil
+	if m.fail.Load() {
+		m.failedDCRequests <- ur
+		return nil, errors.New("oh no error!!")
 	}
+	m.succesfulDCRequests <- ur
+	return &v1.DataCaptureUploadResponse{}, nil
 }
 
 func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUploadServer) error {
