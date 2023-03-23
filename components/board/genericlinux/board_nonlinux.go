@@ -11,11 +11,19 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/registry"
 )
 
-// Trying to run a genericlinux board on a non-Linux OS!? That won't work. We'll provide the same
-// public interface, but it won't do anything. We don't even log warnings because this gets called
-// to add the boards to the registry, and we just need to ensure that they never get used (by never
-// actually adding them to the registry).
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
+	registry.RegisterComponent(
+		board.Subtype,
+		resource.NewDefaultModel(resource.ModelName(modelName)),
+		registry.Component{Constructor: func(
+            ctx context.Context,
+            _ registry.Dependencies,
+            config config.Component,
+            logger golog.Logger,
+        ) (interface{}, error) {
+			return nil, errors.New("Linux boards are not supported on non-Linux OSes.")
+		}})
 }
