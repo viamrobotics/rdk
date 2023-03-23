@@ -561,7 +561,12 @@ func TestRemoteValidate(t *testing.T) {
 		validRemote.Name = "foo.remote"
 		err = validRemote.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "must only contain letters, numbers, dashes, and underscores")
+		test.That(
+			t,
+			err.Error(),
+			test.ShouldContainSubstring,
+			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+		)
 	})
 }
 
