@@ -61,7 +61,7 @@ func (octree *BasicOctree) Size() int {
 	return octree.size
 }
 
-// MaxVal returns the max value of all children's data for the passed in octree.
+// MaxVal returns the max value of all descendants' data for the passed in octree.
 func (octree *BasicOctree) MaxVal() int {
 	return octree.node.maxVal
 }
