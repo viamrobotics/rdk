@@ -33,7 +33,7 @@ type extra struct {
 	Quat quat `json:"quat"`
 }
 
-type positionNew struct {
+type position struct {
 	Pose               pose   `json:"pose"`
 	ComponentReference string `json:"component_reference"`
 	Extra              extra  `json:"extra"`
@@ -43,7 +43,7 @@ const (
 	maxDataCount          = 16
 	internalStateTemplate = "%s/internal_state/internal_state_%d.pbstream"
 	pcdTemplate           = "%s/pointcloud/pointcloud_%d.pcd"
-	positionNewTemplate   = "%s/position_new/position_%d.json"
+	positionTemplate      = "%s/position/position_%d.json"
 )
 
 func fakeGetPointCloudMapStream(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
@@ -85,14 +85,14 @@ func fakeGetInternalStateStream(_ context.Context, datasetDir string, slamSvc *S
 }
 
 func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionNewTemplate, datasetDir, slamSvc.getCount())))
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err
 	}
 
-	position, err := positionNewFromJSON(data)
+	position, err := positionFromJSON(data)
 	if err != nil {
 		return nil, "", err
 	}
@@ -105,8 +105,8 @@ func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spati
 	return pose, position.ComponentReference, nil
 }
 
-func positionNewFromJSON(data []byte) (positionNew, error) {
-	position := positionNew{}
+func positionFromJSON(data []byte) (position, error) {
+	position := position{}
 
 	if err := json.Unmarshal(data, &position); err != nil {
 		return position, err
