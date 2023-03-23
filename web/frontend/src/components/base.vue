@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { $ref, $computed, $$ } from 'vue/macros'
 import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
@@ -127,10 +127,10 @@ const digestInput = async () => {
     await baseClient.setPower(linear, angular);
   } catch (error) {
     displayError(error as ServiceError);
+  }
 
-    if (pressed.size <= 0) {
-      stop();
-    }
+  if (pressed.size <= 0) {
+    stop();
   }
 };
 
@@ -248,16 +248,6 @@ const handleSwitch = (cameraName: string) => {
 
 onClickOutside($$(root), () => {
   keyboardStates.isActive = false;
-});
-
-watch(() => pressed, () => {
-  // testing
-  console.log(`pressed.size: ${pressed.size}`);
-  if (pressed.size <= 0) {
-    // testing
-    console.log(`pressed.size <= 0: ${pressed.size}`);
-    stop();
-  }
 });
 
 onMounted(() => {
