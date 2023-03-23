@@ -40,8 +40,8 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
-	deps, err := config.validate()
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	deps, err := cfg.validate()
 	if err != nil {
 		err = utils.NewConfigValidationError(path, err)
 	}
@@ -66,8 +66,9 @@ func (config *AttrConfig) validate() ([]string, error) {
 
 	if len(config.Board) == 0 && len(config.LimitSwitchPins) > 0 {
 		return nil, errors.New("cannot find board for gantry")
+	} else if config.Board != "" {
+		deps = append(deps, config.Board)
 	}
-	deps = append(deps, config.Board)
 
 	if len(config.LimitSwitchPins) == 1 && config.MmPerRevolution == 0 {
 		return nil, errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits")
