@@ -391,11 +391,21 @@ func (manager *resourceManager) completeConfig(
 		}
 		manager.logger.Debugw("we are now handling the resource", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
+			// Check for Validation errors.
 			_, err := c.Validate("")
 			if err != nil {
 				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
 				continue
 			}
+			// Check for modular Validation errors.
+			if robot.ModuleManager().Provides(c) {
+				_, err = robot.ModuleManager().ValidateConfig(ctx, c)
+				if err != nil {
+					wrap.err = errors.Wrap(err, "Config validation error found in modular component: "+c.Name)
+					continue
+				}
+			}
+
 			// TODO(PRODUCT-266): "r" isn't likely needed here, as c.ResourceName() should be the same.
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
@@ -405,11 +415,22 @@ func (manager *resourceManager) completeConfig(
 			}
 			manager.resources.AddNode(r, iface)
 		} else if s, ok := wrap.config.(config.Service); ok {
+			// Check for Validation errors.
 			_, err := s.Validate("")
 			if err != nil {
 				wrap.err = errors.Wrap(err, "Config validation error found in service: "+s.Name)
 				continue
 			}
+			// Check for modular Validation errors.
+			sCfg := config.ServiceConfigToShared(s)
+			if robot.ModuleManager().Provides(sCfg) {
+				_, err = robot.ModuleManager().ValidateConfig(ctx, sCfg)
+				if err != nil {
+					wrap.err = errors.Wrap(err, "Config validation error found in modular service: "+sCfg.Name)
+					continue
+				}
+			}
+
 			iface, err := manager.processService(ctx, s, wrap.real, robot)
 			if err != nil {
 				manager.logger.Errorw("error building service", "resource", s.ResourceName(), "model", s.Model, "error", err)

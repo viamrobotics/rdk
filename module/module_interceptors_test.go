@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
@@ -70,7 +71,7 @@ func TestOpID(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				var hdr metadata.MD
-				_, err = gc.DoCommand(cCtx, &genericpb.DoCommandRequest{Name: "helper1", Command: cmd}, grpc.Header(&hdr))
+				_, err = gc.DoCommand(cCtx, &commonpb.DoCommandRequest{Name: "helper1", Command: cmd}, grpc.Header(&hdr))
 				test.That(t, err, test.ShouldBeNil)
 
 				test.That(t, hdr["opid"], test.ShouldHaveLength, 1)
@@ -95,7 +96,7 @@ func TestOpID(t *testing.T) {
 			// as soon as we see the op in the parent, check the operations in the module
 			cmd, err := structpb.NewStruct(map[string]interface{}{"command": "get_ops"})
 			test.That(t, err, test.ShouldBeNil)
-			resp, err := gc.DoCommand(ctx, &genericpb.DoCommandRequest{Name: "helper1", Command: cmd})
+			resp, err := gc.DoCommand(ctx, &commonpb.DoCommandRequest{Name: "helper1", Command: cmd})
 			test.That(t, err, test.ShouldBeNil)
 			ret, ok := resp.GetResult().AsMap()["ops"]
 			test.That(t, ok, test.ShouldBeTrue)

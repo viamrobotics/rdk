@@ -8,12 +8,11 @@ import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
 import { selectedMap } from '../../lib/camera-state';
 
-interface Props {
+const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[],
   client: Client,
   parentName: string
-}
-const props = defineProps<Props>();
+}>();
 
 const openCameras = $ref<Record<string, boolean | undefined>>({});
 const refreshFrequency = $ref<Record<string, string | undefined>>({});
@@ -81,8 +80,9 @@ const setupCamera = (cameraName: string) => {
         :client="client"
         :resources="resources"
         :show-export-screenshot="true"
-        :refresh-rate="refreshFrequency[camera.name]"
+        :refresh-rate="refreshFrequency[camera.name]? refreshFrequency[camera.name]: 'Live'"
         :trigger-refresh="triggerRefresh"
+        :toggle="openCameras[camera.name]? openCameras[camera.name]:false"
       />
 
       <PCD

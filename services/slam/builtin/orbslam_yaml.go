@@ -164,7 +164,7 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 	// yamlFileName uses the timestamp from the loaded map if one was available
 	// this gives the option to load images into the map if they were generated at a later time
 	// orbslam also checks for the most recently generated yaml file to prevent any issues with timestamps here
-	yamlFileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.cameraName+"_data_"+loadMapTimeStamp+".yaml")
+	yamlFileName := filepath.Join(slamSvc.dataDirectory, "config", slamSvc.primarySensorName+"_data_"+loadMapTimeStamp+".yaml")
 
 	// generate yaml file
 	yamlData, err := yaml.Marshal(&orbslam)

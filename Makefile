@@ -21,7 +21,10 @@ build: build-web build-go
 build-go:
 	go build $(GO_BUILD_TAGS) ./...
 
-build-web:
+build-web: web/runtime-shared/static/control.js
+
+# only generate static files when source has changed.
+web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
 	npm ci --audit=false --prefix web/frontend
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
 	npm run build --prefix web/frontend
@@ -84,7 +87,7 @@ test-integration:
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestOrbslamIntegration
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestCartographerIntegration
 
-server:
+server: build-web
 	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 clean-all:

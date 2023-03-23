@@ -119,7 +119,7 @@ func TestClientSessionOptions(t *testing.T) {
 							SessMgr:                 sessMgr,
 						}
 
-						svc := web.New(ctx, injectRobot, logger)
+						svc := web.New(injectRobot, logger)
 
 						options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 						err := svc.Start(ctx, options)
@@ -305,7 +305,7 @@ func TestClientSessionExpiration(t *testing.T) {
 					SessMgr:                 sessMgr,
 				}
 
-				svc := web.New(ctx, injectRobot, logger)
+				svc := web.New(injectRobot, logger)
 
 				options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 				err := svc.Start(ctx, options)
@@ -495,7 +495,7 @@ func TestClientSessionResume(t *testing.T) {
 					SessMgr:                 sessMgr,
 				}
 
-				svc := web.New(ctx, injectRobot, logger)
+				svc := web.New(injectRobot, logger)
 
 				options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 				err := svc.Start(ctx, options)
