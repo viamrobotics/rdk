@@ -6,8 +6,8 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell etc/tag_version.sh)
-LDFLAGS = -ldflags "$(shell etc/set_plt.sh) -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
-BUILD_TAGS=dynamic
+LDFLAGS = -ldflags "$(shell etc/set_plt.sh) -s -w -extldflags '-static -lstdc++ -lm' -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+BUILD_TAGS=osusergo,netgo
 GO_BUILD_TAGS = -tags $(BUILD_TAGS)
 LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
 
@@ -27,7 +27,7 @@ build-web: web/runtime-shared/static/control.js
 web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
 	npm ci --audit=false --prefix web/frontend
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	npm run build --prefix web/frontend
+	npm run build-prod --prefix web/frontend
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
