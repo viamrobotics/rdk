@@ -27,30 +27,29 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libopus-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web ffmpeg libjpeg62-turbo-dev && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev ffmpeg libjpeg62-turbo-dev && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
 	# Raspberry Pi support
-	grep -q Raspberry /proc/cpuinfo && apt-get install -y wiringpi libpigpio-dev
-	grep -q Raspberry /proc/cpuinfo && exit
+	test "$(uname -m)" = "aarch64" && apt-get install -y libpigpio-dev
 
-	# Other arm64 (bring in pi repo at low priority for build support)
-	test "$(uname -m)" != "aarch64" || curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/raspberrypi.gpg
-	test "$(uname -m)" != "aarch64" || echo "deb [signed-by=/usr/share/keyrings/raspberrypi.gpg] http://archive.raspberrypi.org/debian/ $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/raspi.list
-	test "$(uname -m)" != "aarch64" || echo -e "Package: *\nPin: origin archive.raspberrypi.org\nPin-Priority: 1" > /etc/apt/preferences.d/raspi-low-prio
-	test "$(uname -m)" != "aarch64" || ( apt-get update && apt-get install -y wiringpi libpigpio-dev && apt-get clean )
+	# upx
+	UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-amd64_linux.tar.xz
+	if [ "$(uname -m)" = "aarch64" ]; then
+		UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-arm64_linux.tar.xz
+	fi
+	curl -L "$UPX_URL" | sudo tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
+
+	# canon
+	GOBIN=/usr/local/bin go install github.com/viamrobotics/canon@latest
 	EOS
 
 	if [ $? -ne 0 ]; then
 		echo "Package installation failed when running"
 		exit 1
 	fi
-
-	cat > ~/.viamdevrc <<-EOS
-	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	EOS
 
 	mod_profiles
 	check_gcloud_auth
@@ -82,8 +81,8 @@ do_linux(){
 	export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
 	export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	export CC=gcc-11
-	export CXX=g++-11
+	export CC=gcc-12
+	export CXX=g++-12
 	export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 	EOS
 
@@ -98,7 +97,6 @@ do_darwin(){
 		echo "Please finish the Xcode CLI tools installation then rerun this script."
 		exit 1
 	fi
-
 
 	if [ "$(uname -m)" == "arm64" ]; then
 
@@ -133,15 +131,6 @@ mod_profiles(){
 	test -f ~/.bashrc && ( grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc )
 	test -f ~/.zprofile && ( grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile )
 	test -f ~/.zshrc && ( grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc )
-
-	# We have some private repos for now so exclude them from https in order to utilize SSH keys.
-	git config --global --get-regexp url.ssh://git@github.com/viamrobotics > /dev/null
-	if [ $? -ne 0 ]; then
-		git config --global url.ssh://git@github.com/viamrobotics/rdk.insteadOf https://github.com/viamrobotics/rdk
-		git config --global url.ssh://git@github.com/viamrobotics/api.insteadOf https://github.com/viamrobotics/api
-	fi
-	mkdir -p ~/.ssh
-	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 }
 
 # This workaround is for https://viam.atlassian.net/browse/RSDK-526, without the application default credential file our tests will
@@ -165,34 +154,31 @@ do_brew(){
 	# Has to be after the install so the brew eval can run
 	source ~/.viamdevrc
 
-	brew bundle --file=- <<-EOS
+	brew bundle -v --file=- <<-EOS
 	# viam tap
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "gcc@11"
-	brew "go@1.19"
-	brew "node@18"
-	brew "protobuf@3"
+	brew "go@1.20", link: true, conflicts_with: ["go"]
+	brew "node@18", link: true, conflicts_with: ["node"]
+	brew "gcc@12", link: true, conflicts_with: ["gcc"]
 
 	# unpinned
-	brew "nlopt"
-	brew "x264"
-	brew "opus"
-	brew "protoc-gen-grpc-web"
+	brew "canon"
 	brew "pkg-config"
-	brew "ffmpeg"
+	brew "nlopt-static"
+	brew "x264", args: ["build-from-source"]
 	brew "jpeg-turbo"
+	brew "ffmpeg"
 	brew "tensorflowlite" # Needs to be last
-
 	EOS
 
 	if [ $? -ne 0 ]; then
 		exit 1
 	fi
 
-	brew unlink "gcc" "go" "node" "protobuf"
-	brew link --overwrite "gcc@11" "go@1.19" "node@18" "protobuf@3" || exit 1
+	# due to a missing bottle in homebrew, this has to be installed on its own
+	brew install upx
 
 	echo "Brew installed software versions..."
 	brew list --version
@@ -206,7 +192,7 @@ if [ "$(uname)" == "Linux" ]; then
 	elif [ "$(uname -m)" == "x86_64" ]; then
 		do_linux
 	else
-		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is avaialble for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
+		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is available for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
 		exit 1
 	fi
 elif [ "$(uname)" == "Darwin" ]; then

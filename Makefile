@@ -6,7 +6,7 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell etc/tag_version.sh)
-LDFLAGS = -ldflags "$(shell etc/set_plt.sh) -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 
 default: build lint server
 
@@ -22,23 +22,16 @@ build-web: web/runtime-shared/static/control.js
 
 # only generate static files when source has changed.
 web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
+	rm -rf web/runtime-shared/static
 	npm ci --audit=false --prefix web/frontend
-	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	npm run build --prefix web/frontend
+	npm run build-prod --prefix web/frontend
 
 tool-install:
-	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
-		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
-		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
-		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
-		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
-		github.com/bufbuild/buf/cmd/buf \
 		gotest.tools/gotestsum \
 		github.com/rhysd/actionlint/cmd/actionlint
 
@@ -85,7 +78,15 @@ test-integration:
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestCartographerIntegration
 
 server: build-web
-	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	rm -f $(BIN_OUTPUT_PATH)/viam-server
+	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+
+server-static: build-web
+	rm -f $(BIN_OUTPUT_PATH)/viam-server
+	VIAM_STATIC_BUILD=1 go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	if [ -z "${NO_UPX}" ]; then\
+		upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server;\
+	fi
 
 clean-all:
 	git clean -fxd
