@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
+import { $ref, $computed, $$ } from 'vue/macros'
 import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
@@ -61,7 +62,7 @@ const keyboardStates = $ref({
   isActive: false,
 });
 
-const resources = $computed(() => filterResources(props.resources, 'rdk', 'component', 'camera'));
+const resources: Array<{name: string}> = $computed(() => filterResources(props.resources, 'rdk', 'component', 'camera'));
 
 const resetDiscreteState = () => {
   movementMode = 'Straight';
@@ -124,9 +125,6 @@ const digestInput = async () => {
   const angular = { x: 0, y: 0, z: angularValue };
   try {
     await baseClient.setPower(linear, angular);
-    if (pressed.size <= 0) {
-      stop();
-    }
   } catch (error) {
     displayError(error as ServiceError);
 
@@ -250,6 +248,16 @@ const handleSwitch = (cameraName: string) => {
 
 onClickOutside($$(root), () => {
   keyboardStates.isActive = false;
+});
+
+watch(() => pressed.size, () => {
+  // testing
+  console.log(`pressed.size: ${pressed.size}`);
+  if (pressed.size <= 0) {
+    // testing
+    console.log(`pressed.size <= 0: ${pressed.size}`);
+    stop();
+  }
 });
 
 onMounted(() => {
