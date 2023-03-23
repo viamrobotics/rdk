@@ -88,12 +88,12 @@ const setDirection = (dir: Directions) => {
 };
 
 const stop = async () => {
-  stopped = true;
   try {
     await baseClient.stop();
   } catch (error) {
     displayError(error as ServiceError);
   }
+  stopped = true;
 };
 
 const digestInput = async () => {
@@ -250,7 +250,7 @@ onClickOutside($$(root), () => {
   keyboardStates.isActive = false;
 });
 
-watch(() => pressed.size, () => {
+watch(() => pressed, () => {
   // testing
   console.log(`pressed.size: ${pressed.size}`);
   if (pressed.size <= 0) {
