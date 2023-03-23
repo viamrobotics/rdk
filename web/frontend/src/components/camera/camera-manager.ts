@@ -4,20 +4,23 @@ import { displayError } from '../../lib/error';
 export class CameraManager {
   cameraName:string;
 
+  cameraClient:CameraClient;
+
   client:Client;
 
   streamCount:number;
 
   stream:StreamClient;
 
-  public VideoElement:MediaStream;
+  public videoStream:MediaStream;
 
-  constructor (cameraName:string, client:Client) {
+  constructor (cameraName:string, client:Client, streamClient:StreamClient) {
     this.cameraName = cameraName;
+    this.cameraClient = new CameraClient(client, cameraName);
     this.client = client;
     this.streamCount = 0;
-    this.stream = new StreamClient(client);
-    this.VideoElement = new MediaStream();
+    this.stream = streamClient;
+    this.videoStream = new MediaStream();
   }
 
   addStream () {
@@ -35,7 +38,6 @@ export class CameraManager {
   }
 
   open () {
-    console.log('opening stream');
     this.stream.add(this.cameraName);
     this.stream.on('track', (event) => {
       const [eventStream] = event.streams;
@@ -46,19 +48,18 @@ export class CameraManager {
       if (eventStream.id !== this.cameraName) {
         return;
       }
-      this.VideoElement = eventStream;
+      this.videoStream = eventStream;
     });
   }
 
   close () {
-    console.log('Closing Stream');
     this.stream.remove(this.cameraName);
   }
 
-  async setImageElement (imgEl:HTMLImageElement|undefined) {
+  async setImageSrc (imgEl:HTMLImageElement|undefined) {
     let blob;
     try {
-      blob = await new CameraClient(this.client, this.cameraName).renderFrame('image/jpeg');
+      blob = await this.cameraClient.renderFrame('image/jpeg');
     } catch (error) {
       displayError(error as ServiceError);
       return;

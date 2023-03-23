@@ -35,10 +35,10 @@ const clearFrameInterval = () => {
 
 const viewCameraFrame = (time: number) => {
   clearFrameInterval();
-  cameraManager!.setImageElement(imgEl);
+  cameraManager!.setImageSrc(imgEl);
   if (time > 0) {
     cameraFrameIntervalId = window.setInterval(() => {
-      cameraManager!.setImageElement(imgEl);
+      cameraManager!.setImageSrc(imgEl);
     }, Number(time) * 1000);
   }
 };
