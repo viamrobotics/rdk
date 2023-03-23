@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"google.golang.org/grpc"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/test"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -115,7 +115,7 @@ func TestSyncEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), cfg)
 			test.That(t, err, test.ShouldBeNil)
 
-			// Drain any requests that were already sent.
+			// Drain any requests that were already sent before Update returned.
 			for len(mockClient.succesfulDCRequests) > 0 {
 				<-mockClient.succesfulDCRequests
 			}
