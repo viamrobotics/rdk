@@ -217,8 +217,13 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 			maxProb = math.Max(maxProb, childMaxProb)
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)
-		test.That(t, bOct.node.maxProb, test.ShouldEqual, maxProb)
-		test.That(t, bOct.node.maxProb, test.ShouldEqual, bOct.MaxProb())
+		if math.IsNaN(bOct.node.maxProb) {
+			test.That(t, math.IsNaN(maxProb), test.ShouldBeTrue)
+			test.That(t, math.IsNaN(bOct.MaxProb()), test.ShouldBeTrue)
+		} else {
+			test.That(t, bOct.node.maxProb, test.ShouldEqual, maxProb)
+			test.That(t, bOct.node.maxProb, test.ShouldEqual, bOct.MaxProb())
+		}
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
