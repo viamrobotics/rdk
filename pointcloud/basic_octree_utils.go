@@ -8,7 +8,7 @@ import (
 )
 
 // emptyProb is assigned to nodes who have no value specified.
-var emptyProb = math.NaN()
+var emptyProb = int(math.Inf(-1))
 
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
@@ -38,18 +38,17 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 		children: nil,
 		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
-		maxVal:   getRawProb(d),
+		maxVal:   getRawVal(d),
 	}
 	return octNode
 }
 
-// getRawProb returns the data param as a probability value.
-func getRawProb(d Data) float64 {
-	var val float64
-	switch d.HasValue() {
-	case true:
-		val = float64(d.Value())
-	default:
+// getRawVal returns the data param as a probability value.
+func getRawVal(d Data) int {
+	var val int
+	if d.HasValue() {
+		val = d.Value()
+	} else {
 		val = emptyProb
 	}
 	return val
@@ -111,7 +110,7 @@ func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
 // helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
 // If the maximum recursion depth is reached before a valid node is found for the point it will return
 // an error.
-func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (float64, error) {
+func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (int, error) {
 	if recursionDepth >= maxRecursionDepth {
 		return 0, errors.New("error max allowable recursion depth reached")
 	}
@@ -133,11 +132,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 					// Update metadata
 					octree.meta.Merge(p, d)
 					octree.size++
-					if math.IsNaN(octree.node.maxVal) {
-						octree.node.maxVal = mv
-					} else {
-						octree.node.maxVal = math.Max(mv, octree.node.maxVal)
-					}
+					octree.node.maxVal = int(math.Max(float64(mv), float64(octree.node.maxVal)))
 				}
 				return octree.node.maxVal, err
 			}
@@ -148,7 +143,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (f
 		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
 			// Update data in point
 			octree.node.point.D = d
-			octree.node.maxVal = getRawProb(d)
+			octree.node.maxVal = getRawVal(d)
 			return octree.node.maxVal, nil
 		}
 		if err := octree.splitIntoOctants(); err != nil {
