@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"google.golang.org/grpc"
 	"io"
 	"os"
 	"path/filepath"
@@ -64,16 +65,16 @@ func TestSyncEnabled(t *testing.T) {
 			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 			clock = mockClock
 			tmpDir := t.TempDir()
-			rpcServer, mockService := buildAndStartLocalSyncServer(t)
-			defer func() {
-				err := rpcServer.Stop()
-				test.That(t, err, test.ShouldBeNil)
-			}()
 
 			// Set up data manager.
 			dmsvc := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(rpcServer))
+			var mockClient = mockDataSyncServiceClient{
+				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
+				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
+				fail:                &atomic.Bool{},
+			}
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
@@ -90,18 +91,18 @@ func TestSyncEnabled(t *testing.T) {
 			mockClock.Add(captureInterval)
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
-			var receivedReq bool
+			var sentReq bool
 			wait := time.After(time.Second)
 			select {
 			case <-wait:
-			case <-mockService.succesfulDCRequests:
-				receivedReq = true
+			case <-mockClient.succesfulDCRequests:
+				sentReq = true
 			}
 
 			if !tc.initialServiceDisableStatus {
-				test.That(t, receivedReq, test.ShouldBeTrue)
+				test.That(t, sentReq, test.ShouldBeTrue)
 			} else {
-				test.That(t, receivedReq, test.ShouldBeFalse)
+				test.That(t, sentReq, test.ShouldBeFalse)
 			}
 
 			// Set up service config.
@@ -117,8 +118,8 @@ func TestSyncEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Drain any requests that were already sent.
-			for len(mockService.succesfulDCRequests) > 0 {
-				<-mockService.succesfulDCRequests
+			for len(mockClient.succesfulDCRequests) > 0 {
+				<-mockClient.succesfulDCRequests
 			}
 			var receivedReqTwo bool
 			mockClock.Add(captureInterval)
@@ -127,7 +128,7 @@ func TestSyncEnabled(t *testing.T) {
 			wait = time.After(time.Second)
 			select {
 			case <-wait:
-			case <-mockService.succesfulDCRequests:
+			case <-mockClient.succesfulDCRequests:
 				receivedReqTwo = true
 			}
 			err = dmsvc.Close(context.Background())
@@ -543,6 +544,39 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 }
 
+type mockDataSyncServiceClient struct {
+	succesfulDCRequests chan *v1.DataCaptureUploadRequest
+	failedDCRequests    chan *v1.DataCaptureUploadRequest
+	fail                *atomic.Bool
+}
+
+func (c mockDataSyncServiceClient) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest, opts ...grpc.CallOption) (*v1.DataCaptureUploadResponse, error) {
+	if c.fail.Load() {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case c.failedDCRequests <- ur:
+			return nil, errors.New("oh no error!!")
+		}
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case c.succesfulDCRequests <- ur:
+		return &v1.DataCaptureUploadResponse{}, nil
+	}
+}
+
+func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
+	return nil, errors.New("not implemented")
+}
+
+func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
+	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, nil)
+	}
+}
+
 func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
@@ -555,6 +589,7 @@ func getTestSyncerConstructor(server rpc.Server) datasync.ManagerConstructor {
 }
 
 type mockDataSyncServiceServer struct {
+	l                   golog.Logger
 	succesfulDCRequests chan *v1.DataCaptureUploadRequest
 	failedDCRequests    chan *v1.DataCaptureUploadRequest
 	fileUploadRequests  *[]*v1.FileUploadRequest
@@ -570,15 +605,20 @@ func (m *mockDataSyncServiceServer) getFileUploadRequests() []*v1.FileUploadRequ
 }
 
 func (m mockDataSyncServiceServer) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest) (*v1.DataCaptureUploadResponse, error) {
-	(*m.lock).Lock()
-	defer (*m.lock).Unlock()
-
 	if m.fail.Load() {
-		m.failedDCRequests <- ur
-		return nil, errors.New("oh no error!!")
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case m.failedDCRequests <- ur:
+			return nil, errors.New("oh no error!!")
+		}
 	}
-	m.succesfulDCRequests <- ur
-	return &v1.DataCaptureUploadResponse{}, nil
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case m.succesfulDCRequests <- ur:
+		return &v1.DataCaptureUploadResponse{}, nil
+	}
 }
 
 func (m mockDataSyncServiceServer) FileUpload(stream v1.DataSyncService_FileUploadServer) error {
@@ -613,6 +653,7 @@ func buildAndStartLocalSyncServer(t *testing.T) (rpc.Server, *mockDataSyncServic
 	test.That(t, err, test.ShouldBeNil)
 
 	mockService := mockDataSyncServiceServer{
+		l:                                  logger,
 		succesfulDCRequests:                make(chan *v1.DataCaptureUploadRequest, 100),
 		failedDCRequests:                   make(chan *v1.DataCaptureUploadRequest, 100),
 		fileUploadRequests:                 &[]*v1.FileUploadRequest{},

@@ -446,7 +446,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		}
 		svc.startSyncScheduler(svc.syncIntervalMins)
 	} else {
+		svc.logger.Errorw("Closing syncer")
 		svc.closeSyncer()
+		svc.logger.Errorw("Closed syncer")
 	}
 
 	return nil
