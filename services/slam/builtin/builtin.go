@@ -37,12 +37,13 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/internal/grpchelper"
+	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	slamConfig "go.viam.com/slam/config"
 	"go.viam.com/slam/dataprocess"
+	slamUtils "go.viam.com/slam/utils"
 )
 
 var (
@@ -94,44 +95,6 @@ func init() {
 			return &conf, nil
 		}, &slamConfig.AttrConfig{})
 	}
-}
-
-// RuntimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
-// not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
-// are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
-// Returns the slam mode.
-func RuntimeConfigValidation(svcConfig *slamConfig.AttrConfig, model string, logger golog.Logger) (slam.Mode, error) {
-	slamLib, ok := slam.SLAMLibraries[model]
-	if !ok {
-		return "", errors.Errorf("%v algorithm specified not in implemented list", model)
-	}
-
-	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
-	if !ok {
-		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
-			model, svcConfig.ConfigParams["mode"])
-	}
-
-	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
-
-	if slamMode == slam.Rgbd || slamMode == slam.Mono {
-		var directoryNames []string
-		if slamMode == slam.Rgbd {
-			directoryNames = []string{"rgb", "depth"}
-		} else if slamMode == slam.Mono {
-			directoryNames = []string{"rgb"}
-		}
-		for _, directoryName := range directoryNames {
-			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
-			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-				logger.Warnf("%v directory does not exist", directoryPath)
-				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-				}
-			}
-		}
-	}
-	return slamMode, nil
 }
 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
@@ -199,12 +162,12 @@ func runtimeServiceValidation(
 // builtIn is the structure of the slam service.
 type builtIn struct {
 	generic.Unimplemented
-	cameraName      string
-	slamLib         slam.LibraryMetadata
-	slamMode        slam.Mode
-	slamProcess     pexec.ProcessManager
-	clientAlgo      pb.SLAMServiceClient
-	clientAlgoClose func() error
+	primarySensorName string
+	slamLib           slam.LibraryMetadata
+	slamMode          slam.Mode
+	slamProcess       pexec.ProcessManager
+	clientAlgo        pb.SLAMServiceClient
+	clientAlgoClose   func() error
 
 	configParams        map[string]string
 	dataDirectory       string
@@ -235,10 +198,10 @@ func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, dep
 		logger.Debug("Running in live mode")
 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
 		// The first camera is expected to be RGB or LIDAR.
-		cameraName := svcConfig.Sensors[0]
-		cam, err := camera.FromDependencies(deps, cameraName)
+		primarySensorName := svcConfig.Sensors[0]
+		cam, err := camera.FromDependencies(deps, primarySensorName)
 		if err != nil {
-			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
+			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", primarySensorName)
 		}
 		proj, err := cam.Projector(ctx)
 		if err != nil {
@@ -282,7 +245,7 @@ func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, dep
 		if len(svcConfig.Sensors) > 1 {
 			depthCameraName := svcConfig.Sensors[1]
 			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
-				cameraName, depthCameraName)
+				primarySensorName, depthCameraName)
 			depthCam, err := camera.FromDependencies(deps, depthCameraName)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
@@ -290,7 +253,7 @@ func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, dep
 			cams = append(cams, depthCam)
 		}
 
-		return cameraName, cams, nil
+		return primarySensorName, cams, nil
 	}
 	return "", nil, nil
 }
@@ -374,7 +337,7 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	componentReference := resp.GetComponentReference()
 	returnedExt := resp.Extra.AsMap()
 
-	return checkQuaternionFromClientAlgo(pose, componentReference, returnedExt)
+	return slamUtils.CheckQuaternionFromClientAlgo(pose, componentReference, returnedExt)
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
@@ -525,14 +488,41 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
+	primarySensorName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	slamMode, err := RuntimeConfigValidation(svcConfig, string(config.Model.Name), logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "runtime slam config error")
+	modelName := string(config.Model.Name)
+	slamLib, ok := slam.SLAMLibraries[modelName]
+	if !ok {
+		return nil, errors.Errorf("%v algorithm specified not in implemented list", modelName)
+	}
+
+	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+	if !ok {
+		return nil, errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
+			modelName, svcConfig.ConfigParams["mode"])
+	}
+
+	slamConfig.SetupDirectories(svcConfig.DataDirectory, logger)
+
+	if slamMode == slam.Rgbd || slamMode == slam.Mono {
+		var directoryNames []string
+		if slamMode == slam.Rgbd {
+			directoryNames = []string{"rgb", "depth"}
+		} else if slamMode == slam.Mono {
+			directoryNames = []string{"rgb"}
+		}
+		for _, directoryName := range directoryNames {
+			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
+			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+				logger.Warnf("%v directory does not exist", directoryPath)
+				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+					return nil, errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+				}
+			}
+		}
 	}
 
 	port, dataRateMsec, mapRateSec, useLiveData, deleteProcessedData, err :=
@@ -544,7 +534,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	// SLAM Service Object
 	slamSvc := &builtIn{
-		cameraName:            cameraName,
+		primarySensorName:     primarySensorName,
 		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
 		slamMode:              slamMode,
 		slamProcess:           pexec.NewProcessManager(logger),
@@ -688,8 +678,8 @@ func (slamSvc *builtIn) StartDataProcess(
 func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	var args []string
 
-	args = append(args, "-sensors="+slamSvc.cameraName)
-	args = append(args, "-config_param="+createKeyValuePairs(slamSvc.configParams))
+	args = append(args, "-sensors="+slamSvc.primarySensorName)
+	args = append(args, "-config_param="+slamUtils.DictToString(slamSvc.configParams))
 	args = append(args, "-data_rate_ms="+strconv.Itoa(slamSvc.dataRateMs))
 	args = append(args, "-map_rate_sec="+strconv.Itoa(slamSvc.mapRateSec))
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
@@ -839,7 +829,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
+		filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
 		}
@@ -865,7 +855,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, err
 		}
 
-		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
+		filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
 		}
@@ -875,7 +865,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 		}
 		return filenames, nil
-	case slam.Dim2d, slam.Dim3d:
+	case slam.Dim2d:
 		return nil, errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	default:
 		return nil, errors.Errorf("invalid slamMode %v specified", slamSvc.slamMode)
@@ -941,12 +931,12 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 
 	var fileType string
 	switch slamSvc.slamMode {
-	case slam.Dim2d, slam.Dim3d:
+	case slam.Dim2d:
 		fileType = ".pcd"
 	case slam.Rgbd, slam.Mono:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
-	filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, fileType, slamSvc.slamMode)
+	filenames, err := createTimestampFilenames(slamSvc.dataDirectory, slamSvc.primarySensorName, fileType, slamSvc.slamMode)
 	if err != nil {
 		return "", err
 	}
@@ -956,35 +946,24 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
-func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMode slam.Mode) ([]string, error) {
+func createTimestampFilenames(dataDirectory, primarySensorName, fileType string, slamMode slam.Mode) ([]string, error) {
 	timeStamp := time.Now()
+	dataDir := filepath.Join(dataDirectory, "data")
+	rbgDataDir := filepath.Join(dataDir, "rgb")
+	depthDataDir := filepath.Join(dataDir, "depth")
 
 	switch slamMode {
-	case slam.Rgbd:
-		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-		depthFilename := filepath.Join(dataDirectory, "data", "depth", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-		return []string{colorFilename, depthFilename}, nil
-	case slam.Mono:
-		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-		return []string{colorFilename}, nil
-	case slam.Dim2d, slam.Dim3d:
-		filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+	case slam.Dim2d:
+		filename := dataprocess.CreateTimestampFilename(dataDir, primarySensorName, fileType, timeStamp)
 		return []string{filename}, nil
+	case slam.Mono:
+		rgbFilename := dataprocess.CreateTimestampFilename(rbgDataDir, primarySensorName, fileType, timeStamp)
+		return []string{rgbFilename}, nil
+	case slam.Rgbd:
+		rgbFilename := dataprocess.CreateTimestampFilename(rbgDataDir, primarySensorName, fileType, timeStamp)
+		depthFilename := dataprocess.CreateTimestampFilename(depthDataDir, primarySensorName, fileType, timeStamp)
+		return []string{rgbFilename, depthFilename}, nil
 	default:
 		return nil, errors.Errorf("Invalid slam mode: %v", slamMode)
 	}
-}
-
-// Converts a dictionary to a string for so that it can be loaded into an arg for the slam process.
-func createKeyValuePairs(m map[string]string) string {
-	stringMapList := make([]string, len(m))
-	i := 0
-	for k, val := range m {
-		stringMapList[i] = k + "=" + val
-		i++
-	}
-
-	stringMap := strings.Join(stringMapList, ",")
-
-	return "{" + stringMap + "}"
 }

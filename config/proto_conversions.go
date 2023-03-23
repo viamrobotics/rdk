@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/rpc/oauth"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/referenceframe"
@@ -591,6 +590,17 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 		TlsAuthEntities: auth.TLSAuthEntities,
 	}
 
+	if auth.ExternalAuthConfig != nil {
+		jwksJSON, err := protoutils.StructToStructPb(auth.ExternalAuthConfig.JSONKeySet)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert JSONKeySet")
+		}
+
+		proto.ExternalAuthConfig = &pb.ExternalAuthConfig{
+			Jwks: &pb.JWKSFile{Json: jwksJSON},
+		}
+	}
+
 	return &proto, nil
 }
 
@@ -604,6 +614,12 @@ func AuthConfigFromProto(proto *pb.AuthConfig) (*AuthConfig, error) {
 	auth := AuthConfig{
 		Handlers:        handlers,
 		TLSAuthEntities: proto.GetTlsAuthEntities(),
+	}
+
+	if proto.ExternalAuthConfig != nil {
+		auth.ExternalAuthConfig = &ExternalAuthConfig{
+			JSONKeySet: proto.ExternalAuthConfig.Jwks.Json.AsMap(),
+		}
 	}
 
 	return &auth, nil
@@ -674,22 +690,6 @@ func authHandlerConfigToProto(handler AuthHandlerConfig) (*pb.AuthHandlerConfig,
 		Type:   credType,
 	}
 
-	if credType == pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH {
-		if handler.WebOAuthConfig == nil {
-			return nil, errors.New("missing WebOAuthConfig field for CREDENTIALS_TYPE_WEB_OAUTH AuthHandler type")
-		}
-
-		jwksJSON, err := protoutils.StructToStructPb(handler.WebOAuthConfig.JSONKeySet)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert JSONKeySet")
-		}
-
-		out.WebOauthConfig = &pb.AuthHandlerWebOauthConfig{
-			AllowedAudiences: handler.WebOAuthConfig.AllowedAudiences,
-			Jwks:             &pb.JWKSFile{Json: jwksJSON},
-		}
-	}
-
 	return out, nil
 }
 
@@ -700,23 +700,10 @@ func authHandlerConfigFromProto(proto *pb.AuthHandlerConfig) (AuthHandlerConfig,
 		return handler, err
 	}
 
-	handler = AuthHandlerConfig{
+	return AuthHandlerConfig{
 		Config: proto.GetConfig().AsMap(),
 		Type:   credType,
-	}
-
-	if credType == oauth.CredentialsTypeOAuthWeb {
-		if proto.WebOauthConfig == nil {
-			return handler, errors.New("missing WebOAuthConfig field for CredentialsTypeOAuthWeb AuthHandler type")
-		}
-
-		handler.WebOAuthConfig = &WebOAuthConfig{
-			AllowedAudiences: proto.WebOauthConfig.AllowedAudiences,
-			JSONKeySet:       proto.WebOauthConfig.Jwks.Json.AsMap(),
-		}
-	}
-
-	return handler, nil
+	}, nil
 }
 
 func credentialsTypeToProto(ct rpc.CredentialsType) (pb.CredentialsType, error) {
@@ -727,8 +714,8 @@ func credentialsTypeToProto(ct rpc.CredentialsType) (pb.CredentialsType, error) 
 		return pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_SECRET, nil
 	case rutils.CredentialsTypeRobotLocationSecret:
 		return pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET, nil
-	case oauth.CredentialsTypeOAuthWeb:
-		return pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH, nil
+	case rpc.CredentialsTypeExternal:
+		fallthrough
 	default:
 		return pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED, errors.New("unsupported credential type")
 	}
@@ -743,7 +730,8 @@ func credentialsTypeFromProto(ct pb.CredentialsType) (rpc.CredentialsType, error
 	case pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET:
 		return rutils.CredentialsTypeRobotLocationSecret, nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH:
-		return oauth.CredentialsTypeOAuthWeb, nil
+		// TODO(APP-1412): remove after a week from being deployed
+		return rpc.CredentialsType("oauth-web-auth"), nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED:
 		fallthrough
 	case pb.CredentialsType_CREDENTIALS_TYPE_INTERNAL:

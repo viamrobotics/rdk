@@ -143,42 +143,59 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 	readings := map[string]interface{}{}
 
 	pos, altitude, err := g.Position(ctx, extra)
-	if err != nil && !errors.Is(err, ErrMethodUnimplementedPosition) {
-		return nil, err
+	if err != nil {
+		if !errors.Is(err, ErrMethodUnimplementedPosition) {
+			return nil, err
+		}
+	} else {
+		readings["position"] = pos
+		readings["altitude"] = altitude
 	}
-
-	readings["position"] = pos
-	readings["altitude"] = altitude
 
 	vel, err := g.LinearVelocity(ctx, extra)
-	if err != nil && !errors.Is(err, ErrMethodUnimplementedLinearVelocity) {
-		return nil, err
+	if err != nil {
+		if !errors.Is(err, ErrMethodUnimplementedLinearVelocity) {
+			return nil, err
+		}
+	} else {
+		readings["linear_velocity"] = vel
 	}
-	readings["linear_velocity"] = vel
 
 	la, err := g.LinearAcceleration(ctx, extra)
-	if err != nil && !errors.Is(err, ErrMethodUnimplementedLinearAcceleration) {
-		return nil, err
+	if err != nil {
+		if !errors.Is(err, ErrMethodUnimplementedLinearAcceleration) {
+			return nil, err
+		}
+	} else {
+		readings["linear_acceleration"] = la
 	}
-	readings["linear_acceleration"] = la
 
 	avel, err := g.AngularVelocity(ctx, extra)
-	if err != nil && !errors.Is(err, ErrMethodUnimplementedAngularVelocity) {
-		return nil, err
+	if err != nil {
+		if !errors.Is(err, ErrMethodUnimplementedAngularVelocity) {
+			return nil, err
+		}
+	} else {
+		readings["angular_velocity"] = avel
 	}
-	readings["angular_velocity"] = avel
 
 	compass, err := g.CompassHeading(ctx, extra)
-	if err != nil && !errors.Is(err, ErrMethodUnimplementedCompassHeading) {
-		return nil, err
+	if err != nil {
+		if !errors.Is(err, ErrMethodUnimplementedCompassHeading) {
+			return nil, err
+		}
+	} else {
+		readings["compass"] = compass
 	}
-	readings["compass"] = compass
 
 	ori, err := g.Orientation(ctx, extra)
-	if err != nil && !errors.Is(err, ErrMethodUnimplementedOrientation) {
-		return nil, err
+	if err != nil {
+		if !errors.Is(err, ErrMethodUnimplementedOrientation) {
+			return nil, err
+		}
+	} else {
+		readings["orientation"] = ori
 	}
-	readings["orientation"] = ori
 
 	return readings, nil
 }

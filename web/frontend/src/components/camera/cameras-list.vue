@@ -80,8 +80,9 @@ const setupCamera = (cameraName: string) => {
         :client="client"
         :resources="resources"
         :show-export-screenshot="true"
-        :refresh-rate="refreshFrequency[camera.name]"
+        :refresh-rate="refreshFrequency[camera.name]? refreshFrequency[camera.name]: 'Live'"
         :trigger-refresh="triggerRefresh"
+        :toggle="openCameras[camera.name]? openCameras[camera.name]:false"
       />
 
       <PCD

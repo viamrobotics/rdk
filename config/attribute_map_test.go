@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"testing"
 
 	"go.viam.com/test"
@@ -102,4 +103,73 @@ func TestAttributeMap(t *testing.T) {
 		sampleAttributeMap.BoolSlice("bad_boolean_slice", false)
 	}
 	test.That(t, badBoolSliceGetter, test.ShouldPanic)
+}
+
+func TestAttributeMapWalk(t *testing.T) {
+	type dataV struct {
+		Other string
+	}
+	type internalAttr struct {
+		StringValue    string
+		StringPtrValue *string
+		StringArray    []string
+		BoolValue      bool
+		ByteArray      []byte
+		Data           dataV
+		DataPtr        *dataV
+		DataMapStr     map[string]*dataV
+	}
+
+	stringVal := "some string val"
+	complexData := internalAttr{
+		StringValue:    "/some/path",
+		StringPtrValue: &stringVal,
+		StringArray:    []string{"one", "two", "three"},
+		BoolValue:      true,
+		ByteArray:      []byte("hello"),
+		Data:           dataV{Other: "this is a string"},
+		DataPtr:        &dataV{Other: "/some/other/path"},
+		DataMapStr: map[string]*dataV{
+			"other1": {Other: "/its/another/path"},
+			"other2": {Other: "hello2"},
+		},
+	}
+
+	attributes := AttributeMap{
+		"one":       float64(1),
+		"file_path": "/this/is/a/path",
+		"data":      complexData,
+	}
+
+	newAttrs, err := attributes.Walk(&indirectVisitor{})
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedAttrs := AttributeMap{
+		"one":       float64(1),
+		"file_path": "/this/is/a/path",
+		"data": map[string]interface{}{
+			"StringValue":    "/some/path",
+			"StringPtrValue": "some string val",
+			"StringArray":    []interface{}{"one", "two", "three"},
+			"BoolValue":      true,
+			"ByteArray":      []interface{}{byte('h'), byte('e'), byte('l'), byte('l'), byte('o')},
+			"Data":           map[string]interface{}{"Other": "this is a string"},
+			"DataPtr":        map[string]interface{}{"Other": "/some/other/path"},
+			"DataMapStr": map[string]interface{}{
+				"other1": map[string]interface{}{"Other": "/its/another/path"},
+				"other2": map[string]interface{}{"Other": "hello2"},
+			},
+		},
+	}
+	test.That(t, newAttrs, test.ShouldResemble, expectedAttrs)
+}
+
+// indirectVisitor visits a type and if it's a pointer, it returns the value that the pointer points
+// to. This makes testing easier since we can compare values with values.
+type indirectVisitor struct{}
+
+func (v *indirectVisitor) Visit(data interface{}) (interface{}, error) {
+	val := reflect.ValueOf(data)
+	val = reflect.Indirect(val)
+	return val.Interface(), nil
 }
