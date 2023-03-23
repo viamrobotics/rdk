@@ -27,6 +27,23 @@ var (
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
+	// passTime repeatedly increments mc by interval until the context is canceled.
+	passTime := func(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					close(done)
+					return
+				default:
+					mc.Add(interval)
+				}
+			}
+		}()
+		return done
+	}
+
 	captureInterval := time.Millisecond * 10
 	testFilesContainSensorData := func(t *testing.T, dir string) {
 		t.Helper()
@@ -148,9 +165,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 			err = dmsvc.Update(context.Background(), initConfig)
 			test.That(t, err, test.ShouldBeNil)
-			for i := 0; i < 20; i++ {
-				mockClock.Add(captureInterval)
-			}
+			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
@@ -159,6 +175,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
+			cancelPassTime1()
+			<-donePassingTime1
 
 			// Set up updated robot config.
 			var updatedConfig *config.Config
@@ -180,9 +198,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
-			for i := 0; i < 20; i++ {
-				mockClock.Add(captureInterval)
-			}
+			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
@@ -196,6 +213,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
 				}
 			}
+			cancelPassTime2()
+			<-donePassingTime2
 		})
 	}
 }
