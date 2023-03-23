@@ -163,7 +163,7 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper function that recursively checks a basic octree's structure and metadata.
-func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) (int, float64) {
+func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) (int, int) {
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
@@ -172,7 +172,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	validateMetadata(t, bOct)
 
 	var size int
-	maxVal := math.Inf(-1)
+	maxVal := emptyProb
 	switch bOct.node.nodeType {
 	case internalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -214,21 +214,11 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 				Z: center.Z + k*sideLength/4.,
 			}, sideLength/2.)
 			size += childSize
-
-			if math.IsNaN(bOct.node.maxVal) {
-				maxVal = math.Max(bOct.node.maxVal, childMaxProb)
-			} else {
-				maxVal = math.Max(maxVal, childMaxProb)
-			}
+			maxVal = int(math.Max(float64(maxVal), float64(childMaxProb)))
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)
-		if math.IsNaN(bOct.node.maxVal) {
-			test.That(t, math.IsNaN(maxVal), test.ShouldBeTrue)
-			test.That(t, math.IsNaN(bOct.MaxVal()), test.ShouldBeTrue)
-		} else {
-			test.That(t, bOct.node.maxVal, test.ShouldEqual, maxVal)
-			test.That(t, bOct.node.maxVal, test.ShouldEqual, bOct.MaxVal())
-		}
+		test.That(t, bOct.node.maxVal, test.ShouldEqual, maxVal)
+		test.That(t, bOct.node.maxVal, test.ShouldEqual, bOct.MaxVal())
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
@@ -324,12 +314,12 @@ func stringBasicOctreeNodeType(n NodeType) string {
 
 //nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
-	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxChildValue: %f\n",
+	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxVal: %f\n",
 		s, bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
 		len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxVal)
 
 	if bOct.node.nodeType == leafNodeFilled {
-		logger.Infof("%s (%e %e %e) - Val: %v | MaxChildValue: %f\n",
+		logger.Infof("%s (%e %e %e) - Val: %v | MaxVal: %f\n",
 			s, bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z,
 			bOct.node.point.D.Value(), bOct.node.maxVal)
 	}
