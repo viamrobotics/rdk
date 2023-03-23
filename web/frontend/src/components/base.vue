@@ -97,7 +97,7 @@ const stop = async () => {
   stopped = true;
 };
 
-const digestInput = async () => {
+const digestInput = () => {
   let linearValue = 0;
   let angularValue = 0;
 
@@ -125,13 +125,12 @@ const digestInput = async () => {
   const linear = { x: 0, y: linearValue, z: 0 };
   const angular = { x: 0, y: 0, z: angularValue };
   try {
-    await baseClient.setPower(linear, angular);
+    baseClient.setPower(linear, angular);
   } catch (error) {
     displayError(error as ServiceError);
-  }
-
-  if (pressed.size <= 0) {
-    stop();
+    if (pressed.size <= 0) {
+      stop();
+    }
   }
 };
 
