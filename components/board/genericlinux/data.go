@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
-	"go.viam.com/utils"
 )
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
@@ -62,11 +63,11 @@ func noBoardError(modelName string) error {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-    I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-    SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-    Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
-    DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-    Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
 }
 
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.

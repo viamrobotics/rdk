@@ -1,4 +1,5 @@
 //go:build linux
+
 // These tests will only run on Linux! Viam's automated build system on Github uses Linux, though,
 // so they should run on every PR. We made the tests Linux-only because this entire package is
 // Linux-only, and building non-Linux support solely for the test meant that the code tested might
