@@ -119,7 +119,7 @@ func TestWorkingServer(t *testing.T) {
 		testhelper.TestComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcd)
 	})
 
-	t.Run("working get internal state stream functions", func(t *testing.T) {
+	t.Run("working get internal state functions", func(t *testing.T) {
 		internalStateSucc := []byte{0, 1, 2, 3, 4}
 		chunkSizeInternalState := 2
 		injectSvc.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
