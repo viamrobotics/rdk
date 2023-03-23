@@ -44,11 +44,11 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
 		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
-		verifyGetPointCloudMapStreamStateful(t, slamSvc)
+		verifyGetPointCloudMapStateful(t, slamSvc)
 	})
 }
 
-func TestFakeSLAMGetInternalStateStream(t *testing.T) {
+func TestFakeSLAMGetInternalState(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake internal state in chunks"
 	t.Run(testName, func(t *testing.T) {
 		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
@@ -68,7 +68,7 @@ func TestFakeSLAMGetInternalStateStream(t *testing.T) {
 	})
 }
 
-func TestFakeSLAMGetPointMapStream(t *testing.T) {
+func TestFakeSLAMGetPointMap(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset"
 	t.Run(testName, func(t *testing.T) {
 		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
@@ -116,7 +116,7 @@ func reverse[T any](slice []T) []T {
 	return slice
 }
 
-func verifyGetPointCloudMapStreamStateful(t *testing.T, slamSvc *SLAM) {
+func verifyGetPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 	testDataCount := maxDataCount
 	getPointCloudMapResults := []float64{}
 	getPositionResults := []spatialmath.Pose{}
