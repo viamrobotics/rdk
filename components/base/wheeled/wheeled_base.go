@@ -185,7 +185,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 
 	var sensorCtx context.Context
 	sensorCtx, base.sensors.done = context.WithCancel(context.Background())
-	startYaw, err := getCurrentYaw(sensorCtx, base.sensors.orientation, extra)
+	startYaw, err := getCurrentYaw(ctx, base.sensors.orientation, extra)
 	if err != nil {
 		return err
 	} // from 0 -> 360
@@ -194,15 +194,12 @@ func (base *wheeledBase) spinWithMovementSensor(
 	turnCount := 0
 	errCounter := 0
 
-	waitCh := make(chan struct{})
 	base.sensors.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer base.sensors.activeBackgroundWorkers.Done()
+	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
-		close(waitCh)
 		for {
-			// RSDK-2384 - allow other API calls to cancel sensor context when done
+			// RSDK-2384 - fix sensor leaky goroutine
 			select {
 			case <-sensorCtx.Done():
 				return
@@ -246,7 +243,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				// check if we've travelled at all
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
-						ticker.Stop()
+						base.sensors.done()
 						if err := base.Stop(motorCtx, nil); err != nil {
 							return
 						}
@@ -258,7 +255,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 					}
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
-						ticker.Stop()
+						base.sensors.done()
 						if err := base.Stop(motorCtx, nil); err != nil {
 							return
 						}
@@ -269,12 +266,10 @@ func (base *wheeledBase) spinWithMovementSensor(
 						}
 					}
 				}
-				base.sensors.activeBackgroundWorkers.Wait()
-				<-waitCh
 			}
 
 		}
-	})
+	}, base.sensors.activeBackgroundWorkers.Done)
 
 	return nil
 }
