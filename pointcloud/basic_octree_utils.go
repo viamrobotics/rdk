@@ -45,13 +45,10 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 
 // getRawVal returns the data param as a probability value.
 func getRawVal(d Data) int {
-	var val int
 	if d.HasValue() {
-		val = d.Value()
-	} else {
-		val = emptyProb
+		return d.Value()
 	}
-	return val
+	return emptyProb
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
