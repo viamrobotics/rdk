@@ -639,20 +639,18 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		sensors: &sensors{
 			sensorMu:    sync.Mutex{},
 			ctx:         ctx,
-			cancel:      cancel,
 			all:         []movementsensor.MovementSensor{ms},
 			orientation: ms,
 		},
 		opMgr:                   operation.SingleOperationManager{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
-		cancelCtx:               ctx,
 		cancelFunc:              cancel,
 		name:                    "base",
 		collisionGeometry:       nil,
 	}
 
-	err := base.spinWithMovementSensor(0, 0, nil)
+	err := base.spinWithMovementSensor(ctx, 0, 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 }
