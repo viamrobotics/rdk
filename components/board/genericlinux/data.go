@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/config"
 	"go.viam.com/utils"
 )
 
