@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
-import { $ref, $computed, $$ } from 'vue/macros'
+import { $ref, $computed, $$ } from 'vue/macros';
 import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
@@ -62,7 +62,8 @@ const keyboardStates = $ref({
   isActive: false,
 });
 
-const resources: Array<{name: string}> = $computed(() => filterResources(props.resources, 'rdk', 'component', 'camera'));
+const cameraResources = filterResources(props.resources, 'rdk', 'component', 'camera');
+const resources: Array<{name: string}> = $computed(() => cameraResources);
 
 const resetDiscreteState = () => {
   movementMode = 'Straight';
