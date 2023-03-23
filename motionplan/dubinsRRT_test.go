@@ -36,11 +36,11 @@ func TestDubinsRRT(t *testing.T) {
 
 	testDubin := func(worldState *frame.WorldState) bool {
 		opt := newBasicPlannerOptions()
-		collisionConstraint, err := newObstacleConstraint(dubins.Frame(), fs, worldState, frame.StartPositions(fs), nil, true)
+		collisionConstraint, err := newObstacleConstraint(dubins.Frame(), fs, worldState, frame.StartPositions(fs), nil)
 		if err != nil {
 			return false
 		}
-		opt.AddConstraint("collision", collisionConstraint)
+		opt.AddStateConstraint("collision", collisionConstraint)
 		o := d.AllPaths(start, goal, false)
 		return dubins.checkPath(
 			&basicNode{q: frame.FloatsToInputs(start)},

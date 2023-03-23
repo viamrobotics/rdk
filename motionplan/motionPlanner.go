@@ -32,7 +32,7 @@ type motionPlanner interface {
 	smoothPath(context.Context, []node) []node
 	checkPath([]frame.Input, []frame.Input) bool
 	checkInputs([]frame.Input) bool
-	getSolutions(context.Context, spatialmath.Pose, []frame.Input) ([]*costNode, error)
+	getSolutions(context.Context, []frame.Input) ([]*costNode, error)
 	opt() *plannerOptions
 }
 
@@ -235,26 +235,19 @@ func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *pl
 }
 
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	position, err := mp.frame.Transform(inputs)
-	if err != nil {
-		return false
-	}
-	ok, _, _ := mp.planOpts.CheckConstraints(&ConstraintInput{
-		StartPos:   position,
-		EndPos:     position,
-		StartInput: inputs,
-		EndInput:   inputs,
-		Frame:      mp.frame,
+	ok, _ := mp.planOpts.CheckStateConstraints(&StateInput{
+		Configuration: inputs,
+		Frame:         mp.frame,
 	})
 	return ok
 }
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
-	ok, _ := mp.planOpts.CheckConstraintPath(
-		&ConstraintInput{
-			StartInput: seedInputs,
-			EndInput:   target,
-			Frame:      mp.frame,
+	ok, _ := mp.planOpts.CheckArcAndStateValidity(
+		&ArcInput{
+			StartConfiguration: seedInputs,
+			EndConfiguration:   target,
+			Frame:              mp.frame,
 		},
 		mp.planOpts.Resolution,
 	)
@@ -312,7 +305,7 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed []frame.Input) ([]*costNode, error) {
+func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*costNode, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -323,7 +316,6 @@ func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed
 	if err != nil {
 		return nil, err
 	}
-	goalPos := fixOvIncrement(goal, seedPos)
 
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error, 1)
@@ -331,11 +323,14 @@ func (mp *planner) getSolutions(ctx context.Context, goal spatialmath.Pose, seed
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
+	if mp.planOpts.goalMetric == nil {
+		return nil, errors.New("metric is nil")
+	}
 
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
-		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, mp.planOpts.metric, mp.randseed.Int())
+		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int())
 	})
 
 	solutions := map[float64][]frame.Input{}
@@ -355,26 +350,22 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			cPass, cScore, failName := mp.planOpts.CheckConstraints(&ConstraintInput{
-				seedPos,
-				goalPos,
-				seed,
-				step,
-				mp.frame,
+			// Ensure the end state is a valid one
+			statePass, failName := mp.planOpts.CheckStateConstraints(&StateInput{
+				Configuration: step,
+				Frame:         mp.frame,
 			})
-			if cPass {
-				// TODO (pl): Current implementation of constraints treats the starting input of a ConstraintInput as the state to check for
-				// validity. Since we use CheckConstraints instead of CheckConstraintPath here, we need to check both the start and
-				// end pose for validity
-				endPass, _, failName := mp.planOpts.CheckConstraints(&ConstraintInput{
-					goalPos,
-					goalPos,
-					step,
-					step,
-					mp.frame,
-				})
+			if statePass {
+				stepArc := &ArcInput{
+					StartConfiguration: seed,
+					StartPosition:      seedPos,
+					EndConfiguration:   step,
+					Frame:              mp.frame,
+				}
+				arcPass, failName := mp.planOpts.CheckArcConstraints(stepArc)
 
-				if endPass {
+				if arcPass {
+					cScore := mp.planOpts.GoalArcScore(stepArc) // wtf
 					if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64][]frame.Input{}
 						solutions[cScore] = step

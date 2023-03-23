@@ -6,6 +6,8 @@ import (
 
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestJointPositions(t *testing.T) {
@@ -36,4 +38,35 @@ func TestInterpolateValues(t *testing.T) {
 	interp2 := InterpolateInputs(jp1, jp2, 0.25)
 	test.That(t, interp1, test.ShouldResemble, jpHalf)
 	test.That(t, interp2, test.ShouldResemble, jpQuarter)
+}
+
+type StateInput struct {
+	Position      spatialmath.Pose
+	Configuration []Input
+	Frame         Frame
+}
+
+var (
+	x *StateInput
+	y *StateInput
+)
+
+var (
+	inp = []Input{{1}, {2}, {3}}
+	flt = []float64{1., 2., 3.}
+)
+
+func BenchmarkCreateStruct(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		x = &StateInput{Configuration: inp}
+	}
+}
+
+func BenchmarkEditStruct(b *testing.B) {
+	q := &StateInput{}
+	for n := 0; n < b.N; n++ {
+		f := FloatsToInputs(flt)
+		q.Configuration = f
+		y = q
+	}
 }

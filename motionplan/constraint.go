@@ -10,23 +10,23 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// ArcConstraintInput contains all the information a constraint needs to determine validity for a movement.
+// ArcInput contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
 // Pose fields may be empty, and may be filled in by a constraint that needs them.
-type ArcConstraintInput struct {
-	StartPosition   spatial.Pose
-	EndPosition     spatial.Pose
+type ArcInput struct {
+	StartPosition      spatial.Pose
+	EndPosition        spatial.Pose
 	StartConfiguration []referenceframe.Input
 	EndConfiguration   []referenceframe.Input
-	frame           referenceframe.Frame
+	Frame              referenceframe.Frame
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *ArcConstraintInput) resolveInputsToPositions() error {
+func (ci *ArcInput) resolveInputsToPositions() error {
 	if ci.StartPosition == nil {
-		if ci.frame != nil {
+		if ci.Frame != nil {
 			if ci.StartConfiguration != nil {
-				pos, err := ci.frame.Transform(ci.StartConfiguration)
+				pos, err := ci.Frame.Transform(ci.StartConfiguration)
 				if err == nil {
 					ci.StartPosition = pos
 				} else {
@@ -40,9 +40,9 @@ func (ci *ArcConstraintInput) resolveInputsToPositions() error {
 		}
 	}
 	if ci.EndPosition == nil {
-		if ci.frame != nil {
+		if ci.Frame != nil {
 			if ci.EndConfiguration != nil {
-				pos, err := ci.frame.Transform(ci.EndConfiguration)
+				pos, err := ci.Frame.Transform(ci.EndConfiguration)
 				if err == nil {
 					ci.EndPosition = pos
 				} else {
@@ -58,21 +58,21 @@ func (ci *ArcConstraintInput) resolveInputsToPositions() error {
 	return nil
 }
 
-// StateConstraintInput contains all the information a constraint needs to determine validity for a movement.
+// StateInput contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
 // Pose fields may be empty, and may be filled in by a constraint that needs them.
-type StateConstraintInput struct {
+type StateInput struct {
 	Position      spatial.Pose
 	Configuration []referenceframe.Input
-	frame           referenceframe.Frame
+	Frame         referenceframe.Frame
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *StateConstraintInput) resolveInputsToPositions() error {
+func (ci *StateInput) resolveInputsToPositions() error {
 	if ci.Position == nil {
-		if ci.frame != nil {
+		if ci.Frame != nil {
 			if ci.Configuration != nil {
-				pos, err := ci.frame.Transform(ci.Configuration)
+				pos, err := ci.Frame.Transform(ci.Configuration)
 				if err == nil {
 					ci.Position = pos
 				} else {
@@ -88,60 +88,54 @@ func (ci *StateConstraintInput) resolveInputsToPositions() error {
 	return nil
 }
 
-// ArcConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid
-type ArcConstraint func(*ArcConstraintInput) (bool, float64)
+// ArcConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
+// If the returned bool is true, the constraint is satisfied and the arc is valid.
+type ArcConstraint func(*ArcInput) bool
 
 // StateConstraint tests whether a given robot configuration is valid
-type StateConstraint func(*StateConstraintInput) (bool, float64)
+// If the returned bool is true, the constraint is satisfied and the state is valid.
+type StateConstraint func(*StateInput) bool
 
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintHandler struct {
-	arcConstraints map[string]ArcConstraint
+	arcConstraints   map[string]ArcConstraint
 	stateConstraints map[string]StateConstraint
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
 // Return values are:
 // -- a bool representing whether all constraints passed
-// -- if passing, a score representing the distance to a non-passing state. Inf(1) if failing.
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(cInput *StateConstraintInput) (bool, float64, string) {
-	score := 0.
-
+func (c *ConstraintHandler) CheckStateConstraints(cInput *StateInput) (bool, string) {
 	for name, cFunc := range c.stateConstraints {
-		pass, cScore := cFunc(cInput)
+		pass := cFunc(cInput)
 		if !pass {
-			return false, math.Inf(1), name
+			return false, name
 		}
-		score += cScore
 	}
-	return true, score, ""
+	return true, ""
 }
 
 // CheckArcConstraints will check a given input against all arc constraints.
 // Return values are:
 // -- a bool representing whether all constraints passed
-// -- if passing, a score representing the distance to a non-passing state. Inf(1) if failing.
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckArcConstraints(cInput *ArcConstraintInput) (bool, float64, string) {
-	score := 0.
-
+func (c *ConstraintHandler) CheckArcConstraints(cInput *ArcInput) (bool, string) {
 	for name, cFunc := range c.arcConstraints {
-		pass, cScore := cFunc(cInput)
+		pass := cFunc(cInput)
 		if !pass {
-			return false, math.Inf(1), name
+			return false, name
 		}
-		score += cScore
 	}
-	return true, score, ""
+	return true, ""
 }
 
 // CheckStateConstraintsAcrossArc will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
 // states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
-// If any constraints fail, this will return false, and an ArcConstraintInput representing the valid portion of the arc, if any. If no
+// If any constraints fail, this will return false, and an ArcInput representing the valid portion of the arc, if any. If no
 // part of the arc is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *ArcConstraintInput, resolution float64) (bool, *ArcConstraintInput) {
+func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *ArcInput, resolution float64) (bool, *ArcInput) {
 	// ensure we have cartesian positions
 	err := ci.resolveInputsToPositions()
 	if err != nil {
@@ -154,22 +148,43 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *ArcConstraintInpu
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
 		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
-		interpC := &StateConstraintInput{frame: ci.frame, Configuration:  interpConfig}
+		interpC := &StateInput{Frame: ci.Frame, Configuration: interpConfig}
 		err = interpC.resolveInputsToPositions()
 		if err != nil {
 			return false, nil
 		}
-		pass, _, _ := c.CheckStateConstraints(interpC)
+		pass, _ := c.CheckStateConstraints(interpC)
 		if !pass {
 			if i == 0 {
 				// fail on start pos
 				return false, nil
 			}
-			return false, &ArcConstraintInput{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
+			return false, &ArcInput{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
 		}
 		lastGood = interpC.Configuration
 	}
 
+	return true, nil
+}
+
+// CheckArcAndStateValidity will check an arc input and confirm that it 1) meets all arc constraints, and 2) meets all state constraints
+// across the arc at some resolution. If it fails an intermediate state, it will return the shortest valid arc, provided that arc
+// also meets arc constraints.
+func (c *ConstraintHandler) CheckArcAndStateValidity(cInput *ArcInput, resolution float64) (bool, *ArcInput) {
+	valid, _ := c.CheckArcConstraints(cInput)
+	if !valid {
+		return false, nil
+	}
+	valid, subArc := c.CheckStateConstraintsAcrossArc(cInput, resolution)
+	if !valid {
+		if subArc != nil {
+			subArcValid, _ := c.CheckArcConstraints(subArc)
+			if subArcValid {
+				return false, subArc
+			}
+		}
+		return false, nil
+	}
 	return true, nil
 }
 
@@ -227,9 +242,8 @@ func newSelfCollisionConstraint(
 	frame referenceframe.Frame,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
-	reportDistances bool,
 ) (StateConstraint, error) {
-	return newCollisionConstraint(frame, nil, observationInput, collisionSpecifications, reportDistances)
+	return newCollisionConstraint(frame, nil, observationInput, collisionSpecifications)
 }
 
 // newObstacleConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
@@ -241,7 +255,6 @@ func newObstacleConstraint(frame referenceframe.Frame,
 	worldState *referenceframe.WorldState,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
-	reportDistances bool,
 ) (StateConstraint, error) {
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
 	// the state that observed the worldState should ultimately be included as part of the worldState message
@@ -250,7 +263,7 @@ func newObstacleConstraint(frame referenceframe.Frame,
 		return nil, err
 	}
 	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	return newCollisionConstraint(frame, worldState.Obstacles[0].Geometries(), observationInput, collisionSpecifications, reportDistances)
+	return newCollisionConstraint(frame, worldState.Obstacles[0].Geometries(), observationInput, collisionSpecifications)
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting
@@ -262,7 +275,6 @@ func newCollisionConstraint(
 	obstacles []spatial.Geometry,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
-	reportDistances bool,
 ) (StateConstraint, error) {
 	// extract inputs corresponding to the frame
 	var goodInputs []referenceframe.Input
@@ -293,29 +305,19 @@ func newCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(cInput *StateConstraintInput) (bool, float64) {
-		internal, err := cInput.frame.Geometries(cInput.Configuration)
+	constraint := func(cInput *StateInput) bool {
+		internal, err := cInput.Frame.Geometries(cInput.Configuration)
 		if err != nil && internal == nil {
-			return false, 0
+			return false
 		}
 
-		cg, err := newCollisionGraph(internal.Geometries(), obstacles, zeroCG, reportDistances)
+		cg, err := newCollisionGraph(internal.Geometries(), obstacles, zeroCG, false)
 		if err != nil {
-			return false, 0
+			return false
 		}
 
 		collisions := cg.collisions()
-		if len(collisions) > 0 {
-			return false, 0
-		}
-		if !reportDistances {
-			return true, 0
-		}
-		sum := 0.
-		for _, collision := range collisions {
-			sum += collision.penetrationDepth
-		}
-		return true, sum
+		return len(collisions) == 0
 	}
 	return constraint, nil
 }
@@ -323,87 +325,53 @@ func newCollisionConstraint(
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, Metric) {
+func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, StateMetric) {
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
-	f := func(cInput *StateConstraintInput) (bool, float64) {
-		oValid, oDist := orientConstraint(cInput)
-		lValid, lDist := lineConstraint(cInput)
-		return oValid && lValid, oDist + lDist
+	f := func(cInput *StateInput) bool {
+		oValid := orientConstraint(cInput)
+		lValid := lineConstraint(cInput)
+		return oValid && lValid
 	}
 	return f, interpMetric
 }
 
 // NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
-func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, Metric) {
+func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, StateMetric) {
 	orientTol := epsilon * orientDist(from.Orientation(), to.Orientation())
 	linTol := epsilon * from.Point().Distance(to.Point())
 
 	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 }
 
-// NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
-// It will return false if that sum is over a specified threshold.
-func NewJointConstraint(threshold float64) ArcConstraint {
-	f := func(cInput *ArcConstraintInput) (bool, float64) {
-		jScore := 0.
-		for i, f := range cInput.StartConfiguration {
-			jScore += math.Abs(f.Value - cInput.EndConfiguration[i].Value)
-		}
-		return jScore < threshold, jScore
-	}
-	return f
-}
-
-// NewOrientationConstraint returns a constraint which will return false if the startPos or endPos orientations
-// are not valid.
-func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) StateConstraint {
-	f := func(cInput *StateConstraintInput) (bool, float64) {
-		if cInput.Position == nil {
-			err := cInput.resolveInputsToPositions()
-			if err != nil {
-				return false, 0
-			}
-		}
-		if orientFunc(cInput.Position.Orientation()) {
-			return true, 0
-		}
-		return false, 0
-	}
-	return f
-}
-
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
 // returns whether a given orientation is within a given tolerance distance of the shortest arc between the two orientations, as well as a
 // metric which returns the distance to that valid region.
-func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, Metric) {
+func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
-	gradFunc := func(from spatial.Pose) float64 {
-		sDist := orientDist(start.Orientation(), from.Orientation())
+	gradFunc := func(cInput *StateInput) float64 {
+		sDist := orientDist(start.Orientation(), cInput.Position.Orientation())
 		gDist := 0.
 
 		// If origDist is less than or equal to defaultEpsilon, then the starting and ending orientations are the same and we do not need
 		// to compute the distance to the ending orientation
 		if origDist > defaultEpsilon {
-			gDist = orientDist(goal.Orientation(), from.Orientation())
+			gDist = orientDist(goal.Orientation(), cInput.Position.Orientation())
 		}
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(cInput *StateConstraintInput) (bool, float64) {
+	validFunc := func(cInput *StateInput) bool {
 		err := cInput.resolveInputsToPositions()
 		if err != nil {
-			return false, 0
+			return false
 		}
-		dist := gradFunc(cInput.Position)
-		if dist < tolerance {
-			return true, 0
-		}
-		return false, 0
+		dist := gradFunc(cInput)
+		return dist < tolerance
 	}
 
 	return validFunc, gradFunc
@@ -414,7 +382,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose.
-func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, Metric) {
+func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, StateMetric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
 
@@ -430,22 +398,19 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	}
 
 	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
-	gradFunc := func(from spatial.Pose) float64 {
-		pDist := planeDist(from.Point())
-		oDist := dFunc(from.Orientation())
+	gradFunc := func(cInput *StateInput) float64 {
+		pDist := planeDist(cInput.Position.Point())
+		oDist := dFunc(cInput.Position.Orientation())
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(cInput *StateConstraintInput) (bool, float64) {
+	validFunc := func(cInput *StateInput) bool {
 		err := cInput.resolveInputsToPositions()
 		if err != nil {
-			return false, 0
+			return false
 		}
-		dist := gradFunc(cInput.Position)
-		if dist < epsilon*epsilon {
-			return true, 0
-		}
-		return false, 0
+		dist := gradFunc(cInput)
+		return dist < epsilon*epsilon
 	}
 
 	return validFunc, gradFunc
@@ -455,53 +420,24 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
-func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, Metric) {
+func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, StateMetric) {
 	if pt1.Distance(pt2) < defaultEpsilon {
 		tolerance = defaultEpsilon
 	}
 
-	gradFunc := func(from spatial.Pose) float64 {
-		pDist := math.Max(spatial.DistToLineSegment(pt1, pt2, from.Point())-tolerance, 0)
+	gradFunc := func(cInput *StateInput) float64 {
+		pDist := math.Max(spatial.DistToLineSegment(pt1, pt2, cInput.Position.Point())-tolerance, 0)
 		return pDist
 	}
 
-	validFunc := func(cInput *StateConstraintInput) (bool, float64) {
+	validFunc := func(cInput *StateInput) bool {
 		err := cInput.resolveInputsToPositions()
 		if err != nil {
-			return false, 0
+			return false
 		}
-		dist := gradFunc(cInput.Position)
-		if dist == 0 {
-			return true, 0
-		}
-		return false, dist
+		dist := gradFunc(cInput)
+		return dist == 0
 	}
 
 	return validFunc, gradFunc
 }
-
-// NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses without regard for orientation.
-// This is useful for scenarios where there are not enough DOF to control orientation, but arbitrary spatial points may
-// still be arived at.
-func NewPositionOnlyMetric(goal spatial.Pose) Metric {
-	return func(from spatial.Pose) float64 {
-		pDist := from.Point().Distance(goal.Point())
-		return pDist * pDist
-	}
-}
-
-//~ // Prevents recalculation of startPos. If no startPos has been calculated, just pass nil.
-//~ func cachedInterpolateInput(
-	//~ ci *ConstraintInput,
-	//~ by float64,
-	//~ startInput []referenceframe.Input,
-	//~ startPos spatial.Pose,
-//~ ) (*ConstraintInput, error) {
-	//~ input := &ConstraintInput{}
-	//~ input.Frame = ci.Frame
-	//~ input.StartInput = startInput
-	//~ input.StartPos = startPos
-	//~ input.EndInput = referenceframe.InterpolateInputs(ci.StartInput, ci.EndInput, by)
-
-	//~ return input, resolveInputsToPositions(input)
-//~ }
