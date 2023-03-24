@@ -15,11 +15,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements InputControllerServiceClient.
 type client struct {
-	conn   rpc.ClientConn
+	resource.Named
+	resource.TriviallyReconfigurable
 	client pb.InputControllerServiceClient
 	logger golog.Logger
 
@@ -40,15 +42,15 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Controller {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Controller, error) {
 	c := pb.NewInputControllerServiceClient(conn)
 	return &client{
-		conn:         conn,
+		Named:        name.AsNamed(),
 		client:       c,
 		logger:       logger,
-		name:         name,
+		name:         name.ShortNameForClient(),
 		closeContext: ctx,
-	}
+	}, nil
 }
 
 func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {

@@ -5,51 +5,50 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 )
 
 func TestSubtypeService(t *testing.T) {
-	strType := resource.SubtypeName("string")
-	name1 := "name1"
-	name2 := "name2"
-	resources := map[resource.Name]interface{}{
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name1,
-		): name1,
+	res1 := testutils.NewUnimplementedResource(generic.Named("name1"))
+	res2 := testutils.NewUnimplementedResource(generic.Named("name2"))
+	resources := map[resource.Name]resource.Resource{
+		res1.Name(): res1,
 	}
-	svc, err := subtype.New(resources)
+	svc, err := subtype.New(generic.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.Resource(name1), test.ShouldEqual, name1)
-	test.That(t, svc.Resource(name2), test.ShouldBeNil)
+	res, err := svc.Resource(res1.Name().ShortName())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res1)
+	_, err = svc.Resource(res2.Name().ShortName())
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(res2.Name()))
 
-	rName2 := resource.NewName(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeComponent,
-		strType,
-		name2,
-	)
-	resources[rName2] = name2
+	resources[res2.Name()] = res2
 	err = svc.ReplaceAll(resources)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.Resource(name1), test.ShouldEqual, name1)
-	test.That(t, svc.Resource(name2), test.ShouldEqual, name2)
-
-	err = svc.ReplaceAll(map[resource.Name]interface{}{})
+	res, err = svc.Resource(res1.Name().ShortName())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.Resource(name1), test.ShouldBeNil)
-	test.That(t, svc.Resource(name2), test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res1)
+	res, err = svc.Resource(res2.Name().ShortName())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res2)
+
+	err = svc.ReplaceAll(map[resource.Name]resource.Resource{})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = svc.Resource(res1.Name().ShortName())
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(res1.Name()))
+	_, err = svc.Resource(res2.Name().ShortName())
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(res2.Name()))
 	// Test should error if resource name is empty
-	resources = map[resource.Name]interface{}{
+	resources = map[resource.Name]resource.Resource{
 		resource.NewName(
 			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
-			strType,
+			"foo",
 			"",
-		): name1,
+		): testutils.NewUnimplementedResource(generic.Named("")),
 	}
 	err = svc.ReplaceAll(resources)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -57,7 +56,6 @@ func TestSubtypeService(t *testing.T) {
 }
 
 func TestSubtypeRemoteNames(t *testing.T) {
-	strType := resource.SubtypeName("string")
 	name0 := "name0"
 	name1 := "remote1:name1"
 	name2 := "remote2:name2"
@@ -68,95 +66,96 @@ func TestSubtypeRemoteNames(t *testing.T) {
 	name8 := "remote1:name0"
 	name9 := "remote1:nameX"
 	name10 := "remote2:nameX"
-	resources := map[resource.Name]interface{}{
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name0,
-		): name0,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name1,
-		): name1,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name2,
-		): name2,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name3,
-		): name3,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name4,
-		): name4,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name5,
-		): name5,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name7,
-		): name7,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name8,
-		): name8,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name9,
-		): name9,
-		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			strType,
-			name10,
-		): name10,
+
+	res0 := testutils.NewUnimplementedResource(generic.Named(name0))
+	res1 := testutils.NewUnimplementedResource(generic.Named(name1))
+	res2 := testutils.NewUnimplementedResource(generic.Named(name2))
+	res3 := testutils.NewUnimplementedResource(generic.Named(name3))
+	res4 := testutils.NewUnimplementedResource(generic.Named(name4))
+	res5 := testutils.NewUnimplementedResource(generic.Named(name5))
+	res7 := testutils.NewUnimplementedResource(generic.Named(name7))
+	res8 := testutils.NewUnimplementedResource(generic.Named(name8))
+	res9 := testutils.NewUnimplementedResource(generic.Named(name9))
+	res10 := testutils.NewUnimplementedResource(generic.Named(name10))
+
+	resources := map[resource.Name]resource.Resource{
+		generic.Named(name0):  res0,
+		generic.Named(name1):  res1,
+		generic.Named(name2):  res2,
+		generic.Named(name3):  res3,
+		generic.Named(name4):  res4,
+		generic.Named(name5):  res5,
+		generic.Named(name7):  res7,
+		generic.Named(name8):  res8,
+		generic.Named(name9):  res9,
+		generic.Named(name10): res10,
 	}
-	svc, err := subtype.New(resources)
+	svc, err := subtype.New(generic.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.Resource(name0), test.ShouldEqual, name0)
-	test.That(t, svc.Resource(name1), test.ShouldEqual, name1)
-	test.That(t, svc.Resource(name2), test.ShouldEqual, name2)
-	test.That(t, svc.Resource(name3), test.ShouldEqual, name3)
-	test.That(t, svc.Resource(name4), test.ShouldEqual, name4)
-	test.That(t, svc.Resource(name5), test.ShouldEqual, name5)
-	test.That(t, svc.Resource(name7), test.ShouldEqual, name7)
-	test.That(t, svc.Resource(name8), test.ShouldEqual, name8)
-	test.That(t, svc.Resource(name9), test.ShouldEqual, name9)
-	test.That(t, svc.Resource(name10), test.ShouldEqual, name10)
+	res, err := svc.Resource(name0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res0)
+	res, err = svc.Resource(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res1)
+	res, err = svc.Resource(name2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res2)
+	res, err = svc.Resource(name3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res3)
+	res, err = svc.Resource(name4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res4)
+	res, err = svc.Resource(name5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res5)
+	res, err = svc.Resource(name7)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res7)
+	res, err = svc.Resource(name8)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res8)
+	res, err = svc.Resource(name9)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res9)
+	res, err = svc.Resource(name10)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res10)
 
-	test.That(t, svc.Resource("name2"), test.ShouldEqual, name2)
-	test.That(t, svc.Resource("remote1:name2"), test.ShouldBeNil)
-	test.That(t, svc.Resource("remote2:name2"), test.ShouldEqual, name2)
-	test.That(t, svc.Resource("name1"), test.ShouldBeNil)
-	test.That(t, svc.Resource("remote1:name1"), test.ShouldEqual, name1)
-	test.That(t, svc.Resource("name4"), test.ShouldEqual, name4)
-	test.That(t, svc.Resource("remote1:name3"), test.ShouldBeNil)
-	test.That(t, svc.Resource("remote1:name3"), test.ShouldBeNil)
-	test.That(t, svc.Resource("name5"), test.ShouldBeNil)
-	test.That(t, svc.Resource("name6"), test.ShouldBeNil)
-	test.That(t, svc.Resource("name5name6"), test.ShouldEqual, name5)
+	res, err = svc.Resource("name2")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res2)
+	_, err = svc.Resource("remote1:name2")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("remote1:name2")))
+	res, err = svc.Resource("remote2:name2")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res2)
+	_, err = svc.Resource("name1")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("name1")))
+	res, err = svc.Resource("remote1:name1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res1)
+	res, err = svc.Resource("name4")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res4)
+	_, err = svc.Resource("remote1:name3")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("remote1:name3")))
+	_, err = svc.Resource("remote2:name3")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("remote2:name3")))
+	_, err = svc.Resource("name5")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("name5")))
+	_, err = svc.Resource("name6")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("name6")))
+	res, err = svc.Resource("name5name6")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res5)
 
-	test.That(t, svc.Resource("name0"), test.ShouldEqual, name0)
-	test.That(t, svc.Resource("nameX"), test.ShouldBeNil)
+	res, err = svc.Resource("name0")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, res0)
+	_, err = svc.Resource("nameX")
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("nameX")))
 }
 
 func TestSubtypeAddRemoveReplaceOne(t *testing.T) {
@@ -183,36 +182,66 @@ func TestSubtypeAddRemoveReplaceOne(t *testing.T) {
 	key4 := resource.NewName(ns, ct, st, name4)
 	key4d := resource.NewName(ns, ct, st, name4d)
 
-	svc, err := subtype.New(map[resource.Name]interface{}{key1: str1, key4: str4})
+	svc, err := subtype.New(generic.Subtype, map[resource.Name]resource.Resource{
+		key1: testutils.NewUnimplementedResource(generic.Named(str1)),
+		key4: testutils.NewUnimplementedResource(generic.Named(str4)),
+	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.Resource(name1), test.ShouldEqual, str1)
-	test.That(t, svc.Resource(name2), test.ShouldBeNil)
-	test.That(t, svc.Resource(name3), test.ShouldBeNil)
-	test.That(t, svc.Resource(name4), test.ShouldEqual, str4)
-	test.That(t, svc.Resource(name4s), test.ShouldEqual, str4)
+	res, err := svc.Resource(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(str1)))
+	_, err = svc.Resource(name2)
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named(name2)))
+	_, err = svc.Resource(name3)
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named(name3)))
+	res, err = svc.Resource(name4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(str4)))
+	res, err = svc.Resource(name4s)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(str4)))
 
-	test.That(t, svc.Add(key2, str2), test.ShouldBeNil)
-	test.That(t, svc.Resource(name2), test.ShouldEqual, str2)
+	test.That(t, svc.Add(key2, testutils.NewUnimplementedResource(generic.Named(str2))), test.ShouldBeNil)
+	res, err = svc.Resource(name2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(str2)))
 
-	test.That(t, svc.Add(key3, str3), test.ShouldBeNil)
-	test.That(t, svc.Resource(name3), test.ShouldEqual, str3)
+	test.That(t, svc.Add(key3, testutils.NewUnimplementedResource(generic.Named(str3))), test.ShouldBeNil)
+	res, err = svc.Resource(name3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(str3)))
 
-	test.That(t, svc.ReplaceOne(key2, strR), test.ShouldBeNil)
-	test.That(t, svc.Resource(name2), test.ShouldEqual, strR)
+	test.That(t, svc.ReplaceOne(key2, testutils.NewUnimplementedResource(generic.Named(strR))), test.ShouldBeNil)
+	res, err = svc.Resource(name2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(strR)))
 
-	test.That(t, svc.ReplaceOne(key4, strR), test.ShouldBeNil)
-	test.That(t, svc.Resource(name4), test.ShouldEqual, strR)
-	test.That(t, svc.Resource(name4s), test.ShouldEqual, strR)
+	test.That(t, svc.ReplaceOne(key4, testutils.NewUnimplementedResource(generic.Named(strR))), test.ShouldBeNil)
+	res, err = svc.Resource(name4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(strR)))
+	res, err = svc.Resource(name4s)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(strR)))
 
 	test.That(t, svc.Remove(key3), test.ShouldBeNil)
-	test.That(t, svc.Resource(name3), test.ShouldBeNil)
+	_, err = svc.Resource(name3)
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named(name3)))
 
-	test.That(t, svc.Add(key4d, str4), test.ShouldBeNil)
-	test.That(t, svc.Resource(name4d), test.ShouldEqual, str4)
-	test.That(t, svc.Resource(name4s), test.ShouldBeNil)
+	test.That(t, svc.Add(key4d, testutils.NewUnimplementedResource(generic.Named(str4))), test.ShouldBeNil)
+	res, err = svc.Resource(name4d)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(str4)))
+	_, err = svc.Resource(name4s)
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named(name4s)))
 
 	test.That(t, svc.Remove(key4d), test.ShouldBeNil)
-	test.That(t, svc.Resource(name4d), test.ShouldBeNil)
-	test.That(t, svc.Resource(name4), test.ShouldEqual, strR)
-	test.That(t, svc.Resource(name4s), test.ShouldEqual, strR)
+	_, err = svc.Resource(name4d)
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named(name4d)))
+	res, err = svc.Resource(name4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(strR)))
+	res, err = svc.Resource(name4s)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldResemble, testutils.NewUnimplementedResource(generic.Named(strR)))
 }

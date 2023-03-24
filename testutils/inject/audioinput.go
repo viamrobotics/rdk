@@ -9,11 +9,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/resource"
 )
 
 // AudioInput is an injected audio input.
 type AudioInput struct {
 	audioinput.AudioInput
+	name       resource.Name
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StreamFunc func(
 		ctx context.Context,
@@ -21,6 +23,16 @@ type AudioInput struct {
 	) (gostream.AudioStream, error)
 	MediaPropertiesFunc func(ctx context.Context) (prop.Audio, error)
 	CloseFunc           func(ctx context.Context) error
+}
+
+// NewAudioInput returns a new injected audio input.
+func NewAudioInput(name string) *AudioInput {
+	return &AudioInput{name: audioinput.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (ai *AudioInput) Name() resource.Name {
+	return ai.name
 }
 
 // Stream calls the injected Stream or the real version.

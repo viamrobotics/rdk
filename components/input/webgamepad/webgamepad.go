@@ -7,9 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -23,29 +21,31 @@ func init() {
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-	var w webGamepad
-	w.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	w.lastEvents = make(map[input.Control]input.Event)
-	w.controls = []input.Control{
-		input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY,
-		input.AbsoluteZ, input.AbsoluteRZ, input.AbsoluteHat0X, input.AbsoluteHat0Y,
-		input.ButtonSouth, input.ButtonEast, input.ButtonWest, input.ButtonNorth,
-		input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
-		input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
-	}
-	return &w, nil
+func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	return &webGamepad{
+		Named:      conf.ResourceName().AsNamed(),
+		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
+		lastEvents: map[input.Control]input.Event{},
+		controls: []input.Control{
+			input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY,
+			input.AbsoluteZ, input.AbsoluteRZ, input.AbsoluteHat0X, input.AbsoluteHat0Y,
+			input.ButtonSouth, input.ButtonEast, input.ButtonWest, input.ButtonNorth,
+			input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
+			input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
+		},
+	}, nil
 }
 
 var _ = input.Controller(&webGamepad{})
 
 // webGamepad is an input.Controller.
 type webGamepad struct {
+	resource.Named
+	resource.TriviallyReconfigurable
 	controls   []input.Control
 	lastEvents map[input.Control]input.Event
 	mu         sync.RWMutex
 	callbacks  map[input.Control]map[input.EventType]input.ControlFunction
-	generic.Unimplemented
 }
 
 func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {

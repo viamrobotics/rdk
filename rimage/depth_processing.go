@@ -371,9 +371,9 @@ func invertGrayImage(img *image.Gray) *image.Gray {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			pix := img.At(x, y)
-			val, ok := pix.(color.Gray)
-			if !ok {
-				panic(utils.NewUnexpectedTypeError(val, pix))
+			val, err := utils.AssertType[color.Gray](pix)
+			if err != nil {
+				panic(err)
 			}
 			dst.Set(x, y, color.Gray{255 - val.Y})
 		}

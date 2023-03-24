@@ -4,7 +4,6 @@ package motor
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/motor/v1"
 
@@ -25,15 +24,7 @@ func NewServer(service subtype.Service) pb.MotorServiceServer {
 
 // getMotor returns the specified motor or nil.
 func (server *subtypeServer) getMotor(name string) (Motor, error) {
-	resource := server.service.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no motor with name (%s)", name)
-	}
-	motor, ok := resource.(Motor)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a motor", name)
-	}
-	return motor, nil
+	return subtype.LookupResource[Motor](server.service, name)
 }
 
 // SetPower sets the percentage of power the motor of the underlying robot should employ between 0-1.
@@ -44,7 +35,7 @@ func (server *subtypeServer) SetPower(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 	return &pb.SetPowerResponse{}, motor.SetPower(ctx, req.GetPowerPct(), req.Extra.AsMap())
 }
@@ -59,7 +50,7 @@ func (server *subtypeServer) GoFor(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 
 	// erh: this isn't right semantically.
@@ -84,7 +75,7 @@ func (server *subtypeServer) GetPosition(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 
 	pos, err := motor.Position(ctx, req.Extra.AsMap())
@@ -102,7 +93,7 @@ func (server *subtypeServer) GetProperties(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 	features, err := motor.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
@@ -119,7 +110,7 @@ func (server *subtypeServer) Stop(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 
 	return &pb.StopResponse{}, motor.Stop(ctx, req.Extra.AsMap())
@@ -133,7 +124,7 @@ func (server *subtypeServer) IsPowered(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 
 	isOn, powerPct, err := motor.IsPowered(ctx, req.Extra.AsMap())
@@ -152,7 +143,7 @@ func (server *subtypeServer) GoTo(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 
 	return &pb.GoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions(), req.Extra.AsMap())
@@ -167,7 +158,7 @@ func (server *subtypeServer) ResetZeroPosition(
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
+		return nil, err
 	}
 
 	return &pb.ResetZeroPositionResponse{}, motor.ResetZeroPosition(ctx, req.GetOffset(), req.Extra.AsMap())

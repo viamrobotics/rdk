@@ -12,17 +12,17 @@ import (
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("ultrasonic")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	TriggerPin    string `json:"trigger_pin"`
 	EchoInterrupt string `json:"echo_interrupt_pin"`
 	Board         string `json:"board"`
@@ -30,16 +30,16 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(config.Board) == 0 {
+	if len(conf.Board) == 0 {
 		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.Board)
-	if len(config.TriggerPin) == 0 {
+	deps = append(deps, conf.Board)
+	if len(conf.TriggerPin) == 0 {
 		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "trigger pin")
 	}
-	if len(config.EchoInterrupt) == 0 {
+	if len(conf.EchoInterrupt) == 0 {
 		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
 	}
 	return deps, nil
@@ -51,23 +51,29 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newSensor(ctx, deps, config.Name, config.ConvertedAttributes.(*AttrConfig))
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
+			}
+			return newSensor(ctx, deps, conf.ResourceName(), newConf)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
-func newSensor(ctx context.Context, deps registry.Dependencies, name string, config *AttrConfig) (sensor.Sensor, error) {
+func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Name, config *Config) (sensor.Sensor, error) {
 	golog.Global().Debug("building ultrasonic sensor")
-	s := &Sensor{Name: name, config: config}
+	s := &Sensor{
+		Named:  name.AsNamed(),
+		config: config,
+	}
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	s.cancelCtx = cancelCtx
 	s.cancelFunc = cancelFunc
@@ -109,21 +115,21 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 
 // Sensor ultrasonic sensor.
 type Sensor struct {
+	resource.Named
+	resource.AlwaysRebuild
 	mu            sync.Mutex
-	Name          string
-	config        *AttrConfig
+	config        *Config
 	echoInterrupt board.DigitalInterrupt
 	triggerPin    board.GPIOPin
 	ticksChan     chan board.Tick
 	timeoutMs     uint
 	cancelCtx     context.Context
 	cancelFunc    func()
-	generic.Unimplemented
 }
 
 func (s *Sensor) namedError(err error) error {
 	return errors.Wrapf(
-		err, "Error in ultrasonic sensor with name %s: ", s.Name,
+		err, "Error in ultrasonic sensor with name %s: ", s.Name(),
 	)
 }
 

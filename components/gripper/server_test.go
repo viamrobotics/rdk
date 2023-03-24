@@ -12,18 +12,19 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
 	injectGripper := &inject.Gripper{}
 	injectGripper2 := &inject.Gripper{}
-	grippers := map[resource.Name]interface{}{
+	grippers := map[resource.Name]resource.Resource{
 		gripper.Named(testGripperName):  injectGripper,
 		gripper.Named(testGripperName2): injectGripper2,
-		gripper.Named(fakeGripperName):  "notGripper",
+		gripper.Named(fakeGripperName):  testutils.NewUnimplementedResource(gripper.Named(fakeGripperName)),
 	}
-	gripperSvc, err := subtype.New(grippers)
+	gripperSvc, err := subtype.New(gripper.Subtype, grippers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -66,11 +67,11 @@ func TestServer(t *testing.T) {
 	t.Run("open", func(t *testing.T) {
 		_, err := gripperServer.Open(context.Background(), &pb.OpenRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		_, err = gripperServer.Open(context.Background(), &pb.OpenRequest{Name: fakeGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a gripper")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		extra := map[string]interface{}{"foo": "Open"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -89,7 +90,7 @@ func TestServer(t *testing.T) {
 	t.Run("grab", func(t *testing.T) {
 		_, err := gripperServer.Grab(context.Background(), &pb.GrabRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		extra := map[string]interface{}{"foo": "Grab"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -108,7 +109,7 @@ func TestServer(t *testing.T) {
 	t.Run("stop", func(t *testing.T) {
 		_, err = gripperServer.Stop(context.Background(), &pb.StopRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		extra := map[string]interface{}{"foo": "Stop"}
 		ext, err := protoutils.StructToStructPb(extra)

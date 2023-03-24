@@ -19,7 +19,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -72,19 +71,19 @@ func (jc jointConfig) toHw(degrees float64) int {
 	return hw
 }
 
-// AttrConfig is the config for a yahboom arm.
-type AttrConfig struct {
+// Config is the config for a yahboom arm.
+type Config struct {
 	Board string `json:"board"`
 	I2C   string `json:"i2c"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if config.Board == "" {
+func (conf *Config) Validate(path string) error {
+	if conf.Board == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	if config.I2C == "" {
+	if conf.I2C == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c")
 	}
 	return nil
@@ -92,21 +91,28 @@ func (config *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewDofBot(ctx, deps, config, logger)
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewDofBot(ctx, deps, conf, logger)
 		},
 	})
 
 	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 // Dofbot implements a yahboom dofbot arm.
+// It would be nice to reconfigure atomically but this just rebuilds right now until
+// someone implements it.
 type Dofbot struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	handle  board.I2CHandle
 	model   referenceframe.Model
 	mu      sync.Mutex
@@ -117,35 +123,37 @@ type Dofbot struct {
 }
 
 // NewDofBot is a constructor to create a new dofbot arm.
-func NewDofBot(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewDofBot(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 	var err error
 
-	attr, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	a := Dofbot{}
-	a.logger = logger
+	a := Dofbot{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
 
-	b, err := board.FromDependencies(deps, attr.Board)
+	b, err := board.FromDependencies(deps, newConf.Board)
 	if err != nil {
 		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", attr.Board)
+		return nil, fmt.Errorf("board %s is not local", newConf.Board)
 	}
-	i2c, ok := localB.I2CByName(attr.I2C)
+	i2c, ok := localB.I2CByName(newConf.I2C)
 	if !ok {
-		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
+		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", conf.Name)
 	}
 	a.handle, err = i2c.OpenHandle(0x15)
 	if err != nil {
 		return nil, err
 	}
 
-	a.model, err = Model(config.Name)
+	a.model, err = Model(conf.Name)
 	if err != nil {
 		return nil, err
 	}

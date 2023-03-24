@@ -11,7 +11,6 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -91,15 +90,14 @@ func init() {
 			Constructor: newGPIOServo,
 		})
 	config.RegisterComponentAttributeMapConverter(servo.Subtype, model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr servoConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&servoConfig{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&servoConfig{}, attributes)
+		})
 }
 
 type servoGPIO struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	pin       board.GPIOPin
 	min       float64
 	max       float64
@@ -112,19 +110,19 @@ type servoGPIO struct {
 	currPct   float64
 }
 
-func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-	attr, ok := cfg.ConvertedAttributes.(*servoConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(&servoConfig{}, cfg.ConvertedAttributes)
+func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	newConf, err := resource.NativeConfig[*servoConfig](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	boardName := attr.Board
+	boardName := newConf.Board
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
 		return nil, errors.Wrap(err, "board doesn't exist")
 	}
 
-	pin, err := b.GPIOPinByName(attr.Pin)
+	pin, err := b.GPIOPinByName(newConf.Pin)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin")
 	}
@@ -133,40 +131,41 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
 	}
-	if attr.Frequency != nil {
-		if *attr.Frequency > 450 || *attr.Frequency == 0 {
+	if newConf.Frequency != nil {
+		if *newConf.Frequency > 450 || *newConf.Frequency == 0 {
 			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", frequency)
 		}
 
-		err = pin.SetPWMFreq(ctx, *attr.Frequency, nil)
+		err = pin.SetPWMFreq(ctx, *newConf.Frequency, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "error setting servo pin frequency")
 		}
-		frequency = *attr.Frequency
+		frequency = *newConf.Frequency
 	}
 
 	minDeg := defaultMinDeg
 	maxDeg := defaultMaxDeg
-	if attr.MinDeg != nil {
-		minDeg = *attr.MinDeg
+	if newConf.MinDeg != nil {
+		minDeg = *newConf.MinDeg
 	}
-	if attr.MaxDeg != nil {
-		maxDeg = *attr.MaxDeg
+	if newConf.MaxDeg != nil {
+		maxDeg = *newConf.MaxDeg
 	}
 	startPos := 0.0
-	if attr.StartPos != nil {
-		startPos = *attr.StartPos
+	if newConf.StartPos != nil {
+		startPos = *newConf.StartPos
 	}
 	minUs := minWidthUs
 	maxUs := maxWidthUs
-	if attr.MinWidthUS != nil {
-		minUs = *attr.MinWidthUS
+	if newConf.MinWidthUS != nil {
+		minUs = *newConf.MinWidthUS
 	}
-	if attr.MaxWidthUS != nil {
-		maxUs = *attr.MaxWidthUS
+	if newConf.MaxWidthUS != nil {
+		maxUs = *newConf.MaxWidthUS
 	}
 
 	servo := &servoGPIO{
+		Named:     conf.ResourceName().AsNamed(),
 		min:       minDeg,
 		max:       maxDeg,
 		frequency: frequency,
@@ -191,7 +190,7 @@ func newGPIOServo(ctx context.Context, deps registry.Dependencies, cfg config.Co
 	return servo, nil
 }
 
-var _ = servo.LocalServo(&servoGPIO{})
+var _ = servo.Servo(&servoGPIO{})
 
 // Given minUs, maxUs, deg and frequency attempt to calculate the corresponding duty cycle pct.
 func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequency uint) float64 {

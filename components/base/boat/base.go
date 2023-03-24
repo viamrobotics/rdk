@@ -17,7 +17,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
@@ -25,6 +24,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("boat")
@@ -32,9 +32,9 @@ var modelname = resource.NewDefaultModel("boat")
 func init() {
 	boatComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return createBoat(deps, config.ConvertedAttributes.(*boatConfig), logger)
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+		) (resource.Resource, error) {
+			return createBoat(deps, conf, logger)
 		},
 	}
 	registry.RegisterComponent(base.Subtype, modelname, boatComp)
@@ -42,25 +42,32 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
 		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf boatConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&boatConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&boatConfig{}, attributes)
+		})
 }
 
-func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
-	if config.WidthMM <= 0 {
+func createBoat(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {
+	newConf, err := resource.NativeConfig[*boatConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	if newConf.WidthMM <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
 
-	if config.LengthMM <= 0 {
+	if newConf.LengthMM <= 0 {
 		return nil, errors.New("length has to be > 0")
 	}
 
-	theBoat := &boat{cfg: config, logger: logger}
+	theBoat := &boat{
+		Named:  conf.ResourceName().AsNamed(),
+		cfg:    newConf,
+		logger: logger,
+	}
 
-	for _, mc := range config.Motors {
+	for _, mc := range newConf.Motors {
 		m, err := motor.FromDependencies(deps, mc.Name)
 		if err != nil {
 			return nil, err
@@ -68,9 +75,9 @@ func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Log
 		theBoat.motors = append(theBoat.motors, m)
 	}
 
-	if config.IMU != "" {
+	if newConf.IMU != "" {
 		var err error
-		theBoat.imu, err = movementsensor.FromDependencies(deps, config.IMU)
+		theBoat.imu, err = movementsensor.FromDependencies(deps, newConf.IMU)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +95,8 @@ type boatState struct {
 }
 
 type boat struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 
 	cfg    *boatConfig
 	motors []motor.Motor

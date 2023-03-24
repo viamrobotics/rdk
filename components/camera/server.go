@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
@@ -36,15 +35,7 @@ func NewServer(s subtype.Service) pb.CameraServiceServer {
 
 // getCamera returns the camera specified, nil if not.
 func (s *subtypeServer) getCamera(name string) (Camera, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no camera with name (%s)", name)
-	}
-	cam, ok := resource.(Camera)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a camera", name)
-	}
-	return cam, nil
+	return subtype.LookupResource[Camera](s.s, name)
 }
 
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type

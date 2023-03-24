@@ -14,7 +14,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -27,8 +26,8 @@ import (
 // ModelName is the name of the wheeled model of a base component.
 var ModelName = resource.NewDefaultModel("wheeled")
 
-// AttrConfig is how you configure a wheeled base.
-type AttrConfig struct {
+// Config is how you configure a wheeled base.
+type Config struct {
 	WidthMM              int      `json:"width_mm"`
 	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
@@ -37,7 +36,7 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.WidthMM == 0 {
@@ -70,9 +69,9 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 func init() {
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return CreateWheeledBase(ctx, deps, cfg, logger)
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+		) (resource.Resource, error) {
+			return CreateWheeledBase(ctx, deps, conf, logger)
 		},
 	}
 
@@ -80,15 +79,14 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
 		ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 type wheeledBase struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
@@ -352,29 +350,30 @@ func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
 // CreateWheeledBase returns a new wheeled base defined by the given config.
 func CreateWheeledBase(
 	ctx context.Context,
-	deps registry.Dependencies,
-	cfg config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	wb := &wheeledBase{
-		widthMm:              attr.WidthMM,
-		wheelCircumferenceMm: attr.WheelCircumferenceMM,
-		spinSlipFactor:       attr.SpinSlipFactor,
+		Named:                conf.ResourceName().AsNamed(),
+		widthMm:              newConf.WidthMM,
+		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
+		spinSlipFactor:       newConf.SpinSlipFactor,
 		logger:               logger,
-		name:                 cfg.Name,
-		frame:                cfg.Frame,
+		name:                 conf.Name,
+		frame:                conf.Frame,
 	}
 
 	if wb.spinSlipFactor == 0 {
 		wb.spinSlipFactor = 1
 	}
 
-	for _, name := range attr.Left {
+	for _, name := range newConf.Left {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
@@ -386,7 +385,7 @@ func CreateWheeledBase(
 		wb.left = append(wb.left, m)
 	}
 
-	for _, name := range attr.Right {
+	for _, name := range newConf.Right {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)

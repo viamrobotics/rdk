@@ -72,12 +72,12 @@ func TestServerSource(t *testing.T) {
 	svr := httptest.NewServer(router)
 	defer svr.Close()
 	// create color camera
-	attrs := ServerAttrs{
+	conf := ServerConfig{
 		URL:              svr.URL + "/color.png",
 		CameraParameters: intrinsics,
 		Stream:           "color",
 	}
-	cam, err := NewServerSource(context.Background(), &attrs, logger)
+	cam, err := NewServerSource(context.Background(), &conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// read from mock server to get color
 	img, release, err := camera.ReadImage(context.Background(), cam)
@@ -141,12 +141,12 @@ func TestServerSource(t *testing.T) {
 	test.That(t, cam.Close(context.Background()), test.ShouldBeNil)
 
 	// create depth camera
-	attrs2 := ServerAttrs{
+	conf2 := ServerConfig{
 		URL:              svr.URL + "/depth.png",
 		CameraParameters: intrinsics,
 		Stream:           "depth",
 	}
-	cam2, err := NewServerSource(context.Background(), &attrs2, logger)
+	cam2, err := NewServerSource(context.Background(), &conf2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	img2, release, err := camera.ReadImage(context.Background(), cam2)
 	test.That(t, err, test.ShouldBeNil)
@@ -172,13 +172,13 @@ func TestDualServerSource(t *testing.T) {
 		Ppy:    37.070529534,
 	}
 	// create camera with a color stream
-	attrs1 := dualServerAttrs{
+	conf1 := dualServerConfig{
 		Color:            svr.URL + "/color.png",
 		Depth:            svr.URL + "/depth.png",
 		CameraParameters: intrinsics,
 		Stream:           "color",
 	}
-	cam1, err := newDualServerSource(context.Background(), &attrs1)
+	cam1, err := newDualServerSource(context.Background(), &conf1)
 	test.That(t, err, test.ShouldBeNil)
 	// read from mock server to get color image
 	img, release, err := camera.ReadImage(context.Background(), cam1)
@@ -194,13 +194,13 @@ func TestDualServerSource(t *testing.T) {
 	test.That(t, cam1.Close(context.Background()), test.ShouldBeNil)
 
 	// create camera with a depth stream
-	attrs2 := dualServerAttrs{
+	conf2 := dualServerConfig{
 		Color:            svr.URL + "/color.png",
 		Depth:            svr.URL + "/depth.png",
 		CameraParameters: intrinsics,
 		Stream:           "depth",
 	}
-	cam2, err := newDualServerSource(context.Background(), &attrs2)
+	cam2, err := newDualServerSource(context.Background(), &conf2)
 	test.That(t, err, test.ShouldBeNil)
 	// read from mock server to get depth image
 	dm, releaseDm, err := camera.ReadImage(context.Background(), cam2)
@@ -221,13 +221,13 @@ func TestServerError(t *testing.T) {
 	svr := httptest.NewServer(router)
 	defer svr.Close()
 
-	attrs := ServerAttrs{
+	conf := ServerConfig{
 		// we expect a 404 error of MIME type "text/plain"
 		URL:    svr.URL + "/bad_path",
 		Stream: "color",
 	}
 
-	cam, err := NewServerSource(context.Background(), &attrs, logger)
+	cam, err := NewServerSource(context.Background(), &conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	lazyCtx := gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypeJPEG))

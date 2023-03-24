@@ -9,11 +9,11 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -54,7 +54,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	}
 
 	// Do voxel segmentation
-	voxObjConfig := config.AttributeMap{
+	voxObjConfig := utils.AttributeMap{
 		"voxel_size":            5.0,
 		"lambda":                1.0,
 		"min_points_in_plane":   15000,

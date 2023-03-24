@@ -54,6 +54,13 @@ type DigitalInterrupt interface {
 	RemoveCallback(c chan Tick)
 }
 
+// A ReconfigurableDigitalInterrupt is a simple reconfigurable digital interrupt that expects
+// reconfiguration within the same type.
+type ReconfigurableDigitalInterrupt interface {
+	DigitalInterrupt
+	Reconfigure(cfg DigitalInterruptConfig) error
+}
+
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
 // on the given config. If no type is specified, a BasicDigitalInterrupt is returned.
 func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error) {
@@ -61,48 +68,21 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 		cfg.Type = "basic"
 	}
 
-	var i DigitalInterrupt
+	var i ReconfigurableDigitalInterrupt
 	switch cfg.Type {
 	case "basic":
-		iActual := &BasicDigitalInterrupt{cfg: cfg}
+		iActual := &BasicDigitalInterrupt{}
 		i = iActual
 	case "servo":
-		iActual := &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
+		iActual := &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
 		i = iActual
 	default:
 		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
 
-	if cfg.Formula != "" {
-		x, err := scheme.Parse(cfg.Formula)
-		if err != nil {
-			return nil, errors.Wrapf(err, "couldn't parse formula for %s", cfg.Name)
-		}
-
-		testScope := scheme.Scope{}
-		num := 1.0
-		testScope["raw"] = &scheme.Value{Float: &num}
-		_, err = scheme.Eval(x, testScope)
-		if err != nil {
-			return nil, errors.Wrapf(err, "test exec failed for %s", cfg.Name)
-		}
-
-		i.AddPostProcessor(func(raw int64) int64 {
-			scope := scheme.Scope{}
-			rr := float64(raw) // TODO(erh): fix
-			scope["raw"] = &scheme.Value{Float: &rr}
-			res, err := scheme.Eval(x, scope)
-			if err != nil {
-				panic(err)
-			}
-			f, err := res.ToFloat()
-			if err != nil {
-				panic(err)
-			}
-			return int64(f)
-		})
+	if err := i.Reconfigure(cfg); err != nil {
+		return nil, err
 	}
-
 	return i, nil
 }
 
@@ -120,11 +100,15 @@ type BasicDigitalInterrupt struct {
 
 // Config returns the config used to create this interrupt.
 func (i *BasicDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.cfg, nil
 }
 
 // Value returns the amount of ticks that have occurred.
 func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	count := atomic.LoadInt64(&i.count)
 	if i.pp != nil {
 		return i.pp(count), nil
@@ -186,7 +170,59 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
 // AddPostProcessor sets the post processor that will modify the value that
 // Value returns.
 func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.pp = pp
+}
+
+func processFormula(oldFormula, newFormula, name string) (func(raw int64) int64, bool, error) {
+	if oldFormula == newFormula {
+		return nil, false, nil
+	}
+	x, err := scheme.Parse(newFormula)
+	if err != nil {
+		return nil, false, errors.Wrapf(err, "couldn't parse formula for %s", name)
+	}
+
+	testScope := scheme.Scope{}
+	num := 1.0
+	testScope["raw"] = &scheme.Value{Float: &num}
+	_, err = scheme.Eval(x, testScope)
+	if err != nil {
+		return nil, false, errors.Wrapf(err, "test exec failed for %s", name)
+	}
+
+	return func(raw int64) int64 {
+		scope := scheme.Scope{}
+		rr := float64(raw) // TODO(erh): fix
+		scope["raw"] = &scheme.Value{Float: &rr}
+		res, err := scheme.Eval(x, scope)
+		if err != nil {
+			panic(err)
+		}
+		f, err := res.ToFloat()
+		if err != nil {
+			panic(err)
+		}
+		return int64(f)
+	}, true, nil
+}
+
+// Reconfigure reconfigures this digital interrupt with a new formula.
+func (i *BasicDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	newFormula, isNew, err := processFormula(i.cfg.Formula, conf.Formula, conf.Name)
+	if err != nil {
+		return err
+	}
+	if !isNew {
+		return nil
+	}
+	i.pp = newFormula
+	i.cfg = conf
+	return nil
 }
 
 // A ServoDigitalInterrupt is an interrupt associated with a servo in order to
@@ -197,16 +233,21 @@ type ServoDigitalInterrupt struct {
 	last uint64
 	ra   *utils.RollingAverage
 	pp   PostProcessor
+	mu   sync.RWMutex
 }
 
 // Config returns the config the interrupt was created with.
 func (i *ServoDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.cfg, nil
 }
 
 // Value will return the window averaged value followed by its post processed
 // result.
 func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	v := int64(i.ra.Average())
 	if i.pp != nil {
 		return i.pp(v), nil
@@ -218,6 +259,8 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 // Tick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
 func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	diff := now - i.last
 	i.last = now
 
@@ -236,16 +279,39 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 
 // AddCallback currently panics.
 func (i *ServoDigitalInterrupt) AddCallback(c chan Tick) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	panic("servos can't have callback")
 }
 
 // RemoveCallback currently panics.
 func (i *ServoDigitalInterrupt) RemoveCallback(c chan Tick) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	panic("servos can't have callback")
 }
 
 // AddPostProcessor sets the post processor that will modify the value that
 // Value returns.
 func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.pp = pp
+}
+
+// Reconfigure reconfigures this digital interrupt with a new formula.
+func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	newFormula, isNew, err := processFormula(i.cfg.Formula, conf.Formula, conf.Name)
+	if err != nil {
+		return err
+	}
+	if !isNew {
+		return nil
+	}
+	i.pp = newFormula
+	i.cfg = conf
+	return nil
 }

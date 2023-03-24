@@ -7,9 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -20,23 +18,25 @@ func init() {
 		resource.NewDefaultModel("fake"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newSensor(config.Name), nil
+		) (resource.Resource, error) {
+			return newSensor(conf.ResourceName()), nil
 		}})
 }
 
-func newSensor(name string) sensor.Sensor {
-	return &Sensor{Name: name}
+func newSensor(name resource.Name) sensor.Sensor {
+	return &Sensor{
+		Named: name.AsNamed(),
+	}
 }
 
 // Sensor is a fake Sensor device that always returns the set location.
 type Sensor struct {
-	mu   sync.Mutex
-	Name string
-	generic.Echo
+	mu sync.Mutex
+	resource.Named
+	resource.TriviallyReconfigurable
 }
 
 // Readings always returns the set values.

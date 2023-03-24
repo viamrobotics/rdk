@@ -4,11 +4,13 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 )
 
 func TestGetCorrectCameraPose(t *testing.T) {
-	gt := readJSONGroundTruth()
+	logger := golog.NewTestLogger(t)
+	gt := readJSONGroundTruth(logger)
 
 	pts1 := convert2DSliceToVectorSlice(gt.Pts1)
 	pts2 := convert2DSliceToVectorSlice(gt.Pts2)

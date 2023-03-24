@@ -9,15 +9,15 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(sMap map[resource.Name]interface{}) (pb.ShellServiceServer, error) {
-	sSvc, err := subtype.New(sMap)
+func newServer(sMap map[resource.Name]resource.Resource) (pb.ShellServiceServer, error) {
+	sSvc, err := subtype.New(shell.Subtype, sMap)
 	if err != nil {
 		return nil, err
 	}
@@ -25,18 +25,18 @@ func newServer(sMap map[resource.Name]interface{}) (pb.ShellServiceServer, error
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]interface{}{
-		shell.Named(testSvcName1): &inject.ShellService{
-			DoCommandFunc: generic.EchoFunc,
+	resourceMap := map[resource.Name]resource.Resource{
+		testSvcName1: &inject.ShellService{
+			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testSvcName1,
+		Name:    testSvcName1.ShortName(),
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)

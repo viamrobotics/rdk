@@ -9,9 +9,9 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -24,7 +24,7 @@ func TestColorObjects(t *testing.T) {
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 	c := &videosource.StaticSource{ColorImg: img, DepthImg: dm, Proj: &params.ColorCamera}
-	cam, err := camera.NewFromReader(
+	src, err := camera.NewVideoSourceFromReader(
 		context.Background(),
 		c,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: &params.ColorCamera},
@@ -33,7 +33,7 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	expectedLabel := "test_label"
-	cfg := config.AttributeMap{
+	cfg := utils.AttributeMap{
 		"hue_tolerance_pct":     0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                50,
@@ -44,12 +44,12 @@ func TestColorObjects(t *testing.T) {
 	// run segmenter
 	segmenter, err := segmentation.ColorObjects(cfg)
 	test.That(t, err, test.ShouldBeNil)
-	objects, err := segmenter(context.Background(), cam)
+	objects, err := segmenter(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 	test.That(t, objects[0].Geometry.Label(), test.ShouldEqual, expectedLabel)
 	// create config with no mean_k filtering
-	cfg = config.AttributeMap{
+	cfg = utils.AttributeMap{
 		"hue_tolerance_pct":     0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                -1,
@@ -60,7 +60,7 @@ func TestColorObjects(t *testing.T) {
 	// run segmenter
 	segmenter, err = segmentation.ColorObjects(cfg)
 	test.That(t, err, test.ShouldBeNil)
-	objects, err = segmenter(context.Background(), cam)
+	objects, err = segmenter(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 	test.That(t, objects[0].Geometry.Label(), test.ShouldEqual, expectedLabel)

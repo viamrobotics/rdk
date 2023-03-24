@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // Timeout for Home() and GoTillStop().
@@ -52,6 +53,8 @@ type controller struct {
 
 // Motor is a single axis/motor/component instance.
 type Motor struct {
+	resource.Named
+	resource.AlwaysRebuild
 	c                *controller
 	Axis             string
 	TicksPerRotation int
@@ -61,7 +64,6 @@ type Motor struct {
 	jogging          bool
 	opMgr            operation.SingleOperationManager
 	powerPct         float64
-	motorName        string
 }
 
 // Config adds DMC-specific config options.
@@ -88,17 +90,20 @@ type Config struct {
 func init() {
 	controllers = make(map[string]*controller)
 
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, config.ConvertedAttributes.(*Config), config.Name, logger)
+	registry.RegisterComponent(motor.Subtype, modelName, registry.Component{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
+			}
+			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
-	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
+	})
 
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
+		func(attributes rutils.AttributeMap) (interface{}, error) {
 			var conf Config
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 			if err != nil {
@@ -108,13 +113,11 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		},
-		&Config{},
-	)
+		})
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.LocalMotor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -160,6 +163,7 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 	}
 
 	m := &Motor{
+		Named:            name.AsNamed(),
 		c:                ctrl,
 		Axis:             c.Axis,
 		TicksPerRotation: c.TicksPerRotation,
@@ -167,7 +171,6 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
-		motorName:        name,
 	}
 
 	if m.MaxRPM <= 0 {
@@ -543,7 +546,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 	defer m.c.mu.Unlock()
 
 	if err := m.doGoTo(rpm, position); err != nil {
-		return motor.NewGoToUnsupportedError(m.motorName)
+		return motor.NewGoToUnsupportedError(m.Name().ShortName())
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -603,7 +606,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	defer m.c.mu.Unlock()
 	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.TicksPerRotation))))
 	if err != nil {
-		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in ResetZeroPosition")
 	}
 	return err
 }
@@ -626,7 +629,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.jogging = false
 	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
 	if err != nil {
-		return errors.Wrapf(err, "error in Stop function from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in Stop function")
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -651,7 +654,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, m.powerPct, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return on, m.powerPct, errors.Wrap(err, "error in IsPowered")
 	}
 	return on, m.powerPct, err
 }

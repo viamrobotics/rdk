@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -39,12 +40,17 @@ var Subtype = baseremotecontrol.Subtype
 
 func init() {
 	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, deps, c, logger)
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewBuiltIn(ctx, deps, conf, logger)
 		},
 	})
 	config.RegisterServiceAttributeMapConverter(Subtype, resource.DefaultServiceModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
+		func(attributes utils.AttributeMap) (interface{}, error) {
 			var conf Config
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 			if err != nil {
@@ -54,8 +60,7 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		}, &Config{},
-	)
+		})
 }
 
 // ControlMode is the control type for the remote control.
@@ -71,23 +76,27 @@ type Config struct {
 }
 
 // Validate creates the list of implicit dependencies.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.InputControllerName == "" {
+	if conf.InputControllerName == "" {
 		return nil, vutils.NewConfigValidationFieldRequiredError(path, "input_controller")
 	}
-	deps = append(deps, config.InputControllerName)
+	deps = append(deps, conf.InputControllerName)
 
-	if config.BaseName == "" {
+	if conf.BaseName == "" {
 		return nil, vutils.NewConfigValidationFieldRequiredError(path, "base")
 	}
-	deps = append(deps, config.BaseName)
+	deps = append(deps, conf.BaseName)
 
 	return deps, nil
 }
 
 // builtIn is the structure of the remote service.
 type builtIn struct {
+	resource.Named
+
+	mu              sync.RWMutex
+	state           throttleState
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
@@ -99,26 +108,49 @@ type builtIn struct {
 	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	events                  chan (struct{})
+	instance                atomic.Int64
 }
 
 // NewDefault returns a new remote control service for the given robot.
 func NewBuiltIn(
 	ctx context.Context,
-	deps registry.Dependencies,
-	config config.Service,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (baseremotecontrol.Service, error) {
-	svcConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	remoteSvc := &builtIn{
+		Named:     conf.ResourceName().AsNamed(),
+		logger:    logger,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
+		events:    make(chan struct{}, 1),
+	}
+	remoteSvc.state.init()
+	if err := remoteSvc.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	remoteSvc.eventProcessor()
+
+	return remoteSvc, nil
+}
+
+func (svc *builtIn) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	svcConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
 	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	controller, err := input.FromDependencies(deps, svcConfig.InputControllerName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var controlMode1 controlMode
@@ -135,33 +167,28 @@ func NewBuiltIn(
 		controlMode1 = arrowControl
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	remoteSvc := &builtIn{
-		base:            base1,
-		inputController: controller,
-		controlMode:     controlMode1,
-		config:          svcConfig,
-		logger:          logger,
-		cancelCtx:       cancelCtx,
-		cancel:          cancel,
-		events:          make(chan struct{}, 1),
+	svc.mu.Lock()
+	svc.base = base1
+	svc.inputController = controller
+	svc.controlMode = controlMode1
+	svc.config = svcConfig
+	svc.instance.Add(1)
+	svc.mu.Unlock()
+
+	if err := svc.registerCallbacks(ctx, &svc.state); err != nil {
+		return errors.Errorf("error with starting remote control service: %q", err)
 	}
 
-	if err := remoteSvc.start(ctx); err != nil {
-		return nil, errors.Errorf("error with starting remote control service: %q", err)
-	}
-
-	return remoteSvc, nil
+	return nil
 }
 
-// Start is the main control loops for sending events from controller to base.
-func (svc *builtIn) start(ctx context.Context) error {
-	state := &throttleState{}
-	state.init()
-
+// registerCallbacks registers events from controller to base.
+func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState) error {
 	var lastTS time.Time
 	lastTSPerEvent := map[input.Control]map[input.EventType]time.Time{}
 	var onlyOneAtATime sync.Mutex
+
+	instance := svc.instance.Load()
 
 	updateLastEvent := func(event input.Event) bool {
 		if event.Time.After(lastTS) {
@@ -183,6 +210,10 @@ func (svc *builtIn) start(ctx context.Context) error {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
 
+		if svc.instance.Load() != instance {
+			return
+		}
+
 		if svc.cancelCtx.Err() != nil {
 			return
 		}
@@ -198,7 +229,13 @@ func (svc *builtIn) start(ctx context.Context) error {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
 
+		if svc.instance.Load() != instance {
+			return
+		}
+
 		// Connect and Disconnect events should both stop the base completely.
+		svc.mu.RLock()
+		defer svc.mu.RUnlock()
 		svc.base.Stop(ctx, map[string]interface{}{})
 
 		if !updateLastEvent(event) {
@@ -207,28 +244,32 @@ func (svc *builtIn) start(ctx context.Context) error {
 	}
 
 	for _, control := range svc.ControllerInputs() {
-		var err error
-		if svc.controlMode == buttonControl {
-			err = svc.inputController.RegisterControlCallback(
-				ctx,
-				control,
-				[]input.EventType{input.ButtonChange},
-				remoteCtl,
-				map[string]interface{}{},
-			)
-		} else {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl, map[string]interface{}{})
-		}
-		if err != nil {
+		if err := func() error {
+			svc.mu.RLock()
+			defer svc.mu.RUnlock()
+			var err error
+			if svc.controlMode == buttonControl {
+				err = svc.inputController.RegisterControlCallback(
+					ctx,
+					control,
+					[]input.EventType{input.ButtonChange},
+					remoteCtl,
+					map[string]interface{}{},
+				)
+			} else {
+				err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl, map[string]interface{}{})
+			}
+			if err != nil {
+				return err
+			}
+			if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect, map[string]interface{}{}); err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
 			return err
 		}
-		if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect, map[string]interface{}{}); err != nil {
-			return err
-		}
-
 	}
-
-	svc.eventProcessor(state)
 	return nil
 }
 
@@ -241,6 +282,8 @@ func (svc *builtIn) Close(_ context.Context) error {
 
 // ControllerInputs returns the list of inputs from the controller that are being monitored for that control mode.
 func (svc *builtIn) ControllerInputs() []input.Control {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
 	switch svc.controlMode {
 	case triggerSpeedControl:
 		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
@@ -256,7 +299,7 @@ func (svc *builtIn) ControllerInputs() []input.Control {
 	return []input.Control{}
 }
 
-func (svc *builtIn) eventProcessor(state *throttleState) {
+func (svc *builtIn) eventProcessor() {
 	var currentLinear, currentAngular r3.Vector
 	var nextLinear, nextAngular r3.Vector
 	var inRetry bool
@@ -280,47 +323,56 @@ func (svc *builtIn) eventProcessor(state *throttleState) {
 				case <-svc.events:
 				}
 			}
-			state.mu.Lock()
-			nextLinear, nextAngular = state.linearThrottle, state.angularThrottle
-			state.mu.Unlock()
+			svc.state.mu.Lock()
+			nextLinear, nextAngular = svc.state.linearThrottle, svc.state.angularThrottle
+			svc.state.mu.Unlock()
 
-			if currentLinear != nextLinear || currentAngular != nextAngular {
-				if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
-					if err := svc.base.SetVelocity(
-						svc.cancelCtx,
-						r3.Vector{
-							X: svc.config.MaxLinearVelocity * nextLinear.X,
-							Y: svc.config.MaxLinearVelocity * nextLinear.Y,
-							Z: svc.config.MaxLinearVelocity * nextLinear.Z,
-						},
-						r3.Vector{
-							X: svc.config.MaxAngularVelocity * nextAngular.X,
-							Y: svc.config.MaxAngularVelocity * nextAngular.Y,
-							Z: svc.config.MaxAngularVelocity * nextAngular.Z,
-						},
-						nil,
-					); err != nil {
-						svc.logger.Errorw("error setting velocity", "error", err)
-						if !vutils.SelectContextOrWait(svc.cancelCtx, 10*time.Millisecond) {
-							return
+			if func() bool {
+				svc.mu.RLock()
+				defer svc.mu.RUnlock()
+
+				if currentLinear != nextLinear || currentAngular != nextAngular {
+					if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+						if err := svc.base.SetVelocity(
+							svc.cancelCtx,
+							r3.Vector{
+								X: svc.config.MaxLinearVelocity * nextLinear.X,
+								Y: svc.config.MaxLinearVelocity * nextLinear.Y,
+								Z: svc.config.MaxLinearVelocity * nextLinear.Z,
+							},
+							r3.Vector{
+								X: svc.config.MaxAngularVelocity * nextAngular.X,
+								Y: svc.config.MaxAngularVelocity * nextAngular.Y,
+								Z: svc.config.MaxAngularVelocity * nextAngular.Z,
+							},
+							nil,
+						); err != nil {
+							svc.logger.Errorw("error setting velocity", "error", err)
+							if !vutils.SelectContextOrWait(svc.cancelCtx, 10*time.Millisecond) {
+								return true
+							}
+							inRetry = true
+							return false
 						}
-						inRetry = true
-						continue
-					}
-				} else {
-					if err := svc.base.SetPower(svc.cancelCtx, nextLinear, nextAngular, nil); err != nil {
-						svc.logger.Errorw("error setting power", "error", err)
-						if !vutils.SelectContextOrWait(svc.cancelCtx, 10*time.Millisecond) {
-							return
+					} else {
+						if err := svc.base.SetPower(svc.cancelCtx, nextLinear, nextAngular, nil); err != nil {
+							svc.logger.Errorw("error setting power", "error", err)
+							if !vutils.SelectContextOrWait(svc.cancelCtx, 10*time.Millisecond) {
+								return true
+							}
+							inRetry = true
+							return false
 						}
-						inRetry = true
-						continue
 					}
+					inRetry = false
+
+					currentLinear = nextLinear
+					currentAngular = nextAngular
 				}
-				inRetry = false
 
-				currentLinear = nextLinear
-				currentAngular = nextAngular
+				return false
+			}() {
+				return
 			}
 		}
 	}, svc.activeBackgroundWorkers.Done)
@@ -336,6 +388,9 @@ func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, even
 	oldAngular := state.angularThrottle
 	newLinear := oldLinear
 	newAngular := oldAngular
+
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
 
 	switch svc.controlMode {
 	case joyStickControl:

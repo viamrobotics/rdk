@@ -2,16 +2,18 @@ package builtin
 
 import (
 	"context"
-	clk "github.com/benbjohnson/clock"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	clk "github.com/benbjohnson/clock"
+
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 )
@@ -19,6 +21,7 @@ import (
 var (
 	// Robot config which specifies data manager service.
 	enabledTabularCollectorConfigPath           = "services/datamanager/data/fake_robot_with_data_manager.json"
+	enabledTabularCollectorEmptyConfigPath      = "services/datamanager/data/fake_robot_with_data_manager_empty.json"
 	disabledTabularCollectorConfigPath          = "services/datamanager/data/fake_robot_with_disabled_collector.json"
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
@@ -75,58 +78,67 @@ func TestDataCaptureEnabled(t *testing.T) {
 		initialCollectorDisableStatus bool
 		newCollectorDisableStatus     bool
 		remoteCollector               bool
+		emptyTabular                  bool
 	}{
 		{
-			name:                          "Config with data capture service disabled should capture nothing.",
+			name:                          "Config with data capture service disabled should capture nothing",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     true,
 		},
 		{
-			name:                          "Config with data capture service enabled and a configured collector should capture data.",
+			name:                          "Config with data capture service enabled and a configured collector should capture data",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Disabling data capture service should cause all data capture to stop.",
+			name:                          "Config with data capture service implicitly enabled and a configured collector should capture data",
+			initialServiceDisableStatus:   false,
+			newServiceDisableStatus:       false,
+			initialCollectorDisableStatus: false,
+			newCollectorDisableStatus:     false,
+			emptyTabular:                  true,
+		},
+		{
+			name:                          "Disabling data capture service should cause all data capture to stop",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Enabling data capture should cause all enabled collectors to start capturing data.",
+			name:                          "Enabling data capture should cause all enabled collectors to start capturing data",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Enabling a collector should not trigger data capture if the service is disabled.",
+			name:                          "Enabling a collector should not trigger data capture if the service is disabled",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Disabling an individual collector should stop it.",
+			name:                          "Disabling an individual collector should stop it",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     true,
 		},
 		{
-			name:                          "Enabling an individual collector should start it.",
+			name:                          "Enabling an individual collector should start it",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:            "Capture should work for remotes too.",
+			name:            "Capture should work for remotes too",
 			remoteCollector: true,
 		},
 	}
@@ -141,29 +153,33 @@ func TestDataCaptureEnabled(t *testing.T) {
 			clock = mockClock
 
 			// Set up robot config.
-			var initConfig *config.Config
+			var initConfig *Config
+			var deps []string
 			if tc.remoteCollector {
-				initConfig = setupConfig(t, remoteCollectorConfigPath)
+				initConfig, deps = setupConfig(t, remoteCollectorConfigPath)
 			} else if tc.initialCollectorDisableStatus {
-				initConfig = setupConfig(t, disabledTabularCollectorConfigPath)
+				initConfig, deps = setupConfig(t, disabledTabularCollectorConfigPath)
+			} else if tc.emptyTabular {
+				initConfig, deps = setupConfig(t, enabledTabularCollectorEmptyConfigPath)
 			} else {
-				initConfig = setupConfig(t, enabledTabularCollectorConfigPath)
+				initConfig, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
-			// Set up service config.
-			initSvcConfig, ok1, err := getServiceConfig(initConfig)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok1, test.ShouldBeTrue)
-			initSvcConfig.CaptureDisabled = tc.initialServiceDisableStatus
-			initSvcConfig.ScheduledSyncDisabled = true
-			initSvcConfig.CaptureDir = initCaptureDir
+			// further set up service config.
+			initConfig.CaptureDisabled = tc.initialServiceDisableStatus
+			initConfig.ScheduledSyncDisabled = true
+			initConfig.CaptureDir = initCaptureDir
 
 			// Build and start data manager.
-			dmsvc := newTestDataManager(t)
+			dmsvc, r := newTestDataManager(t)
 			defer func() {
 				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 			}()
-			err = dmsvc.Update(context.Background(), initConfig)
+
+			resources := resourcesFromDeps(t, r, deps)
+			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: initConfig,
+			})
 			test.That(t, err, test.ShouldBeNil)
 			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
@@ -179,23 +195,23 @@ func TestDataCaptureEnabled(t *testing.T) {
 			<-donePassingTime1
 
 			// Set up updated robot config.
-			var updatedConfig *config.Config
+			var updatedConfig *Config
 			if tc.newCollectorDisableStatus {
-				updatedConfig = setupConfig(t, disabledTabularCollectorConfigPath)
+				updatedConfig, deps = setupConfig(t, disabledTabularCollectorConfigPath)
 			} else {
-				updatedConfig = setupConfig(t, enabledTabularCollectorConfigPath)
+				updatedConfig, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
-			// Set up updated service config.
-			updatedServiceConfig, ok, err := getServiceConfig(updatedConfig)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok, test.ShouldBeTrue)
-			updatedServiceConfig.CaptureDisabled = tc.newServiceDisableStatus
-			updatedServiceConfig.ScheduledSyncDisabled = true
-			updatedServiceConfig.CaptureDir = updatedCaptureDir
+			// further set up updated service config.
+			updatedConfig.CaptureDisabled = tc.newServiceDisableStatus
+			updatedConfig.ScheduledSyncDisabled = true
+			updatedConfig.CaptureDir = updatedCaptureDir
 
 			// Update to new config and let it run for a bit.
-			err = dmsvc.Update(context.Background(), updatedConfig)
+			resources = resourcesFromDeps(t, r, deps)
+			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: updatedConfig,
+			})
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
 			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
@@ -231,4 +247,17 @@ func waitForCaptureFiles(captureDir string) {
 		time.Sleep(waitPerCheck)
 		files = getAllFileInfos(captureDir)
 	}
+}
+
+func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Dependencies {
+	t.Helper()
+	resources := resource.Dependencies{}
+	for _, dep := range deps {
+		resName, err := resource.NewFromString(dep)
+		test.That(t, err, test.ShouldBeNil)
+		res, err := r.ResourceByName(resName)
+		test.That(t, err, test.ShouldBeNil)
+		resources[resName] = res
+	}
+	return resources
 }

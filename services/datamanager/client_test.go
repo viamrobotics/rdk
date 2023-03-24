@@ -7,13 +7,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	servicepb "go.viam.com/api/service/datamanager/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -35,12 +32,14 @@ func TestClient(t *testing.T) {
 	var extraOptions map[string]interface{}
 
 	injectDS := &inject.DataManagerService{}
-	resourceMap := map[resource.Name]interface{}{
-		datamanager.Named(testDataManagerServiceName): injectDS,
+	svcName := datamanager.Named(testDataManagerServiceName)
+	resourceMap := map[resource.Name]resource.Resource{
+		svcName: injectDS,
 	}
-	svc, err := subtype.New(resourceMap)
+	svc, err := subtype.New(datamanager.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(datamanager.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(datamanager.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -60,7 +59,8 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := datamanager.NewClientFromConn(context.Background(), conn, testDataManagerServiceName, logger)
+		client, err := datamanager.NewClientFromConn(context.Background(), conn, svcName, logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			extraOptions = extra
@@ -72,11 +72,11 @@ func TestClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// DoCommand
-		injectDS.DoCommandFunc = generic.EchoFunc
-		resp, err := client.DoCommand(context.Background(), generic.TestCommand)
+		injectDS.DoCommandFunc = testutils.EchoFunc
+		resp, err := client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -86,7 +86,8 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testDataManagerServiceName, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, svcName, logger)
+		test.That(t, err, test.ShouldBeNil)
 		client2, ok := client.(datamanager.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -100,40 +101,4 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-
-	injectDS := &inject.DataManagerService{}
-	resourceMap := map[resource.Name]interface{}{
-		datamanager.Named(testDataManagerServiceName): injectDS,
-	}
-	server, err := newServer(resourceMap)
-	test.That(t, err, test.ShouldBeNil)
-	servicepb.RegisterDataManagerServiceServer(gServer, server)
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := datamanager.NewClientFromConn(context.Background(), conn1, "", logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := datamanager.NewClientFromConn(context.Background(), conn2, "", logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

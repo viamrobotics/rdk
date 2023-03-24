@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // ServoConfig is the config for a pi servo.
@@ -42,18 +43,14 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		board.Subtype,
 		ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf genericlinux.Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&genericlinux.Config{})
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&genericlinux.Config{}, attributes)
+		})
 
 	config.RegisterComponentAttributeMapConverter(
 		servo.Subtype,
 		ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf ServoConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&ServoConfig{})
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&ServoConfig{}, attributes)
+		})
 }
