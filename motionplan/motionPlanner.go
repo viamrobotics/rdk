@@ -185,6 +185,7 @@ func motionPlanInternal(ctx context.Context,
 		spatialmath.PoseToProtobuf(startPose),
 		wsPb,
 	)
+	logger.Debugf("constraint specs for this step: %v", constraintSpec)
 	logger.Debugf("motion config for this step: %v", motionConfig)
 
 	rseed := defaultRandomSeed
@@ -306,6 +307,7 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
 func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*costNode, error) {
+	
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -317,16 +319,15 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*cos
 		return nil, err
 	}
 
-	solutionGen := make(chan []frame.Input)
-	ikErr := make(chan error, 1)
-	defer func() { <-ikErr }()
-
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 	if mp.planOpts.goalMetric == nil {
 		return nil, errors.New("metric is nil")
 	}
-
+	
+	solutionGen := make(chan []frame.Input)
+	ikErr := make(chan error, 1)
+	defer func() { <-ikErr }()
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)

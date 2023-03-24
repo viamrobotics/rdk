@@ -145,7 +145,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	// If we have multiple sub-waypoints, make sure the final goal is not unreachable.
 	if len(goals) > 1 {
 		// Viability check; ensure that the waypoint is not impossible to reach
-		_, err = pm.getSolutions(ctx, seed)
+		_, err = planners[0].getSolutions(ctx, seed)
 		if err != nil {
 			return nil, err
 		}
