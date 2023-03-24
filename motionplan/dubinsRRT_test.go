@@ -38,11 +38,7 @@ func TestDubinsRRT(t *testing.T) {
 		opt := newBasicPlannerOptions()
 		sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 		test.That(t, err, test.ShouldBeNil)
-		collisionConstraint, err := newObstacleConstraint(sf, fs, worldState, frame.StartPositions(fs), nil, true)
-		if err != nil {
-			return false
-		}
-		opt.AddConstraint("collision", collisionConstraint)
+		opt.addCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, false)
 		o := d.AllPaths(start, goal, false)
 		return dubins.checkPath(
 			&basicNode{q: frame.FloatsToInputs(start)},

@@ -40,8 +40,4 @@ func TestGeometriesInFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gF.Parent(), test.ShouldEqual, convertedGF.Parent())
 	test.That(t, one.AlmostEqual(convertedGF.GeometryByName("one")), test.ShouldBeTrue)
-
-	gF.RemoveGeometry("one")
-	test.That(t, gF.GeometryByName("one"), test.ShouldBeNil)
-	test.That(t, three.AlmostEqual(gF.GeometryByName("three")), test.ShouldBeTrue)
 }

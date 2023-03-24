@@ -408,34 +408,26 @@ func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[str
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
-		geometries, err := FrameGeometriesInWorldFrame(fs, fs.Frame(name), inputMap)
+		frame := fs.Frame(name)
+		inputs, err := GetFrameInputs(frame, inputMap)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
-		allGeometries[name] = geometries
+		geosInFrame, err := frame.Geometries(inputs)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
+		if len(geosInFrame.Geometries()) > 0 {
+			transformed, err := fs.Transform(inputMap, geosInFrame, World)
+			if err != nil {
+				return nil, err
+			}
+			allGeometries[name] = transformed.(*GeometriesInFrame)
+		}
 	}
 	return allGeometries, errAll
-}
-
-// FrameGeometriesInWorldFrame returns the geometries associated with the given frame with respect to the frame system's World frame.
-func FrameGeometriesInWorldFrame(fs FrameSystem, frame Frame, inputMap map[string][]Input) (*GeometriesInFrame, error) {
-	inputs, err := GetFrameInputs(frame, inputMap)
-	if err != nil {
-		return nil, err
-	}
-	geosInFrame, err := frame.Geometries(inputs)
-	if err != nil {
-		return nil, err
-	}
-	if len(geosInFrame.Geometries()) > 0 {
-		transformed, err := fs.Transform(inputMap, geosInFrame, World)
-		if err != nil {
-			return nil, err
-		}
-		return transformed.(*GeometriesInFrame), nil
-	}
-	return geosInFrame, nil
 }
 
 // ToProtobuf turns all the interfaces into serializable types.

@@ -20,7 +20,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("frame/testjson/ur5eDH.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -197,15 +197,10 @@ func TestCollisionConstraints(t *testing.T) {
 	fs := frame.NewEmptySimpleFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	handler := &constraintHandler{}
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, frame.StartPositions(fs), nil, true)
-	test.That(t, err, test.ShouldBeNil)
-	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
-	obstacleConstraint, err := newObstacleConstraint(sf, fs, worldState, frame.StartPositions(fs), nil, true)
-	test.That(t, err, test.ShouldBeNil)
-	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
+	handler := &constraintHandler{}
+	handler.addCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, true)
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
@@ -236,15 +231,10 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	fs := frame.NewEmptySimpleFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(b, err, test.ShouldBeNil)
-	handler := &constraintHandler{}
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
-	selfCollisionConstraint, err := newSelfCollisionConstraint(sf, frame.StartPositions(fs), nil, false)
-	test.That(b, err, test.ShouldBeNil)
-	handler.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
-	obstacleConstraint, err := newObstacleConstraint(sf, fs, worldState, frame.StartPositions(fs), nil, false)
-	test.That(b, err, test.ShouldBeNil)
-	handler.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
+	handler := &constraintHandler{}
+	handler.addCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, true)
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
 	var n int
