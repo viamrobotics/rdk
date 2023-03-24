@@ -88,16 +88,16 @@ const setDirection = (dir: Directions) => {
   direction = dir;
 };
 
-const stop = () => {
+const stop = async () => {
   try {
-    baseClient.stop();
+    await baseClient.stop();
   } catch (error) {
     displayError(error as ServiceError);
   }
   stopped = true;
 };
 
-const digestInput = () => {
+const digestInput = async () => {
   let linearValue = 0;
   let angularValue = 0;
 
@@ -125,7 +125,7 @@ const digestInput = () => {
   const linear = { x: 0, y: linearValue, z: 0 };
   const angular = { x: 0, y: 0, z: angularValue };
   try {
-    baseClient.setPower(linear, angular);
+    await baseClient.setPower(linear, angular);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -136,13 +136,11 @@ const digestInput = () => {
 };
 
 const handleKeyDown = (key: Keys) => {
-  console.log(`handleKeyDown: ${key}`);
   pressed.add(key);
   digestInput();
 };
 
 const handleKeyUp = (key: Keys) => {
-  console.log(`handleKeyUp: ${key}`);
   pressed.delete(key);
 
   if (pressed.size > 0) {
