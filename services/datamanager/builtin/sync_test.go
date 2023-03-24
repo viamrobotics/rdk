@@ -304,12 +304,15 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 
 			// Give it time to delete files after upload.
 			waitUntilNoCaptureFiles := func(captureDir string) {
+				totalWait := time.Second * 3
+				waitPerCheck := time.Millisecond * 10
+				iterations := int(totalWait / waitPerCheck)
 				files := getAllFileInfos(captureDir)
-				for i := 0; i < 100; i++ {
+				for i := 0; i < iterations; i++ {
 					if len(files) == 0 {
 						return
 					}
-					time.Sleep(time.Millisecond * 25)
+					time.Sleep(waitPerCheck)
 					files = getAllFileInfos(captureDir)
 				}
 			}
