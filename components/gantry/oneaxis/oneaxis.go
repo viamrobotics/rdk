@@ -40,49 +40,50 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
-	deps, err := config.validate()
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	deps, err := cfg.validate()
 	if err != nil {
 		err = utils.NewConfigValidationError(path, err)
 	}
 	return deps, err
 }
 
-func (config *AttrConfig) validate() ([]string, error) {
+func (cfg *AttrConfig) validate() ([]string, error) {
 	var deps []string
 
-	if len(config.Motor) == 0 {
+	if len(cfg.Motor) == 0 {
 		return nil, errors.New("cannot find motor for gantry")
 	}
-	deps = append(deps, config.Motor)
+	deps = append(deps, cfg.Motor)
 
-	if config.LengthMm <= 0 {
+	if cfg.LengthMm <= 0 {
 		return nil, errors.New("each axis needs a non-zero and positive length")
 	}
 
-	if len(config.LimitSwitchPins) == 0 && len(config.Board) > 0 {
+	if len(cfg.LimitSwitchPins) == 0 && len(cfg.Board) > 0 {
 		return nil, errors.New("gantry with encoders have to assign boards or controllers to motors")
 	}
 
-	if len(config.Board) == 0 && len(config.LimitSwitchPins) > 0 {
+	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {
 		return nil, errors.New("cannot find board for gantry")
+	} else if cfg.Board != "" {
+		deps = append(deps, cfg.Board)
 	}
-	deps = append(deps, config.Board)
 
-	if len(config.LimitSwitchPins) == 1 && config.MmPerRevolution == 0 {
+	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
 		return nil, errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits")
 	}
 
-	if len(config.LimitSwitchPins) > 0 && config.LimitPinEnabled == nil {
+	if len(cfg.LimitSwitchPins) > 0 && cfg.LimitPinEnabled == nil {
 		return nil, errors.New("limit pin enabled muist be set to true or false")
 	}
 
-	if config.Axis.X == 0 && config.Axis.Y == 0 && config.Axis.Z == 0 {
+	if cfg.Axis.X == 0 && cfg.Axis.Y == 0 && cfg.Axis.Z == 0 {
 		return nil, errors.New("gantry axis undefined, need one translational axis")
 	}
 
-	if config.Axis.X == 1 && config.Axis.Y == 1 ||
-		config.Axis.X == 1 && config.Axis.Z == 1 || config.Axis.Y == 1 && config.Axis.Z == 1 {
+	if cfg.Axis.X == 1 && cfg.Axis.Y == 1 ||
+		cfg.Axis.X == 1 && cfg.Axis.Z == 1 || cfg.Axis.Y == 1 && cfg.Axis.Z == 1 {
 		return nil, errors.New("only one translational axis of movement allowed for single axis gantry")
 	}
 
