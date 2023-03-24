@@ -519,17 +519,29 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 
 	// Sort both by time requested.
 	sort.SliceStable(act, func(i, j int) bool {
-		return act[j].GetMetadata().GetTimeRequested().AsTime().Sub(act[i].GetMetadata().GetTimeRequested().AsTime()) > 0
+		diffRequested := act[j].GetMetadata().GetTimeRequested().AsTime().Sub(act[i].GetMetadata().GetTimeRequested().AsTime())
+		if diffRequested > 0 {
+			return true
+		} else if diffRequested == 0 {
+			return act[j].GetMetadata().GetTimeReceived().AsTime().Sub(act[i].GetMetadata().GetTimeReceived().AsTime()) > 0
+		} else {
+			return false
+		}
 	})
 	sort.SliceStable(exp, func(i, j int) bool {
-		return exp[j].GetMetadata().GetTimeRequested().AsTime().Sub(exp[i].GetMetadata().GetTimeRequested().AsTime()) > 0
+		diffRequested := exp[j].GetMetadata().GetTimeRequested().AsTime().Sub(exp[i].GetMetadata().GetTimeRequested().AsTime())
+		if diffRequested > 0 {
+			return true
+		} else if diffRequested == 0 {
+			return exp[j].GetMetadata().GetTimeReceived().AsTime().Sub(exp[i].GetMetadata().GetTimeReceived().AsTime()) > 0
+		} else {
+			return false
+		}
 	})
 
 	test.That(t, len(act), test.ShouldEqual, len(exp))
 
 	for i := range act {
-		act[i].Metadata.TimeReceived = nil
-		exp[i].Metadata.TimeReceived = nil
 		test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
 		if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 			test.That(t, act[i].GetStruct(), test.ShouldResemble, exp[i].GetStruct())
