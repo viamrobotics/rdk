@@ -518,11 +518,11 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 
 	// Sort both by time requested.
-	sort.Slice(act, func(i, j int) bool {
-		return act[i].GetMetadata().GetTimeRequested().AsTime().Sub(act[j].GetMetadata().GetTimeRequested().AsTime()) > 0
+	sort.SliceStable(act, func(i, j int) bool {
+		return act[j].GetMetadata().GetTimeRequested().AsTime().Sub(act[i].GetMetadata().GetTimeRequested().AsTime()) > 0
 	})
-	sort.Slice(exp, func(i, j int) bool {
-		return exp[i].GetMetadata().GetTimeRequested().AsTime().Sub(exp[j].GetMetadata().GetTimeRequested().AsTime()) > 0
+	sort.SliceStable(exp, func(i, j int) bool {
+		return exp[j].GetMetadata().GetTimeRequested().AsTime().Sub(exp[i].GetMetadata().GetTimeRequested().AsTime()) > 0
 	})
 
 	test.That(t, len(act), test.ShouldEqual, len(exp))
