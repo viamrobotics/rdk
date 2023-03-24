@@ -54,7 +54,7 @@ func TestConstraintPath(t *testing.T) {
 	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
-	ci := &ArcInput{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
+	ci := &SegmentInput{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
 	err = ci.resolveInputsToPositions()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -75,7 +75,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, len(handler.StateConstraints()), test.ShouldEqual, 1)
 
 	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
-	ciBad := &ArcInput{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
+	ciBad := &SegmentInput{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = ciBad.resolveInputsToPositions()
 	test.That(t, err, test.ShouldBeNil)
 	ok, failCI = handler.CheckArcAndStateValidity(ciBad, 0.5)
@@ -169,7 +169,7 @@ func TestLineFollow(t *testing.T) {
 	opt.AddStateConstraint("whiteboard", validFunc)
 
 	ok, lastGood := opt.CheckArcAndStateValidity(
-		&ArcInput{
+		&SegmentInput{
 			StartConfiguration: sf.InputFromProtobuf(mp1),
 			EndConfiguration:   sf.InputFromProtobuf(mp2),
 			Frame:              sf,

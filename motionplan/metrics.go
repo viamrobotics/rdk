@@ -12,9 +12,9 @@ import (
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateMetric func(*StateInput) float64
 
-// ArcMetric are functions which produce some score given an ArcInput. Lower is better.
+// SegmentMetric are functions which produce some score given an SegmentInput. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.
-type ArcMetric func(*ArcInput) float64
+type SegmentMetric func(*SegmentInput) float64
 
 // NewZeroMetric always returns zero as the distance between two points.
 func NewZeroMetric() StateMetric {
@@ -98,7 +98,7 @@ func NewPositionOnlyMetric(goal spatial.Pose) StateMetric {
 }
 
 // JointMetric is a metric which will sum the squared differences in each input from start to end.
-func JointMetric(cInput *ArcInput) float64 {
+func JointMetric(cInput *SegmentInput) float64 {
 	jScore := 0.
 	for i, f := range cInput.StartConfiguration {
 		jScore += math.Abs(f.Value - cInput.EndConfiguration[i].Value)
@@ -107,7 +107,7 @@ func JointMetric(cInput *ArcInput) float64 {
 }
 
 // DirectL2InputComparison is a metric which will return a L2 norm of the StartConfiguration and EndConfiguration in an arc input.
-func DirectL2InputComparison(cInput *ArcInput) float64 {
+func DirectL2InputComparison(cInput *SegmentInput) float64 {
 	return referenceframe.InputsL2Distance(cInput.StartConfiguration, cInput.EndConfiguration)
 }
 

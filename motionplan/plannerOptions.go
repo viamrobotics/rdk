@@ -98,7 +98,7 @@ func newBasicPlannerOptions() *plannerOptions {
 type plannerOptions struct {
 	ConstraintHandler
 	goalMetric   StateMetric // Distance function which converges to the final goal position
-	GoalArcScore ArcMetric
+	GoalArcScore SegmentMetric
 	pathMetric   StateMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}
@@ -126,7 +126,7 @@ type plannerOptions struct {
 	NumThreads int `json:"num_threads"`
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
-	DistanceFunc ArcMetric
+	DistanceFunc SegmentMetric
 
 	PlannerConstructor plannerConstructor
 

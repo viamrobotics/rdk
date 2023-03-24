@@ -354,7 +354,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		newArc := &ArcInput{
+		newArc := &SegmentInput{
 			StartPosition:      seedPos,
 			EndPosition:        goalPos,
 			StartConfiguration: seedInputs,
@@ -382,7 +382,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		ok, failpos := mp.planOpts.CheckArcAndStateValidity(
-			&ArcInput{StartConfiguration: seedInputs, EndConfiguration: solved, Frame: mp.frame},
+			&SegmentInput{StartConfiguration: seedInputs, EndConfiguration: solved, Frame: mp.frame},
 			mp.planOpts.Resolution,
 		)
 		if ok {

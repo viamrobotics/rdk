@@ -256,7 +256,7 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 			return false
 		}
 
-		ci := &ArcInput{
+		ci := &SegmentInput{
 			StartPosition:      pose1,
 			EndPosition:        pose2,
 			StartConfiguration: input1,

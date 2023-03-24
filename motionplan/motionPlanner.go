@@ -245,7 +245,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	ok, _ := mp.planOpts.CheckArcAndStateValidity(
-		&ArcInput{
+		&SegmentInput{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
 			Frame:              mp.frame,
@@ -355,13 +355,13 @@ IK:
 				Frame:         mp.frame,
 			})
 			if statePass {
-				stepArc := &ArcInput{
+				stepArc := &SegmentInput{
 					StartConfiguration: seed,
 					StartPosition:      seedPos,
 					EndConfiguration:   step,
 					Frame:              mp.frame,
 				}
-				arcPass, failName := mp.planOpts.CheckArcConstraints(stepArc)
+				arcPass, failName := mp.planOpts.CheckSegmentConstraints(stepArc)
 
 				if arcPass {
 					cScore := mp.planOpts.GoalArcScore(stepArc)

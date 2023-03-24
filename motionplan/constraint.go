@@ -10,10 +10,10 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// ArcInput contains all the information a constraint needs to determine validity for a movement.
+// SegmentInput contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
 // Pose fields may be empty, and may be filled in by a constraint that needs them.
-type ArcInput struct {
+type SegmentInput struct {
 	StartPosition      spatial.Pose
 	EndPosition        spatial.Pose
 	StartConfiguration []referenceframe.Input
@@ -22,7 +22,7 @@ type ArcInput struct {
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *ArcInput) resolveInputsToPositions() error {
+func (ci *SegmentInput) resolveInputsToPositions() error {
 	if ci.StartPosition == nil {
 		if ci.Frame != nil {
 			if ci.StartConfiguration != nil {
@@ -88,9 +88,9 @@ func (ci *StateInput) resolveInputsToPositions() error {
 	return nil
 }
 
-// ArcConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
+// SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned bool is true, the constraint is satisfied and the arc is valid.
-type ArcConstraint func(*ArcInput) bool
+type SegmentConstraint func(*SegmentInput) bool
 
 // StateConstraint tests whether a given robot configuration is valid
 // If the returned bool is true, the constraint is satisfied and the state is valid.
@@ -99,7 +99,7 @@ type StateConstraint func(*StateInput) bool
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintHandler struct {
-	arcConstraints   map[string]ArcConstraint
+	arcConstraints   map[string]SegmentConstraint
 	stateConstraints map[string]StateConstraint
 }
 
@@ -117,11 +117,11 @@ func (c *ConstraintHandler) CheckStateConstraints(cInput *StateInput) (bool, str
 	return true, ""
 }
 
-// CheckArcConstraints will check a given input against all arc constraints.
+// CheckSegmentConstraints will check a given input against all arc constraints.
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckArcConstraints(cInput *ArcInput) (bool, string) {
+func (c *ConstraintHandler) CheckSegmentConstraints(cInput *SegmentInput) (bool, string) {
 	for name, cFunc := range c.arcConstraints {
 		pass := cFunc(cInput)
 		if !pass {
@@ -133,9 +133,9 @@ func (c *ConstraintHandler) CheckArcConstraints(cInput *ArcInput) (bool, string)
 
 // CheckStateConstraintsAcrossArc will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
 // states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
-// If any constraints fail, this will return false, and an ArcInput representing the valid portion of the arc, if any. If no
+// If any constraints fail, this will return false, and an SegmentInput representing the valid portion of the arc, if any. If no
 // part of the arc is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *ArcInput, resolution float64) (bool, *ArcInput) {
+func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *SegmentInput, resolution float64) (bool, *SegmentInput) {
 	// ensure we have cartesian positions
 	err := ci.resolveInputsToPositions()
 	if err != nil {
@@ -159,7 +159,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *ArcInput, resolut
 				// fail on start pos
 				return false, nil
 			}
-			return false, &ArcInput{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
+			return false, &SegmentInput{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
 		}
 		lastGood = interpC.Configuration
 	}
@@ -170,15 +170,15 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *ArcInput, resolut
 // CheckArcAndStateValidity will check an arc input and confirm that it 1) meets all arc constraints, and 2) meets all state constraints
 // across the arc at some resolution. If it fails an intermediate state, it will return the shortest valid arc, provided that arc
 // also meets arc constraints.
-func (c *ConstraintHandler) CheckArcAndStateValidity(cInput *ArcInput, resolution float64) (bool, *ArcInput) {
-	valid, _ := c.CheckArcConstraints(cInput)
+func (c *ConstraintHandler) CheckArcAndStateValidity(cInput *SegmentInput, resolution float64) (bool, *SegmentInput) {
+	valid, _ := c.CheckSegmentConstraints(cInput)
 	if !valid {
 		return false, nil
 	}
 	valid, subArc := c.CheckStateConstraintsAcrossArc(cInput, resolution)
 	if !valid {
 		if subArc != nil {
-			subArcValid, _ := c.CheckArcConstraints(subArc)
+			subArcValid, _ := c.CheckSegmentConstraints(subArc)
 			if subArcValid {
 				return false, subArc
 			}
@@ -211,22 +211,22 @@ func (c *ConstraintHandler) StateConstraints() []string {
 	return names
 }
 
-// AddArcConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
+// AddSegmentConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddArcConstraint(name string, cons ArcConstraint) {
+func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstraint) {
 	if c.arcConstraints == nil {
-		c.arcConstraints = map[string]ArcConstraint{}
+		c.arcConstraints = map[string]SegmentConstraint{}
 	}
 	c.arcConstraints[name] = cons
 }
 
-// RemoveArcConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveArcConstraint(name string) {
+// RemoveSegmentConstraint will remove the given constraint.
+func (c *ConstraintHandler) RemoveSegmentConstraint(name string) {
 	delete(c.arcConstraints, name)
 }
 
-// ArcConstraints will list all arc constraints by name.
-func (c *ConstraintHandler) ArcConstraints() []string {
+// SegmentConstraints will list all arc constraints by name.
+func (c *ConstraintHandler) SegmentConstraints() []string {
 	names := make([]string, 0, len(c.arcConstraints))
 	for name := range c.arcConstraints {
 		names = append(names, name)
