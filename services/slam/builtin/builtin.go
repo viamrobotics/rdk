@@ -171,6 +171,8 @@ type builtIn struct {
 	dataRateMs int
 	mapRateSec int
 
+	dev bool
+
 	cancelFunc              func()
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
