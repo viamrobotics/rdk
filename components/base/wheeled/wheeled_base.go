@@ -185,7 +185,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 
 	var sensorCtx context.Context
 	sensorCtx, base.sensors.done = context.WithCancel(context.Background())
-	startYaw, err := getCurrentYaw(ctx, base.sensors.orientation, extra)
+	startYaw, err := base.getCurrentYaw(ctx, base.sensors.orientation, extra)
 	if err != nil {
 		return err
 	} // from 0 -> 360
@@ -199,7 +199,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
 		for {
-			// RSDK-2384 - fix sensor leaky goroutine
+			// RSDK-2384 - test for leaky goroutines
 			select {
 			case <-sensorCtx.Done():
 				return
@@ -210,7 +210,8 @@ func (base *wheeledBase) spinWithMovementSensor(
 				return
 			case <-ticker.C:
 				// imu readings are limited from 0 -> 360
-				currYaw, err := getCurrentYaw(sensorCtx, base.sensors.orientation, extra)
+				currYaw, err := base.getCurrentYaw(sensorCtx, base.sensors.orientation, extra)
+
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
@@ -244,7 +245,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
 						base.sensors.done()
-						if err := base.Stop(motorCtx, nil); err != nil {
+						if err := base.Stop(sensorCtx, nil); err != nil {
 							return
 						}
 						if sensorDebug {
@@ -256,7 +257,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
 						base.sensors.done()
-						if err := base.Stop(motorCtx, nil); err != nil {
+						if err := base.Stop(sensorCtx, nil); err != nil {
 							return
 						}
 						if sensorDebug {
@@ -267,10 +268,9 @@ func (base *wheeledBase) spinWithMovementSensor(
 					}
 				}
 			}
-
 		}
-	}, base.sensors.activeBackgroundWorkers.Done)
 
+	}, base.sensors.activeBackgroundWorkers.Done)
 	return nil
 }
 
@@ -281,8 +281,10 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget
 	return atTarget, overShot, minTravel
 }
 
-func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
+func (base *wheeledBase) getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
 ) (float64, error) {
+	base.sensors.sensorMu.Lock()
+	defer base.sensors.sensorMu.Unlock()
 	orientation, err := ms.Orientation(ctx, extra)
 	if err != nil {
 		return 0, errors.Wrap(
