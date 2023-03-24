@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1473,13 +1474,13 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
@@ -1559,13 +1560,13 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
@@ -1691,13 +1692,13 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok = r.RemoteByName("remote")
