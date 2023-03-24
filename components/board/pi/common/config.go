@@ -1,6 +1,5 @@
 //go:build linux && (arm64 || arm)
 
-// Package picommon contains shared information for supported and non-supported pi boards.
 package picommon
 
 import (
