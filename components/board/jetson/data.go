@@ -369,6 +369,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		// 2023) Viam doesn't use those values for anything anyway.
 		[]genericlinux.PinDefinition{
 			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
+			// Output-only (due to base board)
 			{map[int]int{164: 110}, map[int]string{164: "PR.02"}, "2200000.gpio", 8, -1, "UART1_TX", "GP70_UART1_TXD_BOOT2_STRAP", "", -1},
 			// Input-only (due to base board)
 			{map[int]int{164: 111}, map[int]string{164: "PR.03"}, "2200000.gpio", 10, -1, "UART1_RX", "GP71_UART1_RXD", "", -1},
