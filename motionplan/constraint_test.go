@@ -61,14 +61,14 @@ func TestConstraintPath(t *testing.T) {
 	handler := &ConstraintHandler{}
 
 	// No constraints, should pass
-	ok, failCI := handler.CheckArcAndStateValidity(ci, 0.5)
+	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
 	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01)
 	handler.AddStateConstraint("interp", constraint)
-	ok, failCI = handler.CheckArcAndStateValidity(ci, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -78,7 +78,7 @@ func TestConstraintPath(t *testing.T) {
 	ciBad := &SegmentInput{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = ciBad.resolveInputsToPositions()
 	test.That(t, err, test.ShouldBeNil)
-	ok, failCI = handler.CheckArcAndStateValidity(ciBad, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
 	test.That(t, ok, test.ShouldBeFalse)
 }
@@ -168,7 +168,7 @@ func TestLineFollow(t *testing.T) {
 	opt.SetPathMetric(gradFunc)
 	opt.AddStateConstraint("whiteboard", validFunc)
 
-	ok, lastGood := opt.CheckArcAndStateValidity(
+	ok, lastGood := opt.CheckSegmentAndStateValidity(
 		&SegmentInput{
 			StartConfiguration: sf.InputFromProtobuf(mp1),
 			EndConfiguration:   sf.InputFromProtobuf(mp2),

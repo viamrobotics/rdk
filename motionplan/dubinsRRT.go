@@ -264,7 +264,7 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 			Frame:              mp.frame,
 		}
 
-		if ok, _ := planOpts.CheckArcAndStateValidity(ci, mp.Resolution()); !ok {
+		if ok, _ := planOpts.CheckSegmentAndStateValidity(ci, mp.Resolution()); !ok {
 			pathOk = false
 			break
 		}

@@ -244,7 +244,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 }
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
-	ok, _ := mp.planOpts.CheckArcAndStateValidity(
+	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
 		&SegmentInput{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,

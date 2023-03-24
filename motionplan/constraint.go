@@ -89,7 +89,7 @@ func (ci *StateInput) resolveInputsToPositions() error {
 }
 
 // SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
-// If the returned bool is true, the constraint is satisfied and the arc is valid.
+// If the returned bool is true, the constraint is satisfied and the segment is valid.
 type SegmentConstraint func(*SegmentInput) bool
 
 // StateConstraint tests whether a given robot configuration is valid
@@ -99,8 +99,8 @@ type StateConstraint func(*StateInput) bool
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintHandler struct {
-	arcConstraints   map[string]SegmentConstraint
-	stateConstraints map[string]StateConstraint
+	segmentConstraints map[string]SegmentConstraint
+	stateConstraints   map[string]StateConstraint
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
@@ -117,12 +117,12 @@ func (c *ConstraintHandler) CheckStateConstraints(cInput *StateInput) (bool, str
 	return true, ""
 }
 
-// CheckSegmentConstraints will check a given input against all arc constraints.
+// CheckSegmentConstraints will check a given input against all segment constraints.
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckSegmentConstraints(cInput *SegmentInput) (bool, string) {
-	for name, cFunc := range c.arcConstraints {
+	for name, cFunc := range c.segmentConstraints {
 		pass := cFunc(cInput)
 		if !pass {
 			return false, name
@@ -131,11 +131,11 @@ func (c *ConstraintHandler) CheckSegmentConstraints(cInput *SegmentInput) (bool,
 	return true, ""
 }
 
-// CheckStateConstraintsAcrossArc will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
+// CheckStateConstraintsAcrossSegment will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
 // states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
-// If any constraints fail, this will return false, and an SegmentInput representing the valid portion of the arc, if any. If no
-// part of the arc is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *SegmentInput, resolution float64) (bool, *SegmentInput) {
+// If any constraints fail, this will return false, and an SegmentInput representing the valid portion of the segment, if any. If no
+// part of the segment is valid, then `false, nil` is returned.
+func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput, resolution float64) (bool, *SegmentInput) {
 	// ensure we have cartesian positions
 	err := ci.resolveInputsToPositions()
 	if err != nil {
@@ -167,20 +167,20 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossArc(ci *SegmentInput, res
 	return true, nil
 }
 
-// CheckArcAndStateValidity will check an arc input and confirm that it 1) meets all arc constraints, and 2) meets all state constraints
-// across the arc at some resolution. If it fails an intermediate state, it will return the shortest valid arc, provided that arc
-// also meets arc constraints.
-func (c *ConstraintHandler) CheckArcAndStateValidity(cInput *SegmentInput, resolution float64) (bool, *SegmentInput) {
+// CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all 
+// state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
+// provided that segment also meets segment constraints.
+func (c *ConstraintHandler) CheckSegmentAndStateValidity(cInput *SegmentInput, resolution float64) (bool, *SegmentInput) {
 	valid, _ := c.CheckSegmentConstraints(cInput)
 	if !valid {
 		return false, nil
 	}
-	valid, subArc := c.CheckStateConstraintsAcrossArc(cInput, resolution)
+	valid, subSegment := c.CheckStateConstraintsAcrossSegment(cInput, resolution)
 	if !valid {
-		if subArc != nil {
-			subArcValid, _ := c.CheckSegmentConstraints(subArc)
-			if subArcValid {
-				return false, subArc
+		if subSegment != nil {
+			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
+			if subSegmentValid {
+				return false, subSegment
 			}
 		}
 		return false, nil
@@ -214,21 +214,21 @@ func (c *ConstraintHandler) StateConstraints() []string {
 // AddSegmentConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
 func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstraint) {
-	if c.arcConstraints == nil {
-		c.arcConstraints = map[string]SegmentConstraint{}
+	if c.segmentConstraints == nil {
+		c.segmentConstraints = map[string]SegmentConstraint{}
 	}
-	c.arcConstraints[name] = cons
+	c.segmentConstraints[name] = cons
 }
 
 // RemoveSegmentConstraint will remove the given constraint.
 func (c *ConstraintHandler) RemoveSegmentConstraint(name string) {
-	delete(c.arcConstraints, name)
+	delete(c.segmentConstraints, name)
 }
 
-// SegmentConstraints will list all arc constraints by name.
+// SegmentConstraints will list all segment constraints by name.
 func (c *ConstraintHandler) SegmentConstraints() []string {
-	names := make([]string, 0, len(c.arcConstraints))
-	for name := range c.arcConstraints {
+	names := make([]string, 0, len(c.segmentConstraints))
+	for name := range c.segmentConstraints {
 		names = append(names, name)
 	}
 	return names
@@ -346,8 +346,8 @@ func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon
 }
 
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
-// returns whether a given orientation is within a given tolerance distance of the shortest arc between the two orientations, as well as a
-// metric which returns the distance to that valid region.
+// returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as 
+// well as a metric which returns the distance to that valid region.
 func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
@@ -377,7 +377,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 // NewPlaneConstraint is used to define a constraint space for a plane, and will return 1) a constraint
 // function which will determine whether a point is on the plane and in a valid orientation, and 2) a distance function
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
-// angle refers to the maximum unit sphere arc length deviation from the ov
+// angle refers to the maximum unit sphere segment length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose.
 func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, StateMetric) {
 	// get the constant value for the plane

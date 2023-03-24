@@ -294,7 +294,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(path)-1; j++ {
-		ok, _ := cfg.Options.ConstraintHandler.CheckArcAndStateValidity(&SegmentInput{
+		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidity(&SegmentInput{
 			StartConfiguration: path[j],
 			EndConfiguration:   path[j+1],
 			Frame:              cfg.RobotFrame,
