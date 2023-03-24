@@ -146,7 +146,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	if len(goals) > 1 {
 		// Viability check; ensure that the waypoint is not impossible to reach
 		_, err = planners[0].getSolutions(ctx, seed)
-		fmt.Println("IK returned")
 		if err != nil {
 			return nil, err
 		}

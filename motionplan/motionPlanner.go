@@ -307,7 +307,6 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
 func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*costNode, error) {
-	
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -318,12 +317,13 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*cos
 	if err != nil {
 		return nil, err
 	}
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
 	if mp.planOpts.goalMetric == nil {
 		return nil, errors.New("metric is nil")
 	}
-	
+
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error, 1)
 	// Spawn the IK solver to generate solutions until done
@@ -398,10 +398,10 @@ IK:
 		default:
 		}
 	}
-	
+
 	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
 	cancel()
-	
+
 	if len(solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions
 		// were produced, which constraints were failed

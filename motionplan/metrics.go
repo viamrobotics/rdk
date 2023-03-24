@@ -21,11 +21,11 @@ func NewZeroMetric() StateMetric {
 	return func(from *StateInput) float64 { return 0 }
 }
 
-type combinableMetric struct {
+type combinableStateMetric struct {
 	metrics []StateMetric
 }
 
-func (m *combinableMetric) combinedDist(input *StateInput) float64 {
+func (m *combinableStateMetric) combinedDist(input *StateInput) float64 {
 	dist := 0.
 	for _, metric := range m.metrics {
 		dist += metric(input)
@@ -36,7 +36,7 @@ func (m *combinableMetric) combinedDist(input *StateInput) float64 {
 // CombineMetrics will take a variable number of Metrics and return a new Metric which will combine all given metrics into one, summing
 // their distances.
 func CombineMetrics(metrics ...StateMetric) StateMetric {
-	cm := &combinableMetric{metrics: metrics}
+	cm := &combinableStateMetric{metrics: metrics}
 	return cm.combinedDist
 }
 

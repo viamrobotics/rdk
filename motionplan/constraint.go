@@ -331,9 +331,7 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
 	f := func(cInput *StateInput) bool {
-		oValid := orientConstraint(cInput)
-		lValid := lineConstraint(cInput)
-		return oValid && lValid
+		return orientConstraint(cInput) && lineConstraint(cInput)
 	}
 	return f, interpMetric
 }
@@ -370,8 +368,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		if err != nil {
 			return false
 		}
-		dist := gradFunc(cInput)
-		return dist < tolerance
+		return gradFunc(cInput) < tolerance
 	}
 
 	return validFunc, gradFunc
@@ -409,8 +406,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 		if err != nil {
 			return false
 		}
-		dist := gradFunc(cInput)
-		return dist < epsilon*epsilon
+		return gradFunc(cInput) < epsilon*epsilon
 	}
 
 	return validFunc, gradFunc
@@ -426,8 +422,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	}
 
 	gradFunc := func(cInput *StateInput) float64 {
-		pDist := math.Max(spatial.DistToLineSegment(pt1, pt2, cInput.Position.Point())-tolerance, 0)
-		return pDist
+		return math.Max(spatial.DistToLineSegment(pt1, pt2, cInput.Position.Point())-tolerance, 0)
 	}
 
 	validFunc := func(cInput *StateInput) bool {
@@ -435,8 +430,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 		if err != nil {
 			return false
 		}
-		dist := gradFunc(cInput)
-		return dist == 0
+		return gradFunc(cInput) == 0
 	}
 
 	return validFunc, gradFunc
