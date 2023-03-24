@@ -220,12 +220,15 @@ func TestDataCaptureEnabled(t *testing.T) {
 }
 
 func waitForCaptureFiles(captureDir string) {
+	totalWait := time.Second * 2
+	waitPerCheck := time.Millisecond * 10
+	iterations := int(totalWait / waitPerCheck)
 	files := getAllFileInfos(captureDir)
-	for i := 0; i < 200; i++ {
+	for i := 0; i < iterations; i++ {
 		if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
 			return
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(waitPerCheck)
 		files = getAllFileInfos(captureDir)
 	}
 }
