@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // depthToPretty takes a depth image and turns into a colorful image, with blue being
@@ -60,8 +60,11 @@ func newDepthToPrettyTransform(
 		originalStream: depthStream,
 		cameraModel:    &cameraModel,
 	}
-	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, camera.ColorStream)
-	return cam, camera.ColorStream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, camera.ColorStream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, camera.ColorStream, err
 }
 
 func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error) {
@@ -101,8 +104,8 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	return dtp.cameraModel.RGBDToPointCloud(img, dm)
 }
 
-// overlayAttrs are the attributes for an overlay transform.
-type overlayAttrs struct {
+// overlayConfig are the attributes for an overlay transform.
+type overlayConfig struct {
 	IntrinsicParams *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
@@ -116,15 +119,15 @@ func newOverlayTransform(
 	ctx context.Context,
 	src gostream.VideoSource,
 	stream camera.ImageType,
-	am config.AttributeMap,
+	am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(overlayAttrs{}), am)
+	conf, err := config.TransformAttributeMapToStruct(&(overlayConfig{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	attrs, ok := conf.(*overlayAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	ovelayConf, err := utils.AssertType[*overlayConfig](conf)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
 
 	props, err := propsFromVideoSource(ctx, src)
@@ -137,16 +140,19 @@ func newOverlayTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	if attrs.IntrinsicParams != nil && attrs.IntrinsicParams.Height > 0. &&
-		attrs.IntrinsicParams.Width > 0. && attrs.IntrinsicParams.Fx > 0. && attrs.IntrinsicParams.Fy > 0. {
-		cameraModel.PinholeCameraIntrinsics = attrs.IntrinsicParams
+	if ovelayConf.IntrinsicParams != nil && ovelayConf.IntrinsicParams.Height > 0. &&
+		ovelayConf.IntrinsicParams.Width > 0. && ovelayConf.IntrinsicParams.Fx > 0. && ovelayConf.IntrinsicParams.Fy > 0. {
+		cameraModel.PinholeCameraIntrinsics = ovelayConf.IntrinsicParams
 	}
 	if cameraModel.PinholeCameraIntrinsics == nil {
 		return nil, camera.UnspecifiedStream, transform.ErrNoIntrinsics
 	}
 	reader := &overlaySource{src, &cameraModel}
-	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
-	return cam, stream, err
+	src, err = camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, stream, err
 }
 
 func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) {

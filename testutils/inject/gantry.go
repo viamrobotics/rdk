@@ -7,11 +7,13 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 // Gantry is an injected gantry.
 type Gantry struct {
-	gantry.LocalGantry
+	gantry.Gantry
+	name               resource.Name
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	MoveToPositionFunc func(ctx context.Context, pos []float64, extra map[string]interface{}) error
@@ -22,10 +24,20 @@ type Gantry struct {
 	ModelFrameFunc     func() referenceframe.Model
 }
 
+// NewGantry returns a new injected gantry.
+func NewGantry(name string) *Gantry {
+	return &Gantry{name: gantry.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (g *Gantry) Name() resource.Name {
+	return g.name
+}
+
 // Position calls the injected Position or the real version.
 func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	if g.PositionFunc == nil {
-		return g.LocalGantry.Position(ctx, extra)
+		return g.Gantry.Position(ctx, extra)
 	}
 	return g.PositionFunc(ctx, extra)
 }
@@ -33,7 +45,7 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 // MoveToPosition calls the injected MoveToPosition or the real version.
 func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
 	if g.MoveToPositionFunc == nil {
-		return g.LocalGantry.MoveToPosition(ctx, positions, extra)
+		return g.Gantry.MoveToPosition(ctx, positions, extra)
 	}
 	return g.MoveToPositionFunc(ctx, positions, extra)
 }
@@ -41,7 +53,7 @@ func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64, extra 
 // Lengths calls the injected Lengths or the real version.
 func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	if g.LengthsFunc == nil {
-		return g.LocalGantry.Lengths(ctx, extra)
+		return g.Gantry.Lengths(ctx, extra)
 	}
 	return g.LengthsFunc(ctx, extra)
 }
@@ -49,7 +61,7 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 // Stop calls the injected Stop or the real version.
 func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if g.StopFunc == nil {
-		return g.LocalGantry.Stop(ctx, extra)
+		return g.Gantry.Stop(ctx, extra)
 	}
 	return g.StopFunc(ctx, extra)
 }
@@ -57,7 +69,7 @@ func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
 // IsMoving calls the injected IsMoving or the real version.
 func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	if g.IsMovingFunc == nil {
-		return g.LocalGantry.IsMoving(ctx)
+		return g.Gantry.IsMoving(ctx)
 	}
 	return g.IsMovingFunc(ctx)
 }
@@ -65,7 +77,7 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame returns a Gantry ModelFrame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	if g.ModelFrameFunc == nil {
-		return g.LocalGantry.ModelFrame()
+		return g.Gantry.ModelFrame()
 	}
 	return g.ModelFrameFunc()
 }
@@ -73,7 +85,7 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 // Close calls the injected Close or the real version.
 func (g *Gantry) Close(ctx context.Context) error {
 	if g.CloseFunc == nil {
-		return utils.TryClose(ctx, g.LocalGantry)
+		return utils.TryClose(ctx, g.Gantry)
 	}
 	return g.CloseFunc(ctx)
 }
@@ -81,7 +93,7 @@ func (g *Gantry) Close(ctx context.Context) error {
 // DoCommand calls the injected DoCommand or the real version.
 func (g *Gantry) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		return g.LocalGantry.DoCommand(ctx, cmd)
+		return g.Gantry.DoCommand(ctx, cmd)
 	}
 	return g.DoFunc(ctx, cmd)
 }

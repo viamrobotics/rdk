@@ -46,13 +46,13 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.BoardName == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.BoardName)
+	deps = append(deps, conf.BoardName)
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if config.Encoder != "" {
@@ -75,18 +75,16 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
 		},
-		&Config{},
 	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
+	motorConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, nil, err
 	}
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")

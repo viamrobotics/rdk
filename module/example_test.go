@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -86,13 +85,29 @@ func checkReady() {
 }
 
 // newCounter is used to create a new instance of our specific model. It is called for each component in the robot's config with this model.
-func newCounter(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger *zap.SugaredLogger) (interface{}, error) {
-	return &counter{}, nil
+func newCounter(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger *zap.SugaredLogger,
+) (resource.Resource, error) {
+	return &counter{
+		name: conf.ResourceName(),
+	}, nil
 }
 
 // counter is the representation of this model. It holds only a "total" count.
 type counter struct {
+	name  resource.Name
 	total int64
+}
+
+func (c *counter) Name() resource.Name {
+	return c.name
+}
+
+func (c *counter) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	return nil
 }
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.

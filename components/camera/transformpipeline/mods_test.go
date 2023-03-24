@@ -14,8 +14,8 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 var outDir string
@@ -33,7 +33,7 @@ func TestResizeColor(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"height_px": 20,
 		"width_px":  30,
 	}
@@ -59,7 +59,7 @@ func TestResizeDepth(t *testing.T) {
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"height_px": 40,
 		"width_px":  60,
 	}
@@ -152,9 +152,9 @@ func BenchmarkColorRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.ColorStream)
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
@@ -173,9 +173,9 @@ func BenchmarkDepthRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
-	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.DepthStream)
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 

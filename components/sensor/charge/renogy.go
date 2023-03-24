@@ -12,11 +12,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/goburrow/modbus"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var globalMu sync.Mutex
@@ -30,8 +30,8 @@ const (
 
 var modelname = resource.NewDefaultModel("renogy")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Path     string `json:"serial_path"`
 	Baud     int    `json:"serial_baud_rate"`
 	ModbusID byte   `json:"modbus_id"`
@@ -69,22 +69,25 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path,
-				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID), nil
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
+			}
+			return newSensor(conf.ResourceName(), newConf.Path,
+				newConf.Baud, newConf.ModbusID), nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
-func newSensor(name, path string, baud int, modbusID byte) sensor.Sensor {
+func newSensor(name resource.Name, path string, baud int, modbusID byte) sensor.Sensor {
 	if path == "" {
 		path = pathDefault
 	}
@@ -95,16 +98,21 @@ func newSensor(name, path string, baud int, modbusID byte) sensor.Sensor {
 		modbusID = modbusIDDefault
 	}
 
-	return &Sensor{Name: name, path: path, baud: baud, modbusID: modbusID}
+	return &Sensor{
+		Named:    name.AsNamed(),
+		path:     path,
+		baud:     baud,
+		modbusID: modbusID,
+	}
 }
 
 // Sensor is a serial charge controller.
 type Sensor struct {
-	Name     string
+	resource.Named
+	resource.AlwaysRebuild
 	path     string
 	baud     int
 	modbusID byte
-	generic.Unimplemented
 }
 
 // Readings returns a list containing single item (current temperature).

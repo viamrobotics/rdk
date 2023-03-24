@@ -10,7 +10,6 @@ import (
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -18,11 +17,12 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, error) {
-	omSvc, err := subtype.New(omMap)
+func newServer(omMap map[resource.Name]resource.Resource) (pb.MotionServiceServer, error) {
+	omSvc, err := subtype.New(motion.Subtype, omMap)
 	if err != nil {
 		return nil, err
 	}
@@ -31,28 +31,28 @@ func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, err
 
 func TestServerMove(t *testing.T) {
 	grabRequest := &pb.MoveRequest{
-		Name:          testMotionServiceName,
+		Name:          testMotionServiceName.ShortName(),
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
 
-	omMap := map[resource.Name]interface{}{}
+	omMap := map[resource.Name]resource.Resource{}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
 
 	// set up the robot with something that is not an motion service
-	omMap = map[resource.Name]interface{}{motion.Named(testMotionServiceName): "not motion"}
+	omMap = map[resource.Name]resource.Resource{testMotionServiceName: testutils.NewUnimplementedResource(testMotionServiceName)}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
-	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError("string"))
+	test.That(t, err, test.ShouldBeError, resource.TypeError[motion.Service](testutils.NewUnimplementedResource(testMotionServiceName)))
 
 	// error
 	injectMS := &inject.MotionService{}
-	omMap = map[resource.Name]interface{}{
-		motion.Named(testMotionServiceName): injectMS,
+	omMap = map[resource.Name]resource.Resource{
+		testMotionServiceName: injectMS,
 	}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -89,9 +89,9 @@ func TestServerMove(t *testing.T) {
 
 	// Multiple Servies names Valid
 	injectMS = &inject.MotionService{}
-	omMap = map[resource.Name]interface{}{
-		motion.Named(testMotionServiceName):  injectMS,
-		motion.Named(testMotionServiceName2): injectMS,
+	omMap = map[resource.Name]resource.Resource{
+		testMotionServiceName:  injectMS,
+		testMotionServiceName2: injectMS,
 	}
 	server, _ = newServer(omMap)
 	injectMS.MoveFunc = successfulMoveFunc
@@ -99,7 +99,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 	grabRequest2 := &pb.MoveRequest{
-		Name:          testMotionServiceName2,
+		Name:          testMotionServiceName2.ShortName(),
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
@@ -109,18 +109,18 @@ func TestServerMove(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]interface{}{
-		motion.Named(testMotionServiceName): &inject.MotionService{
-			DoCommandFunc: generic.EchoFunc,
+	resourceMap := map[resource.Name]resource.Resource{
+		testMotionServiceName: &inject.MotionService{
+			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	cmd, err := vprotoutils.StructToStructPb(generic.TestCommand)
+	cmd, err := vprotoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testMotionServiceName,
+		Name:    testMotionServiceName.ShortName(),
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)

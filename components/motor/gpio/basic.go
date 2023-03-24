@@ -11,14 +11,14 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/resource"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc Config, name string, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc Config, name resource.Name, logger golog.Logger) (motor.Motor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -37,6 +37,7 @@ func NewMotor(b board.Board, mc Config, name string, logger golog.Logger) (motor
 	}
 
 	m := &Motor{
+		Named:       name.AsNamed(),
 		Board:       b,
 		on:          false,
 		pwmFreq:     mc.PWMFreq,
@@ -45,7 +46,6 @@ func NewMotor(b board.Board, mc Config, name string, logger golog.Logger) (motor
 		maxRPM:      mc.MaxRPM,
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
-		motorName:   name,
 	}
 
 	if mc.Pins.A != "" {
@@ -98,6 +98,9 @@ var _ = motor.LocalMotor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
+	resource.Named
+	resource.AlwaysRebuild
+
 	mu     sync.Mutex
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
@@ -111,12 +114,9 @@ type Motor struct {
 	maxPowerPct              float64
 	maxRPM                   float64
 	dirFlip                  bool
-	motorName                string
 	// state
 	on       bool
 	powerPct float64
-
-	generic.Unimplemented
 }
 
 // Position always returns 0.
@@ -277,7 +277,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in GoFor")
 	}
 
 	if revolutions == 0 {
@@ -314,15 +314,15 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	return motor.NewGoToUnsupportedError(m.motorName)
+	return motor.NewGoToUnsupportedError(m.Name().ShortName())
 }
 
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return motor.NewResetZeroPositionUnsupportedError(m.motorName)
+	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }
 
 // GoTillStop is not supported.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.motorName)
+	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
 }

@@ -16,7 +16,6 @@ import (
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
@@ -69,19 +68,19 @@ var allProductData = map[vlp16.ProductID]productConfig{
 	},
 }
 
-// AttrConfig is the config for a veldoyne LIDAR.
-type AttrConfig struct {
+// Config is the config for a veldoyne LIDAR.
+type Config struct {
 	Port  int `json:"port"`
 	TTLMS int `json:"ttl_ms"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if config.Port == 0 {
+func (conf *Config) Validate(path string) error {
+	if conf.Port == 0 {
 		return gutils.NewConfigValidationFieldRequiredError(path, "port")
 	}
 
-	if config.TTLMS == 0 {
+	if conf.TTLMS == 0 {
 		return gutils.NewConfigValidationFieldRequiredError(path, "ttl_ms")
 	}
 	return nil
@@ -95,37 +94,37 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
+			_ resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			attr, ok := config.ConvertedAttributes.(*AttrConfig)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
 			}
 
-			port := attr.Port
+			port := newConf.Port
 			if port == 0 {
 				port = 2368
 			}
 
-			ttl := attr.TTLMS
+			ttl := newConf.TTLMS
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
 
-			return New(ctx, logger, port, ttl)
+			return New(ctx, conf.ResourceName(), logger, port, ttl)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 type client struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	bindAddress     string
 	ttlMilliseconds int
 
@@ -143,7 +142,7 @@ type client struct {
 }
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it.
-func New(ctx context.Context, logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
+func New(ctx context.Context, name resource.Name, logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := vlp16.ListenUDP(ctx, bindAddress)
 	if err != nil {
@@ -152,6 +151,7 @@ func New(ctx context.Context, logger golog.Logger, port, ttlMilliseconds int) (c
 	// Listen for and print packets.
 
 	c := &client{
+		Named:           name.AsNamed(),
 		bindAddress:     bindAddress,
 		ttlMilliseconds: ttlMilliseconds,
 		logger:          logger,
@@ -164,7 +164,11 @@ func New(ctx context.Context, logger golog.Logger, port, ttlMilliseconds int) (c
 		c.run(cancelCtx, listener)
 	})
 
-	return camera.NewFromReader(ctx, c, nil, camera.DepthStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, c, nil, camera.DepthStream)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromVideoSource(name, src), nil
 }
 
 func (c *client) setLastError(err error) {

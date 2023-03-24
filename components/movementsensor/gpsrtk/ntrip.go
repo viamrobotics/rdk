@@ -10,10 +10,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 type ntripCorrectionSource struct {
@@ -25,6 +24,7 @@ type ntripCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	mu                      sync.Mutex
 
 	err movementsensor.LastError
 }
@@ -40,12 +40,8 @@ type NtripInfo struct {
 	MaxConnectAttempts int
 }
 
-func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger golog.Logger) (correctionSource, error) {
-	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
-	}
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+func newNtripCorrectionSource(conf *StationConfig, logger golog.Logger) (correctionSource, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	n := &ntripCorrectionSource{
 		cancelCtx:  cancelCtx,
@@ -57,7 +53,7 @@ func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger 
 	}
 
 	// Init ntripInfo from attributes
-	ntripInfoComp, err := newNtripInfo(attr.NtripAttrConfig, logger)
+	ntripInfoComp, err := newNtripInfo(conf.NtripConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +63,7 @@ func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger 
 	return n, n.err.Get()
 }
 
-func newNtripInfo(cfg *NtripAttrConfig, logger golog.Logger) (*NtripInfo, error) {
+func newNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
@@ -170,59 +166,73 @@ func (n *ntripCorrectionSource) GetStream() error {
 // Start connects to the ntrip caster and stream and sends filtered correction data into the correctionReader.
 func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	n.activeBackgroundWorkers.Add(1)
-	defer n.activeBackgroundWorkers.Done()
-	err := n.Connect()
-	// Record the "error" value no matter what. If it's nil, this will prevent us from reporting
-	// transitory errors later.
-	n.err.Set(err)
-	if err != nil {
-		return
-	}
+	utils.PanicCapturingGo(func() {
+		defer n.activeBackgroundWorkers.Done()
 
-	if !n.info.Client.IsCasterAlive() {
-		n.logger.Infof("caster %s seems to be down", n.info.URL)
-	}
+		n.mu.Lock()
+		if err := n.cancelCtx.Err(); err != nil {
+			n.mu.Unlock()
+			return
+		}
+		n.mu.Unlock()
 
-	var w io.Writer
-	n.correctionReader, w = io.Pipe()
-	ready <- true
+		err := n.Connect()
+		// Record the "error" value no matter what. If it's nil, this will prevent us from reporting
+		// transitory errors later.
+		n.err.Set(err)
+		if err != nil {
+			return
+		}
 
-	err = n.GetStream()
-	n.err.Set(err)
-	if err != nil {
-		return
-	}
+		if !n.info.Client.IsCasterAlive() {
+			n.logger.Infof("caster %s seems to be down", n.info.URL)
+		}
 
-	r := io.TeeReader(n.info.Stream, w)
-	scanner := rtcm3.NewScanner(r)
-
-	n.ntripStatus = true
-
-	for n.ntripStatus {
+		var w io.Writer
+		n.correctionReader, w = io.Pipe()
 		select {
+		case ready <- true:
 		case <-n.cancelCtx.Done():
 			return
-		default:
 		}
 
-		msg, err := scanner.NextMessage()
+		err = n.GetStream()
+		n.err.Set(err)
 		if err != nil {
-			n.ntripStatus = false
-			if msg == nil {
-				n.logger.Debug("No message... reconnecting to stream...")
-				err = n.GetStream()
-				n.err.Set(err)
-				if err != nil {
-					return
-				}
+			return
+		}
 
-				r = io.TeeReader(n.info.Stream, w)
-				scanner = rtcm3.NewScanner(r)
-				n.ntripStatus = true
-				continue
+		r := io.TeeReader(n.info.Stream, w)
+		scanner := rtcm3.NewScanner(r)
+
+		n.ntripStatus = true
+
+		for n.ntripStatus {
+			select {
+			case <-n.cancelCtx.Done():
+				return
+			default:
+			}
+
+			msg, err := scanner.NextMessage()
+			if err != nil {
+				n.ntripStatus = false
+				if msg == nil {
+					n.logger.Debug("No message... reconnecting to stream...")
+					err = n.GetStream()
+					n.err.Set(err)
+					if err != nil {
+						return
+					}
+
+					r = io.TeeReader(n.info.Stream, w)
+					scanner = rtcm3.NewScanner(r)
+					n.ntripStatus = true
+					continue
+				}
 			}
 		}
-	}
+	})
 }
 
 // Reader returns the ntripCorrectionSource's correctionReader if it exists.
@@ -237,7 +247,9 @@ func (n *ntripCorrectionSource) Reader() (io.ReadCloser, error) {
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
 func (n *ntripCorrectionSource) Close() error {
 	n.logger.Debug("Closing ntrip client")
+	n.mu.Lock()
 	n.cancelFunc()
+	n.mu.Unlock()
 	n.activeBackgroundWorkers.Wait()
 
 	// close correction reader

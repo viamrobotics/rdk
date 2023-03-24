@@ -50,7 +50,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	errs := make(chan error, 1+parallelDownloads)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 
 	// In one routine, get all IDs matching the filter and pass them into ids.
 	wg.Add(1)
@@ -75,8 +75,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 		defer wg.Done()
 		var nextID string
 		var done bool
-		numFilesDownloaded := &atomic.Int32{}
-		downloadWG := sync.WaitGroup{}
+		var numFilesDownloaded atomic.Int32
+		var downloadWG sync.WaitGroup
 		for {
 			for i := uint(0); i < parallelDownloads; i++ {
 				if err := ctx.Err(); err != nil {

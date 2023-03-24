@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -27,8 +26,8 @@ import (
 
 var modelname = resource.NewDefaultModel("oneaxis")
 
-// AttrConfig is used for converting oneAxis config attributes.
-type AttrConfig struct {
+// Config is used for converting oneAxis config attributes.
+type Config struct {
 	Board           string    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
 	Motor           string    `json:"motor"`
 	LimitSwitchPins []string  `json:"limit_pins,omitempty"`
@@ -40,7 +39,7 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	deps, err := cfg.validate()
 	if err != nil {
 		err = utils.NewConfigValidationError(path, err)
@@ -48,7 +47,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	return deps, err
 }
 
-func (cfg *AttrConfig) validate() ([]string, error) {
+func (cfg *Config) validate() ([]string, error) {
 	var deps []string
 
 	if len(cfg.Motor) == 0 {
@@ -94,25 +93,23 @@ func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
 		Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newOneAxis(ctx, deps, config, logger)
+		) (resource.Resource, error) {
+			return newOneAxis(ctx, deps, conf, logger)
 		},
 	})
 
 	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 type oneAxis struct {
-	generic.Unimplemented
-	name string
+	resource.Named
+	resource.AlwaysRebuild
 
 	board board.Board
 	motor motor.Motor
@@ -142,34 +139,34 @@ const (
 )
 
 // NewOneAxis creates a new one axis gantry.
-func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gantry.LocalGantry, error) {
-	conf, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
+func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gantry.Gantry, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	_motor, err := motor.FromDependencies(deps, conf.Motor)
+	motorDep, err := motor.FromDependencies(deps, newConf.Motor)
 	if err != nil {
 		return nil, err
 	}
-	features, err := _motor.Properties(ctx, nil)
+	features, err := motorDep.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	ok = features[motor.PositionReporting]
+	ok := features[motor.PositionReporting]
 	if !ok {
-		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, conf.Motor)
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, newConf.Motor)
 	}
 
 	oAx := &oneAxis{
-		name:            config.Name,
-		motor:           _motor,
+		Named:           conf.ResourceName().AsNamed(),
+		motor:           motorDep,
 		logger:          logger,
-		limitSwitchPins: conf.LimitSwitchPins,
-		lengthMm:        conf.LengthMm,
-		mmPerRevolution: conf.MmPerRevolution,
-		rpm:             conf.GantryRPM,
-		axis:            conf.Axis,
+		limitSwitchPins: newConf.LimitSwitchPins,
+		lengthMm:        newConf.LengthMm,
+		mmPerRevolution: newConf.MmPerRevolution,
+		rpm:             newConf.GantryRPM,
+		axis:            newConf.Axis,
 	}
 
 	if oAx.rpm == 0 {
@@ -183,24 +180,24 @@ func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.C
 			return nil, errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 		}
 
-		board, err := board.FromDependencies(deps, conf.Board)
+		board, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
 			return nil, err
 		}
 		oAx.board = board
 
-		PinEnable := *conf.LimitPinEnabled
+		PinEnable := *newConf.LimitPinEnabled
 		oAx.limitHigh = PinEnable
 
 	case 2:
 		oAx.limitType = limitTwoPin
-		board, err := board.FromDependencies(deps, conf.Board)
+		board, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
 			return nil, err
 		}
 		oAx.board = board
 
-		PinEnable := *conf.LimitPinEnabled
+		PinEnable := *newConf.LimitPinEnabled
 		oAx.limitHigh = PinEnable
 
 	case 0:
@@ -390,11 +387,11 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 	defer done()
 
 	if len(positions) != 1 {
-		return fmt.Errorf("oneAxis (%s) MoveToPosition needs 1 position to move, got: %v", g.name, len(positions))
+		return fmt.Errorf("MoveToPosition needs 1 position to move, got: %v", len(positions))
 	}
 
 	if positions[0] < 0 || positions[0] > g.lengthMm {
-		return fmt.Errorf("oneAxis %s out of range (%.2f) min: 0 max: %.2f", g.name, positions[0], g.lengthMm)
+		return fmt.Errorf("out of range (%.2f) min: 0 max: %.2f", positions[0], g.lengthMm)
 	}
 
 	x := g.linearToRotational(positions[0])
@@ -434,7 +431,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 		}
 	}
 
-	g.logger.Debugf("gantry (%s) going to %.2f at speed %.2f", g.name, x, g.rpm)
+	g.logger.Debugf("going to %.2f at speed %.2f", x, g.rpm)
 	err := g.motor.GoTo(ctx, g.rpm, x, extra)
 	if err != nil {
 		return err
@@ -449,6 +446,11 @@ func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error 
 	return g.motor.Stop(ctx, extra)
 }
 
+// Close calls stop.
+func (g *oneAxis) Close(ctx context.Context) error {
+	return g.Stop(ctx, nil)
+}
+
 // IsMoving returns whether the gantry is moving.
 func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
@@ -460,11 +462,11 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 		var errs error
 		m := referenceframe.NewSimpleModel("")
 
-		f, err := referenceframe.NewStaticFrame(g.name, spatial.NewZeroPose())
+		f, err := referenceframe.NewStaticFrame(g.Name().ShortName(), spatial.NewZeroPose())
 		errs = multierr.Combine(errs, err)
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
-		f, err = referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
+		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
 		errs = multierr.Combine(errs, err)
 
 		if errs != nil {

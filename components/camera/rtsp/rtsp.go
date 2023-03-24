@@ -33,51 +33,41 @@ var model = resource.NewDefaultModel("rtsp")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := cfg.ConvertedAttributes.(*Attrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
 			}
-			return NewRTSPCamera(ctx, attrs, logger)
+			return NewRTSPCamera(ctx, conf.ResourceName(), newConf, logger)
 		},
 	})
 
 	config.RegisterComponentAttributeMapConverter(
 		camera.Subtype,
 		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Attrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*Attrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
 		},
-		&Attrs{},
 	)
 }
 
-// Attrs are the config attributes for an RTSP camera model.
-type Attrs struct {
+// Config are the config attributes for an RTSP camera model.
+type Config struct {
 	Address          string                             `json:"rtsp_address"`
 	IntrinsicParams  *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
 // Validate checks to see if the attributes of the model are valid.
-func (at *Attrs) Validate() error {
-	_, err := url.Parse(at.Address)
+func (conf *Config) Validate() error {
+	_, err := url.Parse(conf.Address)
 	if err != nil {
 		return err
 	}
-	if err := at.IntrinsicParams.CheckValid(); err != nil {
+	if err := conf.IntrinsicParams.CheckValid(); err != nil {
 		return err
 	}
-	if err := at.DistortionParams.CheckValid(); err != nil {
+	if err := conf.DistortionParams.CheckValid(); err != nil {
 		return err
 	}
 	return nil
@@ -93,7 +83,7 @@ type rtspCamera struct {
 	activeBackgroundWorkers sync.WaitGroup
 	gotFirstFrameOnce       bool
 	gotFirstFrame           chan struct{}
-	latestFrame             atomic.Value
+	latestFrame             atomic.Pointer[image.Image]
 	logger                  golog.Logger
 }
 
@@ -188,7 +178,7 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 		if img == nil {
 			return
 		}
-		rc.latestFrame.Store(img)
+		rc.latestFrame.Store(&img)
 		if !rc.gotFirstFrameOnce {
 			rc.gotFirstFrameOnce = true
 			close(rc.gotFirstFrame)
@@ -204,8 +194,8 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 
 // NewRTSPCamera creates a camera client using RTSP given the server URL.
 // Right now, only supports servers that have MJPEG video tracks.
-func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (camera.Camera, error) {
-	u, err := url.Parse(attrs.Address)
+func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (camera.Camera, error) {
+	u, err := url.Parse(conf.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -235,12 +225,20 @@ func NewRTSPCamera(ctx context.Context, attrs *Attrs, logger golog.Logger) (came
 			return nil, nil, ctx.Err()
 		case <-rtspCam.gotFirstFrame:
 		}
-		return rtspCam.latestFrame.Load().(image.Image), func() {}, nil
+		latest := rtspCam.latestFrame.Load()
+		if latest == nil {
+			return nil, func() {}, errors.New("no frame yet")
+		}
+		return *latest, func() {}, nil
 	})
 	rtspCam.VideoReader = reader
 	rtspCam.cancelCtx = cancelCtx
 	rtspCam.cancelFunc = cancel
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.IntrinsicParams, attrs.DistortionParams)
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.IntrinsicParams, conf.DistortionParams)
 	rtspCam.clientReconnectBackgroundWorker()
-	return camera.NewFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromVideoSource(name, src), nil
 }

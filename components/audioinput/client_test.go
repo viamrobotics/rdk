@@ -10,11 +10,9 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	componentpb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	audioinput "go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/generic"
@@ -24,6 +22,11 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+)
+
+var (
+	testAudioInputName = "audio1"
+	failAudioInputName = "audio2"
 )
 
 func TestClient(t *testing.T) {
@@ -64,16 +67,17 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't generate stream")
 	}
 
-	resources := map[resource.Name]interface{}{
+	resources := map[resource.Name]resource.Resource{
 		audioinput.Named(testAudioInputName): injectAudioInput,
 		audioinput.Named(failAudioInputName): injectAudioInput2,
 	}
-	audioInputSvc, err := subtype.New(resources)
+	audioInputSvc, err := subtype.New(audioinput.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(audioinput.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(audioinput.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, audioInputSvc)
 
-	injectAudioInput.DoFunc = generic.EchoFunc
+	injectAudioInput.DoFunc = testutils.EchoFunc
 	generic.RegisterService(rpcServer, audioInputSvc)
 
 	go rpcServer.Serve(listener1)
@@ -90,7 +94,8 @@ func TestClient(t *testing.T) {
 	t.Run("audio input client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		audioInput1Client := audioinput.NewClientFromConn(context.Background(), conn, testAudioInputName, logger)
+		audioInput1Client, err := audioinput.NewClientFromConn(context.Background(), conn, audioinput.Named(testAudioInputName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		chunk, _, err := gostream.ReadAudio(context.Background(), audioInput1Client)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -109,10 +114,10 @@ func TestClient(t *testing.T) {
 		test.That(t, props, test.ShouldResemble, expectedProps)
 
 		// DoCommand
-		resp, err := audioInput1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := audioInput1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), audioInput1Client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -121,7 +126,8 @@ func TestClient(t *testing.T) {
 	t.Run("audio input client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, failAudioInputName, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, audioinput.Named(failAudioInputName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		audioInput2Client, ok := client.(audioinput.AudioInput)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -131,37 +137,4 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectAudioInput := &inject.AudioInput{}
-
-	audioInputSvc, err := subtype.New(map[resource.Name]interface{}{audioinput.Named(testAudioInputName): injectAudioInput})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterAudioInputServiceServer(gServer, audioinput.NewServer(audioInputSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := audioinput.NewClientFromConn(ctx, conn1, testAudioInputName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := audioinput.NewClientFromConn(ctx, conn2, testAudioInputName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

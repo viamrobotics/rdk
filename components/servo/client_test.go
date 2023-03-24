@@ -7,11 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	componentpb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
@@ -21,6 +19,12 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+)
+
+var (
+	testServoName = "servo1"
+	failServoName = "servo2"
+	fakeServoName = "servo3"
 )
 
 func TestClient(t *testing.T) {
@@ -58,16 +62,17 @@ func TestClient(t *testing.T) {
 		return errors.New("no stop")
 	}
 
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]resource.Resource{
 		servo.Named(testServoName): workingServo,
 		servo.Named(failServoName): failingServo,
 	}
-	servoSvc, err := subtype.New(resourceMap)
+	servoSvc, err := subtype.New(servo.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(servo.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(servo.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, servoSvc)
 
-	workingServo.DoFunc = generic.EchoFunc
+	workingServo.DoFunc = testutils.EchoFunc
 	generic.RegisterService(rpcServer, servoSvc)
 
 	go rpcServer.Serve(listener1)
@@ -84,13 +89,14 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for working servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingServoClient := servo.NewClientFromConn(context.Background(), conn, testServoName, logger)
+		workingServoClient, err := servo.NewClientFromConn(context.Background(), conn, servo.Named(testServoName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := workingServoClient.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := workingServoClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		err = workingServoClient.Move(context.Background(), 20, map[string]interface{}{"foo": "Move"})
 		test.That(t, err, test.ShouldBeNil)
@@ -112,7 +118,8 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for failing servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingServoClient := servo.NewClientFromConn(context.Background(), conn, failServoName, logger)
+		failingServoClient, err := servo.NewClientFromConn(context.Background(), conn, servo.Named(failServoName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		err = failingServoClient.Move(context.Background(), 20, nil)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -131,7 +138,8 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testServoName, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, servo.Named(testServoName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		workingServoDialedClient, ok := client.(servo.Servo)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -144,37 +152,4 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectServo := &inject.Servo{}
-
-	servoSvc, err := subtype.New(map[resource.Name]interface{}{servo.Named(testServoName): injectServo})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterServoServiceServer(gServer, servo.NewServer(servoSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := servo.NewClientFromConn(ctx, conn1, testServoName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := servo.NewClientFromConn(ctx, conn2, testServoName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

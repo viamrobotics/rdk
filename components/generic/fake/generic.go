@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -18,20 +17,20 @@ func init() {
 		resource.NewDefaultModel("fake"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newGeneric(config.Name), nil
+		) (resource.Resource, error) {
+			return newGeneric(conf.ResourceName()), nil
 		}})
 }
 
-func newGeneric(name string) generic.Generic {
-	return &Generic{Name: name}
+func newGeneric(name resource.Name) resource.Resource {
+	return &Generic{Named: name.AsNamed()}
 }
 
 // Generic is a fake Generic device that always echos inputs back to the caller.
 type Generic struct {
-	Name string
-	generic.Echo
+	resource.Named
+	resource.TriviallyReconfigurable
 }

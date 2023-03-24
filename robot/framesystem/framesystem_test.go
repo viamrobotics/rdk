@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -21,7 +22,7 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
 	cfg := config.Config{
-		Components: []config.Component{},
+		Components: []resource.Config{},
 	}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return &cfg, nil

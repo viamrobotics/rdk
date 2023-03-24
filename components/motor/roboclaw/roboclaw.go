@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/golog"
 	utils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -23,8 +22,8 @@ import (
 
 var modelname = resource.NewDefaultModel("roboclaw")
 
-// AttrConfig is used for converting motor config attributes.
-type AttrConfig struct {
+// Config is used for converting motor config attributes.
+type Config struct {
 	SerialPath       string `json:"serial_path"`
 	SerialBaud       int    `json:"serial_baud_rate"`
 	Number           int    `json:"number_of_motors"` // this is 1 or 2
@@ -33,23 +32,23 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if config.Number < 1 || config.Number > 2 {
-		return config.wrongNumberError()
+func (conf *Config) Validate(path string) error {
+	if conf.Number < 1 || conf.Number > 2 {
+		return conf.wrongNumberError()
 	}
-	if config.SerialPath == "" {
+	if conf.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
-	if config.SerialBaud <= 0 {
+	if conf.SerialBaud <= 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_baud_rate")
 	}
 
 	return nil
 }
 
-func (config *AttrConfig) wrongNumberError() error {
-	return fmt.Errorf("roboclawConfig Number has to be 1 or 2, but is %d", config.Number)
+func (conf *Config) wrongNumberError() error {
+	return fmt.Errorf("roboclawConfig Number has to be 1 or 2, but is %d", conf.Number)
 }
 
 func init() {
@@ -57,8 +56,13 @@ func init() {
 		motor.Subtype,
 		modelname,
 		registry.Component{
-			Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-				return newRoboClaw(deps, config, logger)
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (resource.Resource, error) {
+				return newRoboClaw(deps, conf, logger)
 			},
 		},
 	)
@@ -66,19 +70,17 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
 		},
-		&AttrConfig{},
 	)
 }
 
-func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*roboclaw.Roboclaw, error) {
+func getOrCreateConnection(deps resource.Dependencies, config *Config) (*roboclaw.Roboclaw, error) {
 	// Check if a dependent component hs a roboclaw motor with the same serial config. This allows
 	// multiple motors to share the same controller without stepping on each other.
 	for _, res := range deps {
-		m, ok := rdkutils.UnwrapProxy(res).(*roboclawMotor)
+		m, ok := res.(*roboclawMotor)
 		if !ok {
 			continue
 		}
@@ -98,10 +100,10 @@ func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*rob
 	return roboclaw.Init(c)
 }
 
-func newRoboClaw(deps registry.Dependencies, config config.Component, logger golog.Logger) (motor.Motor, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+func newRoboClaw(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+	motorConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	if motorConfig.Number < 1 || motorConfig.Number > 2 {
@@ -121,15 +123,22 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 		return nil, err
 	}
 
-	return &roboclawMotor{name: config.Name, conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
+	return &roboclawMotor{
+		Named:  conf.ResourceName().AsNamed(),
+		conn:   c,
+		conf:   motorConfig,
+		addr:   uint8(motorConfig.Address),
+		logger: logger,
+	}, nil
 }
 
 var _ = motor.LocalMotor(&roboclawMotor{})
 
 type roboclawMotor struct {
-	name string
+	resource.Named
+	resource.AlwaysRebuild
 	conn *roboclaw.Roboclaw
-	conf *AttrConfig
+	conf *Config
 
 	addr uint8
 
@@ -137,8 +146,6 @@ type roboclawMotor struct {
 	opMgr  operation.SingleOperationManager
 
 	powerPct float64
-
-	generic.Unimplemented
 }
 
 func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
@@ -258,5 +265,5 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 }
 
 func (m *roboclawMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.name)
+	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
 }

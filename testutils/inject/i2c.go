@@ -23,12 +23,12 @@ func (s *I2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 // I2CHandle is an injected I2CHandle.
 type I2CHandle struct {
 	board.I2CHandle
-	WriteFunc          func(context.Context, []byte) error
-	ReadFunc           func(context.Context, int) ([]byte, error)
-	ReadByteDataFunc   func(context.Context, byte) (byte, error)
-	WriteByteDataFunc  func(context.Context, byte, byte) error
-	ReadBlockDataFunc  func(context.Context, byte, uint8) ([]byte, error)
-	WriteBlockDataFunc func(context.Context, byte, []byte) error
+	WriteFunc          func(ctx context.Context, tx []byte) error
+	ReadFunc           func(ctx context.Context, count int) ([]byte, error)
+	ReadByteDataFunc   func(ctx context.Context, register byte) (byte, error)
+	WriteByteDataFunc  func(ctx context.Context, register, data byte) error
+	ReadBlockDataFunc  func(ctx context.Context, register byte, numBytes uint8) ([]byte, error)
+	WriteBlockDataFunc func(ctx context.Context, register byte, data []byte) error
 	CloseFunc          func() error
 }
 
@@ -54,6 +54,14 @@ func (handle *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBy
 		return handle.I2CHandle.ReadBlockData(ctx, register, numBytes)
 	}
 	return handle.ReadBlockDataFunc(ctx, register, numBytes)
+}
+
+// WriteBlockData calls the injected WriteBlockDataFunc or the real version.
+func (handle *I2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
+	if handle.WriteBlockDataFunc == nil {
+		return handle.I2CHandle.WriteBlockData(ctx, register, data)
+	}
+	return handle.WriteBlockDataFunc(ctx, register, data)
 }
 
 // Close calls the injected CloseFunc or the real version.

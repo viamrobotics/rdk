@@ -9,8 +9,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
@@ -29,19 +27,21 @@ func init() {
 	registry.RegisterService(navigation.Subtype, Model, registry.Service{Constructor: newNav})
 }
 
-func newNav(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
+func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
 	navSvc := &navSvc{
+		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 		loc: geo.NewPoint(
-			cfg.Attributes.Float64("lat", -48.876667),
-			cfg.Attributes.Float64("long", -123.393333),
+			conf.Attributes.Float64("lat", -48.876667),
+			conf.Attributes.Float64("long", -123.393333),
 		),
 	}
 	return navSvc, nil
 }
 
 type navSvc struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	mu        sync.RWMutex
 	loc       *geo.Point
 	logger    golog.Logger
@@ -88,15 +88,5 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 		newWps = append(newWps, wp)
 	}
 	svc.waypoints = newWps
-	return nil
-}
-
-func (svc *navSvc) Reconfigure(ctx context.Context, cfg config.Service) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	svc.loc = geo.NewPoint(
-		cfg.Attributes.Float64("lat", -48.876667),
-		cfg.Attributes.Float64("long", -123.393333),
-	)
 	return nil
 }

@@ -11,8 +11,6 @@ import (
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -26,23 +24,31 @@ import (
 
 func init() {
 	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Service{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+		DeprecatedRobotConstructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewBuiltIn(ctx, r, conf, logger)
 		},
 	})
 	resource.AddDefaultService(motion.Named(resource.DefaultServiceName))
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, conf resource.Config, logger golog.Logger) (motion.Service, error) {
 	return &builtIn{
+		Named:  conf.ResourceName().AsNamed(),
 		r:      r,
 		logger: logger,
 	}, nil
 }
 
 type builtIn struct {
-	generic.Unimplemented
+	resource.Named
+	// TODO(RSDK-2693): This should support reconfiguration and not use the robot constructor
+	resource.TriviallyReconfigurable
 	r      robot.Robot
 	logger golog.Logger
 }

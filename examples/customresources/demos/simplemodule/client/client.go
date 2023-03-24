@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 )
 
@@ -27,22 +28,20 @@ func main() {
 
 	// Get the two counter components.
 	logger.Info("---- Getting counter1 (generic api) -----")
-	res, err := robot.ResourceByName(generic.Named("counter1"))
+	counter1, err := robot.ResourceByName(generic.Named("counter1"))
 	if err != nil {
 		logger.Fatal(err)
 	}
-	counter1 := res.(generic.Generic)
 
 	logger.Info("---- Getting counter2 (generic api) -----")
-	res, err = robot.ResourceByName(generic.Named("counter2"))
+	counter2, err := robot.ResourceByName(generic.Named("counter2"))
 	if err != nil {
 		logger.Fatal(err)
 	}
-	counter2 := res.(generic.Generic)
 
 	// For each counter, we'll look at the total, then add 20 random numbers to it.
 	// Only on restart of the server will they get reset.
-	for name, c := range []generic.Generic{counter1, counter2} {
+	for name, c := range []resource.Resource{counter1, counter2} {
 		// Get the starting value of the given counter.
 		ret, err := counter1.DoCommand(context.Background(), map[string]interface{}{"command": "get"})
 		if err != nil {

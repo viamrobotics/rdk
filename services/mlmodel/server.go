@@ -9,7 +9,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the MLModelService from mlmodel.proto.
@@ -24,15 +23,7 @@ func NewServer(s subtype.Service) pb.MLModelServiceServer {
 }
 
 func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
 }
 
 func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*pb.InferResponse, error) {

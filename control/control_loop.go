@@ -14,8 +14,8 @@ import (
 type controlBlockInternal struct {
 	mu        sync.Mutex
 	blockType controlBlockType
-	ins       []chan []Signal
-	outs      []chan []Signal
+	ins       []chan []*Signal
+	outs      []chan []*Signal
 	blk       Block
 }
 
@@ -33,7 +33,7 @@ type Loop struct {
 	logger                  golog.Logger
 	ts                      []chan time.Time
 	dt                      time.Duration
-	activeBackgroundWorkers *sync.WaitGroup
+	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	running                 bool
@@ -47,13 +47,12 @@ func NewLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
 func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{
-		logger:                  logger,
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		cfg:                     cfg,
-		blocks:                  make(map[string]*controlBlockInternal),
-		cancelCtx:               cancelCtx,
-		cancel:                  cancel,
-		running:                 false,
+		logger:    logger,
+		cfg:       cfg,
+		blocks:    make(map[string]*controlBlockInternal),
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
+		running:   false,
 	}
 	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
@@ -75,7 +74,7 @@ func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) 
 			if !ok {
 				return nil, errors.Errorf("block %s depends on %s but it does not exist", b.blk.Config(l.cancelCtx).Name, dep)
 			}
-			blockDep.outs = append(blockDep.outs, make(chan []Signal))
+			blockDep.outs = append(blockDep.outs, make(chan []*Signal))
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])
 		}
 	}
@@ -115,7 +114,7 @@ func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) 
 				nInputs := len(b.ins)
 				close(waitCh)
 				for {
-					sw := make([]Signal, nInputs)
+					sw := make([]*Signal, nInputs)
 					for i, c := range b.ins {
 						r, ok := <-c
 						if !ok {
@@ -151,10 +150,10 @@ func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) 
 }
 
 // OutputAt returns the Signal at the block name, error when the block doesn't exist.
-func (l *Loop) OutputAt(ctx context.Context, name string) ([]Signal, error) {
+func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return []Signal{}, errors.Errorf("cannot return Signals for non existing block %s", name)
+		return []*Signal{}, errors.Errorf("cannot return Signals for non existing block %s", name)
 	}
 	return blk.blk.Output(ctx), nil
 }

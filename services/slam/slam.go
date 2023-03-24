@@ -5,13 +5,11 @@ package slam
 import (
 	"context"
 	"io"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
@@ -19,7 +17,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
@@ -34,16 +31,10 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.SLAMService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, name, logger), nil
 		},
-		Reconfigurable: WrapWithReconfigurable,
 	})
-}
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Service)(nil), actual)
 }
 
 // SubtypeName is the name of the type of service.
@@ -66,18 +57,12 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-var (
-	_ = Service(&reconfigurableSlam{})
-	_ = resource.Reconfigurable(&reconfigurableSlam{})
-	_ = goutils.ContextCloser(&reconfigurableSlam{})
-)
-
 // Service describes the functions that are available to the service.
 type Service interface {
+	resource.Resource
 	GetPosition(context.Context) (spatialmath.Pose, string, error)
 	GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	GetInternalState(ctx context.Context) (func() ([]byte, error), error)
-	resource.Generic
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
@@ -117,75 +102,4 @@ func GetInternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) 
 		return nil, err
 	}
 	return HelperConcatenateChunksToFull(callback)
-}
-
-type reconfigurableSlam struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Service
-}
-
-func (svc *reconfigurableSlam) Name() resource.Name {
-	return svc.name
-}
-
-func (svc *reconfigurableSlam) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetPosition(ctx)
-}
-
-func (svc *reconfigurableSlam) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetPointCloudMap(ctx)
-}
-
-func (svc *reconfigurableSlam) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetInternalState(ctx)
-}
-
-func (svc *reconfigurableSlam) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DoCommand(ctx, cmd)
-}
-
-func (svc *reconfigurableSlam) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
-}
-
-// Reconfigure replaces the old slam service with a new slam.
-func (svc *reconfigurableSlam) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableSlam)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
-}
-
-// WrapWithReconfigurable wraps a slam service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableSlam); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableSlam{name: name, actual: svc}, nil
 }

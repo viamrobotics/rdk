@@ -10,7 +10,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
@@ -31,15 +30,7 @@ func NewServer(s subtype.Service) pb.VisionServiceServer {
 }
 
 func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
 }
 
 func (server *subtypeServer) GetModelParameterSchema(
@@ -94,7 +85,7 @@ func (server *subtypeServer) AddDetector(
 	if err != nil {
 		return nil, err
 	}
-	params := config.AttributeMap(req.DetectorParameters.AsMap())
+	params := utils.AttributeMap(req.DetectorParameters.AsMap())
 	cfg := VisModelConfig{
 		Name:       req.DetectorName,
 		Type:       req.DetectorModelType,
@@ -235,7 +226,7 @@ func (server *subtypeServer) AddClassifier(
 	if err != nil {
 		return nil, err
 	}
-	params := config.AttributeMap(req.ClassifierParameters.AsMap())
+	params := utils.AttributeMap(req.ClassifierParameters.AsMap())
 	cfg := VisModelConfig{
 		Name:       req.ClassifierName,
 		Type:       req.ClassifierModelType,
@@ -350,7 +341,7 @@ func (server *subtypeServer) AddSegmenter(
 	if err != nil {
 		return nil, err
 	}
-	params := config.AttributeMap(req.SegmenterParameters.AsMap())
+	params := utils.AttributeMap(req.SegmenterParameters.AsMap())
 	cfg := VisModelConfig{
 		Name:       req.SegmenterName,
 		Type:       req.SegmenterModelType,

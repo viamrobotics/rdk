@@ -12,7 +12,8 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func main() {
@@ -37,7 +38,7 @@ type Arguments struct {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
-	var argsMap videosource.WebcamAttrs
+	var argsMap videosource.WebcamConfig
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
@@ -57,37 +58,40 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return nil
 	}
 
-	attrs := config.AttributeMap{}
+	conf := rutils.AttributeMap{}
 
 	if argsParsed.Format != "" {
-		attrs["format"] = argsParsed.Format
+		conf["format"] = argsParsed.Format
 		argsMap.Format = argsParsed.Format
 	}
 
 	if argsParsed.Path != "" {
-		attrs["path"] = argsParsed.Path
+		conf["path"] = argsParsed.Path
 		argsMap.Path = argsParsed.Path
 	}
 
 	if argsParsed.PathPattern != "" {
-		attrs["path_pattern"] = argsParsed.PathPattern
+		conf["path_pattern"] = argsParsed.PathPattern
 		argsMap.Format = argsParsed.PathPattern
 	}
 
 	if argsParsed.Debug {
-		attrs["debug"] = true
+		conf["debug"] = true
 		argsMap.Debug = true
 	}
 
 	if argsParsed.Debug {
-		logger.Debugf("attrs: %v", attrs)
+		logger.Debugf("conf: %v", conf)
 	}
 
 	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs videosource.WebcamAttrs, port int, debug bool, logger golog.Logger) error {
-	webcam, err := videosource.NewWebcamSource(ctx, "camera", &attrs, logger)
+func viewCamera(ctx context.Context, conf videosource.WebcamConfig, port int, debug bool, logger golog.Logger) error {
+	webcam, err := videosource.NewWebcam(ctx, nil, resource.Config{
+		Name:                "camera",
+		ConvertedAttributes: &conf,
+	}, logger)
 	if err != nil {
 		return err
 	}
