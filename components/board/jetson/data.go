@@ -362,8 +362,16 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		},
 	},
 	jetsonOrin: {
+		// For pins whose Broadcom SOC channel is -1 (pins 8, 10, 27, and 28), we added these
+		// pin definitions ourselves because they're not present in
+		// https://github.com/NVIDIA/jetson-gpio/blob/master/lib/python/Jetson/GPIO/gpio_pin_data.py
+		// We were unable to find the broadcom channel numbers for these pins, but (as of March
+		// 2023) Viam doesn't use those values for anything anyway.
 		[]genericlinux.PinDefinition{
 			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
+			{map[int]int{164: 110}, map[int]string{164: "PR.02"}, "2200000.gpio", 8, -1, "UART1_TX", "GP70_UART1_TXD_BOOT2_STRAP", "", -1},
+			// Input-only (due to base board)
+			{map[int]int{164: 111}, map[int]string{164: "PR.03"}, "2200000.gpio", 10, -1, "UART1_RX", "GP71_UART1_RXD", "", -1},
 			// Output-only (due to base board)
 			{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
 			{map[int]int{164: 50}, map[int]string{164: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "GP122", "", -1},
@@ -377,6 +385,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{164: 133}, map[int]string{164: "PZ.03"}, "2200000.gpio", 23, 11, "SPI1_CLK", "GP47_SPI1_CLK", "", -1},
 			{map[int]int{164: 136}, map[int]string{164: "PZ.06"}, "2200000.gpio", 24, 8, "SPI1_CS0_N", "GP50_SPI1_CS0_N", "", -1},
 			{map[int]int{164: 137}, map[int]string{164: "PZ.07"}, "2200000.gpio", 26, 7, "SPI1_CS1_N", "GP51_SPI1_CS1_N", "", -1},
+			// Has pull-up resistors that cannot be disabled (due to use in I2C bus on board)
+			{map[int]int{32: 20}, map[int]string{32: "PDD.00"}, "c2f0000.gpio", 27, -1, "I2C2_DAT", "GP14_I2C2_DAT", "", -1},
+			// Has pull-up resistors that cannot be disabled (due to use in I2C bus on board)
+			{map[int]int{32: 19}, map[int]string{32: "PCC.07"}, "c2f0000.gpio", 28, -1, "I2C2_CLK", "GP13_I2C2_CLK", "", -1},
 			{map[int]int{32: 1}, map[int]string{32: "PAA.01"}, "c2f0000.gpio", 29, 5, "CAN0_DIN", "GP18_CAN0_DIN", "", -1},
 			{map[int]int{32: 0}, map[int]string{32: "PAA.00"}, "c2f0000.gpio", 31, 6, "CAN0_DOUT", "GP17_CAN0_DOUT", "", -1},
 			{map[int]int{32: 8}, map[int]string{32: "PBB.00"}, "c2f0000.gpio", 32, 12, "GPIO09", "GP25", "", -1},
