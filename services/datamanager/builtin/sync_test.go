@@ -119,7 +119,7 @@ func TestSyncEnabled(t *testing.T) {
 			for len(mockClient.succesfulDCRequests) > 0 {
 				<-mockClient.succesfulDCRequests
 			}
-			var receivedReqTwo bool
+			var sentReqAfterUpdate bool
 			mockClock.Add(captureInterval)
 			waitForCaptureFiles(tmpDir)
 			mockClock.Add(syncInterval)
@@ -127,15 +127,15 @@ func TestSyncEnabled(t *testing.T) {
 			select {
 			case <-wait:
 			case <-mockClient.succesfulDCRequests:
-				receivedReqTwo = true
+				sentReqAfterUpdate = true
 			}
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			if !tc.newServiceDisableStatus {
-				test.That(t, receivedReqTwo, test.ShouldBeTrue)
+				test.That(t, sentReqAfterUpdate, test.ShouldBeTrue)
 			} else {
-				test.That(t, receivedReqTwo, test.ShouldBeFalse)
+				test.That(t, sentReqAfterUpdate, test.ShouldBeFalse)
 			}
 		})
 	}
@@ -327,6 +327,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 	}
 }
 
+// TODO DATA-1268: Reimplement this test.
 // Cases: manual sync, successful, unsuccessful
 // To validate: uploaded all data once, deleted file if no error, builds additional sync paths if none exist
 func TestArbitraryFileUpload(t *testing.T) {
