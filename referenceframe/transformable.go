@@ -227,24 +227,6 @@ func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
 	return nil
 }
 
-// RemoveGeometry removes the named geometry if it exists in the GeometriesInFrame and has no effect otherwise.
-func (gF *GeometriesInFrame) RemoveGeometry(name string) {
-	if gF.nameIndexMap == nil {
-		return
-	}
-	if i, ok := gF.nameIndexMap[name]; ok {
-		// delete the name from the map, set end element to its place
-		delete(gF.nameIndexMap, name)
-		end := gF.geometries[len(gF.geometries)-1]
-		gF.nameIndexMap[end.Label()] = i
-
-		// constant time deletion of the element from the slice - reference: https://github.com/golang/go/wiki/SliceTricks
-		gF.geometries[i] = end
-		gF.geometries[len(gF.geometries)-1] = nil
-		gF.geometries = gF.geometries[:len(gF.geometries)-1]
-	}
-}
-
 // Transform changes the GeometriesInFrame gF into the reference frame specified by the tf argument.
 // The tf PoseInFrame represents the pose of the gF reference frame with respect to the destination reference frame.
 func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
