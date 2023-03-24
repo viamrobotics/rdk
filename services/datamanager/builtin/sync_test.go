@@ -519,10 +519,10 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 
 	// Sort both by time requested.
 	sort.Slice(act, func(i, j int) bool {
-		return act[i].GetMetadata().GetTimeRequested().Nanos < act[j].GetMetadata().GetTimeRequested().Nanos
+		return act[i].GetMetadata().GetTimeReceived().Nanos < act[j].GetMetadata().GetTimeReceived().Nanos
 	})
 	sort.Slice(exp, func(i, j int) bool {
-		return exp[i].GetMetadata().GetTimeRequested().Nanos < exp[j].GetMetadata().GetTimeRequested().Nanos
+		return exp[i].GetMetadata().GetTimeReceived().Nanos < exp[j].GetMetadata().GetTimeReceived().Nanos
 	})
 
 	test.That(t, len(act), test.ShouldEqual, len(exp))
