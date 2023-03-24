@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -32,13 +31,18 @@ const (
 
 func init() {
 	registry.RegisterService(navigation.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, deps, c, logger)
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewBuiltIn(ctx, deps, conf, logger)
 		},
 	},
 	)
 	config.RegisterServiceAttributeMapConverter(navigation.Subtype, resource.DefaultServiceModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
 			var conf Config
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 			if err != nil {
@@ -48,8 +52,7 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		}, &Config{},
-	)
+		})
 }
 
 // Config describes how to configure the service.
@@ -62,49 +65,88 @@ type Config struct {
 }
 
 // Validate creates the list of implicit dependencies.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.BaseName == "" {
+	if conf.BaseName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
 	}
-	deps = append(deps, config.BaseName)
+	deps = append(deps, conf.BaseName)
 
-	if config.MovementSensorName == "" {
+	if conf.MovementSensorName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
-	deps = append(deps, config.MovementSensorName)
+	deps = append(deps, conf.MovementSensorName)
 
 	return deps, nil
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.
-func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (navigation.Service, error) {
-	svcConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	navSvc := &builtIn{
+		Named:      conf.ResourceName().AsNamed(),
+		logger:     logger,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+	}
+	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return navSvc, nil
+}
+
+type builtIn struct {
+	resource.Named
+	mu        sync.RWMutex
+	store     navigation.NavStore
+	storeType string
+	mode      navigation.Mode
+
+	base           base.Base
+	movementSensor movementsensor.MovementSensor
+
+	mmPerSecDefault         float64
+	degPerSecDefault        float64
+	logger                  golog.Logger
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+}
+
+func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+
+	svcConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
 	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var store navigation.NavStore
-	switch svcConfig.Store.Type {
-	case navigation.StoreTypeMemory:
-		store = navigation.NewMemoryNavigationStore()
-	case navigation.StoreTypeMongoDB:
-		var err error
-		store, err = navigation.NewMongoDBNavigationStore(ctx, svcConfig.Store.Config)
-		if err != nil {
-			return nil, err
+	var newStore navigation.NavStore
+	if svc.storeType != string(svcConfig.Store.Type) {
+		switch svcConfig.Store.Type {
+		case navigation.StoreTypeMemory:
+			newStore = navigation.NewMemoryNavigationStore()
+		case navigation.StoreTypeMongoDB:
+			var err error
+			newStore, err = navigation.NewMongoDBNavigationStore(ctx, svcConfig.Store.Config)
+			if err != nil {
+				return err
+			}
+		default:
+			return errors.Errorf("unknown store type %q", svcConfig.Store.Type)
 		}
-	default:
-		return nil, errors.Errorf("unknown store type %q", svcConfig.Store.Type)
+	} else {
+		newStore = svc.store
 	}
 
 	// get default speeds from config if set, else defaults from nav services const
@@ -117,35 +159,14 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		spinSpeed = degPerSecDefault
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	navSvc := &builtIn{
-		store:            store,
-		base:             base1,
-		movementSensor:   movementSensor,
-		mmPerSecDefault:  straightSpeed,
-		degPerSecDefault: spinSpeed,
-		logger:           logger,
-		cancelCtx:        cancelCtx,
-		cancelFunc:       cancelFunc,
-	}
-	return navSvc, nil
-}
+	svc.store = newStore
+	svc.storeType = string(svcConfig.Store.Type)
+	svc.base = base1
+	svc.movementSensor = movementSensor
+	svc.mmPerSecDefault = straightSpeed
+	svc.degPerSecDefault = spinSpeed
 
-type builtIn struct {
-	generic.Unimplemented
-	mu    sync.RWMutex
-	store navigation.NavStore
-	mode  navigation.Mode
-
-	base           base.Base
-	movementSensor movementsensor.MovementSensor
-
-	mmPerSecDefault         float64
-	degPerSecDefault        float64
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	return nil
 }
 
 func (svc *builtIn) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {

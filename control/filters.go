@@ -27,7 +27,7 @@ type filterStruct struct {
 	mu     sync.Mutex
 	cfg    BlockConfig
 	filter filter
-	y      []Signal
+	y      []*Signal
 	logger golog.Logger
 }
 
@@ -43,7 +43,7 @@ func (f *filterStruct) initFilter() error {
 	if !f.cfg.Attribute.Has("type") {
 		return errors.Errorf("filter %s config should have a type field", f.cfg.Name)
 	}
-	f.y = make([]Signal, 1)
+	f.y = make([]*Signal, 1)
 	f.y[0] = makeSignal(f.cfg.Name)
 	fType := f.cfg.Attribute.String("type")
 	switch filterType(fType) {
@@ -134,7 +134,7 @@ func (f *filterStruct) initFilter() error {
 	}
 }
 
-func (f *filterStruct) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (f *filterStruct) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	if len(x) == 1 {
 		xFlt, ok := f.filter.Next(x[0].GetSignalValueAt(0))
 		f.y[0].SetSignalValueAt(0, xFlt)
@@ -160,6 +160,6 @@ func (f *filterStruct) UpdateConfig(ctx context.Context, config BlockConfig) err
 	return f.initFilter()
 }
 
-func (f *filterStruct) Output(ctx context.Context) []Signal {
+func (f *filterStruct) Output(ctx context.Context) []*Signal {
 	return f.y
 }

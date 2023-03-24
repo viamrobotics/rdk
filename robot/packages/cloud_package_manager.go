@@ -25,6 +25,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -42,6 +44,9 @@ type managedPackage struct {
 }
 
 type cloudManager struct {
+	resource.Named
+	// we assume the config is immutable for the lifetime of the process
+	resource.TriviallyReconfigurable
 	client          pb.PackageServiceClient
 	httpClient      http.Client
 	packagesDataDir string
@@ -52,6 +57,19 @@ type cloudManager struct {
 
 	logger golog.Logger
 }
+
+// SubtypeName is a constant that identifies the internal package manager resource subtype string.
+const SubtypeName = resource.SubtypeName("packagemanager")
+
+// Subtype is the fully qualified subtype for the internal package manager service.
+var Subtype = resource.NewSubtype(
+	internal.ResourceNamespaceRDKInternal,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// InternalServiceName is used to refer to/depend on this service internally.
+var InternalServiceName = resource.NameFromSubtype(Subtype, "builtin")
 
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
 func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {
@@ -66,6 +84,7 @@ func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger 
 	}
 
 	return &cloudManager{
+		Named:           InternalServiceName.AsNamed(),
 		client:          client,
 		httpClient:      http.Client{Timeout: time.Minute * 30},
 		packagesDir:     packagesDir,
@@ -266,8 +285,12 @@ func (m *cloudManager) loadFile(ctx context.Context, url string, p config.Packag
 	}
 
 	// Force redownload of package archive.
-	utils.UncheckedError(m.cleanup(p))
-	utils.UncheckedError(os.Remove(m.localNamedPath(p)))
+	if err := m.cleanup(p); err != nil {
+		m.logger.Debug(err)
+	}
+	if err := os.Remove(m.localNamedPath(p)); err != nil {
+		m.logger.Debug(err)
+	}
 
 	// Download from GCS
 	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p)
@@ -288,8 +311,12 @@ func (m *cloudManager) loadFile(ctx context.Context, url string, p config.Packag
 
 	defer func() {
 		// cleanup archive file.
-		utils.UncheckedError(os.Remove(m.localDownloadPath(p)))
-		utils.UncheckedError(os.Remove(tmpDataPath))
+		if err := os.Remove(m.localDownloadPath(p)); err != nil {
+			m.logger.Debug(err)
+		}
+		if err := os.Remove(tmpDataPath); err != nil {
+			m.logger.Debug(err)
+		}
 	}()
 
 	// unzip archive.

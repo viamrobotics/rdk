@@ -6,14 +6,14 @@ This example demonstrates a user defining a new sensor model.
 ## How to add custom models
 
 Models can be added to the viam-server by creating a struct that implements the interface of the subtype we want to register.
-For example, if we want to create a sensor, we would want to make sure that we implement the Sensor interface, which includes the method `Readings` and also `DoCommand` from the `generic.Generic` interface.
-The `generic.Generic` interface allows you to add arbitrary commands with arbitrary input arguments and return messages, which is useful if you want to extend the functionality of a model implementation beyond the subtype interface.
+For example, if we want to create a sensor, we would want to make sure that we implement the Sensor interface, which includes the method `Readings` and also `DoCommand` from the `resource.Generic` interface.
+The `resource.Generic` interface allows you to add arbitrary commands with arbitrary input arguments and return messages, which is useful if you want to extend the functionality of a model implementation beyond the subtype interface.
 
 ```
     type Sensor interface {
         // Readings return data specific to the type of sensor and can be of any type.
         Readings(ctx context.Context) (map[string]interface{}, error)
-        generic.Generic
+        resource.Generic
     }
 ```
 
@@ -33,8 +33,8 @@ Init functions are run on import, so we have to make sure we are importing it so
             "mySensor",
             registry.Component{Constructor: func(
                 ctx context.Context,
-                deps registry.Dependencies,
-                config config.Component,
+                deps resource.Dependencies,
+                conf resource.Config,
                 logger golog.Logger,
             ) (interface{}, error) {
                 return newSensor(config.Name), nil

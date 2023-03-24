@@ -7,11 +7,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -97,16 +95,17 @@ func TestClient(t *testing.T) {
 		return false, 0.0, errors.New("is on unavailable")
 	}
 
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]resource.Resource{
 		motor.Named(testMotorName): workingMotor,
 		motor.Named(failMotorName): failingMotor,
 	}
-	motorSvc, err := subtype.New(resourceMap)
+	motorSvc, err := subtype.New(motor.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(motor.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(motor.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc)
 
-	workingMotor.DoFunc = generic.EchoFunc
+	workingMotor.DoFunc = testutils.EchoFunc
 	generic.RegisterService(rpcServer, motorSvc)
 
 	go rpcServer.Serve(listener1)
@@ -122,14 +121,15 @@ func TestClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingMotorClient := motor.NewClientFromConn(context.Background(), conn, testMotorName, logger)
+	workingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(testMotorName), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
 		// DoCommand
-		resp, err := workingMotorClient.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := workingMotorClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		err = workingMotorClient.SetPower(context.Background(), 42.0, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -169,7 +169,8 @@ func TestClient(t *testing.T) {
 
 	conn, err = viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	failingMotorClient := motor.NewClientFromConn(context.Background(), conn, failMotorName, logger)
+	failingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(failMotorName), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing motor", func(t *testing.T) {
 		err := failingMotorClient.GoTo(context.Background(), 42.0, 42.0, nil)
@@ -206,7 +207,8 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, testMotorName, logger)
+		workingMotorDialedClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(testMotorName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := workingMotorDialedClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -237,7 +239,8 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for failing motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, failMotorName, logger)
+		failingMotorDialedClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(failMotorName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2, nil)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -255,37 +258,4 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	test.That(t, conn.Close(), test.ShouldBeNil)
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectMotor := &inject.Motor{}
-
-	motorSvc, err := subtype.New(map[resource.Name]interface{}{motor.Named(testMotorName): injectMotor})
-	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterMotorServiceServer(gServer, motor.NewServer(motorSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := motor.NewClientFromConn(ctx, conn1, testMotorName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := motor.NewClientFromConn(ctx, conn2, testMotorName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

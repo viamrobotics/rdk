@@ -8,9 +8,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -52,7 +52,7 @@ func TestVoxelSegmentMeans(t *testing.T) {
 
 	// Do voxel segmentation
 	expectedLabel := "test_label"
-	voxObjConfig := config.AttributeMap{
+	voxObjConfig := utils.AttributeMap{
 		"voxel_size":            1.0,
 		"lambda":                0.1,
 		"min_points_in_plane":   100,

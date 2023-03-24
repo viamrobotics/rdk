@@ -17,17 +17,18 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	cfg := &config.Config{}
 
 	// create fake source camera
-	cameraComp := config.Component{
+	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("image_file"),
-		Attributes: config.AttributeMap{
+		Attributes: rutils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/classification/keyboard.jpg"),
 			"depth_image_file_path": "",
 		},
@@ -35,16 +36,16 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	cfg.Components = append(cfg.Components, cameraComp)
 
 	// create classification transform camera
-	classifierComp := config.Component{
+	classifierComp := resource.Config{
 		Name:  "classification_transform_camera",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("transform"),
-		Attributes: config.AttributeMap{
+		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
-			"pipeline": []config.AttributeMap{
+			"pipeline": []rutils.AttributeMap{
 				{
 					"type": "classifications",
-					"attributes": config.AttributeMap{
+					"attributes": rutils.AttributeMap{
 						"classifier_name":      "object_classifier",
 						"confidence_threshold": 0.35,
 						"max_classifications":  5,
@@ -55,6 +56,9 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, classifierComp)
+	if err := cfg.Ensure(false, logger); err != nil {
+		return nil, err
+	}
 
 	newConfFile, err := writeTempConfig(cfg)
 	if err != nil {
@@ -76,7 +80,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	classConf := vision.VisModelConfig{
 		Name: "object_classifier",
 		Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
+		Parameters: rutils.AttributeMap{
 			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
 			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
 			"num_threads": 1,

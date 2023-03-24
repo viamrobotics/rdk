@@ -102,7 +102,7 @@
         {
             "name": "mock6",
             "type": "mock",
-            "model": "${TEST_MODEL_NAME_2-fake2}",
+            "model": "${TEST_MODEL_NAME_1-fake2}",
             "depends_on": [],
             "attributes": {
                 "one": 2

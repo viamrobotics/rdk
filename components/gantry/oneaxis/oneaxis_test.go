@@ -11,11 +11,11 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	fakeencoder "go.viam.com/rdk/components/encoder/fake"
+	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -61,7 +61,7 @@ func createFakeBoard() *inject.Board {
 	return fakeBoard
 }
 
-func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
+func createFakeDepsForTestNewOneAxis(t *testing.T) resource.Dependencies {
 	t.Helper()
 	injectGPIOPin := &inject.GPIOPin{}
 	injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
@@ -76,14 +76,18 @@ func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 
 	logger := golog.NewTestLogger(t)
 
+	enc, err := fakeencoder.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fakeencoder.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	fakeMotor := &fake.Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Encoder:           enc.(fakeencoder.Encoder),
 		PositionReporting: true,
 		MaxRPM:            60,
 		Logger:            logger,
 		TicksPerRotation:  1,
 	}
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named("board")] = fakeBoard
 	deps[motor.Named(motorName)] = fakeMotor
 	return deps
@@ -92,7 +96,7 @@ func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 var setTrue = true
 
 func TestValidate(t *testing.T) {
-	fakecfg := &AttrConfig{}
+	fakecfg := &Config{}
 	deps, err := fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry")
@@ -169,13 +173,13 @@ func TestNewOneAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	deps := createFakeDepsForTestNewOneAxis(t)
-	fakecfg := config.Component{Name: "gantry"}
+	fakecfg := resource.Config{Name: "gantry"}
 	_, err := newOneAxis(ctx, deps, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *oneaxis.AttrConfig but got <nil>")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *oneaxis.Config but got <nil>")
 
-	fakecfg = config.Component{
+	fakecfg = resource.Config{
 		Name: "gantry",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2"},
 			LengthMm:        1.0,
@@ -190,9 +194,9 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, fakeoneax.limitType, test.ShouldEqual, "twoPin")
 
-	fakecfg = config.Component{
+	fakecfg = resource.Config{
 		Name: "gantry",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
@@ -208,9 +212,9 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeoneax.limitType, test.ShouldEqual, "onePinOneLength")
 
-	fakecfg = config.Component{
+	fakecfg = resource.Config{
 		Name: "gantry",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
@@ -224,9 +228,9 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a mm_per_length ratio defined")
 
-	fakecfg = config.Component{
+	fakecfg = resource.Config{
 		Name: "gantry",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2", "3"},
 			LengthMm:        1.0,
@@ -236,7 +240,7 @@ func TestNewOneAxis(t *testing.T) {
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 
-	deps = make(registry.Dependencies)
+	deps = make(resource.Dependencies)
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
 
@@ -247,7 +251,7 @@ func TestNewOneAxis(t *testing.T) {
 			}, nil
 		},
 	}
-	deps = make(registry.Dependencies)
+	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
 
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
@@ -261,7 +265,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 
-	deps = make(registry.Dependencies)
+	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	expectedErr := motor.NewFeatureUnsupportedError(motor.PositionReporting, motorName)
@@ -683,7 +687,7 @@ func TestMoveToPosition(t *testing.T) {
 
 func TestModelFrame(t *testing.T) {
 	fakegantry := &oneAxis{
-		name:     "test",
+		Named:    gantry.Named("foo").AsNamed(),
 		lengthMm: 1.0,
 		axis:     r3.Vector{X: 0, Y: 0, Z: 1},
 		model:    nil,

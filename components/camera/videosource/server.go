@@ -34,56 +34,44 @@ var (
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, modelSingle,
-		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*ServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+		registry.Component{Constructor: func(ctx context.Context, _ resource.Dependencies,
+			conf resource.Config, logger golog.Logger,
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*ServerConfig](conf)
+			if err != nil {
+				return nil, err
 			}
-			return NewServerSource(ctx, attrs, logger)
+			src, err := NewServerSource(ctx, newConf, logger)
+			if err != nil {
+				return nil, err
+			}
+			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelSingle,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf ServerAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&ServerConfig{}, attributes)
+		})
+
+	registry.RegisterComponent(camera.Subtype, modelDual,
+		registry.Component{Constructor: func(ctx context.Context, _ resource.Dependencies,
+			conf resource.Config, logger golog.Logger,
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*dualServerConfig](conf)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*ServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			src, err := newDualServerSource(ctx, newConf)
+			if err != nil {
+				return nil, err
 			}
-			return result, nil
-		},
-		&ServerAttrs{})
-
-	registry.RegisterComponent(camera.Subtype, modelDual,
-		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*dualServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			return newDualServerSource(ctx, attrs)
+			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDual,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf dualServerAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*dualServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&dualServerAttrs{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&dualServerConfig{}, attributes)
+		})
 }
 
 // dualServerSource stores two URLs, one which points the color source and the other to the
@@ -97,8 +85,8 @@ type dualServerSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// dualServerAttrs is the attribute struct for dualServerSource.
-type dualServerAttrs struct {
+// dualServerConfig is the attribute struct for dualServerSource.
+type dualServerConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
@@ -108,7 +96,7 @@ type dualServerAttrs struct {
 }
 
 // newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
-func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Camera, error) {
+func newDualServerSource(ctx context.Context, cfg *dualServerConfig) (camera.VideoSource, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -119,7 +107,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Stream:     camera.ImageType(cfg.Stream),
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewFromReader(
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,
@@ -193,8 +181,8 @@ type serverSource struct {
 	Intrinsics *transform.PinholeCameraIntrinsics
 }
 
-// ServerAttrs is the attribute struct for serverSource.
-type ServerAttrs struct {
+// ServerConfig is the attribute struct for serverSource.
+type ServerConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
@@ -243,7 +231,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 // NewServerSource creates the VideoSource that streams color/depth data from an external server at a given URL.
-func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
+func NewServerSource(ctx context.Context, cfg *ServerConfig, logger golog.Logger) (camera.VideoSource, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth)")
 	}
@@ -256,7 +244,7 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		Intrinsics: cfg.CameraParameters,
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewFromReader(
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,

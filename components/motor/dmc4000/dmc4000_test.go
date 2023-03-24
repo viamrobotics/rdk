@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dmc4000"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -67,7 +66,7 @@ func TestDMC4000Motor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan string)
 	resChan := make(chan string, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc := dmc4000.Config{
 		SerialDevice:     "testchan",
@@ -81,7 +80,8 @@ func TestDMC4000Motor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, resource.NewDefaultModel("DMC4000"))
+	motorReg, ok := registry.ResourceLookup(motor.Subtype, resource.NewDefaultModel("DMC4000"))
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -111,7 +111,7 @@ func TestDMC4000Motor(t *testing.T) {
 		},
 	)
 
-	m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		txMu.Lock()
@@ -122,14 +122,14 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 		waitTx(t, resChan)
 	}()
-	_motor, ok := m.(motor.Motor)
+	motorDep, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	stoppableMotor, ok := _motor.(motor.LocalMotor)
+	stoppableMotor, ok := motorDep.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.Properties(ctx, nil)
+		features, err := motorDep.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -141,7 +141,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"STA", "SCA", "TEA"},
 			[]string{" :", "4\r\n:", "0\r\n:"},
 		)
-		test.That(t, _motor.SetPower(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 0, nil), test.ShouldBeNil)
 
 		// Test 0.5 of max power
 		txMu.Lock()
@@ -149,7 +149,7 @@ func TestDMC4000Motor(t *testing.T) {
 			"JGA=32000",
 			"BGA",
 		})
-		test.That(t, _motor.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
 
 		// Test -0.5 of max power
 		txMu.Lock()
@@ -157,7 +157,7 @@ func TestDMC4000Motor(t *testing.T) {
 			"JGA=-32000",
 			"BGA",
 		})
-		test.That(t, _motor.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -167,7 +167,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"STA", "SCA", "TEA"},
 			[]string{" :", " 4\r\n:", " 0\r\n:"},
 		)
-		test.That(t, _motor.Stop(ctx, nil), test.ShouldBeNil)
+		test.That(t, motorDep.Stop(ctx, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -178,7 +178,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"RPA"},
 			[]string{" 51200\r\n:"},
 		)
-		pos, err := _motor.Position(ctx, nil)
+		pos, err := motorDep.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 4.0)
 		waitTx(t, resChan)
@@ -205,7 +205,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
@@ -227,7 +227,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
@@ -249,7 +249,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, 6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, 6.6, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -274,7 +274,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
@@ -296,7 +296,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
@@ -318,7 +318,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, 6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, 6.6, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -343,7 +343,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
@@ -365,7 +365,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
@@ -387,7 +387,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, -6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, -6.6, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -412,7 +412,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		txMu.Lock()
@@ -434,7 +434,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		txMu.Lock()
@@ -456,12 +456,12 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -6.6, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
 	t.Run("motor GoFor with 0 RPM", func(t *testing.T) {
-		test.That(t, _motor.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+		test.That(t, motorDep.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	t.Run("motor GoFor after jogging", func(t *testing.T) {
@@ -471,7 +471,7 @@ func TestDMC4000Motor(t *testing.T) {
 			"JGA=32000",
 			"BGA",
 		})
-		test.That(t, _motor.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
 
 		// Check with position at 0.0 revolutions
 		txMu.Lock()
@@ -495,7 +495,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -512,7 +512,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		on, powerPct, err := _motor.IsPowered(ctx, nil)
+		on, powerPct, err := motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, false)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -529,7 +529,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 5\r\n:",
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -544,7 +544,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -558,7 +558,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 30\r\n:",
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -572,7 +572,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 50\r\n:",
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -586,7 +586,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 60\r\n:",
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -600,7 +600,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 100\r\n:",
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
@@ -611,12 +611,12 @@ func TestDMC4000Motor(t *testing.T) {
 		// No offset (and when actually off)
 		txMu.Lock()
 		go checkTx(resChan, c, []string{"DPA=0"})
-		test.That(t, _motor.ResetZeroPosition(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motorDep.ResetZeroPosition(ctx, 0, nil), test.ShouldBeNil)
 
 		// 3.1 offset (and when actually off)
 		txMu.Lock()
 		go checkTx(resChan, c, []string{"DPA=39680"})
-		test.That(t, _motor.ResetZeroPosition(ctx, 3.1, nil), test.ShouldBeNil)
+		test.That(t, motorDep.ResetZeroPosition(ctx, 3.1, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 
@@ -721,7 +721,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"testTX"},
 			[]string{" testRX\r\n:"},
 		)
-		resp, err := _motor.DoCommand(ctx, map[string]interface{}{"command": "raw", "raw_input": "testTX"})
+		resp, err := motorDep.DoCommand(ctx, map[string]interface{}{"command": "raw", "raw_input": "testTX"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["return"], test.ShouldEqual, "testRX")
 		waitTx(t, resChan)
@@ -763,7 +763,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		resp, err := _motor.DoCommand(ctx, map[string]interface{}{"command": "home"})
+		resp, err := motorDep.DoCommand(ctx, map[string]interface{}{"command": "home"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 		waitTx(t, resChan)

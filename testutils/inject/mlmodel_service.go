@@ -3,28 +3,40 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 )
 
-// MLModelService represents a fake instance of a mlmodel service.
+// MLModelService represents a fake instance of an MLModel service.
 type MLModelService struct {
 	mlmodel.Service
+	name         resource.Name
 	InferFunc    func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
 	MetadataFunc func(ctx context.Context) (mlmodel.MLMetadata, error)
 }
 
-// Infer calls the injected InferFunc or the real version.
-func (mlmodelSvc *MLModelService) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-	if mlmodelSvc.InferFunc == nil {
-		return mlmodelSvc.Service.Infer(ctx, input)
-	}
-	return mlmodelSvc.InferFunc(ctx, input)
+// NewMLModelService returns a new injected mlmodel service.
+func NewMLModelService(name string) *MLModelService {
+	return &MLModelService{name: mlmodel.Named(name)}
 }
 
-// Metadata calls the injected MetadataFunc or the real version.
-func (mlmodelSvc *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
-	if mlmodelSvc.MetadataFunc == nil {
-		return mlmodelSvc.Service.Metadata(ctx)
+// Name returns the name of the resource.
+func (s *MLModelService) Name() resource.Name {
+	return s.name
+}
+
+// Infer calls the injected Infer or the real variant.
+func (s *MLModelService) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+	if s.InferFunc == nil {
+		return s.Service.Infer(ctx, input)
 	}
-	return mlmodelSvc.MetadataFunc(ctx)
+	return s.InferFunc(ctx, input)
+}
+
+// Metadata calls the injected Metadata or the real variant.
+func (s *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
+	if s.MetadataFunc == nil {
+		return s.Service.Metadata(ctx)
+	}
+	return s.MetadataFunc(ctx)
 }

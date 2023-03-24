@@ -3,7 +3,6 @@ package cameramono
 import (
 	"context"
 	"image"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,11 +15,9 @@ import (
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
@@ -30,9 +27,8 @@ import (
 )
 
 var tCo = &cameramono{
-	Unimplemented:           generic.Unimplemented{},
-	activeBackgroundWorkers: sync.WaitGroup{},
-	cancelCtx:               context.Background(),
+	Named:     camera.Named("foo").AsNamed(),
+	cancelCtx: context.Background(),
 	cancelFunc: func() {
 	},
 	result: result{
@@ -46,7 +42,7 @@ var tCo = &cameramono{
 
 func TestInit(t *testing.T) {
 	camName := "cam"
-	conf := &AttrConfig{}
+	conf := &Config{}
 	_, err := conf.Validate("")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "single camera")
 	conf.Camera = camName
@@ -92,13 +88,13 @@ func TestInit(t *testing.T) {
 	_, err = conf.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 
-	logger := golog.NewDebugLogger("test")
-	_, err = newCameraMono(nil, config.Component{}, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "AttrConfig")
-	goodC := config.Component{ConvertedAttributes: conf}
+	logger := golog.NewTestLogger(t)
+	_, err = newCameraMono(nil, resource.Config{}, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Config")
+	goodC := resource.Config{ConvertedAttributes: conf}
 	_, err = newCameraMono(nil, goodC, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	deps[camera.Named(camName)] = &inject.Camera{
 		Camera: nil,
@@ -159,9 +155,6 @@ func TestFunctions(t *testing.T) {
 	read, err := tCo.Readings(tCo.cancelCtx, make(map[string]interface{}))
 	test.That(t, read["linear_velocity"], test.ShouldResemble, r3.Vector{X: 40, Y: 50, Z: 60})
 	test.That(t, err, test.ShouldBeNil)
-
-	tCo.stream = mock{StreamName: "test"}
-	tCo.Close()
 }
 
 func TestMathHelpers(t *testing.T) {
@@ -202,18 +195,4 @@ func TestMathHelpers(t *testing.T) {
 		test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -0.8)
 		test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
 	})
-}
-
-type mock struct {
-	StreamName string
-}
-
-func (m mock) Close(ctx context.Context) error {
-	return nil
-}
-
-func (m mock) Next(ctx context.Context) (image.Image, func(), error) {
-	x0y0 := image.Point{0, 0}
-	x1y1 := image.Point{1, 1}
-	return image.Rectangle{x0y0, x1y1}, nil, nil
 }

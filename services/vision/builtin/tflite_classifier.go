@@ -45,9 +45,8 @@ func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 	if err != nil {
 		return nil, nil, errors.New("error getting parameters from config")
 	}
-	params, ok := tfParams.(*TFLiteClassifierConfig)
-	if !ok {
-		err := utils.NewUnexpectedTypeError(params, tfParams)
+	params, err := utils.AssertType[*TFLiteClassifierConfig](tfParams)
+	if err != nil {
 		return nil, nil, errors.Wrapf(err, "register tflite detector %s", conf.Name)
 	}
 	// Secret but hard limit on num_threads

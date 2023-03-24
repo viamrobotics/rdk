@@ -13,12 +13,13 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("fake")
 
-// AttrConfig is used for converting fake movementsensor attributes.
-type AttrConfig struct {
+// Config is used for converting fake movementsensor attributes.
+type Config struct {
 	ConnectionType string `json:"connection_type,omitempty"`
 }
 
@@ -28,25 +29,25 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return movementsensor.MovementSensor(&MovementSensor{}), nil
+		) (resource.Resource, error) {
+			return movementsensor.MovementSensor(&MovementSensor{
+				Named: conf.ResourceName().AsNamed(),
+			}), nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&AttrConfig{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 // MovementSensor implements is a fake movement sensor interface.
 type MovementSensor struct {
-	CancelCtx context.Context
-	Logger    golog.Logger
+	resource.Named
+	resource.AlwaysRebuild
 }
 
 // Position gets the position of a fake movementsensor.
@@ -111,7 +112,9 @@ func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interf
 func (f *MovementSensor) Start(ctx context.Context) error { return nil }
 
 // Close returns the fix of a fake gps movementsensor.
-func (f *MovementSensor) Close() error { return nil }
+func (f *MovementSensor) Close() error {
+	return nil
+}
 
 // ReadFix returns the fix of a fake gps movementsensor.
 func (f *MovementSensor) ReadFix(ctx context.Context) (int, error) { return 1, nil }

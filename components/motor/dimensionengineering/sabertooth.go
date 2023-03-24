@@ -46,6 +46,9 @@ type controller struct {
 
 // Motor is a single axis/motor/component instance.
 type Motor struct {
+	resource.Named
+	resource.AlwaysRebuild
+
 	// A reference to the actual controller that needs to be commanded for the motor to run
 	c *controller
 	// which channel the motor is connected to on the controller
@@ -66,9 +69,6 @@ type Motor struct {
 
 	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
 	opMgr operation.SingleOperationManager
-
-	// Name of the motor
-	motorName string
 }
 
 // Config adds DimensionEngineering-specific config options.
@@ -123,21 +123,20 @@ func (cfg *Config) Validate(path string) error {
 func init() {
 	controllers = make(map[string]*controller)
 
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
+	registry.RegisterComponent(motor.Subtype, modelName, registry.Component{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
 			}
-			return NewMotor(ctx, conf, config.Name, logger)
+			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
-	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
+	})
 
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
 			var conf Config
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 			if err != nil {
@@ -147,9 +146,7 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		},
-		&Config{},
-	)
+		})
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {
@@ -218,7 +215,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -254,12 +251,12 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 	ctrl.activeAxes[c.MotorChannel] = true
 
 	m := &Motor{
+		Named:       name.AsNamed(),
 		c:           ctrl,
 		Channel:     c.MotorChannel,
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
-		motorName:   name,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -387,7 +384,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 	c, err := newCommand(m.c.address, cmd, m.Channel, byte(int(rawSpeed)))
 	if err != nil {
-		return errors.Wrapf(err, "error in SetPower from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in SetPower")
 	}
 	err = m.c.sendCmd(c)
 	return err
@@ -404,7 +401,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in GoFor")
 	}
 
 	if revolutions == 0 {

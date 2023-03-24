@@ -3,18 +3,17 @@ package control
 import (
 	"context"
 	"math"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 func TestDerivativeConfig(t *testing.T) {
-	logger := golog.NewDebugLogger("derivative")
+	logger := golog.NewTestLogger(t)
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -23,7 +22,7 @@ func TestDerivativeConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"derive_type": "backward1st1",
 				},
 				DependsOn: []string{"A"},
@@ -34,7 +33,7 @@ func TestDerivativeConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"derive_type": "backward5st1",
 				},
 				DependsOn: []string{"A"},
@@ -45,7 +44,7 @@ func TestDerivativeConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"derive_type": "backward2nd1",
 				},
 				DependsOn: []string{"A", "B"},
@@ -56,7 +55,7 @@ func TestDerivativeConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"derive_type2": "backward2nd1",
 				},
 				DependsOn: []string{"A"},
@@ -79,12 +78,12 @@ func TestDerivativeConfig(t *testing.T) {
 
 func TestDerivativeNext(t *testing.T) {
 	const iter int = 3000
-	logger := golog.NewDebugLogger("derivative")
+	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cfg := BlockConfig{
 		Name: "Derive1",
 		Type: "derivative",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"derive_type": "backward2nd2",
 		},
 		DependsOn: []string{"A"},
@@ -96,16 +95,15 @@ func TestDerivativeNext(t *testing.T) {
 	for i := 0; i < iter; i++ {
 		sin = append(sin, math.Sin((time.Duration(10 * i * int(time.Millisecond)).Seconds())))
 	}
-	sig := Signal{
+	sig := &Signal{
 		name:      "A",
 		signal:    make([]float64, 1),
 		time:      make([]int, 1),
 		dimension: 1,
-		mu:        &sync.Mutex{},
 	}
 	for i := 0; i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
-		out, ok := d.Next(ctx, []Signal{sig}, (10 * time.Millisecond))
+		out, ok := d.Next(ctx, []*Signal{sig}, (10 * time.Millisecond))
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
@@ -115,7 +113,7 @@ func TestDerivativeNext(t *testing.T) {
 	cfg = BlockConfig{
 		Name: "Derive1",
 		Type: "derivative",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"derive_type": "backward1st2",
 		},
 		DependsOn: []string{"A"},
@@ -124,7 +122,7 @@ func TestDerivativeNext(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
-		out, ok := d.Next(ctx, []Signal{sig}, (10 * time.Millisecond))
+		out, ok := d.Next(ctx, []*Signal{sig}, (10 * time.Millisecond))
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
@@ -134,7 +132,7 @@ func TestDerivativeNext(t *testing.T) {
 	cfg = BlockConfig{
 		Name: "Derive1",
 		Type: "derivative",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"derive_type": "backward1st3",
 		},
 		DependsOn: []string{"A"},
@@ -147,7 +145,7 @@ func TestDerivativeNext(t *testing.T) {
 	}
 	for i := 0; i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
-		out, ok := d.Next(ctx, []Signal{sig}, 10*time.Millisecond)
+		out, ok := d.Next(ctx, []*Signal{sig}, 10*time.Millisecond)
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,

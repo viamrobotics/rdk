@@ -14,7 +14,6 @@ import (
 
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
@@ -38,45 +37,62 @@ type AttributeConverter func(val interface{}) (interface{}, error)
 
 // An AttributeMapConverter converts an attribute map into a possibly
 // different representation.
-type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
+type AttributeMapConverter func(attributes rutils.AttributeMap) (interface{}, error)
 
-// A ComponentAttributeConverterRegistration describes how to convert a specific attribute
-// for a model of a type of component.
-type ComponentAttributeConverterRegistration struct {
+// A ResourceAttributeConverterRegistration describes how to convert a specific attribute
+// for a model of a type of resource.
+type ResourceAttributeConverterRegistration struct {
 	Subtype resource.Subtype
 	Model   resource.Model
 	Attr    string
 	Conv    AttributeConverter
 }
 
-// A ComponentAttributeMapConverterRegistration describes how to convert all attributes
-// for a model of a type of component.
-type ComponentAttributeMapConverterRegistration struct {
+// A ResourceAttributeMapConverterRegistration describes how to convert all attributes
+// for a model of a type of resource.
+type ResourceAttributeMapConverterRegistration struct {
 	Subtype resource.Subtype
 	Model   resource.Model
 	Conv    AttributeMapConverter
-	RetType interface{} // the shape of what is converted to
 }
 
-// A ServiceAttributeMapConverterRegistration describes how to convert all attributes
-// for a model of a type of service.
-type ServiceAttributeMapConverterRegistration struct {
-	SvcType resource.Subtype
-	Model   resource.Model
-	Conv    AttributeMapConverter
-	RetType interface{} // the shape of what is converted to
+// A ResourceAssociationConfigConverter describes how to convert all attributes
+// for a type of resource associated with another resource (e.g. data capture on a resource).
+type ResourceAssociationConfigConverter struct {
+	Subtype  resource.Subtype
+	Conv     AttributeMapConverter
+	WithName ResourceToResourceAssociationWithName
 }
+
+// A ResourceAssocationConfigAssociator describes how to associate a
+// resource association config to a specific resource model (e.g. builtin data capture).
+type ResourceAssocationConfigAssociator struct {
+	Subtype   resource.Subtype
+	Model     resource.Model
+	Associate ResourceToResourceAssociator
+}
+
+type (
+	// ResourceToResourceAssociationWithName allows a resource to attach a name to a  subtype specific
+	// association config. This is generally done by the subtype registration.
+	ResourceToResourceAssociationWithName func(resName resource.Name, resAssociation interface{}) error
+
+	// ResourceToResourceAssociator allows one resource to associate a specific association config
+	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
+	ResourceToResourceAssociator func(conf *resource.Config, resAssociation interface{}) error
+)
 
 var (
-	componentAttributeConverters    = []ComponentAttributeConverterRegistration{}
-	componentAttributeMapConverters = []ComponentAttributeMapConverterRegistration{}
-	serviceAttributeMapConverters   = []ServiceAttributeMapConverterRegistration{}
+	resourceAttributeConverters        = []ResourceAttributeConverterRegistration{}
+	resourceAttributeMapConverters     = []ResourceAttributeMapConverterRegistration{}
+	resourceAssociationConfigConverter = []ResourceAssociationConfigConverter{}
+	resourceAssocationConfigAssociator = []ResourceAssocationConfigAssociator{}
 )
 
 // RegisterComponentAttributeConverter associates a component type and model with a way to convert a
 // particular attribute name.
 func RegisterComponentAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
-	componentAttributeConverters = append(componentAttributeConverters, ComponentAttributeConverterRegistration{subtype, model, attr, conv})
+	RegisterResourceAttributeConverter(subtype, model, attr, conv)
 }
 
 // RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
@@ -84,19 +100,47 @@ func RegisterComponentAttributeMapConverter(
 	subtype resource.Subtype,
 	model resource.Model,
 	conv AttributeMapConverter,
-	retType interface{},
 ) {
-	if retType == nil {
-		panic("retType should not be nil")
-	}
-	componentAttributeMapConverters = append(
-		componentAttributeMapConverters,
-		ComponentAttributeMapConverterRegistration{subtype, model, conv, retType},
+	RegisterResourceAttributeMapConverter(subtype, model, conv)
+}
+
+// RegisterServiceAttributeConverter associates a service type and model with a way to convert a
+// particular attribute name. It is a helper for RegisterResourceAttributeConverter.
+func RegisterServiceAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
+	RegisterResourceAttributeConverter(subtype, model, attr, conv)
+}
+
+// RegisterServiceAttributeMapConverter associates a service type and model with a way to convert all attributes.
+// It is a helper for RegisterResourceAttributeMapConverter.
+func RegisterServiceAttributeMapConverter(
+	subtype resource.Subtype,
+	model resource.Model,
+	conv AttributeMapConverter,
+) {
+	RegisterResourceAttributeMapConverter(subtype, model, conv)
+}
+
+// RegisterResourceAttributeConverter associates a resource (component/service) type and model with a way to
+// convert a particular attribute name.
+func RegisterResourceAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
+	resourceAttributeConverters = append(resourceAttributeConverters, ResourceAttributeConverterRegistration{subtype, model, attr, conv})
+}
+
+// RegisterResourceAttributeMapConverter associates a resource (component/service) type and model with a way to
+// convert all attributes.
+func RegisterResourceAttributeMapConverter(
+	subtype resource.Subtype,
+	model resource.Model,
+	conv AttributeMapConverter,
+) {
+	resourceAttributeMapConverters = append(
+		resourceAttributeMapConverters,
+		ResourceAttributeMapConverterRegistration{subtype, model, conv},
 	)
 }
 
 // TransformAttributeMapToStruct uses an attribute map to transform attributes to the prescribed format.
-func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (interface{}, error) {
+func TransformAttributeMapToStruct(to interface{}, attributes rutils.AttributeMap) (interface{}, error) {
 	var md mapstructure.Metadata
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		TagName:  "json",
@@ -135,51 +179,35 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 	return to, nil
 }
 
-// RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
-func RegisterServiceAttributeMapConverter(
-	svcType resource.Subtype,
-	model resource.Model,
+// RegisterResourceAssociationConfigConverter registers a converter for a resource's resource association config
+// to the given resource subtype that will consume it (e.g. data capture on a component). Additionally, a way
+// to attach a resource name to the converted config must be supplied.
+func RegisterResourceAssociationConfigConverter(
+	subtype resource.Subtype,
 	conv AttributeMapConverter,
-	retType interface{},
+	withResourceName ResourceToResourceAssociationWithName,
 ) {
-	if retType == nil {
-		panic("retType should not be nil")
-	}
-	serviceAttributeMapConverters = append(
-		serviceAttributeMapConverters,
-		ServiceAttributeMapConverterRegistration{svcType, model, conv, retType},
+	resourceAssociationConfigConverter = append(
+		resourceAssociationConfigConverter,
+		ResourceAssociationConfigConverter{subtype, conv, withResourceName},
 	)
 }
 
-// RegisteredComponentAttributeConverters returns a copy of the registered component attribute converters.
-func RegisteredComponentAttributeConverters() []ComponentAttributeConverterRegistration {
-	copied, err := copystructure.Copy(componentAttributeConverters)
-	if err != nil {
-		panic(err)
-	}
-	return copied.([]ComponentAttributeConverterRegistration)
-}
-
-// RegisteredComponentAttributeMapConverters returns a copy of the registered component attribute converters.
-func RegisteredComponentAttributeMapConverters() []ComponentAttributeMapConverterRegistration {
-	copied, err := copystructure.Copy(componentAttributeMapConverters)
-	if err != nil {
-		panic(err)
-	}
-	return copied.([]ComponentAttributeMapConverterRegistration)
-}
-
-// RegisteredServiceAttributeMapConverters returns a copy of the registered component attribute converters.
-func RegisteredServiceAttributeMapConverters() []ServiceAttributeMapConverterRegistration {
-	copied, err := copystructure.Copy(serviceAttributeMapConverters)
-	if err != nil {
-		panic(err)
-	}
-	return copied.([]ServiceAttributeMapConverterRegistration)
+// RegisterResourceAssocationConfigAssociator registers a resource's association config type to a specific
+// subtype model that will consume it (e.g. builtin data capture on a component).
+func RegisterResourceAssocationConfigAssociator(
+	subtype resource.Subtype,
+	model resource.Model,
+	associate ResourceToResourceAssociator,
+) {
+	resourceAssocationConfigAssociator = append(
+		resourceAssocationConfigAssociator,
+		ResourceAssocationConfigAssociator{subtype, model, associate},
+	)
 }
 
 func findConverter(subtype resource.Subtype, model resource.Model, attr string) AttributeConverter {
-	for _, r := range componentAttributeConverters {
+	for _, r := range resourceAttributeConverters {
 		if r.Subtype == subtype && r.Model == model && r.Attr == attr {
 			return r.Conv
 		}
@@ -187,20 +215,30 @@ func findConverter(subtype resource.Subtype, model resource.Model, attr string) 
 	return nil
 }
 
-// FindMapConverter finds the component AttributeMapConverter for the given subtype and model.
-func FindMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
-	for _, r := range componentAttributeMapConverters {
-		if r.Subtype == subtype && r.Model == model {
-			return r.Conv
+// FindResourceAssociationConfigConverter finds the resource association config AttributeMapConverter for the given subtype.
+func FindResourceAssociationConfigConverter(subtype resource.Subtype) (AttributeMapConverter, ResourceToResourceAssociationWithName, bool) {
+	for _, r := range resourceAssociationConfigConverter {
+		if r.Subtype == subtype {
+			return r.Conv, r.WithName, true
 		}
 	}
-	return nil
+	return nil, nil, false
 }
 
-// FindServiceMapConverter finds the service AttributeMapConverter for the given subtype and model.
-func FindServiceMapConverter(svcType resource.Subtype, model resource.Model) AttributeMapConverter {
-	for _, r := range serviceAttributeMapConverters {
-		if r.SvcType == svcType && r.Model == model {
+// FindResourceAssocationConfigAssociator finds the resource association to model associator for the given subtype and model.
+func FindResourceAssocationConfigAssociator(subtype resource.Subtype, model resource.Model) (ResourceToResourceAssociator, bool) {
+	for _, r := range resourceAssocationConfigAssociator {
+		if r.Subtype == subtype && r.Model == model {
+			return r.Associate, true
+		}
+	}
+	return nil, false
+}
+
+// FindMapConverter finds the resource AttributeMapConverter for the given subtype and model.
+func FindMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
+	for _, r := range resourceAttributeMapConverters {
+		if r.Subtype == subtype && r.Model == model {
 			return r.Conv
 		}
 	}
@@ -360,7 +398,7 @@ func readFromCloud(
 	}
 
 	// process the config
-	cfg, err := processConfigFromCloud(unprocessedConfig)
+	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
 	if err != nil {
 		// If we cannot process the config from the cache we should clear it.
 		if cached {
@@ -383,7 +421,7 @@ func readFromCloud(
 		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
 		unproccessedCachedConfig, err := readFromCache(cloudCfg.ID)
 		if err == nil {
-			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig)
+			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig, logger)
 			if err != nil {
 				// clear cache
 				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
@@ -512,7 +550,7 @@ func fromReader(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode Config from json")
 	}
-	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig)
+	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, logger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
@@ -528,19 +566,19 @@ func fromReader(
 // processConfigFromCloud returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from the cloud.
 // Returns an error if the unprocessedConfig is non-valid.
-func processConfigFromCloud(unprocessedConfig *Config) (*Config, error) {
-	return processConfig(unprocessedConfig, true)
+func processConfigFromCloud(unprocessedConfig *Config, logger golog.Logger) (*Config, error) {
+	return processConfig(unprocessedConfig, true, logger)
 }
 
 // processConfigLocalConfig returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from a local file.
 // Returns an error if the unprocessedConfig is non-valid.
-func processConfigLocalConfig(unprocessedConfig *Config) (*Config, error) {
-	return processConfig(unprocessedConfig, false)
+func processConfigLocalConfig(unprocessedConfig *Config, logger golog.Logger) (*Config, error) {
+	return processConfig(unprocessedConfig, false, logger)
 }
 
-func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
-	if err := unprocessedConfig.Ensure(fromCloud); err != nil {
+func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logger) (*Config, error) {
+	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
 
@@ -552,49 +590,150 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	// Copy does not presve ConfigFilePath and we need to pass it along manually
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
-	for idx, c := range cfg.Components {
-		cType := resource.NewSubtype(c.Namespace, "component", c.Type)
-		conv := FindMapConverter(cType, c.Model)
-		// inner attributes may have their own converters
-		for k, v := range c.Attributes {
-			attrConv := findConverter(cType, c.Model, k)
-			if attrConv == nil {
+	// See if default service already exists in the config
+	unconfiguredDefaultServices := make(map[resource.Subtype]resource.Name, len(resource.DefaultServices))
+	for _, name := range resource.DefaultServices {
+		unconfiguredDefaultServices[name.Subtype] = name
+	}
+	for _, c := range cfg.Services {
+		copied := c
+		// TODO(PRODUCT-266): Remove when API replaces namespace/subtype; otherwise this fixes it up
+		if _, err := copied.Validate("", resource.ResourceTypeService); err != nil {
+			return nil, errors.Wrapf(err, "error validating service")
+		}
+		delete(unconfiguredDefaultServices, copied.API)
+	}
+
+	for _, defaultServiceName := range unconfiguredDefaultServices {
+		cfg.Services = append(cfg.Services, resource.Config{
+			Name:                   defaultServiceName.Name,
+			Model:                  resource.DefaultServiceModel,
+			DeprecatedNamespace:    defaultServiceName.Namespace,
+			DeprecatedSubtype:      defaultServiceName.ResourceSubtype,
+			DeprecatedResourceType: resource.ResourceTypeService,
+			API:                    defaultServiceName.Subtype,
+		})
+	}
+
+	// for assocations
+	resCfgsPerSubtype := map[resource.Subtype][]*resource.Config{}
+
+	processResources := func(resType resource.TypeName, confs []resource.Config) error {
+		for idx, conf := range confs {
+			copied := conf
+
+			// TODO(PRODUCT-266): Remove when API replaces namespace/subtype; otherwise this fixes it up
+			if _, err := copied.Validate("", resType); err != nil {
+				return errors.Wrapf(err, "error validating resource")
+			}
+			// for resource to resource assocations
+			resCfgsPerSubtype[copied.API] = append(resCfgsPerSubtype[copied.API], &confs[idx])
+			resName := copied.ResourceName()
+
+			conv := FindMapConverter(resName.Subtype, conf.Model)
+			// inner attributes may have their own converters
+			for k, v := range conf.Attributes {
+				attrConv := findConverter(resName.Subtype, conf.Model, k)
+				if attrConv == nil {
+					continue
+				}
+
+				n, err := attrConv(v)
+				if err != nil {
+					return errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", resName.Subtype, conf.Model, k)
+				}
+				confs[idx].Attributes[k] = n
+			}
+			if conv == nil {
 				continue
 			}
 
-			n, err := attrConv(v)
+			converted, err := conv(conf.Attributes)
 			if err != nil {
-				return nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
+				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.Subtype, conf.Model)
 			}
-			cfg.Components[idx].Attributes[k] = n
+			confs[idx].Attributes = nil
+			confs[idx].ConvertedAttributes = converted
 		}
-		if conv == nil {
-			continue
-		}
-
-		converted, err := conv(c.Attributes)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for (%s, %s)", c.Type, c.Model)
-		}
-		cfg.Components[idx].Attributes = nil
-		cfg.Components[idx].ConvertedAttributes = converted
+		return nil
 	}
 
-	for idx, c := range cfg.Services {
-		conv := FindServiceMapConverter(resource.NewSubtype(c.Namespace, resource.ResourceTypeService, c.Type), c.Model)
-		if conv == nil {
-			continue
-		}
-
-		converted, err := conv(c.Attributes)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for %s", c.Type)
-		}
-		cfg.Services[idx].Attributes = nil
-		cfg.Services[idx].ConvertedAttributes = converted
+	if err := processResources(resource.ResourceTypeComponent, cfg.Components); err != nil {
+		return nil, err
+	}
+	if err := processResources(resource.ResourceTypeService, cfg.Services); err != nil {
+		return nil, err
 	}
 
-	if err := cfg.Ensure(fromCloud); err != nil {
+	convertAndAssociateResourceConfigs := func(resName *resource.Name, associatedCfgs []resource.AssociatedResourceConfig) error {
+		for subIdx, associatedConf := range associatedCfgs {
+			assocSubtype := associatedConf.AssociatedSubtype()
+			conv, attachName, ok := FindResourceAssociationConfigConverter(assocSubtype)
+			if !ok {
+				continue
+			}
+
+			var converted interface{} = associatedConf.Attributes
+			if conv != nil {
+				var err error
+				converted, err = conv(associatedConf.Attributes)
+				if err != nil {
+					return errors.Wrap(err, "error converting associated resource config attributes")
+				}
+				associatedCfgs[subIdx].Attributes = nil
+				associatedCfgs[subIdx].ConvertedAttributes = converted
+			}
+
+			if resName != nil {
+				if err := attachName(*resName, converted); err != nil {
+					return errors.Wrap(err, "error attaching resource name to associated resource config")
+				}
+			} // otherwise we assume the resource name is already in the associated config
+
+			// always associate
+			for _, assocConf := range resCfgsPerSubtype[assocSubtype] {
+				associate, ok := FindResourceAssocationConfigAssociator(assocSubtype, assocConf.Model)
+				if !ok {
+					continue
+				}
+				if err := associate(assocConf, converted); err != nil {
+					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
+				}
+			}
+		}
+		return nil
+	}
+
+	processAssocations := func(resType resource.TypeName, confs []resource.Config) error {
+		for _, conf := range confs {
+			copied := conf
+			// TODO(PRODUCT-266): Remove when API replaces namespace/subtype; otherwise this fixes it up
+			if _, err := copied.Validate("", resType); err != nil {
+				return errors.Wrapf(err, "error validating resource")
+			}
+			resName := copied.ResourceName()
+
+			if err := convertAndAssociateResourceConfigs(&resName, conf.AssociatedResourceConfigs); err != nil {
+				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
+			}
+		}
+		return nil
+	}
+
+	if err := processAssocations(resource.ResourceTypeComponent, cfg.Components); err != nil {
+		return nil, err
+	}
+	if err := processAssocations(resource.ResourceTypeService, cfg.Services); err != nil {
+		return nil, err
+	}
+
+	for _, c := range cfg.Remotes {
+		if err := convertAndAssociateResourceConfigs(nil, c.AssociatedResourceConfigs); err != nil {
+			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
+		}
+	}
+
+	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
 
@@ -651,7 +790,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	cfg, err := FromProto(res.Config)
+	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err

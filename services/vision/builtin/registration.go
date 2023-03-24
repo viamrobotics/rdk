@@ -25,13 +25,12 @@ func registerColorDetector(ctx context.Context, mm modelMap, conf *vision.VisMod
 		return errors.New("object detection config for color detector cannot be nil")
 	}
 	var p objdet.ColorDetectorConfig
-	attrs, err := config.TransformAttributeMapToStruct(&p, conf.Parameters)
+	colorConf, err := config.TransformAttributeMapToStruct(&p, conf.Parameters)
 	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
-	params, ok := attrs.(*objdet.ColorDetectorConfig)
-	if !ok {
-		err := utils.NewUnexpectedTypeError(params, attrs)
+	params, err := utils.AssertType[*objdet.ColorDetectorConfig](colorConf)
+	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
 	detector, err := objdet.NewColorDetector(params)

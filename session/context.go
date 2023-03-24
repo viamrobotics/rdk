@@ -3,7 +3,6 @@ package session
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -56,16 +55,11 @@ func FromContext(ctx context.Context) (*Session, bool) {
 // some request/routine (e.g. a remote controller moving a base).
 // In the context of a gRPC handled request, this can only be called before the
 // first response is sent back (in the case of unary, before the handler returns).
-func SafetyMonitor(ctx context.Context, target interface{}) {
+func SafetyMonitor(ctx context.Context, target resource.Resource) {
 	if target == nil {
 		return
 	}
-	reconf, ok := target.(resource.Reconfigurable)
-	if !ok {
-		golog.Global().Errorf("tried to safety monitor a %T but it has no name", target)
-		return
-	}
-	SafetyMonitorResourceName(ctx, reconf.Name())
+	SafetyMonitorResourceName(ctx, target.Name())
 }
 
 // SafetyMonitorResourceName works just like SafetyMonitor but uses resource names

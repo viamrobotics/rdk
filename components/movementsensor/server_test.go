@@ -16,18 +16,19 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *inject.MovementSensor, error) {
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor2 := &inject.MovementSensor{}
-	gpss := map[resource.Name]interface{}{
+	gpss := map[resource.Name]resource.Resource{
 		movementsensor.Named(testMovementSensorName): injectMovementSensor,
 		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
-		movementsensor.Named(fakeMovementSensorName): "notMovementSensor",
+		movementsensor.Named(fakeMovementSensorName): testutils.NewUnimplementedResource(movementsensor.Named(fakeMovementSensorName)),
 	}
-	gpsSvc, err := subtype.New(gpss)
+	gpsSvc, err := subtype.New(movementsensor.Subtype, gpss)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -62,11 +63,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
@@ -92,11 +93,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
 	t.Run("GetAngularVelocity", func(t *testing.T) {
@@ -121,11 +122,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
 	t.Run("GetOrientation", func(t *testing.T) {
@@ -151,11 +152,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
 	t.Run("GetCompassHeading", func(t *testing.T) {
@@ -178,11 +179,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
 	t.Run("GetProperties", func(t *testing.T) {
@@ -207,11 +208,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
 	t.Run("GetAccuracy", func(t *testing.T) {
@@ -236,10 +237,10 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: fakeMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 }

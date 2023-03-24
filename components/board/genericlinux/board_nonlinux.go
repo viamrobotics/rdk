@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
@@ -24,10 +23,10 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 		resource.NewDefaultModel(resource.ModelName(modelName)),
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
+			_ resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
+		) (resource.Resource, error) {
 			return nil, errors.New("linux boards are not supported on non-linux OSes")
 		}})
 }

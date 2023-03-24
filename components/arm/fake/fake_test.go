@@ -1,124 +1,90 @@
 package fake
 
 import (
+	"context"
 	"testing"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
-func TestUpdateAction(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+func TestReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ArmModel: "ur5e",
 		},
 	}
 
-	shouldNotReconfigureCfg := config.Component{
+	conf1 := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ArmModel: "xArm6",
 		},
 	}
 
-	shouldNotReconfigureCfgAgain := config.Component{
+	conf2 := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ModelFilePath: "fake_model.json",
 		},
 	}
 
-	shouldLogErr := config.Component{
+	conf1Err := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ArmModel: "DNE",
 		},
 	}
 
-	shouldLogErrAgain := config.Component{
+	conf2Err := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ModelFilePath: "DNE",
 		},
 	}
 
-	type foo struct {
-		daboDee string
-	}
+	conf, err := resource.NativeConfig[*Config](cfg)
+	test.That(t, err, test.ShouldBeNil)
 
-	shouldRebuild := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &foo{
-			daboDee: "string",
-		},
-	}
-
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	model, err := modelFromName(attrs.ArmModel, cfg.Name)
+	model, err := modelFromName(conf.ArmModel, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakeArm := &Arm{
-		Name:   cfg.Name,
+		Named:  cfg.ResourceName().AsNamed(),
 		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
 		model:  model,
 		logger: logger,
 	}
 
-	// scenario where we do not reconfigure
-	test.That(t, fakeArm.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
-
-	// scenario where we do not reconfigure again
-	test.That(t, fakeArm.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
-
-	// scenario where we log error only
-	test.That(t, fakeArm.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
-	test.That(t, len(logs.All()), test.ShouldEqual, 1)
-
-	// scenario where we log error only
-	test.That(t, fakeArm.UpdateAction(&shouldLogErrAgain), test.ShouldEqual, config.None)
-	test.That(t, len(logs.All()), test.ShouldEqual, 2)
-
-	// scenario where we rebuild
-	test.That(t, fakeArm.UpdateAction(&shouldRebuild), test.ShouldEqual, config.Rebuild)
-
-	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
-	reconfArm, err := arm.WrapWithReconfigurable(fakeArm, resource.Name{})
+	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf1), test.ShouldBeNil)
+	model, err = modelFromName(conf1.ConvertedAttributes.(*Config).ArmModel, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeArm.joints.Values, test.ShouldResemble, make([]float64, len(model.DoF())))
+	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
-	// scenario where we do not reconfigure
-	obj, canUpdate := reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
+	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf2), test.ShouldBeNil)
+	model, err = referenceframe.ModelFromPath(conf2.ConvertedAttributes.(*Config).ModelFilePath, cfg.Name)
+	test.That(t, err, test.ShouldBeNil)
+	modelJoints := make([]float64, len(model.DoF()))
+	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
-	// scenario where we do not reconfigure again
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfgAgain), test.ShouldEqual, config.None)
+	err = fakeArm.Reconfigure(context.Background(), nil, conf1Err)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported")
+	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
-	// scenario where we log error
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
-	test.That(t, len(logs.All()), test.ShouldEqual, 3)
-
-	// scenario where we log error again
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldLogErrAgain), test.ShouldEqual, config.None)
-	test.That(t, len(logs.All()), test.ShouldEqual, 4)
-
-	// scenario where we rebuild
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldRebuild), test.ShouldEqual, config.Rebuild)
+	err = fakeArm.Reconfigure(context.Background(), nil, conf2Err)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
+	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.model, test.ShouldResemble, model)
 }

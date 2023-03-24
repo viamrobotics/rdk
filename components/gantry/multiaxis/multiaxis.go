@@ -10,7 +10,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -21,14 +20,14 @@ import (
 
 var modelname = resource.NewDefaultModel("multiaxis")
 
-// AttrConfig is used for converting multiAxis config attributes.
-type AttrConfig struct {
+// Config is used for converting multiAxis config attributes.
+type Config struct {
 	SubAxes []string `json:"subaxes_list"`
 }
 
 type multiAxis struct {
-	generic.Unimplemented
-	name      string
+	resource.Named
+	resource.AlwaysRebuild
 	subAxes   []gantry.Gantry
 	lengthsMm []float64
 	logger    golog.Logger
@@ -38,54 +37,52 @@ type multiAxis struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if len(config.SubAxes) == 0 {
+	if len(conf.SubAxes) == 0 {
 		return nil, utils.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
-	deps = append(deps, config.SubAxes...)
+	deps = append(deps, conf.SubAxes...)
 	return deps, nil
 }
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newMultiAxis(ctx, deps, config, logger)
+		) (resource.Resource, error) {
+			return newMultiAxis(ctx, deps, conf, logger)
 		},
 	})
 
 	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 // NewMultiAxis creates a new-multi axis gantry.
 func newMultiAxis(
 	ctx context.Context,
-	deps registry.Dependencies,
-	config config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
-) (gantry.LocalGantry, error) {
-	conf, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
+) (gantry.Gantry, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	mAx := &multiAxis{
-		name:   config.Name,
+		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
 
-	for _, s := range conf.SubAxes {
+	for _, s := range newConf.SubAxes {
 		subAx, err := gantry.FromDependencies(deps, s)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no axes named [%s]", s)
@@ -93,7 +90,6 @@ func newMultiAxis(
 		mAx.subAxes = append(mAx.subAxes, subAx)
 	}
 
-	var err error
 	mAx.lengthsMm, err = mAx.Lengths(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -187,6 +183,11 @@ func (g *multiAxis) Stop(ctx context.Context, extra map[string]interface{}) erro
 		}, g.workers.Done)
 	}
 	return nil
+}
+
+// Close calls stop.
+func (g *multiAxis) Close(ctx context.Context) error {
+	return g.Stop(ctx, nil)
 }
 
 // IsMoving returns whether the gantry is moving.

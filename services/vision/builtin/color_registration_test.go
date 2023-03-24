@@ -7,24 +7,24 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 )
 
 func TestColorDetector(t *testing.T) {
 	inp := &vision.VisModelConfig{
 		Name: "my_color_detector",
 		Type: "color_detector",
-		Parameters: config.AttributeMap{
-			"segment_size_px": 150000,
-			"hue_tolerance_pct":   0.44,
-			"detect_color":    "#4F3815",
-			"extraneous":      "whatever",
+		Parameters: utils.AttributeMap{
+			"segment_size_px":   150000,
+			"hue_tolerance_pct": 0.44,
+			"detect_color":      "#4F3815",
+			"extraneous":        "whatever",
 		},
 	}
 	ctx := context.Background()
 	reg := make(modelMap)
-	testlog := golog.NewLogger("testlog")
+	testlog := golog.NewTestLogger(t)
 	err := registerColorDetector(ctx, reg, inp, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = reg.modelLookup("my_color_detector")

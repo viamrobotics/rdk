@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) {
@@ -59,21 +60,21 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	if err != nil {
 		return nil, err
 	}
-	cameraComp := config.Component{
+	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("image_file"),
-		Attributes: config.AttributeMap{
+		Attributes: utils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth_image_file_path": "",
 			"aligned":               false,
 		},
 	}
-	cameraComp2 := config.Component{
+	cameraComp2 := resource.Config{
 		Name:  "fake_cam2",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("image_file"),
-		Attributes: config.AttributeMap{
+		Attributes: utils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/tflite/lion.jpeg"),
 			"depth_image_file_path": "",
 			"aligned":               false,
@@ -85,6 +86,10 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
 	cfg.Components = append(cfg.Components, cameraComp2)
+	if err := cfg.Ensure(false, logger); err != nil {
+		return nil, err
+	}
+
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service
@@ -100,7 +105,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	detConf := vision.VisModelConfig{
 		Name: "detect_red",
 		Type: string(builtin.ColorDetector),
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"detect_color":      "#C9131F", // look for red
 			"hue_tolerance_pct": 0.05,
 			"segment_size_px":   1000,

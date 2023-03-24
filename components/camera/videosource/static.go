@@ -22,41 +22,35 @@ var fileModel = resource.NewDefaultModel("image_file")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, fileModel,
-		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*fileSourceAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+		registry.Component{Constructor: func(ctx context.Context, _ resource.Dependencies,
+			conf resource.Config, logger golog.Logger,
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
+			if err != nil {
+				return nil, err
 			}
-			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
+			videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.CameraParameters}
 			imgType := camera.ColorStream
-			if attrs.Color == "" {
+			if newConf.Color == "" {
 				imgType = camera.DepthStream
 			}
-			cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
-			return camera.NewFromReader(
+			cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+			src, err := camera.NewVideoSourceFromReader(
 				ctx,
 				videoSrc,
 				&cameraModel,
 				imgType,
 			)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, fileModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf fileSourceAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*fileSourceAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&fileSourceAttrs{})
+			return camera.FromVideoSource(conf.ResourceName(), src), nil
+		}})
+
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, fileModel,
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&fileSourceConfig{}, attributes)
+		})
 }
 
 // fileSource stores the paths to a color and depth image.
@@ -66,8 +60,8 @@ type fileSource struct {
 	Intrinsics *transform.PinholeCameraIntrinsics
 }
 
-// fileSourceAttrs is the attribute struct for fileSource.
-type fileSourceAttrs struct {
+// fileSourceConfig is the attribute struct for fileSource.
+type fileSourceConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`

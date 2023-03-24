@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 
@@ -23,15 +22,7 @@ func NewServer(s subtype.Service) pb.MovementSensorServiceServer {
 }
 
 func (s *subtypeServer) getMovementSensor(name string) (MovementSensor, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no MovementSensor with name (%s)", name)
-	}
-	ms, ok := resource.(MovementSensor)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a MovementSensor", name)
-	}
-	return ms, nil
+	return subtype.LookupResource[MovementSensor](s.s, name)
 }
 
 func (s *subtypeServer) GetPosition(

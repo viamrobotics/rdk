@@ -3,6 +3,7 @@ package inject
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ type Robot struct {
 	Mu                      sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
 	DiscoverComponentsFunc  func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
 	RemoteByNameFunc        func(name string) (robot.Robot, bool)
-	ResourceByNameFunc      func(name resource.Name) (interface{}, error)
+	ResourceByNameFunc      func(name resource.Name) (resource.Resource, error)
 	RemoteNamesFunc         func() []string
 	ResourceNamesFunc       func() []resource.Name
 	ResourceRPCSubtypesFunc func() []resource.RPCSubtype
@@ -40,7 +41,6 @@ type Robot struct {
 	LoggerFunc              func() golog.Logger
 	CloseFunc               func(ctx context.Context) error
 	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	RefreshFunc             func(ctx context.Context) error
 	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPoseFunc       func(
 		ctx context.Context,
@@ -59,7 +59,7 @@ type Robot struct {
 }
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
-func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
+func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		result := []resource.Name{}
 		for name := range rs {
@@ -67,12 +67,12 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
 		}
 		return result
 	}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		result, ok := rs[name]
 		if ok {
 			return result, nil
 		}
-		return r.ResourceByName(name)
+		return nil, errors.New("not found")
 	}
 }
 
@@ -87,7 +87,7 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
+func (r *Robot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ResourceByNameFunc == nil {
@@ -207,19 +207,6 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 		return r.LocalRobot.StopAll(ctx, extra)
 	}
 	return r.StopAllFunc(ctx, extra)
-}
-
-// Refresh calls the injected Refresh or the real version.
-func (r *Robot) Refresh(ctx context.Context) error {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.RefreshFunc == nil {
-		if refresher, ok := r.LocalRobot.(robot.Refresher); ok {
-			return refresher.Refresh(ctx)
-		}
-		return nil
-	}
-	return r.RefreshFunc(ctx)
 }
 
 // DiscoverComponents calls the injected DiscoverComponents or the real one.

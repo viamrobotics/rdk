@@ -9,11 +9,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
@@ -25,6 +23,13 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+)
+
+var (
+	testMovementSensorName    = "ms1"
+	failMovementSensorName    = "ms2"
+	fakeMovementSensorName    = "ms3"
+	missingMovementSensorName = "ms4"
 )
 
 func TestClient(t *testing.T) {
@@ -96,15 +101,16 @@ func TestClient(t *testing.T) {
 		return 0, errors.New("can't get compass heading")
 	}
 
-	gpsSvc, err := subtype.New(map[resource.Name]interface{}{
+	gpsSvc, err := subtype.New(movementsensor.Subtype, map[resource.Name]resource.Resource{
 		movementsensor.Named(testMovementSensorName): injectMovementSensor,
 		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(movementsensor.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(movementsensor.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
 
-	injectMovementSensor.DoFunc = generic.EchoFunc
+	injectMovementSensor.DoFunc = testutils.EchoFunc
 	generic.RegisterService(rpcServer, gpsSvc)
 
 	go rpcServer.Serve(listener1)
@@ -123,13 +129,14 @@ func TestClient(t *testing.T) {
 		// working
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gps1Client := movementsensor.NewClientFromConn(context.Background(), conn, testMovementSensorName, logger)
+		gps1Client, err := movementsensor.NewClientFromConn(context.Background(), conn, movementsensor.Named(testMovementSensorName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := gps1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := gps1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		loc1, alt1, err := gps1Client.Position(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
@@ -190,7 +197,8 @@ func TestClient(t *testing.T) {
 	t.Run("MovementSensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, failMovementSensorName, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, movementsensor.Named(failMovementSensorName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		gps2Client, ok := client.(movementsensor.MovementSensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -217,37 +225,4 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), gps2Client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectMovementSensor := &inject.MovementSensor{}
-
-	gpsSvc, err := subtype.New(map[resource.Name]interface{}{movementsensor.Named(testMovementSensorName): injectMovementSensor})
-	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterMovementSensorServiceServer(gServer, movementsensor.NewServer(gpsSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := movementsensor.NewClientFromConn(ctx, conn1, testMovementSensorName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := movementsensor.NewClientFromConn(ctx, conn2, testMovementSensorName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

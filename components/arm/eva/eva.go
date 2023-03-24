@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -23,7 +24,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -31,13 +31,14 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // ModelName is the name of the eva model of an arm component.
 var ModelName = resource.NewDefaultModel("eva")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Token string `json:"token"`
 	Host  string `json:"host"`
 }
@@ -47,17 +48,15 @@ var evamodeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewEva(ctx, config, logger)
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			return NewEva(ctx, conf, logger)
 		},
 	})
 
 	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 type evaData struct {
@@ -87,34 +86,41 @@ type evaData struct {
 }
 
 type eva struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	host         string
 	version      string
 	token        string
 	sessionToken string
 
-	moveLock *sync.Mutex
+	moveLock sync.Mutex
 	logger   golog.Logger
 	model    referenceframe.Model
 
 	frameJSON []byte
 
-	opMgr operation.SingleOperationManager
+	opMgr  operation.SingleOperationManager
+	closed atomic.Bool
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := Model(cfg.Name)
+func NewEva(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+	model, err := Model(conf.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
 
 	e := &eva{
-		host:      cfg.ConvertedAttributes.(*AttrConfig).Host,
+		Named:     conf.ResourceName().AsNamed(),
+		host:      newConf.Host,
 		version:   "v1",
-		token:     cfg.ConvertedAttributes.(*AttrConfig).Token,
+		token:     newConf.Token,
 		logger:    logger,
-		moveLock:  &sync.Mutex{},
 		model:     model,
 		frameJSON: evamodeljson,
 	}
@@ -130,6 +136,9 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 }
 
 func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	if err := e.checkNotClosed(); err != nil {
+		return nil, err
+	}
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -139,6 +148,9 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 
 // EndPosition computes and returns the current cartesian position.
 func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	if err := e.checkNotClosed(); err != nil {
+		return nil, err
+	}
 	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -148,12 +160,19 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+	if err := e.checkNotClosed(); err != nil {
+		return err
+	}
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.logger, e, pos)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+	if err := e.checkNotClosed(); err != nil {
+		return err
+	}
+
 	// check that joint positions are not out of bounds
 	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions.Values); err != nil {
 		return err
@@ -307,7 +326,7 @@ func (e *eva) resetErrors(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (e *eva) stop(ctx context.Context) error {
 	if e.opMgr.OpRunning() {
 		return multierr.Combine(
 			e.apiRequest(ctx, "POST", "controls/pause", nil, true, nil),  // pause robot
@@ -317,11 +336,24 @@ func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
+func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
+	if err := e.checkNotClosed(); err != nil {
+		return err
+	}
+	return e.stop(ctx)
+}
+
 func (e *eva) IsMoving(ctx context.Context) (bool, error) {
+	if err := e.checkNotClosed(); err != nil {
+		return false, err
+	}
 	return e.opMgr.OpRunning(), nil
 }
 
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
+	if err := e.checkNotClosed(); err != nil {
+		return evaData{}, err
+	}
 	type Temp struct {
 		Snapshot evaData
 	}
@@ -378,6 +410,9 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if err := e.checkNotClosed(); err != nil {
+		return nil, err
+	}
 	res, err := e.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -386,11 +421,29 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	if err := e.checkNotClosed(); err != nil {
+		return err
+	}
 	positionDegs := e.model.ProtobufFromInput(goal)
 	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs.Values); err != nil {
 		return err
 	}
 	return e.MoveToJointPositions(ctx, positionDegs, nil)
+}
+
+func (e *eva) checkNotClosed() error {
+	if e.closed.Load() {
+		return errors.New("closed")
+	}
+	return nil
+}
+
+func (e *eva) Close(ctx context.Context) error {
+	if e.closed.Load() {
+		return nil
+	}
+	e.closed.Store(true)
+	return e.stop(ctx)
 }
 
 // Model returns the kinematics model of the eva arm, also has all Frame information.

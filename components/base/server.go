@@ -4,7 +4,6 @@ package base
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
@@ -26,15 +25,7 @@ func NewServer(s subtype.Service) pb.BaseServiceServer {
 
 // getBase returns the base specified or nil.
 func (s *subtypeServer) getBase(name string) (Base, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no base with name (%s)", name)
-	}
-	base, ok := resource.(Base)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a base", name)
-	}
-	return base, nil
+	return subtype.LookupResource[Base](s.s, name)
 }
 
 // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters

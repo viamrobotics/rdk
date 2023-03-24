@@ -7,8 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -26,11 +24,11 @@ func init() {
 		registry.Service{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Service,
+				_ resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
-				return NewSLAM(config.Name, logger), nil
+			) (resource.Resource, error) {
+				return NewSLAM(conf.ResourceName(), logger), nil
 			},
 		},
 	)
@@ -40,15 +38,19 @@ var _ = slam.Service(&SLAM{})
 
 // SLAM is a fake slam that returns generic data.
 type SLAM struct {
-	generic.Echo
-	Name      string
+	resource.Named
+	resource.TriviallyReconfigurable
 	dataCount int
 	logger    golog.Logger
 }
 
 // NewSLAM is a constructor for a fake slam service.
-func NewSLAM(name string, logger golog.Logger) *SLAM {
-	return &SLAM{Name: name, logger: logger, dataCount: -1}
+func NewSLAM(name resource.Name, logger golog.Logger) *SLAM {
+	return &SLAM{
+		Named:     name.AsNamed(),
+		logger:    logger,
+		dataCount: -1,
+	}
 }
 
 func (slamSvc *SLAM) getCount() int {

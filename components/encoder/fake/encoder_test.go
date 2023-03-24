@@ -8,30 +8,30 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 func TestEncoder(t *testing.T) {
 	ctx := context.Background()
-	ic := AttrConfig{
+	ic := Config{
 		UpdateRate: 100,
 	}
-	cfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
-	e, _ := newFakeEncoder(ctx, cfg)
+	cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+	e, _ := NewEncoder(ctx, cfg)
 
 	// Get and set position
 	t.Run("get and set position", func(t *testing.T) {
-		pos, positionType, err := e.GetPosition(ctx, nil, nil)
+		pos, positionType, err := e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
+		test.That(t, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
 
-		e1 := e.(*Encoder)
+		e1 := e.(Encoder)
 
 		err = e1.SetPosition(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, _, err = e.GetPosition(ctx, nil, nil)
+		pos, _, err = e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldEqual, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -41,7 +41,7 @@ func TestEncoder(t *testing.T) {
 		err := e.ResetPosition(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, _, err := e.GetPosition(ctx, nil, nil)
+		pos, _, err := e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -49,10 +49,10 @@ func TestEncoder(t *testing.T) {
 	t.Run("specify a type", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := e.GetPosition(context.Background(), encoder.PositionTypeTICKS.Enum(), nil)
+			ticks, positionType, err := e.GetPosition(context.Background(), encoder.PositionTypeTicks, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
+			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
 		})
 	})
 	t.Run("get properties", func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestEncoder(t *testing.T) {
 
 	// Set Speed
 	t.Run("set speed", func(t *testing.T) {
-		e1 := e.(*Encoder)
+		e1 := e.(*fakeEncoder)
 		err := e1.SetSpeed(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, e1.speed, test.ShouldEqual, 1)
@@ -75,7 +75,7 @@ func TestEncoder(t *testing.T) {
 
 	// Start with default update rate
 	t.Run("start default update rate", func(t *testing.T) {
-		e1 := e.(*Encoder)
+		e1 := e.(*fakeEncoder)
 		err := e1.SetSpeed(ctx, 0)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -89,7 +89,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, _, err := e.GetPosition(ctx, nil, nil)
+			pos, _, err := e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 			test.That(tb, pos, test.ShouldBeGreaterThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})

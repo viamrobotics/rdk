@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
@@ -37,7 +37,7 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 }
 
 // ConvertAttributes changes the AttributeMap input into a RadiusClusteringConfig.
-func (rcc *RadiusClusteringConfig) ConvertAttributes(am config.AttributeMap) error {
+func (rcc *RadiusClusteringConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func (rcc *RadiusClusteringConfig) ConvertAttributes(am config.AttributeMap) err
 // NewRadiusClustering returns a Segmenter that removes the planes (if any) and returns
 // a segmentation of the objects in a point cloud using a radius based clustering algo
 // described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008.
-func NewRadiusClustering(params config.AttributeMap) (Segmenter, error) {
+func NewRadiusClustering(params utils.AttributeMap) (Segmenter, error) {
 	// convert attributes to appropriate struct
 	if params == nil {
 		return nil, errors.New("config for radius clustering segmentation cannot be nil")
@@ -66,9 +66,9 @@ func NewRadiusClustering(params config.AttributeMap) (Segmenter, error) {
 }
 
 // RadiusClustering applies the radius clustering algorithm directly on a given point cloud.
-func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, c camera.Camera) ([]*vision.Object, error) {
+func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud
-	cloud, err := c.NextPointCloud(ctx)
+	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}

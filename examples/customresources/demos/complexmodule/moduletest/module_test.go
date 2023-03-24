@@ -31,6 +31,10 @@ import (
 	"go.viam.com/utils/rpc"
 )
 
+// This test ends up being a great validation of the logical clock on resource graph node
+// modifications since the base depends on something it needs during initialization that
+// needs to be added to the web service before it normally would be avalilable after completing
+// a config cycle.
 func TestComplexModule(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 

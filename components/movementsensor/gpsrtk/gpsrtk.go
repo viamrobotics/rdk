@@ -21,7 +21,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
@@ -34,19 +33,19 @@ import (
 // ErrRoverValidation contains the model substring for the available correction source types.
 var ErrRoverValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", roverModel.Name)
 
-// AttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
-type AttrConfig struct {
+// Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
+type Config struct {
 	CorrectionSource string `json:"correction_source"`
 	Board            string `json:"board,omitempty"`
 	ConnectionType   string `json:"connection_type,omitempty"`
 
-	*SerialAttrConfig `json:"serial_attributes,omitempty"`
-	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
-	*NtripAttrConfig  `json:"ntrip_attributes,omitempty"`
+	*SerialConfig `json:"serial_attributes,omitempty"`
+	*I2CConfig    `json:"i2c_attributes,omitempty"`
+	*NtripConfig  `json:"ntrip_attributes,omitempty"`
 }
 
-// NtripAttrConfig is used for converting attributes for a correction source.
-type NtripAttrConfig struct {
+// NtripConfig is used for converting attributes for a correction source.
+type NtripConfig struct {
 	NtripAddr            string `json:"ntrip_addr"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
@@ -57,35 +56,35 @@ type NtripAttrConfig struct {
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
-// SerialAttrConfig is used for converting attributes for a correction source.
-type SerialAttrConfig struct {
+// SerialConfig is used for converting attributes for a correction source.
+type SerialConfig struct {
 	SerialPath               string `json:"serial_path"`
 	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
 	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
 	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
 }
 
-// I2CAttrConfig is used for converting attributes for a correction source.
-type I2CAttrConfig struct {
+// I2CConfig is used for converting attributes for a correction source.
+type I2CConfig struct {
 	I2CBus      string `json:"i2c_bus"`
 	I2cAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	switch cfg.CorrectionSource {
 	case ntripStr:
-		return nil, cfg.NtripAttrConfig.ValidateNtrip(path)
+		return nil, cfg.NtripConfig.ValidateNtrip(path)
 	case i2cStr:
 		if cfg.Board == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
+		return deps, cfg.I2CConfig.ValidateI2C(path)
 	case serialStr:
-		return nil, cfg.SerialAttrConfig.ValidateSerial(path)
+		return nil, cfg.SerialConfig.ValidateSerial(path)
 	case "":
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	default:
@@ -94,7 +93,7 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
+func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -106,7 +105,7 @@ func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 }
 
 // ValidateSerial ensures all parts of the config are valid.
-func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
+func (cfg *SerialConfig) ValidateSerial(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
@@ -114,7 +113,7 @@ func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
 }
 
 // ValidateNtrip ensures all parts of the config are valid.
-func (cfg *NtripAttrConfig) ValidateNtrip(path string) error {
+func (cfg *NtripConfig) ValidateNtrip(path string) error {
 	if cfg.NtripAddr == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
 	}
@@ -132,24 +131,23 @@ func init() {
 		roverModel,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newRTKMovementSensor(ctx, deps, cfg, logger)
+		) (resource.Resource, error) {
+			return newRTKMovementSensor(ctx, deps, conf, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, roverModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 // A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
 type RTKMovementSensor struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	logger     golog.Logger
 	cancelCtx  context.Context
 	cancelFunc func()
@@ -174,29 +172,29 @@ type RTKMovementSensor struct {
 
 func newRTKMovementSensor(
 	ctx context.Context,
-	deps registry.Dependencies,
-	cfg config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &RTKMovementSensor{
+		Named:      conf.ResourceName().AsNamed(),
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
 		err:        movementsensor.NewLastError(1, 1),
 	}
 
-	g.inputProtocol = attr.CorrectionSource
+	g.inputProtocol = newConf.CorrectionSource
 
-	nmeaAttr := &gpsnmea.AttrConfig{
-		ConnectionType: attr.ConnectionType,
-		Board:          attr.Board,
+	nmeaConf := &gpsnmea.Config{
+		ConnectionType: newConf.ConnectionType,
+		Board:          newConf.Board,
 		DisableNMEA:    false,
 	}
 
@@ -204,15 +202,15 @@ func newRTKMovementSensor(
 	switch g.inputProtocol {
 	case serialStr:
 		var err error
-		nmeaAttr.SerialAttrConfig = (*gpsnmea.SerialAttrConfig)(attr.SerialAttrConfig)
-		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, nmeaAttr, logger)
+		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
+		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
 		var err error
-		nmeaAttr.I2CAttrConfig = (*gpsnmea.I2CAttrConfig)(attr.I2CAttrConfig)
-		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, nmeaAttr, logger)
+		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
+		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -224,30 +222,28 @@ func newRTKMovementSensor(
 	// Init ntripInfo from attributes
 
 	g.ntripClient = &NtripInfo{
-		URL:                attr.NtripAddr,
-		Username:           attr.NtripUser,
-		Password:           attr.NtripPass,
-		MountPoint:         attr.NtripMountpoint,
-		Client:             &ntrip.Client{},
-		Stream:             nil,
-		MaxConnectAttempts: 0,
+		URL:                newConf.NtripAddr,
+		Username:           newConf.NtripUser,
+		Password:           newConf.NtripPass,
+		MountPoint:         newConf.NtripMountpoint,
+		MaxConnectAttempts: 3,
 	}
 
 	// baud rate
-	g.wbaud = attr.NtripBaud
+	g.wbaud = newConf.NtripBaud
 	if g.wbaud == 38400 {
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
 
 	if g.writepath != "" {
 		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
-		g.writepath = attr.NtripPath
+		g.writepath = newConf.NtripPath
 	}
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	g.addr = byte(attr.I2cAddr)
+	g.addr = byte(newConf.I2cAddr)
 
-	if err := g.Start(); err != nil {
+	if err := g.start(); err != nil {
 		return nil, err
 	}
 	g.mu.Lock()
@@ -256,7 +252,7 @@ func newRTKMovementSensor(
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
-func (g *RTKMovementSensor) Start() error {
+func (g *RTKMovementSensor) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
@@ -265,9 +261,11 @@ func (g *RTKMovementSensor) Start() error {
 
 	switch g.inputProtocol {
 	case serialStr:
-		utils.PanicCapturingGo(g.ReceiveAndWriteSerial)
+		g.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(g.receiveAndWriteSerial)
 	case i2cStr:
-		utils.PanicCapturingGo(func() { g.ReceiveAndWriteI2C(g.cancelCtx) })
+		g.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 	}
 
 	return g.err.Get()
@@ -275,23 +273,22 @@ func (g *RTKMovementSensor) Start() error {
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *RTKMovementSensor) Connect(casterAddr, user, pwd string, maxAttempts int) error {
-	success := false
 	attempts := 0
 
 	var c *ntrip.Client
 	var err error
 
 	g.logger.Debug("Connecting to NTRIP caster")
-	for !success && attempts < maxAttempts {
+	for attempts < maxAttempts {
 		select {
 		case <-g.cancelCtx.Done():
-			return errors.New("Canceled")
+			return g.cancelCtx.Err()
 		default:
 		}
 
 		c, err = ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
-			success = true
+			break
 		}
 
 		attempts++
@@ -351,10 +348,15 @@ func (g *RTKMovementSensor) GetStream(mountPoint string, maxAttempts int) error 
 	return g.err.Get()
 }
 
-// ReceiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the MovementSensor through I2C protocol.
-func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
-	g.activeBackgroundWorkers.Add(1)
+// receiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the MovementSensor through I2C protocol.
+func (g *RTKMovementSensor) receiveAndWriteI2C(ctx context.Context) {
 	defer g.activeBackgroundWorkers.Done()
+	g.mu.Lock()
+	if err := g.cancelCtx.Err(); err != nil {
+		g.mu.Unlock()
+		return
+	}
+	g.mu.Unlock()
 	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
@@ -495,10 +497,15 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-// ReceiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
-func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
-	g.activeBackgroundWorkers.Add(1)
+// receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
+func (g *RTKMovementSensor) receiveAndWriteSerial() {
 	defer g.activeBackgroundWorkers.Done()
+	g.mu.Lock()
+	if err := g.cancelCtx.Err(); err != nil {
+		g.mu.Unlock()
+		return
+	}
+	g.mu.Unlock()
 	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
@@ -713,12 +720,12 @@ func (g *RTKMovementSensor) Readings(ctx context.Context, extra map[string]inter
 
 // Close shuts down the RTKMOVEMENTSENSOR.
 func (g *RTKMovementSensor) Close() error {
-	g.logger.Debug("closing rtk gps")
+	g.mu.Lock()
 	g.cancelFunc()
+	g.mu.Unlock()
 	g.activeBackgroundWorkers.Wait()
 
-	err := g.nmeamovementsensor.Close()
-	if err != nil {
+	if err := g.nmeamovementsensor.Close(); err != nil {
 		return err
 	}
 
@@ -743,6 +750,8 @@ func (g *RTKMovementSensor) Close() error {
 		g.ntripClient.Stream = nil
 	}
 
-	g.logger.Debug("closed rtk gps")
-	return g.err.Get()
+	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
 }

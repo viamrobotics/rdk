@@ -7,11 +7,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/resource"
 )
 
 // Base is an injected base.
 type Base struct {
 	base.LocalBase
+	name             resource.Name
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
 	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
@@ -20,6 +22,16 @@ type Base struct {
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
 	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+}
+
+// NewBase returns a new injected base.
+func NewBase(name string) *Base {
+	return &Base{name: base.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (b *Base) Name() resource.Name {
+	return b.name
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.

@@ -17,7 +17,6 @@ func TestBuildCaptureMetadata(t *testing.T) {
 		name             string
 		componentType    resource.SubtypeName
 		componentName    string
-		componentModel   string
 		method           string
 		additionalParams map[string]string
 		dataType         v1.DataType
@@ -28,7 +27,6 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			name:             "Metadata for arm positions stored in a length delimited proto file",
 			componentType:    "arm",
 			componentName:    "arm1",
-			componentModel:   "eva",
 			method:           "EndPosition",
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_TABULAR_SENSOR,
@@ -39,7 +37,6 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			name:             "Metadata for a camera Next() image stored as a binary .jpeg file",
 			componentType:    "camera",
 			componentName:    "cam1",
-			componentModel:   "webcam",
 			method:           readImage,
 			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
@@ -50,7 +47,6 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			name:             "Metadata for a LiDAR Next() point cloud stored as a binary .pcd file",
 			componentType:    "camera",
 			componentName:    "cam1",
-			componentModel:   "velodyne",
 			method:           readImage,
 			additionalParams: map[string]string{"mime_type": utils.MimeTypePCD},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
@@ -61,7 +57,6 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			name:             "Metadata for a LiDAR NextPointCloud() stored as a binary .pcd file",
 			componentType:    "camera",
 			componentName:    "cam1",
-			componentModel:   "velodyne",
 			method:           nextPointCloud,
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
@@ -74,7 +69,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actualMetadata, err := BuildCaptureMetadata(
 				resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent),
-				tc.componentName, resource.NewDefaultModel(resource.ModelName(tc.componentModel)), tc.method, tc.additionalParams, tc.tags)
+				tc.componentName, tc.method, tc.additionalParams, tc.tags)
 			test.That(t, err, test.ShouldEqual, nil)
 
 			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
@@ -83,7 +78,6 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			expectedMetadata := v1.DataCaptureMetadata{
 				ComponentType:    resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent).String(),
 				ComponentName:    tc.componentName,
-				ComponentModel:   resource.NewDefaultModel(resource.ModelName(tc.componentModel)).String(),
 				MethodName:       tc.method,
 				Type:             tc.dataType,
 				MethodParameters: methodParams,

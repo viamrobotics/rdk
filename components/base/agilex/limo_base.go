@@ -17,11 +17,11 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -60,9 +60,9 @@ func init() {
 
 	limoBaseComp := registry.Component{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return CreateLimoBase(ctx, config.ConvertedAttributes.(*Config), logger)
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+		) (resource.Resource, error) {
+			return CreateLimoBase(ctx, conf, logger)
 		},
 	}
 
@@ -70,11 +70,9 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
 		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 // controller is common across all limo instances sharing a controller.
@@ -96,7 +94,8 @@ type limoState struct {
 	velocityLinearGoal, velocityAngularGoal r3.Vector
 }
 type limoBase struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	driveMode          string
 	controller         *controller
 	state              limoState
@@ -122,22 +121,26 @@ type Config struct {
 }
 
 // CreateLimoBase returns a AgileX limo base.
-func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (base.LocalBase, error) {
-	logger.Debugf("creating limo base with config %+v", config)
+func CreateLimoBase(ctx context.Context, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("creating limo base with config %+v", newConf)
 
-	if config.DriveMode == "" {
+	if newConf.DriveMode == "" {
 		return nil, errors.New("drive mode must be defined and one of differential, ackermann, or omni")
 	}
 
 	globalMu.Lock()
-	sDevice := config.SerialDevice
+	sDevice := newConf.SerialDevice
 	if sDevice == "" {
 		sDevice = defaultSerial
 	}
 	ctrl, controllerExists := controllers[sDevice]
 	if !controllerExists {
 		logger.Debug("creating controller")
-		newCtrl, err := newController(sDevice, config.TestChan, logger)
+		newCtrl, err := newController(sDevice, newConf.TestChan, logger)
 		if err != nil {
 			globalMu.Unlock()
 			return nil, err
@@ -169,7 +172,8 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 	globalMu.Unlock()
 
 	base := &limoBase{
-		driveMode:          config.DriveMode,
+		Named:              conf.ResourceName().AsNamed(),
+		driveMode:          newConf.DriveMode,
 		controller:         ctrl,
 		width:              172,
 		wheelbase:          200,

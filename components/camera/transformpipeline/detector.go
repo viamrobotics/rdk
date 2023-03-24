@@ -13,12 +13,12 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-// detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
-type detectorAttrs struct {
+// detectorConfig is the attribute struct for detectors (their name as found in the vision service).
+type detectorConfig struct {
 	DetectorName        string  `json:"detector_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 }
@@ -33,15 +33,15 @@ type detectorSource struct {
 
 func newDetectionsTransform(
 	ctx context.Context,
-	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
+	source gostream.VideoSource, r robot.Robot, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
+	conf, err := config.TransformAttributeMapToStruct(&(detectorConfig{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	attrs, ok := conf.(*detectorAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	detConf, err := utils.AssertType[*detectorConfig](conf)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
 
 	props, err := propsFromVideoSource(ctx, source)
@@ -54,15 +54,18 @@ func newDetectionsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
+	confFilter := objectdetection.NewScoreFilter(detConf.ConfidenceThreshold)
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),
-		attrs.DetectorName,
+		detConf.DetectorName,
 		confFilter,
 		r,
 	}
-	cam, err := camera.NewFromReader(ctx, detector, &cameraModel, camera.ColorStream)
-	return cam, camera.ColorStream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, camera.ColorStream, err
 }
 
 // Read returns the image overlaid with the detection bounding boxes.

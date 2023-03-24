@@ -43,16 +43,10 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := golog.NewTestLogger(t)
-	tmp := SmoothAnalogReader(&testReader, AnalogConfig{}, logger)
-	_, ok := tmp.(*AnalogSmoother)
-	test.That(t, ok, test.ShouldBeFalse)
-
 	as := SmoothAnalogReader(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)
-	_, ok = as.(*AnalogSmoother)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 200, func(tb testing.TB) {
 		tb.Helper()

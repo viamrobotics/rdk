@@ -22,7 +22,7 @@ type Watcher interface {
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
 func NewWatcher(ctx context.Context, config *Config, logger golog.Logger) (Watcher, error) {
-	if err := config.Ensure(false); err != nil {
+	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {

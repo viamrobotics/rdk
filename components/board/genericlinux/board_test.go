@@ -8,7 +8,6 @@ package genericlinux
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"periph.io/x/conn/v3/gpio/gpiotest"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 )
 
 func TestRegisterBoard(t *testing.T) {
@@ -29,7 +27,6 @@ func TestGenericLinux(t *testing.T) {
 	ctx := context.Background()
 
 	gp1 := &periphGpioPin{b: &sysfsBoard{
-		mu:     sync.RWMutex{},
 		logger: golog.NewTestLogger(t),
 	}}
 
@@ -42,18 +39,29 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
+	boardSPIs := map[string]*spiBus{
+		"closed": {
+			openHandle: &spiHandle{bus: &spiBus{}, isClosed: true},
+		},
+		"open": {
+			openHandle: &spiHandle{bus: &spiBus{}, isClosed: false},
+		},
+	}
+	oneStr := "1"
+	twoStr := "1"
+	boardSPIs["closed"].bus.Store(&oneStr)
+	boardSPIs["closed"].openHandle.bus.bus.Store(&oneStr)
+	boardSPIs["open"].bus.Store(&twoStr)
+	boardSPIs["open"].openHandle.bus.bus.Store(&twoStr)
+
 	gp2 := &periphGpioPin{
 		b: &sysfsBoard{
-			Unimplemented: generic.Unimplemented{},
-			mu:            sync.RWMutex{},
+			Named: board.Named("foo").AsNamed(),
 			gpioMappings: map[int]GPIOBoardMapping{
 				10: {GPIOGlobal: 10, HWPWMSupported: false, GPIOName: "10"},
 			},
-			spis: map[string]*spiBus{
-				"closed": {mu: sync.Mutex{}, bus: "1", openHandle: &spiHandle{bus: &spiBus{bus: "1"}, isClosed: true}},
-				"open":   {mu: sync.Mutex{}, bus: "2", openHandle: &spiHandle{bus: &spiBus{bus: "2"}, isClosed: false}},
-			},
-			analogs: map[string]board.AnalogReader{"an": &board.MCP3008AnalogReader{}},
+			spis:    boardSPIs,
+			analogs: map[string]*wrappedAnalog{"an": {}},
 			pwms: map[string]pwmSetting{
 				"10": {dutyCycle: 1, frequency: 1},
 			},
@@ -61,7 +69,6 @@ func TestGenericLinux(t *testing.T) {
 			cancelCtx: ctx,
 			cancelFunc: func() {
 			},
-			activeBackgroundWorkers: sync.WaitGroup{},
 		},
 		pinName:        "10",
 		pin:            &gpiotest.Pin{N: "10", Num: 10},
@@ -73,7 +80,7 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, ans, test.ShouldResemble, []string{"an"})
 
 		an1, ok := gp2.b.AnalogReaderByName("an")
-		test.That(t, an1, test.ShouldHaveSameTypeAs, &board.MCP3008AnalogReader{})
+		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalog{})
 		test.That(t, ok, test.ShouldBeTrue)
 
 		an2, ok := gp2.b.AnalogReaderByName("missing")

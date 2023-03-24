@@ -12,8 +12,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func TestConfig(t *testing.T) {
@@ -21,48 +20,48 @@ func TestConfig(t *testing.T) {
 
 	b := MakeBoard(t)
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
 	t.Run("valid config", func(t *testing.T) {
-		ic := AttrConfig{
+		ic := Config{
 			BoardName: "main",
 			Pins:      Pin{I: "10"},
 		}
 
-		rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 		_, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("invalid config", func(t *testing.T) {
-		ic := AttrConfig{
+		ic := Config{
 			BoardName: "pi",
 			// Pins intentionally missing
 		}
 
-		rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 		_, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
-func TestEnconder(t *testing.T) {
+func TestEncoder(t *testing.T) {
 	ctx := context.Background()
 
 	b := MakeBoard(t)
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
-	ic := AttrConfig{
+	ic := Config{
 		BoardName: "main",
 		Pins:      Pin{I: "10"},
 	}
 
-	rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
+	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 	t.Run("run forward", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
@@ -78,7 +77,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -98,7 +97,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, -1)
 		})
@@ -120,7 +119,7 @@ func TestEnconder(t *testing.T) {
 		// by the encoder worker
 		time.Sleep(50 * time.Millisecond)
 
-		ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -134,7 +133,7 @@ func TestEnconder(t *testing.T) {
 		// reset position to 0
 		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -154,7 +153,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -162,7 +161,7 @@ func TestEnconder(t *testing.T) {
 		// reset tick
 		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 
@@ -172,7 +171,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -191,10 +190,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeTICKS.Enum(), nil)
+			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeTicks, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
+			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
 		})
 	})
 	t.Run("specify wrong position type", func(t *testing.T) {
@@ -211,10 +210,9 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeDEGREES.Enum(), nil)
-			test.That(tb, err, test.ShouldNotBeNil)
-			test.That(tb, ticks, test.ShouldEqual, 0)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeDEGREES)
+			_, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeDegrees, nil)
+			test.That(tb, err.Error(), test.ShouldContainSubstring, "encoder does not support")
+			test.That(tb, err.Error(), test.ShouldContainSubstring, "degrees")
 		})
 	})
 	t.Run("get properties", func(t *testing.T) {
@@ -234,13 +232,13 @@ func TestEnconder(t *testing.T) {
 }
 
 func MakeBoard(t *testing.T) *fakeboard.Board {
-	interrupt, _ := board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+	interrupt, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "10",
 		Pin:  "10",
 		Type: "basic",
 	})
 
-	interrupts := map[string]board.DigitalInterrupt{
+	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
 		"10": interrupt,
 	}
 

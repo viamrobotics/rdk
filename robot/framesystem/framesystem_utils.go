@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	"go.viam.com/rdk/utils"
 )
 
 // RobotFrameSystem returns the frame system of the robot.
@@ -131,7 +130,7 @@ func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Mo
 	if err != nil {
 		return nil, errors.Wrapf(err, "no resource found with name %q when extracting model frame json", name)
 	}
-	if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
 		return framer.ModelFrame(), nil
 	}
 	return nil, referenceframe.ErrNoModelInformation

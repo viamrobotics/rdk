@@ -14,13 +14,13 @@ type ModuleManager interface {
 	Reconfigure(ctx context.Context, cfg config.Module) ([]resource.Name, error)
 	Remove(modName string) ([]resource.Name, error)
 
-	AddResource(ctx context.Context, cfg config.Component, deps []string) (interface{}, error)
-	ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error
+	AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error)
+	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	RemoveResource(ctx context.Context, name resource.Name) error
 	IsModularResource(name resource.Name) bool
-	ValidateConfig(ctx context.Context, cfg config.Component) ([]string, error)
+	ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error)
 
-	Provides(cfg config.Component) bool
+	Provides(cfg resource.Config) bool
 
 	Close(ctx context.Context) error
 }

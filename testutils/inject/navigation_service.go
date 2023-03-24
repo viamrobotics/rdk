@@ -6,12 +6,14 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 )
 
 // NavigationService represents a fake instance of a navigation service.
 type NavigationService struct {
 	navigation.Service
+	name        resource.Name
 	ModeFunc    func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error)
 	SetModeFunc func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error
 
@@ -22,6 +24,16 @@ type NavigationService struct {
 	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 	DoCommandFunc      func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+// NewNavigationService returns a new injected navigation service.
+func NewNavigationService(name string) *NavigationService {
+	return &NavigationService{name: navigation.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (ns *NavigationService) Name() resource.Name {
+	return ns.name
 }
 
 // Mode calls the injected ModeFunc or the real version.

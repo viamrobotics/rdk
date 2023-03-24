@@ -3,10 +3,8 @@ package summationapi
 
 import (
 	"context"
-	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/utils/rpc"
@@ -14,8 +12,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
 var Subtype = resource.NewSubtype(
@@ -36,7 +32,6 @@ func FromRobot(r robot.Robot, name string) (Summation, error) {
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: wrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -46,8 +41,8 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.SummationService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return newClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+			return newClientFromConn(conn, name, logger), nil
 		},
 	})
 
@@ -55,61 +50,8 @@ func init() {
 
 // Summation defines the Go interface for the service (should match the protobuf methods.)
 type Summation interface {
+	resource.Resource
 	Sum(ctx context.Context, nums []float64) (float64, error)
-}
-
-func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	mc, ok := r.(Summation)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError((Summation)(nil), r)
-	}
-	if reconfigurable, ok := mc.(*reconfigurableSummation); ok {
-		return reconfigurable, nil
-	}
-	return &reconfigurableSummation{actual: mc, name: name}, nil
-}
-
-var (
-	_ = Summation(&reconfigurableSummation{})
-	_ = resource.Reconfigurable(&reconfigurableSummation{})
-)
-
-type reconfigurableSummation struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Summation
-}
-
-func (g *reconfigurableSummation) ProxyFor() interface{} {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.actual
-}
-
-func (g *reconfigurableSummation) Reconfigure(ctx context.Context, newSummation resource.Reconfigurable) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	actual, ok := newSummation.(*reconfigurableSummation)
-	if !ok {
-		return utils.NewUnexpectedTypeError(g, newSummation)
-	}
-	if err := goutils.TryClose(ctx, g.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	g.actual = actual.actual
-	return nil
-}
-
-func (g *reconfigurableSummation) Sum(ctx context.Context, nums []float64) (float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.actual.Sum(ctx, nums)
-}
-
-func (g *reconfigurableSummation) Name() resource.Name {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.name
 }
 
 // subtypeServer implements the Summation RPC service from summation.proto.
@@ -123,15 +65,7 @@ func NewServer(s subtype.Service) pb.SummationServiceServer {
 }
 
 func (s *subtypeServer) getMyService(name string) (Summation, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no summation service with name (%s)", name)
-	}
-	g, ok := resource.(Summation)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a Summation", name)
-	}
-	return g, nil
+	return subtype.LookupResource[Summation](s.s, name)
 }
 
 func (s *subtypeServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumResponse, error) {
@@ -146,15 +80,15 @@ func (s *subtypeServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumRes
 	return &pb.SumResponse{Sum: resp}, nil
 }
 
-func newClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Summation {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
+func newClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.Logger) Summation {
+	sc := newSvcClientFromConn(conn, name, logger)
+	return clientFromSvcClient(sc, name.ShortNameForClient())
 }
 
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.Logger) *serviceClient {
 	client := pb.NewSummationServiceClient(conn)
 	sc := &serviceClient{
-		conn:   conn,
+		Named:  name.AsNamed(),
 		client: client,
 		logger: logger,
 	}
@@ -162,7 +96,8 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 }
 
 type serviceClient struct {
-	conn   rpc.ClientConn
+	resource.Named
+	resource.AlwaysRebuild
 	client pb.SummationServiceClient
 	logger golog.Logger
 }
@@ -185,9 +120,4 @@ func (c *client) Sum(ctx context.Context, nums []float64) (float64, error) {
 		return 0, err
 	}
 	return resp.Sum, nil
-}
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((Summation)(nil), actual)
 }

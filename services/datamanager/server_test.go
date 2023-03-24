@@ -10,15 +10,15 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(resourceMap map[resource.Name]interface{}) (pb.DataManagerServiceServer, error) {
-	dmSvc, err := subtype.New(resourceMap)
+func newServer(resourceMap map[resource.Name]resource.Resource) (pb.DataManagerServiceServer, error) {
+	dmSvc, err := subtype.New(datamanager.Subtype, resourceMap)
 	if err != nil {
 		return nil, err
 	}
@@ -29,21 +29,22 @@ func TestServerSync(t *testing.T) {
 	var extraOptions map[string]interface{}
 
 	tests := map[string]struct {
-		resourceMap   map[resource.Name]interface{}
+		resourceMap   map[resource.Name]resource.Resource
 		expectedError error
 	}{
 		"missing datamanager": {
-			resourceMap:   map[resource.Name]interface{}{},
+			resourceMap:   map[resource.Name]resource.Resource{},
 			expectedError: errors.New("resource \"rdk:service:data_manager/DataManager1\" not found"),
 		},
 		"not datamanager": {
-			resourceMap: map[resource.Name]interface{}{
-				datamanager.Named(testDataManagerServiceName): "not datamanager",
+			resourceMap: map[resource.Name]resource.Resource{
+				datamanager.Named(testDataManagerServiceName): testutils.NewUnimplementedResource(datamanager.Named(testDataManagerServiceName)),
 			},
-			expectedError: datamanager.NewUnimplementedInterfaceError("string"),
+			expectedError: resource.TypeError[datamanager.Service](
+				testutils.NewUnimplementedResource(datamanager.Named(testDataManagerServiceName))),
 		},
 		"returns error": {
-			resourceMap: map[resource.Name]interface{}{
+			resourceMap: map[resource.Name]resource.Resource{
 				datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
 					SyncFunc: func(ctx context.Context, extra map[string]interface{}) error {
 						return errors.New("fake sync error")
@@ -53,7 +54,7 @@ func TestServerSync(t *testing.T) {
 			expectedError: errors.New("fake sync error"),
 		},
 		"returns response": {
-			resourceMap: map[resource.Name]interface{}{
+			resourceMap: map[resource.Name]resource.Resource{
 				datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
 					SyncFunc: func(ctx context.Context, extra map[string]interface{}) error {
 						extraOptions = extra
@@ -87,15 +88,15 @@ func TestServerSync(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]resource.Resource{
 		datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
-			DoCommandFunc: generic.EchoFunc,
+			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
 		Name:    testDataManagerServiceName,

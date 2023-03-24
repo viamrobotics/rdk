@@ -7,11 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	componentpb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
@@ -62,12 +60,14 @@ func TestClient(t *testing.T) {
 	}
 
 	gripperSvc, err := subtype.New(
-		map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
+		gripper.Subtype,
+		map[resource.Name]resource.Resource{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(gripper.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(gripper.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gripperSvc)
 
-	injectGripper.DoFunc = generic.EchoFunc
+	injectGripper.DoFunc = testutils.EchoFunc
 	generic.RegisterService(rpcServer, gripperSvc)
 
 	go rpcServer.Serve(listener1)
@@ -86,14 +86,14 @@ func TestClient(t *testing.T) {
 	t.Run("gripper client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gripper1Client := gripper.NewClientFromConn(context.Background(), conn, testGripperName, logger)
+		gripper1Client, err := gripper.NewClientFromConn(context.Background(), conn, gripper.Named(testGripperName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := gripper1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := gripper1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		extra := map[string]interface{}{"foo": "Open"}
 		err = gripper1Client.Open(context.Background(), extra)
@@ -119,7 +119,8 @@ func TestClient(t *testing.T) {
 	t.Run("gripper client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, failGripperName, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, gripper.Named(failGripperName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		gripper2Client, ok := client.(gripper.Gripper)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -141,38 +142,4 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), gripper2Client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectGripper := &inject.Gripper{}
-
-	gripperSvc, err := subtype.New(map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGripperServiceServer(gServer, gripper.NewServer(gripperSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := gripper.NewClientFromConn(ctx, conn1, testGripperName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := gripper.NewClientFromConn(ctx, conn2, testGripperName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

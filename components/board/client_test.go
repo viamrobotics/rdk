@@ -24,6 +24,12 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	testBoardName    = "board1"
+	missingBoardName = "board2"
+	fakeBoardName    = "board3"
+)
+
 func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()) {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
@@ -32,9 +38,10 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	boardSvc, err := subtype.New(map[resource.Name]interface{}{board.Named(testBoardName): injectBoard})
+	boardSvc, err := subtype.New(board.Subtype, map[resource.Name]resource.Resource{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(board.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(board.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc)
 
 	generic.RegisterService(rpcServer, boardSvc)
@@ -73,11 +80,11 @@ func TestWorkingClient(t *testing.T) {
 		var actualExtra map[string]interface{}
 
 		// DoCommand
-		injectBoard.DoFunc = generic.EchoFunc
-		resp, err := client.DoCommand(context.Background(), generic.TestCommand)
+		injectBoard.DoFunc = testutils.EchoFunc
+		resp, err := client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		// Status
 		injectStatus := &commonpb.BoardStatus{}
@@ -199,7 +206,7 @@ func TestWorkingClient(t *testing.T) {
 		ctx := context.Background()
 		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := board.NewClientFromConn(ctx, conn, testBoardName, logger)
+		client := board.NewClientFromConn(ctx, conn, board.Named(testBoardName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, client)
@@ -229,7 +236,7 @@ func TestClientWithStatus(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client := board.NewClientFromConn(context.Background(), conn, testBoardName, logger)
+	client := board.NewClientFromConn(context.Background(), conn, board.Named(testBoardName), logger)
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
@@ -263,9 +270,10 @@ func TestClientWithoutStatus(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	boardSvc, err := subtype.New(map[resource.Name]interface{}{board.Named(testBoardName): injectBoard})
+	boardSvc, err := subtype.New(board.Subtype, map[resource.Name]resource.Resource{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(board.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(board.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc)
 
 	go rpcServer.Serve(listener1)
@@ -273,7 +281,8 @@ func TestClientWithoutStatus(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	rClient := resourceSubtype.RPCClient(context.Background(), conn, testBoardName, logger)
+	rClient, err := resourceSubtype.RPCClient(context.Background(), conn, board.Named(testBoardName), logger)
+	test.That(t, err, test.ShouldBeNil)
 	client, ok := rClient.(board.Board)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -287,30 +296,4 @@ func TestClientWithoutStatus(t *testing.T) {
 	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	injectBoard := &inject.Board{}
-
-	listener, cleanup := setupService(t, injectBoard)
-	defer cleanup()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := board.NewClientFromConn(ctx, conn1, testBoardName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := board.NewClientFromConn(ctx, conn2, testBoardName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

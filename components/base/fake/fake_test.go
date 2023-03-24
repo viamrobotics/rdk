@@ -7,14 +7,15 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func TestFakeBase(t *testing.T) {
-	cfg := config.Component{
+	conf := resource.Config{
 		Name: "test",
 		Frame: &referenceframe.LinkConfig{
 			Parent: referenceframe.World,
@@ -26,9 +27,9 @@ func TestFakeBase(t *testing.T) {
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	b, err := NewBase(ctx, cfg, logger)
+	b, err := NewBase(ctx, conf)
 	test.That(t, err, test.ShouldBeNil)
-	kb, err := b.(*Base).WrapWithKinematics(ctx, fake.NewSLAM("test", logger))
+	kb, err := b.(*Base).WrapWithKinematics(ctx, fake.NewSLAM(slam.Named("test"), logger))
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)

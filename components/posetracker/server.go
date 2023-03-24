@@ -3,14 +3,12 @@ package posetracker
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 type subtypeServer struct {
@@ -23,23 +21,9 @@ func NewServer(service subtype.Service) pb.PoseTrackerServiceServer {
 	return &subtypeServer{service: service}
 }
 
-// NewResourceIsNotPoseTracker returns an error for when a resource
-// does not properly implement the PoseTracker interface.
-func NewResourceIsNotPoseTracker(resourceName string) error {
-	return errors.Errorf("resource with name (%s) is not a pose tracker", resourceName)
-}
-
 // getPoseTracker returns the specified pose tracker (or nil).
 func (server *subtypeServer) getPoseTracker(name string) (PoseTracker, error) {
-	resource := server.service.Resource(name)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(name))
-	}
-	poseTracker, ok := resource.(PoseTracker)
-	if !ok {
-		return nil, NewResourceIsNotPoseTracker(name)
-	}
-	return poseTracker, nil
+	return subtype.LookupResource[PoseTracker](server.service, name)
 }
 
 func (server *subtypeServer) GetPoses(

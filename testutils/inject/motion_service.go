@@ -15,6 +15,7 @@ import (
 // service.
 type MotionService struct {
 	motion.Service
+	name     resource.Name
 	MoveFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -47,6 +48,16 @@ type MotionService struct {
 	) (*referenceframe.PoseInFrame, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+// NewMotionService returns a new injected motion service.
+func NewMotionService(name string) *MotionService {
+	return &MotionService{name: motion.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (mgs *MotionService) Name() resource.Name {
+	return mgs.name
 }
 
 // Move calls the injected Move or the real variant.

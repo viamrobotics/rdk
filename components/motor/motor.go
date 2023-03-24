@@ -2,27 +2,22 @@ package motor
 
 import (
 	"context"
-	"sync"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/motor/v1"
-	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: WrapWithReconfigurable,
-		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
-			return CreateStatus(ctx, resource)
+		Status: func(ctx context.Context, res resource.Resource) (interface{}, error) {
+			return CreateStatus(ctx, res)
 		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
@@ -33,7 +28,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.MotorService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
@@ -59,6 +54,9 @@ var Subtype = resource.NewSubtype(
 
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
+	resource.Resource
+	resource.MovingCheckable
+
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error
@@ -94,9 +92,6 @@ type Motor interface {
 	// IsPowered returns whether or not the motor is currently on, and the percent power (between 0
 	// and 1, if the motor is off then the percent power will be 0).
 	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
-
-	generic.Generic
-	resource.MovingCheckable
 }
 
 // A LocalMotor is a motor that supports additional features provided by RDK
@@ -115,28 +110,10 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-var (
-	_ = Motor(&reconfigurableMotor{})
-	_ = LocalMotor(&reconfigurableLocalMotor{})
-	_ = resource.Reconfigurable(&reconfigurableMotor{})
-	_ = resource.Reconfigurable(&reconfigurableLocalMotor{})
-	_ = viamutils.ContextCloser(&reconfigurableLocalMotor{})
-)
-
 // FromDependencies is a helper for getting the named motor from a collection of
 // dependencies.
-func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
-	return registry.ResourceFromDependencies[Motor](deps, Named(name))
-}
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Motor)(nil), actual)
-}
-
-// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
-func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*LocalMotor)(nil), actual)
+func FromDependencies(deps resource.Dependencies, name string) (Motor, error) {
+	return resource.FromDependencies[Motor](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named motor from the given Robot.
@@ -150,27 +127,27 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the motor.
-func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	motor, ok := resource.(Motor)
-	if !ok {
-		return nil, NewUnimplementedLocalInterfaceError(resource)
-	}
-	isPowered, _, err := motor.IsPowered(ctx, nil)
+func CreateStatus(ctx context.Context, res resource.Resource) (*pb.Status, error) {
+	m, err := resource.AsType[Motor](res)
 	if err != nil {
 		return nil, err
 	}
-	features, err := motor.Properties(ctx, nil)
+	isPowered, _, err := m.IsPowered(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	features, err := m.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	var position float64
 	if features[PositionReporting] {
-		position, err = motor.Position(ctx, nil)
+		position, err = m.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
-	isMoving, err := motor.IsMoving(ctx)
+	isMoving, err := m.IsMoving(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -179,161 +156,4 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 		Position:  position,
 		IsMoving:  isMoving,
 	}, nil
-}
-
-type reconfigurableMotor struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Motor
-}
-
-func (r *reconfigurableMotor) Name() resource.Name {
-	return r.name
-}
-
-func (r *reconfigurableMotor) ProxyFor() interface{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual
-}
-
-func (r *reconfigurableMotor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.DoCommand(ctx, cmd)
-}
-
-func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.SetPower(ctx, powerPct, extra)
-}
-
-func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GoFor(ctx, rpm, revolutions, extra)
-}
-
-func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GoTo(ctx, rpm, positionRevolutions, extra)
-}
-
-func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ResetZeroPosition(ctx, offset, extra)
-}
-
-func (r *reconfigurableMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Position(ctx, extra)
-}
-
-func (r *reconfigurableMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Properties(ctx, extra)
-}
-
-func (r *reconfigurableMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Stop(ctx, extra)
-}
-
-func (r *reconfigurableMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsPowered(ctx, extra)
-}
-
-func (r *reconfigurableMotor) Close(ctx context.Context) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return viamutils.TryClose(ctx, r.actual)
-}
-
-func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.reconfigure(ctx, newMotor)
-}
-
-func (r *reconfigurableMotor) reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
-	actual, ok := newMotor.(*reconfigurableMotor)
-	if !ok {
-		return utils.NewUnexpectedTypeError(r, newMotor)
-	}
-	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	r.actual = actual.actual
-	return nil
-}
-
-func (r *reconfigurableMotor) IsMoving(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving(ctx)
-}
-
-type reconfigurableLocalMotor struct {
-	*reconfigurableMotor
-	actual LocalMotor
-}
-
-func (r *reconfigurableLocalMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	motor, ok := newMotor.(*reconfigurableLocalMotor)
-	if !ok {
-		return utils.NewUnexpectedTypeError(r, newMotor)
-	}
-	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-
-	r.actual = motor.actual
-	return r.reconfigurableMotor.reconfigure(ctx, motor.reconfigurableMotor)
-}
-
-func (r *reconfigurableLocalMotor) GoTillStop(
-	ctx context.Context, rpm float64,
-	stopFunc func(ctx context.Context) bool,
-) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GoTillStop(ctx, rpm, stopFunc)
-}
-
-func (r *reconfigurableLocalMotor) IsMoving(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving(ctx)
-}
-
-// WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
-// If motor is already a reconfigurableMotor, then nothing is done.
-func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	m, ok := r.(Motor)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
-	}
-	if reconfigurable, ok := m.(*reconfigurableMotor); ok {
-		return reconfigurable, nil
-	}
-	rMotor := &reconfigurableMotor{name: name, actual: m}
-	mLocal, ok := r.(LocalMotor)
-	if !ok {
-		return rMotor, nil
-	}
-	if reconfigurable, ok := m.(*reconfigurableLocalMotor); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableLocalMotor{actual: mLocal, reconfigurableMotor: rMotor}, nil
 }

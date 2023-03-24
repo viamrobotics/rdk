@@ -6,7 +6,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -42,7 +42,7 @@ func (csc *ColorObjectsConfig) CheckValid() error {
 }
 
 // ConvertAttributes changes the AttributeMap input into a ColorObjectsConfig.
-func (csc *ColorObjectsConfig) ConvertAttributes(am config.AttributeMap) error {
+func (csc *ColorObjectsConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: csc})
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (csc *ColorObjectsConfig) ConvertAttributes(am config.AttributeMap) error {
 }
 
 // ColorObjects returns a Segmenter that turns the bounding boxes found by the ColorDetector into 3D objects.
-func ColorObjects(params config.AttributeMap) (Segmenter, error) {
+func ColorObjects(params utils.AttributeMap) (Segmenter, error) {
 	cfg := &ColorObjectsConfig{}
 	err := cfg.ConvertAttributes(params)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 func TestFakeBoard(t *testing.T) {
@@ -31,7 +31,7 @@ func TestFakeBoard(t *testing.T) {
 		},
 	}
 
-	cfg := config.Component{Name: "board1", ConvertedAttributes: &boardConfig}
+	cfg := resource.Config{Name: "board1", ConvertedAttributes: &boardConfig}
 	b, err := NewBoard(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -9,16 +9,15 @@ import (
 	"go.viam.com/utils/artifact"
 
 	_ "go.viam.com/rdk/components/camera/register"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 )
 
 func TestGetDetectorNames(t *testing.T) {
 	srv, r := createService(t, "../data/fake.json")
 	names, err := srv.DetectorNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	t.Logf("names %v", names)
 	test.That(t, names, test.ShouldContain, "detector_3")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
@@ -50,7 +49,7 @@ func TestAddRemoveDetector(t *testing.T) {
 	cfg := vision.VisModelConfig{
 		Name: "test",
 		Type: "color_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"detect_color":      "#112233",
 			"hue_tolerance_pct": 0.4,
 			"value_cutoff_pct":  0.2,
@@ -60,7 +59,7 @@ func TestAddRemoveDetector(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	cfg2 := vision.VisModelConfig{
 		Name: "testdetector", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,

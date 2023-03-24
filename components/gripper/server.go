@@ -4,7 +4,6 @@ package gripper
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 
@@ -26,15 +25,7 @@ func NewServer(s subtype.Service) pb.GripperServiceServer {
 
 // getGripper returns the gripper specified, nil if not.
 func (s *subtypeServer) getGripper(name string) (Gripper, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no gripper with name (%s)", name)
-	}
-	gripper, ok := resource.(Gripper)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a gripper", name)
-	}
-	return gripper, nil
+	return subtype.LookupResource[Gripper](s.s, name)
 }
 
 // Open opens a gripper of the underlying robot.

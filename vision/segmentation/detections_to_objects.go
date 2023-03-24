@@ -7,10 +7,10 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -24,7 +24,7 @@ type DetectionSegmenterConfig struct {
 }
 
 // ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.
-func (dsc *DetectionSegmenterConfig) ConvertAttributes(am config.AttributeMap) error {
+func (dsc *DetectionSegmenterConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: dsc})
 	if err != nil {
 		return err
@@ -49,13 +49,13 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 		}
 	}
 	// return the segmenter
-	seg := func(ctx context.Context, cam camera.Camera) ([]*vision.Object, error) {
-		proj, err := cam.Projector(ctx)
+	seg := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+		proj, err := src.Projector(ctx)
 		if err != nil {
 			return nil, err
 		}
 		// get the 3D detections, and turn them into 2D image and depthmap
-		pc, err := cam.NextPointCloud(ctx)
+		pc, err := src.NextPointCloud(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "detection segmenter")
 		}

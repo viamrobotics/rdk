@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 func setupDefaultInput(t *testing.T) *InputController {
@@ -26,17 +26,17 @@ var (
 
 func setupDefinedInput(t *testing.T) *InputController {
 	t.Helper()
-	attr := Config{
+	conf := Config{
 		controls:         controls,
 		EventValue:       &value,
 		CallbackDelaySec: float64(delay/time.Millisecond) / 1000,
 	}
-	return setupInputWithCfg(t, attr)
+	return setupInputWithCfg(t, conf)
 }
 
-func setupInputWithCfg(t *testing.T, attr Config) *InputController {
+func setupInputWithCfg(t *testing.T, conf Config) *InputController {
 	t.Helper()
-	input, err := NewInputController(context.Background(), config.Component{ConvertedAttributes: &attr})
+	input, err := NewInputController(context.Background(), resource.Config{ConvertedAttributes: &conf})
 	test.That(t, err, test.ShouldBeNil)
 	return input.(*InputController)
 }

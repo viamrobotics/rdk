@@ -6,6 +6,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
@@ -15,6 +16,7 @@ import (
 // VisionService represents a fake instance of a vision service.
 type VisionService struct {
 	vision.Service
+	name                        resource.Name
 	GetModelParameterSchemaFunc func(
 		ctx context.Context, modelType vision.VisModelType, extra map[string]interface{},
 	) (*jsonschema.Schema, error)
@@ -44,6 +46,16 @@ type VisionService struct {
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
 	DoCommandFunc            func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+// NewVisionService returns a new injected vision service.
+func NewVisionService(name string) *VisionService {
+	return &VisionService{name: vision.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (vs *VisionService) Name() resource.Name {
+	return vs.name
 }
 
 // GetModelParameterSchema calls the injected ModelParameters or the real variant.

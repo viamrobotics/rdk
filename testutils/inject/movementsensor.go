@@ -8,12 +8,14 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // MovementSensor is an injected MovementSensor.
 type MovementSensor struct {
 	movementsensor.MovementSensor
+	name                        resource.Name
 	PositionFuncExtraCap        map[string]interface{}
 	PositionFunc                func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
 	LinearVelocityFuncExtraCap  map[string]interface{}
@@ -33,6 +35,16 @@ type MovementSensor struct {
 
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func() error
+}
+
+// NewMovementSensor returns a new injected movement sensor.
+func NewMovementSensor(name string) *MovementSensor {
+	return &MovementSensor{name: movementsensor.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (i *MovementSensor) Name() resource.Name {
+	return i.name
 }
 
 // Close calls the injected Close or the real version.

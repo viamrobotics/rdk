@@ -13,17 +13,17 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("ds18b20")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	UniqueID string `json:"unique_id"`
 }
 
@@ -33,31 +33,38 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).UniqueID), nil
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
+			}
+			return newSensor(conf.ResourceName(), newConf.UniqueID), nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
-func newSensor(name, id string) sensor.Sensor {
+func newSensor(name resource.Name, id string) sensor.Sensor {
 	// temp sensors are in family 28
-	return &Sensor{Name: name, OneWireID: id, OneWireFamily: "28"}
+	return &Sensor{
+		Named:         name.AsNamed(),
+		OneWireID:     id,
+		OneWireFamily: "28",
+	}
 }
 
 // Sensor is a 1-wire Sensor device.
 type Sensor struct {
-	Name          string
+	resource.Named
+	resource.AlwaysRebuild
 	OneWireID     string
 	OneWireFamily string
-	generic.Unimplemented
 }
 
 // ReadTemperatureCelsius returns current temperature in celsius.

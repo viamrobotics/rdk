@@ -2,18 +2,17 @@ package control
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 func TestGainConfig(t *testing.T) {
-	logger := golog.NewDebugLogger("gain")
+	logger := golog.NewTestLogger(t)
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -22,7 +21,7 @@ func TestGainConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Gain1",
 				Type: "gain",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"gain": 1.89345,
 				},
 				DependsOn: []string{"A"},
@@ -33,7 +32,7 @@ func TestGainConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Gain1",
 				Type: "gain",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"gainS": 1.89345,
 				},
 				DependsOn: []string{"A"},
@@ -44,7 +43,7 @@ func TestGainConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Gain1",
 				Type: "gain",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"gain": 1.89345,
 				},
 				DependsOn: []string{"A", "B"},
@@ -66,11 +65,11 @@ func TestGainConfig(t *testing.T) {
 
 func TestGainNext(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewDebugLogger("gain")
+	logger := golog.NewTestLogger(t)
 	c := BlockConfig{
 		Name: "Gain1",
 		Type: "gain",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"gain": 1.89345,
 		},
 		DependsOn: []string{"A"},
@@ -79,13 +78,12 @@ func TestGainNext(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 
-	signals := []Signal{
+	signals := []*Signal{
 		{
 			name:      "A",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
-			mu:        &sync.Mutex{},
 		},
 	}
 	out, ok := s.Next(ctx, signals, (time.Millisecond * 1))

@@ -6,27 +6,26 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, resource.NewDefaultModel("fake"), registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			var s servo.LocalServo = &Servo{Name: config.Name}
-			return s, nil
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			return &Servo{
+				Named: conf.ResourceName().AsNamed(),
+			}, nil
 		},
 	})
 }
 
 // A Servo allows setting and reading a single angle.
 type Servo struct {
-	Name  string
 	angle uint32
-	generic.Echo
+	resource.Named
+	resource.TriviallyReconfigurable
 }
 
 // Move sets the given angle.

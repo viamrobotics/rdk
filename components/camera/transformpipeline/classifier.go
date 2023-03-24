@@ -13,12 +13,12 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 )
 
-// classifierAttrs is the attribute struct for classifiers.
-type classifierAttrs struct {
+// classifierConfig is the attribute struct for classifiers.
+type classifierConfig struct {
 	ClassifierName      string  `json:"classifier_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 	MaxClassifications  uint32  `json:"max_classifications"`
@@ -35,15 +35,15 @@ type classifierSource struct {
 
 func newClassificationsTransform(
 	ctx context.Context,
-	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
+	source gostream.VideoSource, r robot.Robot, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(classifierAttrs{}), am)
+	conf, err := config.TransformAttributeMapToStruct(&(classifierConfig{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	attrs, ok := conf.(*classifierAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	classConf, err := utils.AssertType[*classifierConfig](conf)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
 
 	props, err := propsFromVideoSource(ctx, source)
@@ -56,20 +56,23 @@ func newClassificationsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	confFilter := classification.NewScoreFilter(attrs.ConfidenceThreshold)
+	confFilter := classification.NewScoreFilter(classConf.ConfidenceThreshold)
 	var maxClassifications uint32 = 1
-	if attrs.MaxClassifications != 0 {
-		maxClassifications = attrs.MaxClassifications
+	if classConf.MaxClassifications != 0 {
+		maxClassifications = classConf.MaxClassifications
 	}
 	classifier := &classifierSource{
 		gostream.NewEmbeddedVideoStream(source),
-		attrs.ClassifierName,
+		classConf.ClassifierName,
 		maxClassifications,
 		confFilter,
 		r,
 	}
-	cam, err := camera.NewFromReader(ctx, classifier, &cameraModel, camera.ColorStream)
-	return cam, camera.ColorStream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, classifier, &cameraModel, camera.ColorStream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, camera.ColorStream, err
 }
 
 // Read returns the image overlaid with at most max_classifications labels from the classification.

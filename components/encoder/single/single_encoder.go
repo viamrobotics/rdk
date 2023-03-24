@@ -33,7 +33,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -48,21 +47,19 @@ func init() {
 		singlemodelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return NewSingleEncoder(ctx, deps, config, logger)
+		) (resource.Resource, error) {
+			return NewSingleEncoder(ctx, deps, conf, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
 		encoder.Subtype,
 		singlemodelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 // DirectionAware lets you ask what direction something is moving. Only used for Encoder for now, unclear future.
@@ -73,14 +70,18 @@ type DirectionAware interface {
 
 // Encoder keeps track of a motor position using a rotary encoder.s.
 type Encoder struct {
-	generic.Unimplemented
-	name     string
-	I        board.DigitalInterrupt
-	position int64
-	m        DirectionAware
+	resource.Named
+	mu        sync.Mutex
+	I         board.DigitalInterrupt
+	position  int64
+	m         DirectionAware
+	boardName string
+	diPinName string
 
-	positionType            encoder.PositionType
-	logger                  golog.Logger
+	positionType encoder.PositionType
+	logger       golog.Logger
+	// TODO(RSDK-2672): This is exposed for tests and should be unexported with
+	// the constructor being used instead.
 	CancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -91,68 +92,105 @@ type Pin struct {
 	I string `json:"i"`
 }
 
-// AttrConfig describes the configuration of a single encoder.
-type AttrConfig struct {
+// Config describes the configuration of a single encoder.
+type Config struct {
 	Pins      Pin    `json:"pins"`
 	BoardName string `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if cfg.Pins.I == "" {
+	if conf.Pins.I == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i")
 	}
 
-	if len(cfg.BoardName) == 0 {
+	if len(conf.BoardName) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, cfg.BoardName)
+	deps = append(deps, conf.BoardName)
 
 	return deps, nil
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
 func (e *Encoder) AttachDirectionalAwareness(da DirectionAware) {
+	e.mu.Lock()
 	e.m = da
+	e.mu.Unlock()
 }
 
 // NewSingleEncoder creates a new Encoder.
 func NewSingleEncoder(
 	ctx context.Context,
-	deps registry.Dependencies,
-	rawConfig config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
-	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
-	}
-
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &Encoder{
-		name:         rawConfig.Name,
+		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
 		CancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
-		positionType: encoder.PositionTypeTICKS,
+		positionType: encoder.PositionTypeTicks,
 	}
-
-	board, err := board.FromDependencies(deps, cfg.BoardName)
-	if err != nil {
+	if err := e.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+	return e, nil
+}
 
-	e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
-	if !ok {
-		return nil, errors.Errorf("cannot find pin (%s) for Encoder", cfg.Pins.I)
+// Reconfigure atomically reconfigures this encoder in place based on the new config.
+func (e *Encoder) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
+
+	e.mu.Lock()
+	existingBoardName := e.boardName
+	existingDIPinName := e.diPinName
+	e.mu.Unlock()
+
+	needRestart := existingBoardName != newConf.BoardName ||
+		existingDIPinName != newConf.Pins.I
+
+	board, err := board.FromDependencies(deps, newConf.BoardName)
+	if err != nil {
+		return err
+	}
+
+	di, ok := board.DigitalInterruptByName(newConf.Pins.I)
+	if !ok {
+		return errors.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I)
+	}
+
+	if !needRestart {
+		return nil
+	}
+	utils.UncheckedError(e.Close())
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	e.CancelCtx = cancelCtx
+	e.cancelFunc = cancelFunc
+
+	e.mu.Lock()
+	e.I = di
+	e.boardName = newConf.BoardName
+	e.diPinName = newConf.Pins.I
+	// state is not really valid anymore
+	atomic.StoreInt64(&e.position, 0)
+	e.mu.Unlock()
 
 	e.Start(ctx)
 
-	return e, nil
+	return nil
 }
 
 // Start starts the Encoder background thread.
@@ -184,7 +222,7 @@ func (e *Encoder) Start(ctx context.Context) {
 					atomic.AddInt64(&e.position, dir)
 				}
 			} else {
-				e.logger.Warn("%s: received tick for encoder that isn't connected to a motor, ignoring.", e.name)
+				e.logger.Warn("received tick for encoder that isn't connected to a motor; ignoring")
 			}
 		}
 	}, e.activeBackgroundWorkers.Done)
@@ -194,12 +232,11 @@ func (e *Encoder) Start(ctx context.Context) {
 // degrees, and whether it is a relative or absolute position.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *encoder.PositionType,
+	positionType encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
-		err := encoder.NewEncoderTypeUnsupportedError(*positionType)
-		return 0, *positionType, err
+	if positionType == encoder.PositionTypeDegrees {
+		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
 	}
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), e.positionType, nil
@@ -222,7 +259,6 @@ func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{
 
 // Close shuts down the Encoder.
 func (e *Encoder) Close() error {
-	e.logger.Debug("Closing Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil

@@ -13,6 +13,7 @@ import (
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -20,26 +21,34 @@ var errArmClientModelNotValid = errors.New("unable to retrieve a valid arm model
 
 // client implements ArmServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
 	name   string
-	conn   rpc.ClientConn
 	client pb.ArmServiceClient
 	model  referenceframe.Model
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
-	c := pb.NewArmServiceClient(conn)
-	// TODO: DATA-853 requires that this support models being changed on the fly, not just at creation
-	// TODO: RSDK-882 will update this so that this is not necessary
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Arm, error) {
+	pbClient := pb.NewArmServiceClient(conn)
+	// TODO(DATA-853): requires that this support models being changed on the fly, not just at creation
+	// TODO(RSDK-882): will update this so that this is not necessary
 	r := robotpb.NewRobotServiceClient(conn)
-	return &client{
-		name:   name,
-		conn:   conn,
-		client: c,
-		model:  getModel(ctx, r, name),
+	model, hasModel, err := getModel(ctx, r, name.ShortNameForClient())
+	if err != nil {
+		return nil, err
+	}
+	c := &client{
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
+		client: pbClient,
 		logger: logger,
 	}
+	if hasModel {
+		c.model = model
+	}
+	return c, nil
 }
 
 func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
@@ -115,12 +124,12 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if c.model == nil {
+		return nil, errArmClientModelNotValid
+	}
 	resp, err := c.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
-	}
-	if c.model == nil {
-		return nil, errArmClientModelNotValid
 	}
 	return c.model.InputFromProtobuf(resp), nil
 }
@@ -144,19 +153,20 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) referenceframe.Model {
+func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) (referenceframe.Model, bool, error) {
 	resp, err := r.FrameSystemConfig(ctx, &robotpb.FrameSystemConfigRequest{})
 	if err != nil {
-		return nil
+		return nil, false, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
 	for _, cfg := range cfgs {
 		if cfg.GetFrame().GetReferenceFrame() == name {
-			if part, err := referenceframe.ProtobufToFrameSystemPart(cfg); err == nil {
-				return part.ModelFrame
+			part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
+			if err == nil {
+				return part.ModelFrame, true, nil
 			}
-			return nil
+			return nil, false, err
 		}
 	}
-	return nil
+	return nil, false, nil
 }

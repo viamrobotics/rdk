@@ -125,7 +125,6 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 		interpreterOptions: loader.interpreterOptions,
 		Info:               info,
 		modelPath:          modelPath,
-		mu:                 sync.Mutex{},
 	}
 
 	return modelStruct, nil

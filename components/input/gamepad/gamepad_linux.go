@@ -18,11 +18,11 @@ import (
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const defaultMapping = "Microsoft X-Box 360 pad"
@@ -41,22 +41,22 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		input.Subtype,
 		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
-func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.Controller {
-	var g gamepad
-	g.logger = logger
-	g.reconnect = reconnect
+func createController(ctx context.Context, name resource.Name, logger golog.Logger, devFile string, reconnect bool) input.Controller {
 	ctxWithCancel, cancel := context.WithCancel(ctx)
-	g.cancelFunc = cancel
-	g.devFile = devFile
-	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	g.lastEvents = make(map[input.Control]input.Event)
+	g := gamepad{
+		Named:      name.AsNamed(),
+		logger:     logger,
+		reconnect:  reconnect,
+		devFile:    devFile,
+		cancelFunc: cancel,
+		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
+		lastEvents: map[input.Control]input.Event{},
+	}
 
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -84,17 +84,20 @@ func createController(ctx context.Context, logger golog.Logger, devFile string, 
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
 	return createController(
 		ctx,
+		conf.ResourceName(),
 		logger,
-		config.ConvertedAttributes.(*Config).DevFile,
-		config.ConvertedAttributes.(*Config).AutoReconnect,
+		conf.ConvertedAttributes.(*Config).DevFile,
+		conf.ConvertedAttributes.(*Config).AutoReconnect,
 	), nil
 }
 
 // gamepad is an input.Controller.
 type gamepad struct {
+	resource.Named
+	resource.AlwaysRebuild
 	dev                     *evdev.Evdev
 	Model                   string
 	Mapping                 Mapping
@@ -107,7 +110,6 @@ type gamepad struct {
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	devFile                 string
 	reconnect               bool
-	generic.Unimplemented
 }
 
 // Mapping represents the evdev code to input.Control mapping for a given gamepad model.

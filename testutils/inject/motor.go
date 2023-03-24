@@ -4,11 +4,13 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/resource"
 )
 
 // Motor is an injected motor.
 type Motor struct {
 	motor.Motor
+	name                  resource.Name
 	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SetPowerFunc          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 	GoForFunc             func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error
@@ -18,6 +20,16 @@ type Motor struct {
 	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
+}
+
+// NewMotor returns a new injected motor.
+func NewMotor(name string) *Motor {
+	return &Motor{name: motor.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (m *Motor) Name() resource.Name {
+	return m.name
 }
 
 // SetPower calls the injected Power or the real version.

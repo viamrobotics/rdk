@@ -96,7 +96,7 @@ func NewModelFromString(modelStr string) (Model, error) {
 		return NewModel(Namespace(matches[1]), ModelFamilyName(matches[2]), ModelName(matches[3])), nil
 	}
 
-	// TODO(PRODUCT-266): Remove when triplet support complete
+	// TODO(PRODUCT-266): Remove when API replaces namespace/subtype
 	if singleFieldRegexValidator.MatchString(modelStr) {
 		return NewModel(ResourceNamespaceRDK, DefaultModelFamilyName, ModelName(modelStr)), nil
 	}
@@ -153,7 +153,7 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	// TODO(PRODUCT-266): Remove when triplet support complete
+	// TODO(PRODUCT-266): Remove when API replaces namespace/subtype
 	if singleFieldRegexValidator.MatchString(modelStr) {
 		m.Namespace = ResourceNamespaceRDK
 		m.ModelFamily.Family = DefaultModelFamilyName

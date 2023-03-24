@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // rotateSource is the source to be rotated and the kind of image type.
@@ -38,8 +38,11 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 		cameraModel.Distortion = props.DistortionParams
 	}
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
-	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
-	return cam, stream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, stream, err
 }
 
 // Next rotates the 2D image depending on the stream type.
@@ -69,8 +72,8 @@ func (rs *rotateSource) Close(ctx context.Context) error {
 	return rs.originalStream.Close(ctx)
 }
 
-// resizeAttrs are the attributes for a resize transform.
-type resizeAttrs struct {
+// resizeConfig are the attributes for a resize transform.
+type resizeConfig struct {
 	Height int `json:"height_px"`
 	Width  int `json:"width_px"`
 }
@@ -84,26 +87,29 @@ type resizeSource struct {
 
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
-	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am config.AttributeMap,
+	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(resizeAttrs{}), am)
+	conf, err := config.TransformAttributeMapToStruct(&(resizeConfig{}), am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	attrs, ok := conf.(*resizeAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	resConf, err := utils.AssertType[*resizeConfig](conf)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
 	}
-	if attrs.Width == 0 {
+	if resConf.Width == 0 {
 		return nil, camera.UnspecifiedStream, errors.New("new width for resize transform cannot be 0")
 	}
-	if attrs.Height == 0 {
+	if resConf.Height == 0 {
 		return nil, camera.UnspecifiedStream, errors.New("new height for resize transform cannot be 0")
 	}
 
-	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, attrs.Height, attrs.Width}
-	cam, err := camera.NewFromReader(ctx, reader, nil, stream)
-	return cam, stream, err
+	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, resConf.Height, resConf.Width}
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, stream, err
 }
 
 // Next resizes the 2D image depending on the stream type.

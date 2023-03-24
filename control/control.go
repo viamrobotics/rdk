@@ -23,7 +23,7 @@ type Config struct {
 // Control control interface can be used to interfact with a control loop to query signals, change config, start/stop the loop etc...
 type Control interface {
 	// OutputAt returns the Signal at the block name, error when the block doesn't exist
-	OutputAt(ctx context.Context, name string) ([]Signal, error)
+	OutputAt(ctx context.Context, name string) ([]*Signal, error)
 	// ConfigAt returns the Configl at the block name, error when the block doesn't exist
 	ConfigAt(ctx context.Context, name string) (BlockConfig, error)
 	// BlockList returns the list of blocks in a control loop error when the list is empty

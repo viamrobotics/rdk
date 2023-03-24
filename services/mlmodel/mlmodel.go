@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -28,8 +27,8 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &servicepb.MLModelService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, name, logger), nil
 		},
 		MaxInstance: resource.DefaultMaxInstance,
 	})
@@ -39,6 +38,7 @@ func init() {
 // an inference engine, and creates a map of outputs. Metadata is necessary in order to build
 // the struct that will decode that map[string]interface{} correctly.
 type Service interface {
+	resource.Resource
 	Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
 	Metadata(ctx context.Context) (MLMetadata, error)
 }
@@ -181,9 +181,4 @@ func Named(name string) resource.Name {
 // FromRobot is a helper for getting the named ML model service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
-}
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Service)(nil), actual)
 }

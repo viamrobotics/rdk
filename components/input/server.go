@@ -26,15 +26,7 @@ func NewServer(s subtype.Service) pb.InputControllerServiceServer {
 
 // getInputController returns the input controller specified, nil if not.
 func (s *subtypeServer) getInputController(name string) (Controller, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no input controller with name (%s)", name)
-	}
-	input, ok := resource.(Controller)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an input controller", name)
-	}
-	return input, nil
+	return subtype.LookupResource[Controller](s.s, name)
 }
 
 // GetControls lists the inputs of an Controller.

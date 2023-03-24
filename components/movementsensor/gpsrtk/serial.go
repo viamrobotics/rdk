@@ -10,10 +10,9 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 )
 
 type serialCorrectionSource struct {
@@ -24,6 +23,7 @@ type serialCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	mu                      sync.Mutex
 
 	err movementsensor.LastError
 }
@@ -57,12 +57,8 @@ const (
 	baudRateName       = "correction_baud"
 )
 
-func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger golog.Logger) (correctionSource, error) {
-	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
-	}
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+func newSerialCorrectionSource(conf *StationConfig, logger golog.Logger) (correctionSource, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	s := &serialCorrectionSource{
 		cancelCtx:  cancelCtx,
@@ -71,12 +67,12 @@ func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger
 		err:        movementsensor.NewLastError(1, 1),
 	}
 
-	serialPath := attr.SerialCorrectionPath
+	serialPath := conf.SerialCorrectionPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 
-	baudRate := attr.SerialCorrectionBaudRate
+	baudRate := conf.SerialCorrectionBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 		s.logger.Info("SerialCorrectionSource: correction_baud using default 9600")
@@ -102,51 +98,64 @@ func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger
 // Start reads correction data from the serial port and sends it into the correctionReader.
 func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	s.activeBackgroundWorkers.Add(1)
-	defer s.activeBackgroundWorkers.Done()
+	utils.PanicCapturingGo(func() {
+		defer s.activeBackgroundWorkers.Done()
 
-	var w io.WriteCloser
-	pr, pw := io.Pipe()
-	s.correctionReader = pipeReader{pr: pr}
-	w = pipeWriter{pw: pw}
-	ready <- true
+		s.mu.Lock()
+		if err := s.cancelCtx.Err(); err != nil {
+			s.mu.Unlock()
+			return
+		}
+		s.mu.Unlock()
 
-	// read from s.port and write rctm messages into w, discard other messages in loop
-	scanner := rtcm3.NewScanner(s.port)
-
-	for {
+		var w io.WriteCloser
+		pr, pw := io.Pipe()
+		s.correctionReader = pipeReader{pr: pr}
+		w = pipeWriter{pw: pw}
 		select {
+		case ready <- true:
 		case <-s.cancelCtx.Done():
-			err := w.Close()
-			if err != nil {
-				s.logger.Errorf("Unable to close writer: %s", err)
-				s.err.Set(err)
-				return
-			}
-			return
-		default:
-		}
-
-		msg, err := scanner.NextMessage()
-		if err != nil {
-			s.logger.Errorf("Error reading RTCM message: %s", err)
-			s.err.Set(err)
 			return
 		}
 
-		switch msg.(type) {
-		case rtcm3.MessageUnknown:
-			continue
-		default:
-			frame := rtcm3.EncapsulateMessage(msg)
-			byteMsg := frame.Serialize()
-			_, err := w.Write(byteMsg)
+		// read from s.port and write rctm messages into w, discard other messages in loop
+		scanner := rtcm3.NewScanner(s.port)
+
+		for {
+			select {
+			case <-s.cancelCtx.Done():
+				err := w.Close()
+				if err != nil {
+					s.logger.Errorf("Unable to close writer: %s", err)
+					s.err.Set(err)
+					return
+				}
+				return
+			default:
+			}
+
+			msg, err := scanner.NextMessage()
 			if err != nil {
-				s.logger.Errorf("Error writing RTCM message: %s", err)
+				s.logger.Errorf("Error reading RTCM message: %s", err)
 				s.err.Set(err)
 				return
 			}
+
+			switch msg.(type) {
+			case rtcm3.MessageUnknown:
+				continue
+			default:
+				frame := rtcm3.EncapsulateMessage(msg)
+				byteMsg := frame.Serialize()
+				_, err := w.Write(byteMsg)
+				if err != nil {
+					s.logger.Errorf("Error writing RTCM message: %s", err)
+					s.err.Set(err)
+					return
+				}
+			}
 		}
-	}
+	})
 }
 
 // Reader returns the serialCorrectionSource's correctionReader if it exists.
@@ -160,7 +169,9 @@ func (s *serialCorrectionSource) Reader() (io.ReadCloser, error) {
 
 // Close shuts down the serialCorrectionSource and closes s.port.
 func (s *serialCorrectionSource) Close() error {
+	s.mu.Lock()
 	s.cancelFunc()
+	s.mu.Unlock()
 	s.activeBackgroundWorkers.Wait()
 
 	// close port reader

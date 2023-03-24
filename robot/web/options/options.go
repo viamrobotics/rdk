@@ -136,7 +136,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 
 		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{
 			Type: utils.CredentialsTypeRobotLocationSecret,
-			Config: config.AttributeMap{
+			Config: utils.AttributeMap{
 				"secrets": allLocationSecrets,
 			},
 		})

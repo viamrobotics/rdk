@@ -22,33 +22,33 @@ func connectionTypeError(connType, serialConn, i2cConn string) error {
 		i2cConn)
 }
 
-// AttrConfig is used for converting NMEA Movement Sensor attibutes.
-type AttrConfig struct {
+// Config is used for converting NMEA Movement Sensor attibutes.
+type Config struct {
 	ConnectionType string `json:"connection_type"`
 	Board          string `json:"board,omitempty"`
 	DisableNMEA    bool   `json:"disable_nmea,omitempty"`
 
-	*SerialAttrConfig `json:"serial_attributes,omitempty"`
-	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
+	*SerialConfig `json:"serial_attributes,omitempty"`
+	*I2CConfig    `json:"i2c_attributes,omitempty"`
 }
 
-// SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type SerialAttrConfig struct {
+// SerialConfig is used for converting Serial NMEA MovementSensor config attributes.
+type SerialConfig struct {
 	SerialPath               string `json:"serial_path"`
 	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
 	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
 	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
 }
 
-// I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type I2CAttrConfig struct {
+// I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
+type I2CConfig struct {
 	I2CBus      string `json:"i2c_bus"`
 	I2cAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Board == "" && cfg.ConnectionType == i2cStr {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
@@ -64,16 +64,16 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
+		return deps, cfg.I2CConfig.ValidateI2C(path)
 	case serialStr:
-		return nil, cfg.SerialAttrConfig.ValidateSerial(path)
+		return nil, cfg.SerialConfig.ValidateSerial(path)
 	default:
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
+func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -85,7 +85,7 @@ func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 }
 
 // ValidateSerial ensures all parts of the config are valid.
-func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
+func (cfg *SerialConfig) ValidateSerial(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
@@ -108,19 +108,17 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newNMEAGPS(ctx, deps, cfg, logger)
+		) (resource.Resource, error) {
+			return newNMEAGPS(ctx, deps, conf, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 const (
@@ -132,23 +130,23 @@ const (
 
 func newNMEAGPS(
 	ctx context.Context,
-	deps registry.Dependencies,
-	cfg config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	switch attr.ConnectionType {
+	switch newConf.ConnectionType {
 	case serialStr:
-		return NewSerialGPSNMEA(ctx, attr, logger)
+		return NewSerialGPSNMEA(ctx, conf.ResourceName(), newConf, logger)
 	case i2cStr:
-		return NewPmtkI2CGPSNMEA(ctx, deps, attr, logger)
+		return NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), newConf, logger)
 	default:
 		return nil, connectionTypeError(
-			attr.ConnectionType,
+			newConf.ConnectionType,
 			i2cStr,
 			serialStr)
 	}

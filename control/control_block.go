@@ -7,7 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 type controlBlockType string
@@ -26,10 +26,10 @@ const (
 
 // BlockConfig configuration of a given block.
 type BlockConfig struct {
-	Name      string              `json:"name"`       // Control Block name
-	Type      controlBlockType    `json:"type"`       // Control Block type
-	Attribute config.AttributeMap `json:"attributes"` // Internal block configuration
-	DependsOn []string            `json:"depends_on"` // List of blocks needed for calling Next
+	Name      string             `json:"name"`       // Control Block name
+	Type      controlBlockType   `json:"type"`       // Control Block type
+	Attribute utils.AttributeMap `json:"attributes"` // Internal block configuration
+	DependsOn []string           `json:"depends_on"` // List of blocks needed for calling Next
 }
 
 // Block interface for a control block.
@@ -38,13 +38,13 @@ type Block interface {
 	Reset(ctx context.Context) error
 
 	// Next calculate the next output. Takes an array of float64 , a delta time returns True and the output value on success false otherwise
-	Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool)
+	Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool)
 
 	// UpdateConfig update the configuration of a pre-existing control block returns an error on failure
 	UpdateConfig(ctx context.Context, config BlockConfig) error
 
 	// Output returns the most recent valid value, useful for block aggregating signals
-	Output(ctx context.Context) []Signal
+	Output(ctx context.Context) []*Signal
 
 	// Config returns the underlying config for a Block
 	Config(ctx context.Context) BlockConfig

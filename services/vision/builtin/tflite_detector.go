@@ -52,10 +52,9 @@ func NewTFLiteDetector(
 	if err != nil {
 		return nil, nil, errors.New("error getting parameters from config")
 	}
-	params, ok := tfParams.(*TFLiteDetectorConfig)
-	if !ok {
-		err := utils.NewUnexpectedTypeError(params, tfParams)
-		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
+	params, err := utils.AssertType[*TFLiteDetectorConfig](tfParams)
+	if err != nil {
+		return nil, nil, err
 	}
 	// Secret but hard limit on num_threads
 	if params.NumThreads > runtime.NumCPU()/4 {

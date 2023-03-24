@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -32,7 +33,7 @@ import (
 
 func TestOpID(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfgFilename, port, err := makeConfig()
+	cfgFilename, port, err := makeConfig(logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
@@ -146,7 +147,7 @@ func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 	return rc, gc, conn, nil
 }
 
-func makeConfig() (string, string, error) {
+func makeConfig(logger golog.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	builder := exec.Command("go", "build", ".")
 	builder.Dir = utils.ResolveFile("module/testmodule")
@@ -167,12 +168,14 @@ func makeConfig() (string, string, error) {
 			ExePath: utils.ResolveFile("module/testmodule/run.sh"),
 		}},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:" + port}},
-		Components: []config.Component{{
-			Namespace: resource.ResourceNamespaceRDK,
-			Type:      "generic",
-			Model:     resource.NewModel("rdk", "test", "helper"),
-			Name:      "helper1",
+		Components: []resource.Config{{
+			API:   generic.Subtype,
+			Model: resource.NewModel("rdk", "test", "helper"),
+			Name:  "helper1",
 		}},
+	}
+	if err := cfg.Ensure(false, logger); err != nil {
+		return "", "", err
 	}
 
 	output, err := json.Marshal(cfg)

@@ -11,9 +11,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -21,13 +22,32 @@ const (
 	testBusName   = "i2c1"
 )
 
-func setupDependencies(t *testing.T) registry.Dependencies {
+func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
-	actualBoard := newBoard(testBoardName)
+	actualBoard := inject.NewBoard(testBoardName)
+	i2c1 := &inject.I2C{}
+	handle1 := &inject.I2CHandle{}
+	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
+		return nil
+	}
+	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
+		return nil, nil
+	}
+	handle1.CloseFunc = func() error {
+		return nil
+	}
+	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return handle1, nil
+	}
+	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		return i2c1, true
+	}
+
 	deps[board.Named(testBoardName)] = actualBoard
+
 	return deps
 }
 
@@ -38,9 +58,9 @@ func TestValidate(t *testing.T) {
 		SurveyIn:         "",
 		RequiredAccuracy: 0,
 		RequiredTime:     0,
-		SerialAttrConfig: &SerialAttrConfig{},
-		I2CAttrConfig:    &I2CAttrConfig{},
-		NtripAttrConfig:  &NtripAttrConfig{},
+		SerialConfig:     &SerialConfig{},
+		I2CConfig:        &I2CConfig{},
+		NtripConfig:      &NtripConfig{},
 	}
 	path := "path"
 	_, err := fakecfg.Validate(path)
@@ -56,7 +76,7 @@ func TestValidate(t *testing.T) {
 	_, err = fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
-	fakecfg.NtripAttrConfig.NtripAddr = "some-ntrip-address"
+	fakecfg.NtripConfig.NtripAddr = "some-ntrip-address"
 	fakecfg.NtripPath = "some-ntrip-path"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
@@ -66,7 +86,7 @@ func TestValidate(t *testing.T) {
 	_, err = fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path"))
 
-	fakecfg.SerialAttrConfig.SerialCorrectionPath = "some-serial-path"
+	fakecfg.SerialConfig.SerialCorrectionPath = "some-serial-path"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -82,14 +102,14 @@ func TestRTK(t *testing.T) {
 	deps := setupDependencies(t)
 
 	// test NTRIPConnection Source
-	cfig := config.Component{
+	conf := resource.Config{
 		Name:  "rtk1",
 		Model: resource.NewDefaultModel("rtk-station"),
-		Type:  "gps",
+		API:   movementsensor.Subtype,
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "ntrip",
 			Board:            testBoardName,
-			NtripAttrConfig: &NtripAttrConfig{
+			NtripConfig: &NtripConfig{
 				NtripAddr:            "some_ntrip_address",
 				NtripConnectAttempts: 10,
 				NtripMountpoint:      "NJI2",
@@ -99,45 +119,47 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err := newRTKStation(ctx, deps, cfig, logger)
+	// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
+	// I2C; it used to just test a random error; it still does.
+	g, err := newRTKStation(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g, test.ShouldNotBeNil)
+	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
+	test.That(t, utils.TryClose(context.Background(), g), test.ShouldBeNil)
 
 	// test serial connection source
 	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
-	cfig = config.Component{
+	conf = resource.Config{
 		Name:  "rtk1",
 		Model: resource.NewDefaultModel("rtk-station"),
-		Type:  "gps",
+		API:   movementsensor.Subtype,
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "serial",
-			SerialAttrConfig: &SerialAttrConfig{
+			SerialConfig: &SerialConfig{
 				SerialCorrectionPath: path,
 			},
 		},
 	}
 
-	g, err = newRTKStation(ctx, deps, cfig, logger)
-	passErr := "open " + path + ": no such file or directory"
-	if err == nil || err.Error() != passErr {
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, g, test.ShouldNotBeNil)
-	}
+	// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
+	// I2C; it used to just test a random error; it still does.
+	_, err = newRTKStation(ctx, deps, conf, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
 
 	// test I2C correction source
-	cfig = config.Component{
+	conf = resource.Config{
 		Name:       "rtk1",
 		Model:      resource.NewDefaultModel("rtk-station"),
-		Type:       "gps",
-		Attributes: config.AttributeMap{},
+		API:        movementsensor.Subtype,
+		Attributes: rutils.AttributeMap{},
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "i2c",
 			Board:            testBoardName,
 			SurveyIn:         "",
-			I2CAttrConfig: &I2CAttrConfig{
+			I2CConfig: &I2CConfig{
 				I2CBus: testBusName,
 			},
-			NtripAttrConfig: &NtripAttrConfig{
+			NtripConfig: &NtripConfig{
 				NtripAddr:            "some_ntrip_address",
 				NtripConnectAttempts: 10,
 				NtripMountpoint:      "NJI2",
@@ -148,20 +170,19 @@ func TestRTK(t *testing.T) {
 		},
 	}
 
-	g, err = newRTKStation(ctx, deps, cfig, logger)
-	passErr = "board " + testBoardName + " is not local"
-
-	if err == nil || err.Error() != passErr {
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, g, test.ShouldNotBeNil)
-	}
+	// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
+	// I2C; it used to just test a random error; it still does.
+	g, err = newRTKStation(ctx, deps, conf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
+	test.That(t, utils.TryClose(context.Background(), g), test.ShouldBeNil)
 
 	// test invalid source
-	cfig = config.Component{
+	conf = resource.Config{
 		Name:  "rtk1",
 		Model: resource.NewDefaultModel("rtk-station"),
-		Type:  "gps",
-		Attributes: config.AttributeMap{
+		API:   movementsensor.Subtype,
+		Attributes: rutils.AttributeMap{
 			"correction_source":      "invalid-protocol",
 			"ntrip_addr":             "some_ntrip_address",
 			"ntrip_username":         "",
@@ -176,7 +197,7 @@ func TestRTK(t *testing.T) {
 			CorrectionSource: "invalid",
 		},
 	}
-	_, err = newRTKStation(ctx, deps, cfig, logger)
+	_, err = newRTKStation(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 

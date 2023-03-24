@@ -19,7 +19,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	golog.Global().Debugf("out dir: %q", outDir)
 }
 
 func TestGetMinChessCorner(t *testing.T) {

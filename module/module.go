@@ -212,7 +212,7 @@ func (m *Module) Close(ctx context.Context) {
 }
 
 // GetParentResource returns a resource from the parent robot by name.
-func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (interface{}, error) {
+func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
 	if err := m.connectParent(ctx); err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
 		if err != nil {
@@ -276,50 +276,41 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		deps[name] = c
 	}
 
-	cfg, err := config.ComponentConfigFromProto(req.Config)
+	conf, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := addConvertedAttributes(cfg); err != nil {
+	if err := addConvertedAttributes(conf); err != nil {
 		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
 	}
 
-	var res interface{}
-	switch cfg.API.ResourceType {
-	case resource.ResourceTypeComponent:
-		creator := registry.ComponentLookup(cfg.API, cfg.Model)
-		if creator != nil && creator.Constructor != nil {
-			res, err = creator.Constructor(ctx, deps, *cfg, m.logger)
-		}
-
-	case resource.ResourceTypeService:
-		creator := registry.ServiceLookup(cfg.API, cfg.Model)
-		if creator != nil && creator.Constructor != nil {
-			res, err = creator.Constructor(ctx, deps, config.ServiceConfigFromShared(*cfg), m.logger)
-		}
-	default:
-		return nil, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
+	resInfo, ok := registry.ResourceLookup(conf.API, conf.Model)
+	if !ok {
+		return nil, errors.Errorf("do not know how to construct %q", conf.API)
 	}
-
+	if resInfo.Constructor == nil {
+		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+	}
+	res, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	subSvc, ok := m.services[cfg.API]
+	subSvc, ok := m.services[conf.API]
 	if !ok {
-		return nil, errors.Errorf("module cannot service api: %s", cfg.API)
+		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
 
-	return &pb.AddResourceResponse{}, subSvc.Add(cfg.ResourceName(), res)
+	return &pb.AddResourceResponse{}, subSvc.Add(conf.ResourceName(), res)
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
-	var res interface{}
-	deps := make(registry.Dependencies)
+	var res resource.Resource
+	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
 		if err != nil {
@@ -332,68 +323,53 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		deps[name] = c
 	}
 
-	cfg, err := config.ComponentConfigFromProto(req.Config)
+	conf, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := addConvertedAttributes(cfg); err != nil {
+	if err := addConvertedAttributes(conf); err != nil {
 		return nil, errors.Wrapf(err, "unable to convert attributes when reconfiguring resource")
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	svc, ok := m.services[cfg.API]
+	svc, ok := m.services[conf.API]
 	if !ok {
-		return nil, errors.Errorf("no rpc service for %+v", cfg)
+		return nil, errors.Errorf("no rpc service for %+v", conf)
 	}
-	res = svc.Resource(cfg.ResourceName().Name)
-
-	// Check if component directly supports reconfiguration.
-	rc, ok := res.(registry.ReconfigurableComponent)
-	if ok {
-		return &pb.ReconfigureResourceResponse{}, rc.Reconfigure(ctx, *cfg, deps)
+	res, err = svc.Resource(conf.ResourceName().Name)
+	if err != nil {
+		return nil, err
 	}
 
-	// Check if service directly supports reconfiguration.
-	rs, ok := res.(registry.ReconfigurableService)
-	if ok {
-		return &pb.ReconfigureResourceResponse{}, rs.Reconfigure(ctx, config.ServiceConfigFromShared(*cfg), deps)
+	reconfErr := res.Reconfigure(ctx, deps, *conf)
+	if reconfErr == nil {
+		return &pb.ReconfigureResourceResponse{}, nil
 	}
 
-	// If it can't reconfigure, replace it.
+	if !resource.IsMustRebuildError(reconfErr) {
+		return nil, err
+	}
+
+	m.logger.Debugw("rebuilding", "name", conf.ResourceName())
 	if err := utils.TryClose(ctx, res); err != nil {
 		m.logger.Error(err)
 	}
 
-	switch cfg.API.ResourceType {
-	case resource.ResourceTypeComponent:
-		creator := registry.ComponentLookup(cfg.API, cfg.Model)
-		if creator != nil && creator.Constructor != nil {
-			comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
-			if err != nil {
-				return nil, err
-			}
-
-			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), comp)
-		}
-
-	case resource.ResourceTypeService:
-		creator := registry.ServiceLookup(cfg.API, cfg.Model)
-		if creator != nil && creator.Constructor != nil {
-			s, err := creator.Constructor(ctx, deps, config.ServiceConfigFromShared(*cfg), m.logger)
-			if err != nil {
-				return nil, err
-			}
-			return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(cfg.ResourceName(), s)
-		}
-
-	default:
-		return nil, errors.Errorf("unknown resource type %s", cfg.API.ResourceType)
+	resInfo, ok := registry.ResourceLookup(conf.API, conf.Model)
+	if !ok {
+		return nil, errors.Errorf("do not know how to construct %q", conf.API)
 	}
-
-	return nil, errors.Errorf("can't recreate resource %+v", req.Config)
+	if resInfo.Constructor == nil {
+		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+	}
+	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(conf.ResourceName(), newRes)
 }
 
 // Validator is a resource configuration object that implements Validate.
@@ -451,7 +427,10 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	if !ok {
 		return nil, errors.Errorf("no grpc service for %+v", name)
 	}
-	comp := svc.Resource(name.Name)
+	comp, err := svc.Resource(name.Name)
+	if err != nil {
+		return nil, err
+	}
 	if err := utils.TryClose(ctx, comp); err != nil {
 		m.logger.Error(err)
 	}
@@ -467,15 +446,15 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 	if ok {
 		return nil
 	}
-	newSvc, err := subtype.New(make(map[resource.Name]interface{}))
+	newSvc, err := subtype.New(api, make(map[resource.Name]resource.Resource))
 	if err != nil {
 		return err
 	}
 	m.services[api] = newSvc
 
-	rs := registry.ResourceSubtypeLookup(api)
-	if rs != nil && rs.RegisterRPCService != nil {
-		if err := rs.RegisterRPCService(ctx, m.server, newSvc); err != nil {
+	subtypeInfo, ok := registry.ResourceSubtypeLookup(api)
+	if ok && subtypeInfo.RegisterRPCService != nil {
+		if err := subtypeInfo.RegisterRPCService(ctx, m.server, newSvc); err != nil {
 			return err
 		}
 	}
@@ -498,15 +477,17 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 		}
 	}
 
-	creator := registry.ResourceSubtypeLookup(api)
-
-	if creator.ReflectRPCServiceDesc == nil {
+	subtypeInfo, ok := registry.ResourceSubtypeLookup(api)
+	if !ok {
+		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
+	}
+	if subtypeInfo.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
 	}
 	rpcSubtype := resource.RPCSubtype{
 		Subtype:      api,
-		ProtoSvcName: creator.RPCServiceDesc.ServiceName,
-		Desc:         creator.ReflectRPCServiceDesc,
+		ProtoSvcName: subtypeInfo.RPCServiceDesc.ServiceName,
+		Desc:         subtypeInfo.ReflectRPCServiceDesc,
 	}
 
 	m.mu.Lock()
@@ -522,14 +503,9 @@ func (m *Module) OperationManager() *operation.Manager {
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
 // ConvertedAttributes field from the Attributes.
-func addConvertedAttributes(cfg *config.Component) error {
-	// Try to find map converter for a component.
+func addConvertedAttributes(cfg *resource.Config) error {
+	// Try to find map converter for a resource.
 	conv := config.FindMapConverter(cfg.API, cfg.Model)
-	// If no map converter for a component exists, try to find map converter for a
-	// service.
-	if conv == nil {
-		conv = config.FindServiceMapConverter(cfg.API, cfg.Model)
-	}
 	if conv != nil {
 		converted, err := conv(cfg.Attributes)
 		if err != nil {
@@ -544,22 +520,10 @@ func addConvertedAttributes(cfg *config.Component) error {
 // validateRegistered returns an error if the passed-in api and model have not
 // yet been registered.
 func validateRegistered(api resource.Subtype, model resource.Model) error {
-	switch api.ResourceType {
-	case resource.ResourceTypeComponent:
-		creator := registry.ComponentLookup(api, model)
-		if creator == nil || creator.Constructor == nil {
-			return fmt.Errorf("component with API %s and model %s not yet registered",
-				api, model)
-		}
-	case resource.ResourceTypeService:
-		creator := registry.ServiceLookup(api, model)
-		if creator == nil || creator.Constructor == nil {
-			return fmt.Errorf("service with API %s and model %s not yet registered",
-				api, model)
-		}
-	default:
-		return errors.Errorf("unknown resource type %s", api.ResourceType)
+	resInfo, ok := registry.ResourceLookup(api, model)
+	if ok && resInfo.Constructor != nil {
+		return nil
 	}
 
-	return nil
+	return errors.Errorf("resource with API %s and model %s not yet registered", api, model)
 }

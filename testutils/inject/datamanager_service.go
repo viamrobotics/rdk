@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -10,9 +11,20 @@ import (
 // service.
 type DataManagerService struct {
 	datamanager.Service
+	name          resource.Name
 	SyncFunc      func(ctx context.Context, extra map[string]interface{}) error
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+// NewDataManagerService returns a new injected data manager service.
+func NewDataManagerService(name string) *DataManagerService {
+	return &DataManagerService{name: datamanager.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (svc *DataManagerService) Name() resource.Name {
+	return svc.name
 }
 
 // Sync calls the injected Sync or the real variant.

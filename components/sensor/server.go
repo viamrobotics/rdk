@@ -4,7 +4,6 @@ package sensor
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 
@@ -25,15 +24,7 @@ func NewServer(s subtype.Service) pb.SensorServiceServer {
 
 // getSensor returns the sensor specified, nil if not.
 func (s *subtypeServer) getSensor(name string) (Sensor, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no generic sensor with name (%s)", name)
-	}
-	sensor, ok := resource.(Sensor)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a generic sensor", name)
-	}
-	return sensor, nil
+	return subtype.LookupResource[Sensor](s.s, name)
 }
 
 // GetReadings returns the most recent readings from the given Sensor.

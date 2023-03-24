@@ -53,6 +53,8 @@ func TestStoreToCache(t *testing.T) {
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
 
+	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
+
 	// read updated cloud config, confirm that it now matches our updated cfg
 	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -109,11 +111,12 @@ func TestShouldCheckForCert(t *testing.T) {
 }
 
 func TestProcessConfig(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	unprocessedConfig := Config{
 		ConfigFilePath: "path",
 	}
 
-	cfg, err := processConfig(&unprocessedConfig, true)
+	cfg, err := processConfig(&unprocessedConfig, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *cfg, test.ShouldResemble, unprocessedConfig)
 }

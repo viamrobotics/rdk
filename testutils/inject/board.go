@@ -9,11 +9,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/resource"
 )
 
 // Board is an injected board.
 type Board struct {
 	board.LocalBoard
+	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SPIByNameFunc              func(name string) (board.SPI, bool)
 	spiByNameCap               []interface{}
@@ -34,6 +36,16 @@ type Board struct {
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
+}
+
+// NewBoard returns a new injected board.
+func NewBoard(name string) *Board {
+	return &Board{name: board.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (b *Board) Name() resource.Name {
+	return b.name
 }
 
 // SPIByName calls the injected SPIByName or the real version.

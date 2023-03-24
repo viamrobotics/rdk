@@ -13,8 +13,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-var logger = golog.NewLogger("test_cam_pose_estimation")
-
 type poseGroundTruth struct {
 	Pts1 [][]float64 `json:"pts1"`
 	Pts2 [][]float64 `json:"pts2"`
@@ -45,7 +43,7 @@ func convert2DSliceToDense(data [][]float64) *mat.Dense {
 	return out
 }
 
-func readJSONGroundTruth() *poseGroundTruth {
+func readJSONGroundTruth(logger golog.Logger) *poseGroundTruth {
 	// Open jsonFile
 	jsonFile, err := os.Open(artifact.MustPath("rimage/matched_kps.json"))
 	if err != nil {
@@ -65,7 +63,8 @@ func readJSONGroundTruth() *poseGroundTruth {
 }
 
 func TestComputeFundamentalMatrix(t *testing.T) {
-	gt := readJSONGroundTruth()
+	logger := golog.NewTestLogger(t)
+	gt := readJSONGroundTruth(logger)
 	pts1 := convert2DSliceToVectorSlice(gt.Pts1)
 	pts2 := convert2DSliceToVectorSlice(gt.Pts2)
 	F2, err := ComputeFundamentalMatrixAllPoints(pts1, pts2, true)

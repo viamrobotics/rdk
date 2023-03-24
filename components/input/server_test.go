@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -43,12 +44,12 @@ func (x *streamServer) Send(m *pb.StreamEventsResponse) error {
 func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputController, *inject.InputController, error) {
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController2 := &inject.InputController{}
-	inputControllers := map[resource.Name]interface{}{
+	inputControllers := map[resource.Name]resource.Resource{
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
-		input.Named(fakeInputControllerName): "notInputController",
+		input.Named(fakeInputControllerName): testutils.NewUnimplementedResource(input.Named(fakeInputControllerName)),
 	}
-	inputControllerSvc, err := subtype.New(inputControllers)
+	inputControllerSvc, err := subtype.New(input.Subtype, inputControllers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -106,14 +107,14 @@ func TestServer(t *testing.T) {
 			&pb.GetControlsRequest{Controller: missingInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		_, err = inputControllerServer.GetControls(
 			context.Background(),
 			&pb.GetControlsRequest{Controller: fakeInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not an input controller")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		extra := map[string]interface{}{"foo": "Controls"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -140,7 +141,7 @@ func TestServer(t *testing.T) {
 			&pb.GetEventsRequest{Controller: missingInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		extra := map[string]interface{}{"foo": "Events"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -195,7 +196,7 @@ func TestServer(t *testing.T) {
 		startTime := time.Now()
 		err := inputControllerServer.StreamEvents(&pb.StreamEventsRequest{Controller: missingInputControllerName}, s)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		extra := map[string]interface{}{"foo": "StreamEvents"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -273,7 +274,7 @@ func TestServer(t *testing.T) {
 			&pb.TriggerEventRequest{Controller: missingInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
 			return errors.New("can't inject event")

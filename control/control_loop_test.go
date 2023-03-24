@@ -12,7 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 type wrapBlocks struct {
@@ -27,7 +27,7 @@ func generateNInputs(n int, baseName string) []wrapBlocks {
 	out[0].c = BlockConfig{
 		Name: "",
 		Type: "endpoint",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"motor_name": "MotorFake",
 		},
 		DependsOn: []string{},
@@ -39,7 +39,7 @@ func generateNInputs(n int, baseName string) []wrapBlocks {
 		out[i].c = BlockConfig{
 			Name: "S1",
 			Type: "constant",
-			Attribute: config.AttributeMap{
+			Attribute: utils.AttributeMap{
 				"constant_val": 3.0,
 			},
 			DependsOn: []string{},
@@ -56,7 +56,7 @@ func generateNSums(n, xMax, yMax int, baseName string, ins []wrapBlocks) []wrapB
 		c: BlockConfig{
 			Name: "",
 			Type: "sum",
-			Attribute: config.AttributeMap{
+			Attribute: utils.AttributeMap{
 				"sum_string": "",
 			},
 			DependsOn: []string{},
@@ -87,7 +87,7 @@ func generateNSums(n, xMax, yMax int, baseName string, ins []wrapBlocks) []wrapB
 			c: BlockConfig{
 				Name: "",
 				Type: "sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_string": "",
 				},
 				DependsOn: []string{},
@@ -123,7 +123,7 @@ func generateNBlocks(n, xMax, yMax int, baseName string, ins []wrapBlocks) []wra
 			c: BlockConfig{
 				Name: "C",
 				Type: "gain",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"gain": -2.0,
 				},
 				DependsOn: []string{},
@@ -224,7 +224,7 @@ func benchNBlocks(b *testing.B, n int, freq float64) {
 		}
 		cfg.Blocks = append(cfg.Blocks, out[i].c)
 	}
-	logger := golog.NewLogger("Bench")
+	logger := golog.NewTestLogger(b)
 	cloop, err := createLoop(logger, cfg, nil)
 	if err == nil {
 		b.ResetTimer()
@@ -253,7 +253,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "A",
 				Type: "endpoint",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"motor_name": "MotorFake",
 				},
 				DependsOn: []string{"E"},
@@ -261,7 +261,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "B",
 				Type: "sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_string": "+-",
 				},
 				DependsOn: []string{"A", "S1"},
@@ -269,7 +269,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "S1",
 				Type: "constant",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"constant_val": 3.0,
 				},
 				DependsOn: []string{},
@@ -277,7 +277,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "C",
 				Type: "gain",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"gain": -2.0,
 				},
 				DependsOn: []string{"B"},
@@ -285,7 +285,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "D",
 				Type: "sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_string": "+-",
 				},
 				DependsOn: []string{"C", "S2"},
@@ -293,7 +293,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "S2",
 				Type: "constant",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"constant_val": 10.0,
 				},
 				DependsOn: []string{},
@@ -301,7 +301,7 @@ func TestControlLoop(t *testing.T) {
 			{
 				Name: "E",
 				Type: "gain",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"gain": -2.0,
 				},
 				DependsOn: []string{"D"},

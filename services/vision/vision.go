@@ -5,16 +5,13 @@ package vision
 import (
 	"context"
 	"image"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/vision/v1"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -36,16 +33,16 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &servicepb.VisionService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
-		Reconfigurable: WrapWithReconfigurable,
-		MaxInstance:    resource.DefaultMaxInstance,
+		MaxInstance: resource.DefaultMaxInstance,
 	})
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
+	resource.Resource
 	// model parameters
 	GetModelParameterSchema(ctx context.Context, modelType VisModelType, extra map[string]interface{}) (*jsonschema.Schema, error)
 	// detector methods
@@ -76,18 +73,6 @@ type Service interface {
 	AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
 	RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
-	resource.Generic
-}
-
-var (
-	_ = Service(&reconfigurableVision{})
-	_ = resource.Reconfigurable(&reconfigurableVision{})
-	_ = goutils.ContextCloser(&reconfigurableVision{})
-)
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Service)(nil), actual)
 }
 
 // SubtypeName is the name of the type of service.
@@ -146,19 +131,19 @@ type VisModelType string
 // VisModelConfig specifies the name of the detector, the type of detector,
 // and the necessary parameters needed to build the detector.
 type VisModelConfig struct {
-	Name       string              `json:"name"`
-	Type       string              `json:"type"`
-	Parameters config.AttributeMap `json:"parameters"`
+	Name       string             `json:"name"`
+	Type       string             `json:"type"`
+	Parameters utils.AttributeMap `json:"parameters"`
 }
 
-// Attributes contains a list of the user-provided details necessary to register a new vision service.
-type Attributes struct {
+// Config contains a list of the user-provided details necessary to register a new vision service.
+type Config struct {
 	ModelRegistry []VisModelConfig `json:"register_models"`
 }
 
 // Walk implements the config.Walker interface.
-func (a *Attributes) Walk(visitor config.Visitor) (interface{}, error) {
-	for i, cfg := range a.ModelRegistry {
+func (conf *Config) Walk(visitor utils.Visitor) (interface{}, error) {
+	for i, cfg := range conf.ModelRegistry {
 		name, err := visitor.Visit(cfg.Name)
 		if err != nil {
 			return nil, err
@@ -175,174 +160,10 @@ func (a *Attributes) Walk(visitor config.Visitor) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		cfg.Parameters = params.(config.AttributeMap)
+		cfg.Parameters = params.(utils.AttributeMap)
 
-		a.ModelRegistry[i] = cfg
+		conf.ModelRegistry[i] = cfg
 	}
 
-	return a, nil
-}
-
-type reconfigurableVision struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Service
-}
-
-func (svc *reconfigurableVision) Name() resource.Name {
-	return svc.name
-}
-
-func (svc *reconfigurableVision) GetModelParameterSchema(
-	ctx context.Context,
-	modelType VisModelType,
-	extra map[string]interface{},
-) (*jsonschema.Schema, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetModelParameterSchema(ctx, modelType, extra)
-}
-
-func (svc *reconfigurableVision) DetectorNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DetectorNames(ctx, extra)
-}
-
-func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddDetector(ctx, cfg, extra)
-}
-
-func (svc *reconfigurableVision) RemoveDetector(ctx context.Context, detectorName string, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.RemoveDetector(ctx, detectorName, extra)
-}
-
-func (svc *reconfigurableVision) DetectionsFromCamera(
-	ctx context.Context,
-	cameraName, detectorName string,
-	extra map[string]interface{},
-) ([]objdet.Detection, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DetectionsFromCamera(ctx, cameraName, detectorName, extra)
-}
-
-func (svc *reconfigurableVision) Detections(
-	ctx context.Context,
-	img image.Image,
-	detectorName string,
-	extra map[string]interface{},
-) ([]objdet.Detection, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Detections(ctx, img, detectorName, extra)
-}
-
-func (svc *reconfigurableVision) ClassifierNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.ClassifierNames(ctx, extra)
-}
-
-func (svc *reconfigurableVision) AddClassifier(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddClassifier(ctx, cfg, extra)
-}
-
-func (svc *reconfigurableVision) RemoveClassifier(ctx context.Context, classifierName string, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.RemoveDetector(ctx, classifierName, extra)
-}
-
-func (svc *reconfigurableVision) ClassificationsFromCamera(ctx context.Context, cameraName,
-	classifierName string, n int, extra map[string]interface{},
-) (classification.Classifications, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.ClassificationsFromCamera(ctx, cameraName, classifierName, n, extra)
-}
-
-func (svc *reconfigurableVision) Classifications(ctx context.Context, img image.Image,
-	classifierName string, n int, extra map[string]interface{},
-) (classification.Classifications, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Classifications(ctx, img, classifierName, n, extra)
-}
-
-func (svc *reconfigurableVision) SegmenterNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.SegmenterNames(ctx, extra)
-}
-
-func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddSegmenter(ctx, cfg, extra)
-}
-
-func (svc *reconfigurableVision) RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.RemoveSegmenter(ctx, segmenterName, extra)
-}
-
-func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
-	cameraName,
-	segmenterName string,
-	extra map[string]interface{},
-) ([]*viz.Object, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, extra)
-}
-
-func (svc *reconfigurableVision) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DoCommand(ctx, cmd)
-}
-
-func (svc *reconfigurableVision) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
-}
-
-// Reconfigure replaces the old vision service with a new vision.
-func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableVision)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
-}
-
-// WrapWithReconfigurable wraps a vision service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableVision); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableVision{name: name, actual: svc}, nil
+	return conf, nil
 }

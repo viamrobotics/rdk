@@ -10,11 +10,21 @@ import (
 // SensorsService represents a fake instance of a sensors service.
 type SensorsService struct {
 	sensors.Service
-
+	name          resource.Name
 	SensorsFunc   func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
 	ReadingsFunc  func(ctx context.Context, resources []resource.Name, extra map[string]interface{}) ([]sensors.Readings, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+// NewSensorsService returns a new injected sensors service.
+func NewSensorsService(name string) *SensorsService {
+	return &SensorsService{name: sensors.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (s *SensorsService) Name() resource.Name {
+	return s.name
 }
 
 // Sensors call the injected Sensors or the real one.

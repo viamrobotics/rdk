@@ -5,7 +5,7 @@ package internal
 import (
 	"context"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
@@ -14,7 +14,11 @@ import (
 // a circular import caused by the inject package.
 type DMService interface {
 	Sync(ctx context.Context, extra map[string]interface{}) error
-	Update(ctx context.Context, cfg *config.Config) error
+	Reconfigure(
+		ctx context.Context,
+		deps resource.Dependencies,
+		conf resource.Config,
+	) error
 	Close(ctx context.Context) error
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetWaitAfterLastModifiedMillis(s int)

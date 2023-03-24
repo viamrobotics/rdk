@@ -1,4 +1,4 @@
-package registry
+package registry_test
 
 import (
 	"context"
@@ -10,10 +10,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 )
 
 var (
@@ -24,123 +25,119 @@ var (
 )
 
 func TestComponentRegistry(t *testing.T) {
-	rf := func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-		return 1, nil
+	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+		return testutils.NewUnimplementedResource(conf.ResourceName()), nil
+	}
+	rf2 := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+		return testutils.NewUnimplementedResource(conf.ResourceName()), nil
 	}
 	modelName := resource.Model{Name: "x"}
-	test.That(t, func() { RegisterComponent(acme.Subtype, modelName, Component{}) }, test.ShouldPanic)
-	RegisterComponent(acme.Subtype, modelName, Component{Constructor: rf})
+	test.That(t, func() { registry.RegisterResource(acme.Subtype, modelName, registry.Resource{}) }, test.ShouldPanic)
+	registry.RegisterResource(acme.Subtype, modelName, registry.Resource{Constructor: rf})
 
-	creator := ComponentLookup(acme.Subtype, modelName)
-	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ComponentLookup(acme.Subtype, resource.Model{Name: "z"}), test.ShouldBeNil)
-	test.That(t, creator.Constructor, test.ShouldEqual, rf)
+	resInfo, ok := registry.ResourceLookup(acme.Subtype, modelName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resInfo, test.ShouldNotBeNil)
+	_, ok = registry.ResourceLookup(acme.Subtype, resource.Model{Name: "z"})
+	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, resInfo.Constructor, test.ShouldEqual, rf)
 
-	DeregisterComponent(acme.Subtype, modelName)
-	test.That(t, ComponentLookup(acme.Subtype, modelName), test.ShouldBeNil)
+	registry.DeregisterResource(acme.Subtype, modelName)
+	_, ok = registry.ResourceLookup(acme.Subtype, modelName)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	modelName2 := resource.DefaultServiceModel
+	test.That(t, func() { registry.RegisterResource(testService.Subtype, modelName2, registry.Resource{}) }, test.ShouldPanic)
+	registry.RegisterResource(testService.Subtype, modelName2, registry.Resource{Constructor: rf})
+
+	resInfo, ok = registry.ResourceLookup(testService.Subtype, modelName2)
+	test.That(t, resInfo, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = registry.ResourceLookup(testService.Subtype, resource.NewDefaultModel("z"))
+	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, resInfo.Constructor, test.ShouldEqual, rf)
+	test.That(t, resInfo.Constructor, test.ShouldNotEqual, rf2)
+
+	registry.DeregisterResource(testService.Subtype, modelName2)
+	_, ok = registry.ResourceLookup(testService.Subtype, modelName2)
+	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {
-	rf := func(r interface{}, n resource.Name) (resource.Reconfigurable, error) {
-		return nil, nil
-	}
-	statf := func(context.Context, interface{}) (interface{}, error) {
+	statf := func(context.Context, resource.Resource) (interface{}, error) {
 		return map[string]interface{}{}, nil
 	}
 	sf := func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 		return nil
 	}
-	rcf := func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-		return nil
+	rcf := func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		return nil, nil
 	}
-	test.That(t, func() { RegisterResourceSubtype(acme.Subtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterResourceSubtype(acme.Subtype, ResourceSubtype{
-		Reconfigurable: rf, Status: statf, RegisterRPCService: sf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
+	registry.RegisterResourceSubtype(acme.Subtype, registry.ResourceSubtype{
+		Status: statf, RegisterRPCService: sf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
 	})
-	creator := ResourceSubtypeLookup(acme.Subtype)
-	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
-	test.That(t, creator.Status, test.ShouldEqual, statf)
-	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
-	test.That(t, creator.RPCClient, test.ShouldBeNil)
+	subtypeInfo, ok := registry.ResourceSubtypeLookup(acme.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, subtypeInfo, test.ShouldNotBeNil)
+	test.That(t, subtypeInfo.Status, test.ShouldEqual, statf)
+	test.That(t, subtypeInfo.RegisterRPCService, test.ShouldEqual, sf)
+	test.That(t, subtypeInfo.RPCClient, test.ShouldBeNil)
 
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, button)
-	test.That(t, ResourceSubtypeLookup(subtype2), test.ShouldBeNil)
+	_, ok = registry.ResourceSubtypeLookup(subtype2)
+	test.That(t, ok, test.ShouldBeFalse)
 
-	RegisterResourceSubtype(subtype2, ResourceSubtype{
+	registry.RegisterResourceSubtype(subtype2, registry.ResourceSubtype{
 		RegisterRPCService: sf, RPCClient: rcf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
 	})
-	creator = ResourceSubtypeLookup(subtype2)
-	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.Status, test.ShouldBeNil)
-	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
-	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
-	test.That(t, creator.RPCServiceDesc, test.ShouldEqual, &pb.RobotService_ServiceDesc)
+	subtypeInfo, ok = registry.ResourceSubtypeLookup(subtype2)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, subtypeInfo, test.ShouldNotBeNil)
+	test.That(t, subtypeInfo.Status, test.ShouldBeNil)
+	test.That(t, subtypeInfo.RegisterRPCService, test.ShouldEqual, sf)
+	test.That(t, subtypeInfo.RPCClient, test.ShouldEqual, rcf)
+	test.That(t, subtypeInfo.RPCServiceDesc, test.ShouldEqual, &pb.RobotService_ServiceDesc)
 
-	reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(creator.RPCServiceDesc)
+	reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(subtypeInfo.RPCServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, creator.ReflectRPCServiceDesc, test.ShouldResemble, reflectSvcDesc)
+	test.That(t, subtypeInfo.ReflectRPCServiceDesc, test.ShouldResemble, reflectSvcDesc)
 
 	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, button)
-	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
+	_, ok = registry.ResourceSubtypeLookup(subtype3)
+	test.That(t, ok, test.ShouldBeFalse)
 
-	RegisterResourceSubtype(subtype3, ResourceSubtype{RPCClient: rcf})
-	creator = ResourceSubtypeLookup(subtype3)
-	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
+	registry.RegisterResourceSubtype(subtype3, registry.ResourceSubtype{RPCClient: rcf})
+	subtypeInfo, ok = registry.ResourceSubtypeLookup(subtype3)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, subtypeInfo, test.ShouldNotBeNil)
+	test.That(t, subtypeInfo.RPCClient, test.ShouldEqual, rcf)
 
 	subtype4 := resource.NewSubtype(resource.Namespace("acme4"), resource.ResourceTypeComponent, button)
-	test.That(t, ResourceSubtypeLookup(subtype4), test.ShouldBeNil)
+	_, ok = registry.ResourceSubtypeLookup(subtype4)
+	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, func() {
-		RegisterResourceSubtype(subtype4, ResourceSubtype{
+		registry.RegisterResourceSubtype(subtype4, registry.ResourceSubtype{
 			RegisterRPCService: sf, RPCClient: rcf,
 		})
 	}, test.ShouldPanic)
 
-	DeregisterResourceSubtype(subtype3)
-	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
+	registry.DeregisterResourceSubtype(subtype3)
+	_, ok = registry.ResourceSubtypeLookup(subtype3)
+	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
 	df := func(ctx context.Context) (interface{}, error) { return []discovery.Discovery{}, nil }
 	invalidSubtypeQuery := discovery.NewQuery(resource.Subtype{ResourceSubtype: "some subtype"}, resource.Model{Name: "some model"})
-	test.That(t, func() { RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
+	test.That(t, func() { registry.RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
 
 	validSubtypeQuery := discovery.NewQuery(acme.Subtype, resource.Model{Name: "some model"})
-	_, ok := DiscoveryFunctionLookup(validSubtypeQuery)
+	_, ok := registry.DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, func() { RegisterDiscoveryFunction(validSubtypeQuery, df) }, test.ShouldNotPanic)
-	acmeDF, ok := DiscoveryFunctionLookup(validSubtypeQuery)
+	test.That(t, func() { registry.RegisterDiscoveryFunction(validSubtypeQuery, df) }, test.ShouldNotPanic)
+	acmeDF, ok := registry.DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, acmeDF, test.ShouldEqual, df)
-}
-
-func TestServiceRegistry(t *testing.T) {
-	rf := func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
-		return 1, nil
-	}
-	modelName := resource.DefaultServiceModel
-	test.That(t, func() { RegisterService(testService.Subtype, modelName, Service{}) }, test.ShouldPanic)
-	RegisterService(testService.Subtype, modelName, Service{Constructor: rf})
-
-	creator := ServiceLookup(testService.Subtype, modelName)
-	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ServiceLookup(testService.Subtype, resource.NewDefaultModel("z")), test.ShouldBeNil)
-	test.That(t, creator.Constructor, test.ShouldEqual, rf)
-
-	DeregisterService(testService.Subtype, modelName)
-	test.That(t, ServiceLookup(testService.Subtype, modelName), test.ShouldBeNil)
-}
-
-func TestFindValidServiceModels(t *testing.T) {
-	rf := func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
-		return 1, nil
-	}
-	RegisterService(testService.Subtype, resource.NewDefaultModel("testModel1"), Service{Constructor: rf})
-	RegisterService(testService.Subtype, resource.NewDefaultModel("testModel2"), Service{Constructor: rf})
-	modelList := FindValidServiceModels(testService)
-	test.That(t, modelList, test.ShouldContain, resource.NewDefaultModel("testModel1"))
-	test.That(t, modelList, test.ShouldContain, resource.NewDefaultModel("testModel2"))
 }

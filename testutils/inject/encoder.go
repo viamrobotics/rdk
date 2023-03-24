@@ -4,18 +4,30 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/resource"
 )
 
 // Encoder is an injected encoder.
 type Encoder struct {
 	encoder.Encoder
+	name              resource.Name
 	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ResetPositionFunc func(ctx context.Context, extra map[string]interface{}) error
 	GetPositionFunc   func(ctx context.Context,
-		positionType *encoder.PositionType,
+		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error)
 	GetPropertiesFunc func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error)
+}
+
+// NewEncoder returns a new injected Encoder.
+func NewEncoder(name string) *Encoder {
+	return &Encoder{name: encoder.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (e *Encoder) Name() resource.Name {
+	return e.name
 }
 
 // ResetPosition calls the injected Zero or the real version.
@@ -29,7 +41,7 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 // GetPosition calls the injected GetPosition or the real version.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *encoder.PositionType,
+	positionType encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
 	if e.GetPositionFunc == nil {

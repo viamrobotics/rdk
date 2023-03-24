@@ -36,7 +36,7 @@ type SimpleModel struct {
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
 	modelConfig   *ModelConfig
-	poseCache     *sync.Map
+	poseCache     sync.Map
 	lock          sync.RWMutex
 }
 
@@ -44,7 +44,6 @@ type SimpleModel struct {
 func NewSimpleModel(name string) *SimpleModel {
 	return &SimpleModel{
 		baseFrame: &baseFrame{name: name},
-		poseCache: &sync.Map{},
 	}
 }
 

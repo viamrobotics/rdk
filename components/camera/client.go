@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -23,6 +24,8 @@ import (
 
 // client implements CameraServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
 	mu                      sync.Mutex
 	name                    string
 	conn                    rpc.ClientConn
@@ -34,17 +37,18 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Camera {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewCameraServiceClient(conn)
 	return &client{
-		name:      name,
+		Named:     name.AsNamed(),
+		name:      name.ShortNameForClient(),
 		conn:      conn,
 		client:    c,
 		logger:    logger,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-	}
+	}, nil
 }
 
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {

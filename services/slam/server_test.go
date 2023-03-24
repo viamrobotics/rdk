@@ -17,14 +17,13 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -65,10 +64,10 @@ func (m *internalStateServerMock) Send(chunk *pb.GetInternalStateResponse) error
 
 func TestWorkingServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]resource.Resource{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
-	injectSubtypeSvc, err := subtype.New(resourceMap)
+	injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	slamServer := slam.NewServer(injectSubtypeSvc)
 	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
@@ -146,11 +145,11 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("Multiple services Valid", func(t *testing.T) {
-		resourceMap = map[resource.Name]interface{}{
+		resourceMap = map[resource.Name]resource.Resource{
 			slam.Named(testSlamServiceName):  injectSvc,
 			slam.Named(testSlamServiceName2): injectSvc,
 		}
-		injectSubtypeSvc, err := subtype.New(resourceMap)
+		injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 		slamServer = slam.NewServer(injectSubtypeSvc)
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
@@ -209,10 +208,10 @@ func TestWorkingServer(t *testing.T) {
 
 func TestFailingServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]resource.Resource{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
-	injectSubtypeSvc, err := subtype.New(resourceMap)
+	injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	slamServer := slam.NewServer(injectSubtypeSvc)
 
@@ -277,14 +276,14 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
 	})
 
-	resourceMap = map[resource.Name]interface{}{
-		slam.Named(testSlamServiceName): "not a frame system",
+	resourceMap = map[resource.Name]resource.Resource{
+		slam.Named(testSlamServiceName): testutils.NewUnimplementedResource(slam.Named(testSlamServiceName)),
 	}
-	injectSubtypeSvc, _ = subtype.New(resourceMap)
+	injectSubtypeSvc, _ = subtype.New(slam.Subtype, resourceMap)
 	slamServer = slam.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := slam.NewUnimplementedInterfaceError("string")
+		improperImplErr := resource.TypeError[slam.Service](testutils.NewUnimplementedResource(slam.Named(testSlamServiceName)))
 
 		// Get position
 		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
@@ -305,37 +304,38 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 	})
 
-	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
+	injectSubtypeSvc, _ = subtype.New(slam.Subtype, map[resource.Name]resource.Resource{})
 	slamServer = slam.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		// test unary endpoint using GetPosition
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
 		respPosNew, err := slamServer.GetPosition(context.Background(), reqGetPositionRequest)
 		test.That(t, respPosNew, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(slam.Named(testSlamServiceName)))
 
 		// test streaming endpoint using GetPointCloudMap
 		mockPointCloudServer := makePointCloudServerMock()
 		getPointCloudMapReq := &pb.GetPointCloudMapRequest{Name: testSlamServiceName}
 		err = slamServer.GetPointCloudMap(getPointCloudMapReq, mockPointCloudServer)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(slam.Named(testSlamServiceName)))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(slam.Named(testSlamServiceName)))
 	})
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]interface{}{
-		slam.Named(testSvcName1): &inject.SLAMService{
-			DoCommandFunc: generic.EchoFunc,
+	testSvcName1 := slam.Named("svc1")
+	resourceMap := map[resource.Name]resource.Resource{
+		testSvcName1: &inject.SLAMService{
+			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	injectSubtypeSvc, err := subtype.New(resourceMap)
+	injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	server := slam.NewServer(injectSubtypeSvc)
 
-	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testSvcName1,
+		Name:    testSvcName1.ShortName(),
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)

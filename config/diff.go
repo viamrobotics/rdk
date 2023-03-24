@@ -28,9 +28,9 @@ type Diff struct {
 // ModifiedConfigDiff is the modificative different between two configs.
 type ModifiedConfigDiff struct {
 	Remotes    []Remote
-	Components []Component
+	Components []resource.Config
 	Processes  []pexec.ProcessConfig
-	Services   []Service
+	Services   []resource.Config
 	Packages   []PackageConfig
 	Modules    []Module
 }
@@ -210,7 +210,7 @@ func diffRemotes(left, right []Remote, diff *Diff) bool {
 }
 
 func diffRemote(left, right Remote, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
+	if left.Equals(right) {
 		return false
 	}
 	diff.Modified.Remotes = append(diff.Modified.Remotes, right)
@@ -218,9 +218,9 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 }
 
 //nolint:dupl
-func diffComponents(left, right []Component, diff *Diff) bool {
+func diffComponents(left, right []resource.Config, diff *Diff) bool {
 	leftIndex := make(map[resource.Name]int)
-	leftM := make(map[resource.Name]Component)
+	leftM := make(map[resource.Name]resource.Config)
 	for idx, l := range left {
 		leftM[l.ResourceName()] = l
 		leftIndex[l.ResourceName()] = idx
@@ -252,8 +252,8 @@ func diffComponents(left, right []Component, diff *Diff) bool {
 	return different
 }
 
-func diffComponent(left, right Component, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
+func diffComponent(left, right resource.Config, diff *Diff) bool {
+	if left.Equals(right) {
 		return false
 	}
 	diff.Modified.Components = append(diff.Modified.Components, right)
@@ -344,9 +344,9 @@ func diffPackage(left, right PackageConfig, diff *Diff) bool {
 }
 
 //nolint:dupl
-func diffServices(left, right []Service, diff *Diff) bool {
+func diffServices(left, right []resource.Config, diff *Diff) bool {
 	leftIndex := make(map[resource.Name]int)
-	leftM := make(map[resource.Name]Service)
+	leftM := make(map[resource.Name]resource.Config)
 	for idx, l := range left {
 		leftM[l.ResourceName()] = l
 		leftIndex[l.ResourceName()] = idx
@@ -378,8 +378,8 @@ func diffServices(left, right []Service, diff *Diff) bool {
 	return different
 }
 
-func diffService(left, right Service, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
+func diffService(left, right resource.Config, diff *Diff) bool {
+	if left.Equals(right) {
 		return false
 	}
 	diff.Modified.Services = append(diff.Modified.Services, right)

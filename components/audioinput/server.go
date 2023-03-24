@@ -55,15 +55,7 @@ func NewServer(s subtype.Service) pb.AudioInputServiceServer {
 
 // getAudioInput returns the audio input specified, nil if not.
 func (s *subtypeServer) getAudioInput(name string) (AudioInput, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no audio input with name (%s)", name)
-	}
-	audioInput, ok := resource.(AudioInput)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an audio input", name)
-	}
-	return audioInput, nil
+	return subtype.LookupResource[AudioInput](s.s, name)
 }
 
 // Chunks returns audio chunks (samples) forever from an audio input of the underlying robot. A specific sampling

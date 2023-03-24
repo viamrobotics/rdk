@@ -4,15 +4,15 @@ package generic
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the generic.Generic service.
+// subtypeServer implements the resource.Generic service.
 type subtypeServer struct {
 	genericpb.UnimplementedGenericServiceServer
 	s subtype.Service
@@ -24,16 +24,8 @@ func NewServer(s subtype.Service) genericpb.GenericServiceServer {
 }
 
 // getGeneric returns the component specified, nil if not.
-func (s *subtypeServer) getGeneric(name string) (Generic, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no resource with name (%s)", name)
-	}
-	generic, ok := resource.(Generic)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a generic component", name)
-	}
-	return generic, nil
+func (s *subtypeServer) getGeneric(name string) (resource.Resource, error) {
+	return subtype.LookupResource[resource.Resource](s.s, name)
 }
 
 // DoCommand returns an arbitrary command and returns arbitrary results.

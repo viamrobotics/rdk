@@ -27,27 +27,39 @@ type i2cBus struct {
 	// exits)!
 	closeableBus i2c.BusCloser
 	mu           sync.Mutex
+	deviceName   string
 }
 
 func newI2cBus(deviceName string) (*i2cBus, error) {
 	// We return a pointer to an i2cBus instead of an i2cBus itself so that we can return nil if
 	// something goes wrong.
-	bus, err := i2creg.Open(deviceName)
-	if err != nil {
+	b := &i2cBus{}
+	if err := b.reset(deviceName); err != nil {
 		return nil, err
 	}
-	return &i2cBus{closeableBus: bus}, nil
+	return b, nil
+}
+
+func (bus *i2cBus) reset(deviceName string) error {
+	// We return a pointer to an i2cBus instead of an i2cBus itself so that we can return nil if
+	// something goes wrong.
+	newBus, err := i2creg.Open(deviceName)
+	if err != nil {
+		return err
+	}
+	bus.closeableBus = newBus
+	return nil
 }
 
 // This lets the i2cBus type implement the board.I2C interface.
 func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
-	return &i2cHandle{device: &i2c.Dev{Bus: bus.closeableBus, Addr: uint16(addr)}, mu: &bus.mu}, nil
+	return &i2cHandle{device: &i2c.Dev{Bus: bus.closeableBus, Addr: uint16(addr)}, parentBus: bus}, nil
 }
 
 type i2cHandle struct { // Implements the board.I2CHandle interface
-	device *i2c.Dev    // Will become nil if we Close() the handle
-	mu     *sync.Mutex // Points to the i2cBus' mutex
+	device    *i2c.Dev // Will become nil if we Close() the handle
+	parentBus *i2cBus
 }
 
 func (h *i2cHandle) Write(ctx context.Context, tx []byte) error {
@@ -101,7 +113,7 @@ func (h *i2cHandle) WriteBlockData(ctx context.Context, register byte, data []by
 }
 
 func (h *i2cHandle) Close() error {
-	defer h.mu.Unlock() // Unlock the entire bus so someone else can use it
+	defer h.parentBus.mu.Unlock() // Unlock the entire bus so someone else can use it
 	h.device = nil
 	// Don't close the bus itself: it should remain open for other handles to use
 	return nil

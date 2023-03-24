@@ -4,8 +4,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -13,133 +11,82 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
-	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 type (
-	// A CreateServiceWithRobot creates a resource from a robot and a given config.
-	CreateServiceWithRobot func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
+	// A CreateResource creates a resource (component/service) from a collection of dependencies and a given config.
+	CreateResource func(
+		ctx context.Context,
+		deps resource.Dependencies,
+		conf resource.Config,
+		logger golog.Logger,
+	) (resource.Resource, error)
 
-	// A CreateService creates a resource from a collection of dependencies and a given config.
-	CreateService func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error)
-)
-
-// RegDebugInfo represents some runtime information about the registration used
-// for debugging purposes.
-type RegDebugInfo struct {
-	RegistrarLoc string
-}
-
-// Service stores a Service constructor (mandatory) and an attribute converter.
-type Service struct {
-	RegDebugInfo
-	Constructor           CreateService
-	AttributeMapConverter config.AttributeMapConverter
-	// This is a legacy constructor for default services
-	RobotConstructor CreateServiceWithRobot
-}
-
-func getCallerName() string {
-	pc, _, _, ok := runtime.Caller(2)
-	details := runtime.FuncForPC(pc)
-	if ok && details != nil {
-		return details.Name()
-	}
-	return "unknown"
-}
-
-// RegisterService registers a service type to a registration.
-func RegisterService(subtype resource.Subtype, model resource.Model, creator Service) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	creator.RegistrarLoc = getCallerName()
-	qName := fmt.Sprintf("%s/%s", subtype, model)
-	_, old := serviceRegistry[qName]
-	if old {
-		panic(errors.Errorf("trying to register two services with same subtype:%s, model:%s", subtype, model))
-	}
-	if creator.Constructor == nil && creator.RobotConstructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
-	}
-	serviceRegistry[qName] = creator
-}
-
-// DeregisterService removes a previously registered service.
-func DeregisterService(subtype resource.Subtype, model resource.Model) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	qName := fmt.Sprintf("%s/%s", subtype, model)
-	delete(serviceRegistry, qName)
-}
-
-// ServiceLookup looks up a service registration by the given type. nil is returned if
-// there is no registration.
-func ServiceLookup(subtype resource.Subtype, model resource.Model) *Service {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	qName := fmt.Sprintf("%s/%s", subtype, model)
-	if registration, ok := RegisteredServices()[qName]; ok {
-		return &registration
-	}
-	return nil
-}
-
-type (
-	// Dependencies is a map of resources that a component requires for creation.
-	Dependencies map[resource.Name]interface{}
-
-	// A CreateComponentWithRobot creates a resource from a robot and a given config.
-	CreateComponentWithRobot func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
-
-	// A CreateComponent creates a resource from a collection of dependencies and a given config.
-	CreateComponent func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error)
-
-	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
-	CreateReconfigurable func(resource interface{}, name resource.Name) (resource.Reconfigurable, error)
+	// A DeprecatedCreateResourceWithRobot creates a resource from a robot and a given config.
+	DeprecatedCreateResourceWithRobot func(
+		ctx context.Context,
+		r robot.Robot,
+		conf resource.Config,
+		logger golog.Logger,
+	) (resource.Resource, error)
 
 	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
 	// (or it should be possible to decompose it into string keys) and values comprised of primitives, list of primitives,
 	// maps with string keys (or at least can be decomposed into one), or lists of the aforementioned type of maps.
 	// Results with other types of data are not guaranteed.
-	CreateStatus func(ctx context.Context, resource interface{}) (interface{}, error)
+	CreateStatus func(ctx context.Context, resource resource.Resource) (interface{}, error)
 
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
 	// A CreateRPCClient will create the client for the resource.
-	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
+	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error)
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been
 // constructed and registered yet.
 type DependencyNotReadyError struct {
-	Name string
+	Name   string
+	Reason error
 }
 
 func (e *DependencyNotReadyError) Error() string {
-	return fmt.Sprintf("dependency %q has not been registered yet", e.Name)
+	return fmt.Sprintf("dependency %q is not ready yet; reason=%q", e.Name, e.Reason)
 }
 
-// Component stores a resource constructor (mandatory) and a Frame building function (optional).
-type Component struct {
-	RegDebugInfo
-	Constructor CreateComponent
-	// TODO(RSDK-418): remove this legacy constructor once all components that use it no longer need to receive the entire robot.
-	RobotConstructor CreateComponentWithRobot
+// IsDependencyNotReadyError returns if the given error is any kind of dependency not found error.
+func IsDependencyNotReadyError(err error) bool {
+	var errArt *DependencyNotReadyError
+	return errors.As(err, &errArt)
 }
+
+type (
+	// A Resource stores a construction info for a resource (component/service). A single constructor is mandatory.
+	Resource struct {
+		Constructor CreateResource
+		// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
+		DeprecatedRobotConstructor DeprecatedCreateResourceWithRobot
+		// Not for public use yet; currently experimental
+		WeakDependencies []internal.ResourceMatcher
+	}
+
+	// A Component is a resource with the component type (namespace:component:subtype/name).
+	Component = Resource
+
+	// A Service is a resource with the service type (namespace:service:subtype/name).
+	Service = Resource
+)
 
 // ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
-	Reconfigurable        CreateReconfigurable
 	Status                CreateStatus
 	RegisterRPCService    RegisterSubtypeRPCService
 	RPCServiceDesc        *grpc.ServiceDesc
@@ -156,60 +103,74 @@ type SubtypeGrpc struct{}
 
 // all registries.
 var (
-	registryMu        sync.RWMutex
-	componentRegistry = map[string]Component{}
-	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
-	serviceRegistry   = map[string]Service{}
+	registryMu       sync.RWMutex
+	resourceRegistry = map[string]Resource{}
+	subtypeRegistry  = map[resource.Subtype]ResourceSubtype{}
 )
 
-// RegisterComponent register a creator to its corresponding component and model.
-func RegisterComponent(subtype resource.Subtype, model resource.Model, creator Component) {
+// RegisterService registers a model for a service with and its construction info. Its a helper for
+// RegisterResource.
+func RegisterService(subtype resource.Subtype, model resource.Model, res Service) {
+	if subtype.ResourceType != resource.ResourceTypeService {
+		panic(errors.Errorf("trying to register a non-service subtype: %q, model: %q", subtype, model))
+	}
+	RegisterResource(subtype, model, res)
+}
+
+// RegisterComponent registers a model for a component with and its construction info. Its a helper for
+// RegisterResource.
+func RegisterComponent(subtype resource.Subtype, model resource.Model, res Component) {
+	if subtype.ResourceType != resource.ResourceTypeComponent {
+		panic(errors.Errorf("trying to register a non-component subtype: %q, model: %q", subtype, model))
+	}
+	RegisterResource(subtype, model, res)
+}
+
+// RegisterResource registers a model for a resource (component/service) with and its construction info.
+func RegisterResource(subtype resource.Subtype, model resource.Model, res Resource) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
-	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype.String(), model.String())
 
-	_, old := componentRegistry[qName]
+	_, old := resourceRegistry[qName]
 	if old {
-		panic(errors.Errorf("trying to register two resources with same subtype:%s, model:%s", subtype, model))
+		panic(errors.Errorf("trying to register two resources with same subtype: %q, model: %q", subtype, model))
 	}
-	if creator.Constructor == nil && creator.RobotConstructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype:%s, model:%s", subtype, model))
+	if res.Constructor == nil && res.DeprecatedRobotConstructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype: %q, model: %q", subtype, model))
 	}
-	componentRegistry[qName] = creator
+	if res.Constructor != nil && res.DeprecatedRobotConstructor != nil {
+		panic(errors.Errorf("can only register one kind of constructor for subtype: %q, model: %q", subtype, model))
+	}
+	resourceRegistry[qName] = res
 }
 
-// DeregisterComponent removes a previously registered component.
-func DeregisterComponent(subtype resource.Subtype, model resource.Model) {
+// DeregisterResource removes a previously registered resource.
+func DeregisterResource(subtype resource.Subtype, model resource.Model) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
-	delete(componentRegistry, qName)
+	delete(resourceRegistry, qName)
 }
 
-// ComponentLookup looks up a creator by the given subtype and model. nil is returned if
+// ResourceLookup looks up a creator by the given subtype and model. nil is returned if
 // there is no creator registered.
-func ComponentLookup(subtype resource.Subtype, model resource.Model) *Component {
+func ResourceLookup(subtype resource.Subtype, model resource.Model) (Resource, bool) {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 
-	if registration, ok := RegisteredComponents()[qName]; ok {
-		return &registration
+	if registration, ok := RegisteredResources()[qName]; ok {
+		return registration, true
 	}
-	return nil
+	return Resource{}, false
 }
 
-// RegisterResourceSubtype register a ResourceSubtype to its corresponding component subtype.
+// RegisterResourceSubtype register a ResourceSubtype to its corresponding resource subtype.
 func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	_, old := subtypeRegistry[subtype]
 	if old {
 		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
-	}
-	if creator.Reconfigurable == nil && creator.Status == nil &&
-		creator.RegisterRPCService == nil && creator.RPCClient == nil &&
-		creator.ReflectRPCServiceDesc == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	if creator.RegisterRPCService != nil && creator.RPCServiceDesc == nil {
 		panic(errors.Errorf("cannot register a RPC enabled subtype with no RPC service description: %s", subtype))
@@ -234,33 +195,22 @@ func DeregisterResourceSubtype(subtype resource.Subtype) {
 
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
 // there is None.
-func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
+func ResourceSubtypeLookup(subtype resource.Subtype) (ResourceSubtype, bool) {
 	if registration, ok := RegisteredResourceSubtypes()[subtype]; ok {
-		return &registration
+		return registration, true
 	}
-	return nil
+	return ResourceSubtype{}, false
 }
 
-// RegisteredServices returns a copy of the registered services.
-func RegisteredServices() map[string]Service {
+// RegisteredResources returns a copy of the registered resources.
+func RegisteredResources() map[string]Resource {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
-	copied, err := copystructure.Copy(serviceRegistry)
+	copied, err := copystructure.Copy(resourceRegistry)
 	if err != nil {
 		panic(err)
 	}
-	return copied.(map[string]Service)
-}
-
-// RegisteredComponents returns a copy of the registered components.
-func RegisteredComponents() map[string]Component {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	copied, err := copystructure.Copy(componentRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Component)
+	return copied.(map[string]Resource)
 }
 
 // RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
@@ -296,47 +246,14 @@ func RegisterDiscoveryFunction(q discovery.Query, discover discovery.Discover) {
 	discoveryFunctions[q] = discover
 }
 
-// FindValidServiceModels returns a list of valid models for a specified service.
-func FindValidServiceModels(rName resource.Name) []resource.Model {
-	validModels := make([]resource.Model, 0)
-	for key := range RegisteredServices() {
-		if strings.Contains(key, rName.Subtype.String()) {
-			splitName := strings.Split(key, "/")
-			model, err := resource.NewModelFromString(splitName[1])
-			if err != nil {
-				viamutils.UncheckedError(err)
-				continue
-			}
-			validModels = append(validModels, model)
-		}
+// WeakDependencyLookup looks up a resource registration's weak dependencies on other
+// resources defined statically.
+func WeakDependencyLookup(subtype resource.Subtype, model resource.Model) []internal.ResourceMatcher {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	if registration, ok := RegisteredResources()[qName]; ok {
+		return registration.WeakDependencies
 	}
-	return validModels
-}
-
-// ReconfigurableComponent is implemented when component/service of a robot is reconfigurable.
-type ReconfigurableComponent interface {
-	// Reconfigure reconfigures the resource
-	Reconfigure(ctx context.Context, cfg config.Component, deps Dependencies) error
-}
-
-// ReconfigurableService is implemented when component/service of a robot is reconfigurable.
-type ReconfigurableService interface {
-	// Reconfigure reconfigures the resource
-	Reconfigure(ctx context.Context, cfg config.Service, deps Dependencies) error
-}
-
-// ResourceFromDependencies returns a named component from a collection of
-// dependencies.
-func ResourceFromDependencies[T any](deps Dependencies, name resource.Name) (T, error) {
-	var zero T
-	res, ok := deps[(name)]
-	if !ok {
-		return zero, utils.DependencyNotFoundError(name.Name)
-	}
-	part, ok := res.(T)
-
-	if !ok {
-		return zero, utils.DependencyTypeError[T](name.Name, res)
-	}
-	return part, nil
+	return nil
 }

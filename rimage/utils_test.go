@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"github.com/edaniels/golog"
 	"go.viam.com/utils/testutils"
 )
 
@@ -13,5 +12,4 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	golog.Global().Debugf("out dir: %q", outDir)
 }

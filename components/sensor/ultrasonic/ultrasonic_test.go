@@ -7,7 +7,9 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
@@ -17,19 +19,33 @@ const (
 	board1         = "some-board"
 )
 
-func setupDependencies(t *testing.T) registry.Dependencies {
+func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
-	actualBoard := newBoard(board1)
+	actualBoard := inject.NewBoard(board1)
+	actualBoard.DigitalInterruptNamesFunc = func() []string {
+		return []string{echoInterrupt}
+	}
+	injectDigi := &inject.DigitalInterrupt{}
+	actualBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+		return injectDigi, true
+	}
+	pin := &inject.GPIOPin{}
+	pin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+		return nil
+	}
+	actualBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+		return pin, nil
+	}
 	deps[board.Named(board1)] = actualBoard
 
 	return deps
 }
 
 func TestValidate(t *testing.T) {
-	fakecfg := &AttrConfig{}
+	fakecfg := &Config{}
 	_, err := fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"board\" is required")
 
@@ -47,37 +63,10 @@ func TestValidate(t *testing.T) {
 }
 
 func TestNewSensor(t *testing.T) {
-	fakecfg := &AttrConfig{TriggerPin: triggerPin, EchoInterrupt: echoInterrupt, Board: board1}
+	fakecfg := &Config{TriggerPin: triggerPin, EchoInterrupt: echoInterrupt, Board: board1}
 	ctx := context.Background()
 	deps := setupDependencies(t)
 
-	_, err := newSensor(ctx, deps, testSensorName, fakecfg)
-
-	test.That(t, err.Error(), test.ShouldContainSubstring, "ultrasonic: cannot find board \"some-board\"")
-}
-
-// Mock DigitalInterrupt.
-type mockDigitalInterrupt struct{}
-
-// mock board.
-type mock struct {
-	board.LocalBoard
-	Name     string
-	digitals []string
-	digital  *mockDigitalInterrupt
-}
-
-func newBoard(name string) *mock {
-	return &mock{
-		Name:     name,
-		digitals: []string{echoInterrupt},
-		digital:  &mockDigitalInterrupt{},
-	}
-}
-
-func (m *mock) DigitalInterruptByName(name string) (*mockDigitalInterrupt, bool) {
-	if len(m.digitals) == 0 {
-		return nil, false
-	}
-	return m.digital, true
+	_, err := newSensor(ctx, deps, sensor.Named(testSensorName), fakecfg)
+	test.That(t, err, test.ShouldBeNil)
 }

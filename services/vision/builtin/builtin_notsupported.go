@@ -17,14 +17,14 @@ import (
 
 func init() {
 	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, c resource.Config, logger golog.Logger) (resource.Resource, error) {
 			return nil, errors.New("not supported on 32 bit ARM or Windows")
 		},
 	})
 	config.RegisterServiceAttributeMapConverter(vision.Subtype, resource.DefaultServiceModel,
-		func(attributeMap config.AttributeMap) (interface{}, error) {
+		func(attributeMap utils.AttributeMap) (interface{}, error) {
 			return nil, errors.New("not supported on 32 bit ARM or Windows")
 		},
-		&vision.Attributes{},
+		&vision.Config{},
 	)
 }

@@ -36,12 +36,12 @@ func TestModManagerFunctions(t *testing.T) {
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
 	rNameCounter1 := resource.NameFromSubtype(generic.Subtype, "counter1")
-	cfgCounter1 := config.Component{
+	cfgCounter1 := resource.Config{
 		Name:  "counter1",
 		API:   generic.Subtype,
 		Model: myCounterModel,
 	}
-	_, err = cfgCounter1.Validate("test")
+	_, err = cfgCounter1.Validate("test", resource.ResourceTypeComponent)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot := &inject.Robot{}
@@ -81,14 +81,14 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	mod.registerResources(mgr, logger)
-	reg := registry.ComponentLookup(generic.Subtype, myCounterModel)
+	reg, ok := registry.ResourceLookup(generic.Subtype, myCounterModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-	err = mod.deregisterResources()
-	test.That(t, err, test.ShouldBeNil)
-	reg = registry.ComponentLookup(generic.Subtype, myCounterModel)
-	test.That(t, reg, test.ShouldBeNil)
+	mod.deregisterResources()
+	_, ok = registry.ResourceLookup(generic.Subtype, myCounterModel)
+	test.That(t, ok, test.ShouldBeFalse)
 
 	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
@@ -104,14 +104,15 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg = registry.ComponentLookup(generic.Subtype, myCounterModel)
+	reg, ok = registry.ResourceLookup(generic.Subtype, myCounterModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	t.Log("test Provides")
-	ok := mgr.Provides(cfgCounter1)
+	ok = mgr.Provides(cfgCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	cfg2 := config.Component{
+	cfg2 := resource.Config{
 		API:   motor.Subtype,
 		Model: resource.NewDefaultModel("fake"),
 	}
@@ -119,9 +120,8 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test AddResource")
-	c, err := mgr.AddResource(ctx, cfgCounter1, nil)
+	counter, err := mgr.AddResource(ctx, cfgCounter1, nil)
 	test.That(t, err, test.ShouldBeNil)
-	counter := c.(generic.Generic)
 
 	ret, err := counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldBeNil)
@@ -168,7 +168,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	t.Log("test ReconfigureModule")
 	// Re-add counter1.
@@ -236,7 +236,7 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
-	cfgMyBase1 := config.Component{
+	cfgMyBase1 := resource.Config{
 		Name:  "mybase1",
 		API:   base.Subtype,
 		Model: myBaseModel,
@@ -245,16 +245,16 @@ func TestModManagerValidation(t *testing.T) {
 			"motorR": "motor2",
 		},
 	}
-	_, err = cfgMyBase1.Validate("test")
+	_, err = cfgMyBase1.Validate("test", resource.ResourceTypeComponent)
 	test.That(t, err, test.ShouldBeNil)
 	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
 	// cause module Validation error.
-	cfgMyBase2 := config.Component{
+	cfgMyBase2 := resource.Config{
 		Name:  "mybase2",
 		API:   base.Subtype,
 		Model: myBaseModel,
 	}
-	_, err = cfgMyBase2.Validate("test")
+	_, err = cfgMyBase2.Validate("test", resource.ResourceTypeComponent)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot := &inject.Robot{}
@@ -283,7 +283,8 @@ func TestModManagerValidation(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg := registry.ComponentLookup(base.Subtype, myBaseModel)
+	reg, ok := registry.ResourceLookup(base.Subtype, myBaseModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	t.Log("test ValidateConfig")

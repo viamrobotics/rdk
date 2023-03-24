@@ -1,4 +1,4 @@
-package config
+package utils
 
 // Walker is a portion of the config that can be walked.
 type Walker interface {

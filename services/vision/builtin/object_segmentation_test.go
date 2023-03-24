@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
@@ -21,8 +20,9 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -31,16 +31,18 @@ const (
 )
 
 func TestObjectSegmentationFailures(t *testing.T) {
-	cfgService := config.Service{}
+	cfgService := resource.Config{
+		ConvertedAttributes: &vision.Config{},
+	}
 	logger := golog.NewTestLogger(t)
 
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-		return nil, rdkutils.NewResourceNotFoundError(n)
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
+		return nil, resource.NewNotFoundError(n)
 	}
 	// fails on not finding the service
 	_, err := vision.FromRobot(r, testVisionServiceName)
-	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(vision.Named(testVisionServiceName)))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(vision.Named(testVisionServiceName)))
 
 	// fails on not finding camera
 	obs, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
@@ -51,8 +53,8 @@ func TestObjectSegmentationFailures(t *testing.T) {
 
 	// fails since camera cannot generate point clouds (no depth in image)
 	r = &inject.Robot{}
-	_cam := &simpleSource{}
-	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.DepthStream)
+	camSource := &simpleSource{}
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camSource, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -60,19 +62,19 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "fakeCamera":
-			return cam, nil
+			return camera.FromVideoSource(camera.Named("fakeCamera"), src), nil
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(n)
+			return nil, resource.NewNotFoundError(n)
 		}
 	}
 
 	obs, err = builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	params := config.AttributeMap{
+	params := rutils.AttributeMap{
 		"min_points_in_plane":   100,
 		"min_points_in_segment": 3,
 		"clustering_radius_mm":  5.,
@@ -90,11 +92,13 @@ func TestObjectSegmentationFailures(t *testing.T) {
 }
 
 func TestGetObjectPointClouds(t *testing.T) {
-	cfgService := config.Service{}
+	cfgService := resource.Config{
+		ConvertedAttributes: &vision.Config{},
+	}
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
-	_cam := &cloudSource{}
-	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.UnspecifiedStream)
+	camSource := &cloudSource{}
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camSource, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -102,19 +106,19 @@ func TestGetObjectPointClouds(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "fakeCamera":
-			return cam, nil
+			return camera.FromVideoSource(camera.Named("fakeCamera"), src), nil
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(n)
+			return nil, resource.NewNotFoundError(n)
 		}
 	}
 
 	obs, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// add segmenter to service
-	params := config.AttributeMap{
+	params := rutils.AttributeMap{
 		"min_points_in_plane":   100,
 		"min_points_in_segment": 3,
 		"clustering_radius_mm":  5.,
@@ -153,17 +157,26 @@ func TestGetObjectPointClouds(t *testing.T) {
 	test.That(t, segmenterNames, test.ShouldHaveLength, 0)
 }
 
-func setupInjectRobot() (*inject.Robot, *mock) {
-	svc1 := &mock{}
+func setupInjectRobot() (*inject.Robot, *int) {
+	svc1 := inject.NewVisionService("something")
+	var timesCalled int
+	svc1.GetObjectPointCloudsFunc = func(ctx context.Context,
+		cameraName string,
+		segmenterName string,
+		extra map[string]interface{},
+	) ([]*viz.Object, error) {
+		timesCalled++
+		return []*viz.Object{viz.NewEmptyObject(), viz.NewEmptyObject()}, nil
+	}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return svc1, nil
 	}
-	return r, svc1
+	return r, &timesCalled
 }
 
 func TestFromRobot(t *testing.T) {
-	r, svc1 := setupInjectRobot()
+	r, timesCalled := setupInjectRobot()
 
 	svc, err := vision.FromRobot(r, testVisionServiceName)
 	test.That(t, err, test.ShouldBeNil)
@@ -172,19 +185,20 @@ func TestFromRobot(t *testing.T) {
 	result, err := svc.GetObjectPointClouds(context.Background(), "", "", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldHaveLength, 2)
-	test.That(t, svc1.timesCalled, test.ShouldEqual, 1)
+	test.That(t, *timesCalled, test.ShouldEqual, 1)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return "not object segmentation", nil
+	notRight := testutils.NewUnimplementedResource(camera.Named("foo"))
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return notRight, nil
 	}
 
 	svc, err = vision.FromRobot(r, testVisionServiceName)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, vision.NewUnimplementedInterfaceError("string"))
+	test.That(t, err, test.ShouldBeError, resource.TypeError[vision.Service](notRight))
 	test.That(t, svc, test.ShouldBeNil)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, rdkutils.NewResourceNotFoundError(name)
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return nil, resource.NewNotFoundError(name)
 	}
 
 	svc, err = vision.FromRobot(r, testVisionServiceName)
@@ -193,22 +207,10 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 }
 
-type mock struct {
-	vision.Service
-	timesCalled int
-}
-
-func (m *mock) GetObjectPointClouds(ctx context.Context,
-	cameraName string,
-	segmenterName string,
-	extra map[string]interface{},
-) ([]*viz.Object, error) {
-	m.timesCalled++
-	return []*viz.Object{viz.NewEmptyObject(), viz.NewEmptyObject()}, nil
-}
-
 func TestFullClientServerLoop(t *testing.T) {
-	cfgService := config.Service{}
+	cfgService := resource.Config{
+		ConvertedAttributes: &vision.Config{},
+	}
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -216,8 +218,8 @@ func TestFullClientServerLoop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// create the robot, camera, and service
 	r := &inject.Robot{}
-	_cam := &cloudSource{}
-	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.UnspecifiedStream)
+	camSource := &cloudSource{}
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camSource, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -225,23 +227,24 @@ func TestFullClientServerLoop(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "fakeCamera":
-			return cam, nil
+			return camera.FromVideoSource(camera.Named("fakeCamera"), src), nil
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(n)
+			return nil, resource.NewNotFoundError(n)
 		}
 	}
 	oss, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
-	osMap := map[resource.Name]interface{}{
+	osMap := map[resource.Name]resource.Resource{
 		vision.Named(testVisionServiceName): oss,
 	}
-	svc, err := subtype.New(osMap)
+	svc, err := subtype.New(vision.Subtype, osMap)
 	test.That(t, err, test.ShouldBeNil)
 	// test the server/client
-	resourceSubtype := registry.ResourceSubtypeLookup(vision.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(vision.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 
 	go rpcServer.Serve(listener1)
@@ -250,11 +253,12 @@ func TestFullClientServerLoop(t *testing.T) {
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
+	client, err := vision.NewClientFromConn(context.Background(), conn, vision.Named(testVisionServiceName), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, err, test.ShouldBeNil)
 	expectedLabel := "test_label"
-	params := config.AttributeMap{
+	params := rutils.AttributeMap{
 		"min_points_in_plane":   100,
 		"min_points_in_segment": 3,
 		"clustering_radius_mm":  5.,

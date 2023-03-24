@@ -27,52 +27,49 @@ func init() {
 		model,
 		registry.Component{Constructor: func(
 			_ context.Context,
-			_ registry.Dependencies,
-			config config.Component,
+			_ resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*Attrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			return newMicrophoneSource(attrs, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(audioinput.Subtype, model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Attrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*Attrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			src, err := newMicrophoneSource(newConf, logger)
+			if err != nil {
+				return nil, err
 			}
-			return result, nil
-		}, &Attrs{})
+			// This always rebuilds on reconfiguration right now. A better system
+			// would be to reuse the monitored webcam code.
+			return audioinput.FromAudioSource(conf.ResourceName(), src)
+		}})
+
+	config.RegisterComponentAttributeMapConverter(audioinput.Subtype, model,
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
-// Attrs is the attribute struct for microphones.
-type Attrs struct {
+// Config is the attribute struct for microphones.
+type Config struct {
 	Path        string `json:"audio_path"`
 	PathPattern string `json:"audio_path_pattern"`
 	Debug       bool   `json:"debug"`
 }
 
 // newMicrophoneSource returns a new source based on a microphone discovered from the given attributes.
-func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInput, error) {
+func newMicrophoneSource(conf *Config, logger golog.Logger) (audioinput.AudioSource, error) {
 	var err error
 
-	debug := attrs.Debug
+	debug := conf.Debug
 
-	if attrs.Path != "" {
-		return tryMicrophoneOpen(attrs.Path, gostream.DefaultConstraints, logger)
+	if conf.Path != "" {
+		return tryMicrophoneOpen(conf.Path, gostream.DefaultConstraints, logger)
 	}
 
 	var pattern *regexp.Regexp
-	if attrs.PathPattern != "" {
-		pattern, err = regexp.Compile(attrs.PathPattern)
+	if conf.PathPattern != "" {
+		pattern, err = regexp.Compile(conf.PathPattern)
 		if err != nil {
 			return nil, err
 		}
@@ -118,11 +115,11 @@ func tryMicrophoneOpen(
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
 	logger golog.Logger,
-) (audioinput.AudioInput, error) {
+) (audioinput.AudioSource, error) {
 	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints, logger)
 	if err != nil {
 		return nil, err
 	}
 	// TODO(XXX): implement LivenessMonitor
-	return audioinput.NewFromSource(source)
+	return audioinput.NewAudioSourceFromGostreamSource(source)
 }

@@ -16,12 +16,13 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func TestFakeSLAMGetPosition(t *testing.T) {
 	expectedComponentReference := ""
-	slamSvc := NewSLAM("test", golog.NewTestLogger(t))
+	slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
 
 	p, componentReference, err := slamSvc.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -43,7 +44,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
-		slamSvc := &SLAM{Name: "test", logger: golog.NewTestLogger(t)}
+		slamSvc := &SLAM{Named: slam.Named("test").AsNamed(), logger: golog.NewTestLogger(t)}
 		verifyGetPointCloudMapStateful(t, slamSvc)
 	})
 }
@@ -51,7 +52,7 @@ func TestFakeSLAMStateful(t *testing.T) {
 func TestFakeSLAMGetInternalState(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake internal state in chunks"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
+		slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData, err := os.ReadFile(path)
@@ -71,7 +72,7 @@ func TestFakeSLAMGetInternalState(t *testing.T) {
 func TestFakeSLAMGetPointMap(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
+		slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
 
 		data := getDataFromStream(t, slamSvc.GetPointCloudMap)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)

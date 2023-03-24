@@ -161,7 +161,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			// returns and the closed channel is closed, this loop will terminate.
 			closed := make(chan struct{})
 			sleepCollector := tc.interval < sleepCaptureCutoff
-			wg := sync.WaitGroup{}
+			var wg sync.WaitGroup
 			if sleepCollector {
 				wg.Add(1)
 				go func() {

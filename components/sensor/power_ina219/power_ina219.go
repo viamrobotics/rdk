@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -38,21 +37,21 @@ const (
 	calibrationRegister        = 0x05
 )
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Board   string `json:"board"`
 	I2CBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(config.Board) == 0 {
+	if len(conf.Board) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.Board)
-	if len(config.I2CBus) == 0 {
+	deps = append(deps, conf.Board)
+	if len(conf.I2CBus) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
@@ -64,48 +63,49 @@ func init() {
 		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			attr, ok := config.ConvertedAttributes.(*AttrConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
+		) (resource.Resource, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
 			}
-			return newSensor(deps, attr, logger)
+			return newSensor(deps, conf.ResourceName(), newConf, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
 func newSensor(
-	deps registry.Dependencies,
-	attr *AttrConfig,
+	deps resource.Dependencies,
+	name resource.Name,
+	conf *Config,
 	logger golog.Logger,
 ) (sensor.Sensor, error) {
-	b, err := board.FromDependencies(deps, attr.Board)
+	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
 		return nil, fmt.Errorf("ina219 init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", attr.Board)
+		return nil, fmt.Errorf("board %s is not local", conf.Board)
 	}
-	i2cbus, ok := localB.I2CByName(attr.I2CBus)
+	i2cbus, ok := localB.I2CByName(conf.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("ina219 init: failed to find i2c bus %s", attr.I2CBus)
+		return nil, fmt.Errorf("ina219 init: failed to find i2c bus %s", conf.I2CBus)
 	}
-	addr := attr.I2cAddr
+	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
 		logger.Infof("using i2c address : %d", defaultI2Caddr)
 	}
 
 	s := &ina219{
+		Named:  name.AsNamed(),
 		logger: logger,
 		bus:    i2cbus,
 		addr:   byte(addr),
@@ -121,7 +121,8 @@ func newSensor(
 
 // ina219 is a i2c sensor device that reports voltage, current and power.
 type ina219 struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	logger     golog.Logger
 	bus        board.I2C
 	addr       byte

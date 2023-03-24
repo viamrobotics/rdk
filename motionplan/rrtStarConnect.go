@@ -196,9 +196,9 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 	minCost := math.Inf(1)
 	minIndex := -1
 	for i, neighbor := range neighbors {
-		neighborNode := neighbor.node.(*costNode)
-		cost := neighborNode.cost + neighbor.dist
-		if mp.checkPath(neighborNode.Q(), target) {
+		neighbogNode := neighbor.node.(*costNode)
+		cost := neighbogNode.cost + neighbor.dist
+		if mp.checkPath(neighbogNode.Q(), target) {
 			minIndex = i
 			minCost = cost
 			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
@@ -222,15 +222,15 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
-		neighborNode := neighbor.node.(*costNode)
+		neighbogNode := neighbor.node.(*costNode)
 		connectionCost := mp.planOpts.DistanceFunc(&Segment{
-			StartConfiguration: neighborNode.Q(),
+			StartConfiguration: neighbogNode.Q(),
 			EndConfiguration:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.cost
-		if cost < neighborNode.cost && mp.checkPath(target, neighborNode.Q()) {
-			neighborNode.cost = cost
-			tree[neighborNode] = targetNode
+		if cost < neighbogNode.cost && mp.checkPath(target, neighbogNode.Q()) {
+			neighbogNode.cost = cost
+			tree[neighbogNode] = targetNode
 		}
 	}
 	mchan <- targetNode

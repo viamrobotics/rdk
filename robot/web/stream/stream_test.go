@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
@@ -75,6 +76,7 @@ func (mS *mockStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
 }
 
 func TestStreamSourceErrorBackoff(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	backoffOpts := &webstream.BackoffTuningOptions{
@@ -105,7 +107,7 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 		return inputChan, nil
 	}
 
-	go webstream.StreamVideoSource(ctx, videoSrc, str, backoffOpts)
+	go webstream.StreamVideoSource(ctx, videoSrc, str, backoffOpts, logger)
 	start := time.Now()
 	readyChan <- struct{}{}
 	videoReader.wg.Wait()

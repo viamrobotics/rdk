@@ -9,12 +9,14 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
 // Camera is an injected camera.
 type Camera struct {
 	camera.Camera
+	name       resource.Name
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StreamFunc func(
 		ctx context.Context,
@@ -24,6 +26,16 @@ type Camera struct {
 	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
 	CloseFunc          func(ctx context.Context) error
+}
+
+// NewCamera returns a new injected camera.
+func NewCamera(name string) *Camera {
+	return &Camera{name: camera.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (c *Camera) Name() resource.Name {
+	return c.name
 }
 
 // NextPointCloud calls the injected NextPointCloud or the real version.

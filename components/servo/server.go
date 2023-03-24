@@ -4,7 +4,6 @@ package servo
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/servo/v1"
 
@@ -25,15 +24,7 @@ func NewServer(service subtype.Service) pb.ServoServiceServer {
 
 // getServo returns the specified servo or nil.
 func (server *subtypeServer) getServo(name string) (Servo, error) {
-	resource := server.service.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no servo with name (%s)", name)
-	}
-	servo, ok := resource.(Servo)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a servo", name)
-	}
-	return servo, nil
+	return subtype.LookupResource[Servo](server.service, name)
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {

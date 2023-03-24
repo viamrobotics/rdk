@@ -46,18 +46,18 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.BoardName == "" {
+	if conf.BoardName == "" {
 		return nil, vutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.BoardName)
+	deps = append(deps, conf.BoardName)
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
-	if config.Encoder != "" {
-		deps = append(deps, config.Encoder)
-	} else if config.MaxRPM <= 0 {
+	if conf.Encoder != "" {
+		deps = append(deps, conf.Encoder)
+	} else if conf.MaxRPM <= 0 {
 		return nil, vutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
@@ -66,13 +66,18 @@ func (config *Config) Validate(path string) ([]string, error) {
 // init registers a pi motor based on pigpio.
 func init() {
 	comp := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {
 				return nil, err
 			}
 
-			m, err := NewMotor(actualBoard, *motorConfig, config.Name, logger)
+			m, err := NewMotor(actualBoard, *motorConfig, conf.ResourceName(), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -82,7 +87,7 @@ func init() {
 					return nil, err
 				}
 
-				m, err = WrapMotorWithEncoder(ctx, e, config, *motorConfig, m, logger)
+				m, err = WrapMotorWithEncoder(ctx, e, conf, *motorConfig, m, logger)
 				if err != nil {
 					return nil, err
 				}
@@ -101,18 +106,16 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+		func(attributes utils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
 		},
-		&Config{},
 	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
+	motorConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, nil, err
 	}
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
