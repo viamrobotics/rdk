@@ -320,14 +320,12 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*cos
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
 	if mp.planOpts.goalMetric == nil {
 		return nil, errors.New("metric is nil")
 	}
 	
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error, 1)
-	defer func() { <-ikErr }()
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
@@ -366,7 +364,7 @@ IK:
 				arcPass, failName := mp.planOpts.CheckArcConstraints(stepArc)
 
 				if arcPass {
-					cScore := mp.planOpts.GoalArcScore(stepArc) // wtf
+					cScore := mp.planOpts.GoalArcScore(stepArc)
 					if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64][]frame.Input{}
 						solutions[cScore] = step
@@ -395,11 +393,15 @@ IK:
 		select {
 		case <-ikErr:
 			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
-			// until we've drained the channel
+			// until we've drained the channel, handled by the `continue` above
 			break IK
 		default:
 		}
 	}
+	
+	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
+	cancel()
+	
 	if len(solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions
 		// were produced, which constraints were failed
