@@ -451,6 +451,8 @@ func TestSpinWithMSMath(t *testing.T) {
 			return &spatialmath.EulerAngles{}, nil
 		},
 	}
+	base := &wheeledBase{sensors: &sensors{}}
+
 	extra := make(map[string]interface{})
 	yaws := []float64{
 		math.Pi / 18, math.Pi / 3, math.Pi / 9, math.Pi / 6, math.Pi / 3, -math.Pi, -3 * math.Pi / 4,
@@ -458,7 +460,7 @@ func TestSpinWithMSMath(t *testing.T) {
 	for _, yaw := range yaws {
 		extra["yaw"] = yaw
 		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(yaw), 0)
-		measYaw, err := getCurrentYaw(ctx, ms, extra)
+		measYaw, err := base.getCurrentYaw(ctx, ms, extra)
 		test.That(t, measYaw, test.ShouldEqual, calcYaw)
 		test.That(t, measYaw > 0, test.ShouldBeTrue)
 		test.That(t, calcYaw > 0, test.ShouldBeTrue)
@@ -626,7 +628,8 @@ func TestSpinWithMovementSensor(t *testing.T) {
 			return &spatialmath.EulerAngles{Yaw: 1}, nil
 		},
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(100*time.Millisecond))
 	logger := golog.NewDebugLogger("loggie")
 
 	base := wheeledBase{
@@ -651,7 +654,7 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		collisionGeometry:       nil,
 	}
 
-	err := base.spinWithMovementSensor(ctx, 0, 0, nil)
+	err := base.spinWithMovementSensor(ctx, 10, 50, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 }
