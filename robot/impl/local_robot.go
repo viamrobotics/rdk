@@ -907,8 +907,27 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
-	// Before reconfiguring, go through resources in newConfig, call Validate on all
-	// modularized resources, and store those resources' implicit dependencies.
+	newConfig = r.updateDefaultServiceNames(newConfig)
+	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.Error("error diffing the configs", "error", err)
+		return
+	}
+	if diff.ResourcesEqual {
+		return
+	}
+
+	if r.revealSensitiveConfigDiffs {
+		r.logger.Debugf("(re)configuring with %+v", diff)
+	}
+
+	if err := r.reconfigureModules(ctx, diff); err != nil {
+		r.logger.Error(err)
+		return
+	}
+
+	// Go through resources in newConfig, call Validate on all modularized resources,
+	// and store those resources' implicit dependencies.
 	for i, c := range newConfig.Components {
 		if r.modules.Provides(c) {
 			implicitDeps, err := r.modules.ValidateConfig(ctx, c)
@@ -937,12 +956,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 
 	var allErrs error
 
-	newConfig = r.updateDefaultServiceNames(newConfig)
-
-	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
-	// in the config.
+	// Sync Packages before reconfiguring rest of robot.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
-	err := r.packageManager.Sync(ctx, newConfig.Packages)
+	err = r.packageManager.Sync(ctx, newConfig.Packages)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
@@ -950,21 +966,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	err = r.replacePackageReferencesWithPaths(newConfig)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
-	}
-
-	// Now that we have the new config and all references are resolved, diff it with the old
-	// config to see what has changed.
-	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
-	if err != nil {
-		r.logger.Errorw("error diffing the configs", "error", err)
-		return
-	}
-	if diff.ResourcesEqual {
-		return
-	}
-
-	if r.revealSensitiveConfigDiffs {
-		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
 	// First we remove resources and their children that are not in the graph.
@@ -1074,6 +1075,27 @@ func (r *localRobot) checkMaxInstance(subtype resource.Subtype, max int) error {
 			if maxInstance == max {
 				return errors.Errorf("Max instance number reached for service type: %s", subtype)
 			}
+		}
+	}
+	return nil
+}
+
+// reconfigureModules will add, remove and reconfigure modules from the module
+// manager as needed depending on the passed-in config diff.
+func (r *localRobot) reconfigureModules(ctx context.Context, diff *config.Diff) error {
+	for _, mod := range diff.Added.Modules {
+		if err := r.modules.Add(ctx, mod); err != nil {
+			return errors.Wrapf(err, "error adding module %s ", mod.Name)
+		}
+	}
+	for _, mod := range diff.Modified.Modules {
+		if err := r.modules.Reconfigure(ctx, mod); err != nil {
+			return errors.Wrapf(err, "error reconfiguring module %s ", mod.Name)
+		}
+	}
+	for _, mod := range diff.Removed.Modules {
+		if err := r.modules.Remove(mod.Name); err != nil {
+			return errors.Wrapf(err, "error removing module %s ", mod.Name)
 		}
 	}
 	return nil
