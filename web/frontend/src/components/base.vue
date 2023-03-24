@@ -62,7 +62,7 @@ const keyboardStates = $ref({
   isActive: false,
 });
 
-const resources: Array<{name: string}> = $computed(() => filterResources(props.resources, 'rdk', 'component', 'camera'));
+const resources = $computed(() => filterResources(props.resources, 'rdk', 'component', 'camera'));
 
 const resetDiscreteState = () => {
   movementMode = 'Straight';
