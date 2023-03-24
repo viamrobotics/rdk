@@ -173,7 +173,7 @@ func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 }
 
 // validSDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
-// where tokens should not include colons.
+// where track names should not include colons.
 func validSDPTrackName(name string) string {
 	return strings.ReplaceAll(name, ":", "+")
 }
