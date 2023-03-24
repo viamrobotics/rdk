@@ -88,9 +88,9 @@ const setDirection = (dir: Directions) => {
   direction = dir;
 };
 
-const stop = async () => {
+const stop = () => {
   try {
-    await baseClient.stop();
+    baseClient.stop();
   } catch (error) {
     displayError(error as ServiceError);
   }
