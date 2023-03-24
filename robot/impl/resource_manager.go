@@ -26,6 +26,12 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+func init() {
+	if err := cleanAppImageEnv(); err != nil {
+		golog.Global().Errorw("error cleaning up app image environement", "error", err)
+	}
+}
+
 const (
 	remoteTypeName  = resource.TypeName("remote")
 	unknownTypeName = resource.TypeName("unk")
@@ -815,9 +821,6 @@ func (manager *resourceManager) updateResources(
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, r, []string{}, fn))
 	}
 	// processes are not added into the resource tree as they belong to a process manager
-	if err := cleanAppImageEnv(); err != nil {
-		manager.logger.Errorw("error cleaning up app image environement", "error", err)
-	}
 
 	for _, p := range config.Added.Processes {
 		if manager.opts.untrustedEnv {
