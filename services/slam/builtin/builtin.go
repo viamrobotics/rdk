@@ -353,6 +353,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		useLiveData:           useLiveData,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
+		dev:                   svcConfig.Dev,
 		dataRateMs:            dataRateMsec,
 		mapRateSec:            mapRateSec,
 		cancelFunc:            cancelFunc,
