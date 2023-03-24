@@ -89,12 +89,12 @@ const setDirection = (dir: Directions) => {
 };
 
 const stop = async () => {
+  stopped = true;
   try {
     await baseClient.stop();
   } catch (error) {
     displayError(error as ServiceError);
   }
-  stopped = true;
 };
 
 const digestInput = async () => {
@@ -221,6 +221,12 @@ const handleVisibilityChange = () => {
   }
 };
 
+const handleOnBlur = () => {
+  if (pressed.size <= 0) {
+    stop();
+  }
+};
+
 const handleToggle = () => {
   if (keyboardStates.isActive) {
     return;
@@ -253,6 +259,9 @@ onClickOutside($$(root), () => {
 
 onMounted(() => {
   window.addEventListener('visibilitychange', handleVisibilityChange);
+
+  // Safety measure for system prompts, etc.
+  window.addEventListener('blur', handleOnBlur);
 
   for (const camera of resources) {
     openCameras[camera.name] = false;
