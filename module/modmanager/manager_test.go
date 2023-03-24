@@ -2,6 +2,7 @@ package modmanager
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"testing"
@@ -58,7 +59,7 @@ func TestModManagerFunctions(t *testing.T) {
 		return parentAddr, nil
 	}
 
-	t.Log("test AddModuleHelpers")
+	t.Log("test Helpers")
 	mgr, err := NewManager(myRobot)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -78,13 +79,13 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
-	test.That(t, mod.process.Stop(), test.ShouldBeNil)
-
-	registry.DeregisterComponent(generic.Subtype, myCounterModel)
-
+	err = mod.deregisterResources()
+	test.That(t, err, test.ShouldBeNil)
 	reg = registry.ComponentLookup(generic.Subtype, myCounterModel)
 	test.That(t, reg, test.ShouldBeNil)
+
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	t.Log("test AddModule")
 	mgr, err = NewManager(myRobot)
@@ -162,6 +163,51 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
+
+	t.Log("test ReconfigureModule")
+	// Re-add counter1.
+	_, err = mgr.AddResource(ctx, cfgCounter1, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Change underlying binary path of module to be a copy of simplemodule/run.sh.
+	simpleModule, err := os.Open(utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := simpleModule.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	simpleModuleCopy, err := os.CreateTemp(
+		utils.ResolveFile("examples/customresources/demos/simplemodule"), "viam-simplemodule-copy-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := simpleModuleCopy.Close()
+		test.That(t, err, test.ShouldBeNil)
+		err = os.Remove(simpleModuleCopy.Name())
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	_, err = io.Copy(simpleModuleCopy, simpleModule)
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Chmod(simpleModuleCopy.Name(), 0o777)
+	test.That(t, err, test.ShouldBeNil)
+	modCfg.ExePath = simpleModuleCopy.Name()
+
+	// Reconfigure module with new ExePath.
+	err = mgr.Reconfigure(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// counter1 should still be provided by reconfigured module.
+	ok = mgr.IsModularResource(rNameCounter1)
+	test.That(t, ok, test.ShouldBeTrue)
+	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret["total"], test.ShouldEqual, 0)
+
+	t.Log("test RemoveModule")
+	err = mgr.Remove("simple-module")
+	test.That(t, err, test.ShouldBeNil)
+
+	ok = mgr.IsModularResource(rNameCounter1)
+	test.That(t, ok, test.ShouldBeFalse)
 
 	err = goutils.TryClose(ctx, counter)
 	test.That(t, err, test.ShouldBeNil)
