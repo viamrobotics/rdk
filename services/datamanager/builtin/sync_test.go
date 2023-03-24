@@ -526,14 +526,14 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	})
 
 	test.That(t, len(act), test.ShouldEqual, len(exp))
-	if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-		for i := range act {
-			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+
+	for i := range act {
+		act[i].Metadata.TimeReceived = nil
+		exp[i].Metadata.TimeReceived = nil
+		test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+		if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 			test.That(t, act[i].GetStruct(), test.ShouldResemble, exp[i].GetStruct())
-		}
-	} else {
-		for i := range act {
-			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+		} else {
 			test.That(t, act[i].GetBinary(), test.ShouldResemble, exp[i].GetBinary())
 		}
 	}
