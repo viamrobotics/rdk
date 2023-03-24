@@ -137,7 +137,7 @@ func (config *Component) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if !ValidNameRegex.MatchString(config.Name) {
-		return nil, errors.Errorf("name %q must only contain letters, numbers, dashes, and underscores", config.Name)
+		return nil, ErrInvalidName(config.Name)
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
@@ -401,7 +401,7 @@ func (config *Service) Validate(path string) ([]string, error) {
 		config.Name = resource.DefaultServiceName
 	}
 	if !ValidNameRegex.MatchString(config.Name) {
-		return nil, errors.Errorf("name %q must only contain letters, numbers, dashes, and underscores", config.Name)
+		return nil, ErrInvalidName(config.Name)
 	}
 	if config.Model.Name == "" {
 		golog.Global().Debugw("no model given; using default")
