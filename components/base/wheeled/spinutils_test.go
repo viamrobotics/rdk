@@ -293,7 +293,7 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		collisionGeometry:       nil,
 	}
 
-	err := base.spinWithMovementSensor(ctx, 10, 50, nil)
+	err := base.spinWithMovementSensor(base.sensorCtx, 10, 50, nil)
 	test.That(t, err, test.ShouldBeNil)
 	// we have no way of stopping the sensor in this little test
 	// so we stop runnign goroutines manually and test our function
