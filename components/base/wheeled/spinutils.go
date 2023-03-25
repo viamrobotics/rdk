@@ -44,14 +44,14 @@ func (base *wheeledBase) spinWithMovementSensor(
 			// RSDK-2384 - test for leaky goroutines
 			select {
 			case <-base.sensorCtx.Done():
-				sensorDone()
+				// sensorDone()
 				ticker.Stop()
 				return
 			default:
 			}
 			select {
 			case <-base.sensorCtx.Done():
-				sensorDone()
+				// sensorDone()
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -92,7 +92,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
 						ticker.Stop()
-						sensorDone()
+						// sensorDone()
 						if err := base.Stop(ctx, nil); err != nil {
 							return
 						}
@@ -105,7 +105,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
 						ticker.Stop()
-						sensorDone()
+						// sensorDone()
 						if err := base.Stop(ctx, nil); err != nil {
 							return
 						}
