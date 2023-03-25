@@ -13,27 +13,13 @@ import (
 
 func (base *wheeledBase) spinWithMovementSensor(
 	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	wheelrpm, _ := base.spinMath(angleDeg, degsPerSec)
 
-	sensorCtx, sensorDone := context.WithCancel(base.sensorCtx)
-	motorCtx, _ := context.WithCancel(base.sensorCtx)
-
-	base.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
-		// the code inside this goroutine would block the sensor for loop if taken out
-		if err := base.runAll(motorCtx, -wheelrpm, 0, wheelrpm, 0); err != nil {
-			base.logger.Error(err)
-		}
-	}, base.activeBackgroundWorkers.Done)
-
-	startYaw, err := base.getCurrentYaw(context.Background(), base.orientation, extra)
+	startYaw, err := base.getCurrentYaw(ctx, base.orientation, extra)
 	if err != nil {
-		sensorDone()
 		return err
 	} // from 0 -> 360
-	targetYaw, dir, fullTurns := findSpinParams(angleDeg, degsPerSec, startYaw)
 
+	targetYaw, dir, fullTurns := findSpinParams(angleDeg, degsPerSec, startYaw)
 	turnCount := 0
 	errCounter := 0
 
@@ -43,25 +29,23 @@ func (base *wheeledBase) spinWithMovementSensor(
 		for {
 			// RSDK-2384 - test for leaky goroutines
 			select {
-			case <-base.sensorCtx.Done():
-				// sensorDone()
+			case <-ctx.Done():
 				ticker.Stop()
 				return
 			default:
 			}
 			select {
-			case <-base.sensorCtx.Done():
-				// sensorDone()
+			case <-ctx.Done():
 				ticker.Stop()
 				return
 			case <-ticker.C:
 				// imu readings are limited from 0 -> 360
-				currYaw, err := base.getCurrentYaw(sensorCtx, base.orientation, extra)
+				currYaw, err := base.getCurrentYaw(ctx, base.orientation, extra)
 
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
-						sensorDone()
+						// sensorDone()
 						base.logger.Error(errors.Wrap(
 							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle"))
 						return
@@ -105,7 +89,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
 						ticker.Stop()
-						// sensorDone()
 						if err := base.Stop(ctx, nil); err != nil {
 							return
 						}
@@ -126,6 +109,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 func (base *wheeledBase) stopSensors() {
 	if len(base.allSensors) != 0 {
 		base.sensorDone()
+		base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
 	}
 }
 
@@ -138,8 +122,10 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget
 
 func (base *wheeledBase) getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
 ) (float64, error) {
-	base.sensorMu.Lock()
-	defer base.sensorMu.Unlock()
+	// base.sensorMu.Lock()
+	// defer base.sensorMu.Unlock()
+	ctx, done := context.WithCancel(ctx)
+	defer done()
 	orientation, err := ms.Orientation(ctx, extra)
 	if err != nil {
 		return 0, errors.Wrap(

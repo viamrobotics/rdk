@@ -108,8 +108,20 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if base.orientation != nil {
-		base.sensorDone()
-		return base.spinWithMovementSensor(base.sensorCtx, angleDeg, degsPerSec, extra)
+		wheelrpm, _ := base.spinMath(angleDeg, degsPerSec)
+		// motorCtx, motorDone := context.WithCancel(base.sensorCtx)
+		// defer motorDone()
+		base.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(func() {
+			// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
+			// the code inside this goroutine would block the sensor for loop if taken out
+			if err := base.runAll(ctx, -wheelrpm, 0, wheelrpm, 0); err != nil {
+				base.logger.Error(err)
+			}
+		}, base.activeBackgroundWorkers.Done)
+		// sensorCtx, sensordone := context.WithCancel(base.sensorCtx)
+		// defer sensordone()
+		return base.spinWithMovementSensor(base.sensorCtx, angleDeg, degsPerSec, nil)
 	}
 	base.stopSensors()
 	return base.spin(ctx, angleDeg, degsPerSec)
