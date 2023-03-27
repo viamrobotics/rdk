@@ -95,6 +95,14 @@ func (c *constraintHandler) AddConstraint(name string, cons Constraint) {
 	}
 }
 
+// AddConstraint will add or overwrite constraint functions with the ones present in the specified other constraintHandler.
+// A constraint function should return true if the given position satisfies the constraint.
+func (c *constraintHandler) AddConstraints(other *constraintHandler) {
+	for name, constraint := range other.constraints {
+		c.AddConstraint(name, constraint)
+	}
+}
+
 // RemoveConstraint will remove the given constraint.
 func (c *constraintHandler) RemoveConstraint(name string) {
 	delete(c.constraints, name)
@@ -127,31 +135,31 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score, ""
 }
 
-func (c *constraintHandler) addCollisionConstraints(
+func newCollisionConstraints(
 	frame *solverFrame,
 	fs referenceframe.FrameSystem,
 	worldState *referenceframe.WorldState,
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
 	reportDistances bool,
-) error {
+) (*constraintHandler, error) {
 	// extract inputs corresponding to the frame
 	frameInputs, err := frame.mapToSlice(inputs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create robot collision entities
 	movingGeometries, err := frame.Geometries(frameInputs)
 	if err != nil && len(movingGeometries.Geometries()) == 0 {
-		return err // no geometries defined for frame
+		return nil, err // no geometries defined for frame
 	}
 
 	// find all geoemetries that are not moving but are in the frame system
 	staticGeometries := make([]spatial.Geometry, 0)
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, inputs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for name, geometries := range frameSystemGeometries {
 		if !frame.movingFrame(name) {
@@ -159,47 +167,48 @@ func (c *constraintHandler) addCollisionConstraints(
 		}
 	}
 
+	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
 	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldState, err = worldState.ToWorldFrame(fs, inputs)
+	obstacles, err := worldState.ObstaclesInWorldFrame(fs, inputs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create constraint to keep moving geometries from hitting world state obstacles
 	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
 	obstacleConstraint, err := newCollisionConstraint(
 		movingGeometries.Geometries(),
-		worldState.Obstacles[0].Geometries(),
+		obstacles.Geometries(),
 		allowedCollisions,
 		reportDistances,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
 	robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, reportDistances)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create constraint to keep moving geometires from hitting themselves
 	selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, reportDistances)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// add all constraints to the constraintHandler
-	c.AddConstraint(defaultObstacleConstraintName, obstacleConstraint)
-	c.AddConstraint(defaultSelfCollisionConstraintName, selfCollisionConstraint)
-	c.AddConstraint(defaultRobotCollisionConstraintName, robotConstraint)
-	return nil
+	return &constraintHandler{map[string]Constraint{
+		defaultObstacleConstraintName:       obstacleConstraint,
+		defaultSelfCollisionConstraintName:  selfCollisionConstraint,
+		defaultRobotCollisionConstraintName: robotConstraint,
+	}}, nil
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting

@@ -13,9 +13,11 @@ import (
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
-	name         string
-	fss          frame.FrameSystem
-	movingFrames []string      // List of names of all frames that could move, used for collision detection
+	name string
+	fss  frame.FrameSystem
+	// List of names of all frames that could move, used for collision detection
+	// As an example a gripper attached to an arm which is moving relative to World, would not be in frames below but in this object
+	movingFrames []string
 	frames       []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame   frame.Frame
 	goalFrame    frame.Frame

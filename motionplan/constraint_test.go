@@ -200,7 +200,9 @@ func TestCollisionConstraints(t *testing.T) {
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.addCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, true)
+	collisionConstraints, err := newCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, true)
+	test.That(t, err, test.ShouldBeNil)
+	handler.AddConstraints(collisionConstraints)
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
@@ -234,7 +236,9 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.addCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, true)
+	collisionConstraints, err := newCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, true)
+	test.That(b, err, test.ShouldBeNil)
+	handler.AddConstraints(collisionConstraints)
 	rseed := rand.New(rand.NewSource(1))
 	var b1 bool
 	var n int
