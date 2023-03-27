@@ -2,7 +2,6 @@ package modmanager
 
 import (
 	"context"
-	"io"
 	"os"
 	"os/exec"
 	"testing"
@@ -170,26 +169,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Change underlying binary path of module to be a copy of simplemodule/run.sh.
-	simpleModule, err := os.Open(utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"))
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := simpleModule.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-	simpleModuleCopy, err := os.CreateTemp(
-		utils.ResolveFile("examples/customresources/demos/simplemodule"), "viam-simplemodule-copy-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := simpleModuleCopy.Close()
-		test.That(t, err, test.ShouldBeNil)
-		err = os.Remove(simpleModuleCopy.Name())
-		test.That(t, err, test.ShouldBeNil)
-	}()
-	_, err = io.Copy(simpleModuleCopy, simpleModule)
-	test.That(t, err, test.ShouldBeNil)
-	err = os.Chmod(simpleModuleCopy.Name(), 0o777)
-	test.That(t, err, test.ShouldBeNil)
-	modCfg.ExePath = simpleModuleCopy.Name()
+	modCfg.ExePath = utils.ResolveFile("module/modmanager/data/simplemoduleruncopy.sh")
 
 	// Reconfigure module with new ExePath.
 	err = mgr.Reconfigure(ctx, modCfg)
