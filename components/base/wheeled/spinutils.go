@@ -28,7 +28,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		for {
-			// RSDK-2384 - test for leaky goroutines
 			select {
 			case <-ctx.Done():
 				ticker.Stop()
@@ -49,6 +48,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle"))
 						return
 					}
+					return
 				}
 				errCounter = 0 // reset reading error count to zero if we are successfully reading again
 
