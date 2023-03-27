@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const chunkSizeBytes = 64 * 1024
+const chunkSizeBytes = 1 * 1024 * 1024
 
 type pose struct {
 	X float64 `json:"x"`
