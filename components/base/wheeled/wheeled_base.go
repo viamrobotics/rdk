@@ -124,6 +124,13 @@ type wheeledBase struct {
 	collisionGeometry spatialmath.Geometry
 }
 
+func (base *wheeledBase) stopSensors() {
+	if len(base.allSensors) != 0 {
+		base.sensorDone()
+		base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
+	}
+}
+
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 // TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
 // TODO RSDK-2362 check choppiness of movement when run as a remote.
@@ -470,7 +477,7 @@ func createWheeledBase(
 			omsName = msName
 		}
 	}
-	base.logger.Debugf("using sensor %s as oreintation sensor for base", omsName)
+	base.logger.Debugf("using sensor %s as orientation sensor for base", omsName)
 
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)

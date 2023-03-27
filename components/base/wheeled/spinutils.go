@@ -103,13 +103,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 	return nil
 }
 
-func (base *wheeledBase) stopSensors() {
-	if len(base.allSensors) != 0 {
-		base.sensorDone()
-		base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
-	}
-}
-
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget, overShot, minTravel bool) {
 	atTarget = math.Abs(targetYaw-currYaw) < errTarget
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
