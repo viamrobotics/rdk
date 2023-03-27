@@ -333,7 +333,7 @@ func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.Robot
 		switch {
 		case err == nil:
 		case grpcstatus.Code(err) == codes.Unimplemented:
-			continue
+			return nil
 		default:
 			return err
 		}
