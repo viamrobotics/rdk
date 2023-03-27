@@ -2,25 +2,16 @@ import { CameraClient, ServiceError, StreamClient, type Client } from '@viamrobo
 import { displayError } from '../../lib/error';
 
 export class CameraManager {
-  cameraName:string;
+  cameraClient: CameraClient;
 
-  cameraClient:CameraClient;
-
-  client:Client;
-
-  streamCount:number;
-
-  streamClient:StreamClient;
-
-  public videoStream:MediaStream;
-
-  constructor (cameraName:string, client:Client, streamClient:StreamClient) {
-    this.cameraName = cameraName;
+  constructor (
+    private cameraName: string,
+    client: Client,
+    private streamClient: StreamClient,
+    public streamCount: number = 0,
+    public videoStream: MediaStream = new MediaStream()
+  ) {
     this.cameraClient = new CameraClient(client, cameraName);
-    this.client = client;
-    this.streamCount = 0;
-    this.streamClient = streamClient;
-    this.videoStream = new MediaStream();
   }
 
   addStream () {
