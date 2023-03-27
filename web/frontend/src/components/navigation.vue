@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { filterResources } from '../lib/resource';
@@ -257,10 +257,19 @@ window.googleMapsInit = () => {
 };
 
 const initNavigationView = () => {
+  window.localStorage.setItem("nav-svc-google-api-key", googleApiKey.value);
   mapInit.value = true;
   loadMaps();
   initNavigation();
 };
+
+onMounted(() => {
+  const apiKey = window.localStorage.getItem("nav-svc-google-api-key");
+  if (apiKey) {
+    googleApiKey.value = apiKey;
+    initNavigationView();
+  }
+});
 
 onUnmounted(() => {
   clearTimeout(updateTimerId);
@@ -280,7 +289,7 @@ onUnmounted(() => {
     <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
       <div class="flex h-full w-full flex-row items-end gap-2">
         <v-input
-          label="Google Map API Key"
+          label="Google Maps API Key"
           :value="googleApiKey"
           @input="googleApiKey = $event.detail.value"
         />
