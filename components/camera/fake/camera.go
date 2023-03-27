@@ -80,6 +80,7 @@ type Attrs struct {
 	Height int `json:"height,omitempty"`
 }
 
+// Validate checks that the config attributes are valid for a fake camera.
 func (at *Attrs) Validate() error {
 	if at.Height%2 != 0 {
 		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", at.Height)
@@ -88,7 +89,7 @@ func (at *Attrs) Validate() error {
 		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", at.Width)
 	}
 	if at.Height > 0 && at.Width > 0 {
-		return errors.Errorf("only height or width can be specified, not both")
+		return errors.New("only height or width can be specified, not both")
 	}
 	return nil
 }
