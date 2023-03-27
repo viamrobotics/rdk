@@ -171,10 +171,6 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput,
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
 func (c *ConstraintHandler) CheckSegmentAndStateValidity(cInput *SegmentInput, resolution float64) (bool, *SegmentInput) {
-	valid, _ := c.CheckSegmentConstraints(cInput)
-	if !valid {
-		return false, nil
-	}
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(cInput, resolution)
 	if !valid {
 		if subSegment != nil {
@@ -185,7 +181,9 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidity(cInput *SegmentInput, r
 		}
 		return false, nil
 	}
-	return true, nil
+	// all states are valid
+	valid, _ := c.CheckSegmentConstraints(cInput)
+	return valid, nil
 }
 
 // AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
