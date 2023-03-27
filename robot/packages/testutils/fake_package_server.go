@@ -336,10 +336,10 @@ func ValidateContentsOfPPackage(t *testing.T, dir string) {
 
 	expected := []content{
 		{path: "some-link.txt", isLink: true, linkTarget: "sub-dir/sub-file.txt"},
-		{path: "some-text.txt", checksum: "p_E54w=="},
-		{path: "some-text2.txt", checksum: "p_E54w=="},
+		{path: "some-text.txt", checksum: "p/E54w=="},
+		{path: "some-text2.txt", checksum: "p/E54w=="},
 		{path: "sub-dir", isDir: true},
-		{path: "sub-dir/sub-file.txt", checksum: "p_E54w=="},
+		{path: "sub-dir/sub-file.txt", checksum: "p/E54w=="},
 		{path: "sub-dir-link", isLink: true, linkTarget: "sub-dir"},
 	}
 
@@ -394,7 +394,7 @@ func checksumFile(path string) (string, error) {
 		return "", err
 	}
 
-	return base64.URLEncoding.EncodeToString(hasher.Sum(nil)), nil
+	return base64.StdEncoding.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func crc32Hash() hash.Hash32 {

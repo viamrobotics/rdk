@@ -928,6 +928,22 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	var allErrs error
 
 	newConfig = r.updateDefaultServiceNames(newConfig)
+
+	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
+	// in the config.
+	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
+	err := r.packageManager.Sync(ctx, newConfig.Packages)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+
+	err = r.replacePackageReferencesWithPaths(newConfig)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+
+	// Now that we have the new config and all references are resolved, diff it with the old
+	// config to see what has changed.
 	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
@@ -939,13 +955,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.Debugf("(re)configuring with %+v", diff)
-	}
-
-	// Sync Packages before reconfiguring rest of robot.
-	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
-	err = r.packageManager.Sync(ctx, newConfig.Packages)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
 	}
 
 	// First we remove resources and their children that are not in the graph.
@@ -1000,6 +1009,35 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
+}
+
+func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
+	walkConvertedAttributes := func(convertedAttributes interface{}, allErrs error) (interface{}, error) {
+		// Replace all package references with the actual path containing the package
+		// on the robot.
+		if walker, ok := convertedAttributes.(config.Walker); ok {
+			newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
+			if err != nil {
+				allErrs = multierr.Combine(allErrs, err)
+				return convertedAttributes, allErrs
+			}
+			convertedAttributes = newAttrs
+		}
+		return convertedAttributes, allErrs
+	}
+
+	var allErrs error
+	for i, s := range cfg.Services {
+		s.ConvertedAttributes, allErrs = walkConvertedAttributes(s.ConvertedAttributes, allErrs)
+		cfg.Services[i] = s
+	}
+
+	for i, c := range cfg.Components {
+		c.ConvertedAttributes, allErrs = walkConvertedAttributes(c.ConvertedAttributes, allErrs)
+		cfg.Components[i] = c
+	}
+
+	return allErrs
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific service type that are local.

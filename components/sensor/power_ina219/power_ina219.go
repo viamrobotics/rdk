@@ -166,7 +166,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		d.logger.Errorf("can't open ina219 i2c: %s", err)
 		return nil, err
 	}
-	defer utils.UncheckedError(handle.Close())
+	defer utils.UncheckedErrorFunc(handle.Close)
 
 	// use the calibration result to set the scaling factor
 	// of the current and power registers for the maximum resolution

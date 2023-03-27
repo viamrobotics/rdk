@@ -69,7 +69,8 @@ func (c *collector) Close() {
 	}
 	close(c.captureErrors)
 	c.logRoutine.Wait()
-	utils.UncheckedError(c.logger.Sync())
+	//nolint:errcheck
+	_ = c.logger.Sync()
 }
 
 func (c *collector) Flush() {
