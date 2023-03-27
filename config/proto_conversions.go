@@ -729,9 +729,6 @@ func credentialsTypeFromProto(ct pb.CredentialsType) (rpc.CredentialsType, error
 		return rutils.CredentialsTypeRobotSecret, nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET:
 		return rutils.CredentialsTypeRobotLocationSecret, nil
-	case pb.CredentialsType_CREDENTIALS_TYPE_WEB_OAUTH:
-		// TODO(APP-1412): remove after a week from being deployed
-		return rpc.CredentialsType("oauth-web-auth"), nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED:
 		fallthrough
 	case pb.CredentialsType_CREDENTIALS_TYPE_INTERNAL:

@@ -676,9 +676,6 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
-	case rpc.CredentialsType("oauth-web-auth"):
-		// TODO(APP-1412): remove after a week from being deployed
-		return nil
 	default:
 		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
