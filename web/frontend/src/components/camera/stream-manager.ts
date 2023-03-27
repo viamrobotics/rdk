@@ -5,16 +5,13 @@ import {
 import { CameraManager } from './camera-manager';
 
 export class StreamManager {
+  streamClient: StreamClient;
 
-  cameraManagers: Map<string, CameraManager>;
+  constructor (
+    private client:Client,
+    public cameraManagers: Map<string, CameraManager> = new Map<string, CameraManager>()
 
-  client: Client;
-
-  streamClient:StreamClient;
-
-  constructor (client:Client) {
-    this.cameraManagers = new Map<string, CameraManager>();
-    this.client = client;
+  ) {
     this.streamClient = new StreamClient(client);
   }
 
