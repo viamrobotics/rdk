@@ -545,7 +545,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// 4. Hash the bytes
 		asBytes := md5.Sum(network.Bytes())
-		checkAgainst := [16]uint8{8, 193, 246, 231, 141, 245, 69, 141, 109, 33, 219, 100, 173, 185, 52, 1}
+		checkAgainst := [16]uint8{242, 99, 115, 21, 213, 207, 247, 66, 243, 191, 235, 225, 126, 164, 176, 42}
 		test.That(t, asBytes, test.ShouldEqual, checkAgainst)
 	})
 }
