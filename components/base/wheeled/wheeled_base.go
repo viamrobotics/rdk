@@ -79,6 +79,26 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
+func init() {
+	wheeledBaseComp := registry.Component{
+		Constructor: func(
+			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
+		) (interface{}, error) {
+			return createWheeledBase(ctx, deps, cfg, logger)
+		},
+	}
+
+	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
+	config.RegisterComponentAttributeMapConverter(
+		base.Subtype,
+		modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
+}
+
 type wheeledBase struct {
 	generic.Unimplemented
 	widthMm              int
@@ -102,26 +122,6 @@ type wheeledBase struct {
 
 	name              string
 	collisionGeometry spatialmath.Geometry
-}
-
-func init() {
-	wheeledBaseComp := registry.Component{
-		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return createWheeledBase(ctx, deps, cfg, logger)
-		},
-	}
-
-	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
