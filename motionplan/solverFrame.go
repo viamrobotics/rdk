@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 
+	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
 	frame "go.viam.com/rdk/referenceframe"
@@ -84,7 +85,9 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		if err != nil {
 			return nil, err
 		}
-		moving.MergeFrameSystem(movingSubset2, moving.World())
+		if err = moving.MergeFrameSystem(movingSubset2, moving.World()); err != nil {
+			return nil, err
+		}
 	} else {
 		dof := 0
 		var solveMovingList []frame.Frame
@@ -126,7 +129,9 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			if err != nil {
 				return nil, err
 			}
-			moving.MergeFrameSystem(movingSubset2, moving.World())
+			if err = moving.MergeFrameSystem(movingSubset2, moving.World()); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -205,15 +210,32 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	if len(inputs) != len(sf.DoF()) {
 		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
-	allGeometries, err := frame.FrameSystemGeometries(sf.movingFS, sf.sliceToMap(inputs))
-	if err != nil {
-		return nil, err
+	var errAll error
+	inputMap := sf.sliceToMap(inputs)
+	sfGeometries := []spatial.Geometry{}
+	for _, fName := range sf.movingFS.FrameNames() {
+		f := sf.fss.Frame(fName)
+		if f == nil {
+			return nil, frame.NewFrameMissingError(fName)
+		}
+		inputs, err := frame.GetFrameInputs(f, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		gf, err := f.Geometries(inputs)
+		if gf == nil {
+			// only propagate errors that result in nil geometry
+			multierr.AppendInto(&errAll, err)
+			continue
+		}
+		var tf frame.Transformable
+		tf, err = sf.fss.Transform(inputMap, gf, frame.World)
+		if err != nil {
+			return nil, err
+		}
+		sfGeometries = append(sfGeometries, tf.(*frame.GeometriesInFrame).Geometries()...)
 	}
-	var geometrySlice []spatial.Geometry
-	for _, geometries := range allGeometries {
-		geometrySlice = append(geometrySlice, geometries.Geometries()...)
-	}
-	return frame.NewGeometriesInFrame(frame.World, geometrySlice), nil
+	return frame.NewGeometriesInFrame(frame.World, sfGeometries), errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
