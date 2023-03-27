@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue';
+import { $ref } from 'vue/macros';
 import { displayError } from '../../lib/error';
 import {
   CameraClient,

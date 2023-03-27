@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	clk "github.com/benbjohnson/clock"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,21 +27,24 @@ var (
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
-	captureTime := time.Millisecond * 25
-
-	// On slower machines, it's possible that capture hasn't begun after captureTime. Give up to 20x
-	// as long for this to occur.
-	waitForCaptureFiles := func(captureDir string) {
-		files := getAllFileInfos(captureDir)
-		for i := 0; i < 50; i++ {
-			if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
-				return
+	// passTime repeatedly increments mc by interval until the context is canceled.
+	passTime := func(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					close(done)
+					return
+				default:
+					mc.Add(interval)
+				}
 			}
-			time.Sleep(captureTime)
-			files = getAllFileInfos(captureDir)
-		}
+		}()
+		return done
 	}
 
+	captureInterval := time.Millisecond * 10
 	testFilesContainSensorData := func(t *testing.T, dir string) {
 		t.Helper()
 		var sd []*v1.SensorData
@@ -132,6 +136,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Set up capture directories.
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
+			mockClock := clk.NewMock()
+			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
+			clock = mockClock
 
 			// Set up robot config.
 			var initConfig *config.Config
@@ -158,7 +165,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			}()
 			err = dmsvc.Update(context.Background(), initConfig)
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(captureTime)
+			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFiles(initCaptureDir)
 				testFilesContainSensorData(t, initCaptureDir)
@@ -166,6 +175,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
+			cancelPassTime1()
+			<-donePassingTime1
 
 			// Set up updated robot config.
 			var updatedConfig *config.Config
@@ -187,8 +198,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			err = dmsvc.Update(context.Background(), updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
+			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
-			time.Sleep(captureTime)
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFiles(updatedCaptureDir)
 				testFilesContainSensorData(t, updatedCaptureDir)
@@ -201,6 +213,22 @@ func TestDataCaptureEnabled(t *testing.T) {
 					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
 				}
 			}
+			cancelPassTime2()
+			<-donePassingTime2
 		})
+	}
+}
+
+func waitForCaptureFiles(captureDir string) {
+	totalWait := time.Second * 2
+	waitPerCheck := time.Millisecond * 10
+	iterations := int(totalWait / waitPerCheck)
+	files := getAllFileInfos(captureDir)
+	for i := 0; i < iterations; i++ {
+		if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
+			return
+		}
+		time.Sleep(waitPerCheck)
+		files = getAllFileInfos(captureDir)
 	}
 }

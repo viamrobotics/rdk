@@ -983,8 +983,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					handler.Type,
 					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
-			case rpc.CredentialsType("oauth-web-auth"):
-				// TODO(APP-1412): remove after a week from being deployed
 			case rpc.CredentialsTypeExternal:
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
