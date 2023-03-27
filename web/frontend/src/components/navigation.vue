@@ -257,14 +257,14 @@ window.googleMapsInit = () => {
 };
 
 const initNavigationView = () => {
-  window.localStorage.setItem("nav-svc-google-api-key", googleApiKey.value);
+  window.localStorage.setItem('nav-svc-google-api-key', googleApiKey.value);
   mapInit.value = true;
   loadMaps();
   initNavigation();
 };
 
 onMounted(() => {
-  const apiKey = window.localStorage.getItem("nav-svc-google-api-key");
+  const apiKey = window.localStorage.getItem('nav-svc-google-api-key');
   if (apiKey) {
     googleApiKey.value = apiKey;
     initNavigationView();
