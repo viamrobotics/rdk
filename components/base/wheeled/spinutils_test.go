@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
@@ -15,7 +17,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func TestSpinWithMSMath(t *testing.T) {
@@ -254,9 +255,8 @@ func TestHasOverShot(t *testing.T) {
 }
 
 func TestSpinWithMovementSensor(t *testing.T) {
-	// t.Skip()
 	m := inject.Motor{
-		GoForFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 			return nil
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
