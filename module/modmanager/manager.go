@@ -161,7 +161,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) error {
 
 // Remove removes and stops an existing resource module.
 func (mgr *Manager) Remove(modName string) error {
-	return mgr.remove(modName, true)
+	return mgr.remove(modName, false)
 }
 
 func (mgr *Manager) remove(modName string, reconfigure bool) error {
