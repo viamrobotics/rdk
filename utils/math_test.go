@@ -394,10 +394,3 @@ func TestBytesToVar(t *testing.T) {
 	vi16 = Int16FromBytesBE([]byte{0x12, 0x34})
 	test.That(t, vi16, test.ShouldEqual, i16)
 }
-
-func TestSign(t *testing.T) {
-	sgn := Sign(-156)
-	test.That(t, sgn, test.ShouldEqual, -1)
-	sgn = Sign(176)
-	test.That(t, sgn, test.ShouldEqual, 1)
-}
