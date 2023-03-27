@@ -13,7 +13,7 @@ import (
 )
 
 func (base *wheeledBase) spinWithMovementSensor(
-	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
+	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
 	startYaw, err := getCurrentYaw(ctx, base.orientation)
 	if err != nil {
