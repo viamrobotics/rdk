@@ -167,7 +167,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput,
 	return true, nil
 }
 
-// CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all 
+// CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
 func (c *ConstraintHandler) CheckSegmentAndStateValidity(cInput *SegmentInput, resolution float64) (bool, *SegmentInput) {
@@ -346,7 +346,7 @@ func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon
 }
 
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
-// returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as 
+// returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as
 // well as a metric which returns the distance to that valid region.
 func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
