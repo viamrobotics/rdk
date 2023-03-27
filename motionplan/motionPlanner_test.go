@@ -199,7 +199,11 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.addCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, false)
+	collisionConstraints, err := newCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, false)
+	if err != nil {
+		return nil, err
+	}
+	opt.AddConstraints(collisionConstraints)
 
 	return &planConfig{
 		Start:      startInput[modelName],
@@ -228,7 +232,11 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.addCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, false)
+	collisionConstraints, err := newCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, false)
+	if err != nil {
+		return nil, err
+	}
+	opt.AddConstraints(collisionConstraints)
 
 	return &planConfig{
 		Start:      home7,
@@ -255,7 +263,11 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.addCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, false)
+	collisionConstraints, err := newCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, false)
+	if err != nil {
+		return nil, err
+	}
+	opt.AddConstraints(collisionConstraints)
 
 	return &planConfig{
 		Start:      home6,

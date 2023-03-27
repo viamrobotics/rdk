@@ -46,8 +46,9 @@ const raycaster = new MouseRaycaster({ camera, canvas, recursive: false });
 
 raycaster.addEventListener('click', (event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
-  const { point } = intersection;
-  console.log(point);
+  if (intersection && intersection.point) {
+    console.log(intersection.point);
+  }
 });
 
 const markerSize = 0.5;
@@ -83,7 +84,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   const viewHeight = 1;
   const viewWidth = viewHeight * 2;
 
-  const points = loader.parse(pointcloud.buffer, '');
+  const points = loader.parse(pointcloud.buffer);
   points.geometry.computeBoundingSphere();
 
   const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
@@ -142,13 +143,21 @@ onUnmounted(() => {
 
 watch(() => props.pose, (newPose) => {
   if (newPose !== undefined) {
-    updatePose(newPose);
+    try {
+      updatePose(newPose);
+    } catch (error) {
+      console.error('failed to update pose', error);
+    }
   }
 });
 
 watch(() => props.pointCloudUpdateCount, () => {
   if (props.pointcloud !== undefined) {
-    updateCloud(props.pointcloud);
+    try {
+      updateCloud(props.pointcloud);
+    } catch (error) {
+      console.error('failed to update pointcloud', error);
+    }
   }
 });
 
