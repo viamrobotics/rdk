@@ -22,7 +22,7 @@ import (
 
 // TFLiteClassifierConfig specifies the fields necessary for creating a TFLite classifier.
 type TFLiteClassifierConfig struct {
-	// this should come from the attributes part of the detector config
+	// this should come from the attributes part of the classifier config
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`

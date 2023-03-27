@@ -4,7 +4,6 @@ package slam
 
 import (
 	"context"
-	"image"
 	"io"
 	"sync"
 
@@ -15,13 +14,11 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
 )
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
@@ -71,17 +68,7 @@ var (
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	Position(context.Context, string, map[string]interface{}) (*referenceframe.PoseInFrame, error)
 	GetPosition(context.Context, string) (spatialmath.Pose, string, error)
-	GetMap(
-		context.Context,
-		string,
-		string,
-		*referenceframe.PoseInFrame,
-		bool,
-		map[string]interface{},
-	) (string, image.Image, *vision.Object, error)
-	GetInternalState(ctx context.Context, name string) ([]byte, error)
 	GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error)
 	resource.Generic
@@ -136,16 +123,6 @@ func (svc *reconfigurableSlam) Name() resource.Name {
 	return svc.name
 }
 
-func (svc *reconfigurableSlam) Position(
-	ctx context.Context,
-	val string,
-	extra map[string]interface{},
-) (*referenceframe.PoseInFrame, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Position(ctx, val, extra)
-}
-
 func (svc *reconfigurableSlam) GetPosition(
 	ctx context.Context,
 	val string,
@@ -153,24 +130,6 @@ func (svc *reconfigurableSlam) GetPosition(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetPosition(ctx, val)
-}
-
-func (svc *reconfigurableSlam) GetMap(ctx context.Context,
-	name string,
-	mimeType string,
-	cp *referenceframe.PoseInFrame,
-	include bool,
-	extra map[string]interface{},
-) (string, image.Image, *vision.Object, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetMap(ctx, name, mimeType, cp, include, extra)
-}
-
-func (svc *reconfigurableSlam) GetInternalState(ctx context.Context, name string) ([]byte, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetInternalState(ctx, name)
 }
 
 func (svc *reconfigurableSlam) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {

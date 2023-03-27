@@ -6,16 +6,12 @@ package piimpl
 /*
 	This driver contains various functionalities of raspberry pi board using the
 	pigpio library (https://abyz.me.uk/rpi/pigpio/pdif2.html).
-
 	NOTE: This driver only supports software PWM functionality of raspberry pi.
 		  For software PWM, we currently support the default sample rate of
 		  5 microseconds, which supports the following 18 frequencies (Hz):
-
 		  8000  4000  2000 1600 1000  800  500  400  320
           250   200   160  100   80   50   40   20   10
-
 		  Details on this can be found here -> https://abyz.me.uk/rpi/pigpio/pdif2.html#set_PWM_frequency
-
 */
 
 // #include <stdlib.h>
@@ -31,11 +27,13 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -43,6 +41,7 @@ import (
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -112,21 +111,24 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	}
 
 	instanceMu.Lock()
-	logger.Info("initializing pigpio C library")
-	resCode = C.gpioInitialise()
-	if resCode < 0 {
-		pigpioInitialized = false
-		instanceMu.Unlock()
-		// failed to init, check for common causes
-		_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
-		if err != nil {
-			return nil, errors.New("not running on a pi")
+
+	// if pigpio is not initialized, only then we initialize it.
+	if !pigpioInitialized {
+		resCode = C.gpioInitialise()
+		if resCode < 0 {
+			instanceMu.Unlock()
+			// failed to init, check for common causes
+			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+			if err != nil {
+				return nil, errors.New("not running on a pi")
+			}
+			if os.Getuid() != 0 {
+				return nil, errors.New("not running as root, try sudo")
+			}
+			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
-		if os.Getuid() != 0 {
-			return nil, errors.New("not running as root, try sudo")
-		}
-		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioInitialise failed with code")
 	}
+
 	pigpioInitialized = true
 
 	initGood := false
@@ -551,6 +553,10 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 
 func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
+}
+
+func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
 // Close attempts to close all parts of the board cleanly.

@@ -1473,13 +1473,13 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
@@ -1559,13 +1559,13 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
@@ -1691,13 +1691,13 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok = r.RemoteByName("remote")
@@ -1862,6 +1862,58 @@ func TestConfigPackages(t *testing.T) {
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "some-name-2"))
+}
+
+func TestConfigPackageReferenceReplacement(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+
+	packageDir := t.TempDir()
+
+	robotConfig := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+			{
+				Name:    "some-name-2",
+				Package: "package-2",
+				Version: "latest",
+			},
+		},
+		Services: []config.Service{
+			{
+				Name: "Vision-Service",
+				Type: vision.SubtypeName,
+				ConvertedAttributes: &vision.Attributes{
+					ModelRegistry: []vision.VisModelConfig{
+						{
+							Type: "tflite_classifier",
+							Name: "my_classifier",
+							Parameters: config.AttributeMap{
+								"model_path":  "${packages.package-1}/model.tflite",
+								"label_path":  "${packages.package-2}/labels.txt",
+								"num_threads": 1,
+							},
+						},
+					},
+				},
+			},
+		},
+		PackagePath: packageDir,
+	}
+
+	fakePackageServer.StorePackage(robotConfig.Packages...)
+
+	r, err := robotimpl.New(ctx, robotConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestReconnectRemote(t *testing.T) {
