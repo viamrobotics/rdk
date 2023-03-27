@@ -33,6 +33,9 @@ func TestInterrupts(t *testing.T) {
 	i2cHandle.CloseFunc = func() error { return nil }
 	i2cHandle.WriteByteDataFunc = func(context.Context, byte, byte) error { return nil }
 	i2cHandle.ReadByteDataFunc = func(context.Context, byte) (byte, error) { return byte(1<<6 + 1<<2), nil }
+	// i2cHandle.ReadBlockDataFunc gets called multiple times. The first time we need the first byte to be 0xE5 and the next
+	// time we need 6 bytes. This return provides more data than necessary for the first call to the function but allows
+	// both calls to it to work properly.
 	i2cHandle.ReadBlockDataFunc = func(context.Context, byte, uint8) ([]byte, error) {
 		return []byte{byte(0xE5), byte(0x1), byte(0x2), byte(0x3), byte(0x4), byte(0x5), byte(0x6)}, nil
 	}
