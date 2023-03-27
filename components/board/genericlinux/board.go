@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package genericlinux implements a Linux-based board making heavy use of sysfs
 // (https://en.wikipedia.org/wiki/Sysfs). This does not provide a board model itself but provides
 // the underlying logic for any Linux/sysfs based board.
