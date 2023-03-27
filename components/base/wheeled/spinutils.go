@@ -45,7 +45,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
-						// sensorDone()
 						base.logger.Error(errors.Wrap(
 							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle"))
 						return
@@ -76,7 +75,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
 						ticker.Stop()
-						// sensorDone()
 						if err := base.Stop(ctx, nil); err != nil {
 							return
 						}
