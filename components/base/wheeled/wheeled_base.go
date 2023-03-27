@@ -79,6 +79,31 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
+type wheeledBase struct {
+	generic.Unimplemented
+	widthMm              int
+	wheelCircumferenceMm int
+	spinSlipFactor       float64
+
+	left      []motor.Motor
+	right     []motor.Motor
+	allMotors []motor.Motor
+
+	sensorMu   sync.Mutex
+	sensorCtx  context.Context
+	sensorDone func()
+
+	allSensors  []movementsensor.MovementSensor
+	orientation movementsensor.MovementSensor
+
+	opMgr                   operation.SingleOperationManager
+	activeBackgroundWorkers *sync.WaitGroup
+	logger                  golog.Logger
+
+	name              string
+	collisionGeometry spatialmath.Geometry
+}
+
 func init() {
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
@@ -109,8 +134,6 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 
 	if base.orientation != nil {
 		wheelrpm, _ := base.spinMath(angleDeg, degsPerSec)
-		// motorCtx, motorDone := context.WithCancel(base.sensorCtx)
-		// defer motorDone()
 		base.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
@@ -119,8 +142,6 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 				base.logger.Error(err)
 			}
 		}, base.activeBackgroundWorkers.Done)
-		// sensorCtx, sensordone := context.WithCancel(base.sensorCtx)
-		// defer sensordone()
 		return base.spinWithMovementSensor(base.sensorCtx, angleDeg, degsPerSec, nil)
 	}
 	base.stopSensors()
@@ -435,6 +456,8 @@ func createWheeledBase(
 	// spawn a new context for sensors so we don't add many background workers
 	// TODO RSDK-2384 something is cancelling base context in the actuating API calls
 	base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
+
+	var omsName string
 	for _, msName := range attr.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
 		if err != nil {
@@ -444,8 +467,11 @@ func createWheeledBase(
 		props, err := ms.Properties(ctx, nil)
 		if props.OrientationSupported && err == nil {
 			base.orientation = ms
+			omsName = msName
 		}
 	}
+	base.logger.Debugf("using sensor %s as oreintation sensor for base", omsName)
+
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)
 
@@ -456,29 +482,4 @@ func createWheeledBase(
 	base.collisionGeometry = collisionGeometry
 
 	return base, nil
-}
-
-type wheeledBase struct {
-	generic.Unimplemented
-	widthMm              int
-	wheelCircumferenceMm int
-	spinSlipFactor       float64
-
-	left      []motor.Motor
-	right     []motor.Motor
-	allMotors []motor.Motor
-
-	sensorMu   sync.Mutex
-	sensorCtx  context.Context
-	sensorDone func()
-
-	allSensors  []movementsensor.MovementSensor
-	orientation movementsensor.MovementSensor
-
-	opMgr                   operation.SingleOperationManager
-	activeBackgroundWorkers *sync.WaitGroup
-	logger                  golog.Logger
-
-	name              string
-	collisionGeometry spatialmath.Geometry
 }

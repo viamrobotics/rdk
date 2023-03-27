@@ -56,23 +56,24 @@ func TestInterrupts(t *testing.T) {
 		InterruptPin:     "int1",
 	}
 
+	cfg := config.Component{
+		Name:  "movementsensor",
+		Model: modelName,
+		Type:  movementsensor.SubtypeName,
+		ConvertedAttributes: &AttrConfig{
+			BoardName: "board",
+			I2cBus:    "bus",
+			SingleTap: tap,
+			FreeFall:  ff,
+		},
+	}
+
 	t.Run("interrupts have been found correctly when both are configured to the same pin", func(t *testing.T) {
-		cfg := config.Component{
-			Name:  "movementsensor",
-			Model: modelName,
-			Type:  movementsensor.SubtypeName,
-			ConvertedAttributes: &AttrConfig{
-				BoardName: "board",
-				I2cBus:    "bus",
-				SingleTap: tap,
-				FreeFall:  ff,
-			},
-		}
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
 		interrupt.Tick(context.Background(), true, nowNanosTest())
 		test.That(t, err, test.ShouldBeNil)
 
-		readings, err := adxl.Readings(ctx, nil)
+		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
@@ -94,14 +95,14 @@ func TestInterrupts(t *testing.T) {
 		interrupt.Tick(context.Background(), true, nowNanosTest())
 		test.That(t, err, test.ShouldBeNil)
 
-		readings, err := adxl.Readings(ctx, nil)
+		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 0)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
 	})
 
 	t.Run("interrupts have been found correctly only freefall has been configured", func(t *testing.T) {
-		cfg := config.Component{
+		cfg = config.Component{
 			Name:  "movementsensor",
 			Model: modelName,
 			Type:  movementsensor.SubtypeName,
@@ -116,7 +117,7 @@ func TestInterrupts(t *testing.T) {
 		interrupt.Tick(context.Background(), true, nowNanosTest())
 		test.That(t, err, test.ShouldBeNil)
 
-		readings, err := adxl.Readings(ctx, nil)
+		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 0)
