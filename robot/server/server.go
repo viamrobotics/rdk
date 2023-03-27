@@ -6,6 +6,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"strings"
 	"sync"
 	"time"
@@ -322,20 +324,19 @@ func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.Robot
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
-		select {
-		case <-streamServer.Context().Done():
+		if !utils.SelectContextOrWaitChan(streamServer.Context(), ticker.C) {
 			return streamServer.Context().Err()
-		default:
 		}
-		select {
-		case <-streamServer.Context().Done():
-			return streamServer.Context().Err()
-		case <-ticker.C:
-		}
+
 		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
-		if err != nil {
+		switch {
+		case err == nil:
+		case grpcstatus.Code(err) == codes.Unimplemented:
+			continue
+		default:
 			return err
 		}
+
 		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
 			return err
 		}
