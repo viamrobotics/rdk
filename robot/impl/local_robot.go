@@ -952,9 +952,11 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
+	// Now that we have the new config and all references are resolved, diff it with the old
+	// config to see what has changed.
 	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
-		r.logger.Error("error diffing the configs", "error", err)
+		r.logger.Errorw("error diffing the configs", "error", err)
 		return
 	}
 	if diff.ResourcesEqual {
