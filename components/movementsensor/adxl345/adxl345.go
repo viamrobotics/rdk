@@ -254,6 +254,7 @@ func NewAdxl345(
 					sensor.mu.Unlock()
 					continue
 				}
+
 				linearAcceleration := toLinearAcceleration(rawData)
 				// Only lock the mutex to write to the shared data, so other threads can read the
 				// data as often as they want.
