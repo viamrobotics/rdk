@@ -315,7 +315,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
 			}
 		}
-		// Check whether newNear
+		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
