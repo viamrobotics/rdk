@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed, $$ } from 'vue/macros';
 import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
@@ -126,10 +127,10 @@ const digestInput = async () => {
     await baseClient.setPower(linear, angular);
   } catch (error) {
     displayError(error as ServiceError);
+  }
 
-    if (pressed.size <= 0) {
-      stop();
-    }
+  if (pressed.size <= 0) {
+    stop();
   }
 };
 
@@ -219,6 +220,12 @@ const handleVisibilityChange = () => {
   }
 };
 
+const handleOnBlur = () => {
+  if (pressed.size <= 0) {
+    stop();
+  }
+};
+
 const handleToggle = () => {
   if (keyboardStates.isActive) {
     return;
@@ -251,6 +258,9 @@ onClickOutside($$(root), () => {
 
 onMounted(() => {
   window.addEventListener('visibilitychange', handleVisibilityChange);
+
+  // Safety measure for system prompts, etc.
+  window.addEventListener('blur', handleOnBlur);
 
   for (const camera of resources) {
     openCameras[camera.name] = false;

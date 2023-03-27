@@ -62,7 +62,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/mediadevices v0.4.0
+	github.com/pion/mediadevices v0.4.1-0.20230320003250-11bf55f80ca8
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.54
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
@@ -82,12 +82,12 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.92
+	go.viam.com/api v0.1.96
 	go.viam.com/slam v0.1.31
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.17-0.20230320131150-fc1f54523dac
+	go.viam.com/utils v0.1.18-0.20230327140716-bfeb34d89117
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.3.0
+	golang.org/x/image v0.5.0
 	golang.org/x/tools v0.6.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.11.0
