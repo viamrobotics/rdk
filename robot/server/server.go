@@ -6,11 +6,12 @@ package server
 import (
 	"bytes"
 	"context"
-	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
 	"strings"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
