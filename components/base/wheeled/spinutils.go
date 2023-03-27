@@ -15,7 +15,7 @@ import (
 func (base *wheeledBase) spinWithMovementSensor(
 	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
 ) error {
-	startYaw, err := base.getCurrentYaw(ctx, base.orientation, extra)
+	startYaw, err := getCurrentYaw(ctx, base.orientation)
 	if err != nil {
 		return err
 	} // from 0 -> 360
@@ -40,7 +40,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				return
 			case <-ticker.C:
 				// imu readings are limited from 0 -> 360
-				currYaw, err := base.getCurrentYaw(ctx, base.orientation, extra)
+				currYaw, err := getCurrentYaw(ctx, base.orientation)
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
@@ -117,11 +117,11 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget
 	return atTarget, overShot, minTravel
 }
 
-func (base *wheeledBase) getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
+func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor,
 ) (float64, error) {
 	ctx, done := context.WithCancel(ctx)
 	defer done()
-	orientation, err := ms.Orientation(ctx, extra)
+	orientation, err := ms.Orientation(ctx, nil)
 	if err != nil {
 		return 0, errors.Wrap(
 			err, "error getting orientation from sensor, spin will proceed without sensor feedback",

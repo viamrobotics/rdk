@@ -82,26 +82,22 @@ func TestSpinWithMSMath(t *testing.T) {
 
 	// test getCurrentYaw
 	ctx := context.Background()
-	ms := &inject.MovementSensor{
-		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-			if extra != nil {
-				if yaw, ok := extra["yaw"].(float64); ok {
-					return &spatialmath.EulerAngles{Yaw: yaw}, nil
-				}
-			}
-			return &spatialmath.EulerAngles{}, nil
-		},
-	}
-	base := &wheeledBase{}
 
-	extra := make(map[string]interface{})
 	yaws := []float64{
 		math.Pi / 18, math.Pi / 3, math.Pi / 9, math.Pi / 6, math.Pi / 3, -math.Pi, -3 * math.Pi / 4,
 	}
+
 	for _, yaw := range yaws {
-		extra["yaw"] = yaw
-		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(yaw), 0)
-		measYaw, err := base.getCurrentYaw(ctx, ms, extra)
+		ms := &inject.MovementSensor{
+			OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+				return &spatialmath.EulerAngles{Yaw: yaw}, nil
+			},
+		}
+
+		ori, err := ms.Orientation(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(ori.EulerAngles().Yaw), 0)
+		measYaw, err := getCurrentYaw(ctx, ms)
 		test.That(t, measYaw, test.ShouldEqual, calcYaw)
 		test.That(t, measYaw > 0, test.ShouldBeTrue)
 		test.That(t, calcYaw > 0, test.ShouldBeTrue)
