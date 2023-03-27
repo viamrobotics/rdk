@@ -6,14 +6,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 func (base *wheeledBase) spinWithMovementSensor(
-	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-
+	ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
+) error {
 	startYaw, err := base.getCurrentYaw(ctx, base.orientation, extra)
 	if err != nil {
 		return err
@@ -41,7 +42,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 			case <-ticker.C:
 				// imu readings are limited from 0 -> 360
 				currYaw, err := base.getCurrentYaw(ctx, base.orientation, extra)
-
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
@@ -101,7 +101,6 @@ func (base *wheeledBase) spinWithMovementSensor(
 				}
 			}
 		}
-
 	}, base.activeBackgroundWorkers.Done)
 	return nil
 }
@@ -122,8 +121,6 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget
 
 func (base *wheeledBase) getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor, extra map[string]interface{},
 ) (float64, error) {
-	// base.sensorMu.Lock()
-	// defer base.sensorMu.Unlock()
 	ctx, done := context.WithCancel(ctx)
 	defer done()
 	orientation, err := ms.Orientation(ctx, extra)
