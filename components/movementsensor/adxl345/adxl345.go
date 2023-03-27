@@ -254,13 +254,14 @@ func NewAdxl345(
 					sensor.mu.Unlock()
 					continue
 				}
-
-				linearAcceleration := toLinearAcceleration(rawData)
-				// Only lock the mutex to write to the shared data, so other threads can read the
-				// data as often as they want.
-				sensor.mu.Lock()
-				sensor.linearAcceleration = linearAcceleration
-				sensor.mu.Unlock()
+				if len(rawData) >= 6 {
+					linearAcceleration := toLinearAcceleration(rawData)
+					// Only lock the mutex to write to the shared data, so other threads can read the
+					// data as often as they want.
+					sensor.mu.Lock()
+					sensor.linearAcceleration = linearAcceleration
+					sensor.mu.Unlock()
+				}
 			case <-sensor.cancelContext.Done():
 				return
 			}
