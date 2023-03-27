@@ -5,8 +5,8 @@ export class CameraManager {
   cameraClient: CameraClient;
 
   constructor (
-    private cameraName: string,
     client: Client,
+    private cameraName: string,
     private streamClient: StreamClient,
     public streamCount: number = 0,
     public videoStream: MediaStream = new MediaStream()
