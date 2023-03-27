@@ -95,10 +95,10 @@ func (c *constraintHandler) AddConstraint(name string, cons Constraint) {
 	}
 }
 
-// AddConstraint will add or overwrite constraint functions with the ones present in the specified other constraintHandler.
+// AddConstraints will add or overwrite constraint functions with the ones present in the specified map.
 // A constraint function should return true if the given position satisfies the constraint.
-func (c *constraintHandler) AddConstraints(other *constraintHandler) {
-	for name, constraint := range other.constraints {
+func (c *constraintHandler) AddConstraints(constraints map[string]Constraint) {
+	for name, constraint := range constraints {
 		c.AddConstraint(name, constraint)
 	}
 }
@@ -142,7 +142,7 @@ func newCollisionConstraints(
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
 	reportDistances bool,
-) (*constraintHandler, error) {
+) (map[string]Constraint, error) {
 	// extract inputs corresponding to the frame
 	frameInputs, err := frame.mapToSlice(inputs)
 	if err != nil {
@@ -204,11 +204,11 @@ func newCollisionConstraints(
 		return nil, err
 	}
 
-	return &constraintHandler{map[string]Constraint{
+	return map[string]Constraint{
 		defaultObstacleConstraintName:       obstacleConstraint,
 		defaultSelfCollisionConstraintName:  selfCollisionConstraint,
 		defaultRobotCollisionConstraintName: robotConstraint,
-	}}, nil
+	}, nil
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting

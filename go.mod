@@ -388,7 +388,6 @@ require (
 	github.com/goburrow/modbus v0.1.0
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/viamrobotics/visualization v0.0.0-20230307161435-c41b4251fe0a
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20230307190834-24139beb5833
 )

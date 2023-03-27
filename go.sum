@@ -1489,8 +1489,6 @@ github.com/viam-labs/go-libjpeg v0.3.1 h1:J/byavXHFqRI1PFPrnPbP+wFCr1y+Cn1CwKXrO
 github.com/viam-labs/go-libjpeg v0.3.1/go.mod h1:b0ISpf9lJv9MO1h1gXAmSA/osG19cKGYjfYc6aeEjqs=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
-github.com/viamrobotics/visualization v0.0.0-20230307161435-c41b4251fe0a h1:eMaIuUh0NWEMxh3Ezr6ulQv6qzjnsJVhF1MgWFn57s0=
-github.com/viamrobotics/visualization v0.0.0-20230307161435-c41b4251fe0a/go.mod h1:W89dPSt4D0oN1402kxfZs7jxNUyMr0/OIbx8L9MkYzs=
 github.com/viki-org/dnscache v0.0.0-20130720023526-c70c1f23c5d8/go.mod h1:dniwbG03GafCjFohMDmz6Zc6oCuiqgH6tGNyXTkHzXE=
 github.com/wcharczuk/go-chart v2.0.1+incompatible/go.mod h1:PF5tmL4EIx/7Wf+hEkpCqYi5He4u90sw+0+6FhrryuE=
 github.com/wcharczuk/go-chart/v2 v2.1.0/go.mod h1:yx7MvAVNcP/kN9lKXM/NTce4au4DFN99j6i1OwDclNA=

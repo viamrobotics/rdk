@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"github.com/viamrobotics/visualization"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
@@ -488,7 +487,6 @@ func TestReachOverArm(t *testing.T) {
 	plan, err = PlanMotion(context.Background(), logger.Sugar(), goal, xarm, frame.StartPositions(fs), fs, nil, nil, opts)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-	visualization.VisualizePlan(fs, ur5, plan, &frame.WorldState{})
 }
 
 func TestSliceUniq(t *testing.T) {
