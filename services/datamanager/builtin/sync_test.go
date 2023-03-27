@@ -518,22 +518,34 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	}
 
 	// Sort both by time requested.
-	sort.Slice(act, func(i, j int) bool {
-		return act[i].GetMetadata().GetTimeRequested().Nanos < act[j].GetMetadata().GetTimeRequested().Nanos
+	sort.SliceStable(act, func(i, j int) bool {
+		diffRequested := act[j].GetMetadata().GetTimeRequested().AsTime().Sub(act[i].GetMetadata().GetTimeRequested().AsTime())
+		if diffRequested > 0 {
+			return true
+		} else if diffRequested == 0 {
+			return act[j].GetMetadata().GetTimeReceived().AsTime().Sub(act[i].GetMetadata().GetTimeReceived().AsTime()) > 0
+		} else {
+			return false
+		}
 	})
-	sort.Slice(exp, func(i, j int) bool {
-		return exp[i].GetMetadata().GetTimeRequested().Nanos < exp[j].GetMetadata().GetTimeRequested().Nanos
+	sort.SliceStable(exp, func(i, j int) bool {
+		diffRequested := exp[j].GetMetadata().GetTimeRequested().AsTime().Sub(exp[i].GetMetadata().GetTimeRequested().AsTime())
+		if diffRequested > 0 {
+			return true
+		} else if diffRequested == 0 {
+			return exp[j].GetMetadata().GetTimeReceived().AsTime().Sub(exp[i].GetMetadata().GetTimeReceived().AsTime()) > 0
+		} else {
+			return false
+		}
 	})
 
 	test.That(t, len(act), test.ShouldEqual, len(exp))
-	if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-		for i := range act {
-			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+
+	for i := range act {
+		test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+		if dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 			test.That(t, act[i].GetStruct(), test.ShouldResemble, exp[i].GetStruct())
-		}
-	} else {
-		for i := range act {
-			test.That(t, act[i].GetMetadata(), test.ShouldResemble, exp[i].GetMetadata())
+		} else {
 			test.That(t, act[i].GetBinary(), test.ShouldResemble, exp[i].GetBinary())
 		}
 	}
