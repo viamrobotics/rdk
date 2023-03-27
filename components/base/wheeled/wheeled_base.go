@@ -149,7 +149,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 				base.logger.Error(err)
 			}
 		}, base.activeBackgroundWorkers.Done)
-		return base.spinWithMovementSensor(base.sensorCtx, angleDeg, degsPerSec, nil)
+		return base.spinWithMovementSensor(base.sensorCtx, angleDeg, degsPerSec)
 	}
 	base.stopSensors()
 	return base.spin(ctx, angleDeg, degsPerSec)
