@@ -57,7 +57,7 @@ func GetInternalStateStreamCallback(ctx context.Context, name string, slamClient
 	return f, err
 }
 
-// GetPointCloudMapStreamCallback helps a client request the point cloud stream from a SLAM server,
+// GetPointCloudMapCallback helps a client request the point cloud stream from a SLAM server,
 // returning a callback function for accessing the stream data.
 func GetPointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetPointCloudMapRequest{Name: name}
@@ -82,7 +82,7 @@ func GetPointCloudMapCallback(ctx context.Context, name string, slamClient pb.SL
 	return f, nil
 }
 
-// GetInternalStateStreamCallback helps a client request the internal state stream from a SLAM server,
+// GetInternalStateCallback helps a client request the internal state stream from a SLAM server,
 // returning a callback function for accessing the stream data.
 func GetInternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetInternalStateRequest{Name: name}
