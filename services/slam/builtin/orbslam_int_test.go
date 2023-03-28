@@ -125,7 +125,7 @@ func testOrbslamInternalState(t *testing.T, svc slam.Service, dataDir string) {
 	internalState, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Save the data from the call to GetInternalStateStream for use in next test.
+	// Save the data from the call to GetInternalState for use in next test.
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDir, "map", "orbslam_int_color_camera_data_"+timeStamp.UTC().Format(slamTimeFormat)+".osa")
 	err = os.WriteFile(filename, internalState, 0644)

@@ -45,7 +45,7 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
 
 const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
   return new Promise((resolve, reject) => {
-    const req = new slamApi.GetPointCloudMapStreamRequest();
+    const req = new slamApi.GetPointCloudMapRequest();
     req.setName(name);
     rcLogConditionally(req);
     const chunks: Uint8Array[] = [];
@@ -79,7 +79,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
 
 const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   return new Promise((resolve, reject): void => {
-    const req = new slamApi.GetPositionNewRequest();
+    const req = new slamApi.GetPositionRequest();
     req.setName(name);
     props.client.slamService.getPositionNew(
       req,
