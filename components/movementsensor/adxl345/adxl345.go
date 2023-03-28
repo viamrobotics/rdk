@@ -253,9 +253,7 @@ func NewAdxl345(
 				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
 				// Record the errors no matter what: if the error is nil, that's useful information
 				// that will prevent errors from being returned later.
-				sensor.mu.Lock()
 				sensor.err.Set(err)
-				sensor.mu.Unlock()
 				if err != nil {
 					continue
 				}
