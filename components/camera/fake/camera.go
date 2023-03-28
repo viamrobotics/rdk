@@ -184,11 +184,7 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 // getColorImage always returns the same color image of a chess board.
 func (c *Camera) getColorImage() (*rimage.Image, error) {
-	path, err := rimage.GetPath()
-	if err != nil {
-		return nil, err
-	}
-	img, err := rimage.NewImageFromFile(path + ".png")
+	img, err := rimage.NewImageFromFile("board2.png")
 	if err != nil {
 		return nil, err
 	}
@@ -202,11 +198,7 @@ func (c *Camera) getColorImage() (*rimage.Image, error) {
 
 // getDepthImage always returns the same depth image of a chess board.
 func (c *Camera) getDepthImage(ctx context.Context) (*rimage.DepthMap, error) {
-	path, err := rimage.GetPath()
-	if err != nil {
-		return nil, err
-	}
-	dm, err := rimage.NewDepthMapFromFile(ctx, path+"_gray.png")
+	dm, err := rimage.NewDepthMapFromFile(ctx, "board2_gray.png")
 	if err != nil {
 		return nil, err
 	}
