@@ -36,7 +36,7 @@ type Arguments struct {
 	SharedDir                    string `flag:"shareddir,usage=web resource directory"`
 	Version                      bool   `flag:"version,usage=print version"`
 	WebProfile                   bool   `flag:"webprofile,usage=include profiler in http server"`
-	WebRTC                       bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	WebRTC                       bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs   bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv                 bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry              bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
@@ -319,7 +319,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				}
 				var options weboptions.Options
 
-				if !diff.NetworkEqual || !diff.MediaEqual {
+				if !diff.NetworkEqual {
 					if err := myRobot.StopWeb(); err != nil {
 						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
 						continue
@@ -333,7 +333,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				myRobot.Reconfigure(ctx, processedConfig)
 
-				if !diff.NetworkEqual || !diff.MediaEqual {
+				if !diff.NetworkEqual {
 					if err := myRobot.StartWeb(ctx, options); err != nil {
 						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}

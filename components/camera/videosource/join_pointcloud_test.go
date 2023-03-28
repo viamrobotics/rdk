@@ -121,6 +121,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 }
 
 func TestJoinPointCloudNaive(t *testing.T) {
+	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	r := makeFakeRobot(t)
 	defer utils.TryClose(context.Background(), r)

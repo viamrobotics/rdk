@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -35,30 +34,33 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	SyncDirectory(dir string)
+	SyncFile(path string)
 	Close()
 }
 
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
-	partID             string
-	conn               rpc.ClientConn
-	client             v1.DataSyncServiceClient
-	logger             golog.Logger
-	backgroundWorkers  sync.WaitGroup
-	cancelCtx          context.Context
-	cancelFunc         func()
-	lastModifiedMillis int
+	partID            string
+	conn              rpc.ClientConn
+	client            v1.DataSyncServiceClient
+	logger            golog.Logger
+	backgroundWorkers sync.WaitGroup
+	cancelCtx         context.Context
+	cancelFunc        func()
 
 	progressLock *sync.Mutex
 	inProgress   map[string]bool
+
+	syncErrs   chan error
+	closed     *atomic.Bool
+	logRoutine sync.WaitGroup
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error)
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
-func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis int) (Manager, error) {
+func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
 	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
 		logger.Debug("Using no-op sync manager when Cloud config is not available")
 		return NewNoopManager(), nil
@@ -84,83 +86,91 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config, lastModMillis in
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn, lastModMillis)
+	return NewManager(logger, cfg.Cloud.ID, client, conn)
 }
 
 // NewManager returns a new syncer.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
-	conn rpc.ClientConn, lastModifiedMillis int,
+	conn rpc.ClientConn,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		conn:               conn,
-		client:             client,
-		logger:             logger,
-		backgroundWorkers:  sync.WaitGroup{},
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		partID:             partID,
-		progressLock:       &sync.Mutex{},
-		inProgress:         make(map[string]bool),
-		lastModifiedMillis: lastModifiedMillis,
+		partID:            partID,
+		conn:              conn,
+		client:            client,
+		logger:            logger,
+		backgroundWorkers: sync.WaitGroup{},
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
+		progressLock:      &sync.Mutex{},
+		inProgress:        make(map[string]bool),
+		syncErrs:          make(chan error, 10),
+		closed:            &atomic.Bool{},
+		logRoutine:        sync.WaitGroup{},
 	}
+	ret.logRoutine.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer ret.logRoutine.Done()
+		ret.logSyncErrs()
+	})
 	return &ret, nil
 }
 
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
+	s.closed.Store(true)
 	s.cancelFunc()
+	s.backgroundWorkers.Wait()
+	close(s.syncErrs)
+	s.logRoutine.Wait()
+	//nolint:errcheck
+	_ = s.logger.Sync()
 	if s.conn != nil {
 		if err := s.conn.Close(); err != nil {
 			s.logger.Errorw("error closing datasync server connection", "error", err)
 		}
 	}
-	s.backgroundWorkers.Wait()
 }
 
-func (s *syncer) SyncDirectory(dir string) {
-	paths := getAllFilesToSync(dir, s.lastModifiedMillis)
-	for _, p := range paths {
-		newP := p
-		s.backgroundWorkers.Add(1)
-		goutils.PanicCapturingGo(func() {
-			defer s.backgroundWorkers.Done()
-			select {
-			case <-s.cancelCtx.Done():
+func (s *syncer) SyncFile(path string) {
+	s.backgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer s.backgroundWorkers.Done()
+		select {
+		case <-s.cancelCtx.Done():
+			return
+		default:
+			if !s.markInProgress(path) {
 				return
-			default:
-				if !s.markInProgress(newP) {
-					return
-				}
-				//nolint:gosec
-				f, err := os.Open(newP)
-				if err != nil {
-					// Don't log if the file does not exist, because that means it was successfully synced and deleted
-					// in between paths being built and this executing.
-					if !errors.Is(err, os.ErrNotExist) {
-						s.logger.Errorw("error opening file", "error", err)
-					}
-					return
-				}
-
-				if datacapture.IsDataCaptureFile(f) {
-					captureFile, err := datacapture.ReadFile(f)
-					if err != nil {
-						s.logger.Errorw("error reading capture file", "error", err)
-						err := f.Close()
-						if err != nil {
-							s.logger.Errorw("error closing file", "error", err)
-						}
-						return
-					}
-					s.syncDataCaptureFile(captureFile)
-				} else {
-					s.syncArbitraryFile(f)
-				}
-				s.unmarkInProgress(newP)
 			}
-		})
-	}
+			//nolint:gosec
+			f, err := os.Open(path)
+			if err != nil {
+				// Don't log if the file does not exist, because that means it was successfully synced and deleted
+				// in between paths being built and this executing.
+				if !errors.Is(err, os.ErrNotExist) {
+					s.logger.Errorw("error opening file", "error", err)
+				}
+				return
+			}
+
+			if datacapture.IsDataCaptureFile(f) {
+				captureFile, err := datacapture.ReadFile(f)
+				if err != nil {
+					s.syncErrs <- errors.Wrap(err, "error reading data capture file")
+					err := f.Close()
+					if err != nil {
+						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+					}
+					return
+				}
+				s.syncDataCaptureFile(captureFile)
+			} else {
+				s.syncArbitraryFile(f)
+			}
+			s.unmarkInProgress(path)
+		}
+	})
 }
 
 func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
@@ -169,11 +179,7 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		func(ctx context.Context) error {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				if strings.Contains(err.Error(), context.Canceled.Error()) {
-					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
-				} else {
-					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.GetPath()), "error", err)
-				}
+				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.GetPath()))
 			}
 			return err
 		},
@@ -181,16 +187,12 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 	if uploadErr != nil {
 		err := f.Close()
 		if err != nil {
-			s.logger.Errorw("error closing file", "error", err)
+			s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 		}
 		return
 	}
 	if err := f.Delete(); err != nil {
-		s.logger.Error(err)
-		err := f.Close()
-		if err != nil {
-			s.logger.Errorw("error closing file", "error", err)
-		}
+		s.syncErrs <- errors.Wrap(err, "error deleting data capture file")
 		return
 	}
 }
@@ -201,23 +203,19 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 		func(ctx context.Context) error {
 			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				if strings.Contains(err.Error(), context.Canceled.Error()) {
-					s.logger.Debugw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
-				} else {
-					s.logger.Errorw(fmt.Sprintf("error uploading file %s", f.Name()), "error", err)
-				}
+				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.Name()))
 			}
 			return err
 		})
 	if uploadErr != nil {
 		err := f.Close()
 		if err != nil {
-			s.logger.Errorw("error closing file", "error", err)
+			s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 		}
 		return
 	}
 	if err := os.Remove(f.Name()); err != nil {
-		s.logger.Error(fmt.Sprintf("error deleting file %s", f.Name()), "error", err)
+		s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name()))
 		return
 	}
 }
@@ -238,6 +236,19 @@ func (s *syncer) unmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	delete(s.inProgress, path)
+}
+
+func (s *syncer) logSyncErrs() {
+	for err := range s.syncErrs {
+		if s.closed.Load() {
+			// Don't log context cancellation errors if the Manager has already been closed. This means the Manager
+			// cancelled the context, and the context cancellation error is expected.
+			if strings.Contains(err.Error(), context.Canceled.Error()) {
+				continue
+			}
+		}
+		s.logger.Error(err)
+	}
 }
 
 // exponentialRetry calls fn and retries with exponentially increasing waits from initialWait to a
@@ -291,25 +302,4 @@ func getNextWait(lastWait time.Duration) time.Duration {
 		return maxRetryInterval
 	}
 	return nextWait
-}
-
-//nolint
-func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
-	var filePaths []string
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
-		// may still be being written).
-		timeSinceMod := time.Since(info.ModTime())
-		if timeSinceMod > (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
-			filePaths = append(filePaths, path)
-		}
-		return nil
-	})
-	return filePaths
 }

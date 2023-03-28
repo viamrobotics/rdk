@@ -101,7 +101,7 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 		}
 
 		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
-		label := labelParts[len(labelParts)-1]
+		label := labelParts[0]
 		wc := &pb.Webcam{
 			Label:      label,
 			Status:     string(d.Status()),

@@ -36,6 +36,7 @@ type basicOctreeNode struct {
 	nodeType NodeType
 	children []*BasicOctree
 	point    PointAndData
+	maxVal   int
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -60,10 +61,16 @@ func (octree *BasicOctree) Size() int {
 	return octree.size
 }
 
+// MaxVal returns the max value of all children's data for the passed in octree.
+func (octree *BasicOctree) MaxVal() int {
+	return octree.node.maxVal
+}
+
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
-	return octree.helperSet(p, d, 0)
+	_, err := octree.helperSet(p, d, 0)
+	return err
 }
 
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data

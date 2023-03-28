@@ -42,7 +42,7 @@ func InferSignalingServerAddress(address string) (string, bool, bool) {
 	case strings.HasSuffix(address, ".viam.cloud"):
 		return "app.viam.com:443", true, true
 	case strings.HasSuffix(address, ".robot.viaminternal"):
-		return "app.viaminternal:8089", false, true // not secure
+		return "app.viaminternal:8089", true, true
 	case strings.HasSuffix(address, ".viamstg.cloud"):
 		return "app.viam.dev:443", true, true
 	}

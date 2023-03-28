@@ -1,0 +1,34 @@
+{
+	"modules": [
+		{
+			"name": "AcmeModule",
+			"executable_path": "./complexmodule"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "motor",
+			"name": "motor1",
+			"model": "rdk:builtin:fake"
+		},
+		{
+			"namespace": "rdk",
+			"type": "motor",
+			"name": "motor2",
+			"model": "rdk:builtin:fake"
+		},
+		{
+			"namespace": "rdk",
+			"type": "base",
+			"name": "base1",
+			"model": "acme:demo:mybase",
+			"attributes": {
+				"motorR": "motor2"
+			}
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}
