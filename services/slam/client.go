@@ -40,11 +40,11 @@ func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
 	defer span.End()
 
-	req := &pb.GetPositionNewRequest{
+	req := &pb.GetPositionRequest{
 		Name: name,
 	}
 
-	resp, err := c.client.GetPositionNew(ctx, req)
+	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return nil, "", err
 	}
@@ -55,22 +55,22 @@ func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose
 	return spatialmath.NewPoseFromProtobuf(p), componentReference, nil
 }
 
-// GetPointCloudMapStream creates a request, calls the slam service GetPointCloudMapStream and returns a callback
+// GetPointCloudMap creates a request, calls the slam service GetPointCloudMap and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
-func (c *client) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMapStream")
+func (c *client) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMap")
 	defer span.End()
 
-	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, c.client)
+	return grpchelper.GetPointCloudMapCallback(ctx, name, c.client)
 }
 
-// GetInternalStateStream creates a request, calls the slam service GetInternalStateStream and returns a callback
+// GetInternalState creates a request, calls the slam service GetInternalState and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
-func (c *client) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalStateStream")
+func (c *client) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalState")
 	defer span.End()
 
-	return grpchelper.GetInternalStateStreamCallback(ctx, name, c.client)
+	return grpchelper.GetInternalStateCallback(ctx, name, c.client)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

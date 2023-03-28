@@ -40,6 +40,106 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 	return svc, nil
 }
 
+// GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
+	*pb.GetPositionResponse, error,
+) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	p, componentReference, err := svc.GetPosition(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetPositionResponse{
+		Pose:               spatialmath.PoseToProtobuf(p),
+		ComponentReference: componentReference,
+	}, nil
+}
+
+// GetPointCloudMap returns the slam service's slam algo's current map state in PCD format as
+// a stream of byte chunks.
+func (server *subtypeServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
+	stream pb.SLAMService_GetPointCloudMapServer,
+) error {
+	ctx := context.Background()
+
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMap")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetPointCloudMap(ctx, req.Name)
+	if err != nil {
+		return errors.Wrap(err, "getting callback function from GetPointCloudMap encountered an issue")
+	}
+
+	// In the future, channel buffer could be used here to optimize for latency
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
+		}
+
+		chunk := &pb.GetPointCloudMapResponse{PointCloudPcdChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
+}
+
+// GetInternalState returns the internal state of the slam service's slam algo in a stream of
+// byte chunks.
+func (server *subtypeServer) GetInternalState(req *pb.GetInternalStateRequest,
+	stream pb.SLAMService_GetInternalStateServer,
+) error {
+	ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalState")
+	defer span.End()
+
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return err
+	}
+
+	f, err := svc.GetInternalState(ctx, req.Name)
+	if err != nil {
+		return err
+	}
+
+	// In the future, channel buffer could be used here to optimize for latency
+	for {
+		rawChunk, err := f()
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "getting data from callback function encountered an issue")
+		}
+
+		chunk := &pb.GetInternalStateResponse{InternalStateChunk: rawChunk}
+		if err := stream.Send(chunk); err != nil {
+			return err
+		}
+	}
+}
+
 // GetPositionNew returns a Pose and a component reference string of the robot's current location according to SLAM.
 func (server *subtypeServer) GetPositionNew(ctx context.Context, req *pb.GetPositionNewRequest) (
 	*pb.GetPositionNewResponse, error,
@@ -78,7 +178,7 @@ func (server *subtypeServer) GetPointCloudMapStream(req *pb.GetPointCloudMapStre
 		return err
 	}
 
-	f, err := svc.GetPointCloudMapStream(ctx, req.Name)
+	f, err := svc.GetPointCloudMap(ctx, req.Name)
 	if err != nil {
 		return errors.Wrap(err, "getting callback function from GetPointCloudMapStream encountered an issue")
 	}
@@ -116,7 +216,7 @@ func (server *subtypeServer) GetInternalStateStream(req *pb.GetInternalStateStre
 		return err
 	}
 
-	f, err := svc.GetInternalStateStream(ctx, req.Name)
+	f, err := svc.GetInternalState(ctx, req.Name)
 	if err != nil {
 		return err
 	}
