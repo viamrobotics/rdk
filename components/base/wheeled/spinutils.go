@@ -19,6 +19,15 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const (
+	yawPollTime = 10 * time.Millisecond
+	errTarget   = 5
+	errTurn     = 2
+	oneTurn     = 360
+	increment   = 0.1
+	sensorDebug = true
+)
+
 type sensorBase struct {
 	generic.Unimplemented
 	logger golog.Logger
@@ -38,7 +47,8 @@ func makeBaseWithSensors(
 	base base.LocalBase,
 	deps registry.Dependencies,
 	cfg config.Component,
-	logger golog.Logger) (base.LocalBase, error) {
+	logger golog.Logger,
+) (base.LocalBase, error) {
 	// spawn a new context for sensors so we don't add many background workers
 	// TODO RSDK-2384 something is cancelling base context in the actuating API calls
 	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
@@ -68,10 +78,11 @@ func makeBaseWithSensors(
 	return s, nil
 }
 
-func (base *sensorBase) stopSensors() {
-	if len(base.allSensors) != 0 {
-		base.sensorDone()
-		base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
+func (s *sensorBase) stopSensors() {
+	// check if there are movement sensors to stop the sensor loop
+	if len(s.allSensors) != 0 {
+		s.sensorDone()
+		s.sensorCtx, s.sensorDone = context.WithCancel(context.Background())
 	}
 }
 

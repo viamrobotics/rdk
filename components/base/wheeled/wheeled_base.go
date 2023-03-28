@@ -25,14 +25,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	yawPollTime = 10 * time.Millisecond
-	errTarget   = 5
-	errTurn     = 2
-	oneTurn     = 360
-	increment   = 0.1
-	sensorDebug = true
-)
 
 var modelname = resource.NewDefaultModel("wheeled")
 
@@ -83,7 +75,6 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-
 			base, err := createWheeledBase(ctx, deps, cfg, logger)
 			if err != nil {
 				return nil, err
@@ -347,7 +338,6 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 // Stop commands the base to stop moving.
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// check if there are movement sensors to stop the sensor loop
 	base.opMgr.CancelRunning(ctx)
 
 	var err error
