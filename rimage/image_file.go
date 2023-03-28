@@ -133,6 +133,19 @@ func readImageFromFile(path string) (image.Image, error) {
 	}
 }
 
+func GetPath() (string, error) {
+	path, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	i := strings.Index(path, "rdk")
+	if i < 0 {
+		return path, nil
+	}
+	toReplace := path[i+4:]
+	return strings.Replace(path, toReplace, "rimage/board2", 1), nil
+}
+
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
 	img, err := readImageFromFile(fn)
