@@ -172,8 +172,10 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	n.activeBackgroundWorkers.Add(1)
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
+	// Record the "error" value no matter what. If it's nil, this will prevent us from reporting
+	// transitory errors later.
+	n.err.Set(err)
 	if err != nil {
-		n.err.Set(err)
 		return
 	}
 
@@ -186,8 +188,8 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	ready <- true
 
 	err = n.GetStream()
+	n.err.Set(err)
 	if err != nil {
-		n.err.Set(err)
 		return
 	}
 
@@ -209,8 +211,8 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 			if msg == nil {
 				n.logger.Debug("No message... reconnecting to stream...")
 				err = n.GetStream()
+				n.err.Set(err)
 				if err != nil {
-					n.err.Set(err)
 					return
 				}
 
