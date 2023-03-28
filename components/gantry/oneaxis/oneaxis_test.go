@@ -298,6 +298,7 @@ func TestHome(t *testing.T) {
 	}
 	fakegantry = &oneAxis{
 		motor:     fakeMotor,
+		logger:    logger,
 		limitType: "onePinOneLength",
 	}
 	err = fakegantry.Home(ctx)
@@ -793,11 +794,11 @@ func TestGoToInputs(t *testing.T) {
 
 	inputs = []referenceframe.Input{{Value: -1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got -1.00 max is 1.00")
+	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got -1.00 min is 0 max is 1.00")
 
 	inputs = []referenceframe.Input{{Value: 4.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 4.00 max is 1.00")
+	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 4.00 min is 0 max is 1.00")
 
 	inputs = []referenceframe.Input{{Value: 1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
