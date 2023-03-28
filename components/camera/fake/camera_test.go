@@ -50,6 +50,29 @@ func TestFakeCameraUnspecified(t *testing.T) {
 	cameraTest(t, cam, 320, 180, 50717, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
+func TestFakeCameraParams(t *testing.T) {
+	// test only height or width
+	cfg := &Attrs{
+		Width:  320,
+		Height: 320,
+	}
+	err := cfg.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	// test odd width and height
+	cfg = &Attrs{
+		Width:  321,
+		Height: 0,
+	}
+	err = cfg.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	cfg = &Attrs{
+		Width:  0,
+		Height: 321,
+	}
+	err = cfg.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
 func cameraTest(
 	t *testing.T,
 	cam camera.Camera,
