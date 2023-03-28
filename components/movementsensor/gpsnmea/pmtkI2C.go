@@ -79,6 +79,7 @@ func NewPmtkI2CGPSNMEA(
 		cancelFunc:  cancelFunc,
 		logger:      logger,
 		disableNmea: disableNmea,
+		err:         movementsensor.NewLastError(1, 1),
 	}
 
 	if err := g.Start(ctx); err != nil {

@@ -64,6 +64,7 @@ func newI2CCorrectionSource(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
 	}
 
 	return s, s.err.Get()
