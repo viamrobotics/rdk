@@ -84,9 +84,11 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 
 	// open I2C handle every time
 	handle, err := s.bus.OpenHandle(s.addr)
+	// Record the error value no matter what. If it's nil, this will prevent us from reporting
+	// ephemeral errors later.
+	s.err.Set(err)
 	if err != nil {
 		s.logger.Errorf("can't open gps i2c handle: %s", err)
-		s.err.Set(err)
 		return
 	}
 
@@ -96,17 +98,17 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		s.logger.Debug("Could not read from handle")
 	}
 	_, err = w.Write(buffer)
+	s.err.Set(err)
 	if err != nil {
 		s.logger.Errorf("Error writing RTCM message: %s", err)
-		s.err.Set(err)
 		return
 	}
 
 	// close I2C handle
 	err = handle.Close()
+	s.err.Set(err)
 	if err != nil {
 		s.logger.Debug("failed to close handle: %s", err)
-		s.err.Set(err)
 		return
 	}
 
@@ -119,9 +121,9 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 
 		// Open I2C handle every time
 		handle, err := s.bus.OpenHandle(s.addr)
+		s.err.Set(err)
 		if err != nil {
 			s.logger.Errorf("can't open gps i2c handle: %s", err)
-			s.err.Set(err)
 			return
 		}
 
@@ -131,17 +133,17 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 			s.logger.Debug("Could not read from handle")
 		}
 		_, err = w.Write(buffer)
+		s.err.Set(err)
 		if err != nil {
 			s.logger.Errorf("Error writing RTCM message: %s", err)
-			s.err.Set(err)
 			return
 		}
 
 		// close I2C handle
 		err = handle.Close()
+		s.err.Set(err)
 		if err != nil {
 			s.logger.Debug("failed to close handle: %s", err)
-			s.err.Set(err)
 			return
 		}
 	}
