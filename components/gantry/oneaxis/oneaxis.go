@@ -395,11 +395,11 @@ func (g *oneAxis) MoveToPosition(
 	defer done()
 
 	if len(positions) != 1 {
-		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", len(positions))
+		return fmt.Errorf("oneAxis (%s) MoveToPosition needs 1 position to move, got: %v", g.name, len(positions))
 	}
 
 	if positions[0] < 0 || positions[0] > g.lengthMm {
-		return fmt.Errorf("oneAxis gantry position out of range, got %.2f min is 0 max is %.2f", positions[0], g.lengthMm)
+		return fmt.Errorf("oneAxis %s out of range (%.2f) min: 0 max: %.2f", g.name, positions[0], g.lengthMm)
 	}
 
 	x := g.rotationalToLinear(positions[0])
