@@ -181,12 +181,18 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.cloudConn != nil {
 		err = multierr.Combine(err, r.cloudConn.Close())
 	}
+	if r.manager != nil {
+		err = multierr.Combine(err, r.manager.Close(ctx, r))
+	}
+	if r.modules != nil {
+		err = multierr.Combine(err, r.modules.Close(ctx))
+	}
+	if r.packageManager != nil {
+		err = multierr.Combine(err, r.packageManager.Close())
+	}
 
 	err = multierr.Combine(
 		err,
-		r.manager.Close(ctx, r),
-		r.modules.Close(ctx),
-		r.packageManager.Close(),
 		goutils.TryClose(ctx, web),
 	)
 	r.sessionManager.Close()
