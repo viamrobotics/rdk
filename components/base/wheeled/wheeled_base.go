@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
@@ -84,7 +83,18 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return createWheeledBase(ctx, deps, cfg, logger)
+
+			base, err := createWheeledBase(ctx, deps, cfg, logger)
+			if err != nil {
+				return nil, err
+			}
+
+			base, err = makeBaseWithSensors(ctx, base, deps, cfg, logger)
+			if err != nil {
+				return nil, err
+			}
+
+			return base, nil
 		},
 	}
 
@@ -109,13 +119,6 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	sensorMu   sync.Mutex
-	sensorCtx  context.Context
-	sensorDone func()
-
-	allSensors  []movementsensor.MovementSensor
-	orientation movementsensor.MovementSensor
-
 	opMgr                   operation.SingleOperationManager
 	activeBackgroundWorkers *sync.WaitGroup
 	logger                  golog.Logger
@@ -124,45 +127,16 @@ type wheeledBase struct {
 	collisionGeometry spatialmath.Geometry
 }
 
-func (base *wheeledBase) stopSensors() {
-	if len(base.allSensors) != 0 {
-		base.sensorDone()
-		base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
-	}
-}
-
-// Spin commands a base to turn about its center at a angular speed and for a specific angle.
-// TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
-// TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
-	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
-	if base.orientation != nil {
-		wheelrpm, _ := base.spinMath(angleDeg, degsPerSec)
-		base.activeBackgroundWorkers.Add(1)
-		utils.ManagedGo(func() {
-			// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
-			// the code inside this goroutine would block the sensor for loop if taken out
-			if err := base.runAll(ctx, -wheelrpm, 0, wheelrpm, 0); err != nil {
-				base.logger.Error(err)
-			}
-		}, base.activeBackgroundWorkers.Done)
-		return base.spinWithMovementSensor(base.sensorCtx, angleDeg, degsPerSec)
-	}
-	base.stopSensors()
-	return base.spin(ctx, angleDeg, degsPerSec)
-}
-
-func (base *wheeledBase) spin(ctx context.Context, angleDeg, degsPerSec float64) error {
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		if err := base.Stop(ctx, nil); err != nil {
 			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
 	}
-
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
@@ -176,8 +150,6 @@ func (base *wheeledBase) MoveStraight(
 ) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
-
-	base.stopSensors()
 
 	base.logger.Debugf("received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
@@ -259,7 +231,6 @@ func (base *wheeledBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	base.opMgr.CancelRunning(ctx)
-	base.stopSensors()
 
 	base.logger.Debugf(
 		"received a SetVelocity with linear X: %.2f, Y: %.2f Z: %.2f (mmPerSec), angular X: %.2f, Y: %.2f, Z: %.2f (degsPerSec)",
@@ -378,7 +349,6 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// check if there are movement sensors to stop the sensor loop
 	base.opMgr.CancelRunning(ctx)
-	base.stopSensors()
 
 	var err error
 	for _, m := range base.allMotors {
@@ -402,7 +372,6 @@ func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 
 // Close is called from the client to close the instance of the base.
 func (base *wheeledBase) Close(ctx context.Context) error {
-	base.stopSensors()
 	return base.Stop(ctx, nil)
 }
 
@@ -459,25 +428,6 @@ func createWheeledBase(
 		}
 		base.right = append(base.right, m)
 	}
-
-	// spawn a new context for sensors so we don't add many background workers
-	// TODO RSDK-2384 something is cancelling base context in the actuating API calls
-	base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
-
-	var omsName string
-	for _, msName := range attr.MovementSensor {
-		ms, err := movementsensor.FromDependencies(deps, msName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
-		}
-		base.allSensors = append(base.allSensors, ms)
-		props, err := ms.Properties(ctx, nil)
-		if props.OrientationSupported && err == nil {
-			base.orientation = ms
-			omsName = msName
-		}
-	}
-	base.logger.Debugf("using sensor %s as orientation sensor for base", omsName)
 
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)

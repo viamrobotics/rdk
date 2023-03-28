@@ -270,18 +270,14 @@ func TestSpinWithMovementSensor(t *testing.T) {
 	ctx := context.Background()
 	sensorCtx, sensorCancel := context.WithCancel(ctx)
 	base := wheeledBase{
-		Unimplemented:           generic.Unimplemented{},
-		widthMm:                 1,
-		wheelCircumferenceMm:    1,
-		spinSlipFactor:          0,
-		left:                    []motor.Motor{&m},
-		right:                   []motor.Motor{&m},
-		allMotors:               []motor.Motor{&m},
-		sensorMu:                sync.Mutex{},
-		sensorCtx:               sensorCtx,
-		sensorDone:              sensorCancel,
-		allSensors:              []movementsensor.MovementSensor{ms},
-		orientation:             ms,
+		Unimplemented:        generic.Unimplemented{},
+		widthMm:              1,
+		wheelCircumferenceMm: 1,
+		spinSlipFactor:       0,
+		left:                 []motor.Motor{&m},
+		right:                []motor.Motor{&m},
+		allMotors:            []motor.Motor{&m},
+
 		opMgr:                   operation.SingleOperationManager{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
@@ -289,9 +285,19 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		collisionGeometry:       nil,
 	}
 
-	err := base.spinWithMovementSensor(base.sensorCtx, 10, 50)
+	sensorBase := &sensorBase{
+		Unimplemented: generic.Unimplemented{},
+		base:          &base,
+		sensorMu:      sync.Mutex{},
+		sensorCtx:     sensorCtx,
+		sensorDone:    sensorCancel,
+		allSensors:    []movementsensor.MovementSensor{ms},
+		orientation:   ms,
+	}
+
+	err := sensorBase.spinWithMovementSensor(sensorBase.sensorCtx, 10, 50)
 	test.That(t, err, test.ShouldBeNil)
 	// we have no way of stopping the sensor in this little test
 	// so we stop runnign goroutines manually and test our function
-	base.stopSensors()
+	sensorBase.stopSensors()
 }
