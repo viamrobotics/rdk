@@ -81,7 +81,7 @@ type LastError struct {
 	// These values are mutable
 	mu    sync.Mutex
 	errs  []error // A list of recent errors, oldest to newest
-	count int // How many items in errs are non-nil
+	count int     // How many items in errs are non-nil
 }
 
 // NewLastError creates a LastError object which will let you retrieve the most recent error if at
@@ -97,10 +97,10 @@ func (le *LastError) Set(err error) {
 
 	// Remove the oldest error, and add the newest one.
 	if le.errs[0] != nil {
-		le.count -= 1
+		le.count--
 	}
 	if err != nil {
-		le.count += 1
+		le.count++
 	}
 	le.errs = append(le.errs[1:], err)
 }
@@ -120,8 +120,8 @@ func (le *LastError) Get() error {
 	// Otherwise, find the most recent error, iterating through the list newest to oldest. Assuming
 	// the threshold is at least 1, there is definitely some error in here to find.
 	var errToReturn error
-	for i := 0; i < len(le.errs); i += 1 {
-		current := le.errs[len(le.errs) - 1 - i]
+	for i := 0; i < len(le.errs); i++ {
+		current := le.errs[len(le.errs)-1-i]
 		if current == nil {
 			continue
 		}
@@ -130,7 +130,7 @@ func (le *LastError) Get() error {
 	}
 
 	// Wipe everything out
-	le.errs = make([] error, le.size)
+	le.errs = make([]error, le.size)
 	le.count = 0
 	return errToReturn
 }
