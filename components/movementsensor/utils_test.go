@@ -90,7 +90,7 @@ func TestTwoErrors(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldEqual, "second")
 }
 
-func SuppressRareErrors(t *testing.T) {
+func TestSuppressRareErrors(t *testing.T) {
 	le := NewLastError(2, 2) // Only report if 2 of the last 2 are non-nil errors
 
 	test.That(t, le.Get(), test.ShouldBeNil)
